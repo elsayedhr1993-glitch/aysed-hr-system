@@ -1,0 +1,879 @@
+
+html, body, #root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden !important;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Tajawal:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+:root {
+    /* ألوان أودو إنتربرايز الرسمية */
+    --odoo-primary: #71639e;    /* البنفسجي الرسمي */
+    --odoo-secondary: #008784;  /* الأخضر المعتمد للأزرار */
+    --odoo-dark: #2c3e50;       /* لون النصوص الجاد */
+    --aysed-bg: #f4f7f6;        /* خلفية مريحة للعين */
+    --aysed-white: #ffffff;
+    --aysed-border: #dee2e6;
+    --aysed-danger: #e74c3c;    /* للتنبيهات وانتهاء الإقامات */
+
+    /* توافقية أودو */
+    --odoo-purple: #71639e;
+    --odoo-purple-dark: #5a3c52;
+    --odoo-teal: #008784;
+    --odoo-teal-dark: #006b68;
+    --odoo-bg-light: #f4f7f6;
+    --odoo-border-color: #dee2e6;
+    --odoo-status-draft: #6c757d;
+    --odoo-status-confirm: #EE9B00;
+    --odoo-status-validate: #28a745;
+    --odoo-status-refuse: #e74c3c;
+
+    /* الخطوط */
+    --odoo-font: 'Inter', 'Tajawal', sans-serif;
+}
+
+@layer base {
+  body {
+    font-family: 'Tajawal', 'Inter', sans-serif !important;
+    background-color: var(--aysed-bg);
+    color: var(--odoo-dark);
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+}
+
+/* 
+   Aysed S HR 2026 - Compact & Ultra-Dense Enterprise Theme
+   Optimized for Odoo 17 & RTL Kuwait HRMS
+*/
+
+/* إخفاء وسوم النماذج التقنية والمترجمات عن غير المالك */
+body:not(.aysed_owner) .o_debug_manager,
+body:not(.aysed_owner) .o_field_translate,
+body:not(.aysed_owner) .badge-info,
+body:not(.aysed_owner) .o_tag_id {
+    display: none !important;
+}
+
+/* إخفاء زر إنشاء الشركات للمشتركين */
+body:not(.aysed_owner) .o_list_button_add,
+body:not(.aysed_owner) button[name="action_create_new_company"] {
+    display: none !important;
+}
+
+.o_web_client {
+    font-family: 'Tajawal', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+}
+
+/* 1. تحسين وضغط شبكة التطبيقات (App Switcher Grid) */
+.o_home_menu {
+    background-color: #f8fafc !important;
+}
+
+.o_home_menu .o_apps, 
+.o_home_menu .o_app_switcher,
+.o_app_switcher {
+    display: grid !important;
+    padding: 30px 40px !important;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)) !important;
+    gap: 16px !important;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.o_home_menu .o_app, 
+.o_home_menu .o_app_icon_card,
+.o_app_icon_card {
+    background: #ffffff !important;
+    border-radius: 10px !important;
+    border: 1px solid #e2e8f0 !important;
+    padding: 14px 10px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.o_home_menu .o_app:hover, 
+.o_home_menu .o_app_icon_card:hover,
+.o_app_icon_card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 18px rgba(113, 99, 158, 0.12) !important;
+    border-color: #71639e !important;
+}
+
+.o_home_menu .o_caption,
+.o_app_icon_card .o_caption {
+    font-weight: 700 !important;
+    color: #1e293b !important;
+    margin-top: 8px !important;
+    font-size: 13px !important;
+    letter-spacing: -0.2px;
+}
+
+/* 2. زيادة كثافة النماذج والبطاقات (Form View Density) */
+.o_form_view .o_form_sheet,
+.o_form_sheet {
+    max-width: 1300px !important;
+    width: 96% !important;
+    padding: 20px 28px !important;
+    border-radius: 8px !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06) !important;
+}
+
+.o_form_view .o_group {
+    margin-top: 4px !important;
+    margin-bottom: 4px !important;
+}
+
+.o_form_view .o_group .o_field_widget {
+    margin-bottom: 3px !important;
+}
+
+.o_form_view .o_group .o_form_label {
+    font-weight: 700 !important;
+    color: #334155 !important;
+    font-size: 13px !important;
+}
+
+/* 3. ضغط وتكثيف الجداول (Compact List View) */
+.o_list_view .o_list_table,
+.o_list_table {
+    width: 100%;
+}
+
+.o_list_view .o_list_table thead th,
+.o_list_table thead th {
+    background-color: #f1f5f9 !important;
+    font-weight: 800 !important;
+    color: #71639e !important;
+    padding: 7px 10px !important;
+    font-size: 12.5px !important;
+    border-bottom: 2px solid #cbd5e1 !important;
+}
+
+.o_list_view .o_list_table tbody tr.o_data_row,
+.o_list_table tbody tr.o_data_row,
+tr.o_data_row {
+    height: 36px !important; /* ارتفاع متراص لسحب أكبر قدر من الموظفين في الشاشة */
+}
+
+.o_list_view .o_list_table tbody tr.o_data_row:hover,
+.o_list_table tbody tr.o_data_row:hover,
+tr.o_data_row:hover {
+    background-color: #f8fafc !important;
+}
+
+.o_list_view .o_list_table tbody tr.o_data_row td,
+.o_list_table tbody tr.o_data_row td,
+tr.o_data_row td {
+    padding: 4px 10px !important;
+    font-size: 13px !important;
+    color: #1e293b;
+}
+
+/* 4. إبراز الحقول المالية والأرصدة (High Contrast Digits) */
+.o_field_monetary, .o_field_float, .o_stat_value, .o_salary_value, [data-field="wage"] {
+    font-weight: 800 !important;
+    color: #008784 !important;
+    font-feature-settings: "tnum";
+    font-variant-numeric: tabular-nums;
+}
+
+.official-document {
+  font-family: 'Amiri', serif;
+}
+
+.dashboard-container {
+  max-width: 100%;
+  max-height: calc(100vh - 3.5rem);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 1rem;
+}
+
+/* شبكة مشغل التطبيقات - نمط Odoo Enterprise */
+.o_app_switcher {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important; /* 4 أعمدة منتظمة */
+    gap: 24px !important;
+    padding: 40px !important;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+@media (max-width: 1024px) {
+  .o_app_switcher {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    padding: 24px !important;
+    gap: 16px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .o_app_switcher {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    padding: 16px !important;
+    gap: 12px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .o_app_switcher {
+    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+    padding: 12px !important;
+  }
+}
+
+/* بطاقات التطبيقات */
+.o_app_icon_card {
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 16px;
+    transition: all 0.2s ease-in-out;
+}
+
+.o_app_icon_card:hover {
+    border-color: #71639e;
+    box-shadow: 0 8px 20px rgba(113, 99, 158, 0.12);
+    transform: translateY(-4px);
+}
+
+/* شريط الأدوات العلوي والأزرار */
+.top_action_bar .btn {
+    margin: 0 4px;
+    font-size: 13px;
+    padding: 6px 12px;
+}
+
+.fluid-apps-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+@media (min-width: 768px) {
+  .fluid-apps-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .fluid-apps-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+/* تنسيق جدول البيانات المحوري */
+.pivot-table-container {
+    background-color: white;
+    border: 1px solid var(--odoo-border-color);
+    border-radius: 4px;
+    font-family: var(--odoo-font);
+}
+
+.pivot-table-header {
+    background-color: var(--odoo-bg-light);
+    font-weight: bold;
+    color: #495057;
+    border-bottom: 2px solid var(--odoo-border-color);
+    text-align: center;
+}
+
+.pivot-cell {
+    border: 1px solid var(--odoo-border-color);
+    padding: 8px 12px;
+    font-size: 14px;
+}
+
+/* تمييز الصف عند مرر الماوس مثل أودو */
+.pivot-row:hover {
+    background-color: #f2f3f7;
+}
+
+/* تنسيق المجموع الكلي (Total) */
+.pivot-total {
+    background-color: #fcfcfc;
+    font-weight: bold;
+    color: var(--odoo-purple);
+}
+
+/* تنسيق خاص لواجهة المشتركين الجدد */
+body:not(.aysed_owner) .o_sidebar {
+    width: 280px !important; /* توسيع المسافة */
+    background-color: #f8f9fa !important;
+}
+
+body:not(.aysed_owner) .o_app_icon {
+    margin-bottom: 15px !important; /* منع التداخل */
+}
+
+/* إخفاء زر "السوسنة" (Debug Bug) عن المشتركين للأمان */
+body:not(.aysed_owner) .o_debug_manager {
+    display: none !important;
+}
+/* الزر الأساسي (مثل زر حفظ أو اعتماد) */
+.btn-odoo-primary {
+    background-color: var(--odoo-teal);
+    color: white;
+    border-radius: 4px;
+    padding: 6px 12px;
+    border: 1px solid var(--odoo-teal);
+    transition: 0.3s;
+    font-family: var(--odoo-font);
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.btn-odoo-primary:hover {
+    background-color: var(--odoo-teal-dark);
+}
+
+/* الزر الثانوي (مثل زر إلغاء) */
+.btn-odoo-secondary {
+    background-color: white;
+    color: #495057;
+    border: 1px solid var(--odoo-border-color);
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-family: var(--odoo-font);
+    cursor: pointer;
+    font-weight: bold;
+    transition: 0.3s;
+}
+
+.btn-odoo-secondary:hover {
+    background-color: #f8f9fa;
+}
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* شاشة النموذج والأزرار الذكية والتبويبات لأودو */
+.odoo-form-view {
+  background: white;
+  padding: 20px;
+  font-family: var(--odoo-font);
+}
+
+.smart-button-box {
+  display: flex;
+  justify-content: flex-end;
+  border-bottom: 1px solid var(--odoo-border-color);
+  margin-bottom: 20px;
+  gap: 10px;
+}
+
+.smart-button {
+  border: 1px solid var(--odoo-border-color);
+  background: white;
+  padding: 6px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #444;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.smart-button:hover {
+  background: #f8f9fa;
+}
+
+.odoo-tabs {
+  border-bottom: 1px solid var(--odoo-purple);
+  margin-top: 30px;
+  display: flex;
+  gap: 5px;
+}
+
+.odoo-tabs button {
+  background: none;
+  border: none;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-family: var(--odoo-font);
+  font-size: 14px;
+  color: #495057;
+}
+
+.odoo-tabs button.active {
+  border-bottom: 3px solid var(--odoo-purple);
+  color: var(--odoo-purple);
+  font-weight: bold;
+}
+
+/* حاوية الكارت الرئيسية (Odoo Kanban) */
+.o_kanban_record {
+    width: 300px;
+    background-color: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    display: flex;
+    padding: 8px;
+    margin: 10px auto;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+    position: relative;
+    text-align: right;
+}
+
+.o_kanban_record:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    transform: translateY(-2px);
+    border-color: var(--odoo-purple); /* لون أودو عند المرور */
+}
+
+/* الصورة الشخصية */
+.o_kanban_image_fill {
+    width: 64px;
+    height: 64px;
+    position: relative;
+    margin-left: 12px; /* مسافة لليمين في العربي */
+    flex-shrink: 0;
+}
+
+.o_kanban_image_fill img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+.o_kanban_image_fill .fallback-avatar {
+    width: 100%;
+    height: 100%;
+    background-color: #e2e8f0;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    font-size: 24px;
+    font-weight: bold;
+}
+
+/* مؤشر الحالة (النقطة) */
+.status_dot {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 12px;
+    height: 12px;
+    border: 2px solid white;
+    border-radius: 50%;
+    background-color: #cbd5e1; /* Default offline */
+}
+.status_dot.online { background-color: #28a745; }
+
+/* تفاصيل الموظف */
+.oe_kanban_details {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.o_kanban_record_title {
+    color: var(--odoo-purple);
+    font-size: 16px;
+    display: block;
+    margin-bottom: 2px;
+}
+
+.o_kanban_record_subtitle {
+    color: #666;
+    font-size: 13px;
+    display: block;
+}
+
+.contact_info {
+    font-size: 12px;
+    color: #888;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.contact_info svg {
+    width: 14px;
+    color: var(--odoo-purple);
+}
+
+/* الأوسمة والأسفل */
+.badge {
+    background-color: #eff1f5;
+    color: #495057;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    margin-top: 8px;
+    display: inline-block;
+}
+
+.o_kanban_record_bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+}
+
+.oe_kanban_bottom_right {
+    display: flex;
+    gap: 8px;
+    color: #94a3b8;
+}
+
+.oe_kanban_bottom_right svg {
+    cursor: pointer;
+}
+.oe_kanban_bottom_right svg:hover {
+    color: var(--odoo-purple);
+}
+
+/* =========================================================================
+   قواعد الطباعة الرسمية (Print Styles)
+   ========================================================================= */
+@media print {
+  body {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    font-family: 'Cairo', 'Amiri', sans-serif !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* إخفاء عناصر التحكم والأزرار غير المخصصة للطباعة */
+  .print\:hidden,
+  header,
+  nav,
+  aside,
+  button,
+  input[type="button"],
+  input[type="submit"] {
+    display: none !important;
+  }
+
+  #leave-settlement-print-area,
+  #leave-statement-print-area,
+  .printable-content {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+}
+
+/* 1. تطبيق خط عربي ثقيل وواضح للنظام */
+* {
+  font-family: 'Cairo', system-ui, sans-serif !important;
+}
+
+/* 2. زيادة سماكة النصوص والبيانات في البطاقات */
+body {
+  background-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+/* 3. إبراز صناديق الموظفين وتسميك الحدود (Solid Borders) */
+.bg-white, 
+div[class*="rounded-"],
+div[class*="border"] {
+  border-width: 1.5px !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* 4. تثبيت لون وهوية التحديد للموظف النشط (Solid Active State) */
+.bg-\[\#714B67\] {
+  background-color: #714B67 !important;
+}
+
+/* ضمان وضوح وتباين خطوط حقول الإدخال والاختيار في كافة النماذج وشاشات طلب الاشتراك */
+input:not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+    color: #0f172a !important;
+    background-color: #ffffff;
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: #64748b !important;
+}
+
+select option {
+    color: #0f172a !important;
+    background-color: #ffffff !important;
+}
+
+
+/* 5. تسميك الأزرار العلوية ورفع تباين النصوص */
+button, label[class*="cursor-pointer"] {
+  font-weight: 800 !important;
+  letter-spacing: -0.01em;
+}
+
+/* 6. إبراز بطاقات المباشرة والعقد والـ PDF */
+div[class*="bg-slate-50"],
+div[class*="bg-gray-50"] {
+  background-color: #f8fafc !important;
+  border: 1.5px solid #cbd5e1 !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+.o_main_navbar {
+    background-color: var(--odoo-primary) !important;
+    padding: 0 15px;
+    height: 50px;
+}
+
+.o_sidebar {
+    width: 260px !important;
+    background-color: var(--aysed-white) !important;
+    border-right: 1px solid var(--aysed-border);
+    transition: all 0.3s ease;
+    padding-top: 20px;
+}
+
+/* منع تداخل أيقونات التطبيقات */
+.o_app_icon_container {
+    padding: 12px 20px !important;
+    margin-bottom: 8px;
+    border-radius: 8px;
+    transition: background 0.2s;
+}
+
+.o_app_icon_container:hover {
+    background-color: #f1f0f7;
+}
+
+.o_form_sheet {
+    max-width: 1100px !important;
+    margin: 20px auto !important;
+    background: var(--aysed-white) !important;
+    border: 1px solid var(--aysed-border) !important;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.05) !important;
+    border-radius: 5px !important;
+    padding: 40px !important;
+}
+
+/* تنسيق العناوين الكبيرة */
+h1, h2 {
+    color: var(--odoo-primary);
+    font-weight: 700;
+}
+
+/* التجاوب التلقائي للأجهزة اللوحية (Tablets) وتناسق الخطوط وكشوف الرواتب */
+@media (max-width: 1024px) {
+  body {
+    font-size: 14px !important;
+  }
+  .o_form_sheet {
+    padding: 20px !important;
+    max-width: 100% !important;
+    margin: 10px !important;
+  }
+  table th, table td {
+    font-size: 12px !important;
+    padding: 8px 6px !important;
+  }
+}
+
+/* كود "تجميل الواجهة" (CSS - لمنع التداخل) */
+.o_aysed_dashboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px !important;
+    padding: 25px;
+}
+
+.o_stat_card {
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    background: #fff;
+    padding: 20px;
+    text-align: center;
+}
+
+/* إصلاح الخطوط والأرقام */
+.o_stat_value {
+    font-size: 28px !important;
+    font-weight: 700 !important;
+    color: #71639e; /* لون أودو */
+    font-family: 'Inter', sans-serif;
+}
+
+/* إصلاحات لوحة تحكم Aysed 2026 */
+
+/* 1. تنسيق صناديق الإحصائيات */
+.o_stat_box {
+    display: flex;
+    flex-direction: column;
+    align-items: center !important; /* توسيط الأرقام */
+    justify-content: center;
+    padding: 20px !important;
+    border-radius: 12px !important;
+    background: #ffffff;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+}
+
+.o_stat_box .o_stat_value {
+    font-size: 2.5rem !important;
+    font-weight: 800;
+    color: #71639e; /* لون أودو */
+    margin-top: 10px;
+}
+
+/* 2. تباعد أزرار الإجراءات */
+.o_owner_actions .btn {
+    margin: 4px !important; /* مسافة أمان بين الأزرار */
+    border-radius: 6px !important;
+    font-size: 12px !important;
+}
+
+/* 3. إصلاح الهيدر والزر الأرجواني */
+.super_admin_btn {
+    border-radius: 0 0 10px 10px !important;
+    font-weight: bold;
+    letter-spacing: 1px;
+    box-shadow: 0 4px 10px rgba(113, 99, 158, 0.3);
+}
+
+/* 4. تحسين شكل جدول المشتركين */
+.o_main_table {
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid #eee !important;
+}
+
+.o_main_table th {
+    background-color: #f8f9fa !important;
+    color: #4c4c4c;
+    font-weight: 700;
+    padding: 15px !important;
+}
+
+/* إصلاح تداخل واجهة السوبر أدمن مع حاوية تطبيقات النظام (UI Layout Isolation) */
+
+:root {
+    --sidebar-width: 250px;
+}
+
+/* 1. ضبط مساحة الهيدر لعدم التداخل */
+.aysed_admin_portal_header {
+    position: sticky !important;
+    top: 0;
+    z-index: 1050 !important; /* أعلى من شريط أودو الأصلي */
+}
+
+/* 2. إعطاء مساحة أمان للوحة الجانبية في الـ RTL بنظام Flexbox مع الـ Push */
+body.o_rtl .o_action_manager {
+    margin-right: var(--sidebar-width) !important; /* ضمان إزاحة المحتوى لليسار */
+    transition: margin-right 0.3s ease;
+    width: calc(100% - var(--sidebar-width)) !important;
+}
+
+/* 3. تنسيق جدول المشتركين والشركات مع مسافات الصفوف */
+.aysed_subscription_table {
+    margin-top: 20px;
+    border-collapse: separate;
+    border-spacing: 0 8px !important; /* مسافات بين الصفوف لمنع التلاصق */
+}
+
+.aysed_subscription_table tr {
+    background: #ffffff;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+    border-radius: 8px;
+}
+
+.aysed_subscription_table td,
+.aysed_subscription_table th {
+    vertical-align: middle !important;
+}
+
+/* 4. إخفاء شريط أودو الأصلي فقط داخل لوحة السوبر أدمن */
+.o_main_navbar:has(+ .aysed_super_admin_view) {
+    display: none !important;
+}
+
+/* 5. كثافة العناصر وحاوية السوبر أدمن */
+.aysed_super_admin_view {
+    padding-bottom: 80px !important; /* منع اختفاء البيانات خلف شريط المهام */
+}
+
+/* إصلاح تداخل شريط السوبر أدمن مع نظام أودو */
+.aysed_admin_bar {
+    position: relative !important;
+    z-index: 1000 !important;
+    width: 100%;
+    height: 40px;
+}
+
+.o_main_navbar {
+    top: 0px !important;
+    margin-top: 0px !important; 
+    transition: margin-top 0.3s ease-in-out;
+}
+
+body.has_admin_bar .o_main_navbar {
+    top: 40px !important;
+}
+
+/* شريط الانتقال العائم */
+.aysed_admin_transition_bar {
+    position: sticky !important;
+    top: 0;
+    z-index: 1060 !important;
+    background: linear-gradient(90deg, #71639e 0%, #4c4c4c 100%) !important;
+    height: 35px !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 2px solid #008784;
+}
+
+/* Solid Enterprise UI & CLS Prevention */
+* {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms !important;
+}
+
+table {
+  table-layout: fixed;
+}
+
+.enterprise-container {
+  min-height: calc(100vh - 120px);
+}
+
+
+
