@@ -292,6 +292,8 @@ export const EmployeesApp: React.FC<EmployeesAppProps> = ({
       case 'bankName': return 'اسم البنك';
       case 'iban': return 'رقم الآيبان (IBAN)';
       case 'basicSalary': return 'الراتب الأساسي';
+      case 'mohLicenseNo': return 'رقم ترخيص وزارة الصحة';
+      case 'mohLicenseExpiry': return 'تاريخ انتهاء ترخيص وزارة الصحة';
       default: return field;
     }
   };
@@ -1728,6 +1730,31 @@ export const EmployeesApp: React.FC<EmployeesAppProps> = ({
                       className={`w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-mono outline-none dir-ltr text-right ${getFieldHighlightClass('email')}`}
                     />
                     {renderFieldHighlightIndicator('email', 'البريد الإلكتروني')}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">رقم ترخيص وزارة الصحة</label>
+                    <input
+                      id="field-mohLicenseNo"
+                      type="text"
+                      value={editingEmp.mohLicenseNo || ''}
+                      onChange={(e) => setEditingEmp({ ...editingEmp, mohLicenseNo: e.target.value })}
+                      placeholder="MOH-KW-12345"
+                      className={`w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-mono outline-none dir-ltr text-right ${getFieldHighlightClass('mohLicenseNo')}`}
+                    />
+                    {renderFieldHighlightIndicator('mohLicenseNo', 'رقم ترخيص وزارة الصحة')}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">تاريخ انتهاء ترخيص وزارة الصحة</label>
+                    <input
+                      id="field-mohLicenseExpiry"
+                      type="date"
+                      value={editingEmp.mohLicenseExpiry || ''}
+                      onChange={(e) => setEditingEmp({ ...editingEmp, mohLicenseExpiry: e.target.value })}
+                      className={`w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-mono outline-none ${getFieldHighlightClass('mohLicenseExpiry')}`}
+                    />
+                    {renderFieldHighlightIndicator('mohLicenseExpiry', 'تاريخ انتهاء ترخيص وزارة الصحة')}
                   </div>
                 </div>)}
 

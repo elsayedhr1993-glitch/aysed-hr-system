@@ -548,7 +548,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">رقم السجل التجاري (Commercial Reg No)</label>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">رقم ترخيص وزارة الصحة (MOH License No)</label>
                       <input
                         type="text"
                         value={editingCompany.commercialRegNo || ''}
@@ -558,7 +558,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">رقم الترخيص التجاري / الصحي</label>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">رقم ترخيص وزارة الصحة</label>
                       <input
                         type="text"
                         value={editingCompany.commercialLicenseNo || ''}

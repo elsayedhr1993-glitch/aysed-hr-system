@@ -33,119 +33,156 @@ export const DEFAULT_TEMPLATES_SEED: DocumentTemplate[] = [
     titleAr: 'شهادة راتب واستمرارية (عربي)',
     titleEn: 'Salary Certificate (Arabic)',
     category: 'الشهادات والخطابات',
-    contentHtml: `<div class="salary-cert-wrapper" dir="rtl">
+    contentHtml: `<div class="salary-certificate-root" dir="rtl">
   <div class="cert-date">
-    التاريخ: {{issue_date}}
+    <span>التاريخ: {{issue_date}}</span>
   </div>
 
-  <div class="cert-title">
-    شهادة راتب وإستمرارية راتب
+  <div class="cert-title-container">
+    <h1 class="cert-title">
+      شهادة راتب وإستمرارية راتب
+    </h1>
   </div>
 
-  <div class="cert-recipient">
-    السادة / إلى من يهمه الأمر
+  <div class="cert-recipient-container">
+    <h2 class="cert-recipient">
+      السادة / إلى من يهمه الأمر
+    </h2>
   </div>
 
   <div class="cert-body">
     <p>
-      نحيط سيادتكم علماً بأن/ <strong>{{employee_name_ar}}</strong> (الجنسية: <strong>{{nationality_ar}}</strong>) بموجب بطاقة مدنية رقم/ <code>{{civil_id}}</code>، {{work_status_verb_ar}} لدينا بـ <strong>{{company_name_ar}}</strong>، بوظيفة/ <strong>{{job_title_ar}}</strong> وذلك إعتباراً من <strong>{{hire_date}}</strong> براتب شهري وقدره <strong>({{salary_amount}} د.ك) فقط {{salary_in_words_ar}} لا غير</strong>، ويتم تحويل راتب{{pronoun_object_ar}} إلى حساب{{pronoun_object_ar}} لدى <strong>{{bank_name_ar}}</strong> رقم الآيبان (<code>{{iban_number}}</code>) ومستمر{{gender_suffix_ar}} بالعمل حتى تاريخه.
+      نحيط سيادتكم علماً بأن/ <strong>{{employee_name_ar}}</strong> (الجنسية: {{nationality_ar}}) بموجب بطاقة مدنية رقم/ <strong>{{civil_id}}</strong>، {{work_status_verb_ar}} <strong>{{company_name_ar}}</strong>، بوظيفة/ <strong>{{job_title_ar}}</strong> وذلك إعتباراً من <strong>{{hire_date}}</strong> براتب شهري وقدره (<strong>{{salary_amount}} د.ك</strong>) {{salary_in_words_ar}}، ويتم تحويل {{salary_pronoun}} إلى {{account_pronoun}} لدى <strong>{{bank_name_ar}}</strong> رقم الآيبان (<strong>{{iban_number}}</strong>) {{ongoing_status_ar}}.
     </p>
 
     <p>
-      وقد أُعطيت لـ{{pronoun_prep_ar}} هذه الشهادة بناءً على طلبـ{{pronoun_object_ar}} دون أدنى مسؤولية على المؤسسة تجاه حقوق الغير.
+      وقد أُعطيت {{certificate_pronoun}} هذه الشهادة بناءً على {{request_pronoun}} دون أدنى مسؤولية على المؤسسة تجاه حقوق الغير.
     </p>
 
     <div class="closing-phrase">
-      وتفضلوا بقبول فائق التحية والاحترام ،,,
+      وتفضلوا بقبول فائق التحية والاحترام ،،،
     </div>
   </div>
 
   <div class="signature-section">
-    <p class="sig-title">المفوض بالتوقيع</p>
-    <div class="sig-line">...................................................</div>
+    <div class="sig-box">
+      <p class="sig-title">المفوض بالتوقيع</p>
+      <div class="sig-space"></div>
+    </div>
   </div>
 </div>
 
 <style>
   @page {
-    size: A4;
-    margin: 15mm 20mm;
+    size: A4 portrait;
+    margin-top: 48mm;
+    margin-bottom: 35mm;
+    margin-right: 22mm;
+    margin-left: 22mm;
   }
   * {
     box-sizing: border-box;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  .salary-cert-wrapper {
-    width: 210mm;
-    min-height: 297mm;
+  .salary-certificate-root {
+    width: 100%;
+    max-width: 210mm;
     margin: 0 auto;
     background: #ffffff;
-    padding: 15mm 20mm;
+    padding: 20px 25px;
     font-family: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif;
     color: #111827;
-    font-size: 13.5px;
-    line-height: 1.9;
+    font-size: 14.5px;
+    line-height: 2.3;
+    text-align: justify;
+    page-break-inside: avoid;
   }
   .cert-date {
-    font-size: 12.5px;
+    font-size: 13.5px;
     font-weight: bold;
-    color: #374151;
-    margin-bottom: 25px;
+    color: #1f2937;
+    margin-bottom: 24px;
+    text-align: right;
+  }
+  .cert-title-container {
+    text-align: center;
+    margin: 24px 0;
   }
   .cert-title {
-    text-align: center;
-    font-size: 16px;
+    font-size: 20px;
     font-weight: 800;
-    margin-bottom: 25px;
-    color: #0f172a;
+    color: #111827;
+    border-bottom: 2px solid #111827;
+    display: inline-block;
+    padding-bottom: 6px;
+    margin: 0;
+  }
+  .cert-recipient-container {
+    margin-top: 30px;
+    margin-bottom: 20px;
   }
   .cert-recipient {
-    font-size: 14.5px;
+    font-size: 16px;
     font-weight: 800;
-    margin-bottom: 20px;
+    color: #111827;
     text-decoration: underline;
     text-underline-offset: 4px;
+    margin: 0;
   }
   .cert-body {
-    text-align: justify;
-    margin-bottom: 20px;
+    margin-top: 15px;
+    color: #1f2937;
   }
   .cert-body p {
-    margin-bottom: 16px;
+    margin-bottom: 18px;
+    line-height: 2.3;
   }
   .closing-phrase {
-    margin-top: 25px;
-    font-weight: 600;
+    margin: 35px 0 25px 0;
+    font-weight: bold;
     text-align: center;
+    font-size: 15px;
   }
   .signature-section {
-    margin-top: 45px;
-    width: 250px;
+    margin-top: 40px;
+    display: flex;
+    justify-content: flex-start;
+    direction: ltr;
+  }
+  .sig-box {
+    width: 220px;
+    text-align: center;
+    direction: rtl;
   }
   .sig-title {
-    font-size: 13.5px;
-    font-weight: 800;
-    margin: 0 0 40px 0;
+    font-size: 16px;
+    font-weight: bold;
+    color: #111827;
+    margin: 0 0 10px 0;
   }
-  .sig-line {
-    color: #6b7280;
-    letter-spacing: 1px;
-    margin: 0;
+  .sig-space {
+    height: 90px;
   }
 
   @media print {
     body {
+      margin: 0;
+      padding: 0;
       background: none;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
-    .salary-cert-wrapper {
-      width: 100%;
-      padding: 5mm 10mm;
-      box-shadow: none;
+    .salary-certificate-root {
+      width: 100% !important;
+      max-width: 100% !important;
+      padding: 0 !important;
+      box-shadow: none !important;
+      background: transparent !important;
     }
   }
 </style>`,
-    variables: ['issue_date', 'employee_name_ar', 'nationality_ar', 'civil_id', 'work_status_verb_ar', 'company_name_ar', 'job_title_ar', 'hire_date', 'salary_amount', 'salary_in_words_ar', 'pronoun_object_ar', 'bank_name_ar', 'iban_number', 'gender_suffix_ar', 'pronoun_prep_ar'],
+    variables: ['issue_date', 'employee_name_ar', 'nationality_ar', 'civil_id', 'work_status_verb_ar', 'company_name_ar', 'job_title_ar', 'hire_date', 'salary_amount', 'salary_in_words_ar', 'pronoun_object_ar', 'bank_name_ar', 'iban_number', 'pronoun_prep_ar'],
     isDefault: true,
     createdAt: '2026-01-01',
     updatedAt: '2026-01-01',
@@ -1241,8 +1278,10 @@ export const DocumentTemplatesApp: React.FC<DocumentTemplatesAppProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'ISSUANCE' | 'TEMPLATES' | 'ARCHIVE'>('ISSUANCE');
   
-  // Combine custom templates with default seeds
-  const allTemplates = templates.length > 0 ? templates : DEFAULT_TEMPLATES_SEED;
+  // Combine custom templates with latest default seeds
+  const defaultTemplateIds = new Set(DEFAULT_TEMPLATES_SEED.map(t => t.id));
+  const customTemplates = (templates || []).filter(t => !defaultTemplateIds.has(t.id));
+  const allTemplates = [...DEFAULT_TEMPLATES_SEED, ...customTemplates];
 
   // Issuance State
   const [selectedEmpId, setSelectedEmpId] = useState<string>(employees[0]?.id || '');
@@ -1291,18 +1330,53 @@ export const DocumentTemplatesApp: React.FC<DocumentTemplatesAppProps> = ({
     const allowances = cnt ? (cnt.housingAllowance + cnt.transportAllowance + cnt.otherAllowance) : 200;
     const totalSalary = basicSalary + allowances;
 
+    const formatSalary = (val: number): string => {
+      return val % 1 === 0 ? Number(val).toLocaleString('en-US') : val.toFixed(3);
+    };
+
+    const formatDateSlash = (dateStr?: string): string => {
+      if (!dateStr) return '';
+      const parts = dateStr.split(/[-/]/);
+      if (parts.length === 3) {
+        // If format is YYYY-MM-DD
+        if (parts[0].length === 4) {
+          const [year, month, day] = parts;
+          return `<span style="display: inline-block; white-space: nowrap; direction: ltr; unicode-bidi: embed;">${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}</span>`;
+        }
+        // If format is DD-MM-YYYY or DD/MM/YYYY
+        if (parts[2].length === 4) {
+          const [day, month, year] = parts;
+          return `<span style="display: inline-block; white-space: nowrap; direction: ltr; unicode-bidi: embed;">${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}</span>`;
+        }
+      }
+      return `<span style="display: inline-block; white-space: nowrap; direction: ltr; unicode-bidi: embed;">${dateStr}</span>`;
+    };
+
     const empName = lang === 'EN' 
       ? (emp?.fullNameEn || emp?.fullNameAr || 'Ahmed Mahmoud Al-Kuwaiti') 
       : (emp?.fullNameAr || 'أحمد محمود الكويتي');
-    const companyName = lang === 'EN' ? (activeCompany?.nameEn || activeCompany?.nameAr || '') : (activeCompany?.nameAr || '');
+    const rawCompany = activeCompany?.nameAr || 'مستوصف المنار كلينك';
+    const formattedCompanyName = (rawCompany.startsWith('مستوصف') || rawCompany.startsWith('شركة') || rawCompany.startsWith('مؤسسة'))
+      ? rawCompany
+      : `مستوصف ${rawCompany}`;
+    const companyName = lang === 'EN' ? (activeCompany?.nameEn || activeCompany?.nameAr || '') : formattedCompanyName;
     const civilId = emp ? emp.civilId : '293041501234';
 
-    const isFemale = emp?.gender === 'FEMALE';
+    const isFemale = String(emp?.gender || '').toUpperCase() === 'FEMALE' || 
+                     String(emp?.gender || '').toLowerCase() === 'female' || 
+                     String(emp?.gender || '').includes('أنثى') || 
+                     String(emp?.gender || '').includes('انثى') ||
+                     String(emp?.gender || '').toUpperCase() === 'F';
+
+    const verbText = isFemale ? 'تعمل لدينا بـ' : 'يعمل لدينا بـ';
+    const salaryPronoun = isFemale ? 'راتبها' : 'راتبه';
+    const accountPronoun = isFemale ? 'حسابها' : 'حسابه';
+    const certificatePronoun = isFemale ? 'لها' : 'له';
+    const requestPronoun = isFemale ? 'طلبها' : 'طلبه';
+    const ongoingStatus = isFemale ? 'ومستمرة بالعمل حتى تاريخه' : 'ومستمر بالعمل حتى تاريخه';
     const genderVerb = isFemale ? 'تعمل لدينا' : 'يعمل لدينا';
-    const genderPronoun = isFemale ? 'حسابها' : 'حسابه';
-    const genderStatus = isFemale ? 'ومستمرة بالعمل' : 'ومستمر بالعمل';
-    const genderObj = isFemale ? 'لها' : 'له';
-    const genderRequest = isFemale ? 'طلبها' : 'طلبه';
+    const genderObj = certificatePronoun;
+    const genderRequest = requestPronoun;
 
     const natRaw = (emp?.nationality || (lang === 'EN' ? 'Kuwaiti' : 'كويتي')).trim();
     const natUpper = natRaw.toUpperCase();
@@ -1355,10 +1429,19 @@ export const DocumentTemplatesApp: React.FC<DocumentTemplatesAppProps> = ({
     const dept = emp ? emp.department : (lang === 'EN' ? 'Finance' : 'الإدارة المالية');
     const joinDate = cnt?.startDate || emp?.joinDate || '2022-01-15';
     const today = new Date().toISOString().split('T')[0];
-    const bankName = emp?.bankName || activeCompany?.bankName || (lang === 'EN' ? 'National Bank of Kuwait' : 'البنك التجاري الكويتي');
+    const rawBankName = emp?.bankName || activeCompany?.bankName || (lang === 'EN' ? 'National Bank of Kuwait' : 'البنك التجاري الكويتي');
+    let bankName = rawBankName;
+    if (lang !== 'EN') {
+      if (rawBankName === 'بيتك' || rawBankName === 'بيت التمويل' || rawBankName === 'بيت التمويل الكويتي') {
+        bankName = 'بنك بيت التمويل الكويتي';
+      } else if (!rawBankName.startsWith('بنك') && !rawBankName.startsWith('البنك')) {
+        bankName = `بنك ${rawBankName}`;
+      }
+    }
     const bankNameEnMap: Record<string, string> = {
       'البنك التجاري الكويتي': 'Commercial Bank of Kuwait',
       'بنك بيت التمويل الكويتي': 'Kuwait Finance House',
+      'بيت التمويل الكويتي': 'Kuwait Finance House',
       'بنك الكويتي الوطني': 'National Bank of Kuwait',
       'الوطني': 'National Bank of Kuwait',
       'التجاري': 'Commercial Bank of Kuwait',
@@ -1382,6 +1465,11 @@ export const DocumentTemplatesApp: React.FC<DocumentTemplatesAppProps> = ({
       contractEndDate = endD.toISOString().split('T')[0];
     }
     
+    const rawTafqeet = tafqeet(totalSalary);
+    const cleanSalaryInWords = (rawTafqeet || '')
+      .replace(/لا غير\s+لا غير/g, 'لا غير')
+      .trim();
+
     const valuesMap: Record<string, string> = {
       '{{emp_name}}': empName,
       '{{employee_name_ar}}': emp ? emp.fullNameAr : empName,
@@ -1393,27 +1481,35 @@ export const DocumentTemplatesApp: React.FC<DocumentTemplatesAppProps> = ({
       '{{job_title_ar}}': pamData.job_title_ar,
       '{{job_title_en}}': pamData.job_title_en,
       '{{department}}': dept,
-      '{{basic_salary}}': basicSalary.toFixed(3),
-      '{{allowances}}': allowances.toFixed(3),
-      '{{total_salary}}': totalSalary.toFixed(3),
-      '{{salary_total}}': totalSalary.toFixed(3),
-      '{{salary_amount}}': totalSalary.toFixed(3),
-      '{{joining_date}}': joinDate,
-      '{{join_date}}': joinDate,
-      '{{contract_start_date}}': joinDate,
+      '{{basic_salary}}': formatSalary(basicSalary),
+      '{{allowances}}': formatSalary(allowances),
+      '{{total_salary}}': formatSalary(totalSalary),
+      '{{salary_total}}': formatSalary(totalSalary),
+      '{{salary_amount}}': formatSalary(totalSalary),
+      '{{joining_date}}': formatDateSlash(joinDate),
+      '{{join_date}}': formatDateSlash(joinDate),
+      '{{contract_start_date}}': formatDateSlash(joinDate),
       '{{nationality}}': pamData.nationality_ar,
-      '{{nationality_ar}}': pamData.nationality_ar,
+      '{{nationality_ar}}': pamData.nationality_ar || (nationalityMap[natUpper] ? (isFemale ? nationalityMap[natUpper].female : nationalityMap[natUpper].male) : natRaw),
       '{{nationality_en}}': pamData.nationality_en,
       '{{residence_type}}': emp?.residencyType || 'إقامة صالحة - المادة 18',
       '{{residence_type_ar}}': emp?.residencyType || 'إقامة صالحة - المادة 18',
       '{{residence_type_en}}': emp?.residencyType || 'Article 18 - Private Sector',
+      '{{title_ar}}': isFemale ? 'السيدة' : 'السيد',
+      '{{salary_pronoun}}': salaryPronoun,
+      '{{account_pronoun}}': accountPronoun,
+      '{{certificate_pronoun}}': certificatePronoun,
+      '{{request_pronoun}}': requestPronoun,
+      '{{ongoing_status_ar}}': ongoingStatus,
+      '{{ongoing_status}}': ongoingStatus,
+      '{{on_head_of_work}}': isFemale ? 'وما زالت على رأس عملها حتى تاريخه' : 'وما زال على رأس عمله حتى تاريخه',
       '{{gender_verb}}': genderVerb,
-      '{{gender_pronoun}}': genderPronoun,
-      '{{gender_status}}': genderStatus,
-      '{{gender_obj}}': genderObj,
-      '{{gender_request}}': genderRequest,
-      '{{current_date}}': today,
-      '{{date_today}}': today,
+      '{{gender_pronoun}}': accountPronoun,
+      '{{gender_status}}': ongoingStatus,
+      '{{gender_obj}}': certificatePronoun,
+      '{{gender_request}}': requestPronoun,
+      '{{current_date}}': formatDateSlash(today),
+      '{{date_today}}': formatDateSlash(today),
       '{{bank_name}}': bankName,
       '{{bank_name_ar}}': bankName,
       '{{bank_name_en}}': bankNameEn,
@@ -1421,29 +1517,29 @@ export const DocumentTemplatesApp: React.FC<DocumentTemplatesAppProps> = ({
       '{{iban_number}}': iban,
       '{{moh_license}}': emp?.mohLicenseNo || 'MOH-8842',
       '{{company_name}}': companyName,
-      '{{company_name_ar}}': activeCompany?.nameAr || 'مستوصف المنار كلينك',
+      '{{company_name_ar}}': formattedCompanyName,
       '{{company_name_en}}': activeCompany?.nameEn ? activeCompany.nameEn.toUpperCase() : 'AL MANAR CLINIC',
       '{{commercial_reg_no}}': activeCompany?.commercialRegNo || '',
       '{{wsi_code}}': activeCompany?.wsiCode || '',
       '{{contract_duration}}': contractDuration,
       '{{leave_type}}': lang === 'EN' ? 'Annual Leave' : 'إجازة سنوية اعتيادية',
-      '{{leave_start}}': today,
-      '{{leave_end}}': new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
+      '{{leave_start}}': formatDateSlash(today),
+      '{{leave_end}}': formatDateSlash(new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]),
       '{{leave_days}}': '30',
-      '{{last_return_date}}': '2025-08-01',
-      '{{leave_allowance_amount}}': totalSalary.toFixed(3),
+      '{{last_return_date}}': formatDateSlash('2025-08-01'),
+      '{{leave_allowance_amount}}': formatSalary(totalSalary),
       '{{deductions_amount}}': '0.000',
-      '{{net_payable}}': totalSalary.toFixed(3),
+      '{{net_payable}}': formatSalary(totalSalary),
       '{{warning_reason}}': lang === 'EN' ? 'Repeated tardiness without permission' : 'التأخر المتكرر عن مواعيد الدوام الرسمي دون إذن مسبق',
-      '{{incident_date}}': today,
-      '{{end_date}}': contractEndDate,
+      '{{incident_date}}': formatDateSlash(today),
+      '{{end_date}}': contractEndDate !== '---' ? formatDateSlash(contractEndDate) : '---',
       '{{labor_department}}': 'العاصمة',
       '{{labor_department_en}}': 'Capital',
       '{{contract_day_ar}}': pamData.contract_day_ar,
       '{{contract_day_en}}': pamData.contract_day_en,
-      '{{contract_date}}': pamData.contract_date,
-      '{{today_date}}': today,
-      '{{salary_in_words}}': tafqeet(totalSalary),
+      '{{contract_date}}': formatDateSlash(pamData.contract_date || today),
+      '{{today_date}}': formatDateSlash(today),
+      '{{salary_in_words}}': cleanSalaryInWords,
       '{{manager_name}}': (activeCompany as any).managerName || 'د. عبدالله المنار',
       '{{manager_name_ar}}': (activeCompany as any).managerNameAr || (activeCompany as any).managerName || 'د. عبدالله المنار',
       '{{manager_name_en}}': (activeCompany as any).managerNameEn || 'Dr. Abdullah Al-Manar',
@@ -1455,13 +1551,17 @@ export const DocumentTemplatesApp: React.FC<DocumentTemplatesAppProps> = ({
       '{{contract_term_en}}': cnt?.contractType === 'FIXED_TERM' ? 'definite term contract' : 'indefinite term contract',
       '{{annual_leave_days}}': '30',
       '{{special_conditions}}': specialConditions || 'يلتزم الطرف الثاني بالسرية التامة لجميع البيانات واللوائح الداخلية ومستندات المنشأة.',
-      '{{issue_date}}': today,
-      '{{hire_date}}': joinDate,
-      '{{work_status_verb_ar}}': isFemale ? 'تعمل' : 'يعمل',
-      '{{salary_in_words_ar}}': tafqeet(totalSalary),
+      '{{issue_date}}': formatDateSlash(today),
+      '{{hire_date}}': formatDateSlash(joinDate),
+      '{{work_status_verb_ar}}': verbText,
+      '{{salary_in_words_ar}}': cleanSalaryInWords,
       '{{salary_in_words_en}}': `${totalSalary.toFixed(3)} Kuwaiti Dinars Only`,
 
       '{{pronoun_prep_ar}}': isFemale ? 'ها' : 'ه',
+      '{{pronoun_object_ar}}': isFemale ? 'ها' : 'ه',
+      '{{gender_continuous_ar}}': isFemale ? 'ومستمرة' : 'ومستمر',
+      '{{gender_suffix_ar}}': isFemale ? 'ة' : '',
+      '{{gender_suffix}}': isFemale ? 'ة' : '',
       '{{title_en}}': isFemale ? 'Ms.' : 'Mr.',
       '{{pronoun_subject_en}}': isFemale ? 'She' : 'He',
       '{{pronoun_possessive_en}}': isFemale ? 'her' : 'his',
@@ -1471,6 +1571,11 @@ export const DocumentTemplatesApp: React.FC<DocumentTemplatesAppProps> = ({
       const reg = new RegExp(tag.replace(/[{}]/g, '\\$&'), 'g');
       html = html.replace(reg, val);
     });
+
+    // Clean any accidental leftover gender suffix or continuous tokens from custom or saved templates
+    html = html.replace(/\{\{gender_suffix_ar\}\}/g, isFemale ? 'ة' : '')
+               .replace(/\{\{gender_suffix\}\}/g, isFemale ? 'ة' : '')
+               .replace(/\{\{gender_continuous_ar\}\}/g, isFemale ? 'ومستمرة' : 'ومستمر');
 
     return html;
   };
@@ -1785,20 +1890,7 @@ export const DocumentTemplatesApp: React.FC<DocumentTemplatesAppProps> = ({
               </div>
 
               {/* Official Document Sheet */}
-              <div className="p-8 border border-slate-300 rounded-lg shadow-inner bg-slate-50/30 space-y-8 dir-rtl text-right">
-                {/* Company Header */}
-                <div className="flex items-center justify-between pb-4 border-b-2 border-slate-900">
-                  <div className="space-y-1">
-                    <h1 className="text-base font-black text-[#714B67]">{activeCompany?.nameAr || ''}</h1>
-                    <p className="text-[11px] text-slate-600 font-mono">سجل تجاري: {activeCompany?.commercialRegNo || ''}</p>
-                    <p className="text-[11px] text-slate-600 font-mono">ملف حماية الأجور (WSI): {activeCompany?.wsiCode || ''}</p>
-                  </div>
-                  <div className="text-left font-mono text-xs space-y-1">
-                    <p className="font-bold text-slate-800">التاريخ: {new Date().toISOString().split('T')[0]}</p>
-                    <p className="text-slate-500">الرقم المرجعي: PREVIEW-DOC</p>
-                  </div>
-                </div>
-
+              <div className="p-8 border border-slate-300 rounded-lg shadow-inner bg-slate-50/30 dir-rtl text-right">
                 {/* Filled Content */}
                 <div 
                   className="prose max-w-none text-slate-800"
@@ -1806,8 +1898,6 @@ export const DocumentTemplatesApp: React.FC<DocumentTemplatesAppProps> = ({
                     __html: fillTemplateHtml(selectedTemplate, selectedEmp, selectedContract) 
                   }}
                 />
-
-
               </div>
             </div>
           </div>
@@ -2139,38 +2229,12 @@ export const DocumentTemplatesApp: React.FC<DocumentTemplatesAppProps> = ({
               </div>
             </div>
 
-            <div id="print-area" className={selectedTemplate?.templateCode === 'EMPLOYMENT_CONTRACT_PAM' ? "dir-rtl text-right print:p-0" : "space-y-8 dir-rtl text-right print:p-8"}>
-              {selectedTemplate?.templateCode !== 'EMPLOYMENT_CONTRACT_PAM' && (
-                <div className="flex items-center justify-between pb-4 border-b-2 border-slate-900">
-                  <div>
-                    <h1 className="text-lg font-black text-[#714B67]">{activeCompany?.nameAr || ''}</h1>
-                    <p className="text-xs text-slate-600 font-mono">سجل تجاري: {activeCompany?.commercialRegNo || ''} | ملف حماية الأجور: {activeCompany?.wsiCode || ''}</p>
-                  </div>
-                  <div className="text-left font-mono text-xs">
-                    <p className="font-bold">الرقم المرجعي: {activeGenDoc.documentNumber}</p>
-                    <p className="text-slate-500">تاريخ الإصدار: {activeGenDoc.issueDate}</p>
-                  </div>
-                </div>
-              )}
-
+            <div id="print-area" className="dir-rtl text-right print:p-0">
               {/* Rendered Document Body */}
               <div 
-                className={selectedTemplate?.templateCode === 'EMPLOYMENT_CONTRACT_PAM' ? "max-w-none" : "prose max-w-none text-slate-800"}
+                className="prose max-w-none text-slate-800"
                 dangerouslySetInnerHTML={{ __html: activeGenDoc.contentHtml }}
               />
-
-              {selectedTemplate?.templateCode !== 'EMPLOYMENT_CONTRACT_PAM' && (
-                <div className="grid grid-cols-2 gap-8 pt-10 border-t border-slate-200 text-center text-xs">
-                  <div className="space-y-8">
-                    <p className="font-bold">توقيع مسؤول الموارد البشرية</p>
-                    <p className="border-b border-dashed border-slate-400 w-32 mx-auto"></p>
-                  </div>
-                  <div className="space-y-8">
-                    <p className="font-bold">ختم واعتماد الشركة</p>
-                    <p className="border-b border-dashed border-slate-400 w-32 mx-auto"></p>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>)}

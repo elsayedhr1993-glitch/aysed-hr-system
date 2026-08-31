@@ -184,7 +184,11 @@ export function formatContractData(employee: any = {}, contract: any = {}) {
 
   // 2. معالجة الجنسية
   const rawNationality = cleanKey(emp?.nationality || 'KWT');
-  const isFemale = emp?.gender === 'FEMALE';
+  const isFemale = String(emp?.gender || '').toUpperCase() === 'FEMALE' || 
+                   String(emp?.gender || '').toLowerCase() === 'female' || 
+                   String(emp?.gender || '').includes('أنثى') || 
+                   String(emp?.gender || '').includes('انثى') ||
+                   String(emp?.gender || '').toUpperCase() === 'F';
   
   let nationality_ar = NATIONALITIES_AR_MAP[rawNationality] || rawNationality;
   if (isFemale && nationality_ar === 'سيريلانكي') nationality_ar = 'سيريلانكية';

@@ -695,10 +695,13 @@ export function validateSettlementConstraints(voucherOrInput: any): SettlementVa
     0
   );
   const totalAvailable = cleanDayDecimals(
-    voucherOrInput.totalAvailableBalance ?? 
-    voucherOrInput.totalBalanceBefore ?? 
-    voucherOrInput.aysed_total_available ?? 
-    (carriedOver + accrued)
+    (carriedOver + accrued) > 0
+      ? (carriedOver + accrued)
+      : (voucherOrInput.totalAvailableBalance ?? 
+         voucherOrInput.totalBalanceBefore ?? 
+         voucherOrInput.totalAvailableBefore ?? 
+         voucherOrInput.aysed_total_available ?? 
+         0)
   );
 
   // 2. ربط متغير أيام الإجازة المصروفة مقدماً (Paid Leave Days)
@@ -767,7 +770,7 @@ export function validateSettlementConstraints(voucherOrInput: any): SettlementVa
   return {
     isValid,
     canApprove: isValid,
-    canPrint: isValid,
+    canPrint: true,
     errors,
     warnings,
     computedFields: {

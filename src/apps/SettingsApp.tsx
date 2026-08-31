@@ -2079,7 +2079,7 @@ class ResConfigSettings(models.TransientModel):
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">رقم السجل التجاري (Commercial Reg No)</label>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">رقم ترخيص وزارة الصحة (MOH License No)</label>
                     <input
                       type="text"
                       value={editingCompany.commercialRegNo || ''}
@@ -2229,7 +2229,7 @@ class ResConfigSettings(models.TransientModel):
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block font-bold text-slate-700 mb-1">رقم السجل التجاري</label>
+                      <label className="block font-bold text-slate-700 mb-1">رقم ترخيص وزارة الصحة</label>
                       <input
                         type="text"
                         placeholder="1049281"
@@ -2326,7 +2326,7 @@ class ResConfigSettings(models.TransientModel):
                     🏢 {companyToDelete?.nameAr || ''}
                   </div>
                   <p className="text-[11px] text-slate-600">
-                    رقم السجل التجاري: <strong className="font-mono">{companyToDelete?.commercialRegNo || ''}</strong>
+                    رقم ترخيص وزارة الصحة: <strong className="font-mono">{companyToDelete?.commercialRegNo || ''}</strong>
                   </p>
                 </div>
 

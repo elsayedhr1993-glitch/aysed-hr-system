@@ -273,7 +273,7 @@ export const OfficialReportPrintModal: React.FC<OfficialReportPrintModalProps> =
               <div>
                 <h2 className="text-xl font-bold text-slate-900">{activeCompany?.nameAr || 'المنار كلينك'}</h2>
                 <p className="text-xs text-slate-500 mt-0.5">الرقم المدني للمنشأة: <span className="font-mono">{activeCompany?.civilIdCompany || activeCompany?.civilId || '123456789012'}</span></p>
-                <p className="text-xs text-slate-500">رقم السجل التجاري: <span className="font-mono">{activeCompany?.commercialRegNo || '12345'}</span></p>
+                <p className="text-xs text-slate-500">رقم ترخيص وزارة الصحة: <span className="font-mono">{activeCompany?.commercialRegNo || '12345'}</span></p>
                 <p className="text-xs text-slate-500">دولة الكويت</p>
               </div>
 

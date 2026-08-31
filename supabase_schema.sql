@@ -130,3 +130,67 @@ VALUES
   true
 )
 ON CONFLICT (company_id, template_code) DO NOTHING;
+
+-- =====================================================================
+-- 4. Table: system_settings (Odoo Core System Settings)
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS public.system_settings (
+    id INT PRIMARY KEY DEFAULT 1,
+    company_name_ar VARCHAR(255) NOT NULL DEFAULT 'مستوصف المنار كلينك',
+    company_name_en VARCHAR(255) NOT NULL DEFAULT 'Al-Manar Clinic',
+    commercial_reg_no VARCHAR(100) DEFAULT '107914',
+    civil_id_org VARCHAR(100) DEFAULT '201934',
+    pasi_number VARCHAR(100) DEFAULT 'KUW-884920',
+    currency VARCHAR(10) DEFAULT 'KWD',
+    official_email VARCHAR(255) DEFAULT 'hr@almanarclinic.com',
+    phone VARCHAR(50) DEFAULT '+965 22000000',
+    address TEXT DEFAULT 'الكويت - حولي - شارع تونس',
+
+    enable_kuwait_wps BOOLEAN DEFAULT TRUE,
+    wps_bank_code VARCHAR(50) DEFAULT 'KFH',
+    enable_biometric_api BOOLEAN DEFAULT TRUE,
+    biometric_device_ip VARCHAR(50) DEFAULT '192.168.1.200',
+    biometric_port VARCHAR(10) DEFAULT '4370',
+    enable_email_smtp BOOLEAN DEFAULT TRUE,
+    smtp_host VARCHAR(255) DEFAULT 'smtp.resend.com',
+    smtp_port VARCHAR(10) DEFAULT '587',
+    smtp_user VARCHAR(255) DEFAULT 'notifications@almanarclinic.com',
+
+    auto_backup_enabled BOOLEAN DEFAULT TRUE,
+    backup_frequency VARCHAR(20) DEFAULT 'daily',
+    backup_time VARCHAR(10) DEFAULT '02:00',
+    retain_backups_days INT DEFAULT 30,
+    export_format VARCHAR(50) DEFAULT 'sql_zip',
+
+    enable_email_2fa BOOLEAN DEFAULT TRUE,
+    otp_expiry_minutes INT DEFAULT 5,
+    session_timeout_minutes INT DEFAULT 60,
+    enforce_strong_password BOOLEAN DEFAULT TRUE,
+    trust_device_days INT DEFAULT 30,
+
+    system_theme VARCHAR(20) DEFAULT 'light',
+    primary_color VARCHAR(20) DEFAULT '#714B67',
+    sidebar_style VARCHAR(50) DEFAULT 'odoo-compact',
+    show_company_logo_on_print BOOLEAN DEFAULT TRUE,
+    header_margin_top INT DEFAULT 48,
+
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    CONSTRAINT single_row_check CHECK (id = 1)
+);
+
+INSERT INTO public.system_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
+-- =====================================================================
+-- 5. Table: user_otp_codes (Email 2FA OTPs)
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS public.user_otp_codes (
+    id SERIAL PRIMARY KEY,
+    user_id VARCHAR(100) NOT NULL,
+    otp_code VARCHAR(6) NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    is_used BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_otp ON public.user_otp_codes(user_id, otp_code);
+

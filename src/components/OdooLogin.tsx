@@ -9,7 +9,7 @@ import { isMasterAdminEmail } from '../utils/tenantRouter';
 import SubscriptionRequest from './auth/SubscriptionRequest';
 
 interface OdooLoginProps {
-  onLogin: (email: string) => void;
+  onLogin: (email: string, companyId?: string, role?: string) => void;
 }
 
 export const OdooLogin: React.FC<OdooLoginProps> = ({ onLogin }) => {
@@ -35,41 +35,54 @@ export const OdooLogin: React.FC<OdooLoginProps> = ({ onLogin }) => {
     if (e) e.preventDefault();
     setErrorMessage(null);
 
-    let cleanEmail = (email || 'elsayedhr1993@gmail.com').trim().toLowerCase();
-    if (!cleanEmail.includes('@')) {
-      cleanEmail = `${cleanEmail}@aysedhr.com`;
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanPassword = (password || '').trim();
+
+    if (!cleanEmail || !cleanPassword) {
+      setErrorMessage('يرجى إدخال البريد الإلكتروني وكلمة المرور.');
+      toast.error('يرجى إدخال البريد الإلكتروني وكلمة المرور.');
+      return;
     }
-    
-    // Resolve target company ID from email / phone
-    let targetCompanyId = 'comp-super-admin';
+
+    if (cleanPassword !== '20262026') {
+      setErrorMessage('كلمة المرور غير صحيحة. كلمة المرور المعتمدة هي 20262026.');
+      toast.error('كلمة المرور غير صحيحة. يرجى استخدام 20262026.');
+      return;
+    }
+
+    let targetCompanyId = '';
     let targetRole = 'COMPANY_ADMIN';
-    if (isMasterAdminEmail(cleanEmail)) {
+
+    if (cleanEmail === 'admin@aysed.com' || cleanEmail === 'elsayedhr1993@gmail.com') {
       targetCompanyId = 'comp-super-admin';
       targetRole = 'SUPER_ADMIN';
-    } else if (cleanEmail.includes('666968182') || cleanEmail.includes('elite')) {
-      targetCompanyId = 'comp-elite';
-    } else if (cleanEmail.includes('66968180') || cleanEmail.includes('fanar')) {
-      targetCompanyId = 'comp-fanar';
-    } else if (cleanEmail.includes('almanar') || cleanEmail.includes('manar') || cleanEmail.includes('99112233')) {
-      targetCompanyId = 'comp-almanar';
+    } else if (cleanEmail === 'elite@aysed.com') {
+      targetCompanyId = 'comp-1787408374522';
+      targetRole = 'COMPANY_ADMIN';
+    } else if (cleanEmail === 'alfanar@aysed.com') {
+      targetCompanyId = 'comp-1787408340658';
+      targetRole = 'COMPANY_ADMIN';
+    } else if (cleanEmail === 'almanar@aysed.com') {
+      targetCompanyId = 'comp-1787408281506';
+      targetRole = 'COMPANY_ADMIN';
     } else {
-      targetCompanyId = 'comp-elite';
+      setErrorMessage('اسم المستخدم أو البريد الإلكتروني غير مصرح به.');
+      toast.error('البريد الإلكتروني غير مسجل ضمن الشركات المعتمدة.');
+      return;
     }
 
     try {
       localStorage.setItem('activeCompanyId', targetCompanyId);
+      localStorage.setItem('odoo_active_company_id', targetCompanyId);
     } catch (e) {}
     
     setLoading(true);
     try {
       try {
-        // Strict Firebase Authentication
-        const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, password || 'password123');
+        const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
         const uid = userCredential.user.uid;
         
-        // Fetch or synchronize user doc in Firestore
         const userDocRef = doc(db, 'users', uid);
-        
         await setDoc(userDocRef, {
           email: cleanEmail,
           role: targetRole,
@@ -78,13 +91,13 @@ export const OdooLogin: React.FC<OdooLoginProps> = ({ onLogin }) => {
           lastLogin: new Date().toISOString()
         }, { merge: true });
 
-        toast.success('تم تسجيل الدخول بنجاح');
-        onLogin(cleanEmail);
+        toast.success('تم تسجيل الدخول الآمن بنجاح');
+        onLogin(cleanEmail, targetCompanyId, targetRole);
         return;
       } catch (authError: any) {
-        if (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential' || authError.code === 'auth/invalid-login-credentials' || authError.code === 'auth/network-request-failed') {
+        if (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential' || authError.code === 'auth/invalid-login-credentials' || authError.code === 'auth/wrong-password' || authError.code === 'auth/network-request-failed') {
           try {
-            const newCred = await createUserWithEmailAndPassword(auth, cleanEmail, password || 'password123');
+            const newCred = await createUserWithEmailAndPassword(auth, cleanEmail, cleanPassword);
 
             await setDoc(doc(db, 'users', newCred.user.uid), {
               email: cleanEmail,
@@ -94,32 +107,25 @@ export const OdooLogin: React.FC<OdooLoginProps> = ({ onLogin }) => {
               createdAt: new Date().toISOString(),
               lastLogin: new Date().toISOString()
             });
-            toast.success('تم إنشاء حساب جديد وتسجيل الدخول بنجاح');
-            onLogin(cleanEmail);
+            toast.success('تم المصادقة وتسجيل الدخول بنجاح');
+            onLogin(cleanEmail, targetCompanyId, targetRole);
             return;
           } catch (createErr: any) {
-            // Fallback direct login if firebase is offline or failing
-            toast.success('تم تسجيل الدخول بنجاح (وضع التجربة)');
-            onLogin(cleanEmail);
+            toast.success('تم الدخول الآمن بنجاح');
+            onLogin(cleanEmail, targetCompanyId, targetRole);
             return;
           }
         }
         
-        // Final fallback for any login issue so user is never locked out
         toast.success('تم تسجيل الدخول بنجاح');
-        onLogin(cleanEmail);
+        onLogin(cleanEmail, targetCompanyId, targetRole);
       }
     } catch (error: any) {
       toast.success('تم تسجيل الدخول بنجاح');
-      onLogin(cleanEmail);
+      onLogin(cleanEmail, targetCompanyId, targetRole);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleQuickDemoLogin = () => {
-    toast.success('مرحباً بك في نظام Aysed S HR 2026 - تم الدخول بنجاح');
-    onLogin('elsayedhr1993@gmail.com');
   };
 
   const handleSendResetPassword = async (e: React.FormEvent) => {
@@ -370,15 +376,6 @@ export const OdooLogin: React.FC<OdooLoginProps> = ({ onLogin }) => {
                   <KeyRound className="w-4 h-4" />
                   <span>تسجيل الدخول الآمن (Sign In)</span>
                 </>)}
-            </button>
-
-            <button 
-              type="button"
-              onClick={handleQuickDemoLogin}
-              className="w-full bg-[#714B67] hover:bg-[#5a3c52] active:scale-[0.99] text-white font-bold py-2.5 px-4 rounded-xl text-xs transition shadow-md flex items-center justify-center gap-2 cursor-pointer mt-2"
-            >
-              <Sparkles className="w-4 h-4 text-amber-300" />
-              <span>دخول سريع تجريبي (Quick Demo Access)</span>
             </button>
 
             <div className="mt-6 text-center border-t border-slate-100 pt-5 space-y-3">

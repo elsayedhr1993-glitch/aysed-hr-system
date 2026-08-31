@@ -58,7 +58,12 @@ export const LeaveClearanceDocument: React.FC<Props> = ({
   // Core 4 Leave Variables (Single Source of Truth)
   const carriedOver = Number(((settlement as any).carriedOverBalance ?? settlement.aysed_carried_over ?? 0).toFixed(2));
   const accrued = Number(((settlement as any).accruedBalance ?? settlement.aysed_accrued_2026 ?? 0).toFixed(2));
-  const totalAvailable = Number(((settlement as any).totalAvailableBefore ?? (carriedOver + accrued) ?? settlement.aysed_total_available ?? 0).toFixed(2));
+  const totalAvailable = Number(
+    ((carriedOver + accrued) > 0 
+      ? (carriedOver + accrued) 
+      : ((settlement as any).totalAvailableBalance ?? (settlement as any).totalAvailableBefore ?? settlement.aysed_total_available ?? 0)
+    ).toFixed(2)
+  );
   const paidLeaveDays = Number(((settlement as any).consumedLeaveDays ?? numberOfDays ?? settlement.aysed_paid_days ?? 0).toFixed(2));
   const statutoryDays = Number(((settlement as any).statutoryLeaveDays ?? 0).toFixed(2));
   const encashedDays = Number(((settlement as any).encashedLeaveDays ?? 0).toFixed(2));
@@ -313,19 +318,15 @@ export const LeaveClearanceDocument: React.FC<Props> = ({
       <div className="grid grid-cols-4 gap-3 text-center text-xs text-slate-700 pt-4 border-t border-slate-300">
         <div className="p-2 border border-slate-200 rounded-lg">
           <span className="font-bold block text-slate-900 mb-6">إعداد المحاسبة</span>
-          <span className="text-[10px] text-slate-400 block border-t border-dotted border-slate-300 pt-1">التوقيع والتاريخ</span>
         </div>
         <div className="p-2 border border-slate-200 rounded-lg bg-purple-50/40">
           <span className="font-bold block text-[#71639e] mb-6">الموارد البشرية (HR)</span>
-          <span className="text-[10px] text-slate-700 font-bold block border-t border-dotted border-slate-300 pt-1">السيد (Sayed)</span>
         </div>
         <div className="p-2 border border-slate-200 rounded-lg">
           <span className="font-bold block text-slate-900 mb-6">المدير العام / المفوض</span>
-          <span className="text-[10px] text-slate-400 block border-t border-dotted border-slate-300 pt-1">الختم والاعتماد</span>
         </div>
         <div className="p-2 border border-slate-200 rounded-lg bg-emerald-50/40">
           <span className="font-bold block text-emerald-950 mb-6">توقيع واستلام الموظف</span>
-          <span className="text-[10px] text-slate-700 font-bold block border-t border-dotted border-slate-300 pt-1">براءة ذمة واستلام</span>
         </div>
       </div>
 

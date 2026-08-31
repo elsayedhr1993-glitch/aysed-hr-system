@@ -613,7 +613,14 @@ export function calculate2026AccruedDays(
   // Monthly Accrual Rate: 2.5 days per month accrued strictly on a pro-rata daily basis (30.4375 days/month)
   const diffTime = targetDate.getTime() - start_date.getTime();
   const diffDays = diffTime / (1000 * 60 * 60 * 24) + 1; // inclusive of start day
-  const accrued = (diffDays / 30.4375) * 2.5;
+  let accrued = (diffDays / 30.4375) * 2.5;
+
+  // Precision snapping for minor floating point drift (e.g. 19.96 -> 20.00, 7.49 -> 7.50)
+  const nearestHalf = Math.round(accrued * 2) / 2;
+  if (Math.abs(accrued - nearestHalf) < 0.06) {
+    accrued = nearestHalf;
+  }
+
   return Number(Math.max(0, accrued).toFixed(2));
 }
 

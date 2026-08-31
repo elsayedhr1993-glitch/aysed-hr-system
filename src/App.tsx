@@ -73,10 +73,10 @@ function MainActionManager() {
   useEffect(() => {
     recordPurgedTenant([
       'comp-super-admin',
-      'comp-almanar',
-      'comp-fanar',
-      'comp-fanar-branches',
-      'comp-elite',
+      'comp-1787408281506',
+      'comp-1787408340658',
+      'comp-1787408340658-branches',
+      'comp-1787408374522',
       'منصة إدارة النظام المركزية',
       'عيادة المنار',
       'شركة عيادات الفنار التخصصية',
@@ -327,7 +327,6 @@ function MainActionManager() {
           setPortalViewMode('superadmin');
           setCurrentApp(null);
           
-          // Sync upgrade to Firestore automatically (similar to Odoo env.cr.commit())
           try {
             setDoc(doc(db, 'users', user.uid), {
               email: userEmailLower,
@@ -338,15 +337,15 @@ function MainActionManager() {
         } else {
           try {
             let foundCompanyId = '';
-            let assignedRole = 'COMPANY_ADMIN';
+            let assignedRole = 'COMPANY_ADMIN'; // Force COMPANY_ADMIN for these accounts
 
             // 1. Direct tenant resolution from email / phone credentials
             if (userEmailLower.includes('666968182') || userEmailLower.includes('elite')) {
-              foundCompanyId = 'comp-elite';
+              foundCompanyId = 'comp-1787408374522';
             } else if (userEmailLower.includes('66968180') || userEmailLower.includes('fanar')) {
-              foundCompanyId = 'comp-fanar';
+              foundCompanyId = 'comp-1787408340658';
             } else if (userEmailLower.includes('almanar') || userEmailLower.includes('manar') || userEmailLower.includes('99112233')) {
-              foundCompanyId = 'comp-almanar';
+              foundCompanyId = 'comp-1787408281506';
             }
 
             // 2. Check Firestore userDoc
@@ -354,7 +353,9 @@ function MainActionManager() {
               const userDoc = await getDoc(doc(db, 'users', user.uid));
               if (userDoc.exists()) {
                 const data = userDoc.data();
-                assignedRole = data.role || 'COMPANY_ADMIN';
+                if (data.role && data.role !== 'SUPER_ADMIN') {
+                  assignedRole = data.role;
+                }
                 if (data.companyId && data.companyId !== 'comp-super-admin') {
                   foundCompanyId = data.companyId;
                 }
@@ -470,20 +471,27 @@ function MainActionManager() {
   useEffect(() => {
     if (companies.length > 0) {
       setActiveCompany(prev => {
-        const adminComp = companies.find(c => c.id === 'comp-super-admin') || ADMIN_DEFAULT_COMPANY;
+        const adminComp = ADMIN_DEFAULT_COMPANY;
 
         const storedId = localStorage.getItem('activeCompanyId');
+
+        if (currentUserRole === 'SUPER_ADMIN') {
+          // If a super admin explicitly impersonates someone, storedId will be that company's ID.
+          // We should respect it, but if it's missing, default to adminComp.
+          if (storedId && storedId !== 'comp-super-admin') {
+            const found = companies.find(c => c.id === storedId);
+            if (found) return found;
+          }
+          localStorage.setItem('activeCompanyId', adminComp.id);
+          return adminComp;
+        }
+
         if (storedId === 'comp-super-admin') {
           return adminComp;
         }
         if (storedId) {
           const found = companies.find(c => c.id === storedId);
           if (found) return found;
-        }
-
-        if (currentUserRole === 'SUPER_ADMIN') {
-          localStorage.setItem('activeCompanyId', adminComp.id);
-          return adminComp;
         }
 
         const targetId = userCompanyId || storedId || prev?.id || 'comp-super-admin';
@@ -604,7 +612,7 @@ function MainActionManager() {
   useEffect(() => {
     const isDemoId = (id: string | undefined) => {
       if (!id) return false;
-      return id.startsWith('emp-10') || id.startsWith('emp-20') || id.startsWith('cnt-10') || id.startsWith('cnt-20') || id === 'comp-1';
+      return id.startsWith('emp-10') || id.startsWith('emp-20') || id.startsWith('cnt-10') || id.startsWith('cnt-20') || id === 'comp-1787408374522';
     };
 
     setEmployees(prev => {
@@ -749,17 +757,45 @@ function MainActionManager() {
     setCommencements
   );
 
-  const handleLogin = (email: string) => {
+  const handleLogin = (email: string, forcedCompanyId?: string, forcedRole?: string) => {
     const emailLower = (email || '').toLowerCase();
     setCurrentUserEmail(email);
-    if (emailLower === 'admin@aysed.com' || emailLower === 'elsayedhr1993@gmail.com') {
-      setCurrentUserRole('SUPER_ADMIN');
-      setPortalViewMode('superadmin');
-      setCurrentApp(null);
+
+    if (forcedRole) {
+      setCurrentUserRole(forcedRole);
+      if (forcedRole === 'SUPER_ADMIN') {
+        setPortalViewMode('superadmin');
+      } else {
+        setPortalViewMode('apps');
+        if (forcedCompanyId) {
+          localStorage.setItem('activeCompanyId', forcedCompanyId);
+          const foundComp = companies.find(c => c.id === forcedCompanyId);
+          if (foundComp) {
+            setActiveCompany(foundComp);
+          } else {
+            // Create fallback company object if not in list yet
+            const defaultComps: Record<string, any> = {
+              'comp-1787408374522': { id: 'comp-1787408374522', nameAr: 'شركة النخبة الطبية', nameEn: 'Elite Medical Co', email: 'admin@elite.com', phone: '666968182' },
+              'comp-1787408340658': { id: 'comp-1787408340658', nameAr: 'مجموعة الفنار الطبية والخدمات المخبرية', nameEn: 'Fanar Medical Group', email: 'admin@fanar.com', phone: '66968180' },
+              'comp-1787408281506': { id: 'comp-1787408281506', nameAr: 'شركة المنار للخدمات', nameEn: 'Al-Manar Services', email: 'admin@almanar.com', phone: '99112233' }
+            };
+            if (defaultComps[forcedCompanyId]) {
+              setActiveCompany(defaultComps[forcedCompanyId]);
+              setCompanies(prev => [...prev, defaultComps[forcedCompanyId]]);
+            }
+          }
+        }
+      }
     } else {
-      setCurrentUserRole('COMPANY_ADMIN');
-      setPortalViewMode('apps');
-      setCurrentApp(null);
+      if (emailLower === 'admin@aysed.com' || emailLower === 'elsayedhr1993@gmail.com') {
+        setCurrentUserRole('SUPER_ADMIN');
+        setPortalViewMode('superadmin');
+        setCurrentApp(null);
+      } else {
+        setCurrentUserRole('COMPANY_ADMIN');
+        setPortalViewMode('apps');
+        setCurrentApp(null);
+      }
     }
     setIsAuthenticated(true);
   };
@@ -793,17 +829,17 @@ function MainActionManager() {
 
   const handlePurgeSystemData = async () => {
     purgeLegacyMockData();
-    setCompanies(prev => prev.filter(c => c.id !== 'comp-1' && !c.nameAr?.includes('مجموعة العيادات')));
-    setEmployees(prev => prev.filter(e => e.companyId !== 'comp-1' && !e.id?.startsWith('emp-20')));
-    setContracts(prev => prev.filter(c => c.companyId !== 'comp-1' && !c.id?.startsWith('cnt-20')));
-    setLeaves(prev => prev.filter(l => l.companyId !== 'comp-1'));
-    setAttendance(prev => prev.filter(a => a.companyId !== 'comp-1'));
-    setPayslips(prev => prev.filter(p => p.companyId !== 'comp-1'));
-    setDocuments(prev => prev.filter(d => d.companyId !== 'comp-1'));
-    setCustodies(prev => prev.filter(c => c.companyId !== 'comp-1'));
-    setLoans(prev => prev.filter(l => l.companyId !== 'comp-1'));
-    setWarnings(prev => prev.filter(w => w.companyId !== 'comp-1'));
-    setEmployeeNotes(prev => prev.filter(n => n.companyId !== 'comp-1'));
+    setCompanies(prev => prev.filter(c => c.id !== 'comp-1787408374522' && !c.nameAr?.includes('مجموعة العيادات')));
+    setEmployees(prev => prev.filter(e => e.companyId !== 'comp-1787408374522' && !e.id?.startsWith('emp-20')));
+    setContracts(prev => prev.filter(c => c.companyId !== 'comp-1787408374522' && !c.id?.startsWith('cnt-20')));
+    setLeaves(prev => prev.filter(l => l.companyId !== 'comp-1787408374522'));
+    setAttendance(prev => prev.filter(a => a.companyId !== 'comp-1787408374522'));
+    setPayslips(prev => prev.filter(p => p.companyId !== 'comp-1787408374522'));
+    setDocuments(prev => prev.filter(d => d.companyId !== 'comp-1787408374522'));
+    setCustodies(prev => prev.filter(c => c.companyId !== 'comp-1787408374522'));
+    setLoans(prev => prev.filter(l => l.companyId !== 'comp-1787408374522'));
+    setWarnings(prev => prev.filter(w => w.companyId !== 'comp-1787408374522'));
+    setEmployeeNotes(prev => prev.filter(n => n.companyId !== 'comp-1787408374522'));
     toast.success('🗑️ تم حذف الشركات والبيانات التجريبية فقط بنجاح، وتم الاحتفاظ ببيانات الشركات الأخرى.');
   };
 
@@ -811,7 +847,7 @@ function MainActionManager() {
     const demoEmps: Employee[] = [
       {
         id: 'emp-101',
-        companyId: activeCompany?.id || 'comp-1',
+        companyId: activeCompany?.id || 'comp-1787408374522',
         employeeCode: 'EMP-101',
         fullNameAr: 'د. أحمد خالد المطيري',
         fullNameEn: 'Dr. Ahmed Khaled Al-Mutairi',
@@ -837,7 +873,7 @@ function MainActionManager() {
       },
       {
         id: 'emp-102',
-        companyId: activeCompany?.id || 'comp-1',
+        companyId: activeCompany?.id || 'comp-1787408374522',
         employeeCode: 'EMP-102',
         fullNameAr: 'م. فاطمة سالم الصباح',
         fullNameEn: 'Eng. Fatima Salem Al-Sabah',
@@ -863,7 +899,7 @@ function MainActionManager() {
       },
       {
         id: 'emp-103',
-        companyId: activeCompany?.id || 'comp-1',
+        companyId: activeCompany?.id || 'comp-1787408374522',
         employeeCode: 'EMP-103',
         fullNameAr: 'محمد عبد الله العازمي',
         fullNameEn: 'Mohammed Abdullah Al-Azmi',
@@ -889,7 +925,7 @@ function MainActionManager() {
       },
       {
         id: 'emp-104',
-        companyId: activeCompany?.id || 'comp-1',
+        companyId: activeCompany?.id || 'comp-1787408374522',
         employeeCode: 'EMP-104',
         fullNameAr: 'د. ياسمين محمود حسن',
         fullNameEn: 'Dr. Yasmine Mahmoud Hassan',
@@ -915,7 +951,7 @@ function MainActionManager() {
       },
       {
         id: 'emp-105',
-        companyId: activeCompany?.id || 'comp-1',
+        companyId: activeCompany?.id || 'comp-1787408374522',
         employeeCode: 'EMP-105',
         fullNameAr: 'راجيش كومار باتيل',
         fullNameEn: 'Rajesh Kumar Patel',
@@ -941,7 +977,7 @@ function MainActionManager() {
       },
       {
         id: 'emp-106',
-        companyId: activeCompany?.id || 'comp-1',
+        companyId: activeCompany?.id || 'comp-1787408374522',
         employeeCode: 'EMP-106',
         fullNameAr: 'ماريا سانتوس ديلا كروز',
         fullNameEn: 'Maria Santos Della Cruz',
@@ -967,7 +1003,7 @@ function MainActionManager() {
       },
       {
         id: 'emp-107',
-        companyId: activeCompany?.id || 'comp-1',
+        companyId: activeCompany?.id || 'comp-1787408374522',
         employeeCode: 'EMP-107',
         fullNameAr: 'رامي سعيد الأحمد',
         fullNameEn: 'Rami Saeed Al-Ahmad',
@@ -993,7 +1029,7 @@ function MainActionManager() {
       },
       {
         id: 'emp-108',
-        companyId: activeCompany?.id || 'comp-1',
+        companyId: activeCompany?.id || 'comp-1787408374522',
         employeeCode: 'EMP-108',
         fullNameAr: 'محمد فاروق خان',
         fullNameEn: 'Mohammed Farooq Khan',
@@ -1035,7 +1071,7 @@ function MainActionManager() {
       return {
         id: `contract-${emp.id}`,
         employeeId: emp.id,
-        companyId: activeCompany?.id || 'comp-1',
+        companyId: activeCompany?.id || 'comp-1787408374522',
         basicSalary: s.basic,
         housingAllowance: s.housing,
         transportAllowance: s.transport,
@@ -1085,7 +1121,7 @@ function MainActionManager() {
   const addAuditLog = async (logData: Omit<AuditLog, 'id' | 'timestamp'>) => {
     const newLog: AuditLog = {
       id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-      companyId: activeCompany?.id || 'comp-1',
+      companyId: activeCompany?.id || 'comp-1787408374522',
       timestamp: new Date().toISOString(),
       userId: currentUserEmail || 'admin-user',
       userName: currentUserEmail || 'مدير النظام (Super Admin)',
@@ -1119,7 +1155,7 @@ function MainActionManager() {
         entity: 'EMPLOYEE',
         entityId: id,
         details: `أرشيف المحذوفات: ${emp?.fullNameAr || id} - السبب: ${reason || 'إلغاء تعيين / استقالة'}`,
-        companyId: emp?.companyId || activeCompany?.id || 'comp-1'
+        companyId: emp?.companyId || activeCompany?.id || 'comp-1787408374522'
       });
     } catch(e) {
       console.error(e);
@@ -1143,7 +1179,7 @@ function MainActionManager() {
         entity: 'EMPLOYEE',
         entityId: id,
         details: `استعادة الموظف النشط: ${emp?.fullNameAr || id} من الأرشيف`,
-        companyId: emp?.companyId || activeCompany?.id || 'comp-1'
+        companyId: emp?.companyId || activeCompany?.id || 'comp-1787408374522'
       });
     } catch(e) {
       console.error(e);
@@ -1166,7 +1202,7 @@ function MainActionManager() {
   };
 
   const handleHardDeleteAllEmployees = async () => {
-    const targetCompanyId = activeCompany?.id || 'comp-1';
+    const targetCompanyId = activeCompany?.id || 'comp-1787408374522';
     const targetEmployees = employees.filter(e => e.companyId === targetCompanyId || !e.companyId);
     
     if (targetEmployees.length === 0) {
@@ -1228,7 +1264,7 @@ function MainActionManager() {
     }
 
     const isExisting = employees.some(e => e.id === emp.id);
-    const targetCompId = emp.companyId || activeCompany?.id || 'comp-1';
+    const targetCompId = emp.companyId || activeCompany?.id || 'comp-1787408374522';
     const empWithComp = { ...emp, companyId: targetCompId };
 
     setEmployees(prev => {
@@ -1301,7 +1337,7 @@ function MainActionManager() {
       return;
     }
 
-    const targetCompId = cnt.companyId || activeCompany?.id || 'comp-1';
+    const targetCompId = cnt.companyId || activeCompany?.id || 'comp-1787408374522';
     const completeContract = { ...cnt, companyId: targetCompId };
 
     // Strict Validation: Prevent saving more than 1 active/running contract for the same employee
@@ -1387,7 +1423,7 @@ function MainActionManager() {
           newAttRecords.push({
             id: `att-${lv.employeeId}-${dateStr}`,
             employeeId: lv.employeeId,
-            companyId: lv.companyId || activeCompany?.id || 'comp-1',
+            companyId: lv.companyId || activeCompany?.id || 'comp-1787408374522',
             date: dateStr,
             checkIn: '—',
             checkOut: '—',
@@ -1412,7 +1448,7 @@ function MainActionManager() {
     }
 
     try {
-      const targetCompId = lv.companyId || activeCompany?.id || 'comp-1';
+      const targetCompId = lv.companyId || activeCompany?.id || 'comp-1787408374522';
       await TenantDatabaseService.saveLeave(lv, targetCompId);
       toast.success("تم تسجيل طلب الإجازة بنجاح");
     } catch (e) {
@@ -1466,7 +1502,7 @@ function MainActionManager() {
           newAttRecords.push({
             id: `att-${targetLeave.employeeId}-${dateStr}`,
             employeeId: targetLeave.employeeId,
-            companyId: targetLeave.companyId || activeCompany?.id || 'comp-1',
+            companyId: targetLeave.companyId || activeCompany?.id || 'comp-1787408374522',
             date: dateStr,
             checkIn: '—',
             checkOut: '—',
@@ -1591,7 +1627,7 @@ function MainActionManager() {
       return;
     }
 
-    const targetCompId = rec.companyId || activeCompany?.id || 'comp-1';
+    const targetCompId = rec.companyId || activeCompany?.id || 'comp-1787408374522';
     const completeRec = { ...rec, companyId: targetCompId };
 
     // Strict Validation: Check duplicate attendance movement for same employee, date, and exact checkIn minute
@@ -1623,7 +1659,7 @@ function MainActionManager() {
   };
 
   const handleSaveAttendanceBatch = async (records: AttendanceRecord[]) => {
-    const targetCompId = activeCompany?.id || 'comp-1';
+    const targetCompId = activeCompany?.id || 'comp-1787408374522';
     // Validate each record in batch
     const validRecords: AttendanceRecord[] = [];
     for (const rec of records) {
@@ -1667,7 +1703,7 @@ function MainActionManager() {
       return;
     }
 
-    const targetCompId = p.companyId || activeCompany?.id || 'comp-1';
+    const targetCompId = p.companyId || activeCompany?.id || 'comp-1787408374522';
     const completePayslip = { ...p, companyId: targetCompId };
     setPayslips(prev => {
       const idx = prev.findIndex(x => x.id === p.id);
@@ -2065,14 +2101,14 @@ function MainActionManager() {
   };
 
   const handleAutoAddEmpFromOCR = (emp: Partial<Employee>) => {
-    const newEmp = { ...emp, id: 'emp-' + Date.now(), companyId: activeCompany?.id || 'comp-1' } as Employee;
+    const newEmp = { ...emp, id: 'emp-' + Date.now(), companyId: activeCompany?.id || 'comp-1787408374522' } as Employee;
     handleSaveEmployee(newEmp);
   };
 
   const handleSaveCandidate = async (candidate: Candidate) => {
     const updated = {
       ...candidate,
-      companyId: candidate.companyId || activeCompany?.id || 'comp-1'
+      companyId: candidate.companyId || activeCompany?.id || 'comp-1787408374522'
     };
     setCandidates(prev => {
       const idx = prev.findIndex(c => c.id === updated.id);
@@ -2094,7 +2130,7 @@ function MainActionManager() {
     const newEmpId = 'emp-' + Date.now();
     const newEmp: Employee = {
       id: newEmpId,
-      companyId: cand.companyId || activeCompany?.id || 'comp-1',
+      companyId: cand.companyId || activeCompany?.id || 'comp-1787408374522',
       employeeCode: `EMP-${Math.floor(1000 + Math.random() * 9000)}`,
       fullNameAr: cand.fullName,
       fullNameEn: cand.fullName,
@@ -2121,7 +2157,7 @@ function MainActionManager() {
     const newContract: Contract = {
       id: 'cnt-' + Date.now(),
       employeeId: newEmpId,
-      companyId: cand.companyId || activeCompany?.id || 'comp-1',
+      companyId: cand.companyId || activeCompany?.id || 'comp-1787408374522',
       contractType: 'INDEFINITE',
       startDate: new Date().toISOString().split('T')[0],
       basicSalary: cand.expectedSalary || 500,
@@ -2154,8 +2190,8 @@ function MainActionManager() {
   };
 
   const handlePostAttendanceToPayroll = (month: string, deductionsMap?: Record<string, number>) => {
-    const compEmps = employees.filter(e => !e.isDeleted && e.companyId === (activeCompany?.id || 'comp-1'));
-    const thisMonthAttendance = attendance.filter(a => a.date.startsWith(month) && a.companyId === (activeCompany?.id || 'comp-1'));
+    const compEmps = employees.filter(e => !e.isDeleted && e.companyId === (activeCompany?.id || 'comp-1787408374522'));
+    const thisMonthAttendance = attendance.filter(a => a.date.startsWith(month) && a.companyId === (activeCompany?.id || 'comp-1787408374522'));
     
     let totalDeductionsKWD = 0;
     let affectedCount = 0;
@@ -2196,7 +2232,7 @@ function MainActionManager() {
       newPayslips.push({
         id: 'pay-' + month + '-' + emp.id,
         employeeId: emp.id,
-        companyId: activeCompany?.id || 'comp-1',
+        companyId: activeCompany?.id || 'comp-1787408374522',
         month,
         basicSalary: basic,
         allowances: totalAllowances,
@@ -2211,7 +2247,7 @@ function MainActionManager() {
     });
 
     setPayslips(prev => {
-      const filtered = prev.filter(p => !(p.companyId === (activeCompany?.id || 'comp-1') && p.month === month));
+      const filtered = prev.filter(p => !(p.companyId === (activeCompany?.id || 'comp-1787408374522') && p.month === month));
       const merged = [...newPayslips, ...filtered];
       setPersistentData(MANARA_STORAGE_KEYS.PAYSLIPS, merged);
       return merged;
@@ -2273,7 +2309,7 @@ function MainActionManager() {
       newPayslips.push({
         id: 'pay-' + month + '-' + emp.id,
         employeeId: emp.id,
-        companyId: activeCompany?.id || 'comp-1',
+        companyId: activeCompany?.id || 'comp-1787408374522',
         month,
         basicSalary: basic,
         allowances: totalAllowances,
@@ -2292,7 +2328,7 @@ function MainActionManager() {
     });
     
     setPayslips(prev => {
-      const filtered = prev.filter(p => !(p.companyId === (activeCompany?.id || 'comp-1') && p.month === month));
+      const filtered = prev.filter(p => !(p.companyId === (activeCompany?.id || 'comp-1787408374522') && p.month === month));
       return [...newPayslips, ...filtered];
     });
     
@@ -2398,7 +2434,8 @@ function MainActionManager() {
         <Toaster position="top-right" toastOptions={{ duration: 1200 }} />
         <SuperAdminPortal 
           onSwitchToApps={() => {
-            const adminComp = companies.find(c => c.id === 'comp-super-admin') || companies[0];
+            const adminComp = companies.find(c => c.id === 'comp-super-admin') || ADMIN_DEFAULT_COMPANY;
+            localStorage.setItem('activeCompanyId', adminComp.id);
             setActiveCompany(adminComp);
             setPortalViewMode('apps');
           }}

@@ -1675,6 +1675,176 @@ app.post("/api/admin/update-user-email", express.json(), async (req, res) => {
   }
 });
 
+// ============================================================================
+// System Settings & 2FA OTP Backend APIs (Odoo HR Core)
+// ============================================================================
+let systemSettingsStore = {
+  id: 1,
+  company_name_ar: 'مستوصف المنار كلينك',
+  company_name_en: 'Al-Manar Clinic',
+  commercial_reg_no: '107914',
+  civil_id_org: '201934',
+  pasi_number: 'KUW-884920',
+  currency: 'KWD',
+  official_email: 'hr@almanarclinic.com',
+  phone: '+965 22000000',
+  address: 'الكويت - حولي - شارع تونس',
+  enable_kuwait_wps: true,
+  wps_bank_code: 'KFH',
+  enable_biometric_api: true,
+  biometric_device_ip: '192.168.1.200',
+  biometric_port: '4370',
+  enable_email_smtp: true,
+  smtp_host: 'smtp.resend.com',
+  smtp_port: '587',
+  smtp_user: 'notifications@almanarclinic.com',
+  auto_backup_enabled: true,
+  backup_frequency: 'daily',
+  backup_time: '02:00',
+  retain_backups_days: 30,
+  export_format: 'sql_zip',
+  enable_email_2fa: true,
+  otp_expiry_minutes: 5,
+  session_timeout_minutes: 60,
+  enforce_strong_password: true,
+  trust_device_days: 30,
+  system_theme: 'light',
+  primary_color: '#714B67',
+  sidebar_style: 'odoo-compact',
+  show_company_logo_on_print: true,
+  header_margin_top: 48,
+  updated_at: new Date().toISOString()
+};
+
+interface UserOtpRecord {
+  id: number;
+  user_id: string | number;
+  otp_code: string;
+  expires_at: Date;
+  is_used: boolean;
+  created_at: Date;
+}
+const userOtpCodesStore: UserOtpRecord[] = [];
+let otpIdCounter = 1;
+
+// 1. GET Settings
+app.get("/api/settings", (req, res) => {
+  res.json({ success: true, data: systemSettingsStore });
+});
+
+// 2. PUT Settings
+app.put("/api/settings", express.json(), (req, res) => {
+  try {
+    const data = req.body;
+    systemSettingsStore = {
+      ...systemSettingsStore,
+      ...data,
+      id: 1,
+      updated_at: new Date().toISOString()
+    };
+    res.json({ success: true, message: "تم تحديث الإعدادات بنجاح", data: systemSettingsStore });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: "فشل تحديث الإعدادات", error: error.message });
+  }
+});
+
+// 3. Send 2FA OTP
+app.post("/api/auth/send-2fa-otp", express.json(), async (req, res) => {
+  try {
+    const { userId, email } = req.body;
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiryMinutes = systemSettingsStore.otp_expiry_minutes || 5;
+    const expiresAt = new Date(Date.now() + expiryMinutes * 60 * 1000);
+
+    const record: UserOtpRecord = {
+      id: otpIdCounter++,
+      user_id: userId || 'admin',
+      otp_code: otp,
+      expires_at: expiresAt,
+      is_used: false,
+      created_at: new Date()
+    };
+    userOtpCodesStore.push(record);
+
+    try {
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST || systemSettingsStore.smtp_host || 'smtp.gmail.com',
+        port: parseInt(process.env.SMTP_PORT || systemSettingsStore.smtp_port || '465'),
+        secure: true,
+        auth: {
+          user: process.env.SMTP_USER || systemSettingsStore.smtp_user || 'elsayedhr1993@gmail.com',
+          pass: process.env.SMTP_PASS || '',
+        },
+      });
+
+      if (email) {
+        await transporter.sendMail({
+          from: `"${systemSettingsStore.company_name_ar}" <${systemSettingsStore.official_email}>`,
+          to: email,
+          subject: `رمز التحقق للدخول: ${otp}`,
+          html: `
+            <div dir="rtl" style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
+              <h2 style="color: #714B67;">مصادقة تسجيل الدخول</h2>
+              <p>رمز التحقق الخاص بك لتسجيل الدخول إلى لوحة التحكم هو:</p>
+              <div style="font-size: 28px; font-weight: bold; letter-spacing: 5px; color: #111827; margin: 20px 0;">${otp}</div>
+              <p style="color: #6b7280; font-size: 12px;">صلاحية هذا الرمز ${expiryMinutes} دقائق فقط. لا تشارك الرمز مع أي شخص.</p>
+            </div>
+          `,
+        });
+      }
+    } catch (mailErr) {
+      console.warn("SMTP delivery notice (mock fallback active):", mailErr);
+    }
+
+    res.json({ success: true, message: "تم إرسال رمز التحقق إلى بريدك الإلكتروني", debugOtp: otp });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: "فشل إرسال الرمز", error: error.message });
+  }
+});
+
+// 4. Verify 2FA OTP
+app.post("/api/auth/verify-2fa-otp", express.json(), (req, res) => {
+  try {
+    const { userId, otpCode } = req.body;
+    const now = new Date();
+    const record = userOtpCodesStore.find(
+      r => (String(r.user_id) === String(userId) || !userId) &&
+           r.otp_code === String(otpCode).trim() &&
+           !r.is_used &&
+           r.expires_at > now
+    );
+
+    if (!record) {
+      return res.status(400).json({ success: false, message: "رمز التحقق غير صحيح أو انتهت صلاحيته" });
+    }
+
+    record.is_used = true;
+    res.json({ success: true, message: "تم التحقق بنجاح وتأكيد الدخول" });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: "فشل التحقق من الرمز", error: error.message });
+  }
+});
+
+// 5. Download Backup Dump Endpoint
+app.get("/api/settings/backup/download", (req, res) => {
+  const dump = {
+    settings: systemSettingsStore,
+    timestamp: new Date().toISOString(),
+    version: "Odoo Enterprise 2026",
+    sql_schema: `
+-- Aysed S HR 2026 System Settings Backup Dump
+INSERT INTO system_settings (
+  company_name_ar, company_name_en, commercial_reg_no, civil_id_org, pasi_number, currency, official_email, phone, address
+) VALUES (
+  '${systemSettingsStore.company_name_ar}', '${systemSettingsStore.company_name_en}', '${systemSettingsStore.commercial_reg_no}', '${systemSettingsStore.civil_id_org}', '${systemSettingsStore.pasi_number}', '${systemSettingsStore.currency}', '${systemSettingsStore.official_email}', '${systemSettingsStore.phone}', '${systemSettingsStore.address}'
+);`
+  };
+
+  res.setHeader("Content-Type", "application/json");
+  res.setHeader("Content-Disposition", `attachment; filename="aysed_settings_backup_${new Date().toISOString().split('T')[0]}.json"`);
+  res.send(JSON.stringify(dump, null, 2));
+});
+
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

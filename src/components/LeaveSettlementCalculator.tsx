@@ -146,8 +146,9 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
     );
   }, [selectedEmp, allocations, leaves]);
 
-  const carriedOverBal = empFifo?.allocations.filter(a => a.allocationType === 'regular').reduce((sum, a) => sum + (a.numberOfDays || 0), 0) || 0;
-  const accruedBalance = empFifo?.allocations.filter(a => a.allocationType === 'accrual').reduce((sum, a) => sum + (a.numberOfDays || 0), 0) || 0;
+  const carriedOverBal = (selectedEmp as any)?.carriedOverBalance ?? (empFifo?.allocations.filter(a => a.allocationType === 'regular').reduce((sum, a) => sum + (a.numberOfDays || 0), 0) || 0);
+  const accruedBalance = (selectedEmp as any)?.accruedBalance ?? (empFifo?.allocations.filter(a => a.allocationType === 'accrual').reduce((sum, a) => sum + (a.numberOfDays || 0), 0) || 0);
+  const totalAvailableBalance = Number((carriedOverBal + accruedBalance).toFixed(2));
   const totalTaken = empFifo?.totalConsumed || 0;
   const netAvailable = Number((empFifo?.netAvailable || 0).toFixed(2));
 
@@ -398,7 +399,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
       hourlyWage,
       carriedOverBalance: carriedOverBal,
       accruedBalance: accruedBalance,
-      totalAvailableBalance: netAvailable,
+      totalAvailableBalance: totalAvailableBalance,
       requestedLeaveDays: consumedLeaveDays + statutoryLeaveDays + unpaidLeaveDays,
       statutoryLeaveDays,
       consumedLeaveDays,
@@ -553,7 +554,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
         hourlyWage,
         carriedOverBalance: carriedOverBal,
         accruedBalance: accruedBalance,
-        totalAvailableBefore: cleanDayDecimals(netAvailable),
+        totalAvailableBefore: cleanDayDecimals(totalAvailableBalance),
         consumedLeaveDays,
         statutoryLeaveDays,
         encashedLeaveDays: includeEncashment ? encashmentDays : 0,
@@ -634,18 +635,10 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
 
   // Print & PDF Export handlers
   const handlePrint = () => {
-    if (!validation.canPrint) {
-      toast.error(validation.errors[0] || 'يُمنع طباعة سند التسوية قبل تصحيح الأخطاء الحسابية وتجنب الرصيد السالب');
-      return;
-    }
     printDocument('leave-clearance-print-area', `سند_تسوية_${selectedEmp?.fullNameAr || 'موظف'}`);
   };
 
   const handlePdfExport = async () => {
-    if (!validation.canPrint) {
-      toast.error(validation.errors[0] || 'يُمنع تصدير مستند التسوية لوجود أخطاء في التحقق الحسابي');
-      return;
-    }
     try {
       setIsExporting(true);
       await exportElementToPdf('leave-clearance-print-area', `سند_تسوية_${selectedEmp?.fullNameAr || 'موظف'}.pdf`);
@@ -734,21 +727,13 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
             <button
               type="button"
               onClick={() => {
-                if (!validation.canPrint) {
-                  toast.error(validation.errors[0] || 'يُمنع طباعة السند قبل تصحيح الأخطاء الحسابية وتجنب الرصيد السالب');
-                  return;
-                }
                 setViewingVoucher(null);
                 setShowPrintModal(true);
               }}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-2xs border ${
-                validation.canPrint
-                  ? 'bg-white hover:bg-slate-100 border-slate-300 text-slate-800 cursor-pointer'
-                  : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
-              }`}
-              title={!validation.canPrint ? 'يُمنع الطباعة في حالة عدم انطباق شروط التحقق الرياضي الصارم' : 'معاينة وطباعة المستند'}
+              className="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-2xs border bg-white hover:bg-slate-100 border-slate-300 text-slate-800 cursor-pointer"
+              title="معاينة وطباعة المستند"
             >
-              <Printer size={15} className={validation.canPrint ? "text-[#714B67]" : "text-slate-400"} />
+              <Printer size={15} className="text-[#714B67]" />
               <span>معاينة وطباعة المستند</span>
             </button>
 
@@ -840,7 +825,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
               <div className="bg-purple-50/70 border border-purple-200 rounded-xl p-3 text-right">
                 <span className="block text-[11px] font-bold text-[#714B67]">إجمالي الرصيد المتاح</span>
                 <span className="block text-base font-black font-mono text-purple-950 mt-0.5">
-                  {(netAvailable).toFixed(2)} يوم
+                  {(totalAvailableBalance).toFixed(2)} يوم
                 </span>
                 <span className="block text-[9px] text-purple-700 font-medium mt-0.5">
                   (مرحل {carriedOverBal.toFixed(1)} + مكتسب {accruedBalance.toFixed(1)})
@@ -870,7 +855,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
               <div className="bg-teal-50/70 border border-teal-200 rounded-xl p-3 text-right">
                 <span className="block text-[11px] font-bold text-teal-800">الأيام المتبقية بعد الصرف</span>
                 <span className="block text-base font-black font-mono text-teal-950 mt-0.5">
-                  {((netAvailable) - consumedLeaveDays - (includeEncashment ? encashmentDays : 0)).toFixed(2)} يوم
+                  {((totalAvailableBalance) - consumedLeaveDays - (includeEncashment ? encashmentDays : 0)).toFixed(2)} يوم
                 </span>
                 <span className="block text-[9px] text-teal-700 font-medium mt-0.5">
                   (الرصيد المتاح - المصروف)
@@ -1534,7 +1519,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                     <div className="space-y-1.5">
                       <div className="flex justify-between text-slate-600">
                         <span>إجمالي الرصيد المتاح التراكمي (قبل الخصم):</span>
-                        <span className="font-mono font-bold text-slate-900">{(netAvailable).toFixed(2)} يوم</span>
+                        <span className="font-mono font-bold text-slate-900">{(totalAvailableBalance).toFixed(2)} يوم</span>
                       </div>
                       <div className="flex justify-between text-slate-600">
                         <span>أيام الإجازة المصروفة مقدماً (المطلوبة):</span>

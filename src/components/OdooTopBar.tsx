@@ -219,40 +219,12 @@ export const OdooTopBar: React.FC<OdooTopBarProps> = ({
 
           {/* محدد التبديل بين الشركات والفروع (Multi-Company Switcher) */}
           <div className="relative odoo-topbar-dropdown-container">
-            <button 
-              onClick={() => {
-                setShowCompanyMenu(!showCompanyMenu);
-                setShowNotifMenu(false);
-                setShowUserMenu(false);
-                setShowPrintMenu(false);
-              }}
-              className="flex items-center gap-2 bg-black/40 hover:bg-black/60 px-3 py-1.5 rounded-lg border border-white/15 text-xs font-semibold text-slate-200 transition cursor-pointer"
+            <div 
+              className="flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-lg border border-white/15 text-xs font-semibold text-slate-200 transition cursor-default"
             >
               <Building2 size={14} className="text-indigo-400" />
-              <span className="max-w-[140px] truncate">{activeCompany?.name || activeCompany?.nameAr || 'المنار كلينك'}</span>
-              <ChevronDown size={13} className="text-slate-400" />
-            </button>
-
-            {showCompanyMenu && (
-              <div className="absolute right-0 mt-1.5 w-60 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-1 z-50 text-xs animate-in fade-in">
-                <div className="px-3 py-1.5 border-b border-slate-800 text-slate-400 font-medium">
-                  تبديل المنشأة / الفرع:
-                </div>
-                {(companies || []).map((comp) => (
-                  <button
-                    key={comp.id}
-                    onClick={() => {
-                      if (onSelectCompany) onSelectCompany(comp);
-                      setShowCompanyMenu(false);
-                    }}
-                    className="w-full px-3 py-2 text-right hover:bg-indigo-600/30 flex items-center justify-between text-slate-200 hover:text-white transition cursor-pointer"
-                  >
-                    <span>{comp.name || comp.nameAr}</span>
-                    {activeCompany?.id === comp.id && <Check size={14} className="text-emerald-400" />}
-                  </button>
-                ))}
-              </div>
-            )}
+              <span className="max-w-[140px] truncate">{activeCompany?.id === 'comp-super-admin' ? 'إدارة النظام المركزية' : (activeCompany?.name || activeCompany?.nameAr || 'المنشأة')}</span>
+            </div>
           </div>
 
           <div className="hidden lg:flex items-center gap-2 border-r border-white/15 pr-3 text-xs text-slate-300 font-medium">
@@ -467,7 +439,7 @@ export const OdooTopBar: React.FC<OdooTopBarProps> = ({
           </span>
           <span className="hidden md:inline text-slate-500">|</span>
           <span className="hidden md:inline">
-            الفرع الحالي: <strong className="text-slate-200">{activeCompany?.name || activeCompany?.nameAr || 'المنار كلينك'}</strong>
+            الفرع الحالي: <strong className="text-slate-200">{activeCompany?.id === 'comp-super-admin' ? 'إدارة النظام المركزية' : (activeCompany?.name || activeCompany?.nameAr || 'المنشأة')}</strong>
           </span>
           {effectiveApp && (
             <>

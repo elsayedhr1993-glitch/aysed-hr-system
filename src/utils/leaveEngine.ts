@@ -49,10 +49,9 @@ export function calculateUnifiedLeaveBalance(
     .filter(r => (r.type === 'annual' || (r.type as string) === 'ANNUAL') && r.status === 'approved')
     .reduce((sum, r) => sum + Number(r.days || 0), 0);
 
-  // 4. الرصيد الفعلي الحقيقي الشامل (المصدر الموحد للعرض والصرف)
-  const totalAvailableDays = Number(
-    (Number(accruedAnnual || 0) + holidayCompensationDays + manualAdjustments - usedLeaveDays).toFixed(2)
-  );
+  // 4. الرصيد الفعلي الحقيقي الشامل (المصدر الموحد للعرض والصرف بدقة عشرية مقفلة ومباشرة)
+  const totalEarnedAndCarried = Number((Number(accruedAnnual || 0) + holidayCompensationDays + manualAdjustments).toFixed(2));
+  const totalAvailableDays = Number((totalEarnedAndCarried - usedLeaveDays).toFixed(2));
 
   // 5. الحسبة المالية: أجر اليوم = (الراتب الأساسي فقط / Basic Salary) ÷ 26 (استبعاد جميع البدلات)
   const basicSalaryOnly = Number(basicSalary || 0);

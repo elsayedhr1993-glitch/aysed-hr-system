@@ -25,11 +25,11 @@ export interface Company {
   customDomain?: string; // e.g. "hr.almanara.com.kw"
   nameAr: string;
   nameEn: string;
-  commercialRegNo: string; // السجل التجاري
-  civilIdCompany: string; // الرقم المدني للشركة
-  bankName: string;
-  iban: string;
-  wsiCode: string; // رمز ملف حماية الأجور بوزارة الشؤون
+  commercialRegNo?: string; // السجل التجاري
+  civilIdCompany?: string; // الرقم المدني للشركة
+  bankName?: string;
+  iban?: string;
+  wsiCode?: string; // رمز ملف حماية الأجور بوزارة الشؤون
   logoUrl?: string;
   isPrimary?: boolean;
   parentCompanyId?: string;
@@ -52,6 +52,7 @@ export interface Company {
   authorizedSignatureUrl?: string;
   subscriptionPlan?: string;
   status?: 'active' | 'suspended' | 'expired';
+  industry?: string;
   branches?: CompanyBranch[];
 }
 

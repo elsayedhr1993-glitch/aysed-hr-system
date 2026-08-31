@@ -369,7 +369,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">رقم الترخيص / القيد *</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">رقم ترخيص وزارة الصحة *</label>
                   <input 
                     type="text"
                     required
@@ -490,7 +490,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
             <div className="p-6 space-y-4">
               <div className="flex justify-between items-center bg-slate-50 p-3 rounded-lg border border-slate-100">
                 <div>
-                  <span className="text-xs text-slate-400 block mb-0.5">رقم الترخيص:</span>
+                  <span className="text-xs text-slate-400 block mb-0.5">رقم ترخيص وزارة الصحة:</span>
                   <span className="font-mono font-bold text-slate-800 text-sm">{selectedDoc.documentNumber}</span>
                 </div>
                 <div>

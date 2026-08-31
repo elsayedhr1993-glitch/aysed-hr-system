@@ -897,6 +897,7 @@ function validateSettlementConstraints(voucherOrInput) {
 
 // server.ts
 import_dotenv.default.config();
+import_dotenv.default.config({ path: ".env.local", override: true });
 var app = (0, import_express.default)();
 var PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3e3;
 var adminApp = null;
@@ -987,13 +988,13 @@ function getAdminAuth() {
   return null;
 }
 app.use(import_express.default.json({ limit: "25mb" }));
-function getGeminiClient() {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.VITE_GEMINI_API_KEY;
+function getGeminiClient(customKey) {
+  const apiKey = customKey && typeof customKey === "string" && customKey.trim() !== "" && !customKey.includes("YOUR_") ? customKey.trim() : process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.VITE_GEMINI_API_KEY;
   if (!apiKey || apiKey.trim() === "" || apiKey.includes("YOUR_")) {
     return null;
   }
   return new import_genai.GoogleGenAI({
-    apiKey,
+    apiKey: apiKey.trim(),
     httpOptions: {
       headers: {
         "User-Agent": "aistudio-build"
@@ -1003,6 +1004,48 @@ function getGeminiClient() {
 }
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", system: "Aysed S HR 2026", odooVersion: "17.0-Enterprise" });
+});
+app.post("/api/ai/test-key", async (req, res) => {
+  try {
+    const { apiKey } = req.body;
+    const client = getGeminiClient(apiKey);
+    if (!client) {
+      return res.status(400).json({
+        success: false,
+        error: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0648\u0641\u064A\u0631 \u0645\u0641\u062A\u0627\u062D Gemini API \u0635\u0627\u0644\u062D. \u064A\u0631\u062C\u0649 \u0625\u062F\u062E\u0627\u0644 \u0627\u0644\u0645\u0641\u062A\u0627\u062D \u0648\u0625\u0639\u0627\u062F\u0629 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629."
+      });
+    }
+    const modelsToTry = ["gemini-3.1-pro-preview", "gemini-3.7-flash"];
+    let lastError = null;
+    const startTime = Date.now();
+    for (const modelName of modelsToTry) {
+      try {
+        const response = await client.models.generateContent({
+          model: modelName,
+          contents: "\u0645\u0631\u062D\u0628\u0627\u064B\u060C \u0642\u0645 \u0628\u062A\u0623\u0643\u064A\u062F \u0641\u062D\u0635 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0627\u0644\u0631\u062F \u0628\u0643\u0644\u0645\u0629 'READY' \u0641\u0642\u0637."
+        });
+        const duration = Date.now() - startTime;
+        if (response.text) {
+          return res.json({
+            success: true,
+            model: modelName,
+            reply: response.text.trim(),
+            responseTimeMs: duration,
+            message: `\u062A\u0645 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0648\u0627\u0644\u062A\u062D\u0642\u0642 \u0628\u0646\u062C\u0627\u062D \u0645\u0646 \u0645\u062D\u0631\u0643 \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A (${modelName}) \u062E\u0644\u0627\u0644 ${duration}ms.`
+          });
+        }
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    return res.status(500).json({
+      success: false,
+      error: "\u062A\u0639\u0630\u0631 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0645\u062D\u0631\u0643 \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A \u0628\u0627\u0644\u0645\u0641\u062A\u0627\u062D \u0627\u0644\u0645\u0632\u0648\u062F.",
+      details: lastError?.message || String(lastError)
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
 });
 app.post("/api/leave/calculate-balance", (req, res) => {
   try {
@@ -1152,7 +1195,9 @@ app.all("/api/guards/nightly-audit", async (req, res) => {
   }
 });
 app.post("/api/ocr-scan", import_express.default.json({ limit: "50mb" }), async (req, res) => {
-  const { imageBase64, mimeType, docType } = req.body;
+  const { imageBase64, mimeType, docType, customApiKey } = req.body;
+  const headerKey = req.headers["x-gemini-api-key"] || req.headers["x-gemini-key"];
+  const effectiveKey = customApiKey || headerKey;
   if (!imageBase64) {
     return res.status(400).json({ error: "\u064A\u0631\u062C\u0649 \u0627\u062E\u062A\u064A\u0627\u0631 \u0648\u0631\u0641\u0639 \u0635\u0648\u0631\u0629 \u0627\u0644\u0645\u0633\u062A\u0646\u062F \u0627\u0644\u062D\u0642\u064A\u0642\u064A \u0623\u0648\u0644\u0627\u064B \u0642\u0628\u0644 \u0625\u062C\u0631\u0627\u0621 \u0627\u0644\u0645\u0627\u0633\u062D \u0627\u0644\u0636\u0648\u0626\u064A OCR" });
   }
@@ -1220,10 +1265,10 @@ app.post("/api/ocr-scan", import_express.default.json({ limit: "50mb" }), async 
       console.error("OpenAI Vision error:", oaiErr);
     }
   }
-  const ai = getGeminiClient();
+  const ai = getGeminiClient(effectiveKey);
   if (!ai) {
     return res.status(400).json({
-      error: "\u0645\u0641\u062A\u0627\u062D \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A (GEMINI_API_KEY \u0623\u0648 OPENAI_API_KEY) \u063A\u064A\u0631 \u0645\u062A\u0648\u0641\u0631. \u064A\u0631\u062C\u0649 \u0625\u062F\u062E\u0627\u0644 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u064A\u062F\u0648\u064A\u0627\u064B \u0623\u0648 \u062A\u0643\u0648\u064A\u0646 \u0645\u0641\u062A\u0627\u062D \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A."
+      error: "\u0645\u0641\u062A\u0627\u062D \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A (GEMINI_API_KEY \u0623\u0648 OPENAI_API_KEY) \u063A\u064A\u0631 \u0645\u062A\u0648\u0641\u0631. \u064A\u0631\u062C\u0649 \u0625\u062F\u062E\u0627\u0644 \u0627\u0644\u0645\u0641\u062A\u0627\u062D \u0641\u064A \u0625\u0639\u062F\u0627\u062F\u0627\u062A \u0627\u0644\u0646\u0638\u0627\u0645 \u0623\u0648 \u0625\u062F\u062E\u0627\u0644 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u064A\u062F\u0648\u064A\u0627\u064B."
     });
   }
   let rawBase64 = imageBase64.replace(/^data:.*?;base64,/, "").replace(/\s/g, "");
@@ -1265,7 +1310,7 @@ app.post("/api/ocr-scan", import_express.default.json({ limit: "50mb" }), async 
     "area": "\u0627\u0644\u0645\u0646\u0637\u0642\u0629 / \u0627\u0644\u0645\u062D\u0627\u0641\u0638\u0629"
   }
 }`;
-  const modelsToTry = ["gemini-3.7-flash", "gemini-3.1-pro-preview"];
+  const modelsToTry = ["gemini-3.1-pro-preview", "gemini-3.7-flash"];
   let lastError = null;
   for (const modelName of modelsToTry) {
     try {
@@ -1402,11 +1447,13 @@ app.post("/api/ocr-scan", import_express.default.json({ limit: "50mb" }), async 
 });
 app.post("/api/ai-chat", async (req, res) => {
   try {
-    const { prompt, contextSummary, conversationHistory } = req.body;
+    const { prompt, contextSummary, conversationHistory, customApiKey } = req.body;
+    const headerKey = req.headers["x-gemini-api-key"] || req.headers["x-gemini-key"];
+    const effectiveKey = customApiKey || headerKey;
     if (!prompt) {
       return res.status(400).json({ error: "\u0627\u0644\u0631\u062C\u0627\u0621 \u0643\u062A\u0627\u0628\u0629 \u0627\u0644\u0633\u0624\u0627\u0644 \u0623\u0648 \u0627\u0644\u0637\u0644\u0628 \u0644\u0644\u0645\u0633\u0627\u0639\u062F \u0627\u0644\u0630\u0643\u064A" });
     }
-    const ai = getGeminiClient();
+    const ai = getGeminiClient(effectiveKey);
     const systemInstruction = `\u0623\u0646\u062A \u0627\u0644\u0645\u0633\u0627\u0639\u062F \u0627\u0644\u0628\u0631\u0645\u062C\u064A \u0627\u0644\u0631\u0633\u0645\u064A \u0644\u0646\u0638\u0627\u0645 "Aysed S HR 2026". 
 \u0647\u0648\u064A\u062A\u0643 \u0648\u0645\u0647\u0627\u0645\u0643:
 1. \u062E\u0628\u064A\u0631 \u0641\u064A \u062A\u0637\u0648\u064A\u0631 \u0648\u0628\u0631\u0645\u062C\u0629 \u0646\u0638\u0627\u0645 \u0623\u0648\u062F\u0648 (Odoo Framework) \u0648\u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0648\u0627\u0631\u062F \u0627\u0644\u0628\u0634\u0631\u064A\u0629.
@@ -1484,7 +1531,7 @@ ${contextSummary}` });
       }
     }
     contents.push({ text: `\u0633\u0624\u0627\u0644 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0627\u0644\u062D\u0627\u0644\u064A: ${prompt}` });
-    const modelsForChat = ["gemini-3.7-flash", "gemini-3.1-pro-preview"];
+    const modelsForChat = ["gemini-3.1-pro-preview", "gemini-3.7-flash"];
     let replyText = "";
     let usedModel = "";
     for (const modelName of modelsForChat) {
