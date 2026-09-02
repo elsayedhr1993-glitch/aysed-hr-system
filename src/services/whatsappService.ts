@@ -48,8 +48,8 @@ export const getStoredWhatsAppConfig = (companyId?: string): Partial<WhatsAppGat
   }
 
   return {
-    instanceId: (import.meta as any).env?.VITE_ULTRAMSG_INSTANCE_ID || 'instance188430',
-    apiToken: (import.meta as any).env?.VITE_ULTRAMSG_TOKEN || 'mh21qnlb8vngnkml',
+    instanceId: 'instance188430',
+    apiToken: 'mh21qnlb8vngnkml',
     serverUrl: 'https://api.ultramsg.com/instance188430/messages/chat',
     isActive: true,
     defaultCountryCode: '+965'

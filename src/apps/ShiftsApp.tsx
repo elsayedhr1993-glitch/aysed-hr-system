@@ -181,9 +181,9 @@ export const ShiftsApp: React.FC<ShiftsAppProps> = ({
                   <tr key={emp.id} className="hover:bg-slate-50 transition-colors">
                     <td className="p-3 border-l border-slate-200 font-semibold text-slate-800 sticky right-0 bg-white z-10 flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
-                        {emp.fullNameAr.substring(0,2)}
+                        {(emp.fullNameAr || 'موظف').substring(0,2)}
                       </div>
-                      <span className="truncate w-32">{emp.fullNameAr}</span>
+                      <span className="truncate w-32">{emp.fullNameAr || 'موظف'}</span>
                     </td>
                     {weekDates.map((date, idx) => {
                       const dateStr = date.toISOString().split('T')[0];
@@ -335,7 +335,7 @@ export const ShiftsApp: React.FC<ShiftsAppProps> = ({
                   <label className="block text-sm font-bold text-slate-700 mb-1">الموظف</label>
                   <select value={assignData.employeeId || ''} onChange={e => setAssignData({...assignData, employeeId: e.target.value})} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#714B67] outline-none">
                     <option value="">-- اختر الموظف --</option>
-                    {companyEmps.map(e => <option key={e.id} value={e.id}>{e.fullNameAr}</option>)}
+                    {companyEmps.map(e => <option key={e.id} value={e.id}>{e.fullNameAr || 'موظف'}</option>)}
                   </select>
                 </div>
                 <div>

@@ -1,3 +1,23 @@
+// ==========================================
+// 1. Database Schemas & Multi-Tenant Types
+// ==========================================
+
+export interface TenantCompany {
+  id: string;
+  nameAr: string;
+  nameEn: string;
+  adminUsername: string;
+  adminPassword: string; // للسوبر أدمن فقط
+  contactPhone: string;
+  pamFileNumber: string; // رقم ملف الشؤون
+  commercialReg: string;
+  mohLicense: string;
+  iban: string;
+  bankName: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
 export interface Department {
   id: string;
   name: string;
@@ -782,7 +802,8 @@ export type ActiveApp =
   | 'SETTINGS'
   | 'DAILY_MOVEMENTS'
   | 'HOLIDAY_WORK'
-  | 'LEAVE_TYPES_CONFIG';
+  | 'LEAVE_TYPES_CONFIG'
+  | 'SECURITY_GUARDS';
 
 export type ViewMode = 'KANBAN' | 'LIST' | 'FORM' | 'PIVOT' | 'GRAPH';
 

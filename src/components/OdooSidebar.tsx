@@ -82,6 +82,7 @@ export const OdooSidebar: React.FC<OdooSidebarProps> = ({
         { id: 'HOLIDAYS', title: 'العطلات الرسمية', icon: Calendar },
         { id: 'HOLIDAY_WORK', title: 'بدل العمل في العطلات', icon: Coins },
         { id: 'LEAVE_TYPES_CONFIG', title: 'تهيئة أنواع الإجازات', icon: CalendarPlus },
+        { id: 'SECURITY_GUARDS', title: 'الأمن والورديات', icon: ShieldCheck },
       ],
     },
     {

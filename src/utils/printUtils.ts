@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf';
 import html2canvasPro from 'html2canvas-pro';
+import { safePrintAction } from '../guards/SystemIntegrityGuard';
 
 /**
  * دالة تصدير أي عنصر HTML مباشرة إلى ملف PDF عالي الجودة
@@ -184,7 +185,7 @@ export async function printDocument(htmlContentOrId: string, fileName: string = 
   document.head.appendChild(printStyle);
 
   try {
-    window.print();
+    safePrintAction('طباعة التقرير');
   } catch (err) {
     console.warn('window.print failed, falling back to PDF download', err);
     if (targetEl) {

@@ -1,15 +1,24 @@
 import React, { useState } from 'react';
 import { useHR } from '../context/HRContext';
-import { Scale, Calculator, DollarSign, User, ShieldCheck } from 'lucide-react';
+import { useOdooHierarchy } from '../context/OdooHierarchyContext';
+import { Scale, Calculator, DollarSign, User, ShieldCheck, AlertCircle, Info } from 'lucide-react';
 import { formatKWD } from '../utils/kuwaitLaw';
 import { calculateUnifiedLeaveBalance, LeaveRecord } from '../utils/leaveEngine';
 
 export const SettlementView: React.FC = () => {
   const { employees, loading } = useHR();
+  const { leaveAccruals } = useOdooHierarchy();
   const [selectedId, setSelectedId] = useState<string>(employees[0]?.id || '');
   const [serviceYears, setServiceYears] = useState<number>(3.5);
 
   const currentEmp = employees.find(e => e.id === (selectedId || employees[0]?.id));
+  const accrualData = selectedId ? leaveAccruals[selectedId] : undefined;
+  const excludedDays = accrualData?.excludedServiceDays || accrualData?.unpaidExcessDays || 0;
+
+  // احتساب صافي مدة الخدمة الفعلية بعد استبعاد الأيام غير المحسوبة في الخدمة (المادة 51)
+  const grossYears = serviceYears;
+  const excludedYears = excludedDays / 365.25;
+  const netServiceYears = Math.max(0, grossYears - excludedYears);
 
   // حساب تعويض رصيد الإجازات المتبقي وفق المحرك الموحد SSOT وقانون العمل الكويتي
   const basicSalary = Number(currentEmp?.basic_salary || 0);
@@ -23,8 +32,16 @@ export const SettlementView: React.FC = () => {
   const dailyWage = leaveSummary.dailyWageRate || (basicSalary / 26);
   const leaveEncashmentValue = leaveSummary.cashSettlementAmount;
   
-  // حساب مكافأة نهاية الخدمة التقديرية
-  const eosEstimated = currentEmp ? ((currentEmp.basic_salary / 26) * 15 * serviceYears) : 0;
+  // حساب مكافأة نهاية الخدمة التقديرية وفق المادة 51 بدقة:
+  // أول 5 سنوات: 15 يوم عن كل سنة (أجر اليوم = الأساسي / 26)
+  // ما بعد 5 سنوات: 30 يوم (شهر) عن كل سنة
+  let eosDays = 0;
+  if (netServiceYears <= 5) {
+    eosDays = netServiceYears * 15;
+  } else {
+    eosDays = (5 * 15) + ((netServiceYears - 5) * 30);
+  }
+  const eosEstimated = currentEmp ? (dailyWage * eosDays) : 0;
   const netSettlement = leaveEncashmentValue + eosEstimated;
 
   if (loading && employees.length === 0) {
@@ -71,7 +88,7 @@ export const SettlementView: React.FC = () => {
           </select>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">سنوات الخدمة التقريبية:</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">سنوات الخدمة الكلية:</label>
             <input
               type="number"
               step="0.5"
@@ -82,6 +99,19 @@ export const SettlementView: React.FC = () => {
               className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500"
             />
           </div>
+
+          {excludedDays > 0 && (
+            <div className="bg-amber-100/70 p-2.5 rounded-lg border border-amber-300 text-xs text-amber-900 space-y-1 font-mono">
+              <div className="flex justify-between font-bold">
+                <span>أيام غير محسوبة بالخدمة:</span>
+                <span className="text-rose-700 font-black">-{excludedDays} يوم</span>
+              </div>
+              <div className="flex justify-between text-[11px] text-slate-600">
+                <span>صافي الخدمة المحتسبة (مادة 51):</span>
+                <span className="font-bold text-slate-800">{netServiceYears.toFixed(2)} سنة</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* عرض بيانات الموظف ورصيد الإجازات الحي */}

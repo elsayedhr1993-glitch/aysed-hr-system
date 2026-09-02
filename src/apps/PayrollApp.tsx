@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import toast from 'react-hot-toast';
 import { Payslip, Employee, Company, Contract, LoanAdvance, AttendanceRecord, ActiveApp } from '../types';
 import { printDocument } from '../utils/printUtils';
 import { formatKWD, tafqitKWD } from '../utils/kuwaitLaw';
@@ -174,7 +175,7 @@ export const PayrollApp: React.FC<PayrollAppProps> = ({
   // Generate WPS File content (Wage Protection System for Ministry of Social Affairs Kuwait)
   const handleExportWPS = () => {
     if (monthPayslips.length === 0) {
-      alert('لا توجد مسيرات رواتب مولدة لهذا الشهر. يرجى الضغط على "توليد كشوف الشهر تلقائياً" أولاً.');
+      toast.error('لا توجد مسيرات رواتب مولدة لهذا الشهر. يرجى الضغط على "توليد كشوف الشهر تلقائياً" أولاً.');
       return;
     }
 
@@ -192,12 +193,14 @@ export const PayrollApp: React.FC<PayrollAppProps> = ({
     link.href = url;
     link.download = `WPS_Kuwait_Shuoon_${activeCompany?.commercialRegNo || 'comp'}_${selectedMonth}.txt`;
     link.click();
+    URL.revokeObjectURL(url);
+    toast.success('تم توليد وتنزيل ملف حماية الأجور WPS بنجاح');
   };
 
   // Export Bank Payroll Excel/CSV
   const handleExportBankCSV = () => {
     if (monthPayslips.length === 0) {
-      alert('لا توجد مسيرات رواتب مولدة لهذا الشهر لتصديرها.');
+      toast.error('لا توجد مسيرات رواتب مولدة لهذا الشهر لتصديرها.');
       return;
     }
 
@@ -217,6 +220,8 @@ export const PayrollApp: React.FC<PayrollAppProps> = ({
     link.href = url;
     link.download = `Payroll_Bank_Transfer_${activeCompany?.nameAr || ''}_${selectedMonth}.csv`;
     link.click();
+    URL.revokeObjectURL(url);
+    toast.success('تم تصدير ملف تحويل البنك CSV بنجاح');
   };
 
   // Print Payslip PDF

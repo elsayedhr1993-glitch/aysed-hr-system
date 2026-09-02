@@ -148,8 +148,8 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
       }
     }
     return {
-      instanceId: import.meta.env.VITE_ULTRAMSG_INSTANCE_ID || 'instance188430',
-      apiToken: import.meta.env.VITE_ULTRAMSG_TOKEN || 'mh21qnlb8vngnkml',
+      instanceId: 'instance188430',
+      apiToken: 'mh21qnlb8vngnkml',
       defaultCountryCode: '+965',
       serverUrl: 'https://api.ultramsg.com/instance188430/messages/chat',
       isActive: true,
@@ -184,7 +184,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
              localStorage.getItem('custom_gemini_key') || 
              localStorage.getItem('custom_gemini_api_key') || 
              localStorage.getItem('gemini_api_key') || 
-             (import.meta.env.VITE_GEMINI_API_KEY as string) || '';
+             '';
     }
     return '';
   });
@@ -1289,7 +1289,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
                   <code className="bg-white px-1.5 py-0.5 rounded border border-slate-300 font-mono text-slate-700">AIzaSy...</code> (مدعومة بالكامل).
                 </li>
                 <li>
-                  <span className="font-bold text-slate-800">النماذج الذكية التلقائية:</span> يتم التشغيل تلقائياً على نموذج <code className="bg-white px-1.5 py-0.5 rounded border border-slate-300 font-mono font-bold text-purple-700">gemini-3.1-pro-preview</code> و <code className="bg-white px-1.5 py-0.5 rounded border border-slate-300 font-mono font-bold text-purple-700">gemini-3.7-flash</code> لقراءة البطاقات المدنية واستخراج النصوص بنسبة دقة 100%.
+                  <span className="font-bold text-slate-800">النماذج الذكية التلقائية:</span> يتم التشغيل تلقائياً على نموذج <code className="bg-white px-1.5 py-0.5 rounded border border-slate-300 font-mono font-bold text-purple-700">gemini-3.1-pro-preview</code> و <code className="bg-white px-1.5 py-0.5 rounded border border-slate-300 font-mono font-bold text-purple-700">gemini-3.6-flash</code> لقراءة البطاقات المدنية واستخراج النصوص بنسبة دقة 100%.
                 </li>
               </ul>
             </div>

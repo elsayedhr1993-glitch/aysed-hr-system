@@ -109,14 +109,13 @@ export async function processAnyDocument(file: File, apiKey?: string, docType?: 
     docData = await convertImageToBase64(file);
   }
 
-  // Get active Gemini API key from parameters, localStorage fallback (custom_gemini_key / custom_gemini_api_key), or env (VITE_GEMINI_API_KEY)
+  // Get active Gemini API key from parameters, localStorage fallback (custom_gemini_key / custom_gemini_api_key)
   const effectiveApiKey = apiKey || 
     (typeof window !== 'undefined' ? (
       localStorage.getItem('custom_gemini_key') || 
       localStorage.getItem('custom_gemini_api_key') || 
       localStorage.getItem('gemini_api_key')
-    ) : null) || 
-    (import.meta.env?.VITE_GEMINI_API_KEY as string | undefined);
+    ) : null);
 
   // إرسال البيانات لمعالج الرؤية البصرية في السيرفر
   let response;

@@ -33,7 +33,7 @@ dotenv.config();
 dotenv.config({ path: ".env.local", override: true });
 
 const app = express();
-const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+const PORT = 3000;
 
 let adminApp: App | null = null;
 let authAdmin: ReturnType<typeof getAuth> | null = null;
@@ -171,7 +171,7 @@ app.post("/api/ai/test-key", async (req, res) => {
       });
     }
 
-    const modelsToTry = ["gemini-3.1-pro-preview", "gemini-3.7-flash"];
+    const modelsToTry = ["gemini-3.6-flash"];
     let lastError: any = null;
     const startTime = Date.now();
 
@@ -408,7 +408,7 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
           messages: [
             {
               role: "system",
-               content: "أنت نظام خبير في القراءة الضوئية واستخراج بيانات البطاقة المدنية والمستندات الرسمية الكويتية بدقة مطلقة (OCR Vision Engine). مهمتك استخراج النصوص والأسماء الحقيقية الموجودة في المستند حصرياً بدقة 100% بدون أي تخمين أو اختصار. تحذير شديد: إياك أن تؤلف أو تفترض بيانات وهمية (مثل أحمد محمد عبدالله أو جون ديفيد أو أرقام مدنية عشوائية). إذا كان الحقل غير مقروء، اتركه فارغاً. أرجع النتيجة حصرياً بصيغة JSON مطابق تماماً للهيكل التالي:\n{\n  \"civilId\": \"الرقم المدني (12 رقماً)\",\n  \"fullNameAr\": \"الاسم الكامل بالعربية\",\n  \"fullNameEn\": \"الاسم الكامل بالإنجليزية\",\n  \"nationality\": \"الجنسية\",\n  \"gender\": \"ذكر أو أنثى / MALE أو FEMALE\",\n  \"birthDate\": \"YYYY-MM-DD\",\n  \"unifiedNo\": \"الرقم الموحد / الرقم المرجع\",\n  \"passportNo\": \"رقم جواز السفر إن وجد\",\n  \"profession\": \"المهنة أو المسمى الوظيفي المسجل\",\n  \"expiryDate\": \"تاريخ الانتهاء YYYY-MM-DD\",\n  \"issueDate\": \"تاريخ الإصدار YYYY-MM-DD\",\n  \"bloodGroup\": \"فصيلة الدم\",\n  \"address\": {\n    \"block\": \"القطعة\",\n    \"street\": \"الشارع\",\n    \"building\": \"المبنى / القسيمة\",\n    \"area\": \"المنطقة / المحافظة\"\n  }\n}"
+               content: "أنت نظام خبير في القراءة الضوئية واستخراج بيانات البطاقة المدنية والمستندات الرسمية الكويتية بدقة مطلقة (OCR Vision Engine). مهمتك استخراج النصوص والأسماء الحقيقية الموجودة في المستند حصرياً بدقة 100% بدون أي تخمين أو اختصار. تحذير شديد: إياك أن تؤلف أو تفترض بيانات وهمية (مثل أحمد محمد عبدالله أو جون ديفيد أو أرقام مدنية عشوائية). إذا كان الحقل غير مقروء، اتركه فارغاً. أرجع النتيجة حصرياً بصيغة JSON مطابق تماماً للهيكل التالي:\n{\n  \"civilId\": \"الرقم المدني (12 رقماً)\",\n  \"fullNameAr\": \"الاسم الكامل بالعربية\",\n  \"fullNameEn\": \"الاسم الكامل بالإنجليزية\",\n  \"nationality\": \"الجنسية\",\n  \"gender\": \"ذكر أو أنثى / MALE أو FEMALE\",\n  \"birthDate\": \"تاريخ الميلاد YYYY-MM-DD\",\n  \"unifiedNo\": \"الرقم الموحد / الرقم المرجع\",\n  \"passportNo\": \"رقم جواز السفر إن وجد\",\n  \"profession\": \"المهنة أو المسمى الوظيفي المسجل\",\n  \"expiryDate\": \"تاريخ الانتهاء للبطاقة المدنية أو الإقامة YYYY-MM-DD\",\n  \"issueDate\": \"تاريخ الإصدار YYYY-MM-DD\",\n  \"mohLicenseNo\": \"رقم الترخيص الصحي إن وجد\",\n  \"mohLicenseExpiryDate\": \"تاريخ انتهاء الترخيص الصحي YYYY-MM-DD\",\n  \"residencyType\": \"نوع الإقامة\",\n  \"bloodGroup\": \"فصيلة الدم\",\n  \"address\": {\n    \"block\": \"القطعة\",\n    \"street\": \"الشارع\",\n    \"building\": \"المبنى / القسيمة\",\n    \"area\": \"المنطقة / المحافظة\"\n  }\n}"
             },
             {
               role: "user",
@@ -447,6 +447,7 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
             address: parsed.address || { block: "", street: "", building: "", area: "" },
             residencyType: parsed.residencyType || "",
             mohLicenseNo: parsed.mohLicenseNo || "",
+            mohLicenseExpiryDate: parsed.mohLicenseExpiryDate || "",
             contractSalary: Number(parsed.contractSalary) || 0,
           },
           source: "openai-vision-gpt4o"
@@ -499,8 +500,11 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
   "unifiedNo": "الرقم الموحد / الرقم المرجع",
   "passportNo": "رقم جواز السفر إن وجد",
   "profession": "المهنة أو المسمى الوظيفي المسجل",
-  "expiryDate": "تاريخ الانتهاء YYYY-MM-DD",
+  "expiryDate": "تاريخ الانتهاء للبطاقة المدنية أو الإقامة YYYY-MM-DD",
   "issueDate": "تاريخ الإصدار YYYY-MM-DD",
+  "mohLicenseNo": "رقم الترخيص الصحي إن وجد",
+  "mohLicenseExpiryDate": "تاريخ انتهاء الترخيص الصحي YYYY-MM-DD",
+  "residencyType": "نوع الإقامة",
   "bloodGroup": "فصيلة الدم",
   "address": {
     "block": "القطعة",
@@ -510,7 +514,7 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
   }
 }`;
 
-  const modelsToTry = ["gemini-3.1-pro-preview", "gemini-3.7-flash"];
+  const modelsToTry = ["gemini-3.6-flash"];
   let lastError: any = null;
 
   for (const modelName of modelsToTry) {
@@ -545,6 +549,9 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
               profession: { type: Type.STRING },
               expiryDate: { type: Type.STRING },
               issueDate: { type: Type.STRING },
+              mohLicenseNo: { type: Type.STRING },
+              mohLicenseExpiryDate: { type: Type.STRING },
+              residencyType: { type: Type.STRING },
               bloodGroup: { type: Type.STRING },
               address: {
                 type: Type.OBJECT,
@@ -580,6 +587,9 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
           jobTitle: parsedData.profession || parsedData.jobTitle || "",
           expiryDate: parsedData.expiryDate || "",
           issueDate: parsedData.issueDate || "",
+          mohLicenseNo: parsedData.mohLicenseNo || "",
+          mohLicenseExpiryDate: parsedData.mohLicenseExpiryDate || "",
+          residencyType: parsedData.residencyType || "",
           bloodGroup: parsedData.bloodGroup || "",
           address: parsedData.address || { block: "", street: "", building: "", area: "" },
         },
@@ -632,6 +642,7 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
           gender: parsedData.gender || "MALE",
           residencyType: parsedData.residencyType || "",
           mohLicenseNo: parsedData.mohLicenseNo || "",
+          mohLicenseExpiryDate: parsedData.mohLicenseExpiryDate || "",
           contractSalary: Number(parsedData.contractSalary) || 0,
         },
         source: `gemini-vision-fallback-${modelName}`,
@@ -755,7 +766,7 @@ ${contextSummary || 'شركة الكويت الطبية والأعمال - 12 م
 
     contents.push({ text: `سؤال المستخدم الحالي: ${prompt}` });
 
-    const modelsForChat = ["gemini-3.1-pro-preview", "gemini-3.7-flash"];
+    const modelsForChat = ["gemini-3.1-pro-preview", "gemini-3.6-flash"];
     let replyText = "";
     let usedModel = "";
 
@@ -1716,6 +1727,32 @@ let systemSettingsStore = {
   updated_at: new Date().toISOString()
 };
 
+let multiCompanySettings: Record<string, typeof systemSettingsStore> = {
+  'comp-1': { ...systemSettingsStore },
+  'comp-elite': {
+    ...systemSettingsStore,
+    company_name_ar: 'شركة النخبة الطبية',
+    company_name_en: 'Elite Medical Co',
+    commercial_reg_no: '112233',
+    civil_id_org: '203456',
+    wps_bank_code: 'NBK',
+    official_email: 'hr@elitemedical.com',
+    phone: '+965 22000001',
+    address: 'الكويت - العاصمة - برج النخبة'
+  },
+  'comp-fanar': {
+    ...systemSettingsStore,
+    company_name_ar: 'مجموعة الفنار الطبية',
+    company_name_en: 'Fanar Medical Group',
+    commercial_reg_no: '445566',
+    civil_id_org: '205678',
+    wps_bank_code: 'BOUBYAN',
+    official_email: 'hr@fanarmedical.com',
+    phone: '+965 22000002',
+    address: 'الكويت - السالمية - مجمع الفنار'
+  }
+};
+
 interface UserOtpRecord {
   id: number;
   user_id: string | number;
@@ -1727,22 +1764,88 @@ interface UserOtpRecord {
 const userOtpCodesStore: UserOtpRecord[] = [];
 let otpIdCounter = 1;
 
+// AI OCR Endpoint (Gemini API)
+app.post("/api/ocr", express.json({ limit: "50mb" }), async (req, res) => {
+  try {
+    const { imageBase64 } = req.body;
+    
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(500).json({ success: false, message: "مفتاح API الخاص بـ Gemini غير متوفر (GEMINI_API_KEY)" });
+    }
+
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    
+    const base64Data = imageBase64.replace(/^data:(image\/\w+|application\/pdf);base64,/, "");
+    const mimeType = imageBase64.startsWith("data:application/pdf") ? "application/pdf" : "image/jpeg";
+    
+    const prompt = `استخرج بيانات البطاقة المدنية الكويتية أو جواز السفر أو الترخيص من هذه الصورة.
+    قم بإرجاع استجابة JSON فقط باللغة العربية تحتوي على:
+    - civilId: الرقم المدني أو رقم الوثيقة (نص)
+    - fullNameAr: الاسم الكامل بالعربية (نص)
+    - fullNameEn: الاسم الكامل بالإنجليزية (نص)
+    - nationality: الجنسية بالعربية (نص)
+    - expiryDate: تاريخ الانتهاء بصيغة YYYY-MM-DD
+    - birthDate: تاريخ الميلاد بصيغة YYYY-MM-DD
+    - docType: نوع المستند (مثال: بطاقة مدنية كويتية، جواز سفر)
+    
+    إذا لم تجد أي من البيانات، اجعل قيمتها فارغة. يجب أن يكون الرد عبارة عن JSON صحيح فقط بدون تنسيق ماركداون.`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.6-flash',
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { text: prompt },
+            {
+              inlineData: {
+                mimeType: mimeType,
+                data: base64Data
+              }
+            }
+          ]
+        }
+      ],
+      config: {
+        responseMimeType: "application/json",
+      }
+    });
+
+    const extractedData = JSON.parse(response.text);
+    res.json({ success: true, data: extractedData });
+  } catch (error: any) {
+    console.error("OCR API Error:", error);
+    res.status(500).json({ success: false, message: "فشل في معالجة المستند عبر AI", error: error.message });
+  }
+});
+
 // 1. GET Settings
 app.get("/api/settings", (req, res) => {
-  res.json({ success: true, data: systemSettingsStore });
+  const companyId = (req.headers["x-company-id"] as string) || "comp-1";
+  if (!multiCompanySettings[companyId]) {
+    multiCompanySettings[companyId] = {
+      ...systemSettingsStore,
+      company_name_ar: companyId === 'comp-elite' ? 'شركة النخبة الطبية' : companyId === 'comp-fanar' ? 'مجموعة الفنار الطبية' : systemSettingsStore.company_name_ar,
+      company_name_en: companyId === 'comp-elite' ? 'Elite Medical Co' : companyId === 'comp-fanar' ? 'Fanar Medical Group' : systemSettingsStore.company_name_en,
+    };
+  }
+  res.json({ success: true, data: multiCompanySettings[companyId] });
 });
 
 // 2. PUT Settings
 app.put("/api/settings", express.json(), (req, res) => {
   try {
+    const companyId = (req.headers["x-company-id"] as string) || "comp-1";
     const data = req.body;
-    systemSettingsStore = {
-      ...systemSettingsStore,
+    if (!multiCompanySettings[companyId]) {
+      multiCompanySettings[companyId] = { ...systemSettingsStore };
+    }
+    multiCompanySettings[companyId] = {
+      ...multiCompanySettings[companyId],
       ...data,
-      id: 1,
       updated_at: new Date().toISOString()
     };
-    res.json({ success: true, message: "تم تحديث الإعدادات بنجاح", data: systemSettingsStore });
+    res.json({ success: true, message: "تم تحديث الإعدادات بنجاح", data: multiCompanySettings[companyId] });
   } catch (error: any) {
     res.status(500).json({ success: false, message: "فشل تحديث الإعدادات", error: error.message });
   }

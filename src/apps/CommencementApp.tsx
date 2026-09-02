@@ -1,3 +1,4 @@
+import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import React, { useState } from 'react';
 import { 
   FileSignature, CheckCircle, Clock, Calendar, Building2, 
@@ -426,6 +427,7 @@ export const CommencementApp: React.FC<CommencementAppProps> = ({
   const odooPythonCode = `# -*- coding: utf-8 -*-
 # كود تفعيل قابلية التعديل على سجلات مباشرة العمل وتحديث الموظف والعقد
 from odoo import models, fields, api, _
+
 
 # 1. كود تفعيل قابلية التعديل على سجلات مباشرة العمل لمدير النظام (Sayed / ID=2)
 class HrVersion(models.Model):
@@ -1293,7 +1295,7 @@ class HrCommencement(models.Model):
                 onClick={() => {
                   const printContent = document.getElementById('printable-commencement-document');
                   if (!printContent) {
-                    window.print();
+                    safePrintAction('طباعة التقرير');
                     return;
                   }
                   const win = window.open('', '_blank', 'width=800,height=900');
@@ -1331,7 +1333,7 @@ class HrCommencement(models.Model):
                         </div>
                         <script>
                           window.onload = function() {
-                            window.print();
+                            safePrintAction('طباعة التقرير');
                           };
                         </script>
                       </body>
@@ -1339,7 +1341,7 @@ class HrCommencement(models.Model):
                     `);
                     win.document.close();
                   } else {
-                    window.print();
+                    safePrintAction('طباعة التقرير');
                   }
                 }}
                 className="bg-[#714B67] hover:bg-[#5f3e57] text-white px-5 py-2 rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5 cursor-pointer"

@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { CompanyProvider } from './CompanyContext';
+import { SystemSettingsProvider } from './SystemSettingsContext';
 export { CompanyProvider, useCompany } from './CompanyContext';
+export { SystemSettingsProvider, useSystemSettings } from './SystemSettingsContext';
 export { useIsolatedData } from '../hooks/useIsolatedData';
 
 // 1. تعريف الهوية التقنية للنظام (طبق الأصل من Odoo Context)
@@ -90,7 +92,9 @@ export const AysedCoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         body { font-family: 'Tajawal', sans-serif; background-color: #f8f9fa; }
       `}</style>
       <CompanyProvider>
-        {children}
+        <SystemSettingsProvider>
+          {children}
+        </SystemSettingsProvider>
       </CompanyProvider>
     </AysedContext.Provider>);
 };

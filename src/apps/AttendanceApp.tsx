@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { Calendar, Clock, Download, FileSpreadsheet, Search, Upload, FileText, CheckCircle, AlertCircle, XCircle, Trash2, UserCheck, CheckCircle2, AlertTriangle, UserX, Printer, ChevronDown } from 'lucide-react';
+import { safePrintAction } from '../guards/SystemIntegrityGuard';
 
 export class KuwaitLaborRateEngine {
   // حساب أجر اليوم والساعة وفق معيار 26 يوم عمل
@@ -631,7 +632,7 @@ useEffect(() => {
           </div>
           <script>
             window.onload = () => {
-              window.print();
+              safePrintAction('طباعة التقرير');
               setTimeout(() => window.close(), 500);
             };
           </script>

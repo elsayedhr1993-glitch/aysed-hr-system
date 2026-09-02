@@ -1452,7 +1452,7 @@ export const processAttendanceMetrics = ({
   }
 
   // معامل الإضافي الكويتي: 1.25x للأيام العادية، 1.5x للعطل والجمع
-  const overtimeMultiplier = isHoliday ? 1.5 : 1.25;
+  const overtimeMultiplier = isHoliday ? 2.0 : 1.25;
   const payableOvertimeHours = parseFloat((rawOvertimeHours * overtimeMultiplier).toFixed(2));
 
   // 6. الاحتساب المالي (بالدينار الكويتي)

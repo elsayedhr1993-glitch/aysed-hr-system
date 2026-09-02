@@ -2,6 +2,7 @@
 import React from 'react';
 import { AysedSettlementOutput } from '../services/leaveSettlementService';
 import { UniversalSettlementResult, UniversalSettlementItem, Company } from '../types';
+import { safePrintAction } from '../guards/SystemIntegrityGuard';
 
 export interface EmployeeInfo {
   name: string;
@@ -333,7 +334,7 @@ export const LeaveClearanceDocument: React.FC<Props> = ({
       {/* زر الطباعة المباشر */}
       <div className="mt-8 text-center print:hidden">
         <button
-          onClick={() => window.print()}
+          onClick={() => safePrintAction('طباعة التقرير')}
           className="bg-[#71639e] hover:bg-[#5d5182] text-white px-6 py-2.5 rounded-md font-bold text-sm shadow transition-colors inline-flex items-center gap-2 cursor-pointer"
         >
           <span>طباعة نموذج التسوية الرسمي (PDF / Print)</span>

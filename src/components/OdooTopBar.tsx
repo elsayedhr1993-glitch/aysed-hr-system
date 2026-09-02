@@ -1,3 +1,4 @@
+import { toast } from "react-hot-toast";
 import React, { useState } from 'react';
 import {
   Grid, Search, Filter, Building2, Bell, Scan, Printer,
@@ -8,6 +9,7 @@ import { SystemNotification } from '../utils/notificationsEngine';
 import { OdooDebugMenu } from './OdooDebugMenu';
 import { PrintActionsMenu } from './PrintActionsMenu';
 import { useLang } from '../lib/i18n';
+import { CompanySwitcher } from './CompanySwitcher';
 
 interface OdooTopBarProps {
   companies?: Company[];
@@ -73,6 +75,7 @@ const APP_MODELS: Record<ActiveApp, string> = {
   DAILY_MOVEMENTS: 'hr.daily.movement',
   HOLIDAY_WORK: 'hr.holiday.work',
   LEAVE_TYPES_CONFIG: 'hr.leave.type',
+  SECURITY_GUARDS: 'hr.security.guard',
 };
 
 const appTitles: Record<ActiveApp, { ar: string; en: string }> = {
@@ -103,6 +106,7 @@ const appTitles: Record<ActiveApp, { ar: string; en: string }> = {
   SETTINGS: { ar: 'الإعدادات العامة والربط الخارجي', en: 'Settings & Integrations' },
   HOLIDAY_WORK: { ar: 'العمل في العطلات والجمع (1.5x)', en: 'Holiday & Weekend Work' },
   LEAVE_TYPES_CONFIG: { ar: 'تهيئة أنواع الإجازات وقواعد الاستحقاق', en: 'Leave Types Configuration' },
+  SECURITY_GUARDS: { ar: 'نظام إدارة الحراس ونقاط التفتيش', en: 'Security & Patrols' },
 };
 
 export const isDebug = typeof window !== 'undefined' ? window.location.search.includes('debug=1') : false;
@@ -195,72 +199,70 @@ export const OdooTopBar: React.FC<OdooTopBarProps> = ({
   const userInitial = userName.charAt(0).toUpperCase();
 
   return (
-    <header className="w-full bg-[#261928] text-white select-none sticky top-0 z-50 shadow-md border-b border-white/10" dir="rtl">
+    <header className="w-full bg-[#261928] text-white select-none sticky top-0 z-50 shadow-sm border-b border-white/10" dir="rtl">
       
-      {/* 1. الشريط الرئيسي العلوي */}
-      <div className="w-full px-4 h-12 flex items-center justify-between gap-3">
+      {/* 1. الشريط الرئيسي العلوي (Odoo 18 Slim Navbar - h-10 / 40px) */}
+      <div className="w-full px-3 h-10 min-h-[40px] flex items-center justify-between gap-2 overflow-x-auto no-scrollbar">
         
         {/* الجانب الأيمن: زر الرجوع للرئيسية + مبدل الشركات والفروع + الشعار */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 shrink-0">
           
           {/* زر العودة للشاشة الرئيسية (Odoo Home Button) */}
           <button 
+            type="button"
             onClick={onNavigateHome}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm border ${
+            className={`flex items-center gap-1 px-2.5 h-7 rounded text-xs font-bold transition shadow-2xs border ${
               !effectiveApp 
                 ? 'bg-white/10 text-white border-white/20' 
-                : 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-500 ring-2 ring-indigo-400/30'
+                : 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-500'
             }`}
             title="العودة للشاشة الرئيسية والتطبيقات"
           >
-            <Home size={15} />
+            <Home size={13} />
             <span>الرئيسية</span>
           </button>
 
           {/* محدد التبديل بين الشركات والفروع (Multi-Company Switcher) */}
           <div className="relative odoo-topbar-dropdown-container">
-            <div 
-              className="flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-lg border border-white/15 text-xs font-semibold text-slate-200 transition cursor-default"
-            >
-              <Building2 size={14} className="text-indigo-400" />
-              <span className="max-w-[140px] truncate">{activeCompany?.id === 'comp-super-admin' ? 'إدارة النظام المركزية' : (activeCompany?.name || activeCompany?.nameAr || 'المنشأة')}</span>
-            </div>
+            <CompanySwitcher />
           </div>
 
-          <div className="hidden lg:flex items-center gap-2 border-r border-white/15 pr-3 text-xs text-slate-300 font-medium">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <div className="hidden lg:flex items-center gap-1.5 border-r border-white/15 pr-2 text-[11px] text-slate-300 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
             <span>Aysed S HR 2026</span>
           </div>
         </div>
 
         {/* الجانب الأيسر: حارس النزاهة + التنبيهات + السوبر أدمن + المستخدم */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 shrink-0">
           
           {/* حارس النزاهة وأمن النظام (Data Integrity Guard) */}
           {onOpenIntegrityModal && (
             <button 
+              type="button"
               onClick={onOpenIntegrityModal}
-              className="flex items-center gap-1.5 bg-emerald-950/80 hover:bg-emerald-900/90 text-emerald-300 border border-emerald-500/40 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition shadow-sm cursor-pointer"
+              className="flex items-center gap-1 bg-emerald-950/80 hover:bg-emerald-900/90 text-emerald-300 border border-emerald-500/40 px-2 h-7 rounded text-[11px] font-semibold transition shadow-2xs cursor-pointer"
               title="حارس أمن وتكامل البيانات"
             >
-              <ShieldCheck size={15} className="text-emerald-400" />
+              <ShieldCheck size={13} className="text-emerald-400" />
               <span className="hidden sm:inline">حارس النزاهة</span>
-              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
             </button>
           )}
 
           {/* تنبيهات الإقامات الذكية */}
           <div className="relative odoo-topbar-dropdown-container">
             <button 
+              type="button"
               onClick={() => {
                 setShowNotifMenu(!showNotifMenu);
                 setShowCompanyMenu(false);
                 setShowUserMenu(false);
                 setShowPrintMenu(false);
               }}
-              className="flex items-center gap-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer"
+              className="flex items-center gap-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 h-7 rounded text-[11px] font-semibold transition cursor-pointer"
             >
-              <AlertTriangle size={14} />
+              <AlertTriangle size={13} />
               <span className="hidden md:inline">التنبيهات</span>
               {unreadCount > 0 && (
                 <span className="bg-amber-500 text-slate-900 font-bold px-1.5 py-0.2 rounded-full text-[10px]">
@@ -270,18 +272,18 @@ export const OdooTopBar: React.FC<OdooTopBarProps> = ({
             </button>
             {showNotifMenu && (
               <div className="absolute left-0 mt-1.5 w-80 bg-white rounded-xl shadow-2xl text-slate-800 text-xs py-2 z-50 border border-slate-200 animate-in fade-in zoom-in-95 dir-rtl text-right">
-                <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/80 rounded-t-xl">
-                  <h6 className="font-bold text-slate-900 text-sm">التنبيهات الذكية</h6>
+                <div className="px-4 py-2 border-b border-slate-100 flex items-center justify-between bg-slate-50/80 rounded-t-xl">
+                  <h6 className="font-bold text-slate-900 text-xs">التنبيهات الذكية</h6>
                   <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
                     {unreadCount} غير مقروءة
                   </span>
                 </div>
                 <div className="max-h-64 overflow-y-auto odoo-scrollbar">
                   {notifications.length === 0 ? (
-                    <div className="px-4 py-8 text-center text-slate-500">
-                      <Check className="w-8 h-8 mx-auto text-emerald-400 mb-2 opacity-50" />
-                      <p className="font-medium text-sm">جميع الأنظمة مستقرة</p>
-                      <p className="text-[10px] mt-1">لا توجد تنبيهات نشطة حالياً</p>
+                    <div className="px-4 py-6 text-center text-slate-500">
+                      <Check className="w-6 h-6 mx-auto text-emerald-400 mb-1 opacity-50" />
+                      <p className="font-medium text-xs">جميع الأنظمة مستقرة</p>
+                      <p className="text-[10px] mt-0.5">لا توجد تنبيهات نشطة حالياً</p>
                     </div>
                   ) : (
                     notifications.map(notif => {
@@ -297,18 +299,16 @@ export const OdooTopBar: React.FC<OdooTopBarProps> = ({
                               setShowNotifMenu(false);
                             }
                           }}
-                          className={`px-4 py-3 border-b border-slate-50 hover:bg-slate-50 transition cursor-pointer flex gap-3 ${!notif.isRead ? 'bg-amber-50/30' : ''}`}
+                          className={`px-3 py-2.5 border-b border-slate-50 hover:bg-slate-50 transition cursor-pointer flex gap-2.5 ${!notif.isRead ? 'bg-amber-50/30' : ''}`}
                         >
-                          <div className={`shrink-0 mt-0.5 p-1.5 rounded-md ${
+                          <div className={`shrink-0 mt-0.5 p-1 rounded ${
                             isCritical ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'
                           }`}>
-                            <AlertTriangle className="w-3.5 h-3.5" />
+                            <AlertTriangle className="w-3 h-3" />
                           </div>
-                          <div className="flex-1 space-y-0.5">
-                            <div className="flex items-center justify-between">
-                              <h6 className="font-bold text-slate-900 text-xs">{notif.title}</h6>
-                            </div>
-                            <p className="text-[11px] text-slate-600 leading-snug">{notif.description}</p>
+                          <div className="flex-1 space-y-0.5 min-w-0">
+                            <h6 className="font-bold text-slate-900 text-[11px] truncate">{notif.title}</h6>
+                            <p className="text-[10px] text-slate-600 leading-snug line-clamp-2">{notif.description}</p>
                           </div>
                         </div>
                       );
@@ -319,7 +319,6 @@ export const OdooTopBar: React.FC<OdooTopBarProps> = ({
             )}
           </div>
 
-          
           {/* Print Actions Menu */}
           {['EMPLOYEES', 'LEAVES', 'PAYROLL', 'ATTENDANCE', 'CONTRACTS'].includes(effectiveApp as string) && onSelectPrintTemplate && (
             <PrintActionsMenu 
@@ -336,88 +335,85 @@ export const OdooTopBar: React.FC<OdooTopBarProps> = ({
           {/* لوحة السوبر أدمن */}
           {onOpenAdmin && (
             <button 
+              type="button"
               onClick={onOpenAdmin}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition shadow-sm cursor-pointer"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-2.5 h-7 rounded text-[11px] transition shadow-2xs cursor-pointer"
             >
-              لوحة الأدمن
-            </button>
-          )}
-
-          {/* استعادة وحفظ البيانات */}
-          {onLoadDemoData && (
-            <button 
-              onClick={onLoadDemoData}
-              className="hidden sm:flex items-center gap-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-white/10 px-2.5 py-1.5 rounded-lg text-xs transition cursor-pointer"
-            >
-              <Database size={13} />
-              <span>النسخ الاحتياطي</span>
+              الأدمن
             </button>
           )}
 
           {/* تبديل اللغة */}
           <button 
+            type="button"
             onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}
-            className="flex items-center gap-1 bg-black/30 hover:bg-black/50 text-slate-300 hover:text-white px-2 py-1.5 rounded-lg border border-white/10 text-xs font-bold transition cursor-pointer"
+            className="flex items-center gap-1 bg-black/30 hover:bg-black/50 text-slate-300 hover:text-white px-2 h-7 rounded border border-white/10 text-[11px] font-bold transition cursor-pointer"
           >
-            <Globe size={13} />
+            <Globe size={12} />
             <span>{lang === 'ar' ? 'EN' : 'عربي'}</span>
           </button>
+
+          {/* مبدل الشركات المتعددة (Company Switcher) */}
+          <CompanySwitcher />
 
           {/* بطاقة المستخدم الحالي */}
           <div className="relative odoo-topbar-dropdown-container">
             <button 
+              type="button"
               onClick={() => {
                 setShowUserMenu(!showUserMenu);
                 setShowNotifMenu(false);
                 setShowCompanyMenu(false);
                 setShowPrintMenu(false);
               }}
-              className="flex items-center gap-1.5 bg-black/40 hover:bg-black/60 px-2.5 py-1.5 rounded-lg border border-white/10 text-xs font-bold text-emerald-400 transition cursor-pointer"
+              className="flex items-center gap-1.5 bg-black/40 hover:bg-black/60 px-2 h-7 rounded border border-white/10 text-[11px] font-bold text-emerald-400 transition cursor-pointer"
             >
-              <div className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[11px]">
+              <div className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">
                 {userInitial}
               </div>
-              <span className="hidden sm:inline truncate max-w-[100px]">{userName}</span>
+              <span className="hidden sm:inline truncate max-w-[80px]">{userName}</span>
             </button>
 
             {showUserMenu && (
-              <div className="absolute left-0 mt-1.5 w-64 bg-white rounded-xl shadow-2xl text-slate-800 text-xs py-2 z-50 border border-slate-200 animate-in fade-in zoom-in-95 dir-rtl text-right">
-                <div className="px-4 py-2.5 border-b border-slate-100 bg-slate-50/80 rounded-t-xl">
+              <div className="absolute left-0 mt-1.5 w-60 bg-white rounded-xl shadow-2xl text-slate-800 text-xs py-2 z-50 border border-slate-200 animate-in fade-in zoom-in-95 dir-rtl text-right">
+                <div className="px-3 py-2 border-b border-slate-100 bg-slate-50/80 rounded-t-xl">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-[#261928] text-white font-bold flex items-center justify-center text-xs shadow">
+                    <div className="w-7 h-7 rounded-full bg-[#261928] text-white font-bold flex items-center justify-center text-xs shadow">
                       {userInitial}
                     </div>
-                    <div>
-                      <h6 className="font-bold text-slate-900 text-xs flex items-center gap-1">
+                    <div className="min-w-0">
+                      <h6 className="font-bold text-slate-900 text-xs flex items-center gap-1 truncate">
                         <span>{userName}</span>
-                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                       </h6>
-                      <p className="text-[10px] text-slate-500 font-mono truncate max-w-[150px]">{currentUserEmail || 'sayed@company.com'}</p>
+                      <p className="text-[10px] text-slate-500 font-mono truncate">{currentUserEmail || 'sayed@company.com'}</p>
                     </div>
                   </div>
                 </div>
                 <div className="py-1">
                   <button
+                    type="button"
                     onClick={() => {
                       setShowUserMenu(false);
                       if (onOpenProfile) onOpenProfile();
                     }}
-                    className="w-full text-right px-4 py-2 hover:bg-slate-50 flex items-center gap-2 text-slate-700 font-medium cursor-pointer"
+                    className="w-full text-right px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2 text-slate-700 font-medium cursor-pointer text-xs"
                   >
-                    <User className="w-4 h-4 text-[#261928]" />
+                    <User className="w-3.5 h-3.5 text-[#261928]" />
                     <span>الملف الشخصي والأمان</span>
                   </button>
                 </div>
                 <div className="border-t border-slate-100 pt-1 mt-1">
                   <button
+                    type="button"
                     onClick={() => {
                       setShowUserMenu(false);
                       if (onLogout) onLogout();
                     }}
-                    className="w-full text-right px-4 py-2.5 bg-rose-50/50 hover:bg-rose-100/80 text-rose-700 font-bold flex items-center justify-between text-xs transition cursor-pointer"
+                    className="w-full text-right px-3 py-2 bg-rose-50/50 hover:bg-rose-100/80 text-rose-700 font-bold flex items-center justify-between text-xs transition cursor-pointer"
                   >
-                    <div className="flex items-center gap-2">
-                      <LogOut className="w-4 h-4 text-rose-600" />
+                    <div className="flex items-center gap-1.5">
+                      <LogOut className="w-3.5 h-3.5 text-rose-600" />
                       <span>تسجيل الخروج</span>
                     </div>
                   </button>

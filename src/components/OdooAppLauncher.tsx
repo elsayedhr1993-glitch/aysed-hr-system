@@ -190,6 +190,26 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({ onSelectApp, c
       badge: isSuperAdmin ? 'واتساب وأتمتة' : 'ملف المنشأة',
       description: isSuperAdmin ? 'إدارة الشركات، الاشتراكات، الأتمتة والواتساب' : 'بيانات المنشأة، السجل التجاري، والواتساب',
     },
+    {
+      id: 'SECURITY_GUARDS' as ActiveApp,
+      titleAr: 'الأمن والورديات',
+      titleEn: 'Security & Patrols',
+      icon: ShieldCheck,
+      bgColor: 'bg-purple-50 text-[#714B67] border-purple-200',
+      iconBg: 'bg-[#714B67] text-white',
+      badge: 'دورية',
+      description: 'متابعة نوبات الحراسة، المواقع والالتزام البيومتري اللحظي',
+    },
+    {
+      id: 'DOCUMENT_TEMPLATES' as ActiveApp,
+      titleAr: 'قوالب ونماذج المستندات',
+      titleEn: 'Document Templates',
+      icon: FileText,
+      bgColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      iconBg: 'bg-emerald-600 text-white',
+      badge: 'مراسلات',
+      description: 'توليد وطباعة شهادات الراتب والكتب الرسمية آلياً',
+    },
   ];
 
   return (

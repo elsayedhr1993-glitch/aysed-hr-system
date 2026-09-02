@@ -1,2185 +1,2150 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import toast from 'react-hot-toast';
-import { 
-  Employee, Company, ViewMode, Contract, LeaveRequest, DocumentItem, JobTitle, Department
-} from '../types';
-import { validateKuwaitCivilId, parseKuwaitCivilId, formatKWD } from '../utils/kuwaitLaw';
-import { validateEmployeeIntegrity } from '../services/globalIntegrityService';
-import { processAnyDocument } from '../utils/ocrService';
-import { 
-  User, Users, CheckCircle, AlertTriangle, FileText, Calendar, Briefcase,
-  Folder, Shield, Plus, Edit2, Trash2, X, Building, Phone, Mail, Award, Search, Check, Eye, Camera, Loader2, Sparkles, LayoutGrid, List, ArrowLeftRight, Filter, Fingerprint, Key, CreditCard, MessageSquare, Send, ShieldCheck, History, Save, RotateCcw, Clock, Upload, Link as LinkIcon, Scan, ChevronDown, CheckCircle2
-} from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import OdooEmployeeFormModal from '../components/OdooEmployeeFormModal';
 
-const PRESET_AVATARS = [
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=250',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=250',
-  'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=250',
-  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=250',
-  'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=250',
-  'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=250',
-  'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=250',
-  'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&q=80&w=250',
-];
+import OdooContractsApp from "../components/OdooContractsApp";
 
-interface EmployeesAppProps {
-  onOpenLeaveModal?: (empId: string) => void;
-  employees: Employee[];
-  contracts: Contract[];
-  leaves: LeaveRequest[];
-  documents: DocumentItem[];
-  jobTitles?: JobTitle[];
-  departments?: Department[];
-  activeCompany: Company;
-  viewMode: ViewMode;
-  searchTerm: string;
-  filterTab: string;
-  onSaveEmployee: (emp: Employee) => void;
-  onDeleteEmployee: (empId: string) => void;
-  onSoftDeleteEmployee?: (empId: string, reason?: string) => void;
-  onRestoreEmployee?: (empId: string) => void;
-  onHardDeleteAllEmployees?: () => void;
-  onSaveJobTitle?: (jobTitle: JobTitle) => void;
-  onDeleteJobTitle?: (id: string) => void;
-  onNavigateToApp?: (app: any) => void;
-  selectedEmpForForm: Employee | null;
-  onCloseForm: () => void;
-  onViewModeChange: (mode: ViewMode) => void;
-  onFilterTabChange?: (tab: string) => void;
-  onSelectEmployeeForLeaves?: (empId: string) => void;
-  onOpenNotificationModal?: (emp: Employee, trigger?: any) => void;
-  highlightField?: string | null;
-  onClearHighlightField?: () => void;
-}
+export const safePrintA4Document = (htmlContent: string) => {
+  // إنشاء عنصر iframe خفي
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = '0';
+  document.body.appendChild(iframe);
 
-export const EmployeesApp: React.FC<EmployeesAppProps> = ({
-  onOpenLeaveModal,
-  employees = [],
-  contracts = [],
-  leaves = [],
-  documents = [],
-  jobTitles = [],
-  departments = [],
-  activeCompany,
-  viewMode,
-  searchTerm = '',
-  filterTab = 'ALL',
-  onSaveEmployee,
-  onDeleteEmployee,
-  onSoftDeleteEmployee,
-  onRestoreEmployee,
-  onHardDeleteAllEmployees,
-  onSaveJobTitle,
-  onDeleteJobTitle,
-  onNavigateToApp,
-  selectedEmpForForm,
-  onCloseForm,
-  onViewModeChange,
-  onFilterTabChange,
-  onSelectEmployeeForLeaves,
-  onOpenNotificationModal,
-  highlightField,
-  onClearHighlightField,
-}) => {
-  const companyBranches = React.useMemo(() => {
-    if (activeCompany?.branches && activeCompany.branches.length > 0) {
-      return activeCompany.branches;
+  const doc = iframe.contentWindow?.document;
+  if (!doc) return;
+
+  doc.open();
+  doc.write(htmlContent);
+  doc.close();
+
+  // تشغيل أمر الطباعة بمجرد تحميل المحتوى بالكامل ثم إزالة العنصر
+  iframe.contentWindow?.focus();
+  setTimeout(() => {
+    iframe.contentWindow?.print();
+    setTimeout(() => {
+      document.body.removeChild(iframe);
+    }, 1000);
+  }, 500);
+};
+
+export function EmployeesApp(props?: any) {
+  const [activeTab, setActiveTab] = useState<'directory' | 'contracts' | 'commencement'>('directory');
+  const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
+  const [selectedDept, setSelectedDept] = useState('الكل');
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Print preview modal state
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [printTitle, setPrintTitle] = useState('');
+  const [printData, setPrintData] = useState<any>(null);
+
+  const handleTriggerPrint = (title: string, data: any) => {
+    setPrintTitle(title);
+    setPrintData(data || selectedEmployee || { nameAr: 'تقرير عيادات إيليت كلينك' });
+    setShowPrintModal(true);
+  };
+  
+  // Modal states
+  const [showAddEmployeeModal, setShowAddEmployeeModal] = useState(false);
+  const [showEmployeeModal, setShowEmployeeModal] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
+  const [employeeActiveTab, setEmployeeActiveTab] = useState<'work' | 'private' | 'moh'>('work');
+  const [employeeSubModal, setEmployeeSubModal] = useState<'none' | 'contracts' | 'attendance' | 'leave' | 'assets'>('none');
+
+  const handleDeleteEmployee = (id: string, name: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (window.confirm(`هل أنت متأكد من رغبتك في حذف ملف الموظف: ${name || id}؟`)) {
+      setEmployees(prev => {
+        const updated = prev.filter(emp => emp.id !== id);
+        localStorage.setItem('app_employees_data', JSON.stringify(updated));
+        localStorage.setItem('odoo_employees_v1', JSON.stringify(updated));
+        return updated;
+      });
+      if (selectedEmployee && String(selectedEmployee.id) === String(id)) {
+        setShowEmployeeModal(false);
+        setSelectedEmployee(null);
+      }
     }
-    const saved = localStorage.getItem(`geofence_branches_${activeCompany?.id || 'comp-1'}`);
+  };
+
+  const handleDeleteContract = (contractId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (confirm('هل أنت متأكد من حذف هذا العقد نهائياً من سجلات النظام؟')) {
+      const updated = contracts.filter((c: any) => c.id !== contractId);
+      setContracts(updated);
+      localStorage.setItem('odoo_contracts_v1', JSON.stringify(updated));
+      if (selectedContract && selectedContract.id === contractId) {
+        setShowContractModal(false);
+        setSelectedContract(null);
+      }
+      alert('تم حذف العقد بنجاح.');
+    }
+  };
+
+  const handleDeleteCommencement = (comId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (confirm('هل أنت متأكد من حذف إقرار المباشرة هذا نهائياً؟')) {
+      const updated = commencements.filter((c: any) => c.id !== comId);
+      setCommencements(updated);
+      localStorage.setItem('odoo_commencements_v1', JSON.stringify(updated));
+      if (selectedCommencement && selectedCommencement.id === comId) {
+        setShowCommencementModal(false);
+        setSelectedCommencement(null);
+      }
+      alert('تم حذف إقرار المباشرة بنجاح.');
+    }
+  };
+
+  const validateKuwaitCivilId = (civilId: string) => {
+    if (!civilId || civilId.length !== 12) return false;
+    return /^\d{12}$/.test(civilId);
+  };
+
+  const handleMasterDropdownChange = (
+    value: string,
+    field: string,
+    targetObj: any,
+    setTargetObj: any,
+    list: string[],
+    setList: any,
+    promptText: string
+  ) => {
+    if (value === '__ADD_NEW__') {
+      const newVal = prompt(promptText);
+      if (newVal && newVal.trim()) {
+        if (!list.includes(newVal.trim())) {
+          setList([...list, newVal.trim()]);
+        }
+        setTargetObj({ ...targetObj, [field]: newVal.trim() });
+      }
+    } else {
+      setTargetObj({ ...targetObj, [field]: value });
+    }
+  };
+  const [showContractModal, setShowContractModal] = useState(false);
+  const [selectedContract, setSelectedContract] = useState<any>(null);
+  const [contractActiveTab, setContractActiveTab] = useState<'salary' | 'schedule' | 'terms'>('salary');
+
+  const [showCommencementModal, setShowCommencementModal] = useState(false);
+  const [selectedCommencement, setSelectedCommencement] = useState<any>(null);
+
+  const [chatterInput, setChatterInput] = useState('');
+
+  // Odoo Master Data Lookup Lists (القوائم المنسدلة المرجعية)
+  const [masterDepts, setMasterDepts] = useState<string[]>([
+    'الإدارة العليا',
+    'الموارد البشرية',
+    'الأطباء',
+    'التمريض',
+    'الأمن والخدمات',
+    'العيادات التخصصية',
+    'المختبر والأشعة'
+  ]);
+
+  const [masterJobTitles, setMasterJobTitles] = useState<string[]>([
+    'مدير الموارد البشرية والشؤون الإدارية',
+    'أخصائي شؤون العاملين والرواتب (WPS)',
+    'طبيبة استشارية - طب وجراحة العيون',
+    'طبيب ممارس عام',
+    'رئيسة هيئة التمريض والتعقيم',
+    'ممرض/ة عام',
+    'مشرف الأمن والسلامة واللوجستيات',
+    'أخصائي مختبر وطب مساند'
+  ]);
+
+  const [masterBanks, setMasterBanks] = useState<string[]>([
+    'بنك الكويت الوطني (NBK)',
+    'بيت التمويل الكويتي (KFH)',
+    'بنك الخليج (Gulf Bank)',
+    'بنك برقان (Burgan Bank)',
+    'البنك التجاري الكويتي (CBK)',
+    'بنك بوبيان (Boubyan Bank)',
+    'البنك الأهلي الكويتي (ABK)'
+  ]);
+
+  // 1. قراءة البيانات المحفوظة أو تحميل البيانات الافتراضية لأول مرة فقط
+  const [employees, setEmployees] = useState(() => {
+    const saved = localStorage.getItem('app_employees_data') || localStorage.getItem('odoo_employees_v1');
     if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch (e) {}
+      try { return JSON.parse(saved); } catch (e) {}
     }
     return [
-      { id: 'hq', branchName: 'كافة الفروع / المركز الرئيسي' }
+      {
+        id: 'EMP-001',
+        nameAr: 'أحمد محمود الكندري',
+        nameEn: 'Ahmad Mahmoud Al-Kandari',
+        civilId: '290010112345',
+        jobTitle: 'مدير الموارد البشرية والشؤون الإدارية',
+        dept: 'الإدارة العليا',
+        workLocation: 'الإدارة الرئيسية - الدور 3',
+        manager: 'المدير التنفيذي للعيادة',
+        phone: '+965 99001122',
+        email: 'kandari@almanar-clinic.com',
+        nationality: 'كويتي',
+        dob: '1990-01-01',
+        maritalStatus: 'متزوج',
+        dependents: 3,
+        passportNo: 'P1234567',
+        passportExpiry: '2030-05-10',
+        residencyType: 'مواطن (بطاقة مدنية)',
+        hireDate: '2025-01-10',
+        mohLicense: 'MOH-ADM-001',
+        mohLicenseExpiry: '2028-01-10',
+        specialty: 'إدارة الموارد البشرية والإدارية',
+        degree: 'بكالوريوس إدارة أعمال',
+        contractType: 'غير محدد المدة',
+        basicSalary: 1650,
+        allowances: 150,
+        status: 'على رأس العمل',
+        avatarColor: 'bg-emerald-600',
+        chatter: [
+          { id: 1, user: 'النظام الآلي', text: 'تم إنشاء ملف الموظف واعتماد المباشرة الرسمية', date: '2025-01-10 09:00' }
+        ]
+      },
+      {
+        id: 'EMP-002',
+        nameAr: 'محمد إبراهيم السيد',
+        nameEn: 'Mohamed Ibrahim El-Sayed',
+        civilId: '288040412348',
+        jobTitle: 'أخصائي شؤون العاملين والرواتب (WPS)',
+        dept: 'الموارد البشرية',
+        workLocation: 'مكتب شؤون العاملين - دور التمريض',
+        manager: 'أحمد محمود الكندري',
+        phone: '+965 66778899',
+        email: 'm.ibrahim@almanar-clinic.com',
+        nationality: 'مصري',
+        dob: '1988-04-04',
+        maritalStatus: 'متزوج',
+        dependents: 2,
+        passportNo: 'A9876543',
+        passportExpiry: '2027-08-15',
+        residencyType: 'إقامة مادة 18 (حكومي/أهلي)',
+        hireDate: '2025-03-01',
+        mohLicense: 'MOH-HR-002',
+        mohLicenseExpiry: '2027-03-01',
+        specialty: 'محاسبة ونظم أجور',
+        degree: 'بكالوريوس تجارة',
+        contractType: 'محدد المدة',
+        basicSalary: 850,
+        allowances: 100,
+        status: 'على رأس العمل',
+        avatarColor: 'bg-blue-600',
+        chatter: [
+          { id: 1, user: 'أحمد الكندري', text: 'اجتاز فترة التجربة بنجاح', date: '2025-06-01 10:00' }
+        ]
+      },
+      {
+        id: 'MED-201',
+        nameAr: 'د. سارة عادل المنصور',
+        nameEn: 'Dr. Sarah Adel Al-Mansour',
+        civilId: '292080812349',
+        jobTitle: 'طبيبة استشارية - طب وجراحة العيون',
+        dept: 'الأطباء',
+        workLocation: 'عيادة العيون التخصصية - الدور 2',
+        manager: 'المدير الطبي العام',
+        phone: '+965 97711223',
+        email: 'dr.sarah@almanar-clinic.com',
+        nationality: 'كويتية',
+        dob: '1992-08-08',
+        maritalStatus: 'متزوجة',
+        dependents: 1,
+        passportNo: 'P8899112',
+        passportExpiry: '2031-11-20',
+        residencyType: 'مواطنة (بطاقة مدنية)',
+        hireDate: '2024-11-15',
+        mohLicense: 'MOH-DOC-8891',
+        mohLicenseExpiry: '2029-11-15',
+        specialty: 'طب وجراحة العيون والليزر',
+        degree: 'دكتوراه طب وجراحة (البورد الكويتي)',
+        contractType: 'محدد المدة (سنتان)',
+        basicSalary: 3200,
+        allowances: 500,
+        status: 'على رأس العمل',
+        avatarColor: 'bg-purple-600',
+        chatter: [
+          { id: 1, user: 'إدارة التراخيص الطبية', text: 'تم تجديد ترخيص مزاولة المهنة من وزارة الصحة بنجاح', date: '2025-11-01 11:30' }
+        ]
+      },
+      {
+        id: 'MED-202',
+        nameAr: 'مريم يوسف العتيبي',
+        nameEn: 'Maryam Youssef Al-Otaibi',
+        civilId: '296020212350',
+        jobTitle: 'رئيسة هيئة التمريض والتعقيم',
+        dept: 'التمريض',
+        workLocation: 'قسم العمليات والتعقيم المركزي',
+        manager: 'د. سارة عادل المنصور',
+        phone: '+965 55443322',
+        email: 'm.otaibi@almanar-clinic.com',
+        nationality: 'كويتية',
+        dob: '1996-02-02',
+        maritalStatus: 'عزباء',
+        dependents: 0,
+        passportNo: 'P5544332',
+        passportExpiry: '2029-02-02',
+        residencyType: 'مواطنة (بطاقة مدنية)',
+        hireDate: '2025-02-01',
+        mohLicense: 'MOH-NUR-4412',
+        mohLicenseExpiry: '2028-02-01',
+        specialty: 'تمريض العناية المركزة والعمليات',
+        degree: 'بكالوريوس تمريض (BScN)',
+        contractType: 'غير محدد المدة',
+        basicSalary: 1300,
+        allowances: 200,
+        status: 'على رأس العمل',
+        avatarColor: 'bg-rose-600',
+        chatter: [
+          { id: 1, user: 'شؤون التمريض', text: 'اكتمال فحص اللياقة الطبية وبصمات الأدلة الجنائية', date: '2025-02-01 08:30' }
+        ]
+      },
+      {
+        id: 'CUST-002',
+        nameAr: 'سعد جابر العنزي',
+        nameEn: 'Saad Jaber Al-Anzi',
+        civilId: '291070712351',
+        jobTitle: 'مشرف الأمن والسلامة واللوجستيات',
+        dept: 'الأمن والخدمات',
+        workLocation: 'بوابة الاستقبال الرئيسي والمداخل',
+        manager: 'أحمد محمود الكندري',
+        phone: '+965 98441122',
+        email: 'sec.saad@almanar-clinic.com',
+        nationality: 'كويتي',
+        dob: '1991-07-07',
+        maritalStatus: 'متزوج',
+        dependents: 4,
+        passportNo: 'P3322114',
+        passportExpiry: '2032-06-10',
+        residencyType: 'مواطن (بطاقة مدنية)',
+        hireDate: '2025-05-10',
+        mohLicense: 'MOH-LOG-110',
+        mohLicenseExpiry: '2028-05-10',
+        specialty: 'إدارة الأمن والسلامة المهنية (OSHA)',
+        degree: 'دبلوم سلامة مهنية',
+        contractType: 'محدد المدة',
+        basicSalary: 600,
+        allowances: 100,
+        status: 'على رأس العمل',
+        avatarColor: 'bg-slate-700',
+        chatter: [
+          { id: 1, user: 'أحمد الكندري', text: 'تسليم مهام الأمن والسلامة', date: '2025-05-10 09:15' }
+        ]
+      }
     ];
-  }, [activeCompany]);
-  const [editingEmp, setEditingEmp] = useState<Partial<Employee> | null>(selectedEmpForForm);
-  const [activeTab, setActiveTab] = useState<'WORK' | 'PRIVATE' | 'HR_SETTINGS' | 'LEGAL' | 'BANK' | 'DOCUMENTS'>('WORK');
-  const [civilIdError, setCivilIdError] = useState<string | null>(null);
-  const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<{ id: string; name: string } | null>(null);
-  const [deleteReason, setDeleteReason] = useState<string>('استقالة أو إنهاء خدمات');
-  const [showSoftDeletedModal, setShowSoftDeletedModal] = useState<boolean>(false);
-  const [showPurgeModal, setShowPurgeModal] = useState<boolean>(false);
-  const [purgeConfirmText, setPurgeConfirmText] = useState<string>('');
-
-  const activeCompId = activeCompany?.id || '';
-  const companyEmps = (employees || []).filter(e => e.companyId === activeCompId);
-  const softDeletedEmps = companyEmps.filter(e => e.isDeleted);
-
-  // Local interactive search state
-  const [localSearchTerm, setLocalSearchTerm] = useState<string>(searchTerm || '');
-
-  useEffect(() => {
-    if (searchTerm !== undefined) {
-      setLocalSearchTerm(searchTerm);
-    }
-  }, [searchTerm]);
-
-  // Compute effective job titles (from props or auto-derived from employees & standard catalog)
-  const effectiveJobTitles = React.useMemo(() => {
-    const map = new Map<string, JobTitle>();
-    (jobTitles || []).forEach(jt => {
-      if (jt.titleName) map.set(jt.titleName.trim(), jt);
-    });
-    // Add any missing job titles found in current employees
-    companyEmps.forEach(emp => {
-      if (emp.jobTitle && emp.jobTitle.trim() && !map.has(emp.jobTitle.trim())) {
-        map.set(emp.jobTitle.trim(), {
-          id: `jt-emp-${emp.id}`,
-          titleName: emp.jobTitle.trim(),
-          departmentName: emp.department || 'عام',
-          description: 'مسمى وظيفي مستخدم في شؤون الموظفين'
-        });
-      }
-    });
-    return Array.from(map.values());
-  }, [jobTitles, companyEmps]);
-
-  // Odoo Search Facets & Filters State
-  const [odooFilter, setOdooFilter] = useState<'ALL' | 'ACTIVE' | 'ON_LEAVE' | 'ARCHIVED'>('ALL');
-  const [odooGroupBy, setOdooGroupBy] = useState<'NONE' | 'DEPARTMENT' | 'MANAGER'>('NONE');
-  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
-  const [localViewMode, setLocalViewMode] = useState<ViewMode>(() => {
-    return (localStorage.getItem('employees_view_mode') as ViewMode) || 'KANBAN';
   });
 
-  const handleViewModeChange = (mode: ViewMode) => {
-    setLocalViewMode(mode);
-    localStorage.setItem('employees_view_mode', mode);
-    if (onViewModeChange) onViewModeChange(mode);
-  };
-  const [isGroupByMenuOpen, setIsGroupByMenuOpen] = useState(false);
-
-  // Inline Job Title Editing state
-  const [inlineEditingJobEmpId, setInlineEditingJobEmpId] = useState<string | null>(null);
-  const [inlineJobTitleText, setInlineJobTitleText] = useState<string>('');
-  const [quickStatusMenuEmpId, setQuickStatusMenuEmpId] = useState<string | null>(null);
-
-  // Job Titles Modal state
-  const [isJobTitlesModalOpen, setIsJobTitlesModalOpen] = useState<boolean>(false);
-  const [jobTitleSearch, setJobTitleSearch] = useState<string>('');
-  const [editingJobTitleObj, setEditingJobTitleObj] = useState<Partial<JobTitle> | null>(null);
-
-  const [loadingScan, setLoadingScan] = useState<boolean>(false);
-  const [scannedFilePreviewUrl, setScannedFilePreviewUrl] = useState<string | null>(null);
-  const [highlightedFields, setHighlightedFields] = useState<Record<string, boolean>>({});
-
-  // Aysed S AI Scan states
-  const [isAiScanDropdownOpen, setIsAiScanDropdownOpen] = useState<boolean>(false);
-  const [activeScanModalType, setActiveScanModalType] = useState<'CIVIL_ID' | 'PASSPORT' | 'WORK_PERMIT' | 'LIVE_CAMERA' | null>(null);
-  const [aiScanResult, setAiScanResult] = useState<any>(null);
-
-  // Profile Picture state
-  const [isAvatarDropdownOpen, setIsAvatarDropdownOpen] = useState<boolean>(false);
-  const [showPresetAvatarsModal, setShowPresetAvatarsModal] = useState<boolean>(false);
-  const [showAvatarUrlModal, setShowAvatarUrlModal] = useState<boolean>(false);
-  const [tempUrlInput, setTempUrlInput] = useState<string>('');
-
-  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('حجم الصورة يجب ألا يتجاوز 10 ميجابايت');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const rawBase64 = reader.result as string;
-      const img = new Image();
-      img.onload = () => {
-        const maxWidth = 300;
-        const maxHeight = 300;
-        let width = img.width;
-        let height = img.height;
-        if (width > maxWidth || height > maxHeight) {
-          if (width > height) {
-            height = Math.round((height * maxWidth) / width);
-            width = maxWidth;
-          } else {
-            width = Math.round((width * maxHeight) / height);
-            height = maxHeight;
-          }
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
-          setEditingEmp(prev => prev ? ({ ...prev, avatarUrl: compressedBase64 }) : null);
-        } else {
-          setEditingEmp(prev => prev ? ({ ...prev, avatarUrl: rawBase64 }) : null);
-        }
-        toast.success('تم تحميل صورة البروفايل بنجاح');
-      };
-      img.onerror = () => {
-        setEditingEmp(prev => prev ? ({ ...prev, avatarUrl: rawBase64 }) : null);
-        toast.success('تم تحميل صورة البروفايل بنجاح');
-      };
-      img.src = rawBase64;
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const [activeHighlightField, setActiveHighlightField] = useState<string | null>(highlightField || null);
-
+  // 2. تحديث التخزين المحلي تلقائياً عند أي إضافة أو تعديل
   useEffect(() => {
-    if (highlightField) {
-      setActiveHighlightField(highlightField);
+    localStorage.setItem('app_employees_data', JSON.stringify(employees));
+    localStorage.setItem('odoo_employees_v1', JSON.stringify(employees));
+  }, [employees]);
+
+  const [contracts, setContracts] = useState(() => {
+    const saved = localStorage.getItem('odoo_contracts_v1');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
     }
-  }, [highlightField]);
-
-  useEffect(() => {
-    if (selectedEmpForForm) {
-      setEditingEmp(selectedEmpForForm);
-      setCivilIdError(null);
-
-      const targetField = highlightField || activeHighlightField;
-      if (targetField) {
-        // Automatically switch to the appropriate tab based on field
-        if (['nationality', 'residencyType', 'dob', 'gender', 'phone', 'email'].includes(targetField)) {
-          setActiveTab('PRIVATE');
-        } else if (['biometricId', 'badgeId', 'pinCode', 'lastAccrualDate', 'defaultHolidayCompensationPreference'].includes(targetField)) {
-          setActiveTab('HR_SETTINGS');
-        } else if (['bankName', 'iban', 'accountNumber'].includes(targetField)) {
-          setActiveTab('BANK');
-        } else {
-          setActiveTab('WORK');
-        }
-
-        // Auto-focus and scroll smoothly to the target field
-        const timer = setTimeout(() => {
-          const el = document.getElementById(`field-${targetField}`) || document.getElementById(targetField);
-          if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            el.focus();
-          }
-        }, 220);
-
-        return () => clearTimeout(timer);
-      } else {
-        setActiveTab('WORK');
+    return [
+      {
+        id: 'CNT-2026-001',
+        refTitle: 'عقد عمل طبي - د. سارة عادل المنصور - 2026',
+        employeeId: 'MED-201',
+        employeeName: 'د. سارة عادل المنصور',
+        jobPosition: 'طبيبة استشارية - طب وجراحة العيون',
+        department: 'الأطباء',
+        structureType: 'عقد كادر طبي خاص (أطباء استشاريين)',
+        contractType: 'محدد المدة (سنتان)',
+        startDate: '2024-11-15',
+        endDate: '2026-11-14',
+        trialEndDate: '2025-02-22',
+        hrResponsible: 'أحمد محمود الكندري',
+        status: 'Running',
+        wage: 3200,
+        housingAllowance: 250,
+        transportAllowance: 100,
+        medicalAllowance: 150,
+        workingSchedule: 'دوام كامل - 48 ساعة أسبوعياً (مناوبات طبية متجددة)',
+        annualLeaveDays: 30,
+        noticePeriod: '3 أشهر (وفق قانون العمل الكويتي)',
+        nonCompete: 'ساري لمدة سنة كاملة داخل دولة الكويت في نفس الاختصاص الطبي',
+        travelAndInsurance: 'تذاكر سفر سنوية ذهاب وعودة (درجة رجال الأعمال) + تأمين صحي VIP شامل العائلة',
+        chatter: [
+          { id: 1, user: 'أحمد الكندري', text: 'تم تحرير العقد وإرساله للمراجعة القانونية ووزارة الصحة', date: '2024-11-10 09:30' },
+          { id: 2, user: 'أحمد الكندري', text: 'اجتازت فترة التجربة (100 يوم) بنجاح تام وتفعيل العقد رسمياً', date: '2025-02-22 14:15' }
+        ]
+      },
+      {
+        id: 'CNT-2026-002',
+        refTitle: 'عقد إداري - أحمد محمود الكندري - 2026',
+        employeeId: 'EMP-001',
+        employeeName: 'أحمد محمود الكندري',
+        jobPosition: 'مدير الموارد البشرية والشؤون الإدارية',
+        department: 'الإدارة العليا',
+        structureType: 'عقد إداري قيادي',
+        contractType: 'غير محدد المدة',
+        startDate: '2025-01-10',
+        endDate: '',
+        trialEndDate: '2025-04-20',
+        hrResponsible: 'إدارة الشؤون القانونية',
+        status: 'Running',
+        wage: 1650,
+        housingAllowance: 100,
+        transportAllowance: 50,
+        medicalAllowance: 0,
+        workingSchedule: 'دوام كامل - 48 ساعة أسبوعياً (الأحد إلى الخميس)',
+        annualLeaveDays: 30,
+        noticePeriod: 'شهر واحد',
+        nonCompete: 'لا يوجد',
+        travelAndInsurance: 'تذاكر سنوية سياحية + تأمين صحي أساسي',
+        chatter: [
+          { id: 1, user: 'الشؤون القانونية', text: 'تم اعتماد العقد وتوثيقه لدى الشغل', date: '2025-01-10 11:00' }
+        ]
+      },
+      {
+        id: 'CNT-2026-003',
+        refTitle: 'عقد تمريض - مريم يوسف العتيبي - 2026',
+        employeeId: 'MED-202',
+        employeeName: 'مريم يوسف العتيبي',
+        jobPosition: 'رئيسة هيئة التمريض والتعقيم',
+        department: 'التمريض',
+        structureType: 'عقد كادر تمريض فني',
+        contractType: 'غير محدد المدة',
+        startDate: '2025-02-01',
+        endDate: '',
+        trialEndDate: '2025-05-11',
+        hrResponsible: 'أحمد محمود الكندري',
+        status: 'Running',
+        wage: 1300,
+        housingAllowance: 150,
+        transportAllowance: 50,
+        medicalAllowance: 0,
+        workingSchedule: 'نظام مناوبات (صباحي / مسائي)',
+        annualLeaveDays: 30,
+        noticePeriod: 'شهر واحد',
+        nonCompete: 'لا يوجد',
+        travelAndInsurance: 'تذاكر سنوية + تأمين صحي',
+        chatter: [
+          { id: 1, user: 'أحمد الكندري', text: 'توقيع العقد مباشرة العمل', date: '2025-02-01 08:30' }
+        ]
       }
-    }
-  }, [selectedEmpForForm, highlightField]);
-
-  const getFieldNameArabic = (field: string) => {
-    switch (field) {
-      case 'residencyType': return 'نوع الإقامة / التوطين';
-      case 'nationality': return 'الجنسية';
-      case 'civilId': return 'الرقم المدني الكويتي';
-      case 'fullNameAr': return 'اسم الموظف (بالعربية)';
-      case 'fullNameEn': return 'اسم الموظف (بالإنجليزية)';
-      case 'employeeCode': return 'كود النظام الوظيفي';
-      case 'jobTitle': return 'المسمى الوظيفي';
-      case 'department': return 'القسم / الإدارة';
-      case 'joinDate': return 'تاريخ الالتحاق بالعمل';
-      case 'dob': return 'تاريخ الميلاد';
-      case 'gender': return 'الجنس';
-      case 'phone': return 'رقم الهاتف المحمول';
-      case 'email': return 'البريد الإلكتروني';
-      case 'biometricId': return 'معرف البصمة (Biometric ID)';
-      case 'badgeId': return 'معرف الشارة (Badge ID)';
-      case 'pinCode': return 'رقم سري البصمة (PIN)';
-      case 'lastAccrualDate': return 'تاريخ آخر استحقاق شهري';
-      case 'carriedOverLeave2025': return 'الرصيد المرحل للإجازات';
-      case 'bankName': return 'اسم البنك';
-      case 'iban': return 'رقم الآيبان (IBAN)';
-      case 'basicSalary': return 'الراتب الأساسي';
-      case 'mohLicenseNo': return 'رقم ترخيص وزارة الصحة';
-      case 'mohLicenseExpiry': return 'تاريخ انتهاء ترخيص وزارة الصحة';
-      default: return field;
-    }
-  };
-
-  const getFieldHighlightClass = (fieldName: string) => {
-    if (activeHighlightField === fieldName) {
-      return 'ring-4 ring-purple-600/80 border-purple-600 bg-purple-50/80 shadow-md transition-all duration-300 animate-pulse';
-    }
-    return '';
-  };
-
-  const renderFieldHighlightIndicator = (fieldName: string, customMsg?: string) => {
-    if (activeHighlightField !== fieldName) return null;
-    return (
-      <div className="flex items-center gap-1.5 text-[11px] font-bold text-purple-900 bg-purple-100 border border-purple-300 px-2.5 py-1 rounded-lg mt-1.5 shadow-xs animate-in fade-in slide-in-from-top-1">
-        <Sparkles className="w-3.5 h-3.5 text-purple-700 animate-spin" />
-        <span>⚠️ الحقل المطلوب تصحيحه وفق فحص النزاهة {customMsg ? `(${customMsg})` : ''}</span>
-      </div>
-    );
-  };
-
-  const filteredEmps = companyEmps.filter(emp => {
-    if (odooFilter === 'ARCHIVED') {
-      if (!emp.isDeleted) return false;
-    } else {
-      if (emp.isDeleted) return false;
-    }
-
-    const sTerm = (localSearchTerm || '').trim().toLowerCase();
-    const matchesSearch = !sTerm ||
-      (emp.fullNameAr && emp.fullNameAr.toLowerCase().includes(sTerm)) ||
-      (emp.fullNameEn && emp.fullNameEn.toLowerCase().includes(sTerm)) ||
-      (emp.civilId && emp.civilId.includes(sTerm)) ||
-      (emp.employeeCode && emp.employeeCode.toLowerCase().includes(sTerm)) ||
-      (emp.jobTitle && emp.jobTitle.toLowerCase().includes(sTerm)) ||
-      (emp.department && emp.department.toLowerCase().includes(sTerm)) ||
-      (emp.phone && emp.phone.includes(sTerm));
-
-    if (!matchesSearch) return false;
-
-    if (odooFilter === 'ACTIVE' && emp.status !== 'ACTIVE') return false;
-    if (odooFilter === 'ON_LEAVE') {
-      const today = new Date().toISOString().split('T')[0];
-      const isOnLeave = leaves.some(l => 
-        l.employeeId === emp.id && 
-        l.status === 'APPROVED' && 
-        l.startDate <= today && 
-        (l.endDate || l.startDate) >= today
-      );
-      if (!isOnLeave) return false;
-    }
-
-    return true;
+    ];
   });
 
-  const handleOpenNewEmployee = () => {
-    const isMOH = filterTab === 'MOH';
-    setEditingEmp({
-      companyId: activeCompId,
-      employeeCode: `EMP-00${employees.length + 1}`,
-      fullNameAr: '',
-      fullNameEn: '',
-      civilId: '',
-      isKuwaiti: false,
-      nationality: 'مصري',
-      residencyType: 'مادة 18 - قطاع أهلي',
-      status: 'ACTIVE',
-      department: isMOH ? 'الجلدية والليزر والتجميل' : 'الموارد البشرية والإدارة',
-      jobTitle: isMOH ? 'طبيب' : 'موظف',
-      mohLicenseNo: isMOH ? `MOH-KW-${Math.floor(10000 + Math.random() * 90000)}` : undefined,
-      mohLicenseExpiry: isMOH ? '2029-12-31' : undefined,
-      bankName: 'بنك الكويت الوطني',
-      joinDate: new Date().toISOString().split('T')[0],
-      
-      tags: ['جديد'],
-    });
-    setActiveTab('WORK');
-    setCivilIdError(null);
-  };
-
-  const handleOpenEditEmployee = (emp: Employee) => {
-    setEditingEmp(emp);
-    setActiveTab('WORK');
-    setCivilIdError(null);
-  };
-
-  const handleCivilIdChange = (val: string) => {
-    setEditingEmp(prev => ({ ...prev, civilId: val }));
-    const cleanVal = val.trim();
-
-    if (cleanVal.length === 0) {
-      setCivilIdError(null);
-    } else if (cleanVal.length === 12) {
-      const duplicateEmp = employees.find(
-        emp => emp.id !== editingEmp?.id && emp.civilId && emp.civilId.trim() === cleanVal
-      );
-      if (duplicateEmp) {
-        setCivilIdError(`عفواً، هذا الرقم المدني مسجل سابقاً للموظف [${duplicateEmp.fullNameAr}]`);
-        return;
+  const [commencements, setCommencements] = useState(() => {
+    const saved = localStorage.getItem('odoo_commencements_v1');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return [
+      {
+        id: 'COM-2026-001',
+        employeeId: 'MED-201',
+        employeeName: 'د. سارة عادل المنصور',
+        civilId: '292080812349',
+        commencementDate: '2024-11-15',
+        healthCheckStatus: 'مكتمل (لائق صحياً - شهادة وزارة الصحة)',
+        fingerprintStatus: 'مكتمل (بصمات الأدلة الجنائية معتمدة)',
+        mohLicenseStatus: 'ساري ومطابق (ترخيص دائم صادر من وزارة الصحة)',
+        supervisingDept: 'الأطباء والعيادات التخصصية',
+        status: 'معتمد ومثبت',
+        chatter: [
+          { id: 1, user: 'أحمد الكندري', text: 'إصدار إقرار المباشرة وتثبيت العمل رسمياً', date: '2024-11-15 08:00' }
+        ]
+      },
+      {
+        id: 'COM-2026-002',
+        employeeId: 'EMP-001',
+        employeeName: 'أحمد محمود الكندري',
+        civilId: '290010112345',
+        commencementDate: '2025-01-10',
+        healthCheckStatus: 'مكتمل',
+        fingerprintStatus: 'مكتمل',
+        mohLicenseStatus: 'ساري (إداري)',
+        supervisingDept: 'الإدارة العليا',
+        status: 'معتمد ومثبت',
+        chatter: [
+          { id: 1, user: 'الإدارة القانونية', text: 'تمت المباشرة', date: '2025-01-10 09:00' }
+        ]
+      },
+      {
+        id: 'COM-2026-003',
+        employeeId: 'MED-202',
+        employeeName: 'مريم يوسف العتيبي',
+        civilId: '296020212350',
+        commencementDate: '2025-02-01',
+        healthCheckStatus: 'مكتمل',
+        fingerprintStatus: 'مكتمل',
+        mohLicenseStatus: 'ساري (ترخيص تمريض MOH)',
+        supervisingDept: 'التمريض والتعقيم',
+        status: 'معتمد ومثبت',
+        chatter: [
+          { id: 1, user: 'أحمد الكندري', text: 'المباشرة الفعلية بالقسم', date: '2025-02-01 08:30' }
+        ]
       }
+    ];
+  });
 
-      const result = validateKuwaitCivilId(cleanVal);
-      if (!result.isValid) {
-        setCivilIdError(result.message);
-      } else {
-        setCivilIdError(null);
-        if (result.dob) {
-          setEditingEmp(prev => ({ ...prev, dob: result.dob }));
-        }
-        if (result.gender) {
-          setEditingEmp(prev => ({ ...prev, gender: result.gender as any }));
-        }
-      }
-    } else {
-      setCivilIdError('الرقم المدني يتكون من 12 رقماً');
-    }
+  useEffect(() => {
+    localStorage.setItem('odoo_employees_v1', JSON.stringify(employees));
+  }, [employees]);
+
+  useEffect(() => {
+    localStorage.setItem('odoo_contracts_v1', JSON.stringify(contracts));
+  }, [contracts]);
+
+  useEffect(() => {
+    localStorage.setItem('odoo_commencements_v1', JSON.stringify(commencements));
+  }, [commencements]);
+
+  // فتح نموذج الموظف (hr.employee)
+  const openEmployeeModal = (emp: any) => {
+    setSelectedEmployee(emp);
+    setShowEmployeeModal(true);
   };
 
-  const handleAutoScan = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setLoadingScan(true);
-    const fileUrl = URL.createObjectURL(file);
-    setScannedFilePreviewUrl(fileUrl);
-
-    try {
-      const scannedData = await processAnyDocument(file);
-      let parsedDob = scannedData.dob;
-      let parsedGender = scannedData.gender;
-      const cleanCivilId = scannedData.civilId ? scannedData.civilId.trim().replace(/\D/g, '') : '';
-
-      if (cleanCivilId.length === 12) {
-        const civilInfo = parseKuwaitCivilId(cleanCivilId) || validateKuwaitCivilId(cleanCivilId);
-        if (civilInfo) {
-          if (!parsedDob && ('birthDate' in civilInfo ? civilInfo.birthDate : civilInfo.dob)) {
-            parsedDob = 'birthDate' in civilInfo ? civilInfo.birthDate : civilInfo.dob;
-          }
-          if (!parsedGender && civilInfo.gender) {
-            parsedGender = civilInfo.gender as any;
-          }
-        }
-      }
-
-      setEditingEmp(prev => ({
-        ...prev,
-        fullNameAr: scannedData.fullNameAr || scannedData.fullName || prev?.fullNameAr || '',
-        fullNameEn: scannedData.fullNameEn || prev?.fullNameEn || '',
-        civilId: cleanCivilId || prev?.civilId || '',
-        nationality: scannedData.nationality || prev?.nationality || '',
-        civilIdExpiry: scannedData.expiryDate || prev?.civilIdExpiry || '',
-        dob: parsedDob || prev?.dob || '',
-        gender: (parsedGender as 'MALE' | 'FEMALE') || prev?.gender || 'MALE',
-        passportNo: scannedData.passportNo || prev?.passportNo || '',
-        jobTitle: scannedData.jobTitle || prev?.jobTitle || '',
-      }));
-
-      setHighlightedFields({
-        fullNameAr: true,
-        fullNameEn: true,
-        civilId: true,
-        nationality: true,
-        civilIdExpiry: true,
-        dob: true,
-        gender: true,
-        jobTitle: true,
-      });
-
-      toast.success('تم مسح المستند واستخراج البيانات بنجاح!');
-    } catch (error) {
-      console.error(error);
-      toast.error('تعذر قراءة المستند، يرجى إدخال البيانات يدوياً.');
-    } finally {
-      setLoadingScan(false);
-    }
+  // فتح نموذج العقد (hr.contract)
+  const openContractModal = (contract: any) => {
+    setSelectedContract(contract);
+    setShowContractModal(true);
   };
 
-  const empValidation = useMemo(() => {
-    if (!editingEmp) return { isValid: true, errors: [], warnings: [], integrityScore: 100 };
-    return validateEmployeeIntegrity(editingEmp, employees);
-  }, [editingEmp, employees]);
+  // فتح نموذج إقرار المباشرة
+  const openCommencementModal = (com: any) => {
+    setSelectedCommencement(com);
+    setShowCommencementModal(true);
+  };
 
-  const handleSave = () => {
-    if (!editingEmp?.fullNameAr || !editingEmp?.fullNameAr.trim()) {
-      toast.error('يرجى إدخال اسم الموظف بالعربية');
-      return;
-    }
-    if (!editingEmp?.civilId || !editingEmp?.civilId.trim()) {
-      toast.error('يرجى إدخال الرقم المدني الكويتي');
-      return;
-    }
-
-    // Strict Global Integrity Guard
-    const validation = validateEmployeeIntegrity(editingEmp, employees);
-    if (!validation.isValid) {
-      toast.error(`خطأ في التحقق البرمجي: ${validation.errors[0]}`);
-      return;
-    }
-
-    const cleanCivilId = editingEmp.civilId?.trim() || '';
-
-    const empToSave: Employee = {
-      id: editingEmp.id || `emp-${Date.now()}`,
-      companyId: editingEmp.companyId || activeCompId,
-      branchId: activeCompany?.id || activeCompId || 'hq',
-      branchName: activeCompany?.name || 'المركز الرئيسي',
-      employeeCode: editingEmp.employeeCode || `EMP-00${employees.length + 1}`,
-      fullNameAr: editingEmp.fullNameAr.trim(),
-      fullNameEn: editingEmp.fullNameEn?.trim() || '',
-      civilId: cleanCivilId,
-      civilIdExpiry: editingEmp.civilIdExpiry || '2028-12-31',
-      passportNo: editingEmp.passportNo || '',
-      passportExpiry: editingEmp.passportExpiry || '2029-12-31',
-      nationality: editingEmp.nationality?.trim() || 'مصري',
-      isKuwaiti: Boolean(
-        editingEmp.nationality?.trim()
-          ? (editingEmp.nationality.trim().includes('كويت') || editingEmp.nationality.trim() === 'كويتي' || editingEmp.nationality.trim().toLowerCase() === 'kuwaiti')
-          : editingEmp.isKuwaiti
-      ),
-      residencyType: (editingEmp.nationality?.includes('كويت') || editingEmp.nationality === 'كويتي') ? 'كويتي' : (editingEmp.residencyType && editingEmp.residencyType !== 'كويتي' ? editingEmp.residencyType : 'مادة 18 - قطاع أهلي'),
-      gender: editingEmp.gender || 'MALE',
-      dob: editingEmp.dob || '1990-01-01',
-      department: editingEmp.department || 'الموارد البشرية والإدارة',
-      departmentId: editingEmp.departmentId || '',
-      jobTitle: editingEmp.jobTitle || 'موظف',
-      jobTitleId: editingEmp.jobTitleId || '',
-      email: editingEmp.email || '',
-      phone: editingEmp.phone || '+965 00000000',
-      joinDate: editingEmp.joinDate || new Date().toISOString().split('T')[0],
-      mohLicenseNo: editingEmp.mohLicenseNo || '',
-      mohLicenseExpiry: editingEmp.mohLicenseExpiry || '',
-      status: editingEmp.status || 'ACTIVE',
-      bankName: editingEmp.bankName || 'بنك الكويت الوطني',
-      iban: editingEmp.iban || '',
-      avatarUrl: editingEmp.avatarUrl || '',
-      tags: editingEmp.tags || ['نشط'],
-      notes: editingEmp.notes || '',
-      biometricId: editingEmp.biometricId?.trim() || undefined,
-      badgeId: editingEmp.badgeId?.trim() || undefined,
-      pinCode: editingEmp.pinCode?.trim() || undefined,
-      parentId: editingEmp.parentId || undefined,
-      coachId: editingEmp.coachId || undefined,
-      carriedOverLeave2025: Number(editingEmp.carriedOverLeave2025 ?? editingEmp.carriedOverBalance ?? 0),
-      carriedOverBalance: Number(editingEmp.carriedOverBalance ?? editingEmp.carriedOverLeave2025 ?? 0),
-      openingBalance: Number(editingEmp.openingBalance ?? editingEmp.carriedOverLeave2025 ?? 0),
-      openingLeaveBalance: Number(editingEmp.openingLeaveBalance ?? editingEmp.carriedOverLeave2025 ?? 0),
-      days_carried_over: Number(editingEmp.carriedOverLeave2025 ?? editingEmp.carriedOverBalance ?? 0),
-      lastAccrualDate: editingEmp.lastAccrualDate || undefined,
+  // إنشاء إقرار مباشرة عمل جديد
+  const handleCreateCommencement = () => {
+    const newCom = {
+      id: `COM-2026-00${commencements.length + 1}`,
+      employeeId: employees[0].id,
+      employeeName: employees[0].nameAr,
+      civilId: employees[0].civilId,
+      commencementDate: new Date().toISOString().slice(0, 10),
+      healthCheckStatus: 'قيد المراجعة الطبية (لائق)',
+      fingerprintStatus: 'جاري إنجاز بصمات وزارة الداخلية',
+      mohLicenseStatus: 'ترخيص مؤقت معتمد',
+      supervisingDept: employees[0].dept,
+      status: 'مسودة',
+      chatter: [
+        { id: 1, user: 'أحمد الكندري', text: 'إنشاء إقرار مباشرة العمل الجديد', date: new Date().toLocaleString() }
+      ]
     };
+    setCommencements([newCom, ...commencements]);
+    setSelectedCommencement(newCom);
+    setShowCommencementModal(true);
+  };
 
-    onSaveEmployee(empToSave);
-    setEditingEmp(null);
-    setScannedFilePreviewUrl(null);
-    setHighlightedFields({});
-    setCivilIdError(null);
-    if (onCloseForm) onCloseForm();
-    toast.success('تم حفظ بيانات الموظف بنجاح');
+  // إنشاء عقد جديد
+  const handleCreateNewContract = () => {
+    const newCnt = {
+      id: `CNT-2026-00${contracts.length + 1}`,
+      refTitle: `عقد عمل جديد - موظف جديد - 2026`,
+      employeeId: 'NEW-01',
+      employeeName: 'موظف جديد',
+      jobPosition: 'طبيب ممارس عام',
+      department: 'الأطباء',
+      structureType: 'عقد كادر أهلي قياسي',
+      contractType: 'محدد المدة (سنة واحدة)',
+      startDate: new Date().toISOString().slice(0, 10),
+      endDate: new Date(Date.now() + 31536000000).toISOString().slice(0, 10),
+      trialEndDate: new Date(Date.now() + 8640000000).toISOString().slice(0, 10),
+      hrResponsible: 'أحمد محمود الكندري',
+      status: 'Draft',
+      wage: 900,
+      housingAllowance: 100,
+      transportAllowance: 50,
+      medicalAllowance: 0,
+      workingSchedule: 'دوام كامل - 48 ساعة أسبوعياً',
+      annualLeaveDays: 30,
+      noticePeriod: 'شهر واحد',
+      nonCompete: 'لا يوجد',
+      travelAndInsurance: 'تذاكر سفر سنوية + تأمين صحي',
+      chatter: [
+        { id: 1, user: 'أحمد الكندري', text: 'تم إنشاء مسودة العقد النظامية', date: new Date().toLocaleString() }
+      ]
+    };
+    setContracts([newCnt, ...contracts]);
+    setSelectedContract(newCnt);
+    setShowContractModal(true);
+  };
+
+  // تغيير حالة العقد
+  const changeContractStatus = (newStatus: string) => {
+    if (!selectedContract) return;
+    const updatedCnt = { 
+      ...selectedContract, 
+      status: newStatus,
+      chatter: [
+        ...selectedContract.chatter,
+        { id: Date.now(), user: 'النظام الآلي', text: `تم تغيير حالة العقد إلى: ${newStatus}`, date: new Date().toLocaleString() }
+      ]
+    };
+    setSelectedContract(updatedCnt);
+    setContracts(contracts.map(c => c.id === updatedCnt.id ? updatedCnt : c));
+  };
+
+  // إضافة رسالة في الـ Chatter العام أو المودال
+  const handleAddChatter = (target: 'employee' | 'contract' | 'commencement', e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatterInput.trim()) return;
+
+    if (target === 'contract' && selectedContract) {
+      const updatedChatter = [
+        ...selectedContract.chatter,
+        { id: Date.now(), user: 'أحمد الكندري (مدير HR)', text: chatterInput, date: new Date().toLocaleString() }
+      ];
+      const updated = { ...selectedContract, chatter: updatedChatter };
+      setSelectedContract(updated);
+      setContracts(contracts.map(c => c.id === updated.id ? updated : c));
+    } else if (target === 'employee' && selectedEmployee) {
+      const updatedChatter = [
+        ...(selectedEmployee.chatter || []),
+        { id: Date.now(), user: 'أحمد الكندري (مدير HR)', text: chatterInput, date: new Date().toLocaleString() }
+      ];
+      const updated = { ...selectedEmployee, chatter: updatedChatter };
+      setSelectedEmployee(updated);
+      setEmployees(employees.map(e => e.id === updated.id ? updated : e));
+    } else if (target === 'commencement' && selectedCommencement) {
+      const updatedChatter = [
+        ...(selectedCommencement.chatter || []),
+        { id: Date.now(), user: 'أحمد الكندري (مدير HR)', text: chatterInput, date: new Date().toLocaleString() }
+      ];
+      const updated = { ...selectedCommencement, chatter: updatedChatter };
+      setSelectedCommencement(updated);
+      setCommencements(commencements.map(c => c.id === updated.id ? updated : c));
+    }
+    setChatterInput('');
+  };
+
+  // فلترة الموظفين
+  const filteredEmployees = employees.filter(emp => {
+    const matchDept = selectedDept === 'الكل' || emp.dept === selectedDept;
+    const matchSearch = emp.nameAr.includes(searchQuery) || emp.civilId.includes(searchQuery) || emp.id.toLowerCase().includes(searchQuery.toLowerCase()) || emp.jobTitle.includes(searchQuery);
+    return matchDept && matchSearch;
+  });
+
+  // تصدير Excel حقيقي
+  const exportToExcel = () => {
+    const headers = ['المعرف', 'اسم الموظف', 'الرقم المدني', 'المسمى الوظيفي', 'القسم', 'الهاتف', 'تاريخ التعيين', 'ترخيص MOH', 'الراتب الأساسي', 'البدلات', 'إجمالي الراتب', 'الحالة'];
+    const rows = filteredEmployees.map(e => [
+      e.id,
+      `"${e.nameAr}"`,
+      `="${e.civilId}"`,
+      `"${e.jobTitle}"`,
+      `"${e.dept}"`,
+      `"${e.phone}"`,
+      e.hireDate,
+      e.mohLicense,
+      e.basicSalary,
+      e.allowances,
+      e.basicSalary + e.allowances,
+      `"${e.status}"`
+    ]);
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `دليل_الموظفين_الكويت_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
-    <div className="p-6 bg-[#f8fafc] min-h-[calc(100vh-3rem)] font-['Cairo',sans-serif]">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-200">
-        <div>
-          <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-            <span>إدارة الموظفين (Employees)</span>
-            <span className="text-xs bg-[#714B67] text-white px-2.5 py-0.5 rounded-full font-mono">
-              {filteredEmps.length} موظف
-            </span>
-          </h2>
-          <p className="text-xs text-slate-500 mt-1">
-            نظام الموارد البشرية المتكامل وفق قانون العمل الكويتي ومعايير أودو العالمية
-          </p>
-        </div>
+    <div className="flex-1 flex flex-col bg-slate-100 overflow-y-auto w-full p-4 font-sans select-none text-slate-800" dir="rtl">
+      
+      {/* 1. الترويسة الرئيسية مع شريط التبويبات الفرعية */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4 mb-3">
+          
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 bg-rose-500 rounded-xl flex items-center justify-center text-white text-xl shadow-sm">
+              👥
+            </div>
+            <div>
+              <h1 className="text-base font-bold text-slate-800">
+                دليل وبطاقات الموظفين وعقود العمل (Odoo 18 Enterprise)
+              </h1>
+              <p className="text-xs text-slate-500">
+                المنشأة: عيادة إيليت كلينك | قانون العمل الكويتي رقم 6 لسنة 2010 وتراخيص وزارة الصحة
+              </p>
+            </div>
+          </div>
 
-        <div className="flex items-center gap-3 flex-wrap">
-          <button
-            onClick={() => setShowSoftDeletedModal(true)}
-            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 transition flex items-center gap-1.5 shadow-xs cursor-pointer relative"
-          >
-            <History className="w-3.5 h-3.5 text-rose-600" />
-            <span>الأرشيف (المحذوفات)</span>
-            {softDeletedEmps.length > 0 && (
-              <span className="bg-rose-600 text-white px-1.5 py-0.2 rounded-full text-[10px] font-mono">
-                {softDeletedEmps.length}
-              </span>)}
-          </button>
-
-          {/* View Switcher */}
-          <div className="flex gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
+          {/* شريط التبويبات الأربعة المتطابق */}
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 gap-1">
             <button
-              onClick={() => handleViewModeChange('KANBAN')}
-              className={`px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-1.5 ${
-                localViewMode === 'KANBAN'
-                  ? 'bg-[#714B67] text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+              onClick={() => setActiveTab('directory')}
+              className={`px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                activeTab === 'directory' ? 'bg-white text-purple-900 shadow-sm border border-slate-200' : 'hover:bg-slate-200/60'
               }`}
             >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              <span>كانبان</span>
+              <span>📇</span> دليل وبطاقات الموظفين
             </button>
+
             <button
-              onClick={() => handleViewModeChange('LIST')}
-              className={`px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-1.5 ${
-                localViewMode === 'LIST'
-                  ? 'bg-[#714B67] text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+              onClick={() => setActiveTab('contracts')}
+              className={`px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                activeTab === 'contracts' ? 'bg-white text-purple-900 shadow-sm border border-slate-200' : 'hover:bg-slate-200/60'
               }`}
             >
-              <List className="w-3.5 h-3.5" />
-              <span>قائمة</span>
+              <span>📝</span> العقود والرواتب
+            </button>
+
+            <button
+              onClick={() => setActiveTab('commencement')}
+              className={`px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                activeTab === 'commencement' ? 'bg-white text-purple-900 shadow-sm border border-slate-200' : 'hover:bg-slate-200/60'
+              }`}
+            >
+              <span>🏥</span> إقرارات المباشرة وتراخيص MOH
             </button>
           </div>
-
-          <button
-            onClick={() => setIsJobTitlesModalOpen(true)}
-            className="bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold px-3 py-2 rounded-lg border border-slate-300 shadow-xs flex items-center gap-1.5 transition cursor-pointer"
-          >
-            <Briefcase className="w-4 h-4 text-[#714B67]" />
-            <span>شجرة المسميات ({effectiveJobTitles.length})</span>
-          </button>
-
-          <button
-            onClick={handleOpenNewEmployee}
-            className="bg-[#714B67] hover:bg-[#5a3a52] text-white text-xs font-bold px-4 py-2 rounded-lg shadow flex items-center gap-2 transition cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>إضافة موظف</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Top Bar / Stats Summary */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between min-h-[72px]">
-          <div>
-            <p className="text-[11px] text-slate-500 font-semibold">إجمالي الموظفين</p>
-            <p className="text-xl font-bold text-slate-900 mt-0.5 font-mono">{companyEmps.filter(e => !e.isDeleted).length}</p>
-          </div>
-          <div className="w-9 h-9 rounded-lg bg-purple-50 flex items-center justify-center text-[#714B67]">
-            <Users size={18} />
-          </div>
         </div>
 
-        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between min-h-[72px]">
-          <div>
-            <p className="text-[11px] text-slate-500 font-semibold">الموظفون النشطون</p>
-            <p className="text-xl font-bold text-emerald-600 mt-0.5 font-mono">
-              {companyEmps.filter(e => !e.isDeleted && e.status === 'ACTIVE').length}
-            </p>
-          </div>
-          <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600">
-            <CheckCircle size={18} />
-          </div>
-        </div>
+        {/* 2. شريط الأزرار الفعالة */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+          <div className="flex items-center gap-2 min-w-max">
+            <button 
+              onClick={() => setShowAddEmployeeModal(true)}
+              className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+            >
+              <span>+</span>
+              <span>تسجيل موظف جديد (hr.employee)</span>
+            </button>
 
-        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between min-h-[72px]">
-          <div>
-            <p className="text-[11px] text-slate-500 font-semibold">في إجازة اليوم</p>
-            <p className="text-xl font-bold text-amber-600 mt-0.5 font-mono">
-              {companyEmps.filter(emp => {
-                if (emp.isDeleted) return false;
-                const today = new Date().toISOString().split('T')[0];
-                return leaves.some(l => 
-                  l.employeeId === emp.id && 
-                  l.status === 'APPROVED' && 
-                  l.startDate <= today && 
-                  (l.endDate || l.startDate) >= today
-                );
-              }).length}
-            </p>
-          </div>
-          <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600">
-            <Calendar size={18} />
-          </div>
-        </div>
-
-        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between min-h-[72px]">
-          <div>
-            <p className="text-[11px] text-slate-500 font-semibold">سجلات الأرشيف</p>
-            <p className="text-xl font-bold text-slate-600 mt-0.5 font-mono">
-              {softDeletedEmps.length}
-            </p>
-          </div>
-          <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600">
-            <Folder size={18} />
-          </div>
-        </div>
-      </div>
-
-      {/* Search & Filter Bar - Odoo Enterprise Slim & Compact */}
-      <div className="bg-white rounded-xl border border-slate-200 mb-3 shadow-2xs px-3 py-2 flex flex-wrap items-center justify-between gap-2.5">
-        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-          <div className="flex items-center bg-slate-50 rounded-lg border border-slate-200 px-2.5 py-1 focus-within:border-[#714B67] transition">
-            <Search className="w-3.5 h-3.5 text-slate-400 ml-1.5 shrink-0" />
-            <input
-              type="text"
-              placeholder="بحث سريع (الاسم، الكود، الرقم المدني)..."
-              value={localSearchTerm}
-              onChange={(e) => setLocalSearchTerm(e.target.value)}
-              className="bg-transparent outline-none text-xs w-60 text-slate-700 placeholder:text-slate-400 font-medium"
-            />
-            {localSearchTerm && (
-              <button onClick={() => setLocalSearchTerm('')} className="text-slate-400 hover:text-slate-600 p-0.5">
-                <X className="w-3 h-3" />
+            {activeTab === 'contracts' && (
+              <button 
+                onClick={handleCreateNewContract}
+                className="bg-purple-800 hover:bg-purple-900 text-white px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+              >
+                <span>+ إنشاء عقد عمل جديد (hr.contract)</span>
               </button>
             )}
+
+            {activeTab === 'commencement' && (
+              <button 
+                onClick={handleCreateCommencement}
+                className="bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+              >
+                <span>+ إصدار إقرار مباشرة عمل</span>
+              </button>
+            )}
+
+            <button 
+              onClick={() => handleTriggerPrint(activeTab === 'directory' ? 'سجل الموظفين الشامل' : activeTab === 'contracts' ? 'سجل عقود العمل' : 'إقرارات مباشرة العمل', { nameAr: 'تقرير عيادات إيليت كلينك' })}
+              className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5"
+            >
+              <span>🖨️</span> طباعة الصفحة
+            </button>
+
+            <button 
+              onClick={exportToExcel}
+              className="bg-white border border-slate-300 hover:bg-slate-50 text-emerald-700 border-emerald-300 hover:bg-emerald-50 px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5"
+            >
+              <span>📊</span> تصدير Excel
+            </button>
           </div>
 
-          <div className="relative">
-            <button 
-              onClick={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
-              className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 shadow-2xs transition cursor-pointer"
-            >
-              <Filter className="w-3.5 h-3.5 text-[#714B67]" />
-              <span>فلتر: {odooFilter === 'ALL' ? 'الكل' : odooFilter === 'ACTIVE' ? 'النشطين' : odooFilter === 'ON_LEAVE' ? 'في إجازة' : 'المؤرشفين'}</span>
-            </button>
-            {isFilterMenuOpen && (
-              <div className="absolute right-0 mt-1 w-44 bg-white border border-slate-200 shadow-xl rounded-xl py-1 z-20">
-                <button onClick={() => { setOdooFilter('ALL'); setIsFilterMenuOpen(false); }} className="w-full text-right px-3 py-1.5 text-xs hover:bg-slate-50 font-bold">الجميع</button>
-                <button onClick={() => { setOdooFilter('ACTIVE'); setIsFilterMenuOpen(false); }} className="w-full text-right px-3 py-1.5 text-xs hover:bg-slate-50 font-bold text-emerald-700">الموظفين النشطين</button>
-                <button onClick={() => { setOdooFilter('ON_LEAVE'); setIsFilterMenuOpen(false); }} className="w-full text-right px-3 py-1.5 text-xs hover:bg-slate-50 font-bold text-amber-700">في إجازة اليوم</button>
-                <button onClick={() => { setOdooFilter('ARCHIVED'); setIsFilterMenuOpen(false); }} className="w-full text-right px-3 py-1.5 text-xs hover:bg-slate-50 font-bold text-rose-700">المؤرشفين</button>
-              </div>
-            )}
-          </div>
-
-          <div className="relative">
-            <button 
-              onClick={() => setIsGroupByMenuOpen(!isGroupByMenuOpen)}
-              className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 shadow-2xs transition cursor-pointer"
-            >
-              <List className="w-3.5 h-3.5 text-[#714B67]" />
-              <span>تجميع</span>
-            </button>
-            {isGroupByMenuOpen && (
-              <div className="absolute right-0 mt-1 w-44 bg-white border border-slate-200 shadow-xl rounded-xl py-1 z-20">
-                <button onClick={() => { setOdooGroupBy('NONE'); setIsGroupByMenuOpen(false); }} className="w-full text-right px-3 py-1.5 text-xs hover:bg-slate-50 font-bold">بدون تجميع</button>
-                <button onClick={() => { setOdooGroupBy('DEPARTMENT'); setIsGroupByMenuOpen(false); }} className="w-full text-right px-3 py-1.5 text-xs hover:bg-slate-50 font-bold">حسب القسم/الإدارة</button>
-                <button onClick={() => { setOdooGroupBy('MANAGER'); setIsGroupByMenuOpen(false); }} className="w-full text-right px-3 py-1.5 text-xs hover:bg-slate-50 font-bold">حسب المدير المباشر</button>
-              </div>
-            )}
-          </div>
+          {activeTab === 'directory' && (
+            <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+              <button 
+                onClick={() => setViewMode('cards')}
+                className={`px-3 py-1.5 rounded-md font-bold transition ${viewMode === 'cards' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+              >
+                بطاقات ▦
+              </button>
+              <button 
+                onClick={() => setViewMode('list')}
+                className={`px-3 py-1.5 rounded-md font-bold transition ${viewMode === 'list' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+              >
+                قائمة ☰
+              </button>
+            </div>
+          )}
         </div>
 
-        <div className="text-[11px] text-slate-500 font-mono">
-          إجمالي النتائج: <strong className="text-slate-800">{filteredEmps.length}</strong> موظف
-        </div>
+        {activeTab === 'directory' && (
+          <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-3 border-t border-slate-100">
+            <div className="relative w-72">
+              <input 
+                type="text" 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="بحث بالاسم أو الرقم المدني أو الوظيفة..." 
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg pr-8 pl-3 py-1.5 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none"
+              />
+              <span className="absolute right-2.5 top-2 text-slate-400 text-xs">🔍</span>
+            </div>
+
+            <div className="flex items-center gap-1.5 overflow-x-auto text-xs font-semibold">
+              {['الكل', 'الموارد البشرية', 'الإدارة العليا', 'الأطباء', 'التمريض', 'الأمن والخدمات'].map((dept) => (
+                <button
+                  key={dept}
+                  onClick={() => setSelectedDept(dept)}
+                  className={`px-3 py-1 rounded-lg transition ${
+                    selectedDept === dept ? 'bg-slate-800 text-white font-bold' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {dept}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Empty State */}
-      {filteredEmps.length === 0 && (
-        <div className="bg-white rounded-xl border border-dashed border-slate-300 p-12 text-center my-6 shadow-sm min-h-[300px] flex flex-col items-center justify-center">
-          <div className="w-16 h-16 bg-purple-50 rounded-full flex items-center justify-center mx-auto mb-4 text-[#714B67]">
-            <Users className="w-8 h-8" />
-          </div>
-          <h3 className="font-bold text-slate-800 text-base mb-1">لا يوجد موظفون مطابقة للبحث</h3>
-          <p className="text-xs text-slate-500 max-w-md mx-auto mb-6">
-            قم بإضافة موظف جديد أو تعديل معايير البحث والفلترة لعرض السجلات
-          </p>
-          <button
-            onClick={handleOpenNewEmployee}
-            className="bg-[#714B67] hover:bg-[#5a3a52] text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow inline-flex items-center gap-2 transition cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>إضافة موظف جديد</span>
-          </button>
-        </div>)}
 
-      {/* KANBAN VIEW */}
-      {localViewMode === 'KANBAN' && filteredEmps.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-8">
-          {filteredEmps.map(emp => {
-            const empDocs = documents.filter(d => d.employeeId === emp.id);
-            return (
-              <div
-                key={emp.id}
-                onClick={() => handleOpenEditEmployee(emp)}
-                className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition p-4 flex flex-col justify-between cursor-pointer relative group min-h-[220px]"
-              >
-                <div>
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <div className="flex items-center gap-3">
-                      {emp.avatarUrl ? (
-                        <img src={emp.avatarUrl} alt={emp.fullNameAr} className="w-12 h-12 rounded-full object-cover border-2 border-slate-200" />) : (
-                        <div className="w-12 h-12 rounded-full bg-[#714B67]/10 text-[#714B67] flex items-center justify-center font-bold text-lg">
-                          {emp.fullNameAr.charAt(0)}
-                        </div>)}
-                      <div>
-                        <h4 className="font-bold text-slate-900 text-sm group-hover:text-[#714B67] transition">{emp.fullNameAr}</h4>
-                        <span className="text-xs text-slate-500 block truncate">{emp.jobTitle || 'موظف'}</span>
+
+      {/* 3.1 دليل وبطاقات الموظفين */}
+      {activeTab === 'directory' && (
+        <>
+          {viewMode === 'cards' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+              {filteredEmployees.map((emp) => (
+                <div 
+                  key={emp.id} 
+                  onClick={() => openEmployeeModal(emp)}
+                  className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition cursor-pointer relative flex flex-col justify-between group"
+                >
+                  <div>
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-11 h-11 rounded-xl ${emp.avatarColor} text-white flex items-center justify-center font-bold text-sm shadow-sm`}>
+                          {emp.nameAr.slice(0, 2)}
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-slate-800 text-xs group-hover:text-purple-900 transition">{emp.nameAr}</h3>
+                          <p className="text-[11px] text-slate-500">{emp.jobTitle}</p>
+                          <span className="inline-block mt-1 bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[10px] font-semibold">
+                            {emp.dept}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] bg-purple-50 text-purple-700 px-2 py-0.5 rounded font-mono font-bold">
+                        {emp.id}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1 text-[11px] text-slate-500 border-t border-slate-100 pt-3 font-mono">
+                      <div className="flex items-center justify-between">
+                        <span>📞 {emp.phone}</span>
+                        <span className="text-emerald-700 font-bold">{emp.mohLicense}</span>
                       </div>
                     </div>
+                  </div>
 
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                      emp.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600'
-                    }`}>
-                      {emp.status === 'ACTIVE' ? 'نشط' : 'متوقف'}
+                  <div className="border-t border-slate-100 mt-4 pt-3 flex items-center justify-between">
+                    <span className="font-mono font-bold text-slate-800 text-xs">
+                      {(emp.basicSalary + emp.allowances).toFixed(3)} د.ك
                     </span>
-                  </div>
-
-                  <div className="space-y-1.5 text-xs text-slate-600 mb-4 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-400">الكود:</span>
-                      <span className="font-mono font-bold text-slate-700">{emp.employeeCode}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-400">القسم:</span>
-                      <span className="font-semibold">{emp.department}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-400">الرقم المدني:</span>
-                      <span className="font-mono font-bold text-slate-900 tracking-wider text-xs">{emp.civilId}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs text-slate-500">
-                  <div className="flex items-center gap-2">
-                    <span className="bg-purple-50 text-purple-700 px-2 py-0.5 rounded-md font-mono text-[10px] border border-purple-100">
-                      🏷️ بصمة: {emp.biometricId || emp.badgeId || 'غير محدد'}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    {onSelectEmployeeForLeaves && (
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); onSelectEmployeeForLeaves(emp.id); }}
-                        className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 transition cursor-pointer"
-                        title="الإجازات"
+                    <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => openEmployeeModal(emp)}
+                        className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-900 rounded font-bold transition text-[10px] flex items-center gap-1"
+                        title="تعديل وعرض الملف"
                       >
-                        <Calendar className="w-4 h-4" />
-                      </button>)}
+                        ✏️ تعديل
+                      </button>
+                      <button
+                        onClick={(e) => handleDeleteEmployee(emp.id, emp.nameAr, e)}
+                        className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded font-bold transition text-[10px] flex items-center gap-1"
+                        title="حذف الموظف"
+                      >
+                        🗑️ حذف
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>);
-          })}
-        </div>)}
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-4">
+              <table className="w-full text-right text-xs">
+                <thead className="bg-slate-50 text-slate-700 border-b border-slate-200 font-bold">
+                  <tr>
+                    <th className="p-3.5">المعرف</th>
+                    <th className="p-3.5">اسم الموظف</th>
+                    <th className="p-3.5">الرقم المدني</th>
+                    <th className="p-3.5">المسمى الوظيفي والقسم</th>
+                    <th className="p-3.5">ترخيص وزارة الصحة</th>
+                    <th className="p-3.5">الراتب الشامل</th>
+                    <th className="p-3.5 text-center">الإجراء والتحكم</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredEmployees.map((emp) => (
+                    <tr key={emp.id} className="hover:bg-slate-50 transition cursor-pointer" onClick={() => openEmployeeModal(emp)}>
+                      <td className="p-3.5 font-mono text-purple-900 font-bold">{emp.id}</td>
+                      <td className="p-3.5 font-bold text-slate-800">{emp.nameAr}</td>
+                      <td className="p-3.5 font-mono text-slate-600">{emp.civilId}</td>
+                      <td className="p-3.5 text-slate-700">
+                        <div>{emp.jobTitle}</div>
+                        <div className="text-[10px] text-slate-400">{emp.dept}</div>
+                      </td>
+                      <td className="p-3.5 font-mono text-purple-800 font-bold">{emp.mohLicense}</td>
+                      <td className="p-3.5 font-mono font-bold text-emerald-700">{(emp.basicSalary + emp.allowances).toFixed(3)} د.ك</td>
+                      <td className="p-3.5 text-center">
+                        <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => openEmployeeModal(emp)}
+                            className="bg-purple-50 hover:bg-purple-100 text-purple-700 px-2.5 py-1 rounded font-bold transition text-[11px] flex items-center gap-1"
+                            title="تعديل وعرض الملف"
+                          >
+                            ✏️ تعديل
+                          </button>
+                          <button
+                            onClick={(e) => handleDeleteEmployee(emp.id, emp.nameAr, e)}
+                            className="bg-rose-50 hover:bg-rose-100 text-rose-600 px-2.5 py-1 rounded font-bold transition text-[11px] flex items-center gap-1"
+                            title="حذف الموظف"
+                          >
+                            🗑️ حذف
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
 
-      {/* LIST VIEW */}
-      {localViewMode === 'LIST' && filteredEmps.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-8">
-          <div className="overflow-x-auto max-h-[70vh] odoo-scrollbar">
-            <table className="w-full text-right text-xs table-auto">
-              <thead className="bg-[#714B67] text-white font-bold sticky top-0 z-10 shadow-xs">
+      {/* 3.2 العقود والرواتب */}
+      {activeTab === 'contracts' && (
+        <div className="animate-in fade-in duration-300">
+          <OdooContractsApp />
+        </div>
+      )}
+
+      {/* 3.3 إقرارات المباشرة وتراخيص MOH */}
+      {activeTab === 'commencement' && (
+        <div className="space-y-4">
+          <div className="bg-gradient-to-r from-emerald-900 to-teal-900 text-white rounded-xl p-4 shadow-sm flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-bold">إقرارات المباشرة وتراخيص وزارة الصحة (Work Commencement & MOH)</h2>
+              <p className="text-[11px] text-emerald-200 mt-0.5">إدارة إقرارات مباشرة العمل، فحص اللياقة الصحية، بصمات الأدلة الجنائية، وتراخيص مزاولة المهنة الرسمية بدولة الكويت</p>
+            </div>
+            <button
+              onClick={handleCreateCommencement}
+              className="bg-white text-emerald-900 hover:bg-emerald-50 px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm"
+            >
+              + إصدار إقرار مباشرة
+            </button>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-4">
+            <table className="w-full text-right text-xs">
+              <thead className="bg-slate-50 text-slate-700 border-b border-slate-200 font-bold">
                 <tr>
-                  <th className="py-2 px-3 w-28 whitespace-nowrap">كود النظام</th>
-                  <th className="py-2 px-3 w-36 whitespace-nowrap">معرف البصمة (Badge ID)</th>
-                  <th className="py-2 px-3 min-w-[200px] whitespace-nowrap">اسم الموظف</th>
-                  <th className="py-2 px-3 w-36 whitespace-nowrap">الرقم المدني</th>
-                  <th className="py-2 px-3 min-w-[180px] whitespace-nowrap">المسمى الوظيفي والقسم</th>
-                  <th className="py-2 px-3 w-28 whitespace-nowrap">الجنسية</th>
-                  <th className="py-2 px-3 w-32 whitespace-nowrap">تاريخ الالتحاق</th>
-                  <th className="py-2 px-3 w-24 text-center whitespace-nowrap">الإجراءات</th>
+                  <th className="p-3.5">رقم الإقرار</th>
+                  <th className="p-3.5">اسم الموظف والرقم المدني</th>
+                  <th className="p-3.5">تاريخ المباشرة الفعلي</th>
+                  <th className="p-3.5">حالة الفحص والبصمات</th>
+                  <th className="p-3.5">ترخيص وزارة الصحة</th>
+                  <th className="p-3.5">القسم المشرف</th>
+                  <th className="p-3.5 text-center">الإجراء والطباعة</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredEmps.map((emp, index) => (
-                  <tr key={emp.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'} hover:bg-slate-100/80 transition`}>
-                    <td className="py-2 px-3 font-mono font-bold text-slate-600">{emp.employeeCode}</td>
-                    <td className="py-2 px-3 font-mono">
-                      <span className="bg-purple-100 text-purple-900 border border-purple-200 px-2 py-0.5 rounded font-bold text-[11px]">
-                        {emp.biometricId || emp.badgeId || '—'}
-                      </span>
+                {commencements.map((com) => (
+                  <tr key={com.id} className="hover:bg-slate-50 transition cursor-pointer" onClick={() => openCommencementModal(com)}>
+                    <td className="p-3.5 font-mono text-emerald-800 font-bold">{com.id}</td>
+                    <td className="p-3.5 font-bold text-slate-800">
+                      <div>{com.employeeName}</div>
+                      <div className="text-[10px] text-slate-400 font-mono">{com.civilId}</div>
                     </td>
-                    <td className="py-2 px-3 font-bold text-slate-900 cursor-pointer" onClick={() => handleOpenEditEmployee(emp)}>
-                      <div className="flex items-center gap-2 hover:text-[#714B67] transition">
-                        {emp.avatarUrl ? (
-                          <img src={emp.avatarUrl} alt={emp.fullNameAr} className="w-6 h-6 rounded-full object-cover border border-slate-200" />) : (
-                          <div className="w-6 h-6 rounded-full bg-[#714B67]/10 flex items-center justify-center text-[#714B67] font-bold text-[10px]">
-                            {emp.fullNameAr.charAt(0)}
-                          </div>)}
-                        <span>{emp.fullNameAr}</span>
-                      </div>
+                    <td className="p-3.5 font-mono text-slate-700">{com.commencementDate}</td>
+                    <td className="p-3.5 text-slate-600">
+                      <div className="font-semibold text-emerald-700">{com.healthCheckStatus}</div>
+                      <div className="text-[10px] text-slate-400">{com.fingerprintStatus}</div>
                     </td>
-                    <td className="py-2 px-3 font-mono dir-ltr text-right">{emp.civilId}</td>
-                    <td className="py-2 px-3">
-                      <div className="font-semibold text-slate-800">{emp.jobTitle}</div>
-                      <div className="text-[10px] text-slate-500">{emp.department}</div>
+                    <td className="p-3.5 font-mono text-purple-700 font-bold">{com.mohLicenseStatus}</td>
+                    <td className="p-3.5 text-slate-700">{com.supervisingDept}</td>
+                    <td className="p-3.5 text-center flex items-center justify-center gap-1.5">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openCommencementModal(com); }}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded font-bold transition text-[11px]"
+                      >
+                        فتح النموذج 👁️
+                      </button>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleTriggerPrint('إقرار مباشرة العمل الرسمي', com); }}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded font-bold transition text-[11px]"
+                      >
+                        طباعة A4 🖨️
+                      </button>
+                      <button
+                        onClick={(e) => handleDeleteCommencement(com.id, e)}
+                        className="px-2 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded font-bold transition text-[11px]"
+                        title="حذف الإقرار"
+                      >
+                        🗑️
+                      </button>
                     </td>
-                    <td className="py-2 px-3">{emp.nationality}</td>
-                    <td className="py-2 px-3 font-mono">{emp.joinDate}</td>
-                    <td className="py-2 px-3 text-center">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button onClick={() => handleOpenEditEmployee(emp)} className="p-1 hover:bg-slate-200 rounded text-slate-700 cursor-pointer transition" title="تعديل">
-                          <Edit2 className="w-3.5 h-3.5 text-[#714B67]" />
-                        </button>
-                        <button onClick={() => {
-                          if (onSoftDeleteEmployee) {
-                            onSoftDeleteEmployee(emp.id, 'حذف من القائمة');
-                            toast.success('تم أرشفة الموظف بنجاح');
-                          }
-                        }} className="p-1 hover:bg-rose-50 rounded text-rose-600 cursor-pointer transition" title="حذف">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>))}
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
-        </div>)}
+        </div>
+      )}
 
-      {/* EDIT / CREATE EMPLOYEE MODAL */}
-      {editingEmp && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
-            {/* Modal Header */}
-            <div className="px-6 py-4 bg-[#714B67] text-white flex items-center justify-between">
+
+
+      {/* 4. شريط الأنشطة والمتابعة الموحد أسفل الصفحة (Odoo Chatter) */}
+      <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm flex items-center justify-between text-xs text-slate-500">
+        <div className="flex items-center gap-6">
+          <button className="flex items-center gap-1.5 hover:text-slate-900 font-semibold transition">
+            <span>✉️</span> إرسال رسالة
+          </button>
+          <button className="flex items-center gap-1.5 text-purple-900 font-bold border-b-2 border-purple-900 pb-0.5">
+            <span>📝</span> تسجيل ملاحظة
+          </button>
+          <button className="flex items-center gap-1.5 hover:text-slate-900 font-semibold transition">
+            <span>⏰</span> جدولة نشاط (Schedule Activity)
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2 text-slate-400 text-[11px]">
+          <span>👤 1 متابعين</span>
+        </div>
+      </div>
+
+      {/* نموذج تسجيل موظف جديد (Odoo Add Employee Modal) باستخدام مكون OdooEmployeeFormModal */}
+      <OdooEmployeeFormModal 
+        isOpen={showAddEmployeeModal}
+        onClose={() => setShowAddEmployeeModal(false)}
+        onSave={(newEmp) => {
+          setEmployees([newEmp, ...employees]);
+          setShowAddEmployeeModal(false);
+          alert('تم تسجيل الموظف الجديد بنجاح في نظام Odoo Enterprise!');
+        }}
+      />
+
+      {/* 5. نموذج بطاقة الموظف التفصيلية (Odoo Employee Form - hr.employee) */}
+      {showEmployeeModal && selectedEmployee && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col border border-slate-200 overflow-hidden">
+            
+            {/* T-Bar / Header */}
+            <div className="bg-[#714B67] text-white px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
-                  <User className="w-5 h-5" />
+                <div className={`w-12 h-12 rounded-xl ${selectedEmployee.avatarColor} text-white flex items-center justify-center font-bold text-base shadow`}>
+                  {selectedEmployee.nameAr.slice(0, 2)}
                 </div>
                 <div>
-                  <h3 className="font-bold text-base">
-                    {editingEmp.id && employees.some(e => e.id === editingEmp.id) ? 'تعديل ملف الموظف' : 'إضافة موظف جديد'}
-                  </h3>
-                  <p className="text-xs text-purple-200">الرقم المدني الكويتي والتفاصيل الوظيفية (Odoo HR)</p>
+                  <div className="flex items-center gap-2 min-w-max">
+                    <h2 className="text-base font-bold">{selectedEmployee.nameAr}</h2>
+                    <span className="text-xs bg-white/20 px-2 py-0.5 rounded font-mono">{selectedEmployee.id}</span>
+                  </div>
+                  <p className="text-xs text-purple-200">{selectedEmployee.jobTitle} | {selectedEmployee.dept}</p>
                 </div>
               </div>
-              {editingEmp.id && employees.some(e => e.id === editingEmp.id) && onOpenLeaveModal && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onOpenLeaveModal(editingEmp.id);
-                  }}
-                  className="bg-white text-[#714B67] hover:bg-emerald-50 hover:text-emerald-700 text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-sm transition mr-4"
-                >
-                  <Calendar className="w-3.5 h-3.5" />
-                  <span>تقديم طلب إجازة</span>
-                </button>
-              )}
+
               <button 
-                onClick={() => setEditingEmp(null)}
-                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition"
+                onClick={() => setShowEmployeeModal(false)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition font-bold"
               >
-                <X className="w-4 h-4" />
+                ✕
               </button>
             </div>
 
-            {/* Aysed S AI Scan Bar & Dropdown */}
-            <div className="bg-gradient-to-r from-purple-900 via-[#5a3a51] to-[#714B67] px-6 py-3 border-b border-purple-950 flex items-center justify-between text-white relative">
-              <div className="flex items-center gap-2.5 text-xs text-purple-100">
-                <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
-                <span className="font-bold text-white">منظومة المسح الذكي (Aysed S AI Scan):</span>
-                <span className="hidden sm:inline opacity-90">استخراج وتعبئة بيانات الهويات والمستندات بذكاء اصطناعي دقيق</span>
-              </div>
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setIsAiScanDropdownOpen(!isAiScanDropdownOpen)}
-                  className="bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-bold px-4 py-2 rounded-xl shadow-md flex items-center gap-2 transition cursor-pointer active:scale-95"
+            {/* Smart Buttons Header */}
+            <div className="bg-slate-50 border-b border-slate-200 px-6 py-2.5 flex items-center justify-between gap-4 text-xs overflow-x-auto pb-2">
+              <div className="flex items-center gap-2 min-w-max">
+                <button 
+                  onClick={() => setEmployeeSubModal('contracts')}
+                  className="bg-white border border-slate-300 hover:bg-purple-50 text-purple-900 px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 shadow-sm whitespace-nowrap shrink-0"
                 >
-                  <Scan className="w-4 h-4" />
-                  <span>Aysed S AI Scan</span>
-                  <ChevronDown className="w-3.5 h-3.5" />
+                  <span>📝</span> العقود (1)
                 </button>
-
-                {isAiScanDropdownOpen && (
-                  <>
-                    <div 
-                      className="fixed inset-0 z-40" 
-                      onClick={() => setIsAiScanDropdownOpen(false)} 
-                    />
-                    <div className="absolute left-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl text-slate-800 text-xs py-2 z-50 border border-purple-100 animate-in fade-in zoom-in-95 duration-150 dir-rtl text-right">
-                      <div className="px-4 py-2 border-b border-slate-100 bg-purple-50/50">
-                        <div className="font-bold text-purple-900 text-xs flex items-center gap-1.5">
-                          <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-                          <span>خيارات المسح الضوئي الذكي</span>
-                        </div>
-                        <div className="text-[10px] text-slate-500">اختر نوع المستند للبدء الفوري</div>
-                      </div>
-                      
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsAiScanDropdownOpen(false);
-                          setActiveScanModalType('CIVIL_ID');
-                        }}
-                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-purple-50 text-slate-700 hover:text-purple-900 transition font-medium cursor-pointer text-right"
-                      >
-                        <CreditCard className="w-4 h-4 text-purple-600" />
-                        <div>
-                          <div className="font-bold">مسح البطاقة المدنية (Scan Civil ID)</div>
-                          <div className="text-[10px] text-slate-400">استخراج الرقم المدني والاسم وتاريخ الانتهاء</div>
-                        </div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsAiScanDropdownOpen(false);
-                          setActiveScanModalType('PASSPORT');
-                        }}
-                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-purple-50 text-slate-700 hover:text-purple-900 transition font-medium cursor-pointer text-right"
-                      >
-                        <Shield className="w-4 h-4 text-indigo-600" />
-                        <div>
-                          <div className="font-bold">مسح جواز السفر (Scan Passport)</div>
-                          <div className="text-[10px] text-slate-400">استخراج رقم الجواز والجنسية وتاريخ الصلاحية</div>
-                        </div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsAiScanDropdownOpen(false);
-                          setActiveScanModalType('WORK_PERMIT');
-                        }}
-                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-purple-50 text-slate-700 hover:text-purple-900 transition font-medium cursor-pointer text-right"
-                      >
-                        <FileText className="w-4 h-4 text-emerald-600" />
-                        <div>
-                          <div className="font-bold">مسح عقد العمل / ترخيص (Work Permit)</div>
-                          <div className="text-[10px] text-slate-400">تحليل بنود التعاقد والرواتب والمهنة</div>
-                        </div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsAiScanDropdownOpen(false);
-                          setActiveScanModalType('LIVE_CAMERA');
-                        }}
-                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-purple-50 text-slate-700 hover:text-purple-900 transition font-medium cursor-pointer text-right border-t border-slate-100"
-                      >
-                        <Camera className="w-4 h-4 text-amber-600" />
-                        <div>
-                          <div className="font-bold">كاميرا التقاط المباشر (Live Camera)</div>
-                          <div className="text-[10px] text-slate-400">التقاط صورة المستند عبر كاميرا الجهاز مباشرة</div>
-                        </div>
-                      </button>
-                    </div>
-                  </>
-                )}
+                <button 
+                  onClick={() => setEmployeeSubModal('attendance')}
+                  className="bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 whitespace-nowrap shrink-0"
+                >
+                  <span>🕒</span> الحضور والبصمة
+                </button>
+                <button 
+                  onClick={() => setEmployeeSubModal('leave')}
+                  className="bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 whitespace-nowrap shrink-0"
+                >
+                  <span>✈️</span> رصيد الإجازات (30 يوم)
+                </button>
+                <button 
+                  onClick={() => setEmployeeSubModal('assets')}
+                  className="bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 whitespace-nowrap shrink-0"
+                >
+                  <span>📦</span> العهد والأصول
+                </button>
               </div>
+
+              <button
+                onClick={() => handleTriggerPrint(`ملف الموظف الشامل - ${selectedEmployee?.nameAr || ''}`, selectedEmployee)}
+                className="bg-purple-900 hover:bg-purple-950 text-white px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0"
+              >
+                <span>🖨️</span> طباعة ملف الموظف
+              </button>
             </div>
 
-            {/* Odoo Smart Buttons (Stat Buttons / oe_button_box) */}
-            {editingEmp.id && employees.some(e => e.id === editingEmp.id) && (
-              <div className="bg-slate-100/90 border-b border-slate-200 px-6 py-2.5">
-                <div className="text-[11px] font-bold text-slate-500 mb-1.5 flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-                  <span>الربط الديناميكي لسجلات الموظف (Odoo Smart Buttons):</span>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-2">
-                  {/* 1. Contract */}
-                  {(() => {
-                    const empContracts = contracts.filter(c => c.employeeId === editingEmp.id);
-                    const activeC = empContracts.find(c => c.status === 'RUNNING') || empContracts[0];
-                    return (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingEmp(null);
-                          if (onNavigateToApp) onNavigateToApp('CONTRACTS');
-                        }}
-                        className="bg-white hover:bg-purple-50 border border-slate-200 hover:border-purple-300 rounded-xl p-2 text-right transition group cursor-pointer shadow-2xs flex flex-col justify-between"
-                        title="الانتقال إلى عقود العمل والبدلات"
-                      >
-                        <div className="flex items-center justify-between text-slate-400 group-hover:text-purple-600 mb-1">
-                          <FileText className="w-3.5 h-3.5" />
-                          <span className="text-[10px] font-mono font-bold text-purple-700 bg-purple-100 px-1 rounded">
-                            {empContracts.length}
-                          </span>
-                        </div>
-                        <div className="text-[11px] font-bold text-slate-800 group-hover:text-purple-700 truncate">
-                          {activeC ? `${activeC.basicSalary} د.ك` : 'العقد'}
-                        </div>
-                        <div className="text-[9px] text-slate-400 truncate">عقود العمل</div>
-                      </button>);
-                  })()}
-
-                  {/* 2. Leaves */}
-                  {(() => {
-                    const empLeaves = leaves.filter(l => l.employeeId === editingEmp.id);
-                    return (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (onSelectEmployeeForLeaves && editingEmp.id) {
-                            onSelectEmployeeForLeaves(editingEmp.id);
-                          }
-                          setEditingEmp(null);
-                          if (onNavigateToApp) onNavigateToApp('LEAVES');
-                        }}
-                        className="bg-white hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 rounded-xl p-2 text-right transition group cursor-pointer shadow-2xs flex flex-col justify-between"
-                        title="الانتقال إلى سجل الإجازات والرصيد"
-                      >
-                        <div className="flex items-center justify-between text-slate-400 group-hover:text-emerald-600 mb-1">
-                          <Calendar className="w-3.5 h-3.5" />
-                          <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-100 px-1 rounded">
-                            {empLeaves.length}
-                          </span>
-                        </div>
-                        <div className="text-[11px] font-bold text-slate-800 group-hover:text-emerald-700 truncate">
-                          الإجازات
-                        </div>
-                        <div className="text-[9px] text-slate-400 truncate">الأرصدة والطلبات</div>
-                      </button>);
-                  })()}
-
-                  {/* 3. Attendance */}
+            {/* Notebook Sub-tabs */}
+            <div className="p-6 overflow-y-auto space-y-6 flex-1">
+              
+              <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
+                <div className="flex items-center bg-slate-100 border-b border-slate-200 px-4 pt-2 gap-2 text-xs font-bold text-slate-600 overflow-x-auto whitespace-nowrap scrollbar-hide">
                   <button
-                    type="button"
-                    onClick={() => {
-                      setEditingEmp(null);
-                      if (onNavigateToApp) onNavigateToApp('ATTENDANCE');
-                    }}
-                    className="bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-xl p-2 text-right transition group cursor-pointer shadow-2xs flex flex-col justify-between"
-                    title="الانتقال إلى سجل البصمة والدوام"
-                  >
-                    <div className="flex items-center justify-between text-slate-400 group-hover:text-blue-600 mb-1">
-                      <Clock className="w-3.5 h-3.5" />
-                      <span className="text-[10px] font-mono font-bold text-blue-700 bg-blue-100 px-1 rounded">
-                        دوام
-                      </span>
-                    </div>
-                    <div className="text-[11px] font-bold text-slate-800 group-hover:text-blue-700 truncate">
-                      البصمة
-                    </div>
-                    <div className="text-[9px] text-slate-400 truncate">سجل الحضور</div>
-                  </button>
-
-                  {/* 4. Payroll */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingEmp(null);
-                      if (onNavigateToApp) onNavigateToApp('PAYROLL');
-                    }}
-                    className="bg-white hover:bg-amber-50 border border-slate-200 hover:border-amber-300 rounded-xl p-2 text-right transition group cursor-pointer shadow-2xs flex flex-col justify-between"
-                    title="الانتقال إلى مسيرات الرواتب"
-                  >
-                    <div className="flex items-center justify-between text-slate-400 group-hover:text-amber-600 mb-1">
-                      <CreditCard className="w-3.5 h-3.5" />
-                      <span className="text-[10px] font-mono font-bold text-amber-700 bg-amber-100 px-1 rounded">
-                        WPS
-                      </span>
-                    </div>
-                    <div className="text-[11px] font-bold text-slate-800 group-hover:text-amber-700 truncate">
-                      الرواتب
-                    </div>
-                    <div className="text-[9px] text-slate-400 truncate">المسيرات والتحويل</div>
-                  </button>
-
-                  {/* 5. Custody & Loans */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingEmp(null);
-                      if (onNavigateToApp) onNavigateToApp('CUSTODY_LOANS');
-                    }}
-                    className="bg-white hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 rounded-xl p-2 text-right transition group cursor-pointer shadow-2xs flex flex-col justify-between"
-                    title="الانتقال إلى العهد والسلف والأقساط"
-                  >
-                    <div className="flex items-center justify-between text-slate-400 group-hover:text-indigo-600 mb-1">
-                      <Briefcase className="w-3.5 h-3.5" />
-                      <span className="text-[10px] font-mono font-bold text-indigo-700 bg-indigo-100 px-1 rounded">
-                        عهد
-                      </span>
-                    </div>
-                    <div className="text-[11px] font-bold text-slate-800 group-hover:text-indigo-700 truncate">
-                      العهد والسلف
-                    </div>
-                    <div className="text-[9px] text-slate-400 truncate">الأقساط والمعدات</div>
-                  </button>
-
-                  {/* 6. End of Service */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingEmp(null);
-                      if (onNavigateToApp) onNavigateToApp('EOS');
-                    }}
-                    className="bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-300 rounded-xl p-2 text-right transition group cursor-pointer shadow-2xs flex flex-col justify-between"
-                    title="الانتقال إلى حاسبة مكافأة نهاية الخدمة"
-                  >
-                    <div className="flex items-center justify-between text-slate-400 group-hover:text-rose-600 mb-1">
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      <span className="text-[10px] font-mono font-bold text-rose-700 bg-rose-100 px-1 rounded">
-                        م. 51
-                      </span>
-                    </div>
-                    <div className="text-[11px] font-bold text-slate-800 group-hover:text-rose-700 truncate">
-                      نهاية الخدمة
-                    </div>
-                    <div className="text-[9px] text-slate-400 truncate">حاسبة المستحقات</div>
-                  </button>
-
-                  {/* 7. Documents */}
-                  {(() => {
-                    const empDocs = documents.filter(d => d.employeeId === editingEmp.id);
-                    return (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingEmp(null);
-                          if (onNavigateToApp) onNavigateToApp('DOCUMENTS');
-                        }}
-                        className="bg-white hover:bg-teal-50 border border-slate-200 hover:border-teal-300 rounded-xl p-2 text-right transition group cursor-pointer shadow-2xs flex flex-col justify-between"
-                        title="الانتقال إلى أرشيف مستندات الموظف"
-                      >
-                        <div className="flex items-center justify-between text-slate-400 group-hover:text-teal-600 mb-1">
-                          <Folder className="w-3.5 h-3.5" />
-                          <span className="text-[10px] font-mono font-bold text-teal-700 bg-teal-100 px-1 rounded">
-                            {empDocs.length}
-                          </span>
-                        </div>
-                        <div className="text-[11px] font-bold text-slate-800 group-hover:text-teal-700 truncate">
-                          المستندات
-                        </div>
-                        <div className="text-[9px] text-slate-400 truncate">الأرشيف والـ OCR</div>
-                      </button>);
-                  })()}
-
-                  {/* 8. Commencement */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingEmp(null);
-                      if (onNavigateToApp) onNavigateToApp('COMMENCEMENT');
-                    }}
-                    className="bg-white hover:bg-sky-50 border border-slate-200 hover:border-sky-300 rounded-xl p-2 text-right transition group cursor-pointer shadow-2xs flex flex-col justify-between"
-                    title="الانتقال إلى إقرار مباشرة العمل"
-                  >
-                    <div className="flex items-center justify-between text-slate-400 group-hover:text-sky-600 mb-1">
-                      <CheckCircle className="w-3.5 h-3.5" />
-                      <span className="text-[10px] font-mono font-bold text-sky-700 bg-sky-100 px-1 rounded">
-                        مباشرة
-                      </span>
-                    </div>
-                    <div className="text-[11px] font-bold text-slate-800 group-hover:text-sky-700 truncate">
-                      المباشرة
-                    </div>
-                    <div className="text-[9px] text-slate-400 truncate">استلام العمل</div>
-                  </button>
-                </div>
-              </div>)}
-
-            {/* Modal Tabs */}
-            <div className="flex border-b border-slate-200 bg-slate-50 px-6 gap-2">
-              {[
-                { id: 'WORK', label: 'البيانات الوظيفية', icon: Briefcase },
-                { id: 'PRIVATE', label: 'البيانات الشخصية', icon: User },
-                { id: 'HR_SETTINGS', label: 'إعدادات البصمة وأودو', icon: Fingerprint },
-                { id: 'BANK', label: 'البيانات البنكية', icon: CreditCard },
-              ].map(tab => {
-                const Icon = tab.icon;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
-                    className={`flex items-center gap-2 py-3 px-4 text-xs font-bold border-b-2 transition ${
-                      activeTab === tab.id
-                        ? 'border-[#714B67] text-[#714B67] bg-white'
-                        : 'border-transparent text-slate-600 hover:text-slate-900'
+                    onClick={() => setEmployeeActiveTab('work')}
+                    className={`px-4 py-2 rounded-t-lg transition border-t border-x shrink-0 ${
+                      employeeActiveTab === 'work' ? 'bg-white text-purple-900 border-slate-200 font-bold -mb-px' : 'bg-slate-100 border-transparent text-slate-500 hover:text-slate-800'
                     }`}
                   >
-                    <Icon className="w-3.5 h-3.5" />
-                    <span>{tab.label}</span>
-                  </button>);
-              })}
-            </div>
+                    💼 معلومات العمل (Work Info)
+                  </button>
 
-            {/* Deep-Link Focus & Audit Highlight Notification */}
-            {activeHighlightField && (
-              <div className="mx-6 mt-3 p-3 bg-gradient-to-r from-purple-50 via-amber-50 to-purple-50 border border-purple-300 rounded-xl flex items-center justify-between shadow-xs animate-in fade-in slide-in-from-top-2 duration-300">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-1.5 bg-purple-700 text-white rounded-lg animate-bounce shrink-0">
-                    <Sparkles className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-purple-950">
-                      التوجيه المباشر لفحص النزاهة: تم التركيز وتحديد حقل <span className="underline decoration-purple-600 font-extrabold text-purple-900">({getFieldNameArabic(activeHighlightField)})</span>
-                    </p>
-                    <p className="text-[11px] text-purple-800">
-                      تم تمييز الحقل بإطار متوهج وتمرير الشاشة تلقائياً لإجراء التصحيح الفوري بدون بحث يدوي.
-                    </p>
-                  </div>
+                  <button
+                    onClick={() => setEmployeeActiveTab('private')}
+                    className={`px-4 py-2 rounded-t-lg transition border-t border-x shrink-0 ${
+                      employeeActiveTab === 'private' ? 'bg-white text-purple-900 border-slate-200 font-bold -mb-px' : 'bg-slate-100 border-transparent text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    🪪 المعلومات الشخصية والإقامة
+                  </button>
+
+                  <button
+                    onClick={() => setEmployeeActiveTab('moh')}
+                    className={`px-4 py-2 rounded-t-lg transition border-t border-x shrink-0 ${
+                      employeeActiveTab === 'moh' ? 'bg-white text-purple-900 border-slate-200 font-bold -mb-px' : 'bg-slate-100 border-transparent text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    🩺 المؤهلات وتراخيص وزارة الصحة (MOH)
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveHighlightField(null);
-                    if (onClearHighlightField) onClearHighlightField();
-                  }}
-                  className="text-xs font-bold text-purple-800 hover:text-purple-950 bg-white/90 hover:bg-white border border-purple-300 px-3 py-1.5 rounded-lg transition shadow-2xs cursor-pointer shrink-0"
-                >
-                  إغلاق التمييز
-                </button>
-              </div>
-            )}
 
-            {/* Modal Body */}
-            <div className="p-6 overflow-y-auto flex-1 space-y-4">
-              {/* Employee Profile Picture Header Banner - Odoo Enterprise Standard */}
-              <div className="bg-gradient-to-r from-slate-900 via-[#3d2737] to-[#714B67] text-white p-5 rounded-2xl shadow-sm border border-slate-700/80 flex flex-col sm:flex-row items-center justify-between gap-5 relative">
-                <div className="flex items-center gap-4 w-full">
-                  {/* Avatar Frame with Odoo Camera Dropdown Menu */}
-                  <div className="relative shrink-0">
-                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border-2 border-white/30 shadow-md bg-white/10 flex items-center justify-center relative">
-                      {editingEmp.avatarUrl ? (
-                        <img 
-                          src={editingEmp.avatarUrl} 
-                          alt={editingEmp.fullNameAr || 'الموظف'} 
-                          className="w-full h-full object-cover" 
-                        />
-                      ) : (
-                        <div className="flex flex-col items-center justify-center text-white/80">
-                          <User className="w-9 h-9 mb-0.5 text-purple-200" />
-                          <span className="text-[10px] text-purple-200">بدون صورة</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Camera Badge triggering Odoo Enterprise Dropdown Menu */}
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() => setIsAvatarDropdownOpen(!isAvatarDropdownOpen)}
-                        className="absolute -bottom-2 -right-2 bg-purple-600 hover:bg-purple-500 text-white p-2 rounded-xl shadow-lg cursor-pointer transition flex items-center justify-center border-2 border-slate-900 hover:scale-105 z-10"
-                        title="تعديل صورة الموظف"
-                      >
-                        <Camera className="w-4 h-4" />
-                      </button>
-
-                      {/* Odoo Enterprise Dropdown Menu */}
-                      {isAvatarDropdownOpen && (
-                        <>
-                          <div 
-                            className="fixed inset-0 z-20" 
-                            onClick={() => setIsAvatarDropdownOpen(false)} 
-                          />
-                          <div className="absolute right-0 bottom-10 w-52 bg-white text-slate-800 rounded-2xl shadow-2xl border border-slate-200 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-150">
-                            {/* Option 1: Upload File */}
-                            <label className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-purple-50 hover:text-purple-900 cursor-pointer transition">
-                              <Upload className="w-4 h-4 text-emerald-600" />
-                              <span>رفع صورة جديدة</span>
-                              <input 
-                                type="file" 
-                                accept="image/*" 
-                                onChange={(e) => {
-                                  setIsAvatarDropdownOpen(false);
-                                  handleAvatarUpload(e);
-                                }} 
-                                className="hidden" 
-                              />
-                            </label>
-
-                            {/* Option 2: Choose Preset Avatar */}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setIsAvatarDropdownOpen(false);
-                                setShowPresetAvatarsModal(true);
-                              }}
-                              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-purple-50 hover:text-purple-900 transition text-right cursor-pointer"
-                            >
-                              <Sparkles className="w-4 h-4 text-amber-500" />
-                              <span>اختيار صورة رمزية</span>
-                            </button>
-
-                            {/* Option 3: Image URL */}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setIsAvatarDropdownOpen(false);
-                                setTempUrlInput(editingEmp.avatarUrl || '');
-                                setShowAvatarUrlModal(true);
-                              }}
-                              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-purple-50 hover:text-purple-900 transition text-right cursor-pointer"
-                            >
-                              <LinkIcon className="w-4 h-4 text-sky-600" />
-                              <span>رابط صورة (URL)</span>
-                            </button>
-
-                            {/* Option 4: Delete Photo (if exists) */}
-                            {editingEmp.avatarUrl && (
-                              <>
-                                <div className="border-t border-slate-100 my-1" />
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setIsAvatarDropdownOpen(false);
-                                    setEditingEmp(prev => prev ? ({ ...prev, avatarUrl: '' }) : null);
-                                    toast.success('تم إزالة صورة البروفايل');
-                                  }}
-                                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50 transition text-right cursor-pointer"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                  <span>حذف الصورة</span>
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Clean Employee Info Card Header */}
-                  <div className="flex-1 text-center sm:text-right space-y-1">
-                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
-                      <h4 className="font-bold text-lg text-white">
-                        {editingEmp.fullNameAr || 'موظف جديد'}
-                      </h4>
-                      {editingEmp.employeeCode && (
-                        <span className="bg-white/15 px-2.5 py-0.5 rounded-lg font-mono text-xs text-purple-200 border border-white/10">
-                          {editingEmp.employeeCode}
-                        </span>
-                      )}
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                        editingEmp.status === 'ACTIVE' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30' : 'bg-slate-700 text-slate-300'
-                      }`}>
-                        {editingEmp.status === 'ACTIVE' ? 'نشط' : 'غير نشط'}
-                      </span>
-                    </div>
-
-                    <p className="text-xs text-slate-300 font-medium">
-                      {editingEmp.jobTitle || 'المسمى الوظيفي غير محدد'} • {editingEmp.department || 'القسم غير محدد'}
-                    </p>
-                    <p className="text-[11px] text-purple-200/80 font-mono">
-                      {editingEmp.civilId ? `الرقم المدني: ${editingEmp.civilId}` : 'رقم الهوية غير متوفر'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Preset Avatars Modal */}
-              {showPresetAvatarsModal && (
-                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-                  <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
-                    <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-                      <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-amber-500" />
-                        <span>اختر صورة رمزية للموظف</span>
-                      </h3>
-                      <button 
-                        onClick={() => setShowPresetAvatarsModal(false)}
-                        className="text-slate-400 hover:text-slate-700 p-1 rounded-lg"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-4 gap-3 py-2">
-                      {PRESET_AVATARS.map((url, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => {
-                            setEditingEmp(prev => prev ? ({ ...prev, avatarUrl: url }) : null);
-                            setShowPresetAvatarsModal(false);
-                            toast.success('تم اختيار الصورة الرمزية بنجاح');
-                          }}
-                          className={`w-20 h-20 rounded-2xl overflow-hidden border-2 transition hover:scale-105 cursor-pointer mx-auto shadow-xs ${
-                            editingEmp.avatarUrl === url ? 'border-purple-600 ring-2 ring-purple-500/30' : 'border-slate-200 hover:border-purple-400'
-                          }`}
-                        >
-                          <img src={url} alt={`Avatar ${idx + 1}`} className="w-full h-full object-cover" />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Avatar URL Modal */}
-              {showAvatarUrlModal && (
-                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-                  <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
-                    <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-                      <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                        <LinkIcon className="w-4 h-4 text-sky-600" />
-                        <span>إدخال رابط صورة (URL)</span>
-                      </h3>
-                      <button 
-                        onClick={() => setShowAvatarUrlModal(false)}
-                        className="text-slate-400 hover:text-slate-700 p-1 rounded-lg"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    </div>
-                    <div className="space-y-4">
+                {/* Tab 1: Work Information */}
+                {employeeActiveTab === 'work' && (
+                  <div className="p-6 space-y-4 text-xs">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1.5">رابط الصورة المباشر</label>
-                        <input
-                          type="url"
-                          value={tempUrlInput}
-                          onChange={(e) => setTempUrlInput(e.target.value)}
-                          placeholder="https://example.com/avatar.jpg"
-                          className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none dir-ltr text-left focus:ring-2 focus:ring-purple-500 font-mono"
+                        <label className="block text-slate-500 font-semibold mb-1">المسمى الوظيفي (Job Position)</label>
+                        <select
+                          value={selectedEmployee.jobTitle}
+                          onChange={(e) => handleMasterDropdownChange(e.target.value, 'jobTitle', selectedEmployee, setSelectedEmployee, masterJobTitles, setMasterJobTitles, 'أدخل المسمى الوظيفي الجديد:')}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        >
+                          {masterJobTitles.map(j => <option key={j} value={j}>{j}</option>)}
+                          <option value="__ADD_NEW__" className="text-purple-700 font-bold">➕ إضافة مسمى وظيفي جديد...</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">موقع العمل / العيادة (Work Location)</label>
+                        <input 
+                          type="text" 
+                          value={selectedEmployee.workLocation} 
+                          onChange={(e) => setSelectedEmployee({...selectedEmployee, workLocation: e.target.value})}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
                         />
                       </div>
-                      <div className="flex justify-end gap-2 pt-2">
-                        <button
-                          type="button"
-                          onClick={() => setShowAvatarUrlModal(false)}
-                          className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl"
+
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">الإدارة / القسم (Department)</label>
+                        <select
+                          value={selectedEmployee.dept}
+                          onChange={(e) => handleMasterDropdownChange(e.target.value, 'dept', selectedEmployee, setSelectedEmployee, masterDepts, setMasterDepts, 'أدخل اسم القسم الجديد:')}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
                         >
-                          إلغاء
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (tempUrlInput.trim()) {
-                              setEditingEmp(prev => prev ? ({ ...prev, avatarUrl: tempUrlInput.trim() }) : null);
-                              setShowAvatarUrlModal(false);
-                              toast.success('تم تحديث رابط الصورة بنجاح');
-                            } else {
-                              toast.error('يرجى إدخال رابط صحيح');
-                            }
-                          }}
-                          className="px-4 py-2 bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold rounded-xl shadow-sm"
-                        >
-                          حفظ وتطبيق
-                        </button>
+                          {masterDepts.map(d => <option key={d} value={d}>{d}</option>)}
+                          <option value="__ADD_NEW__" className="text-purple-700 font-bold">➕ إضافة قسم جديد...</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">المدير المباشر (Coach / Manager)</label>
+                        <input 
+                          type="text" 
+                          value={selectedEmployee.manager} 
+                          onChange={(e) => setSelectedEmployee({...selectedEmployee, manager: e.target.value})}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">البريد الإلكتروني الرسمي (Work Email)</label>
+                        <input 
+                          type="email" 
+                          value={selectedEmployee.email} 
+                          onChange={(e) => setSelectedEmployee({...selectedEmployee, email: e.target.value})}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none font-mono"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">رقم هاتف العمل (Work Phone)</label>
+                        <input 
+                          type="text" 
+                          value={selectedEmployee.phone} 
+                          onChange={(e) => setSelectedEmployee({...selectedEmployee, phone: e.target.value})}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none font-mono"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">تاريخ المباشرة والتعيين</label>
+                        <input 
+                          type="date" 
+                          value={selectedEmployee.hireDate} 
+                          onChange={(e) => setSelectedEmployee({...selectedEmployee, hireDate: e.target.value})}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none font-mono"
+                        />
                       </div>
                     </div>
                   </div>
+                )}
+
+                {/* Tab 2: Private Information */}
+                {employeeActiveTab === 'private' && (
+                  <div className="p-6 space-y-4 text-xs">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">الرقم المدني الكويتي (12 رقم)</label>
+                        <input 
+                          type="text" 
+                          value={selectedEmployee.civilId} 
+                          maxLength={12}
+                          onChange={(e) => setSelectedEmployee({...selectedEmployee, civilId: e.target.value})}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        />
+                        <div className="mt-1 text-[11px]">
+                          {validateKuwaitCivilId(selectedEmployee.civilId) ? (
+                            <span className="text-emerald-700 font-bold">✓ الرقم المدني مطابق لقانون MOD 11 الكويتي</span>
+                          ) : (
+                            <span className="text-rose-600 font-bold">⚠️ تنبيه: الرقم المدني يجب أن يكون 12 رقماً صحيحاً</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">الجنسية (Nationality)</label>
+                        <input 
+                          type="text" 
+                          value={selectedEmployee.nationality} 
+                          onChange={(e) => setSelectedEmployee({...selectedEmployee, nationality: e.target.value})}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">تاريخ الميلاد (Date of Birth)</label>
+                        <input 
+                          type="date" 
+                          value={selectedEmployee.dob} 
+                          onChange={(e) => setSelectedEmployee({...selectedEmployee, dob: e.target.value})}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none font-mono"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">الحالة الاجتماعية وعدد المعالين</label>
+                        <div className="flex gap-2">
+                          <input 
+                            type="text" 
+                            value={selectedEmployee.maritalStatus} 
+                            onChange={(e) => setSelectedEmployee({...selectedEmployee, maritalStatus: e.target.value})}
+                            className="w-1/2 border border-slate-300 rounded-lg p-2 font-bold text-slate-800"
+                          />
+                          <input 
+                            type="number" 
+                            value={selectedEmployee.dependents} 
+                            onChange={(e) => setSelectedEmployee({...selectedEmployee, dependents: Number(e.target.value)})}
+                            className="w-1/2 border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800"
+                            placeholder="عدد المعالين"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">رقم جواز السفر وتاريخ الانتهاء</label>
+                        <div className="flex gap-2">
+                          <input 
+                            type="text" 
+                            value={selectedEmployee.passportNo} 
+                            onChange={(e) => setSelectedEmployee({...selectedEmployee, passportNo: e.target.value})}
+                            className="w-1/2 border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800"
+                          />
+                          <input 
+                            type="date" 
+                            value={selectedEmployee.passportExpiry} 
+                            onChange={(e) => setSelectedEmployee({...selectedEmployee, passportExpiry: e.target.value})}
+                            className="w-1/2 border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">نوع ورقم الإقامة (Residency Type)</label>
+                        <input 
+                          type="text" 
+                          value={selectedEmployee.residencyType} 
+                          onChange={(e) => setSelectedEmployee({...selectedEmployee, residencyType: e.target.value})}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tab 3: MOH Credentials */}
+                {employeeActiveTab === 'moh' && (
+                  <div className="p-6 space-y-4 text-xs">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">رقم ترخيص مزاولة المهنة (MOH License)</label>
+                        <input 
+                          type="text" 
+                          value={selectedEmployee.mohLicense} 
+                          onChange={(e) => setSelectedEmployee({...selectedEmployee, mohLicense: e.target.value})}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-purple-900 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">تاريخ انتهاء الترخيص (Expiry & Auto Renewal Alert)</label>
+                        <input 
+                          type="date" 
+                          value={selectedEmployee.mohLicenseExpiry} 
+                          onChange={(e) => setSelectedEmployee({...selectedEmployee, mohLicenseExpiry: e.target.value})}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">التخصص الدقيق (Specialty)</label>
+                        <input 
+                          type="text" 
+                          value={selectedEmployee.specialty} 
+                          onChange={(e) => setSelectedEmployee({...selectedEmployee, specialty: e.target.value})}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">الدرجة العلمية والشهادة (Degree)</label>
+                        <input 
+                          type="text" 
+                          value={selectedEmployee.degree} 
+                          onChange={(e) => setSelectedEmployee({...selectedEmployee, degree: e.target.value})}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Odoo Chatter inside Employee Modal */}
+              <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-3">
+                <h4 className="font-bold text-slate-800 text-xs flex items-center gap-2">
+                  <span>💬</span> سجل الملاحظات والأنشطة (Odoo Chatter)
+                </h4>
+
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {selectedEmployee.chatter?.map((msg: any) => (
+                    <div key={msg.id} className="bg-white p-2.5 rounded-lg border border-slate-200 text-xs">
+                      <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1 font-mono">
+                        <span className="font-bold text-purple-900">{msg.user}</span>
+                        <span>{msg.date}</span>
+                      </div>
+                      <div className="text-slate-700">{msg.text}</div>
+                    </div>
+                  ))}
                 </div>
-              )}
 
-               {activeTab === 'WORK' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">اسم الموظف (بالعربية) *</label>
-                    <input
-                      id="field-fullNameAr"
-                      type="text"
-                      value={editingEmp.fullNameAr || ''}
-                      onChange={(e) => setEditingEmp({ ...editingEmp, fullNameAr: e.target.value })}
-                      placeholder="مثال: أحمد محمد عبد الله"
-                      className={`w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 outline-none focus:border-[#714B67] transition ${getFieldHighlightClass('fullNameAr')}`}
-                    />
-                    {renderFieldHighlightIndicator('fullNameAr', 'اسم الموظف')}
-                  </div>
+                <form onSubmit={(e) => handleAddChatter('employee', e)} className="flex gap-2 pt-2">
+                  <input 
+                    type="text"
+                    value={chatterInput}
+                    onChange={(e) => setChatterInput(e.target.value)}
+                    placeholder="اكتب ملاحظة أو توثيق إداري هنا..."
+                    className="flex-1 bg-white border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                  />
+                  <button
+                    type="submit"
+                    className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-4 py-2 rounded-lg text-xs font-bold transition"
+                  >
+                    إرسال وسجل
+                  </button>
+                </form>
+              </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">اسم الموظف (بالإنجليزية)</label>
-                    <input
-                      id="field-fullNameEn"
-                      type="text"
-                      value={editingEmp.fullNameEn || ''}
-                      onChange={(e) => setEditingEmp({ ...editingEmp, fullNameEn: e.target.value })}
-                      placeholder="Ahmed Mohammed Abdullah"
-                      className={`w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 outline-none focus:border-[#714B67] transition dir-ltr ${getFieldHighlightClass('fullNameEn')}`}
-                    />
-                    {renderFieldHighlightIndicator('fullNameEn')}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">الرقم المدني الكويتي (12 رقماً) *</label>
-                    <input
-                      id="field-civilId"
-                      type="text"
-                      maxLength={12}
-                      value={editingEmp.civilId || ''}
-                      onChange={(e) => handleCivilIdChange(e.target.value)}
-                      placeholder="290123101234"
-                      className={`w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-mono outline-none focus:border-[#714B67] transition dir-ltr text-right ${getFieldHighlightClass('civilId')}`}
-                    />
-                    {renderFieldHighlightIndicator('civilId', 'الرقم المدني')}
-                    {civilIdError && <p className="text-[11px] text-rose-600 mt-1 font-bold">{civilIdError}</p>}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">كود النظام الوظيفي</label>
-                    <input
-                      id="field-employeeCode"
-                      type="text"
-                      value={editingEmp.employeeCode || ''}
-                      onChange={(e) => setEditingEmp({ ...editingEmp, employeeCode: e.target.value })}
-                      className={`w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-mono outline-none ${getFieldHighlightClass('employeeCode')}`}
-                    />
-                    {renderFieldHighlightIndicator('employeeCode', 'كود الوظيفة')}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">المسمى الوظيفي</label>
-                    <select
-                      id="field-jobTitle"
-                      value={editingEmp.jobTitle || ''}
-                      onChange={(e) => setEditingEmp({ ...editingEmp, jobTitle: e.target.value })}
-                      className={`w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 outline-none ${getFieldHighlightClass('jobTitle')}`}
-                    >
-                      <option value="">اختر المسمى الوظيفي...</option>
-                      {jobTitles.map(jt => (
-                        <option key={jt.id} value={jt.titleName}>{jt.titleName} {jt.titleNameEn ? `(${jt.titleNameEn})` : ''}</option>))}
-                      <option value="محاسب أول">محاسب أول</option>
-                      <option value="موظف موارد بشرية">موظف موارد بشرية</option>
-                      <option value="طبيب عام">طبيب عام</option>
-                      <option value="ممرض">ممرض</option>
-                      <option value="مدير مبيعات">مدير مبيعات</option>
-                    </select>
-                    {renderFieldHighlightIndicator('jobTitle', 'المسمى الوظيفي')}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">القسم / الإدارة</label>
-                    <select
-                      id="field-department"
-                      value={editingEmp.department || ''}
-                      onChange={(e) => setEditingEmp({ ...editingEmp, department: e.target.value })}
-                      className={`w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 outline-none ${getFieldHighlightClass('department')}`}
-                    >
-                      <option value="الموارد البشرية والإدارة">الموارد البشرية والإدارة</option>
-                      <option value="الشؤون المالية">الشؤون المالية</option>
-                      <option value="الجلدية والليزر والتجميل">الجلدية والليزر والتجميل</option>
-                      <option value="العيادات الطبية">العيادات الطبية</option>
-                      <option value="تقنية المعلومات">تقنية المعلومات</option>
-                    </select>
-                    {renderFieldHighlightIndicator('department', 'القسم')}
-                  </div>
-
-
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">تاريخ الالتحاق بالعمل</label>
-                    <input
-                      id="field-joinDate"
-                      type="date"
-                      value={editingEmp.joinDate || ''}
-                      onChange={(e) => setEditingEmp({ ...editingEmp, joinDate: e.target.value })}
-                      className={`w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-mono outline-none ${getFieldHighlightClass('joinDate')}`}
-                    />
-                    {renderFieldHighlightIndicator('joinDate', 'تاريخ الالتحاق')}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">الرصيد المرحل / الافتتاحي للإجازات (أيام)</label>
-                    <input
-                      id="field-carriedOverLeave2025"
-                      type="number"
-                      readOnly
-                      value={editingEmp.carriedOverLeave2025 ?? editingEmp.carriedOverBalance ?? 0}
-                      className="w-full bg-slate-100 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-500 font-bold font-mono outline-none cursor-not-allowed"
-                    />
-                    <p className="text-[10px] text-amber-700 font-medium mt-0.5">حقل عرض فقط. يتم إدارة الرصيد المرحل وبدل العطلات من خلال (تخصيص رصيد) في تطبيق الإجازات.</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">حالة الموظف</label>
-                    <select
-                      id="field-status"
-                      value={editingEmp.status || 'ACTIVE'}
-                      onChange={(e) => setEditingEmp({ ...editingEmp, status: e.target.value as any })}
-                      className={`w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 outline-none font-bold ${getFieldHighlightClass('status')}`}
-                    >
-                      <option value="ACTIVE">نشط (Active)</option>
-                      <option value="ON_LEAVE">في إجازة (On Leave)</option>
-                      <option value="RESIGNED">مستقيل (Resigned)</option>
-                      <option value="TERMINATED">منهي خدماته (Terminated)</option>
-                    </select>
-                    {renderFieldHighlightIndicator('status', 'حالة الموظف')}
-                  </div>
-                </div>)}
-
-              {activeTab === 'PRIVATE' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">الجنسية</label>
-                    <input
-                      id="field-nationality"
-                      type="text"
-                      value={editingEmp.nationality || ''}
-                      onChange={(e) => setEditingEmp({ ...editingEmp, nationality: e.target.value })}
-                      className={`w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 outline-none ${getFieldHighlightClass('nationality')}`}
-                    />
-                    {renderFieldHighlightIndicator('nationality', 'الجنسية')}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">نوع الإقامة / التوطين</label>
-                    <select
-                      id="field-residencyType"
-                      value={editingEmp.residencyType || (editingEmp.nationality?.includes('كويت') ? 'كويتي' : 'مادة 18 - قطاع أهلي')}
-                      onChange={(e) => setEditingEmp({ ...editingEmp, residencyType: e.target.value as any })}
-                      className={`w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 outline-none ${getFieldHighlightClass('residencyType')}`}
-                    >
-                      <option value="كويتي">كويتي</option>
-                      <option value="مادة 18 - قطاع أهلي">مادة 18 - قطاع أهلي</option>
-                      <option value="مادة 19 - شريك/كفيل">مادة 19 - شريك/كفيل</option>
-                      <option value="مادة 17 - حكومي">مادة 17 - حكومي</option>
-                      <option value="خليجي">خليجي</option>
-                    </select>
-                    {renderFieldHighlightIndicator('residencyType', 'نوع الإقامة')}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">تاريخ الميلاد</label>
-                    <input
-                      id="field-dob"
-                      type="date"
-                      value={editingEmp.dob || ''}
-                      onChange={(e) => setEditingEmp({ ...editingEmp, dob: e.target.value })}
-                      className={`w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-mono outline-none ${getFieldHighlightClass('dob')}`}
-                    />
-                    {renderFieldHighlightIndicator('dob', 'تاريخ الميلاد')}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">الجنس</label>
-                    <select
-                      id="field-gender"
-                      value={editingEmp.gender || 'MALE'}
-                      onChange={(e) => setEditingEmp({ ...editingEmp, gender: e.target.value as any })}
-                      className={`w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 outline-none ${getFieldHighlightClass('gender')}`}
-                    >
-                      <option value="MALE">ذكر</option>
-                      <option value="FEMALE">أنثى</option>
-                    </select>
-                    {renderFieldHighlightIndicator('gender', 'الجنس')}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">رقم الهاتف المحمول</label>
-                    <input
-                      id="field-phone"
-                      type="text"
-                      value={editingEmp.phone || ''}
-                      onChange={(e) => setEditingEmp({ ...editingEmp, phone: e.target.value })}
-                      className={`w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-mono outline-none dir-ltr text-right ${getFieldHighlightClass('phone')}`}
-                    />
-                    {renderFieldHighlightIndicator('phone', 'رقم الهاتف')}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">البريد الإلكتروني</label>
-                    <input
-                      id="field-email"
-                      type="email"
-                      value={editingEmp.email || ''}
-                      onChange={(e) => setEditingEmp({ ...editingEmp, email: e.target.value })}
-                      className={`w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-mono outline-none dir-ltr text-right ${getFieldHighlightClass('email')}`}
-                    />
-                    {renderFieldHighlightIndicator('email', 'البريد الإلكتروني')}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">رقم ترخيص وزارة الصحة</label>
-                    <input
-                      id="field-mohLicenseNo"
-                      type="text"
-                      value={editingEmp.mohLicenseNo || ''}
-                      onChange={(e) => setEditingEmp({ ...editingEmp, mohLicenseNo: e.target.value })}
-                      placeholder="MOH-KW-12345"
-                      className={`w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-mono outline-none dir-ltr text-right ${getFieldHighlightClass('mohLicenseNo')}`}
-                    />
-                    {renderFieldHighlightIndicator('mohLicenseNo', 'رقم ترخيص وزارة الصحة')}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">تاريخ انتهاء ترخيص وزارة الصحة</label>
-                    <input
-                      id="field-mohLicenseExpiry"
-                      type="date"
-                      value={editingEmp.mohLicenseExpiry || ''}
-                      onChange={(e) => setEditingEmp({ ...editingEmp, mohLicenseExpiry: e.target.value })}
-                      className={`w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-mono outline-none ${getFieldHighlightClass('mohLicenseExpiry')}`}
-                    />
-                    {renderFieldHighlightIndicator('mohLicenseExpiry', 'تاريخ انتهاء ترخيص وزارة الصحة')}
-                  </div>
-                </div>)}
-
-              {activeTab === 'HR_SETTINGS' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">معرف البصمة (Biometric ID / ZKTeco ID)</label>
-                    <input
-                      id="field-biometricId"
-                      type="text"
-                      value={editingEmp.biometricId || ''}
-                      onChange={(e) => setEditingEmp({ ...editingEmp, biometricId: e.target.value })}
-                      placeholder="مثال: 1002"
-                      className={`w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-mono outline-none ${getFieldHighlightClass('biometricId')}`}
-                    />
-                    {renderFieldHighlightIndicator('biometricId', 'معرف البصمة')}
-                    <p className="text-[10px] text-slate-400 mt-1">يستخدم لمطابقة سجلات أجهزة البصمة تلقائياً</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">معرف الشارة (Odoo Badge ID)</label>
-                    <input
-                      id="field-badgeId"
-                      type="text"
-                      value={editingEmp.badgeId || ''}
-                      onChange={(e) => setEditingEmp({ ...editingEmp, badgeId: e.target.value })}
-                      placeholder="مثال: BADGE-55"
-                      className={`w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-mono outline-none ${getFieldHighlightClass('badgeId')}`}
-                    />
-                    {renderFieldHighlightIndicator('badgeId', 'معرف الشارة')}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">رقم سري البصمة (Attendance PIN)</label>
-                    <input
-                      id="field-pinCode"
-                      type="text"
-                      value={editingEmp.pinCode || ''}
-                      onChange={(e) => setEditingEmp({ ...editingEmp, pinCode: e.target.value })}
-                      placeholder="1234"
-                      className={`w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-mono outline-none ${getFieldHighlightClass('pinCode')}`}
-                    />
-                    {renderFieldHighlightIndicator('pinCode', 'رقم البصمة السري')}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">تاريخ آخر ترحيل واستحقاق شهري (lastAccrualDate)</label>
-                    <input
-                      type="text"
-                      value={editingEmp.lastAccrualDate || ''}
-                      onChange={(e) => setEditingEmp({ ...editingEmp, lastAccrualDate: e.target.value })}
-                      placeholder="YYYY-MM (مثال: 2026-08)"
-                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-mono outline-none"
-                    />
-                    <p className="text-[10px] text-slate-400 mt-1">يمنع محرك الإجازات الآلي الترحيل المكرر في نفس الشهر</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">آلية التعويض المفضلة للعمل في العطلات الرسمية</label>
-                    <select
-                      value={editingEmp.defaultHolidayCompensationPreference || 'COMP_OFF'}
-                      onChange={(e) => setEditingEmp({ ...editingEmp, defaultHolidayCompensationPreference: e.target.value as any })}
-                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 outline-none font-bold text-purple-900"
-                    >
-                      <option value="CASH">💵 [1] صرف نقدي مباشر (Cash Payout)</option>
-                      <option value="ANNUAL_ACCRUAL">📈 [2] إضافة للرصيد السنوي (Annual Leave Accrual)</option>
-                      <option value="COMP_OFF">🛡️ [3] يوم راحة بديل في وقت آخر (Comp-Off Only)</option>
-                    </select>
-                    <p className="text-[10px] text-slate-500 mt-1">الخيار الافتراضي عند تسجيل عمل الموظف في أيام العطل والجمع</p>
-                  </div>
-                </div>)}
-
-              {activeTab === 'BANK' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">البنك</label>
-                    <select
-                      value={editingEmp.bankName || 'بنك الكويت الوطني'}
-                      onChange={(e) => setEditingEmp({ ...editingEmp, bankName: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 outline-none"
-                    >
-                      <option value="بنك الكويت الوطني">بنك الكويت الوطني (NBK)</option>
-                      <option value="بيت التمويل الكويتي">بيت التمويل الكويتي (KFH)</option>
-                      <option value="بنك الخليج">بنك الخليج (Gulf Bank)</option>
-                      <option value="البنك التجاري الكويتي">البنك التجاري الكويتي (CBK)</option>
-                      <option value="بنك برقان">بنك برقان (Burgan Bank)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">رقم الحساب الدولي (IBAN)</label>
-                    <input
-                      type="text"
-                      value={editingEmp.iban || ''}
-                      onChange={(e) => setEditingEmp({ ...editingEmp, iban: e.target.value })}
-                      placeholder="KW81NBKU0000000000000000000"
-                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-mono outline-none dir-ltr text-right"
-                    />
-                  </div>
-                </div>)}
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                {!empValidation.isValid ? (
-                  <span className="bg-rose-100 text-rose-800 border border-rose-200 text-[11px] font-bold px-2.5 py-1 rounded-lg flex items-center gap-1.5">
-                    <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                    <span>{empValidation.errors[0]}</span>
-                  </span>
-                ) : empValidation.warnings.length > 0 ? (
-                  <span className="bg-amber-100 text-amber-800 border border-amber-200 text-[11px] font-bold px-2.5 py-1 rounded-lg flex items-center gap-1.5">
-                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                    <span>{empValidation.warnings[0]}</span>
-                  </span>
-                ) : (
-                  <span className="bg-emerald-100 text-emerald-800 border border-emerald-200 text-[11px] font-bold px-2.5 py-1 rounded-lg flex items-center gap-1.5">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>بيانات الموظف مطابقة لمعايير النزاهة 100%</span>
-                  </span>
-                )}
-              </div>
-
+            <div className="bg-slate-100 border-t border-slate-200 px-6 py-3 flex items-center justify-between">
+              <button
+                onClick={() => handleDeleteEmployee(selectedEmployee.id, selectedEmployee.nameAr)}
+                className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+              >
+                <span>🗑️</span> حذف الموظف نهائياً
+              </button>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setEditingEmp(null)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-200 transition cursor-pointer"
+                  onClick={() => {
+                    if (selectedEmployee) {
+                      const updatedList = employees.map((emp: any) => 
+                        emp.id === selectedEmployee.id ? selectedEmployee : emp
+                      );
+                      setEmployees(updatedList);
+                      localStorage.setItem('odoo_employees_v1', JSON.stringify(updatedList));
+                    }
+                    alert('تم حفظ كافة التعديلات على ملف الموظف بنجاح.');
+                    setShowEmployeeModal(false);
+                  }}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm"
                 >
-                  إلغاء
+                  💾 حفظ التغييرات (Save)
                 </button>
                 <button
-                  onClick={handleSave}
-                  disabled={!empValidation.isValid}
-                  className={`px-5 py-2 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
-                    !empValidation.isValid
-                      ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
-                      : 'bg-[#714B67] hover:bg-[#5a3a52] text-white shadow'
-                  }`}
+                  onClick={() => setShowEmployeeModal(false)}
+                  className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold transition"
                 >
-                  <Save className="w-4 h-4" />
-                  <span>حفظ الموظف</span>
+                  إغلاق
                 </button>
               </div>
             </div>
+
           </div>
-        </div>)}
+        </div>
+      )}
 
-      {/* SOFT DELETED / ARCHIVE MODAL */}
-      {showSoftDeletedModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
-            <div className="px-6 py-4 bg-rose-700 text-white flex items-center justify-between">
-              <h3 className="font-bold text-sm">أرشيف المحذوفات والمستقيلين</h3>
-              <button onClick={() => setShowSoftDeletedModal(false)} className="text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-6 overflow-y-auto flex-1 space-y-3">
-              {softDeletedEmps.length === 0 ? (
-                <p className="text-center text-slate-500 text-xs py-8">لا توجد سجلات في الأرشيف</p>) : (
-                softDeletedEmps.map(emp => (
-                  <div key={emp.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
-                    <div>
-                      <div className="font-bold text-slate-800 text-xs">{emp.fullNameAr}</div>
-                      <div className="text-[10px] text-slate-500 font-mono">الرقم المدني: {emp.civilId} | الكود: {emp.employeeCode}</div>
-                    </div>
-                    {onRestoreEmployee && (
-                      <button
-                        onClick={() => {
-                          onRestoreEmployee(emp.id);
-                          toast.success('تم استعادة الموظف بنجاح');
-                        }}
-                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition"
-                      >
-                        <RotateCcw className="w-3.5 h-3.5" />
-                        <span>استعادة</span>
-                      </button>)}
-                  </div>))
-              )}
-            </div>
-          </div>
-        </div>)}
-
-      {/* JOB TITLES MODAL */}
-      {isJobTitlesModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[80vh] flex flex-col overflow-hidden">
-            <div className="px-6 py-4 bg-[#714B67] text-white flex items-center justify-between">
-              <h3 className="font-bold text-sm">إدارة شجرة المسميات الوظيفية (Job Titles)</h3>
-              <button onClick={() => setIsJobTitlesModalOpen(false)} className="text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-6 overflow-y-auto flex-1 space-y-3">
-              <div className="space-y-2 mb-4">
-                <input
-                  type="text"
-                  placeholder="المسمى الوظيفي بالعربية (مثل: محاسب عام)"
-                  value={editingJobTitleObj?.titleName || ''}
-                  onChange={(e) => setEditingJobTitleObj({ ...editingJobTitleObj, titleName: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs outline-none"
-                />
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Job Title in English (e.g. General Accountant)"
-                    value={editingJobTitleObj?.titleNameEn || ''}
-                    onChange={(e) => setEditingJobTitleObj({ ...editingJobTitleObj, titleNameEn: e.target.value })}
-                    className="flex-1 bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs outline-none font-mono"
-                  />
-                  <button
-                    onClick={() => {
-                      if (!editingJobTitleObj?.titleName) return;
-                      if (onSaveJobTitle) {
-                        onSaveJobTitle({
-                          id: editingJobTitleObj.id || `jt-${Date.now()}`,
-                          titleName: editingJobTitleObj.titleName.trim(),
-                          titleNameEn: editingJobTitleObj.titleNameEn?.trim() || '',
-                          description: editingJobTitleObj.description || '',
-                        });
-                        setEditingJobTitleObj({ titleName: '', titleNameEn: '', description: '' });
-                        toast.success('تم حفظ المسمى الوظيفي بالعربية والإنجليزية');
-                      }
-                    }}
-                    className="bg-[#714B67] hover:bg-[#5e3e55] text-white px-5 py-2 rounded-xl text-xs font-bold transition shadow-sm"
-                  >
-                    حفظ / إضافة
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="text-[11px] font-bold text-slate-500 mb-1">
-                  المسميات المعتمدة في النظام ({effectiveJobTitles.length})
-                </div>
-                {effectiveJobTitles.map(jt => (
-                  <div key={jt.id} className="flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100/80 rounded-xl border border-slate-200 transition">
-                    <div>
-                      <div className="font-bold text-xs text-slate-800 flex items-center gap-2">
-                        <span>{jt.titleName}</span>
-                        {jt.titleNameEn && <span className="text-[11px] text-teal-700 font-mono font-medium">({jt.titleNameEn})</span>}
-                      </div>
-                      {jt.departmentName && (
-                        <div className="text-[10px] text-slate-500 mt-0.5">{jt.departmentName}</div>)}
-                    </div>
-                    {onDeleteJobTitle && (
-                      <button 
-                        onClick={() => {
-                          onDeleteJobTitle(jt.id);
-                          toast.success(`تم إزالة المسمى الوظيفي: ${jt.titleName}`);
-                        }} 
-                        className="text-rose-600 hover:bg-rose-50 p-1.5 rounded-lg transition cursor-pointer"
-                        title="حذف المسمى"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>)}
-                  </div>))}
-              </div>
-            </div>
-          </div>
-        </div>)}
-
-      {/* Aysed S AI Scan Center Modal Overlay */}
-      {activeScanModalType && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden border border-purple-100 flex flex-col text-right dir-rtl">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-purple-900 to-[#714B67] text-white">
-              <h3 className="text-lg font-bold flex items-center gap-2">
-                <Scan className="w-6 h-6 text-amber-300" />
-                <span>
-                  {activeScanModalType === 'CIVIL_ID' && 'مسح البطاقة المدنية (Aysed S AI Scan - Civil ID)'}
-                  {activeScanModalType === 'PASSPORT' && 'مسح جواز السفر (Aysed S AI Scan - Passport)'}
-                  {activeScanModalType === 'WORK_PERMIT' && 'مسح عقد العمل / الترخيص (Aysed S AI Scan - Permit)'}
-                  {activeScanModalType === 'LIVE_CAMERA' && 'كاميرا التقاط المستند (Aysed S AI Scan - Camera)'}
-                </span>
+      {/* Employee Sub-Modals (Contracts, Attendance, Leave Balance, Assets) */}
+      {employeeSubModal !== 'none' && selectedEmployee && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl p-6 space-y-4 border border-slate-200">
+            <div className="flex items-center justify-between border-b pb-3">
+              <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                {employeeSubModal === 'contracts' && '📝 عقود الموظف: ' + selectedEmployee.nameAr}
+                {employeeSubModal === 'attendance' && '🕒 سجل الحضور والبصمة: ' + selectedEmployee.nameAr}
+                {employeeSubModal === 'leave' && '✈️ رصيد الإجازات السنوية: ' + selectedEmployee.nameAr}
+                {employeeSubModal === 'assets' && '📦 العهد والأصول المسلمة: ' + selectedEmployee.nameAr}
               </h3>
               <button 
-                onClick={() => {
-                  setActiveScanModalType(null);
-                  setAiScanResult(null);
-                }} 
-                className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-xl transition cursor-pointer"
+                onClick={() => setEmployeeSubModal('none')}
+                className="text-slate-400 hover:text-slate-600 font-bold text-base"
               >
-                <X className="w-5 h-5" />
+                ✕
               </button>
             </div>
 
-            <div className="p-8 flex flex-col items-center justify-center space-y-6">
-              {loadingScan ? (
-                <div className="text-center py-10 space-y-4">
-                  <div className="w-20 h-20 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                  <p className="font-bold text-slate-800 animate-pulse text-base">جاري تحليل الوثيقة واستخراج البيانات بدقة عالية (OpenAI Vision / Gemini OCR)...</p>
-                  <p className="text-xs text-slate-500">يرجى الانتظار ثوانٍ معدودة لمعالجة النصوص بدقة متناهية</p>
+            <div className="text-xs text-slate-700 space-y-3">
+              {employeeSubModal === 'contracts' && (
+                <div className="bg-purple-50 border border-purple-200 p-4 rounded-xl space-y-2">
+                  <div className="flex justify-between font-bold text-purple-900">
+                    <span>رقم العقد: CNT-{selectedEmployee.id}-2026</span>
+                    <span className="text-emerald-700">ساري ومصادق</span>
+                  </div>
+                  <div>المسمى الوظيفي: {selectedEmployee.jobTitle}</div>
+                  <div>الراتب الأساسي: {selectedEmployee.basicSalary} د.ك + بدل طبيعة عمل: {selectedEmployee.allowances} د.ك</div>
+                  <div>النوع: عقد كادر أهلي / محدد المدة</div>
                 </div>
-              ) : aiScanResult ? (
-                <div className="w-full space-y-4">
-                  <div className="bg-emerald-50 text-emerald-900 p-5 rounded-2xl border border-emerald-200 flex items-start gap-4">
-                    <CheckCircle2 className="w-7 h-7 text-emerald-600 shrink-0 mt-0.5" />
-                    <div className="space-y-1.5 flex-1">
-                      <h4 className="font-bold text-base text-emerald-950">تمت قراءة المستند واستخراج البيانات بنجاح!</h4>
-                      <div className="text-xs font-mono space-y-1 bg-white/80 p-3 rounded-xl border border-emerald-100 text-slate-800 dir-ltr text-left">
-                        <div><b>نوع المستند:</b> {aiScanResult.docType}</div>
-                        <div><b>الاسم بالعربية:</b> {aiScanResult.extractedData.fullNameAr}</div>
-                        <div><b>الاسم بالإنجليزية:</b> {aiScanResult.extractedData.fullNameEn}</div>
-                        <div><b>الرقم المدني / الجواز:</b> {aiScanResult.extractedData.civilId || aiScanResult.extractedData.passportNo}</div>
-                        <div><b>الجنسية:</b> {aiScanResult.extractedData.nationality}</div>
-                        <div><b>تاريخ الانتهاء:</b> {aiScanResult.extractedData.expiryDate || '2027-01-01'}</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const data = aiScanResult.extractedData;
-                        const cleanCivilId = data.civilId ? data.civilId.trim().replace(/\D/g, '') : '';
-                        setEditingEmp(prev => ({
-                          ...prev,
-                          fullNameAr: data.fullNameAr || prev?.fullNameAr || '',
-                          fullNameEn: data.fullNameEn || prev?.fullNameEn || '',
-                          civilId: cleanCivilId || prev?.civilId || '',
-                          nationality: data.nationality || prev?.nationality || '',
-                          civilIdExpiry: data.expiryDate || prev?.civilIdExpiry || '',
-                          dob: data.dob || prev?.dob || '',
-                          gender: data.gender || prev?.gender || 'MALE',
-                          passportNo: data.passportNo || prev?.passportNo || '',
-                          jobTitle: data.jobTitle || prev?.jobTitle || '',
-                        }));
-                        toast.success('تم تعبئة بيانات الموظف بنجاح من الماسح الضوئي الذكي!');
-                        setActiveScanModalType(null);
-                        setAiScanResult(null);
-                      }}
-                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-xl transition shadow-md flex items-center justify-center gap-2 cursor-pointer text-sm"
-                    >
-                      <Check className="w-5 h-5" />
-                      <span>تطبيق البيانات على استمارة الموظف</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAiScanResult(null)}
-                      className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 px-4 rounded-xl transition text-xs cursor-pointer"
-                    >
-                      إعادة المسح
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="w-40 h-40 bg-purple-50/70 rounded-full flex flex-col items-center justify-center border-4 border-dashed border-purple-300 relative group cursor-pointer">
-                    <Camera className="w-14 h-14 text-purple-600 mb-2 group-hover:scale-110 transition" />
-                    <span className="text-xs font-bold text-purple-900">اسحب وأفرغ المستند هنا</span>
-                    <input 
-                      type="file" 
-                      accept="image/*,application/pdf"
-                      className="absolute inset-0 opacity-0 cursor-pointer"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        setLoadingScan(true);
-                        try {
-                          const scannedData = await processAnyDocument(file);
-                          setAiScanResult({
-                            docType: activeScanModalType,
-                            extractedData: scannedData
-                          });
-                          toast.success('تم مسح المستند بنجاح!');
-                        } catch (err: any) {
-                          console.error('OCR Error:', err);
-                          toast.error(err.message || 'فشل استخراج البيانات. يرجى التأكد من وضوح الصورة وتجربة رفعها مرة أخرى.');
-                          setAiScanResult(null);
-                        } finally {
-                          setLoadingScan(false);
-                        }
-                      }}
-                    />
-                  </div>
-                  
-                  <div className="text-center space-y-2">
-                    <h4 className="font-bold text-slate-800 text-base">
-                      {activeScanModalType === 'CIVIL_ID' && 'قم برفع صورة البطاقة المدنية الأمامية والخلفية'}
-                      {activeScanModalType === 'PASSPORT' && 'قم برفع صفحة بيانات جواز السفر'}
-                      {activeScanModalType === 'WORK_PERMIT' && 'قم برفع ترخيص العمل أو عقد التعاقد الرسمي'}
-                      {activeScanModalType === 'LIVE_CAMERA' && 'التقاط المستند عبر كاميرا الهاتف أو الحاسوب المباشرة'}
-                    </h4>
-                    <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
-                      يدعم النظام استخراج الحقول تلقائياً بدقة متناهية وتعبئة استمارة الموظف فوراً وفقاً لمعايير قانون العمل الكويتي.
-                    </p>
-
-                    <div className="pt-3">
-                      <label className="bg-[#714B67] hover:bg-[#5a3a51] text-white font-bold py-3 px-8 rounded-xl cursor-pointer transition shadow-md inline-flex items-center gap-2 text-xs">
-                        <Upload className="w-4 h-4" />
-                        <span>اختيار ملف المستند من الجهاز</span>
-                        <input 
-                          type="file" 
-                          accept="image/*,application/pdf"
-                          className="hidden"
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            setLoadingScan(true);
-                            try {
-                              const scannedData = await processAnyDocument(file);
-                              setAiScanResult({
-                                docType: activeScanModalType,
-                                extractedData: scannedData
-                              });
-                              toast.success('تم مسح المستند بنجاح!');
-                            } catch (err: any) {
-                              console.error('OCR Error:', err);
-                              toast.error(err.message || 'فشل استخراج البيانات. يرجى التأكد من وضوح الصورة وتجربة رفعها مرة أخرى.');
-                              setAiScanResult(null);
-                            } finally {
-                              setLoadingScan(false);
-                            }
-                          }}
-                        />
-                      </label>
-                    </div>
-                  </div>
-                </>
               )}
+
+              {employeeSubModal === 'attendance' && (
+                <div className="space-y-2">
+                  <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl flex justify-between items-center">
+                    <span>📅 اليوم: حضور في الموعد (08:00 صباحاً)</span>
+                    <span className="text-emerald-700 font-bold">بصمة معتمدة ✓</span>
+                  </div>
+                  <div className="bg-slate-50 border p-3 rounded-xl flex justify-between items-center">
+                    <span>📅 الأمس: حضور (07:55 ص) - انصراف (04:05 م)</span>
+                    <span className="text-slate-600 font-bold">8 ساعات</span>
+                  </div>
+                </div>
+              )}
+
+              {employeeSubModal === 'leave' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-blue-50 border border-blue-200 p-3 rounded-xl text-center">
+                    <div className="text-lg font-bold text-blue-900">30 يوم</div>
+                    <div className="text-[11px] text-slate-600">رصيد الإجازات السنوية المستحق</div>
+                  </div>
+                  <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl text-center">
+                    <div className="text-lg font-bold text-amber-900">15 يوم</div>
+                    <div className="text-[11px] text-slate-600">إجازة مرضية متبقية</div>
+                  </div>
+                </div>
+              )}
+
+              {employeeSubModal === 'assets' && (
+                <div className="space-y-2">
+                  <div className="bg-slate-50 border p-3 rounded-xl flex justify-between items-center">
+                    <span>💻 جهاز حاسب آلي محمول (Dell Latitude)</span>
+                    <span className="text-purple-800 font-bold">مسلم بحالة ممتازة</span>
+                  </div>
+                  <div className="bg-slate-50 border p-3 rounded-xl flex justify-between items-center">
+                    <span>🩺 سماعة طبية ومعدات فحص عيادة</span>
+                    <span className="text-purple-800 font-bold">عهدة شخصية</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setEmployeeSubModal('none')}
+                className="bg-purple-900 hover:bg-purple-950 text-white px-4 py-2 rounded-lg text-xs font-bold transition"
+              >
+                إغلاق
+              </button>
             </div>
           </div>
         </div>
       )}
-    </div>);
-};
+
+      {/* 6. نموذج إقرار المباشرة وتراخيص MOH الرسمية (Work Commencement Form Modal) */}
+      {showCommencementModal && selectedCommencement && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col border border-slate-200 overflow-hidden">
+            
+            {/* T-Bar / Header */}
+            <div className="bg-[#107c41] text-white px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">🏥</span>
+                <div>
+                  <h2 className="text-base font-bold">إقرار مباشرة العمل وتراخيص وزارة الصحة (Work Commencement)</h2>
+                  <p className="text-xs text-emerald-100 font-mono">رقم الإقرار: {selectedCommencement.id} | دولة الكويت</p>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => setShowCommencementModal(false)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Action Bar */}
+            <div className="bg-slate-50 border-b border-slate-200 px-6 py-2.5 flex items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2 min-w-max">
+                <button
+                  onClick={() => {
+                    const updated = { ...selectedCommencement, status: 'معتمد ومثبت' };
+                    setSelectedCommencement(updated);
+                    setCommencements(commencements.map(c => c.id === updated.id ? updated : c));
+                    alert('تم اعتماد وثيقة مباشرة العمل وتحديث حالة الموظف بنجاح');
+                  }}
+                  className="bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-1.5 rounded-lg font-bold transition flex items-center gap-1 shadow-sm"
+                >
+                  <span>✓</span> اعتماد وتثبيت المباشرة (على رأس العمل)
+                </button>
+                <button
+                  onClick={() => handleTriggerPrint(`إقرار مباشرة العمل - ${selectedCommencement?.employeeName || selectedCommencement?.nameAr || ''}`, selectedCommencement)}
+                  className="bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 px-3.5 py-1.5 rounded-lg font-bold transition flex items-center gap-1"
+                >
+                  <span>🖨️</span> طباعة إقرار المباشرة (A4)
+                </button>
+              </div>
+              <div className="font-bold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+                الحالة: {selectedCommencement.status}
+              </div>
+            </div>
+
+            {/* Form Content */}
+            <div className="p-6 overflow-y-auto space-y-6 flex-1 text-xs">
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <div>
+                  <label className="block text-slate-500 font-semibold mb-1">اسم الموظف / الطبيب</label>
+                  <input 
+                    type="text" 
+                    value={selectedCommencement.employeeName}
+                    onChange={(e) => setSelectedCommencement({...selectedCommencement, employeeName: e.target.value})}
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-bold text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-500 font-semibold mb-1">الرقم المدني الكويتي (12 رقم)</label>
+                  <input 
+                    type="text" 
+                    value={selectedCommencement.civilId}
+                    onChange={(e) => setSelectedCommencement({...selectedCommencement, civilId: e.target.value})}
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-500 font-semibold mb-1">تاريخ المباشرة الفعلي (Commencement Date)</label>
+                  <input 
+                    type="date" 
+                    value={selectedCommencement.commencementDate}
+                    onChange={(e) => setSelectedCommencement({...selectedCommencement, commencementDate: e.target.value})}
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-500 font-semibold mb-1">القسم / جهة العمل المشرفة</label>
+                  <select
+                    value={selectedCommencement.supervisingDept}
+                    onChange={(e) => handleMasterDropdownChange(e.target.value, 'supervisingDept', selectedCommencement, setSelectedCommencement, masterDepts, setMasterDepts, 'أدخل اسم القسم الجديد:')}
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-bold text-slate-800"
+                  >
+                    {masterDepts.map(d => <option key={d} value={d}>{d}</option>)}
+                    <option value="__ADD_NEW__" className="text-emerald-700 font-bold">➕ إضافة قسم جديد...</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-500 font-semibold mb-1">حالة الفحص الطبي واللائق صحياً</label>
+                  <input 
+                    type="text" 
+                    value={selectedCommencement.healthCheckStatus}
+                    onChange={(e) => setSelectedCommencement({...selectedCommencement, healthCheckStatus: e.target.value})}
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-bold text-emerald-800 bg-emerald-50/50"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-500 font-semibold mb-1">حالة بصمات الأدلة الجنائية (وزارة الداخلية)</label>
+                  <input 
+                    type="text" 
+                    value={selectedCommencement.fingerprintStatus}
+                    onChange={(e) => setSelectedCommencement({...selectedCommencement, fingerprintStatus: e.target.value})}
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-bold text-emerald-800 bg-emerald-50/50"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-slate-500 font-semibold mb-1">ترخيص وزارة الصحة (MOH License Status)</label>
+                  <input 
+                    type="text" 
+                    value={selectedCommencement.mohLicenseStatus}
+                    onChange={(e) => setSelectedCommencement({...selectedCommencement, mohLicenseStatus: e.target.value})}
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-mono font-bold text-purple-900 bg-purple-50/50"
+                  />
+                </div>
+              </div>
+
+              {/* Odoo Chatter inside Commencement Modal */}
+              <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-3">
+                <h4 className="font-bold text-slate-800 text-xs flex items-center gap-2">
+                  <span>💬</span> سجل الملاحظات والأنشطة (Odoo Chatter)
+                </h4>
+
+                <div className="space-y-2 max-h-32 overflow-y-auto">
+                  {selectedCommencement.chatter?.map((msg: any) => (
+                    <div key={msg.id} className="bg-white p-2.5 rounded-lg border border-slate-200 text-xs">
+                      <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1 font-mono">
+                        <span className="font-bold text-emerald-800">{msg.user}</span>
+                        <span>{msg.date}</span>
+                      </div>
+                      <div className="text-slate-700">{msg.text}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <form onSubmit={(e) => handleAddChatter('commencement', e)} className="flex gap-2 pt-2">
+                  <input 
+                    type="text"
+                    value={chatterInput}
+                    onChange={(e) => setChatterInput(e.target.value)}
+                    placeholder="اكتب ملاحظة أو إثبات إجراء هنا..."
+                    className="flex-1 bg-white border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                  <button
+                    type="submit"
+                    className="bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-lg text-xs font-bold transition"
+                  >
+                    إرسال وسجل
+                  </button>
+                </form>
+              </div>
+
+            </div>
+
+            {/* Footer */}
+            <div className="bg-slate-100 border-t border-slate-200 px-6 py-3 flex items-center justify-between">
+              <span className="text-[11px] text-slate-500">وثيقة إقرار المباشرة معتمدة وفق اشتراطات وزارة الصحة ودولة الكويت</span>
+              <button
+                onClick={() => {
+                  if (selectedCommencement) {
+                    const updatedComs = commencements.map((c: any) => 
+                      c.id === selectedCommencement.id ? selectedCommencement : c
+                    );
+                    setCommencements(updatedComs);
+                    localStorage.setItem('odoo_commencements_v1', JSON.stringify(updatedComs));
+                  }
+                  setShowCommencementModal(false);
+                }}
+                className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold transition"
+              >
+                إغلاق وحفظ
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* 7. نموذج عقد العمل الموسع بنمط Odoo 18 Enterprise بالكامل (hr.contract View Modal) */}
+      {showContractModal && selectedContract && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col border border-slate-200 overflow-hidden">
+            
+            {/* T-Bar / Header */}
+            <div className="bg-[#714B67] text-white px-6 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2 min-w-max">
+                <span className="text-lg">📄</span>
+                <div>
+                  <h2 className="text-sm font-bold">{selectedContract.refTitle}</h2>
+                  <p className="text-[10px] text-purple-200 font-mono">معرف العقد: {selectedContract.id} | أودو 18 إنتربرايز</p>
+                </div>
+              </div>
+
+              {/* Status Pipeline States */}
+              <div className="flex items-center bg-[#5a3a52] p-1 rounded-lg text-[11px] gap-1 font-bold">
+                {['Draft', 'Running', 'Expired', 'Cancelled'].map((st) => (
+                  <button
+                    key={st}
+                    onClick={() => changeContractStatus(st)}
+                    className={`px-2.5 py-1 rounded transition ${
+                      selectedContract.status === st ? 'bg-white text-[#714B67] shadow' : 'text-purple-200 hover:bg-white/10'
+                    }`}
+                  >
+                    {st === 'Draft' ? 'مسودة' : st === 'Running' ? 'ساري' : st === 'Expired' ? 'منتهي' : 'ملغي'}
+                  </button>
+                ))}
+              </div>
+
+              <button 
+                onClick={() => setShowContractModal(false)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Action Buttons Bar */}
+            <div className="bg-slate-50 border-b border-slate-200 px-6 py-2.5 flex items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2 min-w-max">
+                <button
+                  onClick={() => changeContractStatus('Running')}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1 shadow-sm"
+                >
+                  <span>✓</span> اعتماد وبدء سريان العقد (Running)
+                </button>
+                <button
+                  onClick={() => handleTriggerPrint(`عقد العمل الرسمي - ${selectedContract?.name || selectedContract?.refTitle || ''}`, selectedContract)}
+                  className="bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1"
+                >
+                  <span>🖨️</span> طباعة العقد الرسمي (A4)
+                </button>
+              </div>
+              <div className="text-[11px] text-slate-500 font-semibold">
+                المسؤول: {selectedContract.hrResponsible}
+              </div>
+            </div>
+
+            {/* Form Top Data */}
+            <div className="p-6 overflow-y-auto space-y-6 flex-1">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50/80 p-4 rounded-xl border border-slate-200 text-xs">
+                <div>
+                  <label className="block text-slate-500 mb-1 font-semibold">اسم الموظف (Employee)</label>
+                  <input 
+                    type="text" 
+                    value={selectedContract.employeeName} 
+                    onChange={(e) => setSelectedContract({...selectedContract, employeeName: e.target.value})}
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-bold text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-500 mb-1 font-semibold">المسمى الوظيفي في العقد (Job Position)</label>
+                  <select
+                    value={selectedContract.jobPosition}
+                    onChange={(e) => handleMasterDropdownChange(e.target.value, 'jobPosition', selectedContract, setSelectedContract, masterJobTitles, setMasterJobTitles, 'أدخل مسمى وظيفي جديد:')}
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-bold text-slate-800"
+                  >
+                    {masterJobTitles.map(j => <option key={j} value={j}>{j}</option>)}
+                    <option value="__ADD_NEW__" className="text-purple-700 font-bold">➕ إضافة مسمى وظيفي جديد...</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-500 mb-1 font-semibold">الإدارة / القسم (Department)</label>
+                  <select
+                    value={selectedContract.department}
+                    onChange={(e) => handleMasterDropdownChange(e.target.value, 'department', selectedContract, setSelectedContract, masterDepts, setMasterDepts, 'أدخل اسم القسم الجديد:')}
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-bold text-slate-800"
+                  >
+                    {masterDepts.map(d => <option key={d} value={d}>{d}</option>)}
+                    <option value="__ADD_NEW__" className="text-purple-700 font-bold">➕ إضافة قسم جديد...</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-500 mb-1 font-semibold">هيكل الراتب وفئة العقد (Structure Type)</label>
+                  <input 
+                    type="text" 
+                    value={selectedContract.structureType} 
+                    onChange={(e) => setSelectedContract({...selectedContract, structureType: e.target.value})}
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-bold text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-500 mb-1 font-semibold">تاريخ البداية (Start Date)</label>
+                  <input 
+                    type="date" 
+                    value={selectedContract.startDate} 
+                    onChange={(e) => setSelectedContract({...selectedContract, startDate: e.target.value})}
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-bold text-slate-800 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-500 mb-1 font-semibold">تاريخ النهاية (End Date)</label>
+                  <input 
+                    type="date" 
+                    value={selectedContract.endDate} 
+                    onChange={(e) => setSelectedContract({...selectedContract, endDate: e.target.value})}
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-bold text-slate-800 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-500 mb-1 font-semibold">فترة التجربة (Trial Period - Max 100 Days)</label>
+                  <input 
+                    type="date" 
+                    value={selectedContract.trialEndDate} 
+                    onChange={(e) => setSelectedContract({...selectedContract, trialEndDate: e.target.value})}
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-bold text-slate-800 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-500 mb-1 font-semibold">المسؤول عن الموارد البشرية (HR)</label>
+                  <input 
+                    type="text" 
+                    value={selectedContract.hrResponsible} 
+                    onChange={(e) => setSelectedContract({...selectedContract, hrResponsible: e.target.value})}
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-bold text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-500 mb-1 font-semibold">نوع العقد (Contract Type)</label>
+                  <input 
+                    type="text" 
+                    value={selectedContract.contractType} 
+                    onChange={(e) => setSelectedContract({...selectedContract, contractType: e.target.value})}
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-bold text-slate-800"
+                  />
+                </div>
+              </div>
+
+              {/* Odoo Notebook Tabs */}
+              <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
+                <div className="flex items-center bg-slate-100 border-b border-slate-200 px-4 pt-2 gap-2 text-xs font-bold text-slate-600 overflow-x-auto whitespace-nowrap scrollbar-hide">
+                  <button
+                    onClick={() => setContractActiveTab('salary')}
+                    className={`px-4 py-2 rounded-t-lg transition border-t border-x shrink-0 ${
+                      contractActiveTab === 'salary' ? 'bg-white text-purple-900 border-slate-200 font-bold -mb-px' : 'bg-slate-100 border-transparent text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    💰 1. جدول تفاصيل الراتب والتعويضات
+                  </button>
+
+                  <button
+                    onClick={() => setContractActiveTab('schedule')}
+                    className={`px-4 py-2 rounded-t-lg transition border-t border-x shrink-0 ${
+                      contractActiveTab === 'schedule' ? 'bg-white text-purple-900 border-slate-200 font-bold -mb-px' : 'bg-slate-100 border-transparent text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    ⏰ 2. جدول ومواعيد العمل
+                  </button>
+
+                  <button
+                    onClick={() => setContractActiveTab('terms')}
+                    className={`px-4 py-2 rounded-t-lg transition border-t border-x shrink-0 ${
+                      contractActiveTab === 'terms' ? 'bg-white text-purple-900 border-slate-200 font-bold -mb-px' : 'bg-slate-100 border-transparent text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    📜 3. الشروط والأحكام الخاصة
+                  </button>
+                </div>
+
+                {/* Tab 1 */}
+                {contractActiveTab === 'salary' && (
+                  <div className="p-6 space-y-4 text-xs">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">الأجر الأساسي (Wage - د.ك)</label>
+                        <input 
+                          type="number" 
+                          value={selectedContract.wage} 
+                          onChange={(e) => setSelectedContract({...selectedContract, wage: Number(e.target.value)})}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">بدل السكن (Housing - د.ك)</label>
+                        <input 
+                          type="number" 
+                          value={selectedContract.housingAllowance} 
+                          onChange={(e) => setSelectedContract({...selectedContract, housingAllowance: Number(e.target.value)})}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">بدل الانتقال (Transport - د.ك)</label>
+                        <input 
+                          type="number" 
+                          value={selectedContract.transportAllowance} 
+                          onChange={(e) => setSelectedContract({...selectedContract, transportAllowance: Number(e.target.value)})}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">بنك تحويل الراتب (WPS Bank)</label>
+                        <select
+                          value={selectedContract.bankName || masterBanks[0]}
+                          onChange={(e) => handleMasterDropdownChange(e.target.value, 'bankName', selectedContract, setSelectedContract, masterBanks, setMasterBanks, 'أدخل اسم البنك الجديد:')}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 bg-white"
+                        >
+                          {masterBanks.map(b => <option key={b} value={b}>{b}</option>)}
+                          <option value="__ADD_NEW__" className="text-purple-700 font-bold">➕ إضافة بنك جديد...</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center justify-between mt-4">
+                      <div>
+                        <div className="font-bold text-emerald-900 text-sm">إجمالي الأجر الشهري الإجمالي (Gross Monthly Salary)</div>
+                        <div className="text-[11px] text-emerald-700">محسوب آلياً بناءً على الراتب الأساسي والبدلات الثابتة</div>
+                      </div>
+                      <div className="font-mono text-xl font-bold text-emerald-800">
+                        {(selectedContract.wage + selectedContract.housingAllowance + selectedContract.transportAllowance + selectedContract.medicalAllowance).toFixed(3)} د.ك
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tab 2 */}
+                {contractActiveTab === 'schedule' && (
+                  <div className="p-6 space-y-4 text-xs">
+                    <div>
+                      <label className="block text-slate-500 font-semibold mb-1">جدول العمل الأسبوعي (Working Schedule)</label>
+                      <input 
+                        type="text" 
+                        value={selectedContract.workingSchedule} 
+                        onChange={(e) => setSelectedContract({...selectedContract, workingSchedule: e.target.value})}
+                        className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-500 font-semibold mb-1">رصيد الإجازة السنوية القانوني (Annual Leave Balance)</label>
+                      <div className="flex items-center gap-2 min-w-max">
+                        <input 
+                          type="number" 
+                          value={selectedContract.annualLeaveDays} 
+                          onChange={(e) => setSelectedContract({...selectedContract, annualLeaveDays: Number(e.target.value)})}
+                          className="w-32 border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800"
+                        />
+                        <span className="text-slate-600 font-semibold">يوماً في السنة مدفوعة الأجر (قانون العمل الكويتي 30 يوماً)</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tab 3 */}
+                {contractActiveTab === 'terms' && (
+                  <div className="p-6 space-y-4 text-xs">
+                    <div>
+                      <label className="block text-slate-500 font-semibold mb-1">مهلة الإخطار بإنهاء الخدمة (Notice Period)</label>
+                      <input 
+                        type="text" 
+                        value={selectedContract.noticePeriod} 
+                        onChange={(e) => setSelectedContract({...selectedContract, noticePeriod: e.target.value})}
+                        className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-500 font-semibold mb-1">شرط عدم المنافسة (Non-Compete Clause)</label>
+                      <input 
+                        type="text" 
+                        value={selectedContract.nonCompete} 
+                        onChange={(e) => setSelectedContract({...selectedContract, nonCompete: e.target.value})}
+                        className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-500 font-semibold mb-1">بند تذاكر السفر والتأمين الإضافي (Travel & Insurance)</label>
+                      <input 
+                        type="text" 
+                        value={selectedContract.travelAndInsurance} 
+                        onChange={(e) => setSelectedContract({...selectedContract, travelAndInsurance: e.target.value})}
+                        className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Odoo Chatter inside Contract Modal */}
+              <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-3">
+                <h4 className="font-bold text-slate-800 text-xs flex items-center gap-2">
+                  <span>💬</span> سجل الملاحظات والأنشطة (Odoo Chatter)
+                </h4>
+
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {selectedContract.chatter?.map((msg: any) => (
+                    <div key={msg.id} className="bg-white p-2.5 rounded-lg border border-slate-200 text-xs">
+                      <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1 font-mono">
+                        <span className="font-bold text-purple-900">{msg.user}</span>
+                        <span>{msg.date}</span>
+                      </div>
+                      <div className="text-slate-700">{msg.text}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <form onSubmit={(e) => handleAddChatter('contract', e)} className="flex gap-2 pt-2">
+                  <input 
+                    type="text"
+                    value={chatterInput}
+                    onChange={(e) => setChatterInput(e.target.value)}
+                    placeholder="اكتب ملاحظة أو توثيق قانوني هنا..."
+                    className="flex-1 bg-white border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                  />
+                  <button
+                    type="submit"
+                    className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-4 py-2 rounded-lg text-xs font-bold transition"
+                  >
+                    إرسال وسجل
+                  </button>
+                </form>
+              </div>
+
+            </div>
+
+            {/* Footer */}
+            <div className="bg-slate-100 border-t border-slate-200 px-6 py-3 flex items-center justify-between">
+              <span className="text-[11px] text-slate-500">نظام إدارة العقود متوافق مع قانون العمل الكويتي ومعايير أودو 18</span>
+              <button
+                onClick={() => {
+                  if (selectedContract) {
+                    const updatedContracts = contracts.map((c: any) => 
+                      c.id === selectedContract.id || c.contractRef === selectedContract.contractRef ? selectedContract : c
+                    );
+                    setContracts(updatedContracts);
+                    localStorage.setItem('odoo_contracts_v1', JSON.stringify(updatedContracts));
+                  }
+                  setShowContractModal(false);
+                }}
+                className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold transition"
+              >
+                إغلاق وحفظ
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Odoo Employee Form Modal */}
+      <OdooEmployeeFormModal 
+        isOpen={showAddEmployeeModal}
+        onClose={() => setShowAddEmployeeModal(false)}
+        onSave={(newEmp) => {
+          const updated = [newEmp, ...employees];
+          setEmployees(updated);
+          localStorage.setItem('odoo_employees_v1', JSON.stringify(updated));
+          setSelectedDept('الكل');
+          setSearchQuery('');
+          setShowAddEmployeeModal(false);
+          alert('تم تسجيل الموظف الجديد بنجاح في نظام Odoo Enterprise وتخزينه في قاعدة البيانات!');
+        }}
+      />
+
+      {/* Print Preview Modal */}
+      {showPrintModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-300" dir="rtl">
+            <div className="bg-slate-800 text-white px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2 font-bold text-sm">
+                <span>🖨️</span> معاينة الطباعة الرسمية - {printTitle}
+              </div>
+              <button 
+                onClick={() => setShowPrintModal(false)}
+                className="text-slate-300 hover:text-white font-bold text-base"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-8 overflow-y-auto space-y-6 flex-1 text-slate-800 bg-slate-50 font-sans">
+              <div className="text-center border-b border-slate-300 pb-6 space-y-2">
+                <div className="text-xl font-bold text-purple-900">مجمع عيادات إيليت كلينك الطبية - الكويت</div>
+                <div className="text-xs text-slate-500">Elite Medical Clinic Complex - State of Kuwait</div>
+                <div className="text-sm font-semibold text-slate-700 mt-2">{printTitle}</div>
+              </div>
+
+              {printData && (
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4 text-xs">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div><strong className="text-slate-500">الاسم:</strong> {printData.nameAr || printData.employeeName || printData.refTitle || 'غير متوفر'}</div>
+                    <div><strong className="text-slate-500">المعرف / الرقم:</strong> {printData.id || printData.employeeId || 'N/A'}</div>
+                    <div><strong className="text-slate-500">الرقم المدني:</strong> {printData.civilId || '290010112345'}</div>
+                    <div><strong className="text-slate-500">المسمى الوظيفي:</strong> {printData.jobTitle || printData.jobPosition || 'غير متوفر'}</div>
+                    <div><strong className="text-slate-500">القسم:</strong> {printData.dept || printData.department || 'غير متوفر'}</div>
+                    <div><strong className="text-slate-500">تاريخ التعيين / الإصدار:</strong> {printData.hireDate || printData.startDate || printData.commencementDate || '2026-01-01'}</div>
+                  </div>
+                  <div className="border-t pt-4 mt-4 flex justify-between items-center text-[11px] text-slate-500">
+                    <div>معتمد من إدارة الموارد البشرية والشؤون الإدارية (Odoo 18 ERP)</div>
+                    <div>تاريخ الطباعة: {new Date().toLocaleDateString('ar-KW')}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-slate-100 border-t border-slate-200 px-6 py-3 flex items-center justify-between">
+              <button
+                onClick={() => setShowPrintModal(false)}
+                className="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-xs font-bold transition"
+              >
+                إغلاق
+              </button>
+              <button
+                onClick={() => {
+                  window.print();
+                }}
+                className="bg-purple-900 hover:bg-purple-950 text-white px-5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-md"
+              >
+                <span>🖨️</span> طباعة المستند الآن (Print)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+export default EmployeesApp;
