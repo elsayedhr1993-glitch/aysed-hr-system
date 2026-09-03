@@ -344,14 +344,27 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
       // 3. Update in Firebase companies collection
       try {
+        await setDoc(doc(db, 'companies', updatedReq.id), {
+          nameAr: updatedReq.name,
+          email: updatedReq.email,
+          adminUsername: updatedReq.email,
+          phone: updatedReq.phone,
+          contactPhone: updatedReq.phone,
+          planType: updatedReq.plan_type,
+          ownerName: updatedReq.requester_name,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+
         const compSnap = await getDocs(collection(db, 'companies'));
         for (const d of compSnap.docs) {
           const comp = d.data();
-          if (d.id === updatedReq.id || comp.nameAr === updatedReq.name || comp.nameEn === updatedReq.name || comp.email === updatedReq.email) {
+          if (d.id === updatedReq.id || comp.nameAr === updatedReq.name || comp.nameEn === updatedReq.name || comp.email === updatedReq.email || comp.adminUsername === updatedReq.email) {
             await setDoc(doc(db, 'companies', d.id), {
               nameAr: updatedReq.name,
               email: updatedReq.email,
+              adminUsername: updatedReq.email,
               phone: updatedReq.phone,
+              contactPhone: updatedReq.phone,
               planType: updatedReq.plan_type,
               ownerName: updatedReq.requester_name,
               updatedAt: new Date().toISOString()
@@ -496,16 +509,19 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
             if (val.status === 'DRAFT' || val.state === 'draft' || val.status === 'PENDING') st = 'draft';
             else if (val.status === 'SUSPENDED' || val.state === 'suspended') st = 'suspended';
 
+            const activePhone = val.contactPhone || val.phone || val.mobile || '';
+            const activeEmail = val.adminUsername || val.email || val.adminEmail || `${activePhone ? activePhone.replace(/[^0-9]/g, '') : 'client'}@aysedhr.com`;
+
             allRequests.push({
               id: d.id,
               requester_name: val.ownerName || val.requesterName || val.name || 'المسؤول',
               name: compName,
-              phone: val.phone || val.mobile || '',
+              phone: activePhone,
               plan_type: val.planType || val.plan || 'admin',
               emp_count: String(val.employeeCount || val.empCount || '1-10'),
               state: st,
               created_at: val.createdAt?.toDate?.()?.toISOString() || val.created_at || new Date().toISOString(),
-              email: val.email || `${val.phone ? val.phone.replace(/[^0-9]/g, '') : 'client'}@aysedhr.com`
+              email: activeEmail
             });
           }
         }
@@ -523,16 +539,19 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           const companyTitle = rc.nameAr || rc.name || rc.nameEn || rc.companyName || '';
           if (companyTitle && !isTenantPurged(rc.id) && !isTenantPurged(companyTitle) && !isTenantPurged(rc)) {
             if (!allRequests.some(r => r.id === rc.id || r.name.toLowerCase() === companyTitle.toLowerCase())) {
+              const activePhone = rc.contactPhone || rc.phone || rc.mobile || '99112233';
+              const activeEmail = rc.adminUsername || rc.email || rc.adminEmail || `${activePhone ? activePhone.replace(/[^0-9]/g, '') : rc.id}@aysedhr.com`;
+
               allRequests.push({
                 id: rc.id,
                 requester_name: rc.ownerName || rc.requesterName || rc.name || 'المسؤول',
                 name: companyTitle,
-                phone: rc.phone || rc.mobile || '99112233',
+                phone: activePhone,
                 plan_type: rc.planType || rc.plan || 'Medical Pro',
                 emp_count: String(rc.employeeCount || rc.empCount || '1-10'),
                 state: rc.status === 'suspended' ? 'suspended' : 'approved',
                 created_at: rc.createdAt || new Date().toISOString(),
-                email: rc.email || `${rc.phone ? rc.phone.replace(/[^0-9]/g, '') : rc.id}@aysedhr.com`
+                email: activeEmail
               });
             }
           }
@@ -550,16 +569,19 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
             else if (valSt === 'rejected') st = 'rejected';
             else if (valSt === 'suspended') st = 'suspended';
 
+            const activePhone = ls.contactPhone || ls.phone || '';
+            const activeEmail = ls.adminUsername || ls.email || ls.adminEmail || `${activePhone ? activePhone.replace(/[^0-9]/g, '') : 'client'}@aysedhr.com`;
+
             allRequests.push({
               id: ls.id || 'sub-' + Math.random(),
               requester_name: ls.requesterName || ls.name || 'المسؤول',
               name: companyTitle,
-              phone: ls.phone || '',
+              phone: activePhone,
               plan_type: ls.planType || ls.sector || 'Medical Pro',
               emp_count: ls.empCount || ls.employee_count || '1-10',
               state: st,
               created_at: ls.createdAt || new Date().toISOString(),
-              email: ls.email || `${ls.phone ? ls.phone.replace(/[^0-9]/g, '') : 'client'}@aysedhr.com`
+              email: activeEmail
             });
           }
         }

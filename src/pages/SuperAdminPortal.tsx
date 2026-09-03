@@ -325,8 +325,8 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({
           tenantMap.set(d.id, {
             id: d.id,
             name,
-            phone: data.phone || data.mobile || (data as any).phone1 || existing?.phone || '96590000000',
-            email: data.email || data.adminEmail || existing?.email || `${d.id}@aysedhr.com`,
+            phone: data.contactPhone || data.phone || data.mobile || (data as any).phone1 || existing?.phone || '96590000000',
+            email: data.adminUsername || data.email || data.adminEmail || existing?.email || `${d.id}@aysedhr.com`,
             state: data.status === 'SUSPENDED' || data.state === 'suspended' ? 'suspended' : (data.status === 'DRAFT' || data.state === 'draft' ? 'draft' : 'active'),
             created_at: data.createdAt || existing?.created_at || new Date().toISOString(),
             plan: data.plan || data.planType || existing?.plan || 'ENTERPRISE',
@@ -590,7 +590,9 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({
         await setDoc(doc(db, 'companies', updatedTenant.id), {
           nameAr: updatedTenant.name,
           phone: updatedTenant.phone,
+          contactPhone: updatedTenant.phone,
           email: updatedTenant.email,
+          adminUsername: updatedTenant.email,
           status: updatedTenant.state === 'active' ? 'ACTIVE' : (updatedTenant.state === 'suspended' ? 'SUSPENDED' : 'DRAFT'),
           updatedAt: new Date().toISOString()
         }, { merge: true });

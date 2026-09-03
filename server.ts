@@ -35,6 +35,17 @@ dotenv.config({ path: ".env.local", override: true });
 const app = express();
 const PORT = 3000;
 
+// CORS and Preflight Request Handler for standalone link and external domain requests
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-gemini-key, x-gemini-api-key, x-api-key");
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 let adminApp: App | null = null;
 let authAdmin: ReturnType<typeof getAuth> | null = null;
 let firebaseAdminInitAttempted = false;
@@ -514,7 +525,7 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
   }
 }`;
 
-  const modelsToTry = ["gemini-3.6-flash"];
+  const modelsToTry = ["gemini-3.8-flash", "gemini-3.1-pro-preview", "gemini-3.5-flash-lite", "gemini-1.5-flash"];
   let lastError: any = null;
 
   for (const modelName of modelsToTry) {
@@ -655,15 +666,32 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
   }
 
 
-  const errorMessage = lastError?.message || "";
-  let friendlyError = "فشل نظام القراءة الضوئية (OCR) في تحليل المستند. يرجى التأكد من وضوح الملف أو إدخال البيانات يدوياً.";
-  if (errorMessage.includes("INVALID_ARGUMENT")) {
-    friendlyError = "الملف المرفق غير صالح أو معطوب. الرجاء التأكد من رفع صورة صحيحة أو ملف PDF صالح.";
+  const errorMessage = lastError?.message || lastError?.toString() || "";
+  let friendlyError = "فشل نظام القراءة الضوئية (OCR) في تحليل المستند.";
+  let cause = "حدث خطأ داخلي أثناء معالجة الصورة وتحليل النصوص.";
+
+  if (imageBase64 && imageBase64.length > 8 * 1024 * 1024) {
+    friendlyError = "حجم المستند كبير جداً.";
+    cause = "حجم الصورة المرفوعة يتجاوز الحد المسموح به لخادم الذكاء الاصطناعي. يرجى تقليل حجم أو دقة الصورة وإعادة المحاولة.";
+  } else if (errorMessage.includes("API_KEY_INVALID") || errorMessage.includes("key is invalid") || errorMessage.includes("API key not valid") || errorMessage.includes("unauthorized") || errorMessage.includes("invalid api key")) {
+    friendlyError = "مفتاح الـ API غير صالح أو غير مهيأ.";
+    cause = "مفتاح الذكاء الاصطناعي (Gemini/OpenAI API Key) الممرر غير صحيح أو لم يتم تهيئته بشكل صحيح في بيئة التشغيل المستقلة.";
+  } else if (errorMessage.includes("QUOTA_EXCEEDED") || errorMessage.includes("Quota exceeded") || errorMessage.includes("429") || errorMessage.includes("LimitExceeded")) {
+    friendlyError = "تم تجاوز حد الاستخدام المسموح به (Quota Exceeded).";
+    cause = "تم استهلاك الحصة المجانية لمفتاح الـ API الحالي. يرجى تحديث المفتاح أو المحاولة مجدداً بعد فترة وجيزة.";
+  } else if (errorMessage.includes("getaddrinfo") || errorMessage.includes("ENOTFOUND") || errorMessage.includes("fetch failed") || errorMessage.includes("timeout") || errorMessage.includes("Connection failed")) {
+    friendlyError = "فشل الاتصال بخادم الذكاء الاصطناعي.";
+    cause = "تعذر الاتصال بخوادم تحليل الرؤية البصرية بسبب انقطاع الاتصال بالإنترنت أو توقف الخادم عن الاستجابة.";
+  } else if (errorMessage.includes("INVALID_ARGUMENT") || errorMessage.includes("mimetype") || errorMessage.includes("Unsupported mime type") || errorMessage.includes("unsupported")) {
+    friendlyError = "صيغة الملف المرفوع غير صالحة.";
+    cause = "المستند المرفوع يحتوي على ترميز أو امتداد غير مدعوم من محرك الـ OCR. يرجى تجربة ملف بصيغة JPG أو PNG أو PDF حقيقي.";
+  } else if (errorMessage) {
+    cause = errorMessage;
   }
-  
+
   return res.status(500).json({
     error: friendlyError,
-    details: lastError?.message || lastError
+    details: cause
   });
 });
 

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { DocumentItem, Employee, Company } from '../types';
 import { 
-  Scan, Upload, FileText, Search, Trash2, Download, CheckCircle2, 
+  Scan, Upload, FileText, Search, Trash2, Download, CheckCircle2, AlertCircle,
   FolderOpen, Calendar, Shield, Sparkles, Filter, Eye, Plus, ArrowRight
 } from 'lucide-react';
 import { processAnyDocument } from '../utils/ocrService';
@@ -60,12 +60,28 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
         setScanResult({
           docType: selectedDocType || result.documentType || 'CIVIL_ID',
           extractedData: result,
-          fileName: file.name
+          fileName: file.name,
+          isManualFallback: false
         });
         toast.success('تم مسح وتحليل المستند بنجاح عبر الماسح الذكي');
       } catch (error: any) {
         console.error("Scanner OCR Error:", error);
-        toast.error(error.message || 'فشل تحليل الوثيقة. يرجى التأكد من وضوح الصورة.');
+        
+        // Show detailed, informative error toast
+        const displayMsg = error.message || 'فشل تحليل الوثيقة. يرجى التأكد من وضوح الصورة.';
+        toast.error(`تعذر تحليل المستند تلقائياً:\n${displayMsg}\nتم تفعيل خيار تعبئة البيانات يدوياً.`);
+        
+        // Populate scanResult with empty values for manual editing
+        setScanResult({
+          docType: selectedDocType || 'CIVIL_ID',
+          extractedData: {
+            fullNameAr: '',
+            civilId: '',
+            expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 1 year from now
+          },
+          fileName: file.name,
+          isManualFallback: true
+        });
       } finally {
         setIsScanning(false);
       }
@@ -362,17 +378,85 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                   <p className="font-bold text-slate-700 animate-pulse text-sm">جاري قراءة وتحليل المستند بالذكاء الاصطناعي (OCR)...</p>
                 </div>
               ) : scanResult ? (
-                <div className="w-full space-y-4">
-                  <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex items-start gap-3">
-                    <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0 mt-0.5" />
-                    <div>
-                      <h4 className="font-bold text-emerald-900 text-base mb-1">تم قراءة المستند بنجاح!</h4>
-                      <div className="text-xs text-emerald-700 space-y-1 font-mono">
-                        <p>نوع المستند: {scanResult.docType}</p>
-                        <p>الاسم المستخرج: {scanResult.extractedData.fullNameAr || 'مستند معتمد'}</p>
-                        <p>الرقم المدني / المعرّف: {scanResult.extractedData.civilId || 'غير متوفر'}</p>
-                        <p>تاريخ الانتهاء: {scanResult.extractedData.expiryDate || '2027-01-01'}</p>
+                <div className="w-full space-y-4 text-right">
+                  {scanResult.isManualFallback ? (
+                    <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-start gap-3">
+                      <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-bold text-amber-900 text-sm mb-1">تعذر المسح التلقائي - وضع الإدخال اليدوي</h4>
+                        <p className="text-xs text-amber-700 leading-relaxed">فشل محرك القراءة الضوئية (OCR) في تحليل المستند. يمكنك ملء البيانات الأساسية التالية يدوياً دون تعطيل شاشة العمل.</p>
                       </div>
+                    </div>
+                  ) : (
+                    <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex items-start gap-3">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-bold text-emerald-900 text-sm mb-1">تم قراءة المستند وتحليله بنجاح!</h4>
+                        <p className="text-xs text-emerald-700 leading-relaxed">يرجى مراجعة وتدقيق الحقول المستخرجة أدناه وتعديل أي حقل قبل الحفظ النهائي.</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">نوع المستند:</label>
+                      <input
+                        type="text"
+                        disabled
+                        value={scanResult.docType}
+                        className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-slate-500 text-xs font-bold outline-none cursor-not-allowed"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">الاسم الكامل بالعربية (أو كما هو مبين):</label>
+                      <input
+                        type="text"
+                        value={scanResult.extractedData.fullNameAr || ''}
+                        onChange={(e) => setScanResult({
+                          ...scanResult,
+                          extractedData: {
+                            ...scanResult.extractedData,
+                            fullNameAr: e.target.value
+                          }
+                        })}
+                        className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 text-xs font-bold focus:border-[#714B67] outline-none"
+                        placeholder="أدخل الاسم الكامل"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">الرقم المدني / رقم الهوية الوطنية (12 رقماً):</label>
+                      <input
+                        type="text"
+                        maxLength={12}
+                        value={scanResult.extractedData.civilId || ''}
+                        onChange={(e) => setScanResult({
+                          ...scanResult,
+                          extractedData: {
+                            ...scanResult.extractedData,
+                            civilId: e.target.value.replace(/\D/g, '')
+                          }
+                        })}
+                        className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 text-xs font-mono font-bold focus:border-[#714B67] outline-none"
+                        placeholder="أدخل الرقم المدني"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">تاريخ الانتهاء للمستند:</label>
+                      <input
+                        type="date"
+                        value={scanResult.extractedData.expiryDate || ''}
+                        onChange={(e) => setScanResult({
+                          ...scanResult,
+                          extractedData: {
+                            ...scanResult.extractedData,
+                            expiryDate: e.target.value
+                          }
+                        })}
+                        className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 text-xs font-mono focus:border-[#714B67] outline-none"
+                      />
                     </div>
                   </div>
 
