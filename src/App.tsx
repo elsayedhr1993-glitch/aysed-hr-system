@@ -278,7 +278,7 @@ function MainAppLayout() {
       )}
 
             {/* الشريط العلوي النحيف الموحد (Odoo Enterprise Navbar) */}
-      <header className="h-12 bg-[#714B67] text-white flex items-center justify-between px-4 z-40 select-none shadow-sm shrink-0">
+      <header className="h-12 bg-[#714B67] text-white flex items-center justify-between px-4 z-[60] select-none shadow-sm shrink-0">
         <div className="flex items-center gap-3">
           {activeApp !== 'switcher' && (
             <button 
@@ -563,11 +563,11 @@ function MainAppLayout() {
 
         {/* الحالة 12: شاشة لوحة تحكم السوبر أدمن وإدارة المشتركين (SaaS Settings) */}
         {activeApp === 'settings' && (
-          <main className="flex-1 bg-slate-50 overflow-y-auto w-full relative">
+          <div className="flex-1 flex flex-col bg-slate-50 overflow-hidden w-full relative">
             
             {isSuperAdmin && (
-              <div className="max-w-6xl mx-auto px-4 md:px-6 pt-4 md:pt-6">
-                <div className="flex bg-slate-200/70 p-1 rounded-xl w-fit gap-1 border border-slate-300/50">
+              <div className="bg-slate-100 border-b border-slate-200/80 px-4 md:px-6 py-3 shrink-0 z-30 shadow-xs">
+                <div className="max-w-6xl mx-auto flex bg-slate-200/70 p-1 rounded-xl w-fit gap-1 border border-slate-300/50">
                   <button 
                     type="button"
                     onClick={() => setSuperAdminSettingsTab('tenants')}
@@ -595,6 +595,8 @@ function MainAppLayout() {
                 </div>
               </div>
             )}
+
+            <main className="flex-1 bg-slate-50 overflow-y-auto w-full relative">
 
             {isSuperAdmin ? (
               superAdminSettingsTab === 'tenants' ? (
@@ -839,7 +841,8 @@ function MainAppLayout() {
               </div>
             )}
           </main>
-        )}
+        </div>
+      )}
 
         {/* الحالة 13: السوبر أدمن */}
         {activeApp === 'saas_admin' && (

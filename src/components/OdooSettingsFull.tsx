@@ -65,6 +65,10 @@ export const OdooSettingsFull: React.FC = () => {
         body: JSON.stringify({
           to: targetEmail,
           subject: 'اختبار خادم البريد (Aysed S HR 2026) - تهيئة أودو',
+          smtpHost: formData.smtpHost,
+          smtpPort: formData.smtpPort,
+          smtpUser: formData.smtpUser,
+          smtpPass: formData.smtpPass,
           text: `هذه رسالة اختبار للتأكد من ربط خادم البريد والمزامنة في المنشأة ${formData.companyNameAr}.`,
           html: `
             <div dir="rtl" style="font-family: Arial, sans-serif; padding: 25px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff; max-width: 600px; margin: 0 auto;">
@@ -88,7 +92,11 @@ export const OdooSettingsFull: React.FC = () => {
 
       const text = await response.text();
       let data;
-      try { data = JSON.parse(text); } catch(e) { throw new Error('الخادم لم يرجع استجابة JSON صالحة.'); }
+      try { 
+        data = JSON.parse(text); 
+      } catch(e) { 
+        throw new Error('الخادم لم يرجع استجابة JSON صالحة. يرجى التحقق من استجابة خادم البريد وسرعة اتصاله.'); 
+      }
       
       if (data.success) {
         toast.success(`تم إرسال بريد الاختبار بنجاح إلى: ${targetEmail}`);
@@ -972,7 +980,7 @@ export const OdooSettingsFull: React.FC = () => {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">خادم SMTP (SMTP Server Address)</label>
                     <input
@@ -1004,6 +1012,18 @@ export const OdooSettingsFull: React.FC = () => {
                       value={formData.smtpUser || ''}
                       onChange={(e) => handleFieldChange('smtpUser', e.target.value)}
                       placeholder="elsayedhr1993@gmail.com"
+                      dir="ltr"
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 focus:border-[#714B67] outline-hidden shadow-2xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">الرقم السري أو رمز التطبيق (SMTP Pass)</label>
+                    <input
+                      type="password"
+                      value={formData.smtpPass || ''}
+                      onChange={(e) => handleFieldChange('smtpPass', e.target.value)}
+                      placeholder="••••••••••••••••"
                       dir="ltr"
                       className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 focus:border-[#714B67] outline-hidden shadow-2xs"
                     />

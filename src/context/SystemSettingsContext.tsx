@@ -60,6 +60,7 @@ export interface SystemSettings {
   smtpHost: string;
   smtpPort: number;
   smtpUser: string;
+  smtpPass: string;
   enableAiAssistant: boolean;
 }
 
@@ -122,6 +123,7 @@ export const defaultSettings: SystemSettings = {
   smtpHost: 'smtp.gmail.com',
   smtpPort: 465,
   smtpUser: 'elsayedhr1993@gmail.com',
+  smtpPass: '',
   enableAiAssistant: true,
 };
 

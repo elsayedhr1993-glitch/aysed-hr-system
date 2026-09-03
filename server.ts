@@ -1180,23 +1180,34 @@ app.post("/api/send-whatsapp", async (req, res) => {
 });
 
 // SMTP / Email Route
-
-// SMTP / Email Route
 app.post("/api/send-email", express.json(), async (req, res) => {
-  const { to, subject, text, html } = req.body;
+  const { to, subject, text, html, smtpHost, smtpPort, smtpUser, smtpPass } = req.body;
+
+  // Resolve config dynamically with fallbacks
+  const resolvedHost = smtpHost || process.env.SMTP_HOST || "smtp.gmail.com";
+  const resolvedPort = Number(smtpPort) || Number(process.env.SMTP_PORT) || 465;
+  const resolvedUser = smtpUser || process.env.SMTP_USER || "elsayedhr1993@gmail.com";
+  const resolvedPass = smtpPass || process.env.SMTP_PASS || "";
+
+  // Secure is true for port 465, false for 587 or 25
+  const resolvedSecure = resolvedPort === 465;
+
   try {
     const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 465,
-      secure: true,
+      host: resolvedHost,
+      port: resolvedPort,
+      secure: resolvedSecure,
       auth: {
-        user: process.env.SMTP_USER || "elsayedhr1993@gmail.com",
-        pass: process.env.SMTP_PASS, // NOTE: Needs Google App Password (16 chars) from 2FA
+        user: resolvedUser,
+        pass: resolvedPass,
       },
+      connectionTimeout: 8000, // 8 seconds timeout
+      greetingTimeout: 8000,
+      socketTimeout: 8000,
     });
 
     await transporter.sendMail({
-      from: process.env.SMTP_USER || "elsayedhr1993@gmail.com",
+      from: resolvedUser,
       to,
       subject,
       text,
@@ -1206,7 +1217,22 @@ app.post("/api/send-email", express.json(), async (req, res) => {
     res.json({ success: true, message: "تم إرسال البريد بنجاح (Email sent successfully)" });
   } catch (error: any) {
     console.error("Email send failed:", error);
-    res.status(500).json({ success: false, error: error.message });
+    
+    // Check for common SMTP errors and make them very readable
+    let userFriendlyError = error.message || "حدث خطأ غير معروف في خادم البريد.";
+    if (error.code === 'ETIMEDOUT' || error.syscall === 'connect') {
+      userFriendlyError = `تأخر خادم البريد في الاستجابة (Timeout). يرجى التأكد من صحة خادم البريد [${resolvedHost}] والمنفذ [${resolvedPort}] وأنه غير محجوب بجدار حماية.`;
+    } else if (error.code === 'EAUTH' || error.message.includes('auth') || error.message.includes('Auth')) {
+      userFriendlyError = `فشل المصادقة والتوثيق (SMTP Authentication Failed). يرجى التأكد من البريد الإلكتروني ورمز التطبيق (App Password) المكون من 16 حرفاً في حال استخدام Gmail.`;
+    }
+
+    // Always return a JSON response with status 200/500 depending on success: false
+    res.status(200).json({ 
+      success: false, 
+      error: userFriendlyError,
+      technicalError: error.message,
+      code: error.code 
+    });
   }
 });
 
