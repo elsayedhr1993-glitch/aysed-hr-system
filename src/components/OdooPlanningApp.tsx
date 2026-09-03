@@ -81,6 +81,79 @@ export const OdooPlanningApp: React.FC = () => {
   // New assignment modal
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedCell, setSelectedCell] = useState<{empId: string, date: string} | null>(null);
+
+  // Template modal state
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<ShiftTemplate | null>(null);
+  const [tplName, setTplName] = useState('');
+  const [tplStartTime, setTplStartTime] = useState('09:00');
+  const [tplEndTime, setTplEndTime] = useState('17:00');
+  const [tplColor, setTplColor] = useState('bg-emerald-100 text-emerald-800 border-emerald-300');
+
+  const handleOpenAddTemplate = () => {
+    setEditingTemplate(null);
+    setTplName('');
+    setTplStartTime('09:00');
+    setTplEndTime('17:00');
+    setTplColor('bg-emerald-100 text-emerald-800 border-emerald-300');
+    setShowTemplateModal(true);
+  };
+
+  const handleOpenEditTemplate = (tpl: ShiftTemplate) => {
+    setEditingTemplate(tpl);
+    setTplName(tpl.name);
+    setTplStartTime(tpl.startTime);
+    setTplEndTime(tpl.endTime);
+    setTplColor(tpl.color);
+    setShowTemplateModal(true);
+  };
+
+  const handleSaveTemplate = () => {
+    if (!tplName.trim()) {
+      toast.error('يرجى إدخال اسم القالب');
+      return;
+    }
+    if (!tplStartTime || !tplEndTime) {
+      toast.error('يرجى تحديد وقت البدء ووقت الانتهاء');
+      return;
+    }
+
+    if (editingTemplate) {
+      // Edit
+      setTemplates(templates.map(t => t.id === editingTemplate.id ? {
+        ...t,
+        name: tplName.trim(),
+        startTime: tplStartTime,
+        endTime: tplEndTime,
+        color: tplColor
+      } : t));
+      toast.success('تم تعديل قالب الشفت بنجاح');
+    } else {
+      // Add
+      const newId = `T-${Date.now()}`;
+      setTemplates([...templates, {
+        id: newId,
+        name: tplName.trim(),
+        startTime: tplStartTime,
+        endTime: tplEndTime,
+        color: tplColor
+      }]);
+      toast.success('تمت إضافة قالب الشفت الجديد بنجاح');
+    }
+    setShowTemplateModal(false);
+  };
+
+  const handleDeleteTemplate = (id: string) => {
+    // Check if being used
+    const isUsed = assignedShifts.some(s => s.templateId === id);
+    if (isUsed) {
+      toast.error('لا يمكن حذف هذا القالب لأنه مستخدم حالياً في شفتات الموظفين');
+      return;
+    }
+    setTemplates(templates.filter(t => t.id !== id));
+    toast.success('تم حذف قالب الشفت');
+    setShowTemplateModal(false);
+  };
   
   const weekDates = useMemo(() => {
     return Array.from({length: 7}).map((_, i) => addDays(currentWeekStart, i));
@@ -314,27 +387,47 @@ export const OdooPlanningApp: React.FC = () => {
       )}
 
       {activeTab === 'TEMPLATES' && (
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 animate-fade-in">
           <div className="flex justify-between items-center mb-6">
             <h3 className="font-black text-slate-800 flex items-center gap-2">
               <Clock className="text-[#714B67]" /> قوالب الشفتات (Shift Templates)
             </h3>
-            <button className="bg-slate-100 text-slate-700 px-4 py-2 rounded-xl text-xs font-bold hover:bg-slate-200 transition flex items-center gap-2">
+            <button 
+              onClick={handleOpenAddTemplate}
+              className="bg-[#714B67] hover:bg-[#5a3b52] text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
+            >
               <Plus size={16} /> إضافة قالب جديد
             </button>
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {templates.map(tpl => (
-              <div key={tpl.id} className={`p-4 rounded-xl border-2 ${tpl.color}`}>
-                <div className="flex justify-between items-start mb-3">
-                  <h4 className="font-bold text-sm">{tpl.name}</h4>
-                  <MoreHorizontal size={16} className="opacity-50 cursor-pointer hover:opacity-100" />
-                </div>
-                <div className="flex items-center gap-2 font-mono font-bold text-lg">
-                  <span>{tpl.startTime}</span>
-                  <ArrowLeft size={14} className="opacity-50" />
-                  <span>{tpl.endTime}</span>
+              <div key={tpl.id} className={`p-4 rounded-xl border-2 transition hover:shadow-md flex flex-col justify-between ${tpl.color}`}>
+                <div>
+                  <div className="flex justify-between items-start mb-3">
+                    <h4 className="font-black text-sm">{tpl.name}</h4>
+                    <div className="flex items-center gap-1">
+                      <button 
+                        onClick={() => handleOpenEditTemplate(tpl)}
+                        className="p-1 hover:bg-black/5 rounded text-slate-700 transition"
+                        title="تعديل القالب"
+                      >
+                        <Edit size={14} />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteTemplate(tpl.id)}
+                        className="p-1 hover:bg-rose-100 rounded text-rose-600 transition"
+                        title="حذف القالب"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 font-mono font-bold text-lg">
+                    <span>{tpl.startTime}</span>
+                    <ArrowLeft size={14} className="opacity-50" />
+                    <span>{tpl.endTime}</span>
+                  </div>
                 </div>
               </div>
             ))}
@@ -371,6 +464,93 @@ export const OdooPlanningApp: React.FC = () => {
                   </button>
                 ))}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Template Create/Edit Modal */}
+      {showTemplateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col animate-scale-up">
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h2 className="font-black text-slate-800">
+                {editingTemplate ? 'تعديل قالب الشفت' : 'إضافة قالب شفت جديد'}
+              </h2>
+              <button onClick={() => setShowTemplateModal(false)} className="text-slate-400 hover:text-rose-500 cursor-pointer">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">اسم قالب الشفت (مثال: صباحي العيادة)</label>
+                <input 
+                  type="text"
+                  value={tplName}
+                  onChange={(e) => setTplName(e.target.value)}
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#714B67] transition font-medium"
+                  placeholder="مثال: الشفت الصباحي"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">وقت البدء (In)</label>
+                  <input 
+                    type="time"
+                    value={tplStartTime}
+                    onChange={(e) => setTplStartTime(e.target.value)}
+                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#714B67] transition font-mono font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">وقت الانتهاء (Out)</label>
+                  <input 
+                    type="time"
+                    value={tplEndTime}
+                    onChange={(e) => setTplEndTime(e.target.value)}
+                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#714B67] transition font-mono font-bold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">النمط اللوني المخصص لتمييز الشفت</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { value: 'bg-emerald-100 text-emerald-800 border-emerald-300', label: 'أخضر (صباحي)' },
+                    { value: 'bg-blue-100 text-blue-800 border-blue-300', label: 'أزرق (مسائي)' },
+                    { value: 'bg-purple-100 text-purple-800 border-purple-300', label: 'بنفسجي (ليلي)' },
+                    { value: 'bg-amber-100 text-amber-800 border-amber-300', label: 'أصفر (إداري)' },
+                    { value: 'bg-rose-100 text-rose-800 border-rose-300', label: 'أحمر (طوارئ)' },
+                    { value: 'bg-indigo-100 text-indigo-800 border-indigo-300', label: 'نيلي (مخصص)' },
+                  ].map(colorOpt => (
+                    <button
+                      key={colorOpt.value}
+                      onClick={() => setTplColor(colorOpt.value)}
+                      className={`p-2 rounded-xl border text-[10px] font-bold text-center transition ${colorOpt.value} ${tplColor === colorOpt.value ? 'ring-2 ring-offset-1 ring-[#714B67]' : 'opacity-80 hover:opacity-100'}`}
+                    >
+                      {colorOpt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2">
+              <button 
+                onClick={() => setShowTemplateModal(false)}
+                className="px-4 py-2 text-slate-500 hover:text-slate-700 text-xs font-bold transition"
+              >
+                إلغاء
+              </button>
+              <button 
+                onClick={handleSaveTemplate}
+                className="px-4 py-2 bg-[#714B67] hover:bg-[#5e3d55] text-white rounded-xl text-xs font-bold shadow-sm hover:shadow transition"
+              >
+                حفظ القالب
+              </button>
             </div>
           </div>
         </div>

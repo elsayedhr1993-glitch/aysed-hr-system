@@ -48,9 +48,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         if (firebaseUser) {
           // Fetch user role and company info from Firestore if needed
-          // For now, construct the basic user object
-          let role = 'SUPER_ADMIN';
-          let name = 'مدير النظام (Super Admin)';
+          const isSuper = ['admin@aysed.com', 'elsayedhr1993@gmail.com', 'admin@aysed-hr.com'].includes(firebaseUser.email?.toLowerCase() || '');
+          let role = isSuper ? 'SUPER_ADMIN' : 'COMPANY_ADMIN';
+          let name = isSuper ? 'مدير النظام (Super Admin)' : 'مسؤول الشركة';
           let companyId = undefined;
 
           // Attempt to fetch profile
@@ -62,14 +62,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               name = data.name || name;
               companyId = data.companyId;
             } else {
-              // Auto-seed for the first time login if it's the known admin
-              const { setDoc } = await import('firebase/firestore');
-              await setDoc(doc(db, 'users', firebaseUser.uid), {
-                email: firebaseUser.email,
-                name: 'مدير النظام المركزية',
-                role: 'SUPER_ADMIN',
-                createdAt: new Date().toISOString()
-              });
+              if (isSuper) {
+                // Auto-seed for the first time login if it's the known admin
+                const { setDoc } = await import('firebase/firestore');
+                await setDoc(doc(db, 'users', firebaseUser.uid), {
+                  email: firebaseUser.email,
+                  name: 'مدير النظام المركزية',
+                  role: 'SUPER_ADMIN',
+                  createdAt: new Date().toISOString()
+                });
+                role = 'SUPER_ADMIN';
+                name = 'مدير النظام المركزية';
+              } else {
+                // Not a super admin. Look up if this email is registered in 'companies'
+                const { getDocs, collection, query, where, setDoc } = await import('firebase/firestore');
+                const compQuery = query(collection(db, 'companies'), where('adminUsername', '==', firebaseUser.email));
+                const compSnap = await getDocs(compQuery);
+                
+                let foundCompany = null;
+                if (!compSnap.empty) {
+                  foundCompany = compSnap.docs[0];
+                } else {
+                  // Fallback search with 'email' field
+                  const compQuery2 = query(collection(db, 'companies'), where('email', '==', firebaseUser.email));
+                  const compSnap2 = await getDocs(compQuery2);
+                  if (!compSnap2.empty) {
+                    foundCompany = compSnap2.docs[0];
+                  }
+                }
+
+                if (foundCompany) {
+                  const compData = foundCompany.data();
+                  role = 'COMPANY_ADMIN';
+                  name = compData.ownerName || compData.nameAr || 'مسؤول الشركة';
+                  companyId = foundCompany.id;
+
+                  // Seed user document as COMPANY_ADMIN
+                  await setDoc(doc(db, 'users', firebaseUser.uid), {
+                    email: firebaseUser.email,
+                    name: name,
+                    role: 'COMPANY_ADMIN',
+                    companyId: companyId,
+                    createdAt: new Date().toISOString()
+                  });
+                } else {
+                  // Fallback default company admin role safely
+                  role = 'COMPANY_ADMIN';
+                  name = 'مسؤول شركة جديد';
+                  await setDoc(doc(db, 'users', firebaseUser.uid), {
+                    email: firebaseUser.email,
+                    name: name,
+                    role: 'COMPANY_ADMIN',
+                    createdAt: new Date().toISOString()
+                  });
+                }
+              }
             }
           } catch (e) {
              console.warn("Could not fetch or seed user profile from firestore:", e);

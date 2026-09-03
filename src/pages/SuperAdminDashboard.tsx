@@ -19,6 +19,7 @@ interface SubscriptionRequest {
   state: 'draft' | 'approved' | 'rejected' | 'suspended';
   created_at: string;
   email?: string;
+  password?: string;
 }
 
 interface SuperAdminDashboardProps {
@@ -492,7 +493,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
               emp_count: val.empCount || val.employee_count || '1-10',
               state: st,
               created_at: val.createdAt?.toDate?.()?.toISOString() || val.created_at || new Date().toISOString(),
-              email: val.email || `${val.phone ? val.phone.replace(/[^0-9]/g, '') : 'client'}@aysedhr.com`
+              email: val.email || `${val.phone ? val.phone.replace(/[^0-9]/g, '') : 'client'}@aysedhr.com`,
+              password: val.adminPassword || val.password || ''
             });
           }
         }
@@ -521,7 +523,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
               emp_count: String(val.employeeCount || val.empCount || '1-10'),
               state: st,
               created_at: val.createdAt?.toDate?.()?.toISOString() || val.created_at || new Date().toISOString(),
-              email: activeEmail
+              email: activeEmail,
+              password: val.adminPassword || val.password || ''
             });
           }
         }
@@ -1088,7 +1091,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                                       onClick={() => {
                                         const email = req.email || `${req.phone.replace(/[^0-9]/g, '')}@aysedhr.com`;
                                         const creds = JSON.parse(localStorage.getItem('aysed_company_credentials') || '{}');
-                                        const existingPass = creds[email]?.password || 'Aysed2026#Secure';
+                                        const existingPass = req.password || creds[email]?.password || 'Aysed2026#Secure';
                                         setSelectedActivation({
                                           companyName: req.name,
                                           email,

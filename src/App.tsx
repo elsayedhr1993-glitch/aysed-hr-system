@@ -181,11 +181,20 @@ function MainAppLayout() {
     return () => clearInterval(interval);
   }, []);
 
+  // Guard against unauthorized access to Super Admin screens
+  useEffect(() => {
+    if (user && !isSuperAdmin) {
+      if (activeApp === 'saas_admin') {
+        setActiveApp('switcher');
+      }
+    }
+  }, [activeApp, isSuperAdmin, user]);
+
   const appsList = [
     { id: 'employees', name: 'شؤون الموظفين', subtitle: 'Employees Directory', icon: Users, color: 'bg-rose-500' },
     { id: 'attendance', name: 'الحضور والانصراف', subtitle: 'Time & Attendance', icon: Clock, color: 'bg-indigo-600' },
     { id: 'shifts', name: 'جداول الشفتات', subtitle: 'Shifts & Rosters', icon: Calendar, color: 'bg-amber-600' },
-    { id: 'leaves', name: 'الإجازات والغياب', subtitle: 'Time Off & Leaves', icon: Palmtree, color: 'bg-emerald-600' },
+    { id: 'leaves', name: 'إجازات والغياب', subtitle: 'Time Off & Leaves', icon: Palmtree, color: 'bg-emerald-600' },
     { id: 'payroll', name: 'الرواتب وحماية الأجور', subtitle: 'Payroll & WPS', icon: CreditCard, color: 'bg-green-600' },
     { id: 'custody', name: 'العهد والممتلكات', subtitle: 'Assets & Custodies', icon: Package, color: 'bg-orange-500' },
     { id: 'archive', name: 'أرشيف المستندات', subtitle: 'Documents Archive', icon: FolderArchive, color: 'bg-amber-500' },
@@ -193,7 +202,7 @@ function MainAppLayout() {
     { id: 'letters', name: 'النماذج والخطابات', subtitle: 'Templates & Letters', icon: FileText, color: 'bg-sky-600' },
     { id: 'holidays', name: 'العطلات الرسمية', subtitle: 'Public Holidays', icon: Sparkles, color: 'bg-purple-600' },
     { id: 'reports', name: 'لوحة القيادة والتقارير', subtitle: 'Executive Dashboard', icon: BarChart3, color: 'bg-blue-600' },
-    { id: 'settings', name: 'الإعدادات والمشتركين', subtitle: 'Settings & SaaS Tenants', icon: Sliders, color: 'bg-slate-700' },
+    { id: 'settings', name: isSuperAdmin ? 'الإعدادات والمشتركين' : 'بيانات المنشأة والإعدادات', subtitle: isSuperAdmin ? 'Settings & SaaS Tenants' : 'Company Profile & Settings', icon: Sliders, color: 'bg-slate-700' },
   ];
 
   const filteredApps = appsList.filter(app => 
@@ -215,7 +224,7 @@ function MainAppLayout() {
       case 'letters': return 'النماذج والخطابات (Templates & Letters)';
       case 'holidays': return 'العطلات الرسمية (Public Holidays)';
       case 'reports': return 'لوحة القيادة والتقارير (Executive Dashboard)';
-      case 'settings': return 'الإعدادات والمشتركين (Settings & SaaS Tenants)';
+      case 'settings': return isSuperAdmin ? 'الإعدادات والمشتركين (Settings & SaaS Tenants)' : 'بيانات المنشأة والإعدادات (Company Profile & Settings)';
       default: return 'نظام Aysed S HR 2026';
     }
   };
@@ -331,7 +340,9 @@ function MainAppLayout() {
                 <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-[#714B67]" title="متصل الآن"></span>
               </div>
               <div className="text-right hidden md:block">
-                <span className="block text-xs font-bold text-white truncate max-w-[100px]">السيد (Admin)</span>
+                <span className="block text-xs font-bold text-white truncate max-w-[100px]">
+                  {isSuperAdmin ? 'السيد (Admin)' : 'حساب المالك'}
+                </span>
                 <span className="block text-[10px] text-white/80 truncate max-w-[100px]">{activeCompany ? activeCompany.nameAr : 'النظام المركزي'}</span>
               </div>
             </button>
@@ -345,7 +356,9 @@ function MainAppLayout() {
                     className="w-12 h-12 rounded-full object-cover border-2 border-[#714B67] shadow-sm shrink-0"
                   />
                   <div className="overflow-hidden">
-                    <p className="text-xs font-bold text-slate-900 truncate">السيد (المدير العام)</p>
+                    <p className="text-xs font-bold text-slate-900 truncate">
+                      {isSuperAdmin ? 'السيد (المدير العام)' : 'حساب المالك'}
+                    </p>
                     <p className="text-[11px] text-slate-500 truncate">{user?.email || 'elsayedhr1993@gmail.com'}</p>
                     <span className="inline-block mt-1 text-[9px] bg-purple-100 text-[#714B67] font-bold px-2 py-0.5 rounded-full">
                       {activeCompany ? activeCompany.nameAr : 'Super Admin'}
@@ -552,120 +565,135 @@ function MainAppLayout() {
           <main className="flex-1 p-4 md:p-6 bg-slate-50 overflow-y-auto w-full">
             <div className="max-w-6xl mx-auto space-y-6">
               
-              {/* ترويسة إدارة المشتركين */}
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                <div>
-                  <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                    <Building2 className="text-[#714B67]" size={24} />
-                    بوابة السوبر أدمن وإدارة الشركات المشتركة (Tenants Portal)
-                  </h1>
-                  <p className="text-xs text-slate-500 mt-1">
-                    إدارة التراخيص السحابية، كلمات المرور، والدخول الفوري كمسؤول (Impersonation)
-                  </p>
-                </div>
+              {isSuperAdmin ? (
+                <>
+                  {/* ترويسة إدارة المشتركين */}
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                    <div>
+                      <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <Building2 className="text-[#714B67]" size={24} />
+                        بوابة السوبر أدمن وإدارة الشركات المشتركة (Tenants Portal)
+                      </h1>
+                      <p className="text-xs text-slate-500 mt-1">
+                        إدارة التراخيص السحابية، كلمات المرور، والدخول الفوري كمسؤول (Impersonation)
+                      </p>
+                    </div>
 
-                {isSuperAdmin && (
-                  <button 
-                    onClick={() => setShowAddModal(true)}
-                    className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition shadow-sm cursor-pointer"
-                  >
-                    <Plus size={16} />
-                    <span>+ إضافة شركة ومشترك جديد</span>
-                  </button>
-                )}
-              </div>
+                    <button 
+                      onClick={() => setShowAddModal(true)}
+                      className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition shadow-sm cursor-pointer"
+                    >
+                      <Plus size={16} />
+                      <span>+ إضافة شركة ومشترك جديد</span>
+                    </button>
+                  </div>
 
-              {/* جدول المشتركين الكامل */}
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-700">قائمة الشركات المشتركة المرخصة ({companies.length})</span>
-                  <span className="text-[11px] bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full font-bold">
-                    العزل السحابي الصارم نشط 🛡️
-                  </span>
-                </div>
+                  {/* جدول المشتركين الكامل */}
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-700">قائمة الشركات المشتركة المرخصة ({companies.length})</span>
+                      <span className="text-[11px] bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full font-bold">
+                        العزل السحابي الصارم نشط 🛡️
+                      </span>
+                    </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-right text-xs">
-                    <thead className="bg-slate-100/70 text-slate-700 border-b border-slate-200 font-bold">
-                      <tr>
-                        <th className="p-3.5">اسم المنشأة / الشركة</th>
-                        <th className="p-3.5">اسم المستخدم</th>
-                        <th className="p-3.5">كلمة المرور المؤقتة</th>
-                        <th className="p-3.5">ملف الشؤون (PAM)</th>
-                        <th className="p-3.5">الهاتف</th>
-                        <th className="p-3.5">تاريخ الإنشاء</th>
-                        <th className="p-3.5 text-center">الإجراءات والتحكم</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {companies.map((comp) => {
-                        const isCurrentActive = impersonatingCompanyId === comp.id;
-                        return (
-                          <tr key={comp.id} className={`hover:bg-slate-50 transition ${isCurrentActive ? 'bg-amber-50/80 font-medium' : ''}`}>
-                            <td className="p-3.5 font-bold text-slate-800 flex items-center gap-2">
-                              <div className="w-7 h-7 rounded-lg bg-purple-100 text-[#714B67] flex items-center justify-center font-bold text-xs shrink-0">
-                                {comp.nameAr.charAt(0)}
-                              </div>
-                              <div>
-                                <div>{comp.nameAr}</div>
-                                <div className="text-[10px] text-slate-400 font-normal">{comp.nameEn}</div>
-                              </div>
-                            </td>
-                            <td className="p-3.5 font-mono text-slate-700 font-semibold">{comp.adminUsername}</td>
-                            <td className="p-3.5">
-                              <input 
-                                type="text" 
-                                defaultValue={comp.adminPassword} 
-                                onBlur={(e) => {
-                                  updateCompanyPassword(comp.id, e.target.value);
-                                  toast.success(`تم تحديث كلمة المرور لـ ${comp.nameAr}`);
-                                }}
-                                className="border border-slate-300 rounded-lg px-2.5 py-1 text-xs w-36 focus:outline-none focus:border-[#714B67] font-mono bg-slate-50"
-                              />
-                            </td>
-                            <td className="p-3.5 text-slate-600 font-mono">{comp.pamFileNumber || '---'}</td>
-                            <td className="p-3.5 text-slate-600 font-mono">{comp.contactPhone || '---'}</td>
-                            <td className="p-3.5 text-slate-500 font-mono">{comp.createdAt}</td>
-                            <td className="p-3.5">
-                              <div className="flex items-center justify-center gap-2">
-                                <button 
-                                  onClick={() => {
-                                    impersonateCompany(comp.id);
-                                    toast.success(`أنت الآن تتصفح بيانات شركة ${comp.nameAr}`);
-                                  }}
-                                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition flex items-center gap-1.5 shadow-sm border border-transparent cursor-pointer ${
-                                    isCurrentActive 
-                                      ? 'bg-amber-500 text-slate-950 font-black' 
-                                      : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                                  }`}
-                                >
-                                  <span>{isCurrentActive ? '✓ الجلسة نشطة' : 'دخول كمسؤول'}</span>
-                                </button>
-                                <button 
-                                  onClick={async () => {
-                                    if (confirm(`هل أنت متأكد من حذف شركة (${comp.nameAr}) نهائياً؟`)) {
-                                      const deletePromise = deleteCompany(comp.id);
-                                      toast.promise(deletePromise, {
-                                        loading: 'جاري حذف الشركة...',
-                                        success: `تم حذف الشركة بنجاح`,
-                                        error: (err) => `فشل حذف الشركة: ${err.message}`
-                                      });
-                                    }
-                                  }}
-                                  className="bg-rose-50 text-rose-600 hover:bg-rose-100 p-1.5 rounded-lg border border-rose-200 transition cursor-pointer"
-                                  title="حذف المشترك"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              </div>
-                            </td>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-right text-xs">
+                        <thead className="bg-slate-100/70 text-slate-700 border-b border-slate-200 font-bold">
+                          <tr>
+                            <th className="p-3.5">اسم المنشأة / الشركة</th>
+                            <th className="p-3.5">اسم المستخدم</th>
+                            <th className="p-3.5">كلمة المرور المؤقتة</th>
+                            <th className="p-3.5">ملف الشؤون (PAM)</th>
+                            <th className="p-3.5">الهاتف</th>
+                            <th className="p-3.5">تاريخ الإنشاء</th>
+                            <th className="p-3.5 text-center">الإجراءات والتحكم</th>
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {companies.map((comp) => {
+                            const isCurrentActive = impersonatingCompanyId === comp.id;
+                            return (
+                              <tr key={comp.id} className={`hover:bg-slate-50 transition ${isCurrentActive ? 'bg-amber-50/80 font-medium' : ''}`}>
+                                <td className="p-3.5 font-bold text-slate-800 flex items-center gap-2">
+                                  <div className="w-7 h-7 rounded-lg bg-purple-100 text-[#714B67] flex items-center justify-center font-bold text-xs shrink-0">
+                                    {comp.nameAr.charAt(0)}
+                                  </div>
+                                  <div>
+                                    <div>{comp.nameAr}</div>
+                                    <div className="text-[10px] text-slate-400 font-normal">{comp.nameEn}</div>
+                                  </div>
+                                </td>
+                                <td className="p-3.5 font-mono text-slate-700 font-semibold">{comp.adminUsername}</td>
+                                <td className="p-3.5">
+                                  <input 
+                                    type="text" 
+                                    defaultValue={comp.adminPassword} 
+                                    onBlur={(e) => {
+                                      updateCompanyPassword(comp.id, e.target.value);
+                                      toast.success(`تم تحديث كلمة المرور لـ ${comp.nameAr}`);
+                                    }}
+                                    className="border border-slate-300 rounded-lg px-2.5 py-1 text-xs w-36 focus:outline-none focus:border-[#714B67] font-mono bg-slate-50"
+                                  />
+                                </td>
+                                <td className="p-3.5 text-slate-600 font-mono">{comp.pamFileNumber || '---'}</td>
+                                <td className="p-3.5 text-slate-600 font-mono">{comp.contactPhone || '---'}</td>
+                                <td className="p-3.5 text-slate-500 font-mono">{comp.createdAt}</td>
+                                <td className="p-3.5">
+                                  <div className="flex items-center justify-center gap-2">
+                                    <button 
+                                      onClick={() => {
+                                        impersonateCompany(comp.id);
+                                        toast.success(`أنت الآن تتصفح بيانات شركة ${comp.nameAr}`);
+                                      }}
+                                      className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition flex items-center gap-1.5 shadow-sm border border-transparent cursor-pointer ${
+                                        isCurrentActive 
+                                          ? 'bg-amber-500 text-slate-950 font-black' 
+                                          : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                      }`}
+                                    >
+                                      <span>{isCurrentActive ? '✓ الجلسة نشطة' : 'دخول كمسؤول'}</span>
+                                    </button>
+                                    <button 
+                                      onClick={async () => {
+                                        if (confirm(`هل أنت متأكد من حذف شركة (${comp.nameAr}) نهائياً؟`)) {
+                                          const deletePromise = deleteCompany(comp.id);
+                                          toast.promise(deletePromise, {
+                                            loading: 'جاري حذف الشركة...',
+                                            success: `تم حذف الشركة بنجاح`,
+                                            error: (err) => `فشل حذف الشركة: ${err.message}`
+                                          });
+                                        }
+                                      }}
+                                      className="bg-rose-50 text-rose-600 hover:bg-rose-100 p-1.5 rounded-lg border border-rose-200 transition cursor-pointer"
+                                      title="حذف المشترك"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                /* ترويسة إعدادات المنشأة للشركات المشتركة */
+                <div className="flex justify-between items-center bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                  <div>
+                    <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                      <Building2 className="text-[#714B67]" size={24} />
+                      بيانات المنشأة والإعدادات (Company Profile & Settings)
+                    </h1>
+                    <p className="text-xs text-slate-500 mt-1 font-medium">
+                      إدارة معلومات منشأتك الحالية، التحقق البصري الموحد، وربط أجهزة البصمة بالفروع
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* قسم الإعدادات العامة الكاملة للنظام */}
               <div className="mt-8">
