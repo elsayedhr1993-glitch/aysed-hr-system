@@ -37,7 +37,7 @@ export const getWhatsAppDirectUrl = (phone: string, text: string): string => {
  * جلب إعدادات بوابة الواتساب المخزنة للشركة الحالية
  */
 export const getStoredWhatsAppConfig = (companyId?: string): Partial<WhatsAppGatewayConfig> => {
-  const compId = companyId || 'comp-1';
+  const compId = companyId || '';
   try {
     const saved = localStorage.getItem(`whatsapp_gateway_${compId}`);
     if (saved) {

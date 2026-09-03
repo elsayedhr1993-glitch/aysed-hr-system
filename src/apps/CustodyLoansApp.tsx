@@ -74,7 +74,7 @@ export const CustodyLoansApp: React.FC<CustodyLoansAppProps> = ({
   const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<{ type: 'CUSTODY' | 'LOAN' | 'WARNING' | 'NOTE'; id: string; label: string } | null>(null);
 
   // Filtered Lists
-  const companyEmployees = (employees || []).filter(e => e.companyId === (activeCompany?.id || 'comp-1') || !e.companyId);
+  const companyEmployees = (employees || []).filter(e => e.companyId === (activeCompany?.id || ''));
 
   const filteredCustodies = custodies.filter(c => {
     const emp = employees.find(e => e.id === c.employeeId);
@@ -121,7 +121,7 @@ export const CustodyLoansApp: React.FC<CustodyLoansAppProps> = ({
   // Handlers for Custodies
   const handleOpenNewCustody = () => {
     setEditingCustody({
-      companyId: activeCompany?.id || 'comp-1',
+      companyId: activeCompany?.id || '',
       itemCode: `CST-${Math.floor(1000 + Math.random() * 9000)}`,
       itemCategory: 'ELECTRONICS',
       handoverDate: new Date().toISOString().split('T')[0],
@@ -139,7 +139,7 @@ export const CustodyLoansApp: React.FC<CustodyLoansAppProps> = ({
     }
     const itemToSave: CustodyItem = {
       id: editingCustody.id || `cst-${Date.now()}`,
-      companyId: activeCompany?.id || 'comp-1',
+      companyId: activeCompany?.id || '',
       employeeId: editingCustody.employeeId,
       itemCode: editingCustody.itemCode || `CST-${Date.now().toString().slice(-4)}`,
       itemName: editingCustody.itemName.trim(),
@@ -161,7 +161,7 @@ export const CustodyLoansApp: React.FC<CustodyLoansAppProps> = ({
   // Handlers for Loans
   const handleOpenNewLoan = () => {
     setEditingLoan({
-      companyId: activeCompany?.id || 'comp-1',
+      companyId: activeCompany?.id || '',
       amount: 500.000,
       monthlyDeduction: 50.000,
       startDate: new Date().toISOString().split('T')[0],
@@ -189,7 +189,7 @@ export const CustodyLoansApp: React.FC<CustodyLoansAppProps> = ({
 
     const loanToSave: LoanAdvance = {
       id: editingLoan.id || `loan-${Date.now()}`,
-      companyId: activeCompany?.id || 'comp-1',
+      companyId: activeCompany?.id || '',
       employeeId: editingLoan.employeeId,
       amount: amt,
       monthlyDeduction: monthly,
@@ -211,7 +211,7 @@ export const CustodyLoansApp: React.FC<CustodyLoansAppProps> = ({
   // Handlers for Warnings
   const handleOpenNewWarning = () => {
     setEditingWarning({
-      companyId: activeCompany?.id || 'comp-1',
+      companyId: activeCompany?.id || '',
       warningCode: `WRN-${Math.floor(1000 + Math.random() * 9000)}`,
       warningType: 'FIRST_WARNING',
       violationDate: new Date().toISOString().split('T')[0],
@@ -232,7 +232,7 @@ export const CustodyLoansApp: React.FC<CustodyLoansAppProps> = ({
     }
     const warningToSave: DisciplinaryWarning = {
       id: editingWarning.id || `wrn-${Date.now()}`,
-      companyId: activeCompany?.id || 'comp-1',
+      companyId: activeCompany?.id || '',
       employeeId: editingWarning.employeeId,
       warningCode: editingWarning.warningCode || `WRN-${Date.now().toString().slice(-4)}`,
       warningType: editingWarning.warningType || 'FIRST_WARNING',
@@ -252,7 +252,7 @@ export const CustodyLoansApp: React.FC<CustodyLoansAppProps> = ({
   // Handlers for Notes
   const handleOpenNewNote = () => {
     setEditingNote({
-      companyId: activeCompany?.id || 'comp-1',
+      companyId: activeCompany?.id || '',
       authorName: 'مسؤول HR الإداري',
       date: new Date().toISOString().split('T')[0],
       category: 'EVALUATION',
@@ -271,7 +271,7 @@ export const CustodyLoansApp: React.FC<CustodyLoansAppProps> = ({
     }
     const noteToSave: EmployeeNote = {
       id: editingNote.id || `note-${Date.now()}`,
-      companyId: activeCompany?.id || 'comp-1',
+      companyId: activeCompany?.id || '',
       employeeId: editingNote.employeeId,
       authorName: editingNote.authorName || 'إدارة شؤون الموظفين',
       date: editingNote.date || new Date().toISOString().split('T')[0],

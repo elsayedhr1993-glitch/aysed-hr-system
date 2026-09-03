@@ -74,7 +74,7 @@ export default function OdooDocumentUploadModal({ isOpen, onClose, onSave, emplo
 
     const payload: EmployeeDocument = {
       id: `DOC-${Date.now()}`,
-      employeeId: currentEmp?.id || 'EMP-001',
+      employeeId: currentEmp?.id || '',
       employeeNameAr: currentEmp?.nameAr || '',
       civilId: currentEmp?.civilId || '',
       category,

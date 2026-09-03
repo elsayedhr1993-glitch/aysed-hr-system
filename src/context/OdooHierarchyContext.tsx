@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { KUWAIT_LABOR_CONFIG } from '../config/kuwaitLaborConfig';
+import { useCompany } from './CompanyContext';
+import { TenantDatabaseService } from '../services/tenantDataService';
 
 // 1. المستوى الأول: العقد والبيانات الثابتة (hr.contract & hr.employee)
 export interface EmployeeContract {
@@ -61,7 +63,7 @@ export const computeAttendanceAndOvertime = (
     hourlyRate?: number;
   }
 ) => {
-  if (!checkIn || !checkOut) {
+  if (!checkIn || !checkOut || typeof checkIn !== 'string' || typeof checkOut !== 'string') {
     return {
       actualHours: 0,
       overtimeHours: 0,
@@ -83,7 +85,8 @@ export const computeAttendanceAndOvertime = (
     ? contractSchedule.dailyHours 
     : 8; // الافتراضي 8 ساعات
 
-  const startTimeStr = contractSchedule?.shiftStartTime || '08:00';
+  let startTimeStr = contractSchedule?.shiftStartTime || '08:00';
+  if (typeof startTimeStr !== 'string') startTimeStr = '08:00';
   const [expectedInH, expectedInM] = startTimeStr.split(':').map(Number);
   const expectedInTotalMin = (expectedInH || 8) * 60 + (expectedInM || 0);
 
@@ -172,6 +175,8 @@ interface OdooHierarchyContextType {
   recordAttendanceShift: (empId: string, delayMin: number, overtimeHr: number) => void;
   recordAttendanceTimes: (empId: string, checkIn: string, checkOut?: string, delayMinutes?: number, overtimeHours?: number, isHoliday?: boolean) => void;
   addLoan: (empId: string, amount: number, installment: number) => void;
+  deleteLoan: (loanId: string) => void;
+  registerLoanPayment: (loanId: string, amountToPay: number) => void;
   addEmployee: (emp: EmployeeContract) => void;
   recordUnpaidAbsence: (empId: string, days: number) => void;
   updateLeaveAccrual: (empId: string, carried: number, earned: number, consumed: number, excludedServiceDays?: number) => void;
@@ -188,56 +193,67 @@ interface OdooHierarchyContextType {
 const OdooHierarchyContext = createContext<OdooHierarchyContextType | undefined>(undefined);
 
 export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { activeCompany, activeCompanyId } = useCompany();
+  const currentCompanyId = activeCompanyId || activeCompany?.id || 'comp-super-admin';
+
   // بيانات العقود المركزية
-  const [employees, setEmployees] = useState<EmployeeContract[]>([
-    {
-      id: 'EMP-001',
-      name: 'أحمد محمود الكندري',
-      civilId: '290010112345',
-      jobTitle: 'مدير الموارد البشرية',
-      department: 'الإدارة العامة',
-      basicSalary: 1200,
-      housingAllowance: 300,
-      transportAllowance: 150,
-      isKuwaiti: true,
-      bankName: 'بنك الكويت الوطني (NBK)',
-      iban: 'KW82NBOK0000000000001234567890',
-      contractStatus: 'running'
-    },
-    {
-      id: 'EMP-002',
-      name: 'محمد إبراهيم السيد',
-      civilId: '288050498765',
-      jobTitle: 'أخصائي شؤون إدارية',
-      department: 'الموارد البشرية',
-      basicSalary: 650,
-      housingAllowance: 150,
-      transportAllowance: 50,
-      isKuwaiti: false,
-      bankName: 'بنك بوبيان (Boubyan)',
-      iban: 'KW45BOUB0000000000009876543210',
-      contractStatus: 'running'
+  const [employees, setEmployees] = useState<EmployeeContract[]>([]);
+
+  // مزامنة الموظفين حياً من قاعدة البيانات للشركة النشطة
+  useEffect(() => {
+    let isMounted = true;
+    async function syncEmployeesFromDb() {
+      if (!currentCompanyId) return;
+      try {
+        const dbEmps = await TenantDatabaseService.getEmployeesByTenant(currentCompanyId);
+        if (isMounted) {
+          if (dbEmps && dbEmps.length > 0) {
+            const mapped: EmployeeContract[] = dbEmps.map(emp => ({
+              id: emp.id,
+              name: emp.fullNameAr || (emp as any).nameAr || (emp as any).name || 'موظف',
+              civilId: emp.civilId || '',
+              jobTitle: emp.jobTitle || 'موظف',
+              department: emp.department || (emp as any).dept || 'العموم',
+              basicSalary: (emp as any).basicSalary || (emp as any).contractSalary || 1000,
+              housingAllowance: (emp as any).housingAllowance || 0,
+              transportAllowance: (emp as any).transportAllowance || 0,
+              medicalAllowance: (emp as any).medicalAllowance || 0,
+              isKuwaiti: Boolean(emp.isKuwaiti),
+              bankName: emp.bankName || 'بيت التمويل الكويتي (KFH)',
+              iban: emp.iban || '',
+              contractStatus: 'running'
+            }));
+            setEmployees(mapped);
+          } else {
+            setEmployees([]);
+          }
+        }
+      } catch (e) {
+        console.error('Error syncing employees in OdooHierarchyProvider:', e);
+      }
     }
-  ]);
+    syncEmployeesFromDb();
+    return () => { isMounted = false; };
+  }, [currentCompanyId]);
 
   // حركات البصمة
-  const [attendance, setAttendance] = useState<Record<string, AttendanceLog>>({
-    'EMP-001': { employeeId: 'EMP-001', delayMinutes: 0, unpaidAbsenceDays: 0, overtimeHours: 0, checkIn: '08:00', checkOut: '16:00' },
-    'EMP-002': { employeeId: 'EMP-002', delayMinutes: 45, unpaidAbsenceDays: 0, overtimeHours: 4, checkIn: '08:45', checkOut: '20:00' }
-  });
+  const [attendance, setAttendance] = useState<Record<string, AttendanceLog>>({});
 
   // السلف المالية
-  const [loans, setLoans] = useState<EmployeeLoan[]>([
-    { id: 'LN-01', employeeId: 'EMP-002', totalAmount: 600, monthlyInstallment: 100, remainingAmount: 400 }
-  ]);
+  const [loans, setLoans] = useState<EmployeeLoan[]>([]);
 
   // أرصدة الإجازات
-  const [leaveAccruals, setLeaveAccruals] = useState<Record<string, LeaveAccrual>>({
-    'EMP-001': { employeeId: 'EMP-001', carriedFrom2025: 10, earned2026: 20, consumedDays: 5, prepaidLeaveDays: 0 },
-    'EMP-002': { employeeId: 'EMP-002', carriedFrom2025: 12.5, earned2026: 20, consumedDays: 15, prepaidLeaveDays: 0 }
-  });
+  const [leaveAccruals, setLeaveAccruals] = useState<Record<string, LeaveAccrual>>({});
 
   const [computedPayslips, setComputedPayslips] = useState<PayslipComputation[]>([]);
+
+  // تفريغ وتصفير كافة البيانات الفرعية تلقائياً عند تغيير المنشأة النشطة لمنع تداخل البيانات
+  useEffect(() => {
+    setAttendance({});
+    setLoans([]);
+    setLeaveAccruals({});
+    setComputedPayslips([]);
+  }, [currentCompanyId]);
 
   // محرك الحساب الهرمي التلقائي (Compute Sheet)
   const computeAllPayslips = () => {
@@ -314,7 +330,9 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
         ? calculatedOtAmount 
         : (finalOvertimeHours * hourRate * (isPartTime ? 1.0 : KUWAIT_LABOR_CONFIG.payroll.overtimeRateRegular));
         
-      const loanDed = empLoan ? empLoan.monthlyInstallment : 0;
+      const loanDed = empLoan && empLoan.remainingAmount > 0 
+        ? Math.min(empLoan.monthlyInstallment, empLoan.remainingAmount) 
+        : 0;
       const pifssDed = 0.000;
 
       // 5. صافي الراتب المستحق
@@ -388,8 +406,38 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
     setLoans([...loans, { id: `LN-0${loans.length + 1}`, employeeId: empId, totalAmount: amount, monthlyInstallment: installment, remainingAmount: amount }]);
   };
 
-  const addEmployee = (emp: EmployeeContract) => {
-    setEmployees(prev => [...prev, emp]);
+  const deleteLoan = (loanId: string) => {
+    setLoans(loans.filter(l => l.id !== loanId));
+  };
+
+  const registerLoanPayment = (loanId: string, amountToPay: number) => {
+    setLoans(loans.map(l => {
+      if (l.id === loanId) {
+        return {
+          ...l,
+          remainingAmount: Math.max(0, l.remainingAmount - amountToPay)
+        };
+      }
+      return l;
+    }));
+  };
+
+  const addEmployee = async (emp: EmployeeContract) => {
+    setEmployees(prev => [emp, ...prev]);
+    // Save to Firestore
+    await TenantDatabaseService.saveEmployee({
+      id: emp.id,
+      fullNameAr: emp.name,
+      civilId: emp.civilId,
+      jobTitle: emp.jobTitle,
+      department: emp.department,
+      bankName: emp.bankName,
+      iban: emp.iban,
+      contractSalary: emp.basicSalary,
+      basicSalary: emp.basicSalary,
+      companyId: currentCompanyId
+    } as any, currentCompanyId);
+
     // Create default attendance
     setAttendance(prev => ({
       ...prev,
@@ -509,6 +557,8 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
       recordAttendanceShift,
       recordAttendanceTimes,
       addLoan,
+      deleteLoan,
+      registerLoanPayment,
       addEmployee,
       recordUnpaidAbsence,
       updateLeaveAccrual,

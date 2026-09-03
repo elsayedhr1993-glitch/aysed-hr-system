@@ -734,7 +734,7 @@ app.post("/api/ai-chat", async (req, res) => {
 لقد استلمت سؤالك: **"${prompt}"**
 
 **ملخص بيانات الشركة الحالية:**
-${contextSummary || 'شركة الكويت الطبية والأعمال - 12 موظف نشط'}
+${contextSummary || 'المؤسسة الحالية'}
 
 **كيف يمكنني مساعدتك اليوم؟**
 1. ⚖️ **الاستشارات القانونية:** الاستفسار عن مواد قانون العمل الكويتي (الإجازات، الرواتب، الساعات الإضافية، مكافأة نهاية الخدمة).
@@ -847,7 +847,7 @@ app.post("/api/attendance/live-push", async (req, res) => {
       const dateStr = isValidDate ? parsedDateObj.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
       const timeStr = isValidDate ? parsedDateObj.toTimeString().split(' ')[0].substring(0, 5) : '08:00';
       const typeStr = (p.type || p.status || p.punchType || 'IN').toString().toUpperCase().includes('OUT') ? 'OUT' : 'IN';
-      const effCompId = companyId || p.companyId || 'comp-1';
+      const effCompId = companyId || p.companyId || 'default';
       const effDevSn = deviceSn || p.deviceSn || p.sn || 'ZK-LOCAL-SYNC';
 
       const punchItem = {
@@ -927,15 +927,79 @@ app.all(["/iclock/cdata", "/api/zkteco/iclock/cdata"], async (req, res) => {
   const sn = (req.query.SN || req.body?.SN || 'ZK-DEVICE').toString();
 
   if (req.method === 'GET') {
-    return res.send(`GET OPTION FROM: ${sn}\nATTLOGHeader=PIN\tTime\tStatus\tVerify\nOK`);
+    res.setHeader("Content-Type", "text/plain");
+    return res.send(`Registry=OK\nStamp=9999\nOpStamp=9999\nErrorDelay=60\nDelay=30\nTransTimes=00:00,23:59\nTransInterval=1\nTransFlag=1111110000\nTimeZone=3`);
   }
 
-  console.log(`[ZKTeco ADMS ADI Push] Incoming logs from SN ${sn}`);
-  return res.send("OK");
+  const bodyText = typeof req.body === 'string' ? req.body : JSON.stringify(req.body || {});
+  console.log(`[ZKTeco ADMS Cloud Push] Incoming logs from SN ${sn}: ${bodyText.substring(0, 200)}`);
+
+  let count = 0;
+  const effCompId = (req.query.companyId || req.query.cid || 'comp-clinic-01').toString();
+
+  try {
+    const lines = bodyText.split(/\r?\n/).filter(l => l.trim().length > 0);
+    const nowIso = new Date().toISOString();
+
+    for (const line of lines) {
+      const parts = line.split('\t');
+      if (parts.length >= 2) {
+        const empCode = parts[0].trim();
+        const punchTime = parts[1].trim(); // e.g. "2026-09-02 08:15:00"
+        if (empCode && punchTime) {
+          const dateStr = punchTime.split(' ')[0] || new Date().toISOString().split('T')[0];
+          const timeStr = punchTime.split(' ')[1] || '08:00';
+
+          const punchItem = {
+            id: `zk-push-${empCode}-${dateStr}-${timeStr.replace(':', '')}-${Date.now()}`,
+            employeeCode: empCode,
+            timestamp: `${dateStr} ${timeStr}`,
+            date: dateStr,
+            time: timeStr,
+            type: 'IN' as const,
+            deviceSn: sn,
+            receivedAt: nowIso,
+            companyId: effCompId,
+          };
+
+          livePunchesCache.unshift(punchItem);
+          if (livePunchesCache.length > 500) livePunchesCache.pop();
+
+          if (adminApp) {
+            const db = getFirestore(adminApp);
+            const attDocId = `att-live-${effCompId}-${empCode}-${dateStr}`;
+            const attRef = db.collection("attendance").doc(attDocId);
+            const snap = await attRef.get();
+            if (!snap.exists) {
+              await attRef.set({
+                id: attDocId,
+                employeeId: empCode,
+                employeeCode: empCode,
+                companyId: effCompId,
+                date: dateStr,
+                checkIn: timeStr,
+                workHours: 8,
+                status: 'PRESENT',
+                deviceSn: sn,
+                isLiveSynced: true,
+                updatedAt: nowIso
+              });
+            }
+          }
+          count++;
+        }
+      }
+    }
+  } catch (err) {
+    console.error("[ZKTeco Cloud Push Parse Error]:", err);
+  }
+
+  res.setHeader("Content-Type", "text/plain");
+  return res.send(`OK: ${count}`);
 });
 
 app.get("/api/attendance/live-logs", (req, res) => {
-  const compId = (req.query.companyId || 'comp-1').toString();
+  const compId = (req.query.companyId || 'default').toString();
   const filtered = livePunchesCache.filter(p => p.companyId === compId || compId === 'ALL');
   return res.json({
     success: true,
@@ -1691,24 +1755,24 @@ app.post("/api/admin/update-user-email", express.json(), async (req, res) => {
 // ============================================================================
 let systemSettingsStore = {
   id: 1,
-  company_name_ar: 'مستوصف المنار كلينك',
-  company_name_en: 'Al-Manar Clinic',
-  commercial_reg_no: '107914',
-  civil_id_org: '201934',
-  pasi_number: 'KUW-884920',
+  company_name_ar: '',
+  company_name_en: '',
+  commercial_reg_no: '',
+  civil_id_org: '',
+  pasi_number: '',
   currency: 'KWD',
-  official_email: 'hr@almanarclinic.com',
-  phone: '+965 22000000',
-  address: 'الكويت - حولي - شارع تونس',
+  official_email: '',
+  phone: '',
+  address: '',
   enable_kuwait_wps: true,
-  wps_bank_code: 'KFH',
+  wps_bank_code: 'NBK',
   enable_biometric_api: true,
-  biometric_device_ip: '192.168.1.200',
+  biometric_device_ip: '',
   biometric_port: '4370',
-  enable_email_smtp: true,
-  smtp_host: 'smtp.resend.com',
+  enable_email_smtp: false,
+  smtp_host: '',
   smtp_port: '587',
-  smtp_user: 'notifications@almanarclinic.com',
+  smtp_user: '',
   auto_backup_enabled: true,
   backup_frequency: 'daily',
   backup_time: '02:00',
@@ -1727,31 +1791,7 @@ let systemSettingsStore = {
   updated_at: new Date().toISOString()
 };
 
-let multiCompanySettings: Record<string, typeof systemSettingsStore> = {
-  'comp-1': { ...systemSettingsStore },
-  'comp-elite': {
-    ...systemSettingsStore,
-    company_name_ar: 'شركة النخبة الطبية',
-    company_name_en: 'Elite Medical Co',
-    commercial_reg_no: '112233',
-    civil_id_org: '203456',
-    wps_bank_code: 'NBK',
-    official_email: 'hr@elitemedical.com',
-    phone: '+965 22000001',
-    address: 'الكويت - العاصمة - برج النخبة'
-  },
-  'comp-fanar': {
-    ...systemSettingsStore,
-    company_name_ar: 'مجموعة الفنار الطبية',
-    company_name_en: 'Fanar Medical Group',
-    commercial_reg_no: '445566',
-    civil_id_org: '205678',
-    wps_bank_code: 'BOUBYAN',
-    official_email: 'hr@fanarmedical.com',
-    phone: '+965 22000002',
-    address: 'الكويت - السالمية - مجمع الفنار'
-  }
-};
+let multiCompanySettings: Record<string, typeof systemSettingsStore> = {};
 
 interface UserOtpRecord {
   id: number;
@@ -1764,69 +1804,12 @@ interface UserOtpRecord {
 const userOtpCodesStore: UserOtpRecord[] = [];
 let otpIdCounter = 1;
 
-// AI OCR Endpoint (Gemini API)
-app.post("/api/ocr", express.json({ limit: "50mb" }), async (req, res) => {
-  try {
-    const { imageBase64 } = req.body;
-    
-    if (!process.env.GEMINI_API_KEY) {
-      return res.status(500).json({ success: false, message: "مفتاح API الخاص بـ Gemini غير متوفر (GEMINI_API_KEY)" });
-    }
-
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    
-    const base64Data = imageBase64.replace(/^data:(image\/\w+|application\/pdf);base64,/, "");
-    const mimeType = imageBase64.startsWith("data:application/pdf") ? "application/pdf" : "image/jpeg";
-    
-    const prompt = `استخرج بيانات البطاقة المدنية الكويتية أو جواز السفر أو الترخيص من هذه الصورة.
-    قم بإرجاع استجابة JSON فقط باللغة العربية تحتوي على:
-    - civilId: الرقم المدني أو رقم الوثيقة (نص)
-    - fullNameAr: الاسم الكامل بالعربية (نص)
-    - fullNameEn: الاسم الكامل بالإنجليزية (نص)
-    - nationality: الجنسية بالعربية (نص)
-    - expiryDate: تاريخ الانتهاء بصيغة YYYY-MM-DD
-    - birthDate: تاريخ الميلاد بصيغة YYYY-MM-DD
-    - docType: نوع المستند (مثال: بطاقة مدنية كويتية، جواز سفر)
-    
-    إذا لم تجد أي من البيانات، اجعل قيمتها فارغة. يجب أن يكون الرد عبارة عن JSON صحيح فقط بدون تنسيق ماركداون.`;
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.6-flash',
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            { text: prompt },
-            {
-              inlineData: {
-                mimeType: mimeType,
-                data: base64Data
-              }
-            }
-          ]
-        }
-      ],
-      config: {
-        responseMimeType: "application/json",
-      }
-    });
-
-    const extractedData = JSON.parse(response.text);
-    res.json({ success: true, data: extractedData });
-  } catch (error: any) {
-    console.error("OCR API Error:", error);
-    res.status(500).json({ success: false, message: "فشل في معالجة المستند عبر AI", error: error.message });
-  }
-});
-
 // 1. GET Settings
 app.get("/api/settings", (req, res) => {
-  const companyId = (req.headers["x-company-id"] as string) || "comp-1";
+  const companyId = (req.headers["x-company-id"] as string) || "default";
   if (!multiCompanySettings[companyId]) {
     multiCompanySettings[companyId] = {
       ...systemSettingsStore,
-      company_name_ar: companyId === 'comp-elite' ? 'شركة النخبة الطبية' : companyId === 'comp-fanar' ? 'مجموعة الفنار الطبية' : systemSettingsStore.company_name_ar,
-      company_name_en: companyId === 'comp-elite' ? 'Elite Medical Co' : companyId === 'comp-fanar' ? 'Fanar Medical Group' : systemSettingsStore.company_name_en,
     };
   }
   res.json({ success: true, data: multiCompanySettings[companyId] });
@@ -1835,7 +1818,7 @@ app.get("/api/settings", (req, res) => {
 // 2. PUT Settings
 app.put("/api/settings", express.json(), (req, res) => {
   try {
-    const companyId = (req.headers["x-company-id"] as string) || "comp-1";
+    const companyId = (req.headers["x-company-id"] as string) || "default";
     const data = req.body;
     if (!multiCompanySettings[companyId]) {
       multiCompanySettings[companyId] = { ...systemSettingsStore };

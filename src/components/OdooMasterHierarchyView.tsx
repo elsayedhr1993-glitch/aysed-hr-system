@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, 
   FileText, 
@@ -32,12 +32,19 @@ export const OdooMasterHierarchyView: React.FC = () => {
     updateLeaveAccrual
   } = useOdooHierarchy();
 
-  const [selectedEmpId, setSelectedEmpId] = useState<string>(employees[0]?.id || 'EMP-001');
-  const selectedEmp = employees.find(e => e.id === selectedEmpId) || employees[0];
-  const selectedAtt = attendance[selectedEmpId] || { delayMinutes: 0, overtimeHours: 0, unpaidAbsenceDays: 0 };
-  const selectedLoan = loans.find(l => l.employeeId === selectedEmpId);
-  const selectedLeave = leaveAccruals[selectedEmpId] || { carriedFrom2025: 0, earned2026: 0, consumedDays: 0, prepaidLeaveDays: 0 };
-  const selectedSlip = computedPayslips.find(p => p.employeeId === selectedEmpId);
+  const [selectedEmpId, setSelectedEmpId] = useState<string>(employees[0]?.id || '');
+  
+  useEffect(() => {
+    if ((!selectedEmpId || !employees.some(e => e.id === selectedEmpId)) && employees.length > 0) {
+      setSelectedEmpId(employees[0].id);
+    }
+  }, [employees, selectedEmpId]);
+
+  const selectedEmp = employees.find(e => e.id === selectedEmpId);
+  const selectedAtt = (selectedEmpId && attendance[selectedEmpId]) || { delayMinutes: 0, overtimeHours: 0, unpaidAbsenceDays: 0 };
+  const selectedLoan = selectedEmpId ? loans.find(l => l.employeeId === selectedEmpId) : undefined;
+  const selectedLeave = (selectedEmpId && leaveAccruals[selectedEmpId]) || { carriedFrom2025: 0, earned2026: 0, consumedDays: 0, prepaidLeaveDays: 0 };
+  const selectedSlip = selectedEmpId ? computedPayslips.find(p => p.employeeId === selectedEmpId) : undefined;
 
   // Modal Control States
   const [showAddEmpModal, setShowAddEmpModal] = useState(false);
@@ -216,25 +223,44 @@ export const OdooMasterHierarchyView: React.FC = () => {
       </div>
 
       {/* Employee Selector Bar */}
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {employees.map(emp => (
-          <button
-            key={emp.id}
-            type="button"
-            onClick={() => setSelectedEmpId(emp.id)}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-2 border cursor-pointer ${
-              selectedEmpId === emp.id 
-                ? 'bg-[#714B67] text-white border-[#714B67] shadow-sm' 
-                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            <Users size={14} />
-            <span>{emp.name}</span>
-            <span className="text-[10px] opacity-75 font-mono">({emp.id})</span>
-          </button>
-        ))}
-      </div>
+      {employees.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {employees.map(emp => (
+            <button
+              key={emp.id}
+              type="button"
+              onClick={() => setSelectedEmpId(emp.id)}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-2 border cursor-pointer ${
+                selectedEmpId === emp.id 
+                  ? 'bg-[#714B67] text-white border-[#714B67] shadow-sm' 
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <Users size={14} />
+              <span>{emp.name}</span>
+              <span className="text-[10px] opacity-75 font-mono">({emp.id})</span>
+            </button>
+          ))}
+        </div>
+      )}
 
+      {!selectedEmp ? (
+        <div className="bg-white p-12 rounded-2xl border border-dashed border-slate-300 text-center flex flex-col items-center justify-center">
+          <Users className="w-12 h-12 text-slate-300 mb-3" />
+          <h3 className="text-base font-bold text-slate-800 mb-1">لا يوجد موظفون مسجلون حالياً في المنشأة</h3>
+          <p className="text-xs text-slate-500 max-w-md mb-4">
+            قاعدة البيانات نظيفة وجاهزة تماماً. يمكنك تسجيل أول موظف لبدء إدارة ملفات الرواتب والإجازات والعقود المترابطة.
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowAddEmpModal(true)}
+            className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-5 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-sm"
+          >
+            <Plus size={16} /> تسجيل موظف جديد
+          </button>
+        </div>
+      ) : (
+        <>
       {/* Odoo Smart Buttons (أزرار أودو الذكية أعلى ملف الموظف) */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         
@@ -421,6 +447,8 @@ export const OdooMasterHierarchyView: React.FC = () => {
         </div>
 
       </div>
+      </>
+      )}
 
       {showAddEmpModal && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-2xs flex items-center justify-center p-4 z-50 overflow-y-auto">

@@ -944,7 +944,7 @@ export const ReportsApp: React.FC<ReportsAppProps> = ({
     const pivotRows: PivotRowData[] = Object.keys(groups).map(key => {
       const g = groups[key];
       return {
-        id: `demo-group-${key}`,
+        id: `group-${key}`,
         label: g.label,
         recordsCount: g.values.count,
         values: g.values,

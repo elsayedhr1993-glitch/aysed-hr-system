@@ -31,6 +31,8 @@ import {
   Stethoscope
 } from 'lucide-react';
 import { useOdooHierarchy, EmployeeContract } from '../context/OdooHierarchyContext';
+import { useCompany } from '../context/CompanyContext';
+import { TenantDatabaseService } from '../services/tenantDataService';
 import { OdooChatter, ChatterMessage } from './OdooChatter';
 import { toast } from 'react-hot-toast';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
@@ -51,175 +53,126 @@ export interface DetailedContract extends EmployeeContract {
 
 export const OdooContractsApp: React.FC = () => {
   const { employees, updateContractSalary, updateContractDetails } = useOdooHierarchy();
-  
+  const { activeCompany, activeCompanyId } = useCompany();
+  const currentCompanyId = activeCompanyId || activeCompany?.id || 'comp-super-admin';
+
+  const [dbEmployees, setDbEmployees] = useState<EmployeeContract[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'running' | 'draft' | 'expired'>('all');
   const [filterEmploymentType, setFilterEmploymentType] = useState<'all' | 'full_time' | 'part_time'>('all');
   
-  const [contracts, setContracts] = useState<DetailedContract[]>(() => {
-    const saved = localStorage.getItem('odoo_contracts_v1');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+  // مزامنة الموظفين والعقود حياً من قاعدة البيانات للشركة النشطة
+  useEffect(() => {
+    let isMounted = true;
+    async function syncData() {
+      if (!currentCompanyId) return;
+      try {
+        const fetchedEmps = await TenantDatabaseService.getEmployeesByTenant(currentCompanyId);
+        if (isMounted && fetchedEmps) {
+          const mapped: EmployeeContract[] = fetchedEmps.map(emp => ({
+            id: emp.id,
+            name: emp.fullNameAr || (emp as any).nameAr || (emp as any).name || 'موظف',
+            civilId: emp.civilId || '',
+            jobTitle: emp.jobTitle || 'موظف',
+            department: emp.department || (emp as any).dept || 'العموم',
+            basicSalary: (emp as any).basicSalary || (emp as any).contractSalary || 1000,
+            housingAllowance: (emp as any).housingAllowance || 0,
+            transportAllowance: (emp as any).transportAllowance || 0,
+            medicalAllowance: (emp as any).medicalAllowance || 0,
+            isKuwaiti: Boolean(emp.isKuwaiti),
+            bankName: emp.bankName || 'بيت التمويل الكويتي (KFH)',
+            iban: emp.iban || '',
+            contractStatus: 'running'
+          }));
+          setDbEmployees(mapped);
+        }
+
+        const fetchedContracts = await TenantDatabaseService.getContractsByTenant(currentCompanyId);
+        if (isMounted) {
+          if (fetchedContracts && fetchedContracts.length > 0) {
+            const mappedContracts: DetailedContract[] = fetchedContracts.map((c: any) => ({
+              id: c.employeeId || c.id,
+              contractRef: c.id || `CONTRACT-${c.employeeId}`,
+              name: c.employeeName || c.name || 'موظف',
+              civilId: c.civilId || '',
+              jobTitle: c.jobTitle || 'موظف',
+              department: c.department || 'العموم',
+              basicSalary: c.basicSalary || 0,
+              housingAllowance: c.housingAllowance || 0,
+              transportAllowance: c.transportAllowance || 0,
+              medicalAllowance: c.otherAllowance || c.medicalAllowance || 0,
+              isKuwaiti: Boolean(c.isKuwaiti),
+              bankName: c.bankName || 'بيت التمويل الكويتي',
+              iban: c.iban || '',
+              contractStatus: c.status || 'running',
+              startDate: c.startDate || new Date().toISOString().split('T')[0],
+              endDate: c.endDate || '',
+              contractType: c.contractType || 'fixed',
+              probationDays: c.probationDays || 100,
+              noticePeriodMonths: c.noticePeriodMonths || 3,
+              workingHoursWeekly: c.workingHoursPerWeek || 48,
+              employmentType: c.workingSchedule || c.employmentType || 'full_time',
+              hasCustomSchedule: c.hasCustomSchedule || false,
+              dailyHours: c.customDailyHours || c.dailyWorkHours || 8,
+              shiftStartTime: c.shiftStartTime || '08:00',
+              shiftEndTime: c.shiftEndTime || '16:00',
+              gracePeriodMinutes: c.gracePeriodMinutes || 15,
+              hourlyRate: c.hourlyRate || 0
+            }));
+            setContracts(mappedContracts);
+          } else {
+            setContracts([]);
+          }
+        }
+      } catch (e) {
+        console.error('Error syncing contracts/employees in OdooContractsApp:', e);
+      }
     }
-    return [
-    {
-      id: 'EMP-001',
-      contractRef: 'CONTRACT/2026/001',
-      name: 'أحمد محمود الكندري',
-      civilId: '290010112345',
-      jobTitle: 'مدير الموارد البشرية والشؤون الإدارية',
-      department: 'الإدارة العليا',
-      basicSalary: 1200,
-      housingAllowance: 300,
-      transportAllowance: 150,
-      medicalAllowance: 0,
-      isKuwaiti: true,
-      bankName: 'بنك الكويت الوطني (NBK)',
-      iban: 'KW82NBOK0000000000001234567890',
-      contractStatus: 'running',
-      startDate: '2022-01-15',
-      endDate: '2027-01-14',
-      contractType: 'fixed',
-      probationDays: 100,
-      noticePeriodMonths: 3,
-      workingHoursWeekly: 48,
-      employmentType: 'full_time',
-      hasCustomSchedule: false,
-      dailyHours: 8,
-      shiftStartTime: '08:00',
-      shiftEndTime: '16:00',
-      gracePeriodMinutes: 15,
-      hourlyRate: 0
-    },
-    {
-      id: 'EMP-002',
-      contractRef: 'CONTRACT/2026/002',
-      name: 'محمد إبراهيم السيد',
-      civilId: '288050498765',
-      jobTitle: 'أخصائي شؤون العاملين والرواتب (WPS)',
-      department: 'الموارد البشرية',
-      basicSalary: 650,
-      housingAllowance: 150,
-      transportAllowance: 50,
-      medicalAllowance: 0,
-      isKuwaiti: false,
-      bankName: 'بنك بوبيان (Boubyan)',
-      iban: 'KW45BOUB0000000000009876543210',
-      contractStatus: 'running',
-      startDate: '2023-04-01',
-      endDate: '2026-03-31',
-      contractType: 'fixed',
-      probationDays: 100,
-      noticePeriodMonths: 3,
-      workingHoursWeekly: 48,
-      employmentType: 'full_time',
-      hasCustomSchedule: false,
-      dailyHours: 8,
-      shiftStartTime: '08:00',
-      shiftEndTime: '16:00',
-      gracePeriodMinutes: 15,
-      hourlyRate: 0
-    },
-    {
-      id: 'MED-201',
-      contractRef: 'CONTRACT/2026/003',
-      name: 'د. سارة عادل المنصور',
-      civilId: '292081501234',
-      jobTitle: 'طبيبة استشارية زائرة - طب وجراحة العيون',
-      department: 'الأطباء',
-      basicSalary: 0,
-      housingAllowance: 0,
-      transportAllowance: 0,
-      medicalAllowance: 0,
-      isKuwaiti: true,
-      bankName: 'بنك الخليج (Gulf Bank)',
-      iban: 'KW55GULF0000000000001122334455',
-      contractStatus: 'running',
-      startDate: '2021-08-01',
-      endDate: '2026-07-31',
-      contractType: 'fixed',
-      probationDays: 100,
-      noticePeriodMonths: 3,
-      workingHoursWeekly: 20,
-      employmentType: 'part_time',
-      hasCustomSchedule: true,
-      dailyHours: 4,
-      shiftStartTime: '16:00',
-      shiftEndTime: '20:00',
-      gracePeriodMinutes: 10,
-      hourlyRate: 35.000,
-      notes: 'عقد استشاري زائر بنظام الساعات وعيادات بعد الظهر'
-    },
-    {
-      id: 'MED-202',
-      contractRef: 'CONTRACT/2026/004',
-      name: 'مريم يوسف العتيبي',
-      civilId: '295031209876',
-      jobTitle: 'رئيسة هيئة التمريض والتعقيم',
-      department: 'التمريض',
-      basicSalary: 850,
-      housingAllowance: 200,
-      transportAllowance: 100,
-      medicalAllowance: 150,
-      isKuwaiti: true,
-      bankName: 'بيت التمويل الكويتي (KFH)',
-      iban: 'KW12KFH0000000000009988776655',
-      contractStatus: 'running',
-      startDate: '2022-09-15',
-      endDate: '2025-09-14',
-      contractType: 'fixed',
-      probationDays: 100,
-      noticePeriodMonths: 3,
-      workingHoursWeekly: 48,
-      employmentType: 'full_time',
-      hasCustomSchedule: true,
-      dailyHours: 8,
-      shiftStartTime: '07:30',
-      shiftEndTime: '15:30',
-      gracePeriodMinutes: 15,
-      hourlyRate: 0
-    },
-    {
-      id: 'SEC-101',
-      contractRef: 'CONTRACT/2026/005',
-      name: 'سعد جابر العنزي',
-      civilId: '289120109923',
-      jobTitle: 'مشرف الأمن والسلامة والورديات',
-      department: 'الأمن والخدمات',
-      basicSalary: 450,
-      housingAllowance: 150,
-      transportAllowance: 0,
-      medicalAllowance: 0,
-      isKuwaiti: true,
-      bankName: 'بيت التمويل الكويتي (KFH)',
-      iban: 'KW12KFH0000000000005544332211',
-      contractStatus: 'draft',
-      startDate: '2024-02-10',
-      contractType: 'unlimited',
-      probationDays: 100,
-      noticePeriodMonths: 3,
-      workingHoursWeekly: 48,
-      employmentType: 'full_time',
-      hasCustomSchedule: false,
-      dailyHours: 8,
-      shiftStartTime: '08:00',
-      shiftEndTime: '16:00',
-      gracePeriodMinutes: 15,
-      hourlyRate: 0
-    }
-  ];
-  });
+    syncData();
+    return () => { isMounted = false; };
+  }, [currentCompanyId]);
+
+  // القائمة الشاملة المندمجة لموظفي الشركة
+  const availableEmployees: EmployeeContract[] = React.useMemo(() => {
+    const map = new Map<string, EmployeeContract>();
+    dbEmployees.forEach(e => map.set(e.id, e));
+    employees.forEach(e => {
+      if (!map.has(e.id)) map.set(e.id, e);
+    });
+    return Array.from(map.values());
+  }, [dbEmployees, employees]);
+
+  const [contracts, setContracts] = useState<DetailedContract[]>([]);
 
   useEffect(() => {
-    localStorage.setItem('odoo_contracts_v1', JSON.stringify(contracts));
-  }, [contracts]);
+    if (!currentCompanyId) {
+      setContracts([]);
+      return;
+    }
+    const key = `odoo_contracts_v1_${currentCompanyId}`;
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      try {
+        setContracts(JSON.parse(saved));
+      } catch (e) {
+        setContracts([]);
+      }
+    } else {
+      setContracts([]);
+    }
+  }, [currentCompanyId]);
+
+  useEffect(() => {
+    if (currentCompanyId) {
+      localStorage.setItem(`odoo_contracts_v1_${currentCompanyId}`, JSON.stringify(contracts));
+    }
+  }, [contracts, currentCompanyId]);
 
   const handleDeleteContract = (contractId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (confirm('هل أنت متأكد من حذف هذا العقد نهائياً من النظام؟')) {
       const updated = contracts.filter(c => c.contractRef !== contractId && c.id !== contractId);
       setContracts(updated);
-      localStorage.setItem('odoo_contracts_v1', JSON.stringify(updated));
       alert('تم حذف العقد بنجاح.');
     }
   };
@@ -266,19 +219,23 @@ export const OdooContractsApp: React.FC = () => {
 
   // Open Create Form
   const handleOpenCreateContract = () => {
-    const newRef = `CONTRACT/2026/${String(contracts.length + 1).padStart(3, '0')}`;
-    const firstEmp = employees[0] || {
-      id: 'EMP-001',
-      name: 'أحمد محمود الكندري',
-      civilId: '290010112345',
-      jobTitle: 'مدير الموارد البشرية والشؤون الإدارية',
-      department: 'الإدارة العليا',
-      basicSalary: 800,
-      housingAllowance: 200,
-      transportAllowance: 100,
-      isKuwaiti: true,
-      bankName: 'بنك الكويت الوطني (NBK)',
-      iban: 'KW82NBOK0000000000001234567890'
+    const maxRefId = contracts.reduce((max, c) => {
+      const num = parseInt(c?.contractRef?.split('/').pop() || '0', 10);
+      return !isNaN(num) && num > max ? num : max;
+    }, 0);
+    const newRef = `CONTRACT/2026/${String(maxRefId + 1).padStart(3, '0')}`;
+    const firstEmp = availableEmployees[0] || {
+      id: '',
+      name: '',
+      civilId: '',
+      jobTitle: '',
+      department: '',
+      basicSalary: 0,
+      housingAllowance: 0,
+      transportAllowance: 0,
+      isKuwaiti: false,
+      bankName: '',
+      iban: ''
     };
 
     const newContract: DetailedContract = {
@@ -334,7 +291,7 @@ export const OdooContractsApp: React.FC = () => {
 
   // Employee Selection auto-sync
   const handleEmployeeSelectionChange = (empId: string) => {
-    const emp = employees.find(e => e.id === empId);
+    const emp = availableEmployees.find(e => e.id === empId);
     if (emp && selectedContract) {
       setSelectedContract({
         ...selectedContract,
@@ -360,15 +317,37 @@ export const OdooContractsApp: React.FC = () => {
   };
 
   // Save Contract
-  const handleSaveContract = () => {
+  const handleSaveContract = async () => {
     if (!selectedContract) return;
+
+    // Persist to Firestore
+    try {
+      await TenantDatabaseService.saveContract({
+        id: selectedContract.contractRef || `CONTRACT-${selectedContract.id}`,
+        companyId: currentCompanyId,
+        employeeId: selectedContract.id,
+        basicSalary: selectedContract.basicSalary,
+        housingAllowance: selectedContract.housingAllowance,
+        transportAllowance: selectedContract.transportAllowance,
+        otherAllowance: selectedContract.medicalAllowance,
+        startDate: selectedContract.startDate,
+        endDate: selectedContract.endDate,
+        contractType: selectedContract.contractType,
+        status: selectedContract.contractStatus,
+        customDailyHours: selectedContract.dailyHours,
+        workingHoursPerWeek: selectedContract.workingHoursWeekly,
+        workingSchedule: selectedContract.employmentType
+      } as any, currentCompanyId);
+    } catch (e) {
+      console.error('Error saving contract to Firestore:', e);
+    }
 
     if (isCreatingNew) {
       setContracts([selectedContract, ...contracts]);
-      toast.success(`تم إنشاء العقد رقم ${selectedContract.contractRef} للموظف (${selectedContract.name})`);
+      toast.success(`تم إنشاء العقد رقم ${selectedContract.contractRef} للموظف (${selectedContract.name}) وحفظه في Firebase`);
     } else {
       setContracts(contracts.map(c => c.contractRef === selectedContract.contractRef ? selectedContract : c));
-      toast.success(`تم تحديث بيانات العقد (${selectedContract.contractRef})`);
+      toast.success(`تم تحديث بيانات العقد (${selectedContract.contractRef}) في Firebase`);
     }
 
     // Sync full contract properties with global hierarchy
@@ -430,10 +409,10 @@ export const OdooContractsApp: React.FC = () => {
                 'المسمى الوظيفي': c.jobTitle,
                 'القسم': c.department,
                 'نوع الدوام': c.employmentType === 'part_time' ? 'دوام جزئي / بالساعة' : 'دوام كامل',
-                'الراتب الأساسي (د.ك)': Number(c.basicSalary.toFixed(3)),
-                'بدل السكن (د.ك)': Number(c.housingAllowance.toFixed(3)),
-                'بدل الانتقال (د.ك)': Number(c.transportAllowance.toFixed(3)),
-                'الراتب الشامل (د.ك)': Number((c.basicSalary + c.housingAllowance + c.transportAllowance + (c.medicalAllowance || 0)).toFixed(3)),
+                'الراتب الأساسي (د.ك)': Number((c.basicSalary || 0).toFixed(3)),
+                'بدل السكن (د.ك)': Number((c.housingAllowance || 0).toFixed(3)),
+                'بدل الانتقال (د.ك)': Number((c.transportAllowance || 0).toFixed(3)),
+                'الراتب الشامل (د.ك)': Number(((c.basicSalary || 0) + (c.housingAllowance || 0) + (c.transportAllowance || 0) + (c.medicalAllowance || 0)).toFixed(3)),
                 'البنك': c.bankName,
                 'الآيبان': c.iban,
                 'حالة العقد': c.contractStatus === 'running' ? 'ساري' : c.contractStatus === 'draft' ? 'مسودة' : 'منتهي',
@@ -587,14 +566,14 @@ export const OdooContractsApp: React.FC = () => {
             <tbody className="divide-y divide-slate-100">
               {filteredContracts.map((c, idx) => {
                 const isPartTime = c.employmentType === 'part_time';
-                const totalAllowances = c.housingAllowance + c.transportAllowance + (c.medicalAllowance || 0);
+                const totalAllowances = (c.housingAllowance || 0) + (c.transportAllowance || 0) + (c.medicalAllowance || 0);
                 const totalGross = isPartTime 
                   ? ((c.hourlyRate || 0) * (c.dailyHours || 4) * 26 + totalAllowances)
-                  : (c.basicSalary + totalAllowances);
+                  : ((c.basicSalary || 0) + totalAllowances);
                 
                 return (
                   <tr 
-                    key={c.contractRef} 
+                    key={`${c.contractRef}-${idx}`} 
                     className={`${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'} hover:bg-purple-50/40 transition`}
                   >
                     <td className="p-3.5 font-mono font-bold text-[#714B67]">
@@ -643,7 +622,7 @@ export const OdooContractsApp: React.FC = () => {
                         </div>
                       ) : (
                         <div>
-                          <span>{c.basicSalary.toFixed(3)}</span>
+                          <span>{(c.basicSalary || 0).toFixed(3)}</span>
                           <span className="text-[10px] text-slate-400 block font-normal">راتب أساسي</span>
                         </div>
                       )}
@@ -794,7 +773,7 @@ export const OdooContractsApp: React.FC = () => {
                       onChange={(e) => handleEmployeeSelectionChange(e.target.value)}
                       className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-bold text-slate-900"
                     >
-                      {employees.map(emp => (
+                      {availableEmployees.map(emp => (
                         <option key={emp.id} value={emp.id}>
                           {emp.name} ({emp.id} - {emp.jobTitle})
                         </option>
@@ -1050,7 +1029,7 @@ export const OdooContractsApp: React.FC = () => {
                 {/* Calculation summary banner */}
                 {(() => {
                   const isPartTime = selectedContract.employmentType === 'part_time';
-                  const allowances = selectedContract.housingAllowance + selectedContract.transportAllowance + (selectedContract.medicalAllowance || 0);
+                  const allowances = (selectedContract.housingAllowance || 0) + (selectedContract.transportAllowance || 0) + (selectedContract.medicalAllowance || 0);
                   
                   if (isPartTime) {
                     const hRate = selectedContract.hourlyRate || 0;
@@ -1078,7 +1057,7 @@ export const OdooContractsApp: React.FC = () => {
                     );
                   }
 
-                  const gross = selectedContract.basicSalary + allowances;
+                  const gross = (selectedContract.basicSalary || 0) + allowances;
                   const dayRate = gross / 26;
                   const hourRate = dayRate / (selectedContract.dailyHours || 8);
 
@@ -1199,7 +1178,7 @@ export const OdooContractsApp: React.FC = () => {
                   type: 'activity',
                   activityDetails: {
                     type: 'متابعة وتوقيع عقد',
-                    assignee: 'أحمد محمود الكندري (مدير الموارد البشرية)',
+                    assignee: 'مدير الموارد البشرية',
                     dueDate: new Date().toISOString().split('T')[0],
                     status: 'yellow',
                     statusText: 'مسودة قيد المراجعة'
@@ -1212,8 +1191,8 @@ export const OdooContractsApp: React.FC = () => {
                recordId="contracts_global" 
                model="hr.contract" 
                followers={[
-                 { id: '1', name: 'أحمد محمود الكندري (شؤون إدارية)' },
-                 { id: '2', name: 'محمد إبراهيم السيد (WPS)' }
+                 { id: '1', name: 'إدارة الموارد البشرية' },
+                 { id: '2', name: 'مسؤول رواتب WPS' }
                ]}
                messages={messages.length > 0 ? messages : [
                  { id: '1', author: 'النظام', type: 'tracking', date: new Date().toLocaleDateString('ar-KW'), content: 'جميع عقود العمل موثقة ومطابقة لقانون العمل الكويتي وتدعم الجداول المخصصة والساعات الفعلية.' }

@@ -109,7 +109,7 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
   const [uploadFileType, setUploadFileType] = useState<'pdf' | 'image' | 'doc'>('pdf');
   const [uploadExpiryDate, setUploadExpiryDate] = useState('');
   const [uploadDocNo, setUploadDocNo] = useState('');
-  const [uploadUploader, setUploadUploader] = useState('أحمد الكندري');
+  const [uploadUploader, setUploadUploader] = useState('المسؤول المعتمد');
 
   // Preview Modal
   const [previewDoc, setPreviewDoc] = useState<DocumentAttachment | null>(null);

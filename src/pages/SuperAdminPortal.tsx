@@ -413,28 +413,8 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({
       console.warn('Supabase fetch notice:', err);
     }
 
-    // 7. Fallback to initial default only if database & storage are completely empty
-    if (tenantMap.size === 0) {
-      initialCompanies.forEach(c => {
-        if (c.id === 'comp-super-admin') return;
-        if (!isTenantPurged(c.id) && !isTenantPurged(c.nameAr)) {
-          tenantMap.set(c.id, {
-            id: c.id,
-            name: c.nameAr || c.nameEn,
-            phone: (c as any).phone1 || c.phone || '99112233',
-            email: c.email || `${c.id}@aysedhr.com`,
-            state: c.status === 'suspended' ? 'suspended' : 'active',
-            created_at: '2024-01-01T00:00:00.000Z',
-            plan: 'ENTERPRISE',
-            employees_count: 5,
-            commercialRegNo: c.commercialRegNo,
-            civilIdCompany: c.civilIdCompany,
-            wsiCode: c.wsiCode,
-            source: 'default'
-          });
-        }
-      });
-    }
+    // 7. No default fallback - strict Firestore/User-created tenants only
+    // If tenantMap is empty, tenants list will remain empty []
 
     const loadedTenants = Array.from(tenantMap.values()).filter(t => !isTenantPurged(t.id) && !isTenantPurged(t.name));
 

@@ -59,7 +59,7 @@ export const CompaniesSubscriptionApp: React.FC<CompaniesSubscriptionAppProps> =
             id: `sub-${c.id}`,
             companyId: c.id,
             companyName: c.nameAr || c.nameEn || 'منشأة مسجلة',
-            ownerName: c.nameAr?.includes('المنار') ? 'د. أحمد المحمود' : c.nameAr?.includes('الفنار') ? 'د. طارق العازمي' : 'المسؤول',
+            ownerName: (c as any).ownerName || 'المسؤول المعتمد',
             email: c.email || `${c.id}@aysedhr.com`,
             status: c.status === 'suspended' ? 'suspended' : 'active',
             planType: 'سنوي (Standard)',

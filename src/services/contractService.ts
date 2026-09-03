@@ -1,6 +1,7 @@
 export interface ContractData {
   id: string;
   contractReference: string;
+  companyName?: string;
   employeeId: string;
   employeeNameAr: string;
   employeeNameEn: string;
@@ -61,7 +62,7 @@ export const printKuwaitContractReport = (contract: ContractData) => {
       </div>
 
       <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px;">
-        <div><strong>الطرف الأول (صاحب العمل):</strong> مجمع عيادات إيليت الطبي</div>
+        <div><strong>الطرف الأول (صاحب العمل):</strong> ${contract.companyName || 'المنشأة (صاحب العمل)'}</div>
         <div><strong>الطرف الثاني (الموظف):</strong> ${contract.employeeNameAr} (${contract.employeeNameEn})</div>
         <div><strong>الرقم المدني:</strong> ${contract.civilId}</div>
         <div><strong>المسمى الوظيفي:</strong> ${contract.jobTitleAr}</div>

@@ -84,69 +84,8 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
     setSelectedDoc(null);
   };
 
-  // Default initial demo documents if none provided
-  const displayDocs = filteredDocs.length > 0 || documents.length > 0 ? filteredDocs : [
-    {
-      id: 'demo-1',
-      name: 'رخصة تجارية رئيسية (المنار كلينك)',
-      documentType: 'commercial_license' as const,
-      documentNumber: 'CN-2024-99821',
-      issuingAuthority: 'وزارة التجارة والصناعة (MCI)',
-      issueDate: '2025-01-10',
-      expiryDate: '2026-10-15',
-      responsiblePerson: 'أحمد المندوب',
-      fileUrl: '#',
-      notes: 'تتضمن أنشطة العيادات الطبية والتجميلية'
-    },
-    {
-      id: 'demo-2',
-      name: 'اعتماد توقيع رسمي',
-      documentType: 'signature_auth' as const,
-      documentNumber: 'SIG-88219-KWD',
-      issuingAuthority: 'غرفة تجارة وصناعة الكويت',
-      issueDate: '2024-05-01',
-      expiryDate: '2026-09-01',
-      responsiblePerson: 'د. عبدالله المدير',
-      fileUrl: '#',
-      notes: 'معتمد لدى البنوك الرسمية'
-    },
-    {
-      id: 'demo-3',
-      name: 'ترخيص وزارة الصحة للعيادات',
-      documentType: 'medical_license' as const,
-      documentNumber: 'MOH-MED-2025-44',
-      issuingAuthority: 'وزارة الصحة (إدارة التراخيص الطبية)',
-      issueDate: '2025-02-15',
-      expiryDate: '2026-09-10',
-      responsiblePerson: 'د. سارة الاستشارية',
-      fileUrl: '#',
-      notes: 'ترخيص تشغيل عيادات الجلدية والليزر'
-    },
-    {
-      id: 'demo-4',
-      name: 'ترخيص الدفاع المدني والوقاية',
-      documentType: 'civil_defense' as const,
-      documentNumber: 'CD-KW-99102',
-      issuingAuthority: 'الإدارة العامة للإطفاء / الدفاع المدني',
-      issueDate: '2024-03-20',
-      expiryDate: '2026-08-15', // Expired or expiring soon test
-      responsiblePerson: 'مسؤول الأمن والسلامة',
-      fileUrl: '#',
-      notes: 'فحص أنظمة الإنذار والإطفاء الآلي'
-    },
-    {
-      id: 'demo-5',
-      name: 'عقد إيجار المقر الرئيسي',
-      documentType: 'lease_contract' as const,
-      documentNumber: 'LEASE-2023-88',
-      issuingAuthority: 'إدارة العقار - حولي',
-      issueDate: '2023-10-01',
-      expiryDate: '2027-09-30',
-      responsiblePerson: 'الشؤون الإدارية',
-      fileUrl: '#',
-      notes: 'إيجار سنوي قابل للتجديد التلقائي'
-    }
-  ];
+  // Documents list
+  const displayDocs = filteredDocs;
 
   const typeLabels: Record<string, string> = {
     commercial_license: 'رخصة تجارية',

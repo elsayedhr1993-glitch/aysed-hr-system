@@ -45,11 +45,7 @@ export const PublicHolidaysApp: React.FC<any> = (props) => {
       } else if (raw) {
         setEmployees(JSON.parse(raw));
       } else {
-        setEmployees([
-          { code: 'EMP-001', name: 'السيد بخيت السيد سويلم' },
-          { code: 'EMP-002', name: 'د. أحمد محمود' },
-          { code: 'EMP-003', name: 'مريم الصالح' }
-        ]);
+        setEmployees([]);
       }
     } catch (e) {}
 
@@ -110,7 +106,7 @@ export const PublicHolidaysApp: React.FC<any> = (props) => {
           ? `إجازة تعويضية / راحة بديلة (Comp-Off) عن عمل في (${formData.holidayName})`
           : `إضافة للرصيد السنوي عن عمل في (${formData.holidayName})`,
         employeeId: formData.employeeId,
-        companyId: 'comp-1',
+        companyId: (props as any)?.activeCompany?.id || '',
         leaveType: 'ANNUAL',
         allocationType: isCompOff ? 'compensatory_off' : 'accrual',
         numberOfDays: addedDays,

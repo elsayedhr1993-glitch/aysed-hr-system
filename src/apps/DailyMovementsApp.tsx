@@ -31,8 +31,8 @@ export const DailyMovementsApp: React.FC<DailyMovementsAppProps> = ({
   const [stateFilter, setStateFilter] = useState<string>('ALL');
   const [localSearch, setLocalSearch] = useState<string>('');
 
-  const companyEmployees = employees.filter(e => e.companyId === (activeCompany?.id || 'comp-1'));
-  const companyMovements = dailyMovements.filter(m => m.companyId === (activeCompany?.id || 'comp-1'));
+  const companyEmployees = employees.filter(e => e.companyId === activeCompany?.id);
+  const companyMovements = dailyMovements.filter(m => m.companyId === activeCompany?.id);
   const activeSearch = localSearch || searchTerm;
 
   const filteredMovements = companyMovements.filter(m => {
@@ -65,7 +65,7 @@ export const DailyMovementsApp: React.FC<DailyMovementsAppProps> = ({
       id: editingMovement.id || `mov-${Date.now()}`,
       name: editingMovement.name || `MOV/${new Date().getFullYear()}/${String(Math.floor(Math.random() * 90000) + 10000)}`,
       employeeId: editingMovement.employeeId,
-      companyId: activeCompany?.id || 'comp-1',
+      companyId: activeCompany?.id || '',
       date: editingMovement.date || new Date().toISOString().split('T')[0],
       movementType: movementType,
       hourFrom: editingMovement.hourFrom,
@@ -98,7 +98,7 @@ export const DailyMovementsApp: React.FC<DailyMovementsAppProps> = ({
         <button
           onClick={() => {
             setEditingMovement({
-              companyId: activeCompany?.id || 'comp-1',
+              companyId: activeCompany?.id || '',
               movementType: 'permission',
               date: new Date().toISOString().split('T')[0],
               state: 'draft',

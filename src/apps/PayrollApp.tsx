@@ -130,7 +130,7 @@ export const PayrollApp: React.FC<PayrollAppProps> = ({
     const updatedContract: Contract = {
       id: existingContract ? existingContract.id : `cnt-${editingStructureEmp.id}`,
       employeeId: editingStructureEmp.id,
-      companyId: activeCompany?.id || 'comp-1',
+      companyId: activeCompany?.id || '',
       basicSalary: Number(structureForm.basicSalary),
       housingAllowance: Number(structureForm.housingAllowance),
       transportAllowance: Number(structureForm.transportAllowance),

@@ -45,57 +45,8 @@ interface SystemIntegrationsPageProps {
   onConfigSaved?: (config: SystemIntegrationsConfig) => void;
 }
 
-// Initial Kuwait Branches Preset
-const DEFAULT_BRANCHES: CompanyBranch[] = [
-  {
-    id: 'branch-hq-1',
-    companyId: 'comp-1',
-    branchName: 'المقر الرئيسي (برج الحمراء - شرق)',
-    latitude: 29.3759,
-    longitude: 47.9774,
-    radiusMeters: 100,
-    isActive: true,
-    address: 'شارع الشهداء، شرق، مدينة الكويت - برج الحمراء التجاري',
-    notes: 'الإدارة العامة والشؤون الإدارية والموارد البشرية',
-    createdAt: '2026-01-01'
-  },
-  {
-    id: 'branch-sharq-2',
-    companyId: 'comp-1',
-    branchName: 'فرع شرق الطبي (مجمع الأطباء التخصصي)',
-    latitude: 29.3820,
-    longitude: 47.9890,
-    radiusMeters: 80,
-    isActive: true,
-    address: 'شارع أحمد الجابر، شرق، العاصمة',
-    notes: 'العيادات الخارجية ومختبرات الفحص الطبي',
-    createdAt: '2026-01-15'
-  },
-  {
-    id: 'branch-salmiya-3',
-    companyId: 'comp-1',
-    branchName: 'مركز السالمية الطبي (شارع سالم المبارك)',
-    latitude: 29.3375,
-    longitude: 48.0750,
-    radiusMeters: 120,
-    isActive: true,
-    address: 'شارع سالم المبارك، السالمية، محافظة حولي',
-    notes: 'قسم العلاج الطبيعي والتأهيل الطبي',
-    createdAt: '2026-02-01'
-  },
-  {
-    id: 'branch-farwaniya-4',
-    companyId: 'comp-1',
-    branchName: 'فرع الفروانية (مجمع الأندلس الطبي)',
-    latitude: 29.2780,
-    longitude: 47.9570,
-    radiusMeters: 100,
-    isActive: true,
-    address: 'شارع حبيب مناور، الفروانية',
-    notes: 'عيادات الأطفال والطب العام',
-    createdAt: '2026-03-01'
-  }
-];
+// Initial Kuwait Branches Preset - Empty by default, populated per company
+const DEFAULT_BRANCHES: CompanyBranch[] = [];
 
 // Kuwait Common Locations for quick GPS picker
 const KUWAIT_PRESET_LOCATIONS = [
@@ -116,7 +67,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
   // 1. GEOFENCE CONFIG STATE
   // ---------------------------------------------------------------------------
   const [branches, setBranches] = useState<CompanyBranch[]>(() => {
-    const saved = localStorage.getItem(`geofence_branches_${activeCompany?.id || 'comp-1'}`);
+    const saved = localStorage.getItem(`geofence_branches_${activeCompany?.id || 'default'}`);
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -139,7 +90,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
   // 2. WHATSAPP GATEWAY CONFIG STATE
   // ---------------------------------------------------------------------------
   const [whatsAppConfig, setWhatsAppConfig] = useState<WhatsAppGatewayConfig>(() => {
-    const saved = localStorage.getItem(`whatsapp_gateway_${activeCompany?.id || 'comp-1'}`);
+    const saved = localStorage.getItem(`whatsapp_gateway_${activeCompany?.id || 'default'}`);
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -168,7 +119,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
   // ---------------------------------------------------------------------------
   const defaultDomain = typeof window !== 'undefined' ? window.location.origin : 'https://verify.kuwait-hr.com';
   const [verificationDomain, setVerificationDomain] = useState<string>(() => {
-    const saved = localStorage.getItem(`public_verification_domain_${activeCompany?.id || 'comp-1'}`);
+    const saved = localStorage.getItem(`public_verification_domain_${activeCompany?.id || 'default'}`);
     return saved || 'https://verify.kuwait-hr.com';
   });
 
@@ -180,7 +131,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
   // ---------------------------------------------------------------------------
   const [geminiApiKey, setGeminiApiKey] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem(`gemini_api_key_${activeCompany?.id || 'comp-1'}`) || 
+      return localStorage.getItem(`gemini_api_key_${activeCompany?.id || 'default'}`) || 
              localStorage.getItem('custom_gemini_key') || 
              localStorage.getItem('custom_gemini_api_key') || 
              localStorage.getItem('gemini_api_key') || 
@@ -203,7 +154,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
 
   // Sync when active company changes
   useEffect(() => {
-    const compId = activeCompany?.id || 'comp-1';
+    const compId = activeCompany?.id || 'default';
     const savedBranches = localStorage.getItem(`geofence_branches_${compId}`);
     if (savedBranches) {
       try {
@@ -296,7 +247,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
   const handleOpenAddBranch = () => {
     setEditingBranch({
       id: `branch-${Date.now()}`,
-      companyId: activeCompany?.id || 'comp-1',
+      companyId: activeCompany?.id || '',
       branchName: '',
       latitude: 29.3759,
       longitude: 47.9774,
@@ -339,7 +290,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
 
     const branchToSave: CompanyBranch = {
       id: editingBranch.id || `branch-${Date.now()}`,
-      companyId: activeCompany?.id || 'comp-1',
+      companyId: activeCompany?.id || '',
       branchName: editingBranch.branchName.trim(),
       latitude: Number(editingBranch.latitude),
       longitude: Number(editingBranch.longitude),
@@ -454,7 +405,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
           responseTimeMs: data.responseTimeMs,
         });
         // Save immediately as verified working key
-        const compId = activeCompany?.id || 'comp-1';
+        const compId = activeCompany?.id || 'default';
         localStorage.setItem('custom_gemini_key', geminiApiKey.trim());
         localStorage.setItem('custom_gemini_api_key', geminiApiKey.trim());
         localStorage.setItem('gemini_api_key', geminiApiKey.trim());
@@ -481,7 +432,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
   };
 
   const handleSaveGeminiKeyOnly = async () => {
-    const compId = activeCompany?.id || 'comp-1';
+    const compId = activeCompany?.id || 'default';
     const key = geminiApiKey.trim();
     localStorage.setItem('custom_gemini_key', key);
     localStorage.setItem('custom_gemini_api_key', key);
@@ -503,7 +454,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
   // Save All Configurations
   const handleSaveAllConfig = async () => {
     setIsSaving(true);
-    const compId = activeCompany?.id || 'comp-1';
+    const compId = activeCompany?.id || 'default';
 
     const fullConfig: SystemIntegrationsConfig = {
       id: `config-${compId}`,

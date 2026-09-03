@@ -90,7 +90,7 @@ interface EmployeeModalProps {
 }
 
 export default function OdooEmployeeFormModal({ isOpen, onClose, onSave }: EmployeeModalProps) {
-  const [activeTab, setActiveTab] = useState<'work' | 'private' | 'medical'>('work');
+  const [activeTab, setActiveTab] = useState<'work' | 'private' | 'hr' | 'resume' | 'warnings'>('work');
 
   // البيانات العامة
   const [nameAr, setNameAr] = useState('');
@@ -100,11 +100,12 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave }: Emplo
   const [workEmail, setWorkEmail] = useState('');
   const [workPhone, setWorkPhone] = useState('');
   const [manager, setManager] = useState('');
-  const [workLocation, setWorkLocation] = useState('عيادة إيليت كلينك - الفرع الرئيسي | Elite Clinic - Main');
+  const [workLocation, setWorkLocation] = useState('الفرع الرئيسي');
+  const [hireDate, setHireDate] = useState('');
 
   // البيانات الشخصية والإقامة
   const [civilId, setCivilId] = useState('');
-  const [badgeId, setBadgeId] = useState('EMP-9021'); // رقم كود البصمة
+  const [badgeId, setBadgeId] = useState(''); // رقم كود البصمة
   const [civilIdData, setCivilIdData] = useState<{
     serialNo?: string;
     birthDate?: string;
@@ -127,14 +128,19 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave }: Emplo
   const [residencyExpiry, setResidencyExpiry] = useState('');
   const [bankName, setBankName] = useState(KUWAIT_BANKS[0].ar);
   const [iban, setIban] = useState('');
+  const [dependents, setDependents] = useState(0);
   const [isScanning, setIsScanning] = useState(false);
   const [scanSuccess, setScanSuccess] = useState(false);
 
-  // التراخيص الطبية
+  // التراخيص الطبية والموارد البشرية
   const [mohLicense, setMohLicense] = useState('');
   const [mohLicenseExpiry, setMohLicenseExpiry] = useState('');
-  const [qualification, setQualification] = useState('بكالوريوس طب وجراحة - MB BCh / MD');
+  const [qualification, setQualification] = useState('');
+  const [specialty, setSpecialty] = useState('');
   const [bloodType, setBloodType] = useState('O+');
+  const [employeeType, setEmployeeType] = useState('employee');
+  const [relatedUser, setRelatedUser] = useState('');
+  const [pinCode, setPinCode] = useState('');
 
   if (!isOpen) return null;
 
@@ -172,6 +178,7 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave }: Emplo
       nationality,
       gender,
       maritalStatus,
+      dependents,
       residencyType,
       residencyExpiry,
       bankName,
@@ -179,9 +186,13 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave }: Emplo
       mohLicense,
       mohLicenseExpiry,
       qualification,
+      specialty,
       bloodType,
+      employeeType,
+      relatedUser,
+      pinCode,
       status: 'على رأس العمل',
-      hireDate: new Date().toISOString().slice(0, 10),
+      hireDate: hireDate || new Date().toISOString().slice(0, 10),
       basicSalary: 850,
       allowances: 150,
       avatarColor: 'bg-emerald-600',
@@ -229,7 +240,7 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave }: Emplo
                   type="text" 
                   value={nameAr} 
                   onChange={(e) => setNameAr(e.target.value)} 
-                  placeholder="مثال: د. أحمد محمود الكندري"
+                  placeholder="الاسم الرباعي الكامل للموظف"
                   className="w-full text-xs font-bold bg-white border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-purple-600 focus:outline-none"
                   required
                 />
@@ -274,7 +285,7 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave }: Emplo
           </div>
 
           {/* 3. Notebook Tabs */}
-          <div className="flex border-b border-slate-200 gap-2">
+          <div className="flex border-b border-slate-200 gap-2 overflow-x-auto whitespace-nowrap">
             <button
               type="button"
               onClick={() => setActiveTab('work')}
@@ -290,23 +301,34 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave }: Emplo
               type="button"
               onClick={() => setActiveTab('private')}
               className={`pb-2 px-4 font-bold transition border-b-2 ${
-                activeTab === 'private' 
+                activeTab === 'private'
                   ? 'border-purple-800 text-purple-950 font-black' 
                   : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
-              البيانات الشخصية والبطاقة المدنية (Private Info)
+              المعلومات الخاصة / الشخصية (Private Information)
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab('medical')}
+              onClick={() => setActiveTab('hr')}
               className={`pb-2 px-4 font-bold transition border-b-2 ${
-                activeTab === 'medical' 
+                activeTab === 'hr'
                   ? 'border-purple-800 text-purple-950 font-black' 
                   : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
-              التراخيص الطبية (MOH Credentials)
+              إعدادات الموارد البشرية (HR Settings)
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('resume')}
+              className={`pb-2 px-4 font-bold transition border-b-2 ${
+                activeTab === 'resume' 
+                  ? 'border-purple-800 text-purple-950 font-black' 
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              السيرة الذاتية والمهارات (Resume & Skills)
             </button>
           </div>
 
@@ -369,19 +391,13 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave }: Emplo
               </div>
 
               <div>
-                <label className="block text-purple-900 font-bold mb-1">رقم كود البصمة (Biometric Badge ID)</label>
-                <div className="flex gap-2">
-                  <input 
-                    type="text" 
-                    value={badgeId} 
-                    onChange={(e) => setBadgeId(e.target.value)} 
-                    placeholder="EMP-9021"
-                    className="w-full bg-purple-50/50 border border-purple-300 rounded-lg p-2 focus:ring-2 focus:ring-purple-600 focus:outline-none font-mono font-bold text-purple-900"
-                  />
-                  <span className="bg-purple-100 text-purple-800 px-3 py-2 rounded-lg font-bold text-[10px] flex items-center shrink-0">
-                    جهاز ZKTeco
-                  </span>
-                </div>
+                <label className="block text-slate-600 font-semibold mb-1">تاريخ المباشرة والتعيين (Hire Date)</label>
+                <input 
+                  type="date"
+                  value={hireDate}
+                  onChange={(e) => setHireDate(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-purple-600 focus:outline-none font-mono"
+                />
               </div>
 
               <div>
@@ -557,6 +573,44 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave }: Emplo
                 </div>
 
                 <div>
+                  <label className="block text-slate-600 font-semibold mb-1">الحالة الاجتماعية والمعالين</label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      value={maritalStatus}
+                      onChange={(e) => setMaritalStatus(e.target.value)}
+                      placeholder="متزوج"
+                      className="w-1/2 bg-white border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                    />
+                    <input 
+                      type="number" 
+                      value={dependents}
+                      onChange={(e) => setDependents(Number(e.target.value))}
+                      placeholder="المعالين"
+                      className="w-1/2 bg-white border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-purple-600 focus:outline-none font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-slate-600 font-semibold mb-1">فصيلة الدم (Blood Type)</label>
+                  <select 
+                    value={bloodType}
+                    onChange={(e) => setBloodType(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-purple-600 focus:outline-none font-mono font-bold"
+                  >
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                  </select>
+                </div>
+
+                <div>
                   <label className="block text-slate-600 font-semibold mb-1">رقم جواز السفر (Passport No)</label>
                   <input 
                     type="text" 
@@ -632,124 +686,196 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave }: Emplo
             </div>
           )}
 
-          {activeTab === 'medical' && (
+          {activeTab === 'hr' && (
             <div className="space-y-6">
-              {/* MOH License OCR Scanner */}
-              <div className="bg-gradient-to-r from-emerald-800 to-teal-900 text-white p-4 rounded-xl shadow-md flex flex-col gap-3">
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center text-xl">
-                      🏥
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-sm">الماسح الضوئي لترخيص مزاولة المهنة (MOH OCR)</h4>
-                      <p className="text-[11px] text-emerald-200">ارفع صورة الترخيص الصحي لاستخراج بياناته تلقائياً بالذكاء الاصطناعي</p>
-                    </div>
-                  </div>
-                  <label className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-lg font-bold text-xs transition shadow flex items-center gap-2 shrink-0 cursor-pointer">
-                    <span>📁</span> {isScanning ? '⏳ جاري القراءة بالذكاء الاصطناعي...' : 'رفع وقراءة الترخيص'}
-                    <input 
-                      type="file" 
-                      accept="image/*,.pdf" 
-                      className="hidden" 
-                      disabled={isScanning}
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        setIsScanning(true);
-                        try {
-                          const reader = new FileReader();
-                          reader.onload = async () => {
-                            const base64String = reader.result as string;
-                            try {
-                              const d = await parseKuwaitCivilCardOCR(base64String);
-                              if (d) {
-                                if (d.mohLicense) setMohLicense(d.mohLicense);
-                                if (d.mohLicenseExpiry) setMohLicenseExpiry(d.mohLicenseExpiry);
-                                if (d.nameAr && !nameAr) setNameAr(d.nameAr);
-                                if (d.nameEn && !nameEn) setNameEn(d.nameEn);
-                                if (d.civilId && !civilId) {
-                                  setCivilId(d.civilId);
-                                }
-                                setScanSuccess(true);
-                                setTimeout(() => setScanSuccess(false), 5000);
-                              } else {
-                                alert('تعذر قراءة المستند واستخراج البيانات بالذكاء الاصطناعي');
-                              }
-                            } catch (apiErr: any) {
-                              alert('حدث خطأ أثناء الاتصال بخدمة الماسح الضوئي: ' + apiErr.message);
-                            } finally {
-                              setIsScanning(false);
-                            }
-                          };
-                          reader.readAsDataURL(file);
-                        } catch (err: any) {
-                          setIsScanning(false);
-                          alert('فشل قراءة الملف: ' + err.message);
-                        }
-                      }}
-                    />
-                  </label>
-                </div>
-              </div>
-
-              {scanSuccess && (
-                <div className="bg-emerald-50 border border-emerald-300 text-emerald-800 p-3 rounded-lg text-xs font-bold animate-pulse">
-                  ✅ تم مسح ترخيص مزاولة المهنة وتحليل البيانات بالذكاء الاصطناعي بنجاح!
-                </div>
-              )}
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-purple-900 font-bold mb-1">رقم ترخيص مزاولة المهنة (MOH License No)</label>
-                <input 
-                  type="text" 
-                  value={mohLicense} 
-                  onChange={(e) => setMohLicense(e.target.value)} 
-                  placeholder="MOH-DOC-9821"
-                  className="w-full bg-white border border-purple-300 rounded-lg p-2 focus:ring-2 focus:ring-purple-600 focus:outline-none font-mono font-bold text-purple-900"
-                />
-              </div>
+                  <label className="block text-slate-700 font-bold mb-1">نوع الموظف (Employee Type)</label>
+                  <select 
+                    value={employeeType}
+                    onChange={(e) => setEmployeeType(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-purple-600 focus:outline-none font-bold"
+                  >
+                    <option value="employee">موظف (Employee)</option>
+                    <option value="student">متدرب / طالب (Student)</option>
+                    <option value="contractor">مقاول (Contractor)</option>
+                    <option value="freelance">مستقل (Freelancer)</option>
+                  </select>
+                </div>
 
-              <div>
-                <label className="block text-slate-600 font-semibold mb-1">تاريخ انتهاء ترخيص MOH Expiry Date</label>
-                <input 
-                  type="date" 
-                  value={mohLicenseExpiry} 
-                  onChange={(e) => setMohLicenseExpiry(e.target.value)} 
-                  className="w-full bg-white border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-purple-600 focus:outline-none font-mono"
-                />
-              </div>
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">المستخدم المرتبط (Related User)</label>
+                  <input 
+                    type="text" 
+                    value={relatedUser}
+                    onChange={(e) => setRelatedUser(e.target.value)}
+                    placeholder="ربط بحساب مستخدم..."
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-slate-600 font-semibold mb-1">المؤهل العلمي (Degree / Qualification)</label>
-                <input 
-                  type="text" 
-                  value={qualification} 
-                  onChange={(e) => setQualification(e.target.value)} 
-                  placeholder="بورد طب وجراحة الجلدية / Fellowship"
-                  className="w-full bg-white border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-purple-600 focus:outline-none"
-                />
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">رقم تعريف البصمة (Badge ID)</label>
+                  <input 
+                    type="text" 
+                    value={badgeId} 
+                    onChange={(e) => setBadgeId(e.target.value)} 
+                    placeholder="EMP-XXXX"
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-purple-600 focus:outline-none font-mono font-bold"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">الرقم السري للحضور (PIN Code)</label>
+                  <input 
+                    type="password" 
+                    value={pinCode}
+                    onChange={(e) => setPinCode(e.target.value)}
+                    placeholder="****"
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-purple-600 focus:outline-none font-mono"
+                  />
+                </div>
               </div>
+              
+              <div className="pt-4 border-t border-slate-200">
+                <h4 className="font-bold text-slate-800 mb-4 text-sm">تراخيص وزارة الصحة (MOH Credentials) - خاص بالكادر الطبي</h4>
+                
+                {/* MOH License OCR Scanner */}
+                <div className="bg-gradient-to-r from-emerald-800 to-teal-900 text-white p-4 rounded-xl shadow-md flex flex-col gap-3 mb-4">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center text-xl">
+                        🏥
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-sm">الماسح الضوئي لترخيص مزاولة المهنة (MOH OCR)</h4>
+                        <p className="text-[11px] text-emerald-200">ارفع صورة الترخيص الصحي لاستخراج بياناته تلقائياً بالذكاء الاصطناعي</p>
+                      </div>
+                    </div>
+                    <label className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-lg font-bold text-xs transition shadow flex items-center gap-2 shrink-0 cursor-pointer">
+                      <span>📁</span> {isScanning ? '⏳ جاري القراءة بالذكاء الاصطناعي...' : 'رفع وقراءة الترخيص'}
+                      <input 
+                        type="file" 
+                        accept="image/*,.pdf" 
+                        className="hidden" 
+                        disabled={isScanning}
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          setIsScanning(true);
+                          try {
+                            const reader = new FileReader();
+                            reader.onload = async () => {
+                              const base64String = reader.result as string;
+                              try {
+                                const d = await parseKuwaitCivilCardOCR(base64String);
+                                if (d) {
+                                  if (d.mohLicense) setMohLicense(d.mohLicense);
+                                  if (d.mohLicenseExpiry) setMohLicenseExpiry(d.mohLicenseExpiry);
+                                  if (d.nameAr && !nameAr) setNameAr(d.nameAr);
+                                  if (d.nameEn && !nameEn) setNameEn(d.nameEn);
+                                  if (d.civilId && !civilId) {
+                                    setCivilId(d.civilId);
+                                  }
+                                  setScanSuccess(true);
+                                  setTimeout(() => setScanSuccess(false), 5000);
+                                } else {
+                                  alert('تعذر قراءة المستند واستخراج البيانات بالذكاء الاصطناعي');
+                                }
+                              } catch (apiErr: any) {
+                                alert('حدث خطأ أثناء الاتصال بخدمة الماسح الضوئي: ' + apiErr.message);
+                              } finally {
+                                setIsScanning(false);
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                          } catch (err: any) {
+                            setIsScanning(false);
+                            alert('فشل قراءة الملف: ' + err.message);
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
 
-              <div>
-                <label className="block text-slate-600 font-semibold mb-1">فصيلة الدم (Blood Group)</label>
-                <select 
-                  value={bloodType} 
-                  onChange={(e) => setBloodType(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-purple-600 focus:outline-none font-mono"
-                >
-                  <option value="O+">O+</option>
-                  <option value="A+">A+</option>
-                  <option value="B+">B+</option>
-                  <option value="AB+">AB+</option>
-                  <option value="O-">O-</option>
-                  <option value="A-">A-</option>
-                  <option value="B-">B-</option>
-                  <option value="AB-">AB-</option>
-                </select>
+                {scanSuccess && (
+                  <div className="bg-emerald-50 border border-emerald-300 text-emerald-800 p-3 rounded-lg text-xs font-bold animate-pulse mb-4">
+                    ✅ تم مسح ترخيص مزاولة المهنة وتحليل البيانات بالذكاء الاصطناعي بنجاح!
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-purple-900 font-bold mb-1">رقم ترخيص مزاولة المهنة (MOH License No)</label>
+                    <input 
+                      type="text" 
+                      value={mohLicense} 
+                      onChange={(e) => setMohLicense(e.target.value)} 
+                      placeholder="MOH-DOC-9821"
+                      className="w-full bg-white border border-purple-300 rounded-lg p-2 focus:ring-2 focus:ring-purple-600 focus:outline-none font-mono font-bold text-purple-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">تاريخ انتهاء ترخيص (MOH Expiry Date)</label>
+                    <input 
+                      type="date" 
+                      value={mohLicenseExpiry} 
+                      onChange={(e) => setMohLicenseExpiry(e.target.value)} 
+                      className="w-full bg-white border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-purple-600 focus:outline-none font-mono"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
+          )}
+
+          {activeTab === 'resume' && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-slate-600 font-semibold mb-1">الدرجة العلمية والشهادة (Degree / Qualification)</label>
+                  <input 
+                    type="text" 
+                    value={qualification} 
+                    onChange={(e) => setQualification(e.target.value)} 
+                    placeholder="بورد طب وجراحة الجلدية / Fellowship"
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-purple-600 focus:outline-none font-bold"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-slate-600 font-semibold mb-1">التخصص الدقيق (Specialty)</label>
+                  <input 
+                    type="text" 
+                    value={specialty}
+                    onChange={(e) => setSpecialty(e.target.value)}
+                    placeholder="مثال: جراحة التجميل"
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                  />
+                </div>
+              </div>
+              
+              <div className="border-t border-slate-200 pt-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h4 className="font-bold text-slate-800 text-sm">السيرة الذاتية (Resume Lines)</h4>
+                  <button type="button" className="text-purple-600 hover:text-purple-800 font-bold transition text-xs bg-purple-50 px-3 py-1.5 rounded-lg">➕ إضافة خبرة جديدة</button>
+                </div>
+                <div className="text-slate-400 text-center py-6 bg-slate-50 rounded-xl border-2 border-dashed border-slate-300">
+                  لا توجد بيانات سيرة ذاتية مسجلة حالياً
+                </div>
+              </div>
+              
+              <div className="border-t border-slate-200 pt-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h4 className="font-bold text-slate-800 text-sm">المهارات (Skills)</h4>
+                  <button type="button" className="text-purple-600 hover:text-purple-800 font-bold transition text-xs bg-purple-50 px-3 py-1.5 rounded-lg">➕ إضافة مهارة جديدة</button>
+                </div>
+                <div className="text-slate-400 text-center py-6 bg-slate-50 rounded-xl border-2 border-dashed border-slate-300">
+                  لا توجد مهارات مسجلة حالياً
+                </div>
+              </div>
             </div>
           )}
 
@@ -776,6 +902,33 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave }: Emplo
             </div>
           </div>
 
+          {activeTab === 'warnings' && (
+             <div className="space-y-4">
+               <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-xl text-sm font-bold">
+                 هذا السجل يعرض المخالفات والإنذارات التأديبية الخاصة بالموظف.
+               </div>
+               <table className="w-full text-right text-xs bg-white rounded-xl border border-slate-200 overflow-hidden">
+                 <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                   <tr>
+                     <th className="p-3.5">رقم الإجراء</th>
+                     <th className="p-3.5">نوع العقوبة</th>
+                     <th className="p-3.5">سبب الجزاء</th>
+                     <th className="p-3.5">الإجراء المترتب</th>
+                     <th className="p-3.5">التاريخ</th>
+                   </tr>
+                 </thead>
+                 <tbody className="divide-y divide-slate-100">
+                   <tr className="hover:bg-slate-50 transition">
+                     <td className="p-3.5 font-mono text-slate-500">WARN-2026-01</td>
+                     <td className="p-3.5 font-bold text-rose-700">إنذار كتابي أول</td>
+                     <td className="p-3.5">تأخير متكرر عن مواعيد العمل</td>
+                     <td className="p-3.5 font-bold text-slate-800">خصم أجر يوم واحد</td>
+                     <td className="p-3.5 font-mono text-slate-600">2026-08-15</td>
+                   </tr>
+                 </tbody>
+               </table>
+             </div>
+          )}
         </form>
       </div>
     </div>

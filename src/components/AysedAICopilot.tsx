@@ -88,7 +88,7 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
           data: { total: employees.length, active: activeEmps.length }
         };
       } else if (lower.includes("إجازة") || lower.includes("اجازة") || lower.includes("leave")) {
-        const empName = employees[0]?.fullNameAr || 'أحمد محمد العتيبي';
+        const empName = (employees[0] as any)?.fullNameAr || (employees[0] as any)?.name || 'الموظف المحدد';
         replyText = `### 🌴 إنشاء طلب إجازة جديد (hr.leave)\n\nتم إعداد مسودة طلب الإجازة بنجاح للموظف **${empName}** لمدة **يومين** وفقاً لقانون العمل الكويتي ورصيد الإجازات المتاح.\n\nيمكنك الاعتماد المباشر بالضغط على زر الاعتماد أدناه:`;
         simulatedWidget = {
           type: 'LEAVE_APPROVAL',
@@ -113,7 +113,7 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
           }
         };
       } else if (lower.includes("عقد") || lower.includes("contract")) {
-        const empName = employees[0]?.fullNameAr || 'أحمد محمد العتيبي';
+        const empName = (employees[0] as any)?.fullNameAr || (employees[0] as any)?.name || 'الموظف المحدد';
         replyText = `### 📑 مسودة عقد عمل (hr.contract)\n\nتم تجهيز مسودة عقد عمل طبقاً لأحدث تعاميم الهيئة العامة للقوى العاملة وقانون العمل الكويتي رقم 6/2010 للموظف **${empName}**.\n\n- **الراتب الأساسي:** 750.000 د.ك\n- **نوع العقد:** دوام كامل غير محدد المدة.`;
         simulatedWidget = {
           type: 'CONTRACT_CARD',

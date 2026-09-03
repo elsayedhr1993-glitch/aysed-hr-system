@@ -131,7 +131,7 @@ export const HolidayWorkManagementView: React.FC<Props> = ({ employees, activeCo
       const newRec: WorkOnHolidayRecord = {
         id: editingRecordId || `hwr-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         employeeId,
-        companyId: activeCompanyId || 'comp-1',
+        companyId: activeCompanyId || '',
         date,
         holidayName,
         hoursWorked: Number(hoursWorked),

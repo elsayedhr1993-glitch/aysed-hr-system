@@ -50,7 +50,7 @@ export interface HolidayDutyAssignment {
   dutyDate: string;
   basicSalary: number;
   totalSalary: number;
-  compensationType: 'double_pay' | 'comp_day_off'; // أجر مضاعف 200% أو يوم راحة بديل طبقاً للمادة 68
+  compensationType: 'double_pay' | 'comp_day_off' | 'add_to_annual_leave'; // أجر مضاعف 200% أو يوم راحة بديل أو إضافة لرصيد الإجازات السنوية
   calculatedAmount: number;
   status: 'approved' | 'settled';
 }
@@ -152,34 +152,7 @@ const kuwaitOfficialHolidaysList: PublicHoliday[] = [
 export const OdooPublicHolidaysApp: React.FC = () => {
   const { activeCompany } = useCompany();
   const [holidays, setHolidays] = useState<PublicHoliday[]>(kuwaitOfficialHolidaysList);
-  const [duties, setDuties] = useState<HolidayDutyAssignment[]>([
-    {
-      id: 'DUTY-2026-01',
-      employeeName: 'أحمد محمود الكندري',
-      civilId: '290010112345',
-      jobTitle: 'طبيب استشاري باطنية',
-      holidayName: 'العيد الوطني ويوم التحرير (25 - 26 فبراير)',
-      dutyDate: '2026-02-25',
-      basicSalary: 1200,
-      totalSalary: 1750,
-      compensationType: 'double_pay',
-      calculatedAmount: 134.615, // (1750 / 26) * 2 = 134.615 د.ك
-      status: 'approved'
-    },
-    {
-      id: 'DUTY-2026-02',
-      employeeName: 'سعد جابر العنزي',
-      civilId: '289120109923',
-      jobTitle: 'مشرف أمن وورديات',
-      holidayName: 'عطلة عيد الفطر المبارك 1447هـ',
-      dutyDate: '2026-03-21',
-      basicSalary: 600,
-      totalSalary: 800,
-      compensationType: 'double_pay',
-      calculatedAmount: 61.538, // (800 / 26) * 2 = 61.538 د.ك
-      status: 'approved'
-    }
-  ]);
+  const [duties, setDuties] = useState<HolidayDutyAssignment[]>([]);
 
   const [activeTab, setActiveTab] = useState<'calendar' | 'duties' | 'integration'>('calendar');
   const [searchQuery, setSearchQuery] = useState('');
@@ -199,18 +172,18 @@ export const OdooPublicHolidaysApp: React.FC = () => {
 
   // New Duty Assignment Form
   const [dutyForm, setDutyForm] = useState({
-    employeeName: 'محمد إبراهيم السيد',
-    civilId: '288050498765',
-    jobTitle: 'أخصائي علاج طبيعي',
-    holidayName: 'المولد النبوي الشريف',
-    dutyDate: '2026-08-25',
-    totalSalary: '875',
-    compensationType: 'double_pay' as 'double_pay' | 'comp_day_off'
+    employeeName: '',
+    civilId: '',
+    jobTitle: '',
+    holidayName: '',
+    dutyDate: '',
+    totalSalary: '',
+    compensationType: 'double_pay' as 'double_pay' | 'comp_day_off' | 'add_to_annual_leave'
   });
 
   // Calculate Kuwait Article 68 Compensation (200% double pay)
-  const calculateDutyCompensation = (salary: number, type: 'double_pay' | 'comp_day_off') => {
-    if (type === 'comp_day_off') return 0;
+  const calculateDutyCompensation = (salary: number, type: 'double_pay' | 'comp_day_off' | 'add_to_annual_leave') => {
+    if (type === 'comp_day_off' || type === 'add_to_annual_leave') return 0;
     const dayRate = salary / 26; // أساس 26 يوماً
     return Math.round(dayRate * 2 * 1000) / 1000; // أجر مضاعف 200%
   };
@@ -577,9 +550,13 @@ export const OdooPublicHolidaysApp: React.FC = () => {
                           <span className="bg-blue-100 text-blue-800 border border-blue-200 px-2.5 py-1 rounded-full text-[10px] font-bold">
                             أجر مضاعف (200%)
                           </span>
-                        ) : (
+                        ) : d.compensationType === 'comp_day_off' ? (
                           <span className="bg-purple-100 text-purple-800 border border-purple-200 px-2.5 py-1 rounded-full text-[10px] font-bold">
                             يوم راحة بديل
+                          </span>
+                        ) : (
+                          <span className="bg-amber-100 text-amber-800 border border-amber-200 px-2.5 py-1 rounded-full text-[10px] font-bold">
+                            إضافة للإجازات
                           </span>
                         )}
                       </td>
@@ -883,8 +860,9 @@ export const OdooPublicHolidaysApp: React.FC = () => {
                     onChange={(e) => setDutyForm({ ...dutyForm, compensationType: e.target.value as any })}
                     className="w-full p-2.5 border rounded-lg font-bold outline-none focus:border-[#714B67]"
                   >
-                    <option value="double_pay">أجر مضاعف (200%)</option>
-                    <option value="comp_day_off">يوم راحة بديل</option>
+                    <option value="double_pay">أجر مضاعف (200%) - بدل نقدي</option>
+                    <option value="comp_day_off">يوم راحة بديل (تعويض)</option>
+                    <option value="add_to_annual_leave">يضاف إلى رصيد الإجازات السنوية</option>
                   </select>
                 </div>
               </div>

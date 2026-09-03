@@ -1,37 +1,6 @@
 import { Company, Employee, Candidate, Contract, LeaveRequest, AttendanceRecord, Payslip, DocumentItem, AutomationRule, Department, JobTitle, CustodyItem, LoanAdvance, DisciplinaryWarning, EmployeeNote, CompanySubscription } from '../types';
 
-export const initialCompanies: Company[] = [
-  {
-    id: 'comp-1',
-    nameAr: 'شركة النخبة الطبية',
-    nameEn: 'Elite Medical Co',
-    email: 'elite@aysed.com',
-    phone: '666968182',
-    status: 'active',
-    industry: 'طبي',
-    currency: 'KWD'
-  },
-  {
-    id: 'comp-fanar',
-    nameAr: 'مجموعة الفنار الطبية',
-    nameEn: 'Fanar Medical Group',
-    email: 'alfanar@aysed.com',
-    phone: '66968180',
-    status: 'active',
-    industry: 'طبي',
-    currency: 'KWD'
-  },
-  {
-    id: 'comp-almanar',
-    nameAr: 'شركة المنار لخدمات الدعم الطبي',
-    nameEn: 'Al Manar Medical Support',
-    email: 'almanar@aysed.com',
-    phone: '99112233',
-    status: 'active',
-    industry: 'طبي',
-    currency: 'KWD'
-  }
-];
+export const initialCompanies: Company[] = [];
 
 export const initialSubscriptions: CompanySubscription[] = [];
 

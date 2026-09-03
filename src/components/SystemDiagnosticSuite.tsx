@@ -131,14 +131,15 @@ export const SystemDiagnosticSuite: React.FC<SystemDiagnosticSuiteProps> = ({
     // -------------------------------------------------------------
     // TEST 4: Full Employee Lifecycle E2E Test
     // -------------------------------------------------------------
+    const currentCompanyId = activeCompany?.id || 'active-company';
     // Step A: Add Mock Test Employee
     const testCode = `EMP-TEST-${Math.floor(Math.random() * 800) + 100}`;
     const testEmp: Employee = {
       id: `emp-audit-${Date.now()}`,
-      companyId: activeCompany?.id || 'comp-1',
+      companyId: currentCompanyId,
       employeeCode: testCode,
-      fullNameAr: 'عبدالله محمد المطيري (اختبار تلقائي)',
-      fullNameEn: 'Abdullah Al-Mutairi (E2E Test)',
+      fullNameAr: 'موظف فحص النظام التشغيلي (اختبار آلي)',
+      fullNameEn: 'System Diagnostic Subject (E2E Test)',
       civilId: '298101509876',
       civilIdExpiry: '2028-12-31',
       passportNo: 'P09876543',
@@ -169,7 +170,7 @@ export const SystemDiagnosticSuite: React.FC<SystemDiagnosticSuiteProps> = ({
     const todayStr = new Date().toISOString().split('T')[0];
     const testAttendance: AttendanceRecord = {
       id: `att-audit-${Date.now()}`,
-      companyId: activeCompany?.id || 'comp-1',
+      companyId: currentCompanyId,
       employeeId: testEmp.id,
       date: todayStr,
       checkIn: '08:00',
@@ -186,7 +187,7 @@ export const SystemDiagnosticSuite: React.FC<SystemDiagnosticSuiteProps> = ({
     // Step C: Leave Permission Request
     const testLeave: LeaveRequest = {
       id: `leave-audit-${Date.now()}`,
-      companyId: activeCompany?.id || 'comp-1',
+      companyId: currentCompanyId,
       employeeId: testEmp.id,
       leaveType: 'ANNUAL',
       startDate: todayStr,
@@ -203,7 +204,7 @@ export const SystemDiagnosticSuite: React.FC<SystemDiagnosticSuiteProps> = ({
     // Step D: Issue Salary Certificate
     const tpl = (documentTemplates || [])[0] || {
       id: 'tpl-default',
-      companyId: activeCompany?.id || 'comp-1',
+      companyId: currentCompanyId,
       templateCode: 'TPL-SAL-01',
       titleAr: 'شهادة راتب واستمرارية تحويل',
       titleEn: 'Salary Certificate',
@@ -216,7 +217,7 @@ export const SystemDiagnosticSuite: React.FC<SystemDiagnosticSuiteProps> = ({
 
     const genDoc: GeneratedDocument = {
       id: `gendoc-audit-${Date.now()}`,
-      companyId: activeCompany?.id || 'comp-1',
+      companyId: currentCompanyId,
       employeeId: testEmp.id,
       templateId: tpl.id,
       templateTitle: tpl.titleAr,
@@ -240,7 +241,7 @@ export const SystemDiagnosticSuite: React.FC<SystemDiagnosticSuiteProps> = ({
 
     const docItem: DocumentItem = {
       id: `doc-audit-${Date.now()}`,
-      companyId: activeCompany?.id || 'comp-1',
+      companyId: currentCompanyId,
       employeeId: testEmp.id,
       title: `${tpl.titleAr} (E2E Test)`,
       category: 'WORK_CONTRACT',
@@ -310,7 +311,7 @@ export const SystemDiagnosticSuite: React.FC<SystemDiagnosticSuiteProps> = ({
     // Log diagnostic audit trail
     if (typeof onAddAuditLog === 'function') {
       onAddAuditLog({
-        companyId: activeCompany?.id || 'comp-1',
+        companyId: currentCompanyId,
         userId: 'SYSTEM-AUDITOR',
         userName: 'مُقيّم النظام الآلي (System Auditor)',
         action: 'EXPORT',

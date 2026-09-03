@@ -94,10 +94,7 @@ export const ExclusiveInnovationsSuite: React.FC<ExclusiveInnovationsSuiteProps>
     location: string; 
     hash: string;
     waLink?: string;
-  }>>([
-    { id: '1', empName: 'د. أحمد الكندري', time: '08:02:14 ص', status: 'SUCCESS', location: 'المقر الرئيسي (برج الحمراء - شرق)', hash: 'SIG-A9F81B' },
-    { id: '2', empName: 'سارة المطيري', time: '08:14:50 ص', status: 'SUCCESS', location: 'المقر الرئيسي (برج الحمراء - شرق)', hash: 'SIG-D74E02' }
-  ]);
+  }>>([]);
 
   const branches = [
     { id: 'hq', name: 'المقر الرئيسي (برج الحمراء - العاصمة)', lat: 29.3759, lng: 47.9774, radiusMeters: 50 },
@@ -462,25 +459,14 @@ export const ExclusiveInnovationsSuite: React.FC<ExclusiveInnovationsSuiteProps>
     sha256Hash: string;
     signatoryName: string;
     statusText: string;
-  } | null>({
-    isValid: true,
-    docNumber: 'AYS-2026-SAL-1082',
-    docTitle: 'شهادة راتب واستمرارية عمل رسمية',
-    employeeName: employees[0]?.fullNameAr || 'د. أحمد الكندري',
-    civilId: employees[0]?.civilId || '290102003040',
-    companyName: activeCompany?.nameAr || "",
-    issueDate: new Date().toLocaleDateString('ar-KW'),
-    sha256Hash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-    signatoryName: 'المفوض بالتوقيع - الموارد البشرية',
-    statusText: 'المستند أصلي وموثق رسمياً بالسجل الرقمي المشفر'
-  });
+  } | null>(null);
 
   const handleVerifyDocument = () => {
     if (!verifyDocIdInput.trim()) {
       toast.error('يرجى إدخال رمز التحقق أو كود المستند');
       return;
     }
-    const emp = employees[0] || { fullNameAr: 'أحمد الكندري', civilId: '290102003040' };
+    const emp = employees[0] || { fullNameAr: 'الموظف المعتمد', civilId: '----' };
     let hashNum = 42;
     for (let i = 0; i < verifyDocIdInput.length; i++) {
       hashNum = (hashNum * 31 + verifyDocIdInput.charCodeAt(i)) % 1000000007;

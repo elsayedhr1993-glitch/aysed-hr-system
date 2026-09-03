@@ -20,6 +20,7 @@ import {
   FolderKanban
 } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
+import { getPersistentData, MANARA_STORAGE_KEYS } from '../utils/persistentStorage';
 
 interface OdooMainDashboardProps {
   onNavigate: (tabId: string) => void;
@@ -28,15 +29,38 @@ interface OdooMainDashboardProps {
 export const OdooMainDashboard: React.FC<OdooMainDashboardProps> = ({ onNavigate }) => {
   const { activeCompany } = useCompany();
 
+  // Load real employees from persistent storage
+  const allEmployees = getPersistentData<any[]>(MANARA_STORAGE_KEYS.EMPLOYEES, []);
+  const companyEmployees = activeCompany?.id 
+    ? allEmployees.filter(e => !e.companyId || e.companyId === activeCompany.id)
+    : allEmployees;
+
+  // Calculate live KPI metrics
+  const employeeCount = companyEmployees.length;
+  const totalPayroll = companyEmployees.reduce((sum, e) => {
+    const basic = Number(e.basicSalary || e.salary || 0);
+    const housing = Number(e.housingAllowance || 0);
+    const transport = Number(e.transportAllowance || 0);
+    return sum + basic + housing + transport;
+  }, 0);
+
+  // Check for genuine document/residency expiry within 30 days
+  const expiringEmployee = companyEmployees.find(e => {
+    const expiry = e.residencyExpiry || e.civilIdExpiry;
+    if (!expiry) return false;
+    const diffDays = Math.ceil((new Date(expiry).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    return diffDays >= 0 && diffDays <= 30;
+  });
+
   // Odoo Enterprise Modules Config
   const apps = [
     {
       id: 'employees',
-      nameAr: 'الموظفون والعقود',
-      nameEn: 'Employees & Contracts',
+      nameAr: 'الموظفون',
+      nameEn: 'Employees',
       icon: Users,
       color: 'bg-purple-600',
-      badge: '2 موظف',
+      badge: `${employeeCount} موظف`,
       description: 'سجلات الموظفين، العقود، والوثائق المدنية'
     },
     {
@@ -45,7 +69,7 @@ export const OdooMainDashboard: React.FC<OdooMainDashboardProps> = ({ onNavigate
       nameEn: 'Time Off & Leaves',
       icon: CalendarDays,
       color: 'bg-emerald-600',
-      badge: '1 معلق',
+      badge: 'إدارة الإجازات',
       description: 'إدارة الإجازات السنوية والمرضية ورصيد 30 يوم'
     },
     {
@@ -81,7 +105,7 @@ export const OdooMainDashboard: React.FC<OdooMainDashboardProps> = ({ onNavigate
       nameEn: 'Kuwait WPS & Payroll',
       icon: CreditCard,
       color: 'bg-blue-600',
-      badge: 'جاهز للإصدار',
+      badge: 'نظام WPS',
       description: 'مسيرات الرواتب وملفات SIF للبنوك والتأمينات'
     },
     {
@@ -95,12 +119,12 @@ export const OdooMainDashboard: React.FC<OdooMainDashboardProps> = ({ onNavigate
     },
     {
       id: 'operations',
-      nameAr: 'العهد والعمليات والجزاءات',
-      nameEn: 'HR Operations & Assets',
+      nameAr: 'المعدات والعهد',
+      nameEn: 'Equipments & Custodies',
       icon: Package,
       color: 'bg-teal-600',
-      badge: 'العهد والسلف',
-      description: 'إدارة العهد العينية، سلف الرواتب والإنذارات ونهاية الخدمة'
+      badge: 'إدارة العهد',
+      description: 'إدارة العهد العينية والمعدات المخصصة للموظفين وإخلاء الطرف'
     },
     {
       id: 'security_guards',
@@ -108,7 +132,7 @@ export const OdooMainDashboard: React.FC<OdooMainDashboardProps> = ({ onNavigate
       nameEn: 'Security & Shifts',
       icon: ShieldCheck,
       color: 'bg-indigo-600',
-      badge: '2 بالخدمة',
+      badge: 'إدارة النوبات',
       description: 'توزيع الحراسات، النقاط الأمنية، والنوبات'
     },
     {
@@ -117,7 +141,7 @@ export const OdooMainDashboard: React.FC<OdooMainDashboardProps> = ({ onNavigate
       nameEn: 'Documents & Letters',
       icon: FileCheck,
       color: 'bg-rose-600',
-      badge: '4 نماذج',
+      badge: 'نماذج معتمدة',
       description: 'شهادات الراتب، كتب الوزارات، والمخالصات'
     },
     {
@@ -164,18 +188,33 @@ export const OdooMainDashboard: React.FC<OdooMainDashboardProps> = ({ onNavigate
       </div>
 
       {/* Dynamic Alerts Bar */}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 flex items-center justify-between text-xs text-amber-900 shadow-2xs">
-        <div className="flex items-center gap-2 font-medium">
-          <AlertTriangle className="text-amber-600 w-4 h-4 flex-shrink-0" />
-          <span><strong>تنبيه إداري:</strong> إقامة الموظف (محمد إبراهيم السيد) تنتهي خلال 25 يوماً. يرجى تجديد الترخيص والإقامة في الشؤون.</span>
+      {expiringEmployee ? (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 flex items-center justify-between text-xs text-amber-900 shadow-2xs">
+          <div className="flex items-center gap-2 font-medium">
+            <AlertTriangle className="text-amber-600 w-4 h-4 flex-shrink-0" />
+            <span><strong>تنبيه إداري:</strong> إقامة/بطاقة الموظف ({expiringEmployee.name || expiringEmployee.nameAr}) توشك على الانتهاء بتاريخ ({expiringEmployee.residencyExpiry || expiringEmployee.civilIdExpiry}).</span>
+          </div>
+          <button 
+            onClick={() => onNavigate('employees')}
+            className="text-xs font-bold text-[#714B67] hover:underline whitespace-nowrap mr-2"
+          >
+            مراجعة السجل
+          </button>
         </div>
-        <button 
-          onClick={() => onNavigate('employees')}
-          className="text-xs font-bold text-[#714B67] hover:underline whitespace-nowrap mr-2"
-        >
-          مراجعة السجل
-        </button>
-      </div>
+      ) : (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 flex items-center justify-between text-xs text-emerald-900 shadow-2xs">
+          <div className="flex items-center gap-2 font-medium">
+            <CheckCircle2 className="text-emerald-600 w-4 h-4 flex-shrink-0" />
+            <span><strong>الحالة التشغيلية:</strong> سجلات الموظفين والوثائق المدنية محدثة وسارية في قاعدة البيانات.</span>
+          </div>
+          <button 
+            onClick={() => onNavigate('employees')}
+            className="text-xs font-bold text-emerald-800 hover:underline whitespace-nowrap mr-2"
+          >
+            دليل الموظفين
+          </button>
+        </div>
+      )}
 
       {/* KPI Metrics Summary Bar */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -184,9 +223,9 @@ export const OdooMainDashboard: React.FC<OdooMainDashboardProps> = ({ onNavigate
             <span>إجمالي القوة العاملة</span>
             <Users className="w-4 h-4 text-[#714B67]" />
           </div>
-          <div className="text-2xl font-black text-slate-900">2 <span className="text-xs font-normal text-slate-500">موظفين</span></div>
+          <div className="text-2xl font-black text-slate-900">{employeeCount} <span className="text-xs font-normal text-slate-500">موظفين</span></div>
           <div className="text-[10px] text-emerald-600 mt-1 font-semibold flex items-center gap-1">
-            <TrendingUp size={12} /> عقود سارية 100%
+            <TrendingUp size={12} /> {employeeCount > 0 ? 'عقود مسجلة وسارية' : 'في انتظار إضافة الموظفين'}
           </div>
         </div>
 
@@ -195,7 +234,7 @@ export const OdooMainDashboard: React.FC<OdooMainDashboardProps> = ({ onNavigate
             <span>مسير الرواتب الإجمالي (WPS)</span>
             <CreditCard className="w-4 h-4 text-blue-600" />
           </div>
-          <div className="text-2xl font-black text-slate-900">2,500.000 <span className="text-xs font-normal text-slate-500">د.ك</span></div>
+          <div className="text-2xl font-black text-slate-900">{totalPayroll > 0 ? totalPayroll.toFixed(3) : '0.000'} <span className="text-xs font-normal text-slate-500">د.ك</span></div>
           <div className="text-[10px] text-blue-600 mt-1">شامل البدلات والتأمينات</div>
         </div>
 
@@ -213,7 +252,7 @@ export const OdooMainDashboard: React.FC<OdooMainDashboardProps> = ({ onNavigate
             <span>الورديات ونقاط الحراسة</span>
             <ShieldCheck className="w-4 h-4 text-purple-600" />
           </div>
-          <div className="text-2xl font-black text-purple-600">3 <span className="text-xs font-normal text-slate-500">مواقع مؤمنة</span></div>
+          <div className="text-2xl font-black text-purple-600">نظامي <span className="text-xs font-normal text-slate-500">جاهز للتوزيع</span></div>
           <div className="text-[10px] text-purple-600 mt-1">تغطية أمنية على مدار الساعة</div>
         </div>
       </div>

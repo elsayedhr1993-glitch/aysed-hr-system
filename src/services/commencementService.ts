@@ -1,6 +1,7 @@
 export interface CommencementData {
   id: string;
   referenceNo: string;
+  companyName?: string;
   employeeId: string;
   employeeNameAr: string;
   civilId: string;
@@ -26,7 +27,7 @@ export const printCommencementReport = (data: CommencementData) => {
       <div style="border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
         <div>
           <h1 style="font-size: 18px; font-weight: bold; color: #0f172a;">إقرار مباشرة عمل رسمي (Work Commencement Declaration)</h1>
-          <p style="font-size: 11px; color: #64748b;">مركز إيليت الطبي | الشؤون الإدارية والموارد البشرية</p>
+          <p style="font-size: 11px; color: #64748b;">${data.companyName || 'المنشأة'} | الشؤون الإدارية والموارد البشرية</p>
         </div>
         <div style="font-family: monospace; font-weight: bold; background: #f1f5f9; padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1;">
           ${data.referenceNo}
@@ -57,7 +58,7 @@ export const printCommencementReport = (data: CommencementData) => {
           <p style="color: #94a3b8;">.....................................</p>
         </div>
         <div>
-          <p style="font-weight: bold; margin-bottom: 40px;">المشرف / المدير الطبي</p>
+          <p style="font-weight: bold; margin-bottom: 40px;">المشرف المباشر / المفوض</p>
           <p style="color: #94a3b8;">.....................................</p>
         </div>
         <div>

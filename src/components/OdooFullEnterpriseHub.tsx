@@ -15,34 +15,13 @@ export const OdooFullEnterpriseHub: React.FC = () => {
   const [modalType, setModalType] = useState<string | null>(null);
 
   // --- 2. DATA STATES (DYNAMIC) ---
-  const [employees, setEmployees] = useState([
-    { id: 'EMP-001', name: 'أحمد محمود الكندري', civilId: '290010112345', job: 'مدير الموارد البشرية', dept: 'الإدارة العامة', salary: 1650, status: 'نشط' },
-    { id: 'EMP-002', name: 'محمد إبراهيم السيد', civilId: '288050498765', job: 'أخصائي شؤون إدارية', dept: 'الموارد البشرية', salary: 850, status: 'نشط' }
-  ]);
-
-  const [leaves, setLeaves] = useState([
-    { id: 'LV-01', empName: 'محمد إبراهيم السيد', type: 'إجازة سنوية', from: '2026-09-01', to: '2026-09-30', days: 30, status: 'approved' }
-  ]);
-
-  const [custodies, setCustodies] = useState([
-    { id: 'CUST-01', empName: 'أحمد محمود الكندري', item: 'MacBook Pro M3', serial: 'SN-884920', date: '2025-01-10' }
-  ]);
-
-  const [loans, setLoans] = useState([
-    { id: 'LN-01', empName: 'محمد إبراهيم السيد', total: 600, installment: 100, remaining: 400 }
-  ]);
-
-  const [warnings, setWarnings] = useState([
-    { id: 'WRN-01', empName: 'محمد إبراهيم السيد', type: 'إنذار كتابي', reason: 'تأخير متكرر', penalty: 'خصم أجر يوم' }
-  ]);
-
-  const [guards, setGuards] = useState([
-    { id: 'SEC-01', name: 'سعد جابر العنزي', location: 'المقر الطبي الرئيسي', shift: 'وردية ليلية (10م - 6ص)', phone: '+965 99441122' }
-  ]);
-
-  const [docs, setDocs] = useState([
-    { id: 'DOC-01', title: 'السجل التجاري الرئيسي', issuer: 'وزارة التجارة', expiry: '2027-05-09', status: 'valid' }
-  ]);
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [leaves, setLeaves] = useState<any[]>([]);
+  const [custodies, setCustodies] = useState<any[]>([]);
+  const [loans, setLoans] = useState<any[]>([]);
+  const [warnings, setWarnings] = useState<any[]>([]);
+  const [guards, setGuards] = useState<any[]>([]);
+  const [docs, setDocs] = useState<any[]>([]);
 
   // Temporary Input Form States
   const [formData, setFormData] = useState<any>({});
@@ -65,7 +44,7 @@ export const OdooFullEnterpriseHub: React.FC = () => {
     } else if (modalType === 'new_leave') {
       const newLv = {
         id: `LV-0${leaves.length + 1}`,
-        empName: formData.empName || (employees.length > 0 ? employees[0].name : 'محمد إبراهيم السيد'),
+        empName: formData.empName || (employees.length > 0 ? employees[0].name : ''),
         type: formData.type || 'إجازة سنوية',
         from: formData.from || '2026-09-10',
         to: formData.to || '2026-09-25',
@@ -76,7 +55,7 @@ export const OdooFullEnterpriseHub: React.FC = () => {
     } else if (modalType === 'new_custody') {
       const newC = {
         id: `CUST-0${custodies.length + 1}`,
-        empName: formData.empName || (employees.length > 0 ? employees[0].name : 'أحمد محمود الكندري'),
+        empName: formData.empName || (employees.length > 0 ? employees[0].name : ''),
         item: formData.item || 'عهدة عامة',
         serial: formData.serial || 'SN-N/A',
         date: new Date().toISOString().split('T')[0]
@@ -87,7 +66,7 @@ export const OdooFullEnterpriseHub: React.FC = () => {
       const inst = Number(formData.installment) || total / 3;
       const newL = {
         id: `LN-0${loans.length + 1}`,
-        empName: formData.empName || (employees.length > 0 ? employees[0].name : 'محمد إبراهيم السيد'),
+        empName: formData.empName || (employees.length > 0 ? employees[0].name : ''),
         total,
         installment: inst,
         remaining: total

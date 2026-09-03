@@ -63,123 +63,7 @@ interface Employee {
   avatarUrl?: string;
 }
 
-const initialEmployees: Employee[] = [
-  {
-    id: 'EMP-001',
-    companyId: 'comp-1',
-    name: 'أحمد محمود الكندري',
-    nameEn: 'Ahmed Al-Kandari',
-    civilId: '290010112345',
-    passportNo: 'K12345678',
-    nationality: 'كويتي',
-    jobTitle: 'مدير الموارد البشرية والشؤون الإدارية',
-    department: 'الإدارة العامة',
-    workEmail: 'ahmed@company.com',
-    phone: '+965 99887766',
-    joinDate: '2021-03-01',
-    residencyExpiry: '2028-03-01',
-    civilIdExpiry: '2028-03-01',
-    passportExpiry: '2028-05-15',
-    basicSalary: 1450,
-    housingAllowance: 350,
-    transportAllowance: 100,
-    otherAllowance: 100,
-    bankAccountNo: '001234567890',
-    bankIban: 'KW82NBOK0000000000001234567890',
-    bankName: 'بنك الكويت الوطني (NBK)',
-    contractType: 'unlimited',
-    status: 'active',
-    pifssRegistered: true,
-  },
-  {
-    id: 'MED-001',
-    companyId: 'comp-1',
-    name: 'د. سارة خالد المنصور',
-    nameEn: 'Dr. Sarah Al-Mansoor',
-    civilId: '292081512344',
-    passportNo: 'K98124551',
-    nationality: 'كويتية',
-    jobTitle: 'طبيبة اختصاصية جلدية وتجميل',
-    department: 'القسم الطبي - الجلدية',
-    parentId: 'EMP-001',
-    workEmail: 'dr.sarah@clinic.com',
-    phone: '+965 97711223',
-    joinDate: '2022-01-10',
-    residencyExpiry: '2027-01-10',
-    civilIdExpiry: '2027-01-10',
-    mohLicenseNo: 'MOH-MED-88912',
-    mohLicenseExpiry: new Date(Date.now() + 25 * 86400000).toISOString().split('T')[0], // تنتهي خلال 25 يوم (أصفر)
-    passportExpiry: '2028-09-30',
-    basicSalary: 2800,
-    housingAllowance: 500,
-    transportAllowance: 200,
-    otherAllowance: 300,
-    bankAccountNo: '000112233445',
-    bankIban: 'KW55KFH0000000000001122334455',
-    bankName: 'بيت التمويل الكويتي (KFH)',
-    contractType: 'fixed',
-    status: 'active',
-    pifssRegistered: true,
-  },
-  {
-    id: 'EMP-002',
-    companyId: 'comp-1',
-    name: 'محمد إبراهيم السيد',
-    nameEn: 'Mohamed Ibrahim',
-    civilId: '288050498765',
-    passportNo: 'A98765432',
-    nationality: 'مصري',
-    jobTitle: 'أخصائي شؤون إدارية وجوازات',
-    department: 'الموارد البشرية',
-    parentId: 'EMP-001',
-    workEmail: 'mohamed@company.com',
-    phone: '+965 66554433',
-    joinDate: '2022-06-15',
-    residencyExpiry: new Date(Date.now() + 18 * 86400000).toISOString().split('T')[0], // تنتهي خلال 18 يوم (أصفر)
-    civilIdExpiry: new Date(Date.now() + 18 * 86400000).toISOString().split('T')[0],
-    passportExpiry: '2027-11-20',
-    basicSalary: 750,
-    housingAllowance: 150,
-    transportAllowance: 50,
-    otherAllowance: 0,
-    bankAccountNo: '000987654321',
-    bankIban: 'KW45BOUB0000000000009876543210',
-    bankName: 'بنك بوبيان (Boubyan)',
-    contractType: 'fixed',
-    status: 'active',
-    pifssRegistered: false,
-  },
-  {
-    id: 'MED-002',
-    companyId: 'comp-1',
-    name: 'د. فيصل المطيري',
-    nameEn: 'Dr. Faisal Al-Mutairi',
-    civilId: '289110411223',
-    passportNo: 'K44332211',
-    nationality: 'كويتي',
-    jobTitle: 'طبيب ممارس عام ورئيس المناوبين',
-    department: 'القسم الطبي - الطوارئ والعيادات',
-    parentId: 'EMP-001',
-    workEmail: 'dr.faisal@clinic.com',
-    phone: '+965 94455667',
-    joinDate: '2020-09-01',
-    residencyExpiry: '2028-09-01',
-    civilIdExpiry: '2028-09-01',
-    mohLicenseNo: 'MOH-MED-44210',
-    mohLicenseExpiry: new Date(Date.now() - 3 * 86400000).toISOString().split('T')[0], // منتهي منذ 3 أيام (أحمر)
-    passportExpiry: '2029-01-15',
-    basicSalary: 2400,
-    housingAllowance: 400,
-    transportAllowance: 150,
-    otherAllowance: 200,
-    bankAccountNo: '000998877665',
-    bankIban: 'KW90NBOK0000000000009988776655',
-    bankName: 'بنك الكويت الوطني (NBK)',
-    contractType: 'unlimited',
-    status: 'active',
-    pifssRegistered: true,
-  }
-];
+const initialEmployees: Employee[] = [];
 
 interface OdooEmployeesFullProps {
   activeCompany: Company;
@@ -189,130 +73,11 @@ export const OdooEmployeesFull: React.FC<OdooEmployeesFullProps> = ({ activeComp
   const [employees, setEmployees] = useState<Employee[]>([]);
 
   useEffect(() => {
-    // Load from localStorage or seed
+    // Load from localStorage
     const stored = localStorage.getItem('aysed_employees_multitenant');
     let allEmps: Employee[] = stored ? JSON.parse(stored) : [];
     
-    // Check if there are any employees for this company
-    const companyEmps = allEmps.filter(e => e.companyId === activeCompany.id);
-    if (companyEmps.length === 0) {
-      // Seed default employees for this company
-      let seeded: Employee[] = [];
-      if (activeCompany.id === 'comp-1') {
-        seeded = [...initialEmployees];
-      } else if (activeCompany.id === 'comp-elite') {
-        seeded = [
-          {
-            id: 'EMP-ELITE-001',
-            companyId: 'comp-elite',
-            name: 'د. فيصل المطيري',
-            nameEn: 'Dr. Faisal Al-Mutairi',
-            civilId: '292080812345',
-            passportNo: 'K87654321',
-            nationality: 'كويتي',
-            jobTitle: 'طبيب جلدية وتجميل أول',
-            department: 'الكادر الطبي',
-            workEmail: 'faisal@elite.com',
-            phone: '+965 55443322',
-            joinDate: '2020-01-10',
-            residencyExpiry: '2028-01-10',
-            passportExpiry: '2029-06-20',
-            basicSalary: 2500,
-            housingAllowance: 500,
-            transportAllowance: 200,
-            otherAllowance: 100,
-            bankIban: 'KW12NBOK0000000000001122334455',
-            bankName: 'بنك الكويت الوطني (NBK)',
-            contractType: 'unlimited',
-            status: 'active',
-            pifssRegistered: true,
-          },
-          {
-            id: 'EMP-ELITE-002',
-            companyId: 'comp-elite',
-            name: 'مريم الصايغ',
-            nameEn: 'Maryam Al-Sayegh',
-            civilId: '296041287654',
-            passportNo: 'P9081234',
-            nationality: 'كويتية',
-            jobTitle: 'مسؤول الاستقبال والتنسيق',
-            department: 'التسويق وخدمة العملاء',
-            workEmail: 'maryam@elite.com',
-            phone: '+965 99008877',
-            joinDate: '2023-05-01',
-            residencyExpiry: '2029-05-01',
-            passportExpiry: '2030-10-15',
-            basicSalary: 800,
-            housingAllowance: 200,
-            transportAllowance: 50,
-            otherAllowance: 0,
-            bankIban: 'KW55KFH0000000000009988776655',
-            bankName: 'بيت التمويل الكويتي (KFH)',
-            contractType: 'fixed',
-            status: 'active',
-            pifssRegistered: true,
-          }
-        ];
-      } else if (activeCompany.id === 'comp-fanar') {
-        seeded = [
-          {
-            id: 'EMP-FANAR-001',
-            companyId: 'comp-fanar',
-            name: 'عبد الرحمن الفضلي',
-            nameEn: 'Abdulrahman Al-Fadhli',
-            civilId: '285112012345',
-            passportNo: 'K44556677',
-            nationality: 'كويتي',
-            jobTitle: 'مدير العمليات والتشغيل',
-            department: 'الخدمات المساندة',
-            workEmail: 'abdulrahman@fanar.com',
-            phone: '+965 94433221',
-            joinDate: '2019-11-01',
-            residencyExpiry: '2027-11-01',
-            passportExpiry: '2028-09-12',
-            basicSalary: 1800,
-            housingAllowance: 400,
-            transportAllowance: 150,
-            otherAllowance: 50,
-            bankIban: 'KW77BOUB0000000000004455667788',
-            bankName: 'بنك بوبيان (Boubyan)',
-            contractType: 'unlimited',
-            status: 'active',
-            pifssRegistered: true,
-          },
-          {
-            id: 'EMP-FANAR-002',
-            companyId: 'comp-fanar',
-            name: 'نانسي أندرسون',
-            nameEn: 'Nancy Anderson',
-            civilId: '294101598765',
-            passportNo: 'US9876543',
-            nationality: 'أمريكية',
-            jobTitle: 'أخصائي تمريض ليزر',
-            department: 'الكادر الطبي',
-            workEmail: 'nancy@fanar.com',
-            phone: '+965 65544332',
-            joinDate: '2021-08-15',
-            residencyExpiry: '2026-10-30',
-            passportExpiry: '2027-12-15',
-            basicSalary: 950,
-            housingAllowance: 200,
-            transportAllowance: 100,
-            otherAllowance: 50,
-            bankIban: 'KW33GULF0000000000001212121212',
-            bankName: 'بنك الخليج (Gulf Bank)',
-            contractType: 'fixed',
-            status: 'active',
-            pifssRegistered: false,
-          }
-        ];
-      }
-      
-      allEmps = [...allEmps, ...seeded];
-      localStorage.setItem('aysed_employees_multitenant', JSON.stringify(allEmps));
-    }
-
-    setEmployees(allEmps.filter(e => e.companyId === activeCompany.id));
+    setEmployees(allEmps.filter(e => e.companyId === activeCompany?.id));
     setSelectedEmployee(null);
     setIsEditing(false);
   }, [activeCompany]);
@@ -368,7 +133,7 @@ export const OdooEmployeesFull: React.FC<OdooEmployeesFullProps> = ({ activeComp
     // إيجاد أعلى رقم تسلسلي لنفس البادئة
     let maxNum = 0;
     existingList.forEach(e => {
-      if (e.id && e.id.startsWith(`${prefix}-`)) {
+      if (e?.id && e.id.startsWith(`${prefix}-`)) {
         const parts = e.id.split('-');
         if (parts.length >= 2) {
           const num = parseInt(parts[1], 10);
@@ -994,41 +759,7 @@ export const OdooEmployeesFull: React.FC<OdooEmployeesFullProps> = ({ activeComp
                       { id: `fold_pass_${selectedEmployee.id}`, scope: 'employee', scopeId: selectedEmployee.id, category: 'passports', name: 'جوازات السفر والإقامات', color: 'orange' },
                       { id: `fold_paci_${selectedEmployee.id}`, scope: 'employee', scopeId: selectedEmployee.id, category: 'civil_id', name: 'البطاقات المدنية والبيانات السكنية (PACI)', color: 'teal' }
                     ]}
-                    initialAttachments={[
-                      {
-                        id: `att_pam_1_${selectedEmployee.id}`,
-                        folderId: `fold_pam_${selectedEmployee.id}`,
-                        name: `إذن_عمل_${selectedEmployee.name.replace(/\s+/g, '_')}_PAM.pdf`,
-                        fileSize: '1.2 MB',
-                        fileType: 'pdf',
-                        uploadDate: '2026-01-15',
-                        uploadedBy: 'يوسف العلي',
-                        expiryDate: selectedEmployee.residencyExpiry,
-                        documentNumber: 'PAM-KW-99120'
-                      },
-                      {
-                        id: `att_civil_1_${selectedEmployee.id}`,
-                        folderId: `fold_paci_${selectedEmployee.id}`,
-                        name: `بطاقة_مدنية_${selectedEmployee.civilId}.pdf`,
-                        fileSize: '850 KB',
-                        fileType: 'pdf',
-                        uploadDate: '2026-02-10',
-                        uploadedBy: 'يوسف العلي',
-                        expiryDate: selectedEmployee.civilIdExpiry || selectedEmployee.residencyExpiry,
-                        documentNumber: selectedEmployee.civilId
-                      },
-                      {
-                        id: `att_pass_1_${selectedEmployee.id}`,
-                        folderId: `fold_pass_${selectedEmployee.id}`,
-                        name: `جواز_سفر_${selectedEmployee.passportNo}.png`,
-                        fileSize: '2.1 MB',
-                        fileType: 'image',
-                        uploadDate: '2025-11-20',
-                        uploadedBy: 'محمد إبراهيم السيد',
-                        expiryDate: selectedEmployee.passportExpiry,
-                        documentNumber: selectedEmployee.passportNo
-                      }
-                    ]}
+                    initialAttachments={[]}
                   />
                 </div>
               </div>
@@ -1089,37 +820,7 @@ export const OdooEmployeesFull: React.FC<OdooEmployeesFullProps> = ({ activeComp
                       { id: `fold_degrees_${selectedEmployee.id}`, scope: 'employee', scopeId: selectedEmployee.id, category: 'degrees', name: 'الشهادات العلمية والجامعية', color: 'purple' },
                       { id: `fold_cme_${selectedEmployee.id}`, scope: 'employee', scopeId: selectedEmployee.id, category: 'cme', name: 'ساعات التعليم الطبي المستمر (CME Points)', color: 'blue' }
                     ]}
-                    initialAttachments={[
-                      {
-                        id: `att_moh_doc_${selectedEmployee.id}`,
-                        folderId: `fold_moh_${selectedEmployee.id}`,
-                        name: `ترخيص_مزاولة_مهنة_طبي_MOH_${selectedEmployee.mohLicenseNo || 'LIC'}.pdf`,
-                        fileSize: '1.9 MB',
-                        fileType: 'pdf',
-                        uploadDate: '2026-03-01',
-                        uploadedBy: 'أحمد الكندري',
-                        expiryDate: selectedEmployee.mohLicenseExpiry,
-                        documentNumber: selectedEmployee.mohLicenseNo || 'MOH-KW-7712'
-                      },
-                      {
-                        id: `att_deg_doc_${selectedEmployee.id}`,
-                        folderId: `fold_degrees_${selectedEmployee.id}`,
-                        name: `شهادة_البكالوريوس_والبورد_الطبي_${selectedEmployee.name.replace(/\s+/g, '_')}.pdf`,
-                        fileSize: '3.4 MB',
-                        fileType: 'pdf',
-                        uploadDate: '2025-10-10',
-                        uploadedBy: 'محمد إبراهيم السيد'
-                      },
-                      {
-                        id: `att_cme_doc_${selectedEmployee.id}`,
-                        folderId: `fold_cme_${selectedEmployee.id}`,
-                        name: `شهادات_مؤتمرات_وساعات_CME_2026.pdf`,
-                        fileSize: '1.1 MB',
-                        fileType: 'pdf',
-                        uploadDate: '2026-05-15',
-                        uploadedBy: 'أحمد الكندري'
-                      }
-                    ]}
+                    initialAttachments={[]}
                   />
                 </div>
               </div>
@@ -1264,7 +965,7 @@ export const OdooEmployeesFull: React.FC<OdooEmployeesFullProps> = ({ activeComp
                 { id: '1', author: 'النظام', type: 'tracking', date: new Date().toLocaleDateString('ar-KW'), content: `تم فتح وتحديث ملف الموظف (${selectedEmployee.name})` }
               ];
 
-              // 1. Civil ID & Residency Expiry -> 📅 تجديد مستند (Document Renewal) -> يوسف العلي
+              // 1. Civil ID & Residency Expiry -> 📅 تجديد مستند (Document Renewal)
               const civilExpiry = getExpiryStatus(selectedEmployee.civilIdExpiry || selectedEmployee.residencyExpiry);
               if (civilExpiry && civilExpiry.days <= 60) {
                 messages.push({
@@ -1275,7 +976,7 @@ export const OdooEmployeesFull: React.FC<OdooEmployeesFullProps> = ({ activeComp
                   type: 'activity',
                   activityDetails: {
                     type: '📅 تجديد مستند (Document Renewal)',
-                    assignee: 'يوسف العلي',
+                    assignee: 'مسؤول الجوازات والعلاقات الحكومية',
                     dueDate: selectedEmployee.civilIdExpiry || selectedEmployee.residencyExpiry || '',
                     status: civilExpiry.status,
                     statusText: civilExpiry.text
@@ -1283,7 +984,7 @@ export const OdooEmployeesFull: React.FC<OdooEmployeesFullProps> = ({ activeComp
                 });
               }
 
-              // 2. MOH License Expiry (Medical) -> 🩺 تجديد ترخيص طبي (MOH License) -> أحمد الكندري
+              // 2. MOH License Expiry (Medical) -> 🩺 تجديد ترخيص طبي (MOH License)
               const mohExpiry = getExpiryStatus(selectedEmployee.mohLicenseExpiry);
               if (mohExpiry && mohExpiry.days <= 60) {
                 messages.push({
@@ -1294,7 +995,7 @@ export const OdooEmployeesFull: React.FC<OdooEmployeesFullProps> = ({ activeComp
                   type: 'activity',
                   activityDetails: {
                     type: '🩺 تجديد ترخيص طبي (MOH License)',
-                    assignee: 'أحمد الكندري',
+                    assignee: 'مدير الموارد البشرية',
                     dueDate: selectedEmployee.mohLicenseExpiry || '',
                     status: mohExpiry.status,
                     statusText: mohExpiry.text
@@ -1302,7 +1003,7 @@ export const OdooEmployeesFull: React.FC<OdooEmployeesFullProps> = ({ activeComp
                 });
               }
 
-              // 3. Contract Review -> 📝 متابعة عقد (Contract Review) -> محمد إبراهيم السيد
+              // 3. Contract Review -> 📝 متابعة عقد (Contract Review)
               if (selectedEmployee.contractType === 'fixed') {
                 messages.push({
                   id: 'auto-contract',
@@ -1312,7 +1013,7 @@ export const OdooEmployeesFull: React.FC<OdooEmployeesFullProps> = ({ activeComp
                   type: 'activity',
                   activityDetails: {
                     type: '📝 متابعة عقد (Contract Review)',
-                    assignee: 'محمد إبراهيم السيد',
+                    assignee: 'مسؤول شؤون العاملين',
                     dueDate: selectedEmployee.residencyExpiry || new Date().toISOString().split('T')[0],
                     status: 'yellow',
                     statusText: 'يستحق المراجعة'
@@ -1325,9 +1026,9 @@ export const OdooEmployeesFull: React.FC<OdooEmployeesFullProps> = ({ activeComp
                   recordId={selectedEmployee.id} 
                   model="hr.employee" 
                   followers={[
-                    { id: '1', name: 'أحمد الكندري (مدير الموارد البشرية)' },
-                    { id: '2', name: 'يوسف العلي (مسؤول الجوازات والإقامات)' },
-                    { id: '3', name: 'محمد إبراهيم السيد (مسؤول شؤون العاملين)' }
+                    { id: '1', name: 'مدير الموارد البشرية' },
+                    { id: '2', name: 'مسؤول الجوازات والإقامات' },
+                    { id: '3', name: 'مسؤول شؤون العاملين' }
                   ]}
                   messages={messages}
                 />
@@ -1389,7 +1090,7 @@ export const OdooEmployeesFull: React.FC<OdooEmployeesFullProps> = ({ activeComp
                             <span>{deptStyle.icon}</span>
                             <span>{emp.department}</span>
                           </span>
-                          {manager && (
+                          {manager && manager.name && (
                             <span className="inline-block text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded font-medium">
                               مسؤول: {manager.name.split(' ')[0]}
                             </span>

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import OdooEmployeeFormModal from '../components/OdooEmployeeFormModal';
-
 import OdooContractsApp from "../components/OdooContractsApp";
+import { useCompany } from '../context/CompanyContext';
+import { TenantDatabaseService } from '../services/tenantDataService';
 
 export const safePrintA4Document = (htmlContent: string) => {
   // إنشاء عنصر iframe خفي
@@ -32,10 +33,14 @@ export const safePrintA4Document = (htmlContent: string) => {
 };
 
 export function EmployeesApp(props?: any) {
+  const { activeCompany, activeCompanyId } = useCompany();
+  const currentCompanyId = activeCompanyId || activeCompany?.id || 'comp-super-admin';
+
   const [activeTab, setActiveTab] = useState<'directory' | 'contracts' | 'commencement'>('directory');
   const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
   const [selectedDept, setSelectedDept] = useState('الكل');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isLoadingDb, setIsLoadingDb] = useState(false);
   
   // Print preview modal state
   const [showPrintModal, setShowPrintModal] = useState(false);
@@ -44,7 +49,7 @@ export function EmployeesApp(props?: any) {
 
   const handleTriggerPrint = (title: string, data: any) => {
     setPrintTitle(title);
-    setPrintData(data || selectedEmployee || { nameAr: 'تقرير عيادات إيليت كلينك' });
+    setPrintData(data || selectedEmployee || { nameAr: activeCompany?.nameAr || activeCompany?.name || 'تقرير المنشأة' });
     setShowPrintModal(true);
   };
   
@@ -52,12 +57,13 @@ export function EmployeesApp(props?: any) {
   const [showAddEmployeeModal, setShowAddEmployeeModal] = useState(false);
   const [showEmployeeModal, setShowEmployeeModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
-  const [employeeActiveTab, setEmployeeActiveTab] = useState<'work' | 'private' | 'moh'>('work');
-  const [employeeSubModal, setEmployeeSubModal] = useState<'none' | 'contracts' | 'attendance' | 'leave' | 'assets'>('none');
+  const [employeeActiveTab, setEmployeeActiveTab] = useState<'work' | 'private' | 'hr' | 'resume'>('work');
+  const [employeeSubModal, setEmployeeSubModal] = useState<'none' | 'contracts' | 'attendance' | 'leave' | 'assets' | 'payslips' | 'documents'>('none');
 
-  const handleDeleteEmployee = (id: string, name: string, e?: React.MouseEvent) => {
+  const handleDeleteEmployee = async (id: string, name: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    if (window.confirm(`هل أنت متأكد من رغبتك في حذف ملف الموظف: ${name || id}؟`)) {
+    if (window.confirm(`هل أنت متأكد من رغبتك في حذف ملف الموظف: ${name || id} من قاعدة البيانات؟`)) {
+      await TenantDatabaseService.deleteEmployee(id, currentCompanyId);
       setEmployees(prev => {
         const updated = prev.filter(emp => emp.id !== id);
         localStorage.setItem('app_employees_data', JSON.stringify(updated));
@@ -76,7 +82,6 @@ export function EmployeesApp(props?: any) {
     if (confirm('هل أنت متأكد من حذف هذا العقد نهائياً من سجلات النظام؟')) {
       const updated = contracts.filter((c: any) => c.id !== contractId);
       setContracts(updated);
-      localStorage.setItem('odoo_contracts_v1', JSON.stringify(updated));
       if (selectedContract && selectedContract.id === contractId) {
         setShowContractModal(false);
         setSelectedContract(null);
@@ -90,7 +95,6 @@ export function EmployeesApp(props?: any) {
     if (confirm('هل أنت متأكد من حذف إقرار المباشرة هذا نهائياً؟')) {
       const updated = commencements.filter((c: any) => c.id !== comId);
       setCommencements(updated);
-      localStorage.setItem('odoo_commencements_v1', JSON.stringify(updated));
       if (selectedCommencement && selectedCommencement.id === comId) {
         setShowCommencementModal(false);
         setSelectedCommencement(null);
@@ -170,170 +174,12 @@ export function EmployeesApp(props?: any) {
   const [employees, setEmployees] = useState(() => {
     const saved = localStorage.getItem('app_employees_data') || localStorage.getItem('odoo_employees_v1');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {}
     }
-    return [
-      {
-        id: 'EMP-001',
-        nameAr: 'أحمد محمود الكندري',
-        nameEn: 'Ahmad Mahmoud Al-Kandari',
-        civilId: '290010112345',
-        jobTitle: 'مدير الموارد البشرية والشؤون الإدارية',
-        dept: 'الإدارة العليا',
-        workLocation: 'الإدارة الرئيسية - الدور 3',
-        manager: 'المدير التنفيذي للعيادة',
-        phone: '+965 99001122',
-        email: 'kandari@almanar-clinic.com',
-        nationality: 'كويتي',
-        dob: '1990-01-01',
-        maritalStatus: 'متزوج',
-        dependents: 3,
-        passportNo: 'P1234567',
-        passportExpiry: '2030-05-10',
-        residencyType: 'مواطن (بطاقة مدنية)',
-        hireDate: '2025-01-10',
-        mohLicense: 'MOH-ADM-001',
-        mohLicenseExpiry: '2028-01-10',
-        specialty: 'إدارة الموارد البشرية والإدارية',
-        degree: 'بكالوريوس إدارة أعمال',
-        contractType: 'غير محدد المدة',
-        basicSalary: 1650,
-        allowances: 150,
-        status: 'على رأس العمل',
-        avatarColor: 'bg-emerald-600',
-        chatter: [
-          { id: 1, user: 'النظام الآلي', text: 'تم إنشاء ملف الموظف واعتماد المباشرة الرسمية', date: '2025-01-10 09:00' }
-        ]
-      },
-      {
-        id: 'EMP-002',
-        nameAr: 'محمد إبراهيم السيد',
-        nameEn: 'Mohamed Ibrahim El-Sayed',
-        civilId: '288040412348',
-        jobTitle: 'أخصائي شؤون العاملين والرواتب (WPS)',
-        dept: 'الموارد البشرية',
-        workLocation: 'مكتب شؤون العاملين - دور التمريض',
-        manager: 'أحمد محمود الكندري',
-        phone: '+965 66778899',
-        email: 'm.ibrahim@almanar-clinic.com',
-        nationality: 'مصري',
-        dob: '1988-04-04',
-        maritalStatus: 'متزوج',
-        dependents: 2,
-        passportNo: 'A9876543',
-        passportExpiry: '2027-08-15',
-        residencyType: 'إقامة مادة 18 (حكومي/أهلي)',
-        hireDate: '2025-03-01',
-        mohLicense: 'MOH-HR-002',
-        mohLicenseExpiry: '2027-03-01',
-        specialty: 'محاسبة ونظم أجور',
-        degree: 'بكالوريوس تجارة',
-        contractType: 'محدد المدة',
-        basicSalary: 850,
-        allowances: 100,
-        status: 'على رأس العمل',
-        avatarColor: 'bg-blue-600',
-        chatter: [
-          { id: 1, user: 'أحمد الكندري', text: 'اجتاز فترة التجربة بنجاح', date: '2025-06-01 10:00' }
-        ]
-      },
-      {
-        id: 'MED-201',
-        nameAr: 'د. سارة عادل المنصور',
-        nameEn: 'Dr. Sarah Adel Al-Mansour',
-        civilId: '292080812349',
-        jobTitle: 'طبيبة استشارية - طب وجراحة العيون',
-        dept: 'الأطباء',
-        workLocation: 'عيادة العيون التخصصية - الدور 2',
-        manager: 'المدير الطبي العام',
-        phone: '+965 97711223',
-        email: 'dr.sarah@almanar-clinic.com',
-        nationality: 'كويتية',
-        dob: '1992-08-08',
-        maritalStatus: 'متزوجة',
-        dependents: 1,
-        passportNo: 'P8899112',
-        passportExpiry: '2031-11-20',
-        residencyType: 'مواطنة (بطاقة مدنية)',
-        hireDate: '2024-11-15',
-        mohLicense: 'MOH-DOC-8891',
-        mohLicenseExpiry: '2029-11-15',
-        specialty: 'طب وجراحة العيون والليزر',
-        degree: 'دكتوراه طب وجراحة (البورد الكويتي)',
-        contractType: 'محدد المدة (سنتان)',
-        basicSalary: 3200,
-        allowances: 500,
-        status: 'على رأس العمل',
-        avatarColor: 'bg-purple-600',
-        chatter: [
-          { id: 1, user: 'إدارة التراخيص الطبية', text: 'تم تجديد ترخيص مزاولة المهنة من وزارة الصحة بنجاح', date: '2025-11-01 11:30' }
-        ]
-      },
-      {
-        id: 'MED-202',
-        nameAr: 'مريم يوسف العتيبي',
-        nameEn: 'Maryam Youssef Al-Otaibi',
-        civilId: '296020212350',
-        jobTitle: 'رئيسة هيئة التمريض والتعقيم',
-        dept: 'التمريض',
-        workLocation: 'قسم العمليات والتعقيم المركزي',
-        manager: 'د. سارة عادل المنصور',
-        phone: '+965 55443322',
-        email: 'm.otaibi@almanar-clinic.com',
-        nationality: 'كويتية',
-        dob: '1996-02-02',
-        maritalStatus: 'عزباء',
-        dependents: 0,
-        passportNo: 'P5544332',
-        passportExpiry: '2029-02-02',
-        residencyType: 'مواطنة (بطاقة مدنية)',
-        hireDate: '2025-02-01',
-        mohLicense: 'MOH-NUR-4412',
-        mohLicenseExpiry: '2028-02-01',
-        specialty: 'تمريض العناية المركزة والعمليات',
-        degree: 'بكالوريوس تمريض (BScN)',
-        contractType: 'غير محدد المدة',
-        basicSalary: 1300,
-        allowances: 200,
-        status: 'على رأس العمل',
-        avatarColor: 'bg-rose-600',
-        chatter: [
-          { id: 1, user: 'شؤون التمريض', text: 'اكتمال فحص اللياقة الطبية وبصمات الأدلة الجنائية', date: '2025-02-01 08:30' }
-        ]
-      },
-      {
-        id: 'CUST-002',
-        nameAr: 'سعد جابر العنزي',
-        nameEn: 'Saad Jaber Al-Anzi',
-        civilId: '291070712351',
-        jobTitle: 'مشرف الأمن والسلامة واللوجستيات',
-        dept: 'الأمن والخدمات',
-        workLocation: 'بوابة الاستقبال الرئيسي والمداخل',
-        manager: 'أحمد محمود الكندري',
-        phone: '+965 98441122',
-        email: 'sec.saad@almanar-clinic.com',
-        nationality: 'كويتي',
-        dob: '1991-07-07',
-        maritalStatus: 'متزوج',
-        dependents: 4,
-        passportNo: 'P3322114',
-        passportExpiry: '2032-06-10',
-        residencyType: 'مواطن (بطاقة مدنية)',
-        hireDate: '2025-05-10',
-        mohLicense: 'MOH-LOG-110',
-        mohLicenseExpiry: '2028-05-10',
-        specialty: 'إدارة الأمن والسلامة المهنية (OSHA)',
-        degree: 'دبلوم سلامة مهنية',
-        contractType: 'محدد المدة',
-        basicSalary: 600,
-        allowances: 100,
-        status: 'على رأس العمل',
-        avatarColor: 'bg-slate-700',
-        chatter: [
-          { id: 1, user: 'أحمد الكندري', text: 'تسليم مهام الأمن والسلامة', date: '2025-05-10 09:15' }
-        ]
-      }
-    ];
+    return [];
   });
 
   // 2. تحديث التخزين المحلي تلقائياً عند أي إضافة أو تعديل
@@ -342,162 +188,114 @@ export function EmployeesApp(props?: any) {
     localStorage.setItem('odoo_employees_v1', JSON.stringify(employees));
   }, [employees]);
 
-  const [contracts, setContracts] = useState(() => {
-    const saved = localStorage.getItem('odoo_contracts_v1');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
-    }
-    return [
-      {
-        id: 'CNT-2026-001',
-        refTitle: 'عقد عمل طبي - د. سارة عادل المنصور - 2026',
-        employeeId: 'MED-201',
-        employeeName: 'د. سارة عادل المنصور',
-        jobPosition: 'طبيبة استشارية - طب وجراحة العيون',
-        department: 'الأطباء',
-        structureType: 'عقد كادر طبي خاص (أطباء استشاريين)',
-        contractType: 'محدد المدة (سنتان)',
-        startDate: '2024-11-15',
-        endDate: '2026-11-14',
-        trialEndDate: '2025-02-22',
-        hrResponsible: 'أحمد محمود الكندري',
-        status: 'Running',
-        wage: 3200,
-        housingAllowance: 250,
-        transportAllowance: 100,
-        medicalAllowance: 150,
-        workingSchedule: 'دوام كامل - 48 ساعة أسبوعياً (مناوبات طبية متجددة)',
-        annualLeaveDays: 30,
-        noticePeriod: '3 أشهر (وفق قانون العمل الكويتي)',
-        nonCompete: 'ساري لمدة سنة كاملة داخل دولة الكويت في نفس الاختصاص الطبي',
-        travelAndInsurance: 'تذاكر سفر سنوية ذهاب وعودة (درجة رجال الأعمال) + تأمين صحي VIP شامل العائلة',
-        chatter: [
-          { id: 1, user: 'أحمد الكندري', text: 'تم تحرير العقد وإرساله للمراجعة القانونية ووزارة الصحة', date: '2024-11-10 09:30' },
-          { id: 2, user: 'أحمد الكندري', text: 'اجتازت فترة التجربة (100 يوم) بنجاح تام وتفعيل العقد رسمياً', date: '2025-02-22 14:15' }
-        ]
-      },
-      {
-        id: 'CNT-2026-002',
-        refTitle: 'عقد إداري - أحمد محمود الكندري - 2026',
-        employeeId: 'EMP-001',
-        employeeName: 'أحمد محمود الكندري',
-        jobPosition: 'مدير الموارد البشرية والشؤون الإدارية',
-        department: 'الإدارة العليا',
-        structureType: 'عقد إداري قيادي',
-        contractType: 'غير محدد المدة',
-        startDate: '2025-01-10',
-        endDate: '',
-        trialEndDate: '2025-04-20',
-        hrResponsible: 'إدارة الشؤون القانونية',
-        status: 'Running',
-        wage: 1650,
-        housingAllowance: 100,
-        transportAllowance: 50,
-        medicalAllowance: 0,
-        workingSchedule: 'دوام كامل - 48 ساعة أسبوعياً (الأحد إلى الخميس)',
-        annualLeaveDays: 30,
-        noticePeriod: 'شهر واحد',
-        nonCompete: 'لا يوجد',
-        travelAndInsurance: 'تذاكر سنوية سياحية + تأمين صحي أساسي',
-        chatter: [
-          { id: 1, user: 'الشؤون القانونية', text: 'تم اعتماد العقد وتوثيقه لدى الشغل', date: '2025-01-10 11:00' }
-        ]
-      },
-      {
-        id: 'CNT-2026-003',
-        refTitle: 'عقد تمريض - مريم يوسف العتيبي - 2026',
-        employeeId: 'MED-202',
-        employeeName: 'مريم يوسف العتيبي',
-        jobPosition: 'رئيسة هيئة التمريض والتعقيم',
-        department: 'التمريض',
-        structureType: 'عقد كادر تمريض فني',
-        contractType: 'غير محدد المدة',
-        startDate: '2025-02-01',
-        endDate: '',
-        trialEndDate: '2025-05-11',
-        hrResponsible: 'أحمد محمود الكندري',
-        status: 'Running',
-        wage: 1300,
-        housingAllowance: 150,
-        transportAllowance: 50,
-        medicalAllowance: 0,
-        workingSchedule: 'نظام مناوبات (صباحي / مسائي)',
-        annualLeaveDays: 30,
-        noticePeriod: 'شهر واحد',
-        nonCompete: 'لا يوجد',
-        travelAndInsurance: 'تذاكر سنوية + تأمين صحي',
-        chatter: [
-          { id: 1, user: 'أحمد الكندري', text: 'توقيع العقد مباشرة العمل', date: '2025-02-01 08:30' }
-        ]
+  // 3. مزامنة قاعدة البيانات Firestore الحية للمؤسسة أو الشركة النشطة
+  useEffect(() => {
+    let isMounted = true;
+    async function syncTenantEmployees() {
+      if (!currentCompanyId) return;
+      setIsLoadingDb(true);
+      try {
+        const dbEmps = await TenantDatabaseService.getEmployeesByTenant(currentCompanyId);
+        if (isMounted) {
+          if (dbEmps && dbEmps.length > 0) {
+            const mapped = dbEmps.map(emp => ({
+              id: emp.id,
+              nameAr: emp.fullNameAr || (emp as any).nameAr || 'موظف',
+              nameEn: emp.fullNameEn || (emp as any).nameEn || '',
+              civilId: emp.civilId || '',
+              jobTitle: emp.jobTitle || 'موظف',
+              dept: emp.department || (emp as any).dept || 'العموم',
+              workLocation: (emp as any).workLocation || 'الفرع الرئيسي',
+              manager: (emp as any).manager || '',
+              phone: emp.phone || '',
+              email: emp.email || '',
+              nationality: emp.nationality || 'كويتي',
+              dob: emp.dob || '',
+              maritalStatus: (emp as any).maritalStatus || 'أعزب',
+              dependents: (emp as any).dependents || 0,
+              passportNo: emp.passportNo || '',
+              passportExpiry: emp.passportExpiry || '',
+              residencyType: (emp as any).residencyType || 'مواطن',
+              hireDate: emp.joinDate || (emp as any).hireDate || new Date().toISOString().slice(0, 10),
+              mohLicense: emp.mohLicenseNo || (emp as any).mohLicense || '',
+              mohLicenseExpiry: emp.mohLicenseExpiry || '',
+              specialty: (emp as any).specialty || '',
+              degree: (emp as any).degree || '',
+              contractType: (emp as any).contractType || 'دائم',
+              basicSalary: (emp as any).basicSalary || (emp as any).contractSalary || 1000,
+              allowances: (emp as any).allowances || 0,
+              status: emp.status || 'على رأس العمل',
+              avatarColor: (emp as any).avatarColor || 'bg-purple-600',
+              companyId: currentCompanyId,
+              chatter: (emp as any).chatter || []
+            }));
+            setEmployees(mapped);
+          } else {
+            setEmployees([]);
+          }
+        }
+      } catch (e) {
+        console.error("Error syncing tenant employees:", e);
+      } finally {
+        if (isMounted) setIsLoadingDb(false);
       }
-    ];
-  });
+    }
+    syncTenantEmployees();
+    return () => { isMounted = false; };
+  }, [currentCompanyId]);
 
-  const [commencements, setCommencements] = useState(() => {
-    const saved = localStorage.getItem('odoo_commencements_v1');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+  const [contracts, setContracts] = useState<any[]>([]);
+  const [commencements, setCommencements] = useState<any[]>([]);
+
+  // load scoped contracts and commencements when company changes
+  useEffect(() => {
+    if (!currentCompanyId) {
+      setContracts([]);
+      setCommencements([]);
+      return;
     }
-    return [
-      {
-        id: 'COM-2026-001',
-        employeeId: 'MED-201',
-        employeeName: 'د. سارة عادل المنصور',
-        civilId: '292080812349',
-        commencementDate: '2024-11-15',
-        healthCheckStatus: 'مكتمل (لائق صحياً - شهادة وزارة الصحة)',
-        fingerprintStatus: 'مكتمل (بصمات الأدلة الجنائية معتمدة)',
-        mohLicenseStatus: 'ساري ومطابق (ترخيص دائم صادر من وزارة الصحة)',
-        supervisingDept: 'الأطباء والعيادات التخصصية',
-        status: 'معتمد ومثبت',
-        chatter: [
-          { id: 1, user: 'أحمد الكندري', text: 'إصدار إقرار المباشرة وتثبيت العمل رسمياً', date: '2024-11-15 08:00' }
-        ]
-      },
-      {
-        id: 'COM-2026-002',
-        employeeId: 'EMP-001',
-        employeeName: 'أحمد محمود الكندري',
-        civilId: '290010112345',
-        commencementDate: '2025-01-10',
-        healthCheckStatus: 'مكتمل',
-        fingerprintStatus: 'مكتمل',
-        mohLicenseStatus: 'ساري (إداري)',
-        supervisingDept: 'الإدارة العليا',
-        status: 'معتمد ومثبت',
-        chatter: [
-          { id: 1, user: 'الإدارة القانونية', text: 'تمت المباشرة', date: '2025-01-10 09:00' }
-        ]
-      },
-      {
-        id: 'COM-2026-003',
-        employeeId: 'MED-202',
-        employeeName: 'مريم يوسف العتيبي',
-        civilId: '296020212350',
-        commencementDate: '2025-02-01',
-        healthCheckStatus: 'مكتمل',
-        fingerprintStatus: 'مكتمل',
-        mohLicenseStatus: 'ساري (ترخيص تمريض MOH)',
-        supervisingDept: 'التمريض والتعقيم',
-        status: 'معتمد ومثبت',
-        chatter: [
-          { id: 1, user: 'أحمد الكندري', text: 'المباشرة الفعلية بالقسم', date: '2025-02-01 08:30' }
-        ]
+    const contractKey = `odoo_contracts_v1_${currentCompanyId}`;
+    const savedContracts = localStorage.getItem(contractKey);
+    if (savedContracts) {
+      try {
+        const parsed = JSON.parse(savedContracts);
+        setContracts(Array.isArray(parsed) ? parsed : []);
+      } catch (e) {
+        setContracts([]);
       }
-    ];
-  });
+    } else {
+      setContracts([]);
+    }
+
+    const commencementKey = `odoo_commencements_v1_${currentCompanyId}`;
+    const savedComms = localStorage.getItem(commencementKey);
+    if (savedComms) {
+      try {
+        const parsed = JSON.parse(savedComms);
+        setCommencements(Array.isArray(parsed) ? parsed : []);
+      } catch (e) {
+        setCommencements([]);
+      }
+    } else {
+      setCommencements([]);
+    }
+  }, [currentCompanyId]);
 
   useEffect(() => {
     localStorage.setItem('odoo_employees_v1', JSON.stringify(employees));
   }, [employees]);
 
   useEffect(() => {
-    localStorage.setItem('odoo_contracts_v1', JSON.stringify(contracts));
-  }, [contracts]);
+    if (currentCompanyId) {
+      localStorage.setItem(`odoo_contracts_v1_${currentCompanyId}`, JSON.stringify(contracts));
+    }
+  }, [contracts, currentCompanyId]);
 
   useEffect(() => {
-    localStorage.setItem('odoo_commencements_v1', JSON.stringify(commencements));
-  }, [commencements]);
+    if (currentCompanyId) {
+      localStorage.setItem(`odoo_commencements_v1_${currentCompanyId}`, JSON.stringify(commencements));
+    }
+  }, [commencements, currentCompanyId]);
 
   // فتح نموذج الموظف (hr.employee)
   const openEmployeeModal = (emp: any) => {
@@ -519,19 +317,20 @@ export function EmployeesApp(props?: any) {
 
   // إنشاء إقرار مباشرة عمل جديد
   const handleCreateCommencement = () => {
+    const firstEmp = employees[0] || {};
     const newCom = {
       id: `COM-2026-00${commencements.length + 1}`,
-      employeeId: employees[0].id,
-      employeeName: employees[0].nameAr,
-      civilId: employees[0].civilId,
+      employeeId: firstEmp.id || 'EMP-NEW',
+      employeeName: firstEmp.nameAr || 'موظف جديد',
+      civilId: firstEmp.civilId || '',
       commencementDate: new Date().toISOString().slice(0, 10),
       healthCheckStatus: 'قيد المراجعة الطبية (لائق)',
       fingerprintStatus: 'جاري إنجاز بصمات وزارة الداخلية',
       mohLicenseStatus: 'ترخيص مؤقت معتمد',
-      supervisingDept: employees[0].dept,
+      supervisingDept: firstEmp.dept || 'العموم',
       status: 'مسودة',
       chatter: [
-        { id: 1, user: 'أحمد الكندري', text: 'إنشاء إقرار مباشرة العمل الجديد', date: new Date().toLocaleString() }
+        { id: 1, user: 'مسؤول الموارد البشرية', text: 'إنشاء إقرار مباشرة العمل الجديد', date: new Date().toLocaleString() }
       ]
     };
     setCommencements([newCom, ...commencements]);
@@ -553,7 +352,7 @@ export function EmployeesApp(props?: any) {
       startDate: new Date().toISOString().slice(0, 10),
       endDate: new Date(Date.now() + 31536000000).toISOString().slice(0, 10),
       trialEndDate: new Date(Date.now() + 8640000000).toISOString().slice(0, 10),
-      hrResponsible: 'أحمد محمود الكندري',
+      hrResponsible: '',
       status: 'Draft',
       wage: 900,
       housingAllowance: 100,
@@ -565,7 +364,7 @@ export function EmployeesApp(props?: any) {
       nonCompete: 'لا يوجد',
       travelAndInsurance: 'تذاكر سفر سنوية + تأمين صحي',
       chatter: [
-        { id: 1, user: 'أحمد الكندري', text: 'تم إنشاء مسودة العقد النظامية', date: new Date().toLocaleString() }
+        { id: 1, user: 'مسؤول الموارد البشرية', text: 'تم إنشاء مسودة العقد النظامية', date: new Date().toLocaleString() }
       ]
     };
     setContracts([newCnt, ...contracts]);
@@ -596,7 +395,7 @@ export function EmployeesApp(props?: any) {
     if (target === 'contract' && selectedContract) {
       const updatedChatter = [
         ...selectedContract.chatter,
-        { id: Date.now(), user: 'أحمد الكندري (مدير HR)', text: chatterInput, date: new Date().toLocaleString() }
+        { id: Date.now(), user: 'مسؤول الموارد البشرية', text: chatterInput, date: new Date().toLocaleString() }
       ];
       const updated = { ...selectedContract, chatter: updatedChatter };
       setSelectedContract(updated);
@@ -604,7 +403,7 @@ export function EmployeesApp(props?: any) {
     } else if (target === 'employee' && selectedEmployee) {
       const updatedChatter = [
         ...(selectedEmployee.chatter || []),
-        { id: Date.now(), user: 'أحمد الكندري (مدير HR)', text: chatterInput, date: new Date().toLocaleString() }
+        { id: Date.now(), user: 'مسؤول الموارد البشرية', text: chatterInput, date: new Date().toLocaleString() }
       ];
       const updated = { ...selectedEmployee, chatter: updatedChatter };
       setSelectedEmployee(updated);
@@ -612,7 +411,7 @@ export function EmployeesApp(props?: any) {
     } else if (target === 'commencement' && selectedCommencement) {
       const updatedChatter = [
         ...(selectedCommencement.chatter || []),
-        { id: Date.now(), user: 'أحمد الكندري (مدير HR)', text: chatterInput, date: new Date().toLocaleString() }
+        { id: Date.now(), user: 'مسؤول الموارد البشرية', text: chatterInput, date: new Date().toLocaleString() }
       ];
       const updated = { ...selectedCommencement, chatter: updatedChatter };
       setSelectedCommencement(updated);
@@ -673,7 +472,7 @@ export function EmployeesApp(props?: any) {
                 دليل وبطاقات الموظفين وعقود العمل (Odoo 18 Enterprise)
               </h1>
               <p className="text-xs text-slate-500">
-                المنشأة: عيادة إيليت كلينك | قانون العمل الكويتي رقم 6 لسنة 2010 وتراخيص وزارة الصحة
+                المنشأة: {activeCompany?.nameAr || activeCompany?.name || 'المنشأة النشطة'} | قانون العمل الكويتي رقم 6 لسنة 2010 وتراخيص وزارة الصحة
               </p>
             </div>
           </div>
@@ -712,34 +511,18 @@ export function EmployeesApp(props?: any) {
         {/* 2. شريط الأزرار الفعالة */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
           <div className="flex items-center gap-2 min-w-max">
-            <button 
-              onClick={() => setShowAddEmployeeModal(true)}
-              className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
-            >
-              <span>+</span>
-              <span>تسجيل موظف جديد (hr.employee)</span>
-            </button>
-
-            {activeTab === 'contracts' && (
+            {activeTab === 'directory' && (
               <button 
-                onClick={handleCreateNewContract}
-                className="bg-purple-800 hover:bg-purple-900 text-white px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+                onClick={() => setShowAddEmployeeModal(true)}
+                className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
               >
-                <span>+ إنشاء عقد عمل جديد (hr.contract)</span>
-              </button>
-            )}
-
-            {activeTab === 'commencement' && (
-              <button 
-                onClick={handleCreateCommencement}
-                className="bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
-              >
-                <span>+ إصدار إقرار مباشرة عمل</span>
+                <span>+</span>
+                <span>تسجيل موظف جديد (hr.employee)</span>
               </button>
             )}
 
             <button 
-              onClick={() => handleTriggerPrint(activeTab === 'directory' ? 'سجل الموظفين الشامل' : activeTab === 'contracts' ? 'سجل عقود العمل' : 'إقرارات مباشرة العمل', { nameAr: 'تقرير عيادات إيليت كلينك' })}
+              onClick={() => handleTriggerPrint(activeTab === 'directory' ? 'سجل الموظفين الشامل' : activeTab === 'contracts' ? 'سجل عقود العمل' : 'إقرارات مباشرة العمل', { nameAr: activeCompany?.nameAr || activeCompany?.name || 'تقرير المنشأة' })}
               className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5"
             >
               <span>🖨️</span> طباعة الصفحة
@@ -1019,16 +802,6 @@ export function EmployeesApp(props?: any) {
         </div>
       </div>
 
-      {/* نموذج تسجيل موظف جديد (Odoo Add Employee Modal) باستخدام مكون OdooEmployeeFormModal */}
-      <OdooEmployeeFormModal 
-        isOpen={showAddEmployeeModal}
-        onClose={() => setShowAddEmployeeModal(false)}
-        onSave={(newEmp) => {
-          setEmployees([newEmp, ...employees]);
-          setShowAddEmployeeModal(false);
-          alert('تم تسجيل الموظف الجديد بنجاح في نظام Odoo Enterprise!');
-        }}
-      />
 
       {/* 5. نموذج بطاقة الموظف التفصيلية (Odoo Employee Form - hr.employee) */}
       {showEmployeeModal && selectedEmployee && (
@@ -1059,39 +832,86 @@ export function EmployeesApp(props?: any) {
             </div>
 
             {/* Smart Buttons Header */}
-            <div className="bg-slate-50 border-b border-slate-200 px-6 py-2.5 flex items-center justify-between gap-4 text-xs overflow-x-auto pb-2">
-              <div className="flex items-center gap-2 min-w-max">
+            <div className="bg-white border-b border-slate-200 p-2 flex items-center justify-between gap-4 text-xs overflow-x-auto">
+              <div className="flex items-center gap-1.5 min-w-max">
+                {/* Contracts Button */}
                 <button 
                   onClick={() => setEmployeeSubModal('contracts')}
-                  className="bg-white border border-slate-300 hover:bg-purple-50 text-purple-900 px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 shadow-sm whitespace-nowrap shrink-0"
+                  className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 h-12 px-3 rounded shadow-sm transition flex items-center gap-3 whitespace-nowrap shrink-0 min-w-[120px]"
                 >
-                  <span>📝</span> العقود (1)
+                  <span className="text-xl text-purple-700">📝</span>
+                  <div className="flex flex-col items-start leading-tight">
+                    <span className="font-bold text-slate-900 text-sm">1</span>
+                    <span className="text-[10px] text-slate-500 font-bold">العقود (Contracts)</span>
+                  </div>
                 </button>
+
+                {/* Attendance Button */}
                 <button 
                   onClick={() => setEmployeeSubModal('attendance')}
-                  className="bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 whitespace-nowrap shrink-0"
+                  className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 h-12 px-3 rounded shadow-sm transition flex items-center gap-3 whitespace-nowrap shrink-0 min-w-[120px]"
                 >
-                  <span>🕒</span> الحضور والبصمة
+                  <span className="text-xl text-emerald-600">🕒</span>
+                  <div className="flex flex-col items-start leading-tight">
+                    <span className="font-bold text-slate-900 text-sm">98%</span>
+                    <span className="text-[10px] text-slate-500 font-bold">الحضور (Attendance)</span>
+                  </div>
                 </button>
+
+                {/* Leave Button */}
                 <button 
                   onClick={() => setEmployeeSubModal('leave')}
-                  className="bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 whitespace-nowrap shrink-0"
+                  className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 h-12 px-3 rounded shadow-sm transition flex items-center gap-3 whitespace-nowrap shrink-0 min-w-[120px]"
                 >
-                  <span>✈️</span> رصيد الإجازات (30 يوم)
+                  <span className="text-xl text-blue-600">✈️</span>
+                  <div className="flex flex-col items-start leading-tight">
+                    <span className="font-bold text-slate-900 text-sm">30 يوم</span>
+                    <span className="text-[10px] text-slate-500 font-bold">الإجازات (Time Off)</span>
+                  </div>
                 </button>
+
+                {/* Payslips Button */}
+                <button 
+                  onClick={() => setEmployeeSubModal('payslips')}
+                  className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 h-12 px-3 rounded shadow-sm transition flex items-center gap-3 whitespace-nowrap shrink-0 min-w-[120px]"
+                >
+                  <span className="text-xl text-amber-600">💰</span>
+                  <div className="flex flex-col items-start leading-tight">
+                    <span className="font-bold text-slate-900 text-sm">12</span>
+                    <span className="text-[10px] text-slate-500 font-bold">الرواتب (Payslips)</span>
+                  </div>
+                </button>
+
+                {/* Documents Button */}
+                <button 
+                  onClick={() => setEmployeeSubModal('documents')}
+                  className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 h-12 px-3 rounded shadow-sm transition flex items-center gap-3 whitespace-nowrap shrink-0 min-w-[120px]"
+                >
+                  <span className="text-xl text-rose-600">📂</span>
+                  <div className="flex flex-col items-start leading-tight">
+                    <span className="font-bold text-slate-900 text-sm">5</span>
+                    <span className="text-[10px] text-slate-500 font-bold">المستندات (Documents)</span>
+                  </div>
+                </button>
+
+                {/* Assets Button */}
                 <button 
                   onClick={() => setEmployeeSubModal('assets')}
-                  className="bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 whitespace-nowrap shrink-0"
+                  className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 h-12 px-3 rounded shadow-sm transition flex items-center gap-3 whitespace-nowrap shrink-0 min-w-[120px]"
                 >
-                  <span>📦</span> العهد والأصول
+                  <span className="text-xl text-indigo-600">📦</span>
+                  <div className="flex flex-col items-start leading-tight">
+                    <span className="font-bold text-slate-900 text-sm">2</span>
+                    <span className="text-[10px] text-slate-500 font-bold">العهد (Equipments)</span>
+                  </div>
                 </button>
               </div>
 
               <button
                 onClick={() => handleTriggerPrint(`ملف الموظف الشامل - ${selectedEmployee?.nameAr || ''}`, selectedEmployee)}
-                className="bg-purple-900 hover:bg-purple-950 text-white px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1 whitespace-nowrap shrink-0"
+                className="bg-purple-900 hover:bg-purple-950 text-white h-12 px-4 rounded shadow-sm font-bold transition flex items-center gap-2 whitespace-nowrap shrink-0"
               >
-                <span>🖨️</span> طباعة ملف الموظف
+                <span className="text-lg">🖨️</span> طباعة
               </button>
             </div>
 
@@ -1106,7 +926,7 @@ export function EmployeesApp(props?: any) {
                       employeeActiveTab === 'work' ? 'bg-white text-purple-900 border-slate-200 font-bold -mb-px' : 'bg-slate-100 border-transparent text-slate-500 hover:text-slate-800'
                     }`}
                   >
-                    💼 معلومات العمل (Work Info)
+                    💼 معلومات العمل (Work Information)
                   </button>
 
                   <button
@@ -1115,16 +935,25 @@ export function EmployeesApp(props?: any) {
                       employeeActiveTab === 'private' ? 'bg-white text-purple-900 border-slate-200 font-bold -mb-px' : 'bg-slate-100 border-transparent text-slate-500 hover:text-slate-800'
                     }`}
                   >
-                    🪪 المعلومات الشخصية والإقامة
+                    🪪 المعلومات الخاصة / الشخصية (Private Information)
                   </button>
 
                   <button
-                    onClick={() => setEmployeeActiveTab('moh')}
+                    onClick={() => setEmployeeActiveTab('hr')}
                     className={`px-4 py-2 rounded-t-lg transition border-t border-x shrink-0 ${
-                      employeeActiveTab === 'moh' ? 'bg-white text-purple-900 border-slate-200 font-bold -mb-px' : 'bg-slate-100 border-transparent text-slate-500 hover:text-slate-800'
+                      employeeActiveTab === 'hr' ? 'bg-white text-purple-900 border-slate-200 font-bold -mb-px' : 'bg-slate-100 border-transparent text-slate-500 hover:text-slate-800'
                     }`}
                   >
-                    🩺 المؤهلات وتراخيص وزارة الصحة (MOH)
+                    ⚙️ إعدادات الموارد البشرية (HR Settings)
+                  </button>
+
+                  <button
+                    onClick={() => setEmployeeActiveTab('resume')}
+                    className={`px-4 py-2 rounded-t-lg transition border-t border-x shrink-0 ${
+                      employeeActiveTab === 'resume' ? 'bg-white text-purple-900 border-slate-200 font-bold -mb-px' : 'bg-slate-100 border-transparent text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    🎓 السيرة الذاتية والمهارات (Resume & Skills)
                   </button>
                 </div>
 
@@ -1235,7 +1064,7 @@ export function EmployeesApp(props?: any) {
                         <label className="block text-slate-500 font-semibold mb-1">الجنسية (Nationality)</label>
                         <input 
                           type="text" 
-                          value={selectedEmployee.nationality} 
+                          value={selectedEmployee.nationality || ''} 
                           onChange={(e) => setSelectedEmployee({...selectedEmployee, nationality: e.target.value})}
                           className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
                         />
@@ -1245,10 +1074,22 @@ export function EmployeesApp(props?: any) {
                         <label className="block text-slate-500 font-semibold mb-1">تاريخ الميلاد (Date of Birth)</label>
                         <input 
                           type="date" 
-                          value={selectedEmployee.dob} 
+                          value={selectedEmployee.dob || ''} 
                           onChange={(e) => setSelectedEmployee({...selectedEmployee, dob: e.target.value})}
                           className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none font-mono"
                         />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">النوع (Gender)</label>
+                        <select 
+                          value={selectedEmployee.gender || 'ذكر - Male'} 
+                          onChange={(e) => setSelectedEmployee({...selectedEmployee, gender: e.target.value})}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        >
+                          <option value="ذكر - Male">ذكر (Male)</option>
+                          <option value="أنثى - Female">أنثى (Female)</option>
+                        </select>
                       </div>
 
                       <div>
@@ -1256,18 +1097,37 @@ export function EmployeesApp(props?: any) {
                         <div className="flex gap-2">
                           <input 
                             type="text" 
-                            value={selectedEmployee.maritalStatus} 
+                            value={selectedEmployee.maritalStatus || ''} 
                             onChange={(e) => setSelectedEmployee({...selectedEmployee, maritalStatus: e.target.value})}
-                            className="w-1/2 border border-slate-300 rounded-lg p-2 font-bold text-slate-800"
+                            className="w-1/2 border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                            placeholder="متزوج"
                           />
                           <input 
                             type="number" 
-                            value={selectedEmployee.dependents} 
+                            value={selectedEmployee.dependents || 0} 
                             onChange={(e) => setSelectedEmployee({...selectedEmployee, dependents: Number(e.target.value)})}
-                            className="w-1/2 border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800"
-                            placeholder="عدد المعالين"
+                            className="w-1/2 border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                            placeholder="المعالين"
                           />
                         </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">فصيلة الدم (Blood Type)</label>
+                        <select 
+                          value={selectedEmployee.bloodType || 'O+'} 
+                          onChange={(e) => setSelectedEmployee({...selectedEmployee, bloodType: e.target.value})}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-bold font-mono text-slate-800 bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        >
+                          <option value="O+">O+</option>
+                          <option value="O-">O-</option>
+                          <option value="A+">A+</option>
+                          <option value="A-">A-</option>
+                          <option value="B+">B+</option>
+                          <option value="B-">B-</option>
+                          <option value="AB+">AB+</option>
+                          <option value="AB-">AB-</option>
+                        </select>
                       </div>
 
                       <div>
@@ -1275,74 +1135,182 @@ export function EmployeesApp(props?: any) {
                         <div className="flex gap-2">
                           <input 
                             type="text" 
-                            value={selectedEmployee.passportNo} 
+                            value={selectedEmployee.passportNo || ''} 
                             onChange={(e) => setSelectedEmployee({...selectedEmployee, passportNo: e.target.value})}
-                            className="w-1/2 border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800"
+                            className="w-1/2 border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                            placeholder="رقم الجواز"
                           />
                           <input 
                             type="date" 
-                            value={selectedEmployee.passportExpiry} 
+                            value={selectedEmployee.passportExpiry || ''} 
                             onChange={(e) => setSelectedEmployee({...selectedEmployee, passportExpiry: e.target.value})}
-                            className="w-1/2 border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800"
+                            className="w-1/2 border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
                           />
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-slate-500 font-semibold mb-1">نوع ورقم الإقامة (Residency Type)</label>
+                        <label className="block text-slate-500 font-semibold mb-1">نوع الإقامة وتاريخ الانتهاء</label>
+                        <div className="flex gap-2">
+                          <input 
+                            type="text" 
+                            value={selectedEmployee.residencyType || ''} 
+                            onChange={(e) => setSelectedEmployee({...selectedEmployee, residencyType: e.target.value})}
+                            className="w-1/2 border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                            placeholder="مادة 18"
+                          />
+                          <input 
+                            type="date" 
+                            value={selectedEmployee.residencyExpiry || ''} 
+                            onChange={(e) => setSelectedEmployee({...selectedEmployee, residencyExpiry: e.target.value})}
+                            className="w-1/2 border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">اسم البنك (Bank Name)</label>
                         <input 
                           type="text" 
-                          value={selectedEmployee.residencyType} 
-                          onChange={(e) => setSelectedEmployee({...selectedEmployee, residencyType: e.target.value})}
+                          value={selectedEmployee.bankName || ''} 
+                          onChange={(e) => setSelectedEmployee({...selectedEmployee, bankName: e.target.value})}
                           className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                          placeholder="بنك الكويت الوطني (NBK)"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">رقم الآيبان (IBAN)</label>
+                        <input 
+                          type="text" 
+                          value={selectedEmployee.iban || ''} 
+                          onChange={(e) => setSelectedEmployee({...selectedEmployee, iban: e.target.value})}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                          placeholder="KW00XXXX0000000000000000000000"
                         />
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* Tab 3: MOH Credentials */}
-                {employeeActiveTab === 'moh' && (
+                {/* Tab 3: HR Settings */}
+                {employeeActiveTab === 'hr' && (
                   <div className="p-6 space-y-4 text-xs">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">نوع الموظف (Employee Type)</label>
+                        <select 
+                          value={selectedEmployee.employeeType || 'employee'} 
+                          onChange={(e) => setSelectedEmployee({...selectedEmployee, employeeType: e.target.value})}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        >
+                          <option value="employee">موظف (Employee)</option>
+                          <option value="student">متدرب / طالب (Student)</option>
+                          <option value="contractor">مقاول (Contractor)</option>
+                          <option value="freelance">مستقل (Freelancer)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">المستخدم المرتبط (Related User)</label>
+                        <input 
+                          type="text" 
+                          placeholder="ربط بحساب مستخدم..."
+                          value={selectedEmployee.relatedUser || ''} 
+                          onChange={(e) => setSelectedEmployee({...selectedEmployee, relatedUser: e.target.value})}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">رقم تعريف البصمة (Badge ID)</label>
+                        <input 
+                          type="text" 
+                          value={selectedEmployee.badgeId || ''} 
+                          onChange={(e) => setSelectedEmployee({...selectedEmployee, badgeId: e.target.value})}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">الرقم السري للحضور (PIN Code)</label>
+                        <input 
+                          type="password" 
+                          value={selectedEmployee.pinCode || ''} 
+                          onChange={(e) => setSelectedEmployee({...selectedEmployee, pinCode: e.target.value})}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        />
+                      </div>
+                      
+                      <div className="md:col-span-2 pt-4 border-t border-slate-100">
+                        <h5 className="font-bold text-slate-700 mb-3">تراخيص وزارة الصحة (MOH Credentials) - خاص بالكادر الطبي</h5>
+                      </div>
+                      
                       <div>
                         <label className="block text-slate-500 font-semibold mb-1">رقم ترخيص مزاولة المهنة (MOH License)</label>
                         <input 
                           type="text" 
-                          value={selectedEmployee.mohLicense} 
+                          value={selectedEmployee.mohLicense || ''} 
                           onChange={(e) => setSelectedEmployee({...selectedEmployee, mohLicense: e.target.value})}
                           className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-purple-900 focus:ring-2 focus:ring-purple-500 focus:outline-none"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-slate-500 font-semibold mb-1">تاريخ انتهاء الترخيص (Expiry & Auto Renewal Alert)</label>
+                        <label className="block text-slate-500 font-semibold mb-1">تاريخ انتهاء الترخيص (Expiry Date)</label>
                         <input 
                           type="date" 
-                          value={selectedEmployee.mohLicenseExpiry} 
+                          value={selectedEmployee.mohLicenseExpiry || ''} 
                           onChange={(e) => setSelectedEmployee({...selectedEmployee, mohLicenseExpiry: e.target.value})}
                           className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
                         />
                       </div>
+                    </div>
+                  </div>
+                )}
 
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">التخصص الدقيق (Specialty)</label>
-                        <input 
-                          type="text" 
-                          value={selectedEmployee.specialty} 
-                          onChange={(e) => setSelectedEmployee({...selectedEmployee, specialty: e.target.value})}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                        />
-                      </div>
-
+                {/* Tab 4: Resume & Skills */}
+                {employeeActiveTab === 'resume' && (
+                  <div className="p-6 space-y-6 text-xs">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-slate-500 font-semibold mb-1">الدرجة العلمية والشهادة (Degree)</label>
                         <input 
                           type="text" 
-                          value={selectedEmployee.degree} 
+                          value={selectedEmployee.degree || ''} 
                           onChange={(e) => setSelectedEmployee({...selectedEmployee, degree: e.target.value})}
                           className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
                         />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">التخصص الدقيق (Specialty)</label>
+                        <input 
+                          type="text" 
+                          value={selectedEmployee.specialty || ''} 
+                          onChange={(e) => setSelectedEmployee({...selectedEmployee, specialty: e.target.value})}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="border-t border-slate-200 pt-4">
+                      <div className="flex justify-between items-center mb-4">
+                        <h5 className="font-bold text-slate-700">السيرة الذاتية (Resume Lines)</h5>
+                        <button className="text-purple-600 hover:text-purple-800 font-bold transition">➕ إضافة خبرة جديدة</button>
+                      </div>
+                      <div className="text-slate-400 text-center py-4 bg-slate-50 rounded-lg border border-dashed border-slate-300">
+                        لا توجد بيانات سيرة ذاتية مسجلة حالياً
+                      </div>
+                    </div>
+                    
+                    <div className="border-t border-slate-200 pt-4">
+                      <div className="flex justify-between items-center mb-4">
+                        <h5 className="font-bold text-slate-700">المهارات (Skills)</h5>
+                        <button className="text-purple-600 hover:text-purple-800 font-bold transition">➕ إضافة مهارة جديدة</button>
+                      </div>
+                      <div className="text-slate-400 text-center py-4 bg-slate-50 rounded-lg border border-dashed border-slate-300">
+                        لا توجد مهارات مسجلة حالياً
                       </div>
                     </div>
                   </div>
@@ -1434,6 +1402,8 @@ export function EmployeesApp(props?: any) {
                 {employeeSubModal === 'attendance' && '🕒 سجل الحضور والبصمة: ' + selectedEmployee.nameAr}
                 {employeeSubModal === 'leave' && '✈️ رصيد الإجازات السنوية: ' + selectedEmployee.nameAr}
                 {employeeSubModal === 'assets' && '📦 العهد والأصول المسلمة: ' + selectedEmployee.nameAr}
+                {employeeSubModal === 'payslips' && '💰 كشوف المرتبات: ' + selectedEmployee.nameAr}
+                {employeeSubModal === 'documents' && '📂 المستندات المرفقة: ' + selectedEmployee.nameAr}
               </h3>
               <button 
                 onClick={() => setEmployeeSubModal('none')}
@@ -1491,6 +1461,50 @@ export function EmployeesApp(props?: any) {
                   <div className="bg-slate-50 border p-3 rounded-xl flex justify-between items-center">
                     <span>🩺 سماعة طبية ومعدات فحص عيادة</span>
                     <span className="text-purple-800 font-bold">عهدة شخصية</span>
+                  </div>
+                </div>
+              )}
+
+              {employeeSubModal === 'payslips' && (
+                <div className="space-y-2">
+                  <div className="bg-slate-50 border p-3 rounded-xl flex justify-between items-center">
+                    <div>
+                      <div className="font-bold text-slate-800">راتب شهر أغسطس 2026</div>
+                      <div className="text-[10px] text-slate-500">تم التحويل إلى بنك الكويت الوطني</div>
+                    </div>
+                    <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-1 rounded">تم الدفع</span>
+                  </div>
+                  <div className="bg-slate-50 border p-3 rounded-xl flex justify-between items-center">
+                    <div>
+                      <div className="font-bold text-slate-800">راتب شهر يوليو 2026</div>
+                      <div className="text-[10px] text-slate-500">تم التحويل إلى بنك الكويت الوطني</div>
+                    </div>
+                    <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-1 rounded">تم الدفع</span>
+                  </div>
+                </div>
+              )}
+
+              {employeeSubModal === 'documents' && (
+                <div className="space-y-2">
+                  <div className="bg-slate-50 border p-3 rounded-xl flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <span className="text-rose-600 text-lg">📄</span>
+                      <div>
+                        <div className="font-bold text-slate-800">صورة البطاقة المدنية</div>
+                        <div className="text-[10px] text-slate-500">تاريخ الرفع: 01-09-2026</div>
+                      </div>
+                    </div>
+                    <button className="text-blue-600 font-bold hover:underline text-xs">عرض</button>
+                  </div>
+                  <div className="bg-slate-50 border p-3 rounded-xl flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <span className="text-blue-600 text-lg">📄</span>
+                      <div>
+                        <div className="font-bold text-slate-800">ترخيص مزاولة المهنة</div>
+                        <div className="text-[10px] text-slate-500">تاريخ الرفع: 15-08-2026</div>
+                      </div>
+                    </div>
+                    <button className="text-blue-600 font-bold hover:underline text-xs">عرض</button>
                   </div>
                 </div>
               )}
@@ -1681,7 +1695,6 @@ export function EmployeesApp(props?: any) {
                       c.id === selectedCommencement.id ? selectedCommencement : c
                     );
                     setCommencements(updatedComs);
-                    localStorage.setItem('odoo_commencements_v1', JSON.stringify(updatedComs));
                   }
                   setShowCommencementModal(false);
                 }}
@@ -1695,390 +1708,29 @@ export function EmployeesApp(props?: any) {
         </div>
       )}
 
-      {/* 7. نموذج عقد العمل الموسع بنمط Odoo 18 Enterprise بالكامل (hr.contract View Modal) */}
-      {showContractModal && selectedContract && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col border border-slate-200 overflow-hidden">
-            
-            {/* T-Bar / Header */}
-            <div className="bg-[#714B67] text-white px-6 py-3 flex items-center justify-between">
-              <div className="flex items-center gap-2 min-w-max">
-                <span className="text-lg">📄</span>
-                <div>
-                  <h2 className="text-sm font-bold">{selectedContract.refTitle}</h2>
-                  <p className="text-[10px] text-purple-200 font-mono">معرف العقد: {selectedContract.id} | أودو 18 إنتربرايز</p>
-                </div>
-              </div>
-
-              {/* Status Pipeline States */}
-              <div className="flex items-center bg-[#5a3a52] p-1 rounded-lg text-[11px] gap-1 font-bold">
-                {['Draft', 'Running', 'Expired', 'Cancelled'].map((st) => (
-                  <button
-                    key={st}
-                    onClick={() => changeContractStatus(st)}
-                    className={`px-2.5 py-1 rounded transition ${
-                      selectedContract.status === st ? 'bg-white text-[#714B67] shadow' : 'text-purple-200 hover:bg-white/10'
-                    }`}
-                  >
-                    {st === 'Draft' ? 'مسودة' : st === 'Running' ? 'ساري' : st === 'Expired' ? 'منتهي' : 'ملغي'}
-                  </button>
-                ))}
-              </div>
-
-              <button 
-                onClick={() => setShowContractModal(false)}
-                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Action Buttons Bar */}
-            <div className="bg-slate-50 border-b border-slate-200 px-6 py-2.5 flex items-center justify-between gap-2 text-xs">
-              <div className="flex items-center gap-2 min-w-max">
-                <button
-                  onClick={() => changeContractStatus('Running')}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1 shadow-sm"
-                >
-                  <span>✓</span> اعتماد وبدء سريان العقد (Running)
-                </button>
-                <button
-                  onClick={() => handleTriggerPrint(`عقد العمل الرسمي - ${selectedContract?.name || selectedContract?.refTitle || ''}`, selectedContract)}
-                  className="bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1"
-                >
-                  <span>🖨️</span> طباعة العقد الرسمي (A4)
-                </button>
-              </div>
-              <div className="text-[11px] text-slate-500 font-semibold">
-                المسؤول: {selectedContract.hrResponsible}
-              </div>
-            </div>
-
-            {/* Form Top Data */}
-            <div className="p-6 overflow-y-auto space-y-6 flex-1">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50/80 p-4 rounded-xl border border-slate-200 text-xs">
-                <div>
-                  <label className="block text-slate-500 mb-1 font-semibold">اسم الموظف (Employee)</label>
-                  <input 
-                    type="text" 
-                    value={selectedContract.employeeName} 
-                    onChange={(e) => setSelectedContract({...selectedContract, employeeName: e.target.value})}
-                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-bold text-slate-800"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-500 mb-1 font-semibold">المسمى الوظيفي في العقد (Job Position)</label>
-                  <select
-                    value={selectedContract.jobPosition}
-                    onChange={(e) => handleMasterDropdownChange(e.target.value, 'jobPosition', selectedContract, setSelectedContract, masterJobTitles, setMasterJobTitles, 'أدخل مسمى وظيفي جديد:')}
-                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-bold text-slate-800"
-                  >
-                    {masterJobTitles.map(j => <option key={j} value={j}>{j}</option>)}
-                    <option value="__ADD_NEW__" className="text-purple-700 font-bold">➕ إضافة مسمى وظيفي جديد...</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-slate-500 mb-1 font-semibold">الإدارة / القسم (Department)</label>
-                  <select
-                    value={selectedContract.department}
-                    onChange={(e) => handleMasterDropdownChange(e.target.value, 'department', selectedContract, setSelectedContract, masterDepts, setMasterDepts, 'أدخل اسم القسم الجديد:')}
-                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-bold text-slate-800"
-                  >
-                    {masterDepts.map(d => <option key={d} value={d}>{d}</option>)}
-                    <option value="__ADD_NEW__" className="text-purple-700 font-bold">➕ إضافة قسم جديد...</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-slate-500 mb-1 font-semibold">هيكل الراتب وفئة العقد (Structure Type)</label>
-                  <input 
-                    type="text" 
-                    value={selectedContract.structureType} 
-                    onChange={(e) => setSelectedContract({...selectedContract, structureType: e.target.value})}
-                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-bold text-slate-800"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-500 mb-1 font-semibold">تاريخ البداية (Start Date)</label>
-                  <input 
-                    type="date" 
-                    value={selectedContract.startDate} 
-                    onChange={(e) => setSelectedContract({...selectedContract, startDate: e.target.value})}
-                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-bold text-slate-800 font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-500 mb-1 font-semibold">تاريخ النهاية (End Date)</label>
-                  <input 
-                    type="date" 
-                    value={selectedContract.endDate} 
-                    onChange={(e) => setSelectedContract({...selectedContract, endDate: e.target.value})}
-                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-bold text-slate-800 font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-500 mb-1 font-semibold">فترة التجربة (Trial Period - Max 100 Days)</label>
-                  <input 
-                    type="date" 
-                    value={selectedContract.trialEndDate} 
-                    onChange={(e) => setSelectedContract({...selectedContract, trialEndDate: e.target.value})}
-                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-bold text-slate-800 font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-500 mb-1 font-semibold">المسؤول عن الموارد البشرية (HR)</label>
-                  <input 
-                    type="text" 
-                    value={selectedContract.hrResponsible} 
-                    onChange={(e) => setSelectedContract({...selectedContract, hrResponsible: e.target.value})}
-                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-bold text-slate-800"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-500 mb-1 font-semibold">نوع العقد (Contract Type)</label>
-                  <input 
-                    type="text" 
-                    value={selectedContract.contractType} 
-                    onChange={(e) => setSelectedContract({...selectedContract, contractType: e.target.value})}
-                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-bold text-slate-800"
-                  />
-                </div>
-              </div>
-
-              {/* Odoo Notebook Tabs */}
-              <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-                <div className="flex items-center bg-slate-100 border-b border-slate-200 px-4 pt-2 gap-2 text-xs font-bold text-slate-600 overflow-x-auto whitespace-nowrap scrollbar-hide">
-                  <button
-                    onClick={() => setContractActiveTab('salary')}
-                    className={`px-4 py-2 rounded-t-lg transition border-t border-x shrink-0 ${
-                      contractActiveTab === 'salary' ? 'bg-white text-purple-900 border-slate-200 font-bold -mb-px' : 'bg-slate-100 border-transparent text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    💰 1. جدول تفاصيل الراتب والتعويضات
-                  </button>
-
-                  <button
-                    onClick={() => setContractActiveTab('schedule')}
-                    className={`px-4 py-2 rounded-t-lg transition border-t border-x shrink-0 ${
-                      contractActiveTab === 'schedule' ? 'bg-white text-purple-900 border-slate-200 font-bold -mb-px' : 'bg-slate-100 border-transparent text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    ⏰ 2. جدول ومواعيد العمل
-                  </button>
-
-                  <button
-                    onClick={() => setContractActiveTab('terms')}
-                    className={`px-4 py-2 rounded-t-lg transition border-t border-x shrink-0 ${
-                      contractActiveTab === 'terms' ? 'bg-white text-purple-900 border-slate-200 font-bold -mb-px' : 'bg-slate-100 border-transparent text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    📜 3. الشروط والأحكام الخاصة
-                  </button>
-                </div>
-
-                {/* Tab 1 */}
-                {contractActiveTab === 'salary' && (
-                  <div className="p-6 space-y-4 text-xs">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">الأجر الأساسي (Wage - د.ك)</label>
-                        <input 
-                          type="number" 
-                          value={selectedContract.wage} 
-                          onChange={(e) => setSelectedContract({...selectedContract, wage: Number(e.target.value)})}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">بدل السكن (Housing - د.ك)</label>
-                        <input 
-                          type="number" 
-                          value={selectedContract.housingAllowance} 
-                          onChange={(e) => setSelectedContract({...selectedContract, housingAllowance: Number(e.target.value)})}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">بدل الانتقال (Transport - د.ك)</label>
-                        <input 
-                          type="number" 
-                          value={selectedContract.transportAllowance} 
-                          onChange={(e) => setSelectedContract({...selectedContract, transportAllowance: Number(e.target.value)})}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">بنك تحويل الراتب (WPS Bank)</label>
-                        <select
-                          value={selectedContract.bankName || masterBanks[0]}
-                          onChange={(e) => handleMasterDropdownChange(e.target.value, 'bankName', selectedContract, setSelectedContract, masterBanks, setMasterBanks, 'أدخل اسم البنك الجديد:')}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 bg-white"
-                        >
-                          {masterBanks.map(b => <option key={b} value={b}>{b}</option>)}
-                          <option value="__ADD_NEW__" className="text-purple-700 font-bold">➕ إضافة بنك جديد...</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center justify-between mt-4">
-                      <div>
-                        <div className="font-bold text-emerald-900 text-sm">إجمالي الأجر الشهري الإجمالي (Gross Monthly Salary)</div>
-                        <div className="text-[11px] text-emerald-700">محسوب آلياً بناءً على الراتب الأساسي والبدلات الثابتة</div>
-                      </div>
-                      <div className="font-mono text-xl font-bold text-emerald-800">
-                        {(selectedContract.wage + selectedContract.housingAllowance + selectedContract.transportAllowance + selectedContract.medicalAllowance).toFixed(3)} د.ك
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Tab 2 */}
-                {contractActiveTab === 'schedule' && (
-                  <div className="p-6 space-y-4 text-xs">
-                    <div>
-                      <label className="block text-slate-500 font-semibold mb-1">جدول العمل الأسبوعي (Working Schedule)</label>
-                      <input 
-                        type="text" 
-                        value={selectedContract.workingSchedule} 
-                        onChange={(e) => setSelectedContract({...selectedContract, workingSchedule: e.target.value})}
-                        className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-slate-500 font-semibold mb-1">رصيد الإجازة السنوية القانوني (Annual Leave Balance)</label>
-                      <div className="flex items-center gap-2 min-w-max">
-                        <input 
-                          type="number" 
-                          value={selectedContract.annualLeaveDays} 
-                          onChange={(e) => setSelectedContract({...selectedContract, annualLeaveDays: Number(e.target.value)})}
-                          className="w-32 border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800"
-                        />
-                        <span className="text-slate-600 font-semibold">يوماً في السنة مدفوعة الأجر (قانون العمل الكويتي 30 يوماً)</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Tab 3 */}
-                {contractActiveTab === 'terms' && (
-                  <div className="p-6 space-y-4 text-xs">
-                    <div>
-                      <label className="block text-slate-500 font-semibold mb-1">مهلة الإخطار بإنهاء الخدمة (Notice Period)</label>
-                      <input 
-                        type="text" 
-                        value={selectedContract.noticePeriod} 
-                        onChange={(e) => setSelectedContract({...selectedContract, noticePeriod: e.target.value})}
-                        className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-slate-500 font-semibold mb-1">شرط عدم المنافسة (Non-Compete Clause)</label>
-                      <input 
-                        type="text" 
-                        value={selectedContract.nonCompete} 
-                        onChange={(e) => setSelectedContract({...selectedContract, nonCompete: e.target.value})}
-                        className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-slate-500 font-semibold mb-1">بند تذاكر السفر والتأمين الإضافي (Travel & Insurance)</label>
-                      <input 
-                        type="text" 
-                        value={selectedContract.travelAndInsurance} 
-                        onChange={(e) => setSelectedContract({...selectedContract, travelAndInsurance: e.target.value})}
-                        className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Odoo Chatter inside Contract Modal */}
-              <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-3">
-                <h4 className="font-bold text-slate-800 text-xs flex items-center gap-2">
-                  <span>💬</span> سجل الملاحظات والأنشطة (Odoo Chatter)
-                </h4>
-
-                <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {selectedContract.chatter?.map((msg: any) => (
-                    <div key={msg.id} className="bg-white p-2.5 rounded-lg border border-slate-200 text-xs">
-                      <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1 font-mono">
-                        <span className="font-bold text-purple-900">{msg.user}</span>
-                        <span>{msg.date}</span>
-                      </div>
-                      <div className="text-slate-700">{msg.text}</div>
-                    </div>
-                  ))}
-                </div>
-
-                <form onSubmit={(e) => handleAddChatter('contract', e)} className="flex gap-2 pt-2">
-                  <input 
-                    type="text"
-                    value={chatterInput}
-                    onChange={(e) => setChatterInput(e.target.value)}
-                    placeholder="اكتب ملاحظة أو توثيق قانوني هنا..."
-                    className="flex-1 bg-white border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                  />
-                  <button
-                    type="submit"
-                    className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-4 py-2 rounded-lg text-xs font-bold transition"
-                  >
-                    إرسال وسجل
-                  </button>
-                </form>
-              </div>
-
-            </div>
-
-            {/* Footer */}
-            <div className="bg-slate-100 border-t border-slate-200 px-6 py-3 flex items-center justify-between">
-              <span className="text-[11px] text-slate-500">نظام إدارة العقود متوافق مع قانون العمل الكويتي ومعايير أودو 18</span>
-              <button
-                onClick={() => {
-                  if (selectedContract) {
-                    const updatedContracts = contracts.map((c: any) => 
-                      c.id === selectedContract.id || c.contractRef === selectedContract.contractRef ? selectedContract : c
-                    );
-                    setContracts(updatedContracts);
-                    localStorage.setItem('odoo_contracts_v1', JSON.stringify(updatedContracts));
-                  }
-                  setShowContractModal(false);
-                }}
-                className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold transition"
-              >
-                إغلاق وحفظ
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
 
       {/* Odoo Employee Form Modal */}
       <OdooEmployeeFormModal 
         isOpen={showAddEmployeeModal}
         onClose={() => setShowAddEmployeeModal(false)}
-        onSave={(newEmp) => {
-          const updated = [newEmp, ...employees];
+        onSave={async (newEmp) => {
+          const empWithComp = { ...newEmp, companyId: currentCompanyId };
+          await TenantDatabaseService.saveEmployee({
+            ...empWithComp,
+            fullNameAr: empWithComp.nameAr,
+            fullNameEn: empWithComp.nameEn,
+            department: empWithComp.dept,
+            joinDate: empWithComp.hireDate,
+            mohLicenseNo: empWithComp.mohLicense
+          } as any, currentCompanyId);
+
+          const updated = [empWithComp, ...employees];
           setEmployees(updated);
           localStorage.setItem('odoo_employees_v1', JSON.stringify(updated));
           setSelectedDept('الكل');
           setSearchQuery('');
           setShowAddEmployeeModal(false);
-          alert('تم تسجيل الموظف الجديد بنجاح في نظام Odoo Enterprise وتخزينه في قاعدة البيانات!');
+          alert('تم تسجيل الموظف الجديد بنجاح وتخزينه حياً في قاعدة بيانات Firebase!');
         }}
       />
 
@@ -2100,8 +1752,8 @@ export function EmployeesApp(props?: any) {
 
             <div className="p-8 overflow-y-auto space-y-6 flex-1 text-slate-800 bg-slate-50 font-sans">
               <div className="text-center border-b border-slate-300 pb-6 space-y-2">
-                <div className="text-xl font-bold text-purple-900">مجمع عيادات إيليت كلينك الطبية - الكويت</div>
-                <div className="text-xs text-slate-500">Elite Medical Clinic Complex - State of Kuwait</div>
+                <div className="text-xl font-bold text-purple-900">{activeCompany?.nameAr || activeCompany?.name || 'تقرير المنشأة'}</div>
+                <div className="text-xs text-slate-500">{activeCompany?.nameEn || 'State of Kuwait'}</div>
                 <div className="text-sm font-semibold text-slate-700 mt-2">{printTitle}</div>
               </div>
 

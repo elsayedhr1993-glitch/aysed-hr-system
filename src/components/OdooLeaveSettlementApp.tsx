@@ -39,29 +39,7 @@ export interface LeaveSettlement {
   status: 'draft' | 'approved' | 'paid';
 }
 
-const sampleSettlements: LeaveSettlement[] = [
-  {
-    id: 'LS-2026-001',
-    employeeId: 'EMP-002',
-    employeeName: 'محمد إبراهيم السيد',
-    civilId: '288050498765',
-    jobTitle: 'أخصائي شؤون إدارية',
-    bankName: 'بنك بوبيان (Boubyan)',
-    iban: 'KW45BOUB0000000000009876543210',
-    basicSalary: 650,
-    totalSalary: 850,
-    leaveStartDate: '2026-09-01',
-    leaveEndDate: '2026-09-30',
-    leaveDays: 30,
-    workedDaysBeforeLeave: 31, // شهر أغسطس كامل
-    workedDaysAmount: 850,
-    leaveSalaryAdvance: 850, // راتب شهر سبتمبر مقدماً
-    ticketAllowance: 120, // بدل تذكرة سنوية
-    deductions: 50, // قسط سلفة شهر 8
-    netPayable: 1770, // 850 + 850 + 120 - 50
-    status: 'approved'
-  }
-];
+const sampleSettlements: LeaveSettlement[] = [];
 
 interface OdooLeaveSettlementAppProps {
   isModal?: boolean;
@@ -82,14 +60,14 @@ export const OdooLeaveSettlementApp: React.FC<OdooLeaveSettlementAppProps> = ({ 
 
   // حساب الحسبة التلقائية للموظف النازل إجازة
   const [formData, setFormData] = useState({
-    empName: 'محمد إبراهيم السيد',
-    totalSalary: 850,
+    empName: '',
+    totalSalary: 0,
     workedDays: 30,
     leaveDays: 30,
-    ticket: 120,
+    ticket: 0,
     deductions: 0,
-    leaveStartDate: '2026-09-01',
-    leaveEndDate: '2026-09-30'
+    leaveStartDate: new Date().toISOString().split('T')[0],
+    leaveEndDate: new Date().toISOString().split('T')[0]
   });
 
   // Sync with incoming leaveRequest if provided
@@ -292,86 +270,102 @@ export const OdooLeaveSettlementApp: React.FC<OdooLeaveSettlementAppProps> = ({ 
               <div className="border-b pb-4 mb-4 flex items-center justify-between">
                 <div>
                   <h3 className="font-bold text-base text-slate-900">سند تسوية مستحقات إجازة سنوية (Leave Voucher)</h3>
-                  <p className="text-slate-400 mt-0.5">الرقم المرجعي: LS-2026-001 | معتمد للصرف المالي</p>
+                  <p className="text-slate-400 mt-0.5">معتمد للصرف المالي وفق أحكام المادة 71 من قانون العمل الكويتي</p>
                 </div>
-                <span className="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full font-bold">
-                  معتمد ومحول للبنك
+                <span className={`px-2.5 py-1 rounded-full font-bold ${
+                  formData.empName ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+                }`}>
+                  {formData.empName ? 'جاهز للاعتماد' : 'في انتظار البيانات'}
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 bg-slate-50/70 p-3.5 rounded-xl border mb-4">
-                <div>
-                  <span className="text-slate-400 block text-[10px]">الموظف المستفيد:</span>
-                  <span className="font-bold text-slate-900 text-xs">محمد إبراهيم السيد</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px]">الرقم المدني:</span>
-                  <span className="font-mono font-bold text-slate-800">288050498765</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px]">فترة الإجازة السنوية:</span>
-                  <span className="font-bold text-slate-800">2026-09-01 إلى 2026-09-30 (30 يوم)</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px]">الحساب البنكي (IBAN):</span>
-                  <span className="font-mono text-slate-700" dir="ltr">KW45BOUB...9876543210</span>
-                </div>
-              </div>
+              {formData.empName ? (
+                <>
+                  <div className="grid grid-cols-2 gap-4 bg-slate-50/70 p-3.5 rounded-xl border mb-4">
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">الموظف المستفيد:</span>
+                      <span className="font-bold text-slate-900 text-xs">{formData.empName}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">الراتب الإجمالي:</span>
+                      <span className="font-mono font-bold text-slate-800">{Number(formData.totalSalary || 0).toFixed(3)} د.ك</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">فترة الإجازة السنوية:</span>
+                      <span className="font-bold text-slate-800">{formData.leaveStartDate} إلى {formData.leaveEndDate} ({formData.leaveDays} يوم)</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">أيام العمل المستحقة:</span>
+                      <span className="font-bold text-slate-700">{formData.workedDays} يوم</span>
+                    </div>
+                  </div>
 
-              <table className="w-full text-right text-xs mb-4">
-                <thead className="bg-slate-100 text-slate-700 font-bold">
-                  <tr>
-                    <th className="p-2.5 rounded-r">البند المالي</th>
-                    <th className="p-2.5">البيان</th>
-                    <th className="p-2.5 text-left rounded-l">المبلغ (د.ك)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  <tr>
-                    <td className="p-2.5 font-bold">راتب الشهر الحالي الفعلي</td>
-                    <td className="p-2.5 text-slate-500">أيام العمل المنقضية (31 يوم عمل)</td>
-                    <td className="p-2.5 font-mono font-bold text-left">850.000</td>
-                  </tr>
-                  <tr>
-                    <td className="p-2.5 font-bold text-purple-900">راتب الإجازة السنوية مقدماً</td>
-                    <td className="p-2.5 text-slate-500">مستحق شهر سبتمبر 2026 مقدماً (مادة 71)</td>
-                    <td className="p-2.5 font-mono font-bold text-left text-purple-900">850.000</td>
-                  </tr>
-                  <tr>
-                    <td className="p-2.5 font-bold">بدل تذاكر السفر السنوية</td>
-                    <td className="p-2.5 text-slate-500">استحقاق تذكرة سنوية للموظف</td>
-                    <td className="p-2.5 font-mono font-bold text-left">120.000</td>
-                  </tr>
-                  <tr>
-                    <td className="p-2.5 font-bold text-rose-600">خصم قسط سلفة</td>
-                    <td className="p-2.5 text-slate-500">قسط السلفة المعتمد لشهر أغسطس</td>
-                    <td className="p-2.5 font-mono font-bold text-left text-rose-600">-50.000</td>
-                  </tr>
-                </tbody>
-                <tfoot>
-                  <tr className="bg-emerald-50 text-emerald-900 font-black border-t-2 border-emerald-300">
-                    <td className="p-3 text-sm">صافي المبلغ المسلم للموظف:</td>
-                    <td></td>
-                    <td className="p-3 text-base font-mono text-left">1,770.000 د.ك</td>
-                  </tr>
-                </tfoot>
-              </table>
+                  <table className="w-full text-right text-xs mb-4">
+                    <thead className="bg-slate-100 text-slate-700 font-bold">
+                      <tr>
+                        <th className="p-2.5 rounded-r">البند المالي</th>
+                        <th className="p-2.5">البيان</th>
+                        <th className="p-2.5 text-left rounded-l">المبلغ (د.ك)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      <tr>
+                        <td className="p-2.5 font-bold">راتب الشهر الحالي الفعلي</td>
+                        <td className="p-2.5 text-slate-500">أيام العمل المنقضية ({formData.workedDays} يوم)</td>
+                        <td className="p-2.5 font-mono font-bold text-left">{results.workedAmount.toFixed(3)}</td>
+                      </tr>
+                      <tr>
+                        <td className="p-2.5 font-bold text-purple-900">راتب الإجازة السنوية مقدماً</td>
+                        <td className="p-2.5 text-slate-500">مستحق الإجازة مقدماً (مادة 71)</td>
+                        <td className="p-2.5 font-mono font-bold text-left text-purple-900">{results.leaveAdvance.toFixed(3)}</td>
+                      </tr>
+                      {formData.ticket > 0 && (
+                        <tr>
+                          <td className="p-2.5 font-bold">بدل تذاكر السفر السنوية</td>
+                          <td className="p-2.5 text-slate-500">استحقاق تذكرة سنوية للموظف</td>
+                          <td className="p-2.5 font-mono font-bold text-left">{Number(formData.ticket).toFixed(3)}</td>
+                        </tr>
+                      )}
+                      {formData.deductions > 0 && (
+                        <tr>
+                          <td className="p-2.5 font-bold text-rose-600">خصم أقساط / سلف</td>
+                          <td className="p-2.5 text-slate-500">خصومات واستقطاعات مستحقة</td>
+                          <td className="p-2.5 font-mono font-bold text-left text-rose-600">-{Number(formData.deductions).toFixed(3)}</td>
+                        </tr>
+                      )}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-emerald-50 text-emerald-900 font-black border-t-2 border-emerald-300">
+                        <td className="p-3 text-sm">صافي المبلغ المستحق للموظف:</td>
+                        <td></td>
+                        <td className="p-3 text-base font-mono text-left">{results.net.toFixed(3)} د.ك</td>
+                      </tr>
+                    </tfoot>
+                  </table>
 
-              {/* Signature Area */}
-              <div className="grid grid-cols-3 gap-4 pt-6 border-t text-center text-[11px] text-slate-600">
-                <div>
-                  <p className="font-bold mb-8">إعداد الشؤون الإدارية</p>
-                  <p className="border-t border-slate-300 pt-1">التوقيع</p>
+                  {/* Signature Area */}
+                  <div className="grid grid-cols-3 gap-4 pt-6 border-t text-center text-[11px] text-slate-600">
+                    <div>
+                      <p className="font-bold mb-8">إعداد الشؤون الإدارية</p>
+                      <p className="border-t border-slate-300 pt-1">التوقيع</p>
+                    </div>
+                    <div>
+                      <p className="font-bold mb-8">اعتماد الإدارة المالية</p>
+                      <p className="border-t border-slate-300 pt-1">التوقيع والختم</p>
+                    </div>
+                    <div>
+                      <p className="font-bold mb-8">إقرار واستلام الموظف</p>
+                      <p className="border-t border-slate-300 pt-1">التوقيع / البصمة</p>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="py-16 text-center text-slate-400">
+                  <Plane className="mx-auto text-slate-300 mb-2" size={32} />
+                  <p className="font-bold text-slate-600 text-sm">لا توجد تسوية محددة حالياً</p>
+                  <p className="text-[11px] text-slate-400 mt-1">يرجى إدخال اسم الموظف وتفاصيل الراتب لإنشاء سند الصرف المالي المباشر للمادة 71.</p>
                 </div>
-                <div>
-                  <p className="font-bold mb-8">اعتماد الإدارة المالية</p>
-                  <p className="border-t border-slate-300 pt-1">التوقيع والختم</p>
-                </div>
-                <div>
-                  <p className="font-bold mb-8">إقرار واستلام الموظف</p>
-                  <p className="border-t border-slate-300 pt-1">التوقيع / البصمة</p>
-                </div>
-              </div>
+              )}
 
             </div>
           </div>

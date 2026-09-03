@@ -53,7 +53,7 @@ export const OdooAppSwitcher: React.FC<OdooAppSwitcherProps> = ({ onSelectApp, o
   // 11 Odoo Enterprise Apps
   const apps = [
     // الصف الأول
-    { id: 'hr', label: 'الموظفون والعقود', icon: Users, color: 'bg-[#714B67]' },
+    { id: 'hr', label: 'الموظفون', icon: Users, color: 'bg-[#714B67]' },
     { id: 'timesheets', label: 'الحضور والبصمة', icon: Clock, color: 'bg-blue-800' },
     { id: 'planning', label: 'تخطيط الشفتات', icon: Calendar, color: 'bg-orange-600' },
     { id: 'attendance', label: 'الإجازات والغياب', icon: CalendarDays, color: 'bg-teal-600' },

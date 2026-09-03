@@ -75,7 +75,7 @@ export const NotificationTemplatesLogApp: React.FC<NotificationTemplatesLogAppPr
   };
 
   // Filter notifications for active company
-  const companyNotifs = notifications.filter(n => n.companyId === (activeCompany?.id || 'comp-1'));
+  const companyNotifs = notifications.filter(n => n.companyId === activeCompany?.id);
 
   const filteredNotifs = companyNotifs.filter(n => {
     const matchesSearch = 

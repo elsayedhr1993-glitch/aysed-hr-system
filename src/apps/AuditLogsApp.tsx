@@ -45,7 +45,7 @@ export const AuditLogsApp: React.FC<AuditLogsAppProps> = ({
 
   // Filter audit logs
   const filteredLogs = (auditLogs || []).filter(log => {
-    if (log.companyId !== (activeCompany?.id || 'comp-1')) return false;
+    if (log.companyId !== activeCompany?.id) return false;
     
     if (selectedActionFilter !== 'ALL' && log.action !== selectedActionFilter) {
       return false;

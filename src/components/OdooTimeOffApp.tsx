@@ -91,62 +91,7 @@ export const OdooTimeOffApp: React.FC = () => {
     } catch (e) {
       console.error('Error loading leave requests from storage', e);
     }
-    return [
-      {
-        id: 'LV-2026-001',
-        employeeId: 'EMP-001',
-        employeeName: 'أحمد محمود الكندري',
-        civilId: '290010112345',
-        department: 'الأطباء',
-        leaveType: 'annual',
-        startDate: '2026-09-10',
-        endDate: '2026-09-24',
-        daysCount: 15,
-        reason: 'إجازة سنوية اعتيادية للراحة والسفر',
-        status: 'approved',
-        appliedDate: '2026-08-30',
-        replacementEmployee: 'محمد إبراهيم السيد',
-        basicSalary: 1200,
-        totalSalary: 1650,
-        settlementDone: false
-      },
-      {
-        id: 'LV-2026-002',
-        employeeId: 'EMP-002',
-        employeeName: 'محمد إبراهيم السيد',
-        civilId: '288050498765',
-        department: 'الموارد البشرية',
-        leaveType: 'annual',
-        startDate: '2026-09-01',
-        endDate: '2026-09-30',
-        daysCount: 30,
-        reason: 'إجازة سنوية للسفر',
-        status: 'approved',
-        appliedDate: '2026-08-20',
-        replacementEmployee: 'أحمد محمود الكندري',
-        basicSalary: 650,
-        totalSalary: 850,
-        settlementDone: true
-      },
-      {
-        id: 'LV-2026-003',
-        employeeId: 'EMP-003',
-        employeeName: 'فاطمة علي أحمد',
-        civilId: '293010100000',
-        department: 'الأطباء',
-        leaveType: 'sick',
-        startDate: '2026-09-15',
-        endDate: '2026-09-17',
-        daysCount: 3,
-        reason: 'وعكة صحية (مرفق تقرير)',
-        status: 'pending',
-        appliedDate: '2026-09-14',
-        replacementEmployee: 'سارة خالد',
-        basicSalary: 900,
-        totalSalary: 1100,
-        settlementDone: false
-      }
-    ];
+    return [];
   });
 
   const [allocations, setAllocations] = useState<LeaveAllocation[]>(() => {
@@ -156,30 +101,7 @@ export const OdooTimeOffApp: React.FC = () => {
     } catch (e) {
       console.error('Error loading allocations from storage', e);
     }
-    return [
-      {
-        id: 'ALC-2025-01',
-        employeeId: 'EMP-002',
-        employeeName: 'محمد إبراهيم السيد',
-        fromYear: '2025',
-        days: 12.5,
-        leaveType: 'annual',
-        allocationDate: '2026-01-01',
-        notes: 'رصيد مرحّل مستحق متبقي من سنة 2025',
-        allocatedBy: 'مدير الموارد البشرية'
-      },
-      {
-        id: 'ALC-2025-02',
-        employeeId: 'EMP-001',
-        employeeName: 'أحمد محمود الكندري',
-        fromYear: '2025',
-        days: 10,
-        leaveType: 'annual',
-        allocationDate: '2026-01-01',
-        notes: 'رصيد افتتاحي مرحل معتمد',
-        allocatedBy: 'الإدارة العليا'
-      }
-    ];
+    return [];
   });
 
   // Save to LocalStorage on update
@@ -200,11 +122,7 @@ export const OdooTimeOffApp: React.FC = () => {
   }, [allocations]);
 
   // Unified Employees List for dropdowns
-  const companyEmployees = (employees && employees.length > 0) ? employees : [
-    { id: 'EMP-001', name: 'أحمد محمود الكندري', civilId: '290010112345', jobTitle: 'مدير الموارد البشرية', department: 'الإدارة العامة' },
-    { id: 'EMP-002', name: 'محمد إبراهيم السيد', civilId: '288050498765', jobTitle: 'أخصائي شؤون إدارية', department: 'الموارد البشرية' },
-    { id: 'EMP-003', name: 'فاطمة علي أحمد', civilId: '293010100000', jobTitle: 'طبيبة عامة', department: 'الأطباء' }
-  ];
+  const companyEmployees = (employees && employees.length > 0) ? employees : [];
 
   // Filters & Tabs
   const [selectedFilter, setSelectedFilter] = useState<string>('all');
@@ -219,28 +137,28 @@ export const OdooTimeOffApp: React.FC = () => {
 
   // Form Inputs - Leave Request
   const [newRequest, setNewRequest] = useState({
-    employeeId: companyEmployees[0]?.id || 'EMP-001',
-    employeeName: companyEmployees[0]?.name || 'أحمد محمود الكندري',
-    civilId: companyEmployees[0]?.civilId || '290010112345',
-    department: companyEmployees[0]?.department || 'القسم الطبي',
+    employeeId: companyEmployees[0]?.id || '',
+    employeeName: companyEmployees[0]?.name || (companyEmployees[0] as any)?.fullNameAr || '',
+    civilId: companyEmployees[0]?.civilId || '',
+    department: companyEmployees[0]?.department || '',
     leaveType: 'annual' as LeaveRequest['leaveType'],
     startDate: '',
     endDate: '',
     reason: '',
     replacementEmployee: '',
-    basicSalary: 1200,
-    totalSalary: 1650,
+    basicSalary: companyEmployees[0]?.basicSalary || 0,
+    totalSalary: (companyEmployees[0] as any)?.totalSalary || (companyEmployees[0] as any)?.salary || 0,
     excludeHolidays: false
   });
 
   // Form Inputs - Time Off Allocation (Odoo 18 Enterprise Form Fields)
   const [newAllocation, setNewAllocation] = useState({
-    employeeId: companyEmployees[0]?.id || 'EMP-001',
-    employeeName: companyEmployees[0]?.name || 'أحمد محمود الكندري',
-    fromYear: '2025',
-    days: '12.5',
+    employeeId: companyEmployees[0]?.id || '',
+    employeeName: companyEmployees[0]?.name || (companyEmployees[0] as any)?.fullNameAr || '',
+    fromYear: new Date().getFullYear().toString(),
+    days: '0',
     leaveType: 'annual',
-    notes: 'رصيد إجازات سنوية مرحّل من العام السابق ومستحق وفق موافقة الإدارة'
+    notes: ''
   });
 
   // When selected employee changes in Allocation form
@@ -305,9 +223,29 @@ export const OdooTimeOffApp: React.FC = () => {
       return;
     }
 
+    // Check available balance for Annual Leave
+    if (newRequest.leaveType === 'annual') {
+      const empId = newRequest.employeeId || companyEmployees[0]?.id || '';
+      const currentAccrual = leaveAccruals?.[empId];
+      const carried = currentAccrual?.carriedFrom2025 || 0;
+      const earned = currentAccrual?.earned2026 || 0;
+      const consumed = currentAccrual?.consumedDays || 0;
+      const available = (carried + earned) - consumed;
+
+      if (count > available) {
+        const excess = count - available;
+        const confirmOverride = window.confirm(
+          `الرصيد غير كافٍ!\nرصيد الموظف المتاح هو ${available.toFixed(2)} يوم فقط، بينما المطلوب ${count} أيام.\n\nهل ترغب بالسماح بتجاوز الرصيد بمقدار (${excess.toFixed(2)} يوم) على أن يتم إدراج الأيام الزائدة كأيام غير مدفوعة تُخصم من مدة الخدمة عند النهاية؟`
+        );
+        if (!confirmOverride) {
+          return;
+        }
+      }
+    }
+
     const created: LeaveRequest = {
       id: `LV-2026-00${requests.length + 1}`,
-      employeeId: newRequest.employeeId || 'EMP-001',
+      employeeId: newRequest.employeeId || companyEmployees[0]?.id || '',
       employeeName: newRequest.employeeName || 'موظف جديد',
       civilId: newRequest.civilId,
       department: newRequest.department,
@@ -376,14 +314,35 @@ export const OdooTimeOffApp: React.FC = () => {
   };
 
   const updateStatus = (id: string, status: 'approved' | 'rejected') => {
+    const targetReq = requests.find(r => r.id === id);
+    if (!targetReq) return;
+
+    // Balance check on approval
+    if (status === 'approved' && targetReq.leaveType === 'annual') {
+      const current = leaveAccruals?.[targetReq.employeeId];
+      const carried = current?.carriedFrom2025 || 0;
+      const earned = current?.earned2026 || 0;
+      const consumed = current?.consumedDays || 0;
+      const available = (carried + earned) - consumed;
+
+      if (targetReq.daysCount > available) {
+        const excess = targetReq.daysCount - available;
+        const confirmOverride = window.confirm(
+          `تنبيه تجاوز الرصيد!\n\nالرصيد المتاح للموظف (${available.toFixed(2)} يوم) أقل من الإجازة المطلوبة (${targetReq.daysCount}).\n\nهل أنت متأكد من اعتماد الإجازة والموافقة على تجاوز الرصيد بمقدار (${excess.toFixed(2)} يوم)؟ سيتم خصم هذه الأيام الزائدة تلقائياً من أيام خدمة الموظف.`
+        );
+        if (!confirmOverride) {
+          return; // Block the approval if user cancels
+        }
+      }
+    }
+
     setRequests(requests.map(req => req.id === id ? { ...req, status } : req));
     
     // Sync with leaveAccrual state if approved
-    const targetReq = requests.find(r => r.id === id);
-    if (targetReq && status === 'approved' && targetReq.employeeId && updateLeaveAccrual) {
+    if (status === 'approved' && targetReq.employeeId && updateLeaveAccrual) {
       const current = leaveAccruals?.[targetReq.employeeId];
       const carried = current?.carriedFrom2025 || 0;
-      const earned = current?.earned2026 || 20;
+      const earned = current?.earned2026 || 0;
       const prevConsumed = current?.consumedDays || 0;
       const newConsumed = prevConsumed + targetReq.daysCount;
       updateLeaveAccrual(targetReq.employeeId, carried, earned, newConsumed);
@@ -939,6 +898,22 @@ export const OdooTimeOffApp: React.FC = () => {
                   <option value="bereavement">إجازة عزاء وحداد (3 أيام - مادة 77)</option>
                   <option value="unpaid">إجازة بدون راتب</option>
                 </select>
+                {newRequest.leaveType === 'annual' && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between mt-2 shadow-sm">
+                    <span className="text-emerald-800 font-bold">الرصيد المتاح حالياً للموظف:</span>
+                    <span className="text-emerald-900 font-black text-sm" dir="ltr">
+                      {(() => {
+                        const empId = newRequest.employeeId;
+                        const currentAccrual = leaveAccruals?.[empId];
+                        const carried = currentAccrual?.carriedFrom2025 || 0;
+                        const earned = currentAccrual?.earned2026 || 0;
+                        const consumed = currentAccrual?.consumedDays || 0;
+                        const available = (carried + earned) - consumed;
+                        return available.toFixed(2);
+                      })()} يوم
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Medical Certificate Upload if Sick Leave */}

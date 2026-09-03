@@ -4,15 +4,17 @@ import {
   calculateTotalContractWage, 
   printKuwaitContractReport 
 } from '../services/contractService';
+import { useCompany } from '../context/CompanyContext';
 
 interface ContractModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (contract: ContractData) => void;
-  employeeList: Array<{ id: string; nameAr: string; nameEn: string; civilId: string; dept: string; jobTitle: string }>;
+  employeeList: Array<{ id: string; nameAr: string; nameEn: string; civilId: string; dept: string; jobTitle: string; salary?: number }>;
 }
 
 export default function OdooContractFormModal({ isOpen, onClose, onSave, employeeList }: ContractModalProps) {
+  const { activeCompany } = useCompany();
   const [activeTab, setActiveTab] = useState<'salary' | 'schedule' | 'terms'>('salary');
 
   // مسار حالة العقد (Odoo Status Pipeline)
@@ -26,11 +28,11 @@ export default function OdooContractFormModal({ isOpen, onClose, onSave, employe
   const [endDate, setEndDate] = useState('');
   const [trialDays, setTrialDays] = useState(100);
 
-  // هيكل الرواتب والبدلات
-  const [basicWage, setBasicWage] = useState<number>(1200);
-  const [housing, setHousing] = useState<number>(200);
-  const [transport, setTransport] = useState<number>(100);
-  const [medicalAllowance, setMedicalAllowance] = useState<number>(150);
+  // هيكل الرواتب والبدلات (افتراضياً 0 أو من راتب الموظف الفعلي)
+  const [basicWage, setBasicWage] = useState<number>(() => employeeList[0]?.salary || 0);
+  const [housing, setHousing] = useState<number>(0);
+  const [transport, setTransport] = useState<number>(0);
+  const [medicalAllowance, setMedicalAllowance] = useState<number>(0);
   const [otherAllowance, setOtherAllowance] = useState<number>(0);
   const [totalWage, setTotalWage] = useState<number>(0);
 
@@ -39,7 +41,7 @@ export default function OdooContractFormModal({ isOpen, onClose, onSave, employe
   const [annualLeaves, setAnnualLeaves] = useState(30);
   const [noticePeriod, setNoticePeriod] = useState(90);
   const [ticketAllowance, setTicketAllowance] = useState(true);
-  const [termsNotes, setTermsNotes] = useState('يخضع هذا العقد لقانون العمل الكويتي رقم 6 لسنة 2010 واللوائح الطبية الصادرة عن وزارة الصحة.');
+  const [termsNotes, setTermsNotes] = useState('يخضع هذا العقد لقانون العمل الكويتي رقم 6 لسنة 2010 واللوائح والقرارات المنظمة.');
 
   // تحديث إجمالي الراتب تلقائياً عند تغيير أي بدل
   useEffect(() => {
@@ -56,7 +58,7 @@ export default function OdooContractFormModal({ isOpen, onClose, onSave, employe
     const payload: ContractData = {
       id: `CTR-${Date.now()}`,
       contractReference: contractRef,
-      employeeId: currentEmp?.id || 'EMP-001',
+      employeeId: currentEmp?.id || '',
       employeeNameAr: currentEmp?.nameAr || '',
       employeeNameEn: currentEmp?.nameEn || '',
       civilId: currentEmp?.civilId || '',
@@ -389,6 +391,7 @@ export default function OdooContractFormModal({ isOpen, onClose, onSave, employe
                   printKuwaitContractReport({
                     id: 'PREVIEW',
                     contractReference: contractRef,
+                    companyName: activeCompany?.nameAr || activeCompany?.name || 'المنشأة',
                     employeeId: currentEmp.id,
                     employeeNameAr: currentEmp.nameAr,
                     employeeNameEn: currentEmp.nameEn,

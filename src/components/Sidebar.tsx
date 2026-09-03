@@ -28,7 +28,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, setCurrentTab }) =
 
   const menuItems = [
     { id: 'dashboard', label: 'لوحة التحكم', icon: LayoutDashboard },
-    { id: 'employees', label: 'الموظفون والعقود', icon: Users },
+    { id: 'employees', label: 'الموظفون', icon: Users },
     { id: 'leaves', label: 'الإجازات والأرصدة', icon: Calendar },
     { id: 'leave_settlement', label: 'تسوية مستحقات الإجازة', icon: Plane },
     { id: 'holidays', label: 'العطلات والبدلات الرسمية', icon: Sparkles },

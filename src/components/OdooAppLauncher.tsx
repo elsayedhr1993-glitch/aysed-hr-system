@@ -62,7 +62,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({ onSelectApp, c
   const apps = [
     {
       id: 'EMPLOYEES' as ActiveApp,
-      titleAr: 'الموظفين ومباشرة العمل',
+      titleAr: 'الموظفون',
       titleEn: 'Employees',
       icon: Users,
       bgColor: 'bg-emerald-50 text-emerald-600 border-emerald-200',
@@ -161,6 +161,16 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({ onSelectApp, c
       description: 'الأرشيف، الهويات، والرفع السريع',
     },
     {
+      id: 'SCANNER_APP' as ActiveApp,
+      titleAr: 'الماسح الضوئي الذكي',
+      titleEn: 'Document Scanner',
+      icon: Scan,
+      bgColor: 'bg-teal-50 text-teal-700 border-teal-200',
+      iconBg: 'bg-teal-600 text-white',
+      badge: 'OCR',
+      description: 'مسح المستندات، استخراج البيانات، والأرشفة الفورية',
+    },
+    {
       id: 'CUSTODY_LOANS' as ActiveApp,
       titleAr: 'العهد والسلف',
       titleEn: 'Custody',
@@ -213,54 +223,12 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({ onSelectApp, c
   ];
 
   return (
-    <div className="dashboard-container bg-[#f8fafc] flex flex-col items-center relative z-10 space-y-3" dir="rtl">
+    <div className="dashboard-container w-full h-full bg-transparent flex flex-col items-center relative z-10 space-y-3" dir="rtl">
       
-      {/* 🔴 Dafthra-Style Top Ticker Bar */}
-      <div className="w-full max-w-7xl bg-white border border-slate-200 text-slate-800 px-4 py-2.5 rounded-lg shadow-2xs flex items-center justify-between gap-4 overflow-hidden">
-        <div className="flex items-center gap-2.5 shrink-0">
-          <span className="flex h-2 w-2 relative">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
-          <span className="bg-emerald-50 text-emerald-700 text-[11px] font-bold px-2.5 py-0.5 rounded border border-emerald-200 whitespace-nowrap">
-            Sayed ERP متصل
-          </span>
-        </div>
-        <div className="overflow-hidden whitespace-nowrap text-[11px] font-medium text-slate-600 flex-1 px-2">
-          <div className="inline-block animate-marquee">
-            ⚠️ تنبيه: 3 إقامات موظفين تنتهي قريباً • 📄 مستندات بانتظار قراءة OCR • ⚖️ إنذار إداري جديد • 🇰🇼 نظام حماية الأجور (WPS) جاهز للتحويل.
-          </div>
-        </div>
-        <div className="text-xs font-mono font-bold text-purple-700 bg-purple-50 border border-purple-200 px-3 py-1 rounded-md shrink-0 flex items-center gap-1.5 shadow-2xs">
-          <span className="text-[10px] text-purple-500 font-sans">العملة:</span>
-          <span>KWD 0.000</span>
-        </div>
-      </div>
-
       {/* 🧩 Odoo Enterprise App Switcher Grid */}
-      <div className="w-full max-w-[1200px] space-y-3">
-        <div className="flex items-center justify-between px-2 pt-2">
-          <div>
-            <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[#71639e]" />
-              <span>مشغل تطبيقات المنظومة (Odoo Enterprise Apps)</span>
-            </h2>
-            <p className="text-xs text-slate-500">اختر التطبيق للانتقال المباشر وإدارة العمليات بكفاءة تامة</p>
-          </div>
-          <div className="text-xs font-mono font-bold bg-white px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 shadow-2xs flex items-center gap-1.5 max-w-[340px] shrink-0" title={companyDisplayName}>
-            <Building2 className="w-3.5 h-3.5 text-[#71639e] shrink-0" />
-            <span className="truncate">المنشأة: <strong>{companyDisplayName}</strong></span>
-          </div>
-        </div>
-
-        {/* Odoo Enterprise 4-Column App Switcher */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full px-2 py-4">
-          {apps.filter(app => {
-            if (!isSuperAdmin) {
-              if (['SAAS_ADMIN', 'COMPANIES'].includes(app.id)) {
-                return false;
-              }
-            }
+      <div className="w-full max-w-5xl mx-auto py-8 lg:py-16">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-x-4 gap-y-10 justify-items-center">
+          {apps.filter((app) => {
             if (currentUserRole === 'EMPLOYEE') {
               return ['ATTENDANCE', 'LEAVES', 'DOCUMENTS'].includes(app.id);
             }
@@ -271,41 +239,27 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({ onSelectApp, c
               <button
                 key={app.id}
                 onClick={() => onSelectApp(app.id)}
-                className="flex flex-col items-center justify-between text-center relative overflow-hidden group cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#71639e]/40 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-200 p-5 bg-white rounded-xl border border-gray-100 min-h-[190px]"
+                className="flex flex-col items-center group cursor-pointer focus:outline-none w-[90px] sm:w-[100px]"
               >
-                <div className="w-full flex justify-between items-center mb-1">
-                  <span className="text-[10px] font-bold text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200">
-                    {app.titleEn}
-                  </span>
-                  <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 px-2.5 py-0.5 rounded-full border border-emerald-200 group-hover:bg-[#71639e] group-hover:text-white transition-colors duration-200">
-                    {app.badge}
-                  </span>
+                <div className={`relative w-[76px] h-[76px] sm:w-[86px] sm:h-[86px] rounded-2xl flex items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.05)] group-hover:shadow-[0_8px_20px_rgba(0,0,0,0.12)] transition-all duration-300 transform group-hover:-translate-y-1 ${app.iconBg} bg-gradient-to-br from-white/10 to-black/10 ring-1 ring-black/5`}>
+                  <IconComponent className="w-9 h-9 sm:w-10 sm:h-10 text-white drop-shadow-sm" strokeWidth={1.5} />
+                  {app.badge && app.badge !== '0' && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full border-2 border-[#f8fafc] shadow-sm">
+                      {app.badge}
+                    </span>
+                  )}
                 </div>
-
-                {/* Flat Vibrant Icon Container with soft background */}
-                <div className={`w-12 h-12 ${app.bgColor} rounded-xl flex items-center justify-center shadow-xs group-hover:scale-110 transition-transform duration-200 my-2`}>
-                  <IconComponent className="w-6 h-6" />
-                </div>
-
-                <div className="my-1 w-full">
-                  <h3 className="font-bold text-slate-800 text-sm group-hover:text-[#71639e] transition-colors duration-200 truncate">
-                    {app.titleAr}
-                  </h3>
-                  <p className="text-[11px] text-slate-500 mt-1 line-clamp-1 leading-normal font-normal">
-                    {app.description}
-                  </p>
-                </div>
-
-                <div className="mt-auto pt-3 border-t border-slate-100 w-full flex items-center justify-center text-[11px] text-slate-600 group-hover:text-[#71639e] font-bold transition-colors">
-                  <span>فتح التطبيق</span>
-                  <ArrowUpRight className="w-3.5 h-3.5 mr-1" />
-                </div>
-              </button>);
+                <h3 className="mt-3 font-semibold text-slate-700 group-hover:text-slate-900 text-xs sm:text-[13px] text-center leading-tight tracking-wide">
+                  {app.titleAr}
+                </h3>
+              </button>
+            );
           })}
         </div>
       </div>
 
-      {/* 📊 Dafthra-Style Compact Charts Section */}
+      {/* 📊 Odoo-Style Compact Charts Section */}
+
       <div className="w-full max-w-7xl space-y-2 pt-2 border-t border-slate-200">
         <div className="flex items-center justify-between px-1">
           <div>

@@ -73,8 +73,8 @@ export function resolveCompanyFromTenantSlug(
   const normalized = tenantSlug.toLowerCase().trim();
 
   // Check master tenant keywords
-  if (normalized === '1' || normalized === 'comp-1' || normalized === 'manara' || normalized === 'almanara' || normalized === 'master') {
-    return companies.find(c => c.id === 'comp-1' || c.companyNumber === 1 || c.isPrimary) || companies[0];
+  if (normalized === '1' || normalized === 'master' || normalized === 'primary' || normalized === 'main') {
+    return companies.find(c => c.companyNumber === 1 || c.isPrimary) || companies[0];
   }
 
   // Find by exact ID

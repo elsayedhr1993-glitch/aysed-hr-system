@@ -68,7 +68,7 @@ export const ShiftsApp: React.FC<ShiftsAppProps> = ({
     
     onSaveShift({
       id: editingShift.id || `shift-${Date.now()}`,
-      companyId: activeCompany?.id || 'comp-1',
+      companyId: activeCompany?.id || '',
       name: editingShift.name,
       startTime: editingShift.startTime,
       endTime: editingShift.endTime,
@@ -84,7 +84,7 @@ export const ShiftsApp: React.FC<ShiftsAppProps> = ({
     if (!assignData.employeeId || !assignData.date || !assignData.shiftId) return;
     onAssignShift({
       id: `assign-${Date.now()}`,
-      companyId: activeCompany?.id || 'comp-1',
+      companyId: activeCompany?.id || '',
       employeeId: assignData.employeeId,
       date: assignData.date,
       shiftId: assignData.shiftId
@@ -94,12 +94,9 @@ export const ShiftsApp: React.FC<ShiftsAppProps> = ({
 
   const dayNames = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
   
-  const activeCompId = activeCompany?.id || 'comp-1';
-  let companyEmps = (employees || []).filter(e => !e.isDeleted && ((e.companyId || 'comp-1') === activeCompId || true));
-  if (companyEmps.length === 0 && (employees || []).filter(e => !e.isDeleted).length > 0) {
-    companyEmps = (employees || []).filter(e => !e.isDeleted);
-  }
-  const companyShifts = (shifts || []).filter(s => s.companyId === (activeCompany?.id || 'comp-1'));
+  const activeCompId = activeCompany?.id || '';
+  let companyEmps = (employees || []).filter(e => !e.isDeleted && e.companyId === activeCompId);
+  const companyShifts = (shifts || []).filter(s => s.companyId === activeCompId);
 
   const getShiftForEmpDate = (empId: string, dateStr: string) => {
     // Can return multiple if they have split shifts!

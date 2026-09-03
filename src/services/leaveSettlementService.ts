@@ -890,7 +890,7 @@ export function liquidateLeaveBalanceInAllocations(
     const defaultAlloc: HrLeaveAllocation = {
       id: `alloc-default-${Date.now()}`,
       employeeId: employee.id,
-      companyId: employee.companyId || 'comp-1',
+      companyId: employee.companyId || '',
       name: `تخصيص سنوية - ${employee.fullNameAr}`,
       leaveType: 'ANNUAL',
       allocationType: 'regular',
@@ -964,7 +964,7 @@ export function liquidateLeaveBalanceInAllocations(
       const newLeaveReq: LeaveRequest = {
         id: `encash-leave-${Date.now()}`,
         employeeId: employee.id,
-        companyId: employee.companyId || 'comp-1',
+        companyId: employee.companyId || '',
         leaveType: 'ANNUAL',
         startDate: todayStr,
         endDate: todayStr,

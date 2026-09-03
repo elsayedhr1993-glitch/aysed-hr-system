@@ -598,8 +598,7 @@ export function calculate2026AccruedDays(
     } else if (employeeOrHireDate instanceof Date) {
       if (!isNaN(employeeOrHireDate.getTime())) hire_date = new Date(employeeOrHireDate.getFullYear(), employeeOrHireDate.getMonth(), employeeOrHireDate.getDate());
     } else if (typeof employeeOrHireDate === 'object' && employeeOrHireDate !== null) {
-      const isBkhit = employeeOrHireDate.fullNameAr?.includes('السيد بخيت') && (employeeOrHireDate as any).joinDate === '2026-06-01';
-      const dStr = isBkhit ? '2026-06-01' : ((employeeOrHireDate as any).openingLeaveDate || (employeeOrHireDate as any).openingDate || employeeOrHireDate.date_start || employeeOrHireDate.joinDate || employeeOrHireDate.startDate);
+      const dStr = ((employeeOrHireDate as any).openingLeaveDate || (employeeOrHireDate as any).openingDate || employeeOrHireDate.date_start || employeeOrHireDate.joinDate || employeeOrHireDate.startDate);
       if (dStr) {
         const p = new Date(dStr);
         if (!isNaN(p.getTime())) hire_date = new Date(p.getFullYear(), p.getMonth(), p.getDate());
@@ -638,8 +637,7 @@ export function isEmployeeHiredIn2026OrLater(
   } else if (employeeOrHireDate instanceof Date) {
     if (!isNaN(employeeOrHireDate.getTime())) hire_date = employeeOrHireDate;
   } else if (typeof employeeOrHireDate === 'object') {
-    const isBkhit = employeeOrHireDate.fullNameAr?.includes('السيد بخيت') && (employeeOrHireDate as any).joinDate === '2026-06-01';
-    const dStr = isBkhit ? '2026-06-01' : (employeeOrHireDate.date_start || employeeOrHireDate.joinDate || employeeOrHireDate.startDate);
+    const dStr = (employeeOrHireDate.date_start || employeeOrHireDate.joinDate || employeeOrHireDate.startDate);
     if (dStr) {
       const p = new Date(dStr);
       if (!isNaN(p.getTime())) hire_date = p;

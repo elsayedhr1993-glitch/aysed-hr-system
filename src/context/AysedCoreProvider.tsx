@@ -24,8 +24,8 @@ const supabase = isValidUrl && supabaseAnonKey ? createClient(rawSupabaseUrl, su
 
 export const AysedCoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [systemState, setSystemState] = useState<any>({
-    user: { id: 1, name: 'د. طارق خالد العازمي', email: '66968180@aysedhr.com', role: 'admin' },
-    company: { id: 'comp-fanar', name: 'مجموعة الفنار الطبية والخدمات المخبرية', currency: 'KWD' },
+    user: { id: 1, name: 'المسؤول', email: '', role: 'admin' },
+    company: { id: '', name: '', currency: 'KWD' },
     isStable: true
   });
   const [loading, setLoading] = useState(false);
@@ -35,8 +35,8 @@ export const AysedCoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (!supabase) {
         // حالة الاستقرار المحلية عند عدم توفر Supabase
         setSystemState({
-          user: { id: 1, name: 'د. طارق خالد العازمي', email: '66968180@aysedhr.com', role: 'admin' },
-          company: { id: 'comp-fanar', name: 'مجموعة الفنار الطبية والخدمات المخبرية', currency: 'KWD' },
+          user: { id: 1, name: 'المسؤول', email: '', role: 'admin' },
+          company: { id: '', name: '', currency: 'KWD' },
           isStable: true
         });
         return;
@@ -61,13 +61,13 @@ export const AysedCoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
           setSystemState({
             user: { id: profile.id, name: profile.name, email: profile.login, role: 'admin' },
-            company: { id: company?.id || 'comp-fanar', name: company?.name || 'مجموعة الفنار الطبية', currency: 'KWD' },
+            company: { id: company?.id || '', name: company?.name || '', currency: 'KWD' },
             isStable: true
           });
         }
       }
     } catch (error) {
-      console.error("🚨 ملاحظة في استقرار النظام (وضع الحماية المحلي مفعل):", error);
+      console.error("🚨 ملاحظة في استقرار النظام:", error);
     } finally {
       setLoading(false);
     }

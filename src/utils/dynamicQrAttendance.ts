@@ -54,7 +54,7 @@ export function generateDynamicQrPayload(
     longitude: number;
     radiusMeters: number;
   },
-  companyId: string = 'comp-1'
+  companyId: string = ''
 ): { jsonString: string; payload: DynamicQrPayload } {
   const now = Date.now();
   const expiresAt = now + 15000; // 15 ثانية
@@ -108,7 +108,7 @@ export function parseAndVerifyQrToken(rawQrString: string): {
           tokenType: 'GEOFENCE_ATTENDANCE_PUNCH',
           branchId: 'hq',
           branchName: 'المقر الرئيسي',
-          companyId: 'comp-1',
+          companyId: '',
           latitude: 29.3759,
           longitude: 47.9774,
           radiusMeters: 50,

@@ -30,7 +30,7 @@ export const ContractsApp: React.FC<ContractsAppProps> = ({
 }) => {
   const [editingContract, setEditingContract] = useState<Partial<Contract> | null>(null);
 
-  const companyContracts = (contracts || []).filter(c => c.companyId === (activeCompany?.id || 'comp-1'));
+  const companyContracts = (contracts || []).filter(c => c.companyId === (activeCompany?.id || ''));
   const filteredContracts = companyContracts.filter(cnt => {
     const emp = employees.find(e => e.id === cnt.employeeId);
     const empName = emp ? emp.fullNameAr : '';
@@ -65,7 +65,7 @@ export const ContractsApp: React.FC<ContractsAppProps> = ({
     const newContract: Contract = {
       id: editingContract.id || `cnt-${Date.now()}`,
       employeeId: editingContract.employeeId,
-      companyId: activeCompany?.id || 'comp-1',
+      companyId: activeCompany?.id || '',
       basicSalary: Number(editingContract.basicSalary) || 0,
       housingAllowance: Number(editingContract.housingAllowance) || 0,
       transportAllowance: Number(editingContract.transportAllowance) || 0,
@@ -133,7 +133,7 @@ export const ContractsApp: React.FC<ContractsAppProps> = ({
           <button
             onClick={() => {
               setEditingContract({
-                companyId: activeCompany?.id || 'comp-1',
+                companyId: activeCompany?.id || '',
                 contractType: 'INDEFINITE',
                 noticePeriodDays: 90,
                 basicSalary: 0,
@@ -179,7 +179,7 @@ export const ContractsApp: React.FC<ContractsAppProps> = ({
                   <button
                     onClick={() => {
                       setEditingContract({
-                        companyId: activeCompany?.id || 'comp-1',
+                        companyId: activeCompany?.id || '',
                         contractType: 'INDEFINITE',
                         noticePeriodDays: 90,
                         basicSalary: 0,

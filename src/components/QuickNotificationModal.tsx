@@ -139,7 +139,7 @@ export const QuickNotificationModal: React.FC<QuickNotificationModalProps> = ({
       const mockLeave: LeaveRequest = {
         id: 'lv-temp',
         employeeId: currentEmp.id,
-        companyId: activeCompany?.id || 'comp-1',
+        companyId: activeCompany?.id || '',
         leaveType: 'ANNUAL',
         startDate: leaveStart,
         endDate: leaveEnd,
@@ -161,7 +161,7 @@ export const QuickNotificationModal: React.FC<QuickNotificationModalProps> = ({
       const mockSlip: Payslip = {
         id: 'slip-temp',
         employeeId: currentEmp.id,
-        companyId: activeCompany?.id || 'comp-1',
+        companyId: activeCompany?.id || '',
         month: salaryMonth,
         basicSalary: salaryNet,
         allowances: 0,
@@ -228,7 +228,7 @@ export const QuickNotificationModal: React.FC<QuickNotificationModalProps> = ({
     // Create and record notification
     const notificationRecord: EmployeeNotification = {
       id: `notif-${Date.now()}`,
-      companyId: activeCompany?.id || 'comp-1',
+      companyId: activeCompany?.id || '',
       employeeId: currentEmp.id,
       employeeName: currentEmp.fullNameAr,
       recipientPhone: phone,
@@ -305,7 +305,7 @@ export const QuickNotificationModal: React.FC<QuickNotificationModalProps> = ({
 
     const notificationRecord: EmployeeNotification = {
       id: `notif-${Date.now()}`,
-      companyId: activeCompany?.id || 'comp-1',
+      companyId: activeCompany?.id || '',
       employeeId: currentEmp.id,
       employeeName: currentEmp.fullNameAr,
       recipientPhone: phone,

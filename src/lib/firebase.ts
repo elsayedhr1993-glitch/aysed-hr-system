@@ -161,13 +161,29 @@ export function getPurgedTenants(): Set<string> {
  */
 export function isTenantPurged(identifierOrObj?: any): boolean {
   if (!identifierOrObj) return false;
+
+  const isMockCandidate = (str: string) => {
+    const s = str.toLowerCase().trim();
+    return (
+      s === 'comp-1' ||
+      s === 'comp-01' ||
+      s === 'comp-demo' ||
+      s.startsWith('mock-') ||
+      s.startsWith('demo-') ||
+      s.startsWith('test-') ||
+      s.includes('تجريب') ||
+      s.includes('وهمي') ||
+      s.includes('demo') ||
+      s.includes('sample')
+    );
+  };
+
   const purged = getPurgedTenants();
-  if (purged.size === 0) return false;
 
   if (typeof identifierOrObj === 'string') {
     const clean = identifierOrObj.trim().toLowerCase();
     if (!clean) return false;
-    // Strictly exact matching to avoid falsely purging valid companies
+    if (isMockCandidate(clean)) return true;
     return purged.has(clean);
   }
 
@@ -182,7 +198,7 @@ export function isTenantPurged(identifierOrObj?: any): boolean {
 
     const candidates = [id, companyId, name, nameAr, nameEn, companyName, email].filter(Boolean);
     for (const c of candidates) {
-      if (purged.has(c)) return true;
+      if (isMockCandidate(c) || purged.has(c)) return true;
     }
   }
 

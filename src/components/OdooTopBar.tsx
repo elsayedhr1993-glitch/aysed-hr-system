@@ -76,6 +76,7 @@ const APP_MODELS: Record<ActiveApp, string> = {
   HOLIDAY_WORK: 'hr.holiday.work',
   LEAVE_TYPES_CONFIG: 'hr.leave.type',
   SECURITY_GUARDS: 'hr.security.guard',
+  SCANNER_APP: 'hr.document.scanner',
 };
 
 const appTitles: Record<ActiveApp, { ar: string; en: string }> = {
@@ -91,6 +92,7 @@ const appTitles: Record<ActiveApp, { ar: string; en: string }> = {
   PAYROLL: { ar: 'الرواتب والتأمينات', en: 'Payroll' },
   EOS: { ar: 'حاسبة نهاية الخدمة (م 51 & 53)', en: 'EOS Settlement' },
   DOCUMENTS: { ar: 'إدارة المستندات والماسح الضوئي', en: 'Documents & OCR' },
+  SCANNER_APP: { ar: 'الماسح الضوئي الذكي (Odoo Document Scanner)', en: 'Smart Document Scanner' },
   DOCUMENT_TEMPLATES: { ar: 'قوالب المستندات والأرشفة الآلية', en: 'Document Templates' },
   CUSTODY_LOANS: { ar: 'العهد والسلف المالية', en: 'Custodies & Loans' },
   AUTOMATION: { ar: 'الأتمتة وسير العمل (Studio)', en: 'Automation Workflows' },
@@ -195,7 +197,7 @@ export const OdooTopBar: React.FC<OdooTopBarProps> = ({
   const effectiveApp = activeApp || currentApp;
   const unreadCount = (notifications || []).filter(n => !n.isRead).length;
 
-  const userName = currentUserEmail ? currentUserEmail.split('@')[0] : 'أدمن النظام';
+  const userName = (currentUserEmail && typeof currentUserEmail === 'string') ? currentUserEmail.split('@')[0] : 'أدمن النظام';
   const userInitial = userName.charAt(0).toUpperCase();
 
   return (
@@ -220,6 +222,17 @@ export const OdooTopBar: React.FC<OdooTopBarProps> = ({
           >
             <Home size={13} />
             <span>الرئيسية</span>
+          </button>
+
+          {/* زر الماسح الضوئي الذكي المباشر في الهيدر */}
+          <button
+            type="button"
+            onClick={() => onNavigateToApp && onNavigateToApp('SCANNER_APP')}
+            className="flex items-center gap-1 bg-teal-600 hover:bg-teal-700 text-white px-2.5 h-7 rounded text-xs font-bold transition shadow-2xs border border-teal-500"
+            title="الماسح الضوئي الذكي (Odoo Document Scanner)"
+          >
+            <Scan size={13} />
+            <span>الماسح الضوئي</span>
           </button>
 
           {/* محدد التبديل بين الشركات والفروع (Multi-Company Switcher) */}

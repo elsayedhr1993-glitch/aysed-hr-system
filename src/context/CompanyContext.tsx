@@ -21,19 +21,19 @@ export interface Company {
 }
 
 const defaultMasterCompany: Company = {
-  id: 'comp-01',
-  nameAr: 'مستوصف المنار كلينك الطبي',
-  nameEn: 'Al-Manar Clinic Medical Center',
-  crNumber: '201934',
-  pifssNumber: 'KUW-884920',
-  mohLicense: '107914',
-  isDefault: true,
-  name: 'مستوصف المنار كلينك الطبي',
-  commercialRegNo: '107914',
-  civilIdCompany: '201934',
-  bankName: 'بيت التمويل الكويتي (KFH)',
-  iban: 'KW12KFH000000000000107914',
-  wsiCode: 'WSI-ALMANAR',
+  id: '',
+  nameAr: '',
+  nameEn: '',
+  crNumber: '',
+  pifssNumber: '',
+  mohLicense: '',
+  isDefault: false,
+  name: '',
+  commercialRegNo: '',
+  civilIdCompany: '',
+  bankName: '',
+  iban: '',
+  wsiCode: '',
   currency: 'KWD',
   status: 'active'
 };

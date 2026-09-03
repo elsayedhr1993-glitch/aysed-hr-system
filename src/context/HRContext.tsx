@@ -56,7 +56,7 @@ export const HRProvider: React.FC<{ children: React.ReactNode }> = ({ children }
             phone: emp.phone || emp.mobile || '',
             date_start: emp.date_start || emp.hire_date || '2024-01-01',
             status: emp.status || 'ACTIVE',
-            company_id: emp.company_id || 'comp-1',
+            company_id: emp.company_id || '',
             ...emp
           }));
           setEmployees(normalizedEmployees);
@@ -78,7 +78,7 @@ export const HRProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         phone: emp.mobilePhone || emp.phone || '',
         date_start: emp.joinDate || '2024-01-01',
         status: emp.status || 'ACTIVE',
-        company_id: emp.companyId || 'comp-1',
+        company_id: emp.companyId || '',
         ...emp
       }));
       setEmployees(mappedInitials);
@@ -96,7 +96,7 @@ export const HRProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         phone: emp.mobilePhone || emp.phone || '',
         date_start: emp.joinDate || '2024-01-01',
         status: emp.status || 'ACTIVE',
-        company_id: emp.companyId || 'comp-1',
+        company_id: emp.companyId || '',
         ...emp
       }));
       setEmployees(fallbackEmployees);

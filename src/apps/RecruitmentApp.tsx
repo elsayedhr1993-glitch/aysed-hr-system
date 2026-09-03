@@ -58,7 +58,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
     { id: 'HIRED', label: 'تم التعيين (Hired 🎉)' },
   ];
 
-  const companyCandidates = (candidates || []).filter(c => c.companyId === (activeCompany?.id || 'comp-1'));
+  const companyCandidates = (candidates || []).filter(c => c.companyId === activeCompany?.id);
 
   const filteredCandidates = companyCandidates.filter(c => {
     const matchesSearch = 
@@ -269,7 +269,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
 
     const candidate: Candidate = {
       id: editingCandidate ? editingCandidate.id : `cand-${Date.now()}`,
-      companyId: activeCompany?.id || 'comp-1',
+      companyId: activeCompany?.id || '',
       fullName: fullName.trim(),
       email: email.trim(),
       phone: phone.trim(),
@@ -701,7 +701,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
                   <label className="block font-bold text-slate-700 mb-1">اسم المتقدم الثلاثي / الرباعي *</label>
                   <input
                     type="text"
-                    placeholder="مثال: د. أحمد محمود الكندري"
+                    placeholder="الاسم الرباعي للمتقدم للوظيفة"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     className="w-full border border-slate-300 rounded-lg p-2 outline-none focus:border-[#714B67]"

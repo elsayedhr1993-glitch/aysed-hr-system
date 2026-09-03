@@ -566,22 +566,9 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       });
     } catch (lErr) {}
 
-    // 4. Default registered tenants (Only fallback if database & local storage are completely empty)
+    // 4. Default registered tenants
     if (allRequests.length === 0) {
-      const defaultTenants = [
-        {
-          id: 'req-almanar',
-          name: 'عيادة المنار (Al-Manar Clinic)',
-          requester_name: 'د. أحمد عبد الله المحمود',
-          phone: '99112233',
-          email: 'almanar@hr.com',
-          plan_type: 'Medical Enterprise',
-          emp_count: '15-50',
-          state: 'approved' as const,
-          created_at: '2024-01-01T00:00:00.000Z'
-        }
-      ];
-
+      const defaultTenants: any[] = [];
       defaultTenants.forEach(dt => {
         if (!isTenantPurged(dt.id) && !isTenantPurged(dt.name)) {
           allRequests.push(dt);
@@ -793,7 +780,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     const cleanPhone = phone.replace(/[^0-9]/g, '');
     const fullNumber = cleanPhone.startsWith('965') ? cleanPhone : `965${cleanPhone}`;
     const text = encodeURIComponent(
-      `السلام عليكم أخي الكريم ${name}، بخصوص طلب تجربة نظام Aysed S HR 2026 لشركة (${companyName}). يسعدنا تزويدك ببيانات الدخول للنسخة التجريبية...`
+      `السلام عليكم أخي الفاضل ${name}، بخصوص طلبكم لمنظومة Aysed S HR 2026 لمؤسستكم (${companyName}). يسعدنا تزويدكم ببيانات الدخول واعتماد الحساب...`
     );
     window.open(`https://wa.me/${fullNumber}?text=${text}`, '_blank');
   };

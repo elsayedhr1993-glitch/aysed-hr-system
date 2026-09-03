@@ -1,7 +1,7 @@
 /**
- * Multi-Tenant Supabase & Cloud-First Database Persistence Client
+ * Multi-Tenant Cloud-First Database Persistence Client
  * Defines schemas, adapters, and live CRUD operations for:
- * - `tenants` (companies: e.g. Elite Clinic, Al-Manar Clinic, Al-Fanar Clinic)
+ * - `tenants` (companies/organizations)
  * - `employees`
  * - `leaves`
  * - `payroll_runs` & `payslips`
@@ -10,9 +10,39 @@
  */
 
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { db, cleanFirestoreData } from '../lib/firebase';
+import { db, auth, cleanFirestoreData } from '../lib/firebase';
 import { collection, doc, setDoc, deleteDoc, getDocs, query, where, getDoc } from 'firebase/firestore';
 import { Company, Employee, LeaveRequest, AttendanceRecord, Payslip, Contract } from '../types';
+
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData?.map(provider => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.error('[TenantDatabaseService] Firestore Error: ', JSON.stringify(errInfo));
+  return errInfo;
+}
 
 export interface TenantRecord {
   id: string;
@@ -483,11 +513,60 @@ export const TenantDatabaseService = {
         companyId: compId,
         updatedAt: new Date().toISOString()
       });
-      await setDoc(doc(db, 'contracts', contract.id), cleanDoc, { merge: true });
+      const docId = (contract.id || '').replace(/\//g, '_') || doc(collection(db, 'contracts')).id;
+      await setDoc(doc(db, 'contracts', docId), cleanDoc, { merge: true });
       return true;
     } catch (fsErr) {
-      console.error('[TenantDatabaseService] Firestore contract save error:', fsErr);
+      handleFirestoreError(fsErr, OperationType.WRITE, `contracts/${contract.id}`);
       return false;
+    }
+  },
+
+  /**
+   * Fetch all contracts for a specific tenant/company
+   */
+  async getContractsByTenant(companyId: string): Promise<Contract[]> {
+    if (!companyId) return [];
+
+    if (isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase
+          .from('contracts')
+          .select('*')
+          .eq('company_id', companyId);
+        if (!error && Array.isArray(data) && data.length > 0) {
+          return data.map(d => ({
+            id: d.id,
+            companyId: d.company_id || d.companyId,
+            employeeId: d.employee_id || d.employeeId,
+            basicSalary: d.basic_salary ?? d.basicSalary ?? 0,
+            housingAllowance: d.housing_allowance ?? d.housingAllowance ?? 0,
+            transportAllowance: d.transport_allowance ?? d.transportAllowance ?? 0,
+            otherAllowance: d.other_allowance ?? d.otherAllowance ?? 0,
+            startDate: d.start_date || d.startDate || '',
+            endDate: d.end_date || d.endDate || '',
+            contractType: d.contract_type || d.contractType || 'fixed',
+            status: d.status || 'running',
+            workingHours: d.working_hours || d.workingHours,
+            customDailyHours: d.custom_daily_hours || d.customDailyHours,
+            dailyWorkHours: d.daily_work_hours || d.dailyWorkHours,
+            resourceCalendarId: d.resource_calendar_id || d.resourceCalendarId,
+            workingSchedule: d.working_schedule || d.workingSchedule,
+            workHoursType: d.work_hours_type || d.workHoursType,
+          } as unknown as Contract));
+        }
+      } catch (sbErr) {
+        console.warn('[TenantDatabaseService] Supabase contracts query error:', sbErr);
+      }
+    }
+
+    try {
+      const q = query(collection(db, 'contracts'), where('companyId', '==', companyId));
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({ ...d.data(), id: d.id } as Contract));
+    } catch (fsErr) {
+      console.warn('[TenantDatabaseService] Firestore contracts query error:', fsErr);
+      return [];
     }
   },
 
@@ -563,5 +642,47 @@ export const TenantDatabaseService = {
       console.error('[TenantDatabaseService] Firestore payslip save error:', fsErr);
       return false;
     }
+  },
+
+  /**
+   * Clear all records in Firestore for a specific tenant and wipe localStorage
+   */
+  async clearAllDataForTenant(companyId: string): Promise<boolean> {
+    const collectionsToClear = ['employees', 'contracts', 'commencements', 'attendance', 'leaves', 'payroll_runs', 'payslips'];
+    try {
+      for (const colName of collectionsToClear) {
+        const q = query(collection(db, colName), where('companyId', '==', companyId));
+        const snap = await getDocs(q);
+        for (const d of snap.docs) {
+          await deleteDoc(doc(db, colName, d.id));
+        }
+      }
+      localStorage.clear();
+      return true;
+    } catch (e) {
+      console.error('Error clearing tenant data:', e);
+      return false;
+    }
+  },
+
+  /**
+   * Wipe all demo/test data across all collections in Firestore and localStorage
+   */
+  async wipeEntireSystem(): Promise<boolean> {
+    const collectionsToClear = ['employees', 'contracts', 'commencements', 'attendance', 'leaves', 'payroll_runs', 'payslips'];
+    try {
+      for (const colName of collectionsToClear) {
+        const snap = await getDocs(collection(db, colName));
+        for (const d of snap.docs) {
+          await deleteDoc(doc(db, colName, d.id));
+        }
+      }
+      localStorage.clear();
+      return true;
+    } catch (e) {
+      console.error('Error wiping entire system:', e);
+      return false;
+    }
   }
 };
+

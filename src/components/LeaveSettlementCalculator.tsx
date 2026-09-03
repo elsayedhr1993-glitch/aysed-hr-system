@@ -386,7 +386,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
 
     return calculateUniversalLeaveSettlement({
       voucherNumber: currentVoucherNumber,
-      companyId: activeCompany?.id || selectedEmp.companyId || 'comp-1',
+      companyId: activeCompany?.id || selectedEmp.companyId || '',
       employeeId: selectedEmp.id,
       settlementMode,
       settlementDate,
@@ -535,7 +535,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
       const newVoucher: LeaveSettlementVoucher = {
         id: `voucher-${Date.now()}`,
         voucherNumber: settlementResult.voucherNumber,
-        companyId: activeCompany?.id || selectedEmp.companyId || 'comp-1',
+        companyId: activeCompany?.id || selectedEmp.companyId || '',
         employeeId: selectedEmp.id,
         employeeName: selectedEmp.fullNameAr,
         employeeCode: selectedEmp.employeeCode || '',
@@ -658,7 +658,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
     const newHistLeave: LeaveRequest = {
       id: `hist-leave-${Date.now()}`,
       employeeId: selectedEmp.id,
-      companyId: selectedEmp.companyId || activeCompany?.id || 'comp-1',
+      companyId: selectedEmp.companyId || activeCompany?.id || '',
       leaveType: 'ANNUAL',
       startDate: `${archiveYear}-06-01`,
       endDate: `${archiveYear}-06-30`,

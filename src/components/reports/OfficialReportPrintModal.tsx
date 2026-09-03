@@ -271,9 +271,9 @@ export const OfficialReportPrintModal: React.FC<OfficialReportPrintModalProps> =
             {/* 1. Official Header */}
             <div className="flex justify-between items-start border-b-2 border-slate-900 pb-4">
               <div>
-                <h2 className="text-xl font-bold text-slate-900">{activeCompany?.nameAr || 'المنار كلينك'}</h2>
-                <p className="text-xs text-slate-500 mt-0.5">الرقم المدني للمنشأة: <span className="font-mono">{activeCompany?.civilIdCompany || activeCompany?.civilId || '123456789012'}</span></p>
-                <p className="text-xs text-slate-500">رقم ترخيص وزارة الصحة: <span className="font-mono">{activeCompany?.commercialRegNo || '12345'}</span></p>
+                <h2 className="text-xl font-bold text-slate-900">{activeCompany?.nameAr || activeCompany?.name || ''}</h2>
+                <p className="text-xs text-slate-500 mt-0.5">الرقم المدني للمنشأة: <span className="font-mono">{activeCompany?.civilIdCompany || activeCompany?.civilId || '-'}</span></p>
+                <p className="text-xs text-slate-500">رقم ترخيص وزارة الصحة: <span className="font-mono">{activeCompany?.commercialRegNo || (activeCompany as any)?.crNumber || '-'}</span></p>
                 <p className="text-xs text-slate-500">دولة الكويت</p>
               </div>
 

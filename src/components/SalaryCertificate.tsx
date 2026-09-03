@@ -81,11 +81,9 @@ export const SalaryCertificate: React.FC<SalaryCertificateProps> = ({
     .replace(/لا غير\s+لا غير/g, 'لا غير')
     .trim();
 
-  // 4. ضبط اسم جهة العمل المسبوق بكلمة مستوصف أو شركة تلقائياً
+  // 4. ضبط اسم جهة العمل
   const rawCompany = employee.companyName || '';
-  const formattedCompanyName = (rawCompany.startsWith('مستوصف') || rawCompany.startsWith('شركة'))
-    ? rawCompany
-    : `مستوصف ${rawCompany}`;
+  const formattedCompanyName = rawCompany;
 
   // 5. ضبط تنسيق التواريخ بالسلاش مع منع التفاف السطر
   const formattedJoinDate = (employee.joinDate || '').replace(/-/g, '/');

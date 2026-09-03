@@ -45,6 +45,7 @@ import {
   FileSpreadsheet
 } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
+import { TenantDatabaseService } from '../services/tenantDataService';
 import { getDepartmentColorStyle } from '../utils/odooPalette';
 import { OdooChatter } from './OdooChatter';
 import { toast } from 'react-hot-toast';
@@ -130,244 +131,67 @@ export interface EmployeeProfile {
 }
 
 export const OdooEmployeesDirectoryApp: React.FC = () => {
-  const { activeCompany } = useCompany();
+  const { activeCompany, activeCompanyId } = useCompany();
+  const currentCompanyId = activeCompanyId || activeCompany?.id || 'comp-super-admin';
 
-  const [employees, setEmployees] = useState<EmployeeProfile[]>([
-    {
-      id: 'EMP-001',
-      name: 'أحمد محمود الكندري',
-      nameEn: 'Ahmed Mahmoud Al-Kandari',
-      civilId: '290010112345',
-      jobTitle: 'مدير الموارد البشرية والشؤون الإدارية',
-      department: 'الإدارة العليا',
-      email: 'kandari@almanar-clinic.com',
-      phone: '+965 99001122',
-      avatarBg: 'bg-[#714B67]',
-      status: 'active',
-      joinDate: '2022-01-15',
-      leaveBalance: 25.0,
-      shiftType: 'دوام صباحي (8:00 ص - 4:00 م)',
-      directManager: 'د. خالد العميري',
-      nationality: 'كويتي',
-      birthDate: '1990-01-01',
-      gender: 'ذكر',
-      maritalStatus: 'متزوج',
-      paciAddressNo: '18492019',
-      fullAddress: 'محافظة العاصمة - منطقة كيفان - قطعة 3 - شارع 32 - قسيمة 14',
-      emergencyContactName: 'فاطمة الكندري',
-      emergencyContactPhone: '+965 99881122',
-      emergencyRelation: 'الزوجة',
-      basicSalary: 1200,
-      housingAllowance: 300,
-      transportAllowance: 150,
-      medicalAllowance: 0,
-      bankName: 'بنك الكويت الوطني (NBK)',
-      iban: 'KW82NBOK0000000000001234567890',
-      residencyType: 'مواطن كويتي',
-      passportNo: 'K10293847',
-      passportExpiry: '2029-06-30',
-      residencyExpiry: '2029-12-31',
-      documents: [
-        {
-          id: 'DOC-1',
-          type: 'civil_id',
-          title: 'البطاقة المدنية الكويتية (وجهان)',
-          docNumber: '290010112345',
-          expiryDate: '2028-11-20',
-          status: 'valid',
-          scannedAt: '2024-01-15'
+  const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
+
+  // Sync live with Firestore for active company
+  useEffect(() => {
+    let isMounted = true;
+    async function syncDirectoryEmployees() {
+      if (!currentCompanyId) return;
+      try {
+        const dbEmps = await TenantDatabaseService.getEmployeesByTenant(currentCompanyId);
+        if (isMounted) {
+          if (dbEmps && dbEmps.length > 0) {
+            const mapped: EmployeeProfile[] = dbEmps.map(emp => ({
+              id: emp.id,
+              name: emp.fullNameAr || (emp as any).nameAr || 'موظف',
+              nameEn: emp.fullNameEn || (emp as any).nameEn || '',
+              civilId: emp.civilId || '',
+              jobTitle: emp.jobTitle || 'موظف',
+              department: emp.department || (emp as any).dept || 'العموم',
+              email: emp.email || '',
+              phone: emp.phone || '',
+              avatarBg: 'bg-[#714B67]',
+              status: (emp.status === 'ACTIVE' || (emp.status as any) === 'على رأس العمل') ? 'active' : 'on_leave',
+              joinDate: emp.joinDate || new Date().toISOString().split('T')[0],
+              leaveBalance: emp.paid_days_remaining || 30.0,
+              shiftType: 'دوام صباحي (8:00 ص - 4:00 م)',
+              directManager: (emp as any).manager || '',
+              nationality: emp.nationality || 'كويتي',
+              birthDate: emp.dob || '1990-01-01',
+              gender: emp.gender === 'FEMALE' ? 'أنثى' : 'ذكر',
+              maritalStatus: 'متزوج',
+              paciAddressNo: (emp as any).paciAddressNo || '',
+              fullAddress: (emp as any).fullAddress || '',
+              emergencyContactName: (emp as any).emergencyContactName || '',
+              emergencyContactPhone: (emp as any).emergencyContactPhone || '',
+              emergencyRelation: (emp as any).emergencyRelation || '',
+              basicSalary: (emp as any).basicSalary || 0,
+              housingAllowance: (emp as any).housingAllowance || 0,
+              transportAllowance: (emp as any).transportAllowance || 0,
+              medicalAllowance: (emp as any).otherAllowance || 0,
+              bankName: emp.bankName || 'بيت التمويل الكويتي',
+              iban: emp.iban || '',
+              residencyType: emp.nationality === 'كويتي' ? 'مواطن كويتي' : 'مادة 18',
+              documents: []
+            }));
+            setEmployees(mapped);
+          } else {
+            setEmployees([]);
+          }
         }
-      ]
-    },
-    {
-      id: 'EMP-002',
-      name: 'محمد إبراهيم السيد',
-      nameEn: 'Mohamed Ibrahim Elsayed',
-      civilId: '288050498765',
-      jobTitle: 'أخصائي شؤون العاملين والرواتب (WPS)',
-      department: 'الموارد البشرية',
-      email: 'm.ibrahim@almanar-clinic.com',
-      phone: '+965 66778899',
-      avatarBg: 'bg-blue-600',
-      status: 'active',
-      joinDate: '2023-04-01',
-      leaveBalance: 17.5,
-      shiftType: 'دوام صباحي (8:00 ص - 4:00 م)',
-      directManager: 'أحمد محمود الكندري',
-      nationality: 'مصري',
-      birthDate: '1988-05-04',
-      gender: 'ذكر',
-      maritalStatus: 'متزوج',
-      paciAddressNo: '44820193',
-      fullAddress: 'محافظة حولي - منطقة السالمية - قطعة 10 - شارع سالم المبارك',
-      emergencyContactName: 'أحمد إبراهيم',
-      emergencyContactPhone: '+965 66442211',
-      emergencyRelation: 'شقيق',
-      basicSalary: 650,
-      housingAllowance: 150,
-      transportAllowance: 50,
-      medicalAllowance: 0,
-      bankName: 'بنك بوبيان (Boubyan)',
-      iban: 'KW45BOUB0000000000009876543210',
-      residencyType: 'مادة 18 (قطاع أهلي)',
-      residencyReferenceNo: 'REF-2023-88991',
-      residencyExpiry: '2026-11-20',
-      passportNo: 'A28394810',
-      passportExpiry: '2027-04-15',
-      pamPermitNo: 'PAM-2023-9912',
-      mosalFileNo: 'MSAL-998811',
-      authorizedJobTitle: 'أخصائي شؤون موظفين',
-      documents: [
-        {
-          id: 'DOC-2',
-          type: 'pam_permit',
-          title: 'إذن العمل الصادر من القوى العاملة (PAM)',
-          docNumber: 'PAM-2023-9912',
-          expiryDate: '2026-11-20',
-          status: 'valid',
-          scannedAt: '2023-04-05'
-        }
-      ]
-    },
-    {
-      id: 'MED-201',
-      name: 'د. سارة عادل المنصور',
-      nameEn: 'Dr. Sarah Adel Al-Mansour',
-      civilId: '292081501234',
-      jobTitle: 'طبيبة استشارية - طب وجراحة العيون',
-      department: 'الأطباء',
-      email: 'dr.sarah@almanar-clinic.com',
-      phone: '+965 97711223',
-      avatarBg: 'bg-sky-600',
-      status: 'active',
-      joinDate: '2021-08-01',
-      leaveBalance: 32.0,
-      shiftType: 'دوام مناوبة عيادات (9:00 ص - 9:00 م)',
-      directManager: 'د. خالد العميري (المدير الطبي)',
-      nationality: 'كويتية',
-      birthDate: '1992-08-15',
-      gender: 'أنثى',
-      maritalStatus: 'متزوجة',
-      paciAddressNo: '99201948',
-      fullAddress: 'محافظة العاصمة - الشامية - قطعة 5 - شارع 51 - منزل 12',
-      emergencyContactName: 'عادل المنصور',
-      emergencyContactPhone: '+965 99110022',
-      emergencyRelation: 'الوالد',
-      basicSalary: 2200,
-      housingAllowance: 500,
-      transportAllowance: 200,
-      medicalAllowance: 300,
-      bankName: 'بنك الخليج (Gulf Bank)',
-      iban: 'KW55GULF0000000000001122334455',
-      residencyType: 'مواطن كويتي',
-      passportNo: 'K22998811',
-      passportExpiry: '2030-01-10',
-      residencyExpiry: '2030-01-10',
-      mohLicenseNo: 'MOH-OPH-2021-499',
-      mohLicenseExpiry: '2027-09-30',
-      medicalDegree: 'استشاري أول (Consultant A)',
-      specialty: 'طب وجراحة العيون والليزك',
-      cmeHoursCompleted: 58,
-      documents: [
-        {
-          id: 'DOC-3',
-          type: 'moh_license',
-          title: 'ترخيص مزاولة مهنة الطب البشري (MOH)',
-          docNumber: 'MOH-OPH-2021-499',
-          expiryDate: '2027-09-30',
-          status: 'valid',
-          scannedAt: '2021-08-10'
-        }
-      ]
-    },
-    {
-      id: 'MED-202',
-      name: 'مريم يوسف العتيبي',
-      nameEn: 'Maryam Yousef Al-Otaibi',
-      civilId: '295031209876',
-      jobTitle: 'رئيسة هيئة التمريض والتعقيم',
-      department: 'التمريض',
-      email: 'm.otaibi@almanar-clinic.com',
-      phone: '+965 55443322',
-      avatarBg: 'bg-purple-600',
-      status: 'active',
-      joinDate: '2022-09-15',
-      leaveBalance: 21.0,
-      shiftType: 'دوام صباحي ومناوبة',
-      directManager: 'د. سارة عادل المنصور',
-      nationality: 'كويتية',
-      birthDate: '1995-03-12',
-      gender: 'أنثى',
-      maritalStatus: 'عزباء',
-      paciAddressNo: '67129038',
-      fullAddress: 'محافظة الفروانية - منطقة إشبيلية - قطعة 4 - شارع 401',
-      emergencyContactName: 'يوسف العتيبي',
-      emergencyContactPhone: '+965 55009988',
-      emergencyRelation: 'الوالد',
-      basicSalary: 850,
-      housingAllowance: 200,
-      transportAllowance: 100,
-      medicalAllowance: 150,
-      bankName: 'بيت التمويل الكويتي (KFH)',
-      iban: 'KW12KFH0000000000009988776655',
-      residencyType: 'مواطن كويتي',
-      passportNo: 'K33445566',
-      passportExpiry: '2029-08-15',
-      residencyExpiry: '2029-08-15',
-      mohLicenseNo: 'MOH-NUR-2022-811',
-      mohLicenseExpiry: '2026-12-15',
-      medicalDegree: 'أخصائي تمريض عام وتمريض عيادات',
-      specialty: 'التمريض والتعقيم الجراحي',
-      cmeHoursCompleted: 40,
-      documents: [
-        {
-          id: 'DOC-4',
-          type: 'moh_license',
-          title: 'ترخيص مزاولة مهنة التمريض (MOH)',
-          docNumber: 'MOH-NUR-2022-811',
-          expiryDate: '2026-12-15',
-          status: 'valid',
-          scannedAt: '2022-09-20'
-        }
-      ]
-    },
-    {
-      id: 'SEC-101',
-      name: 'سعد جابر العنزي',
-      nameEn: 'Saad Jaber Al-Enezi',
-      civilId: '289120109923',
-      jobTitle: 'مشرف الأمن والسلامة والورديات',
-      department: 'الأمن والخدمات',
-      email: 'sec.saad@almanar-clinic.com',
-      phone: '+965 99441122',
-      avatarBg: 'bg-slate-700',
-      status: 'active',
-      joinDate: '2024-02-10',
-      leaveBalance: 30.0,
-      shiftType: 'شفت ليلي طوارئ',
-      directManager: 'أحمد محمود الكندري',
-      nationality: 'كويتي',
-      birthDate: '1989-12-01',
-      gender: 'ذكر',
-      maritalStatus: 'متزوج',
-      paciAddressNo: '33918204',
-      fullAddress: 'محافظة الجهراء - منطقة القصر - قطعة 2 - شارع 11',
-      emergencyContactName: 'جابر العنزي',
-      emergencyContactPhone: '+965 99332211',
-      emergencyRelation: 'الوالد',
-      basicSalary: 450,
-      housingAllowance: 150,
-      transportAllowance: 0,
-      medicalAllowance: 0,
-      bankName: 'بيت التمويل الكويتي (KFH)',
-      iban: 'KW12KFH0000000000005544332211',
-      residencyType: 'مواطن كويتي',
-      passportNo: 'K44556677',
-      passportExpiry: '2029-01-20',
-      residencyExpiry: '2029-01-20',
-      documents: []
+      } catch (e) {
+        console.error('Error syncing OdooEmployeesDirectoryApp:', e);
+      }
     }
-  ]);
+    syncDirectoryEmployees();
+    return () => { isMounted = false; };
+  }, [currentCompanyId]);
+
+  const _legacyMock: EmployeeProfile[] = [];
 
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeProfile | null>(null);
   const [activeFormTab, setActiveFormTab] = useState<'work' | 'private' | 'payroll' | 'residency' | 'medical'>('work');
@@ -472,7 +296,7 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
       joinDate: new Date().toISOString().split('T')[0],
       leaveBalance: 30.0,
       shiftType: 'دوام صباحي (8:00 ص - 4:00 م)',
-      directManager: 'أحمد محمود الكندري',
+      directManager: '',
       nationality: 'كويتي',
       birthDate: '1992-01-01',
       gender: 'ذكر',
@@ -495,24 +319,38 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
     setActiveFormTab('work');
   };
 
-  const handleSaveEmployee = () => {
+  const handleSaveEmployee = async () => {
     if (!selectedEmployee || !selectedEmployee.name) {
       toast.error('يرجى كتابة اسم الموظف على الأقل للحفظ');
       return;
     }
     
+    const targetCompId = activeCompany?.id || 'comp-super-admin';
+    const payload = {
+      ...selectedEmployee,
+      fullNameAr: selectedEmployee.name,
+      fullNameEn: selectedEmployee.nameEn,
+      companyId: targetCompId
+    };
+
+    try {
+      await TenantDatabaseService.saveEmployee(payload as any, targetCompId);
+    } catch (err) {
+      console.error('Error saving employee to Firestore:', err);
+    }
+
     let updated: EmployeeProfile[];
     if (isCreating) {
       updated = [selectedEmployee, ...employees];
       setEmployees(updated);
       setPersistentData(MANARA_STORAGE_KEYS.EMPLOYEES, updated);
       setIsCreating(false);
-      toast.success(`تم تسجيل الموظف (${selectedEmployee.name}) بنجاح`);
+      toast.success(`تم تسجيل الموظف (${selectedEmployee.name}) بنجاح في قاعدة بيانات Firebase`);
     } else {
       updated = employees.map(e => e.id === selectedEmployee.id ? selectedEmployee : e);
       setEmployees(updated);
       setPersistentData(MANARA_STORAGE_KEYS.EMPLOYEES, updated);
-      toast.success(`تم حفظ بيانات الموظف (${selectedEmployee.name})`);
+      toast.success(`تم حفظ بيانات الموظف (${selectedEmployee.name}) حياً في Firebase`);
     }
   };
 
@@ -555,21 +393,26 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
     });
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
+    const targetCompId = activeCompany?.id || 'comp-super-admin';
     if (isBulkDeleting) {
       const count = selectedIds.length;
+      for (const id of selectedIds) {
+        await TenantDatabaseService.deleteEmployee(id, targetCompId);
+      }
       const updated = employees.filter(e => !selectedIds.includes(e.id));
       setEmployees(updated);
       setPersistentData(MANARA_STORAGE_KEYS.EMPLOYEES, updated);
       setSelectedIds([]);
       setIsBulkDeleting(false);
       setEmployeeToDelete(null);
-      toast.success(`تم حذف ${count} موظفين بنجاح`);
+      toast.success(`تم حذف ${count} موظفين بنجاح من قاعدة البيانات`);
       return;
     }
 
     if (!employeeToDelete) return;
     const empName = employeeToDelete.name;
+    await TenantDatabaseService.deleteEmployee(employeeToDelete.id, targetCompId);
     const updated = employees.filter(e => e.id !== employeeToDelete.id);
     setEmployees(updated);
     setPersistentData(MANARA_STORAGE_KEYS.EMPLOYEES, updated);
@@ -579,7 +422,7 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
       setIsCreating(false);
     }
     setEmployeeToDelete(null);
-    toast.success(`تم حذف ملف الموظف (${empName}) بنجاح`);
+    toast.success(`تم حذف ملف الموظف (${empName}) بنجاح من قاعدة البيانات`);
   };
 
   // Open Scanner for a specific Document Type
@@ -958,7 +801,7 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
                     'ترخيص MOH': emp.mohLicenseNo || 'لا ينطبق',
                     'الحالة': emp.status === 'active' ? 'على رأس عمله' : emp.status === 'on_leave' ? 'في إجازة' : 'متوقف'
                   }));
-                  exportToExcel(exportData, 'دليل_الموظفين_المنار_كلينك', 'الموظفين');
+                  exportToExcel(exportData, `دليل_الموظفين_${activeCompany?.nameAr?.replace(/\s+/g, '_') || 'المعتمد'}`, 'الموظفين');
                 }}
                 className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
                 title="تصدير بيانات الموظفين إلى Excel (.xlsx)"
@@ -1118,7 +961,7 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
                     required
                     value={selectedEmployee.name}
                     onChange={(e) => setSelectedEmployee({ ...selectedEmployee, name: e.target.value })}
-                    placeholder="مثال: د. أحمد محمود الكندري"
+                    placeholder="الاسم الرباعي الكامل للموظف"
                     className="w-full text-lg font-black text-slate-900 border-b border-slate-300 focus:border-[#714B67] outline-none bg-transparent pb-1"
                   />
                 </div>
@@ -1778,8 +1621,8 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
               recordId={selectedEmployee.id}
               model="hr.employee"
               followers={[
-                { id: '1', name: 'أحمد الكندري (مدير الموارد البشرية)' },
-                { id: '2', name: 'يوسف العلي (مسؤول الجوازات)' }
+                { id: '1', name: 'مدير الموارد البشرية' },
+                { id: '2', name: 'مسؤول الجوازات والإقامات' }
               ]}
               messages={[
                 {

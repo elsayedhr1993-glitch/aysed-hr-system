@@ -56,27 +56,27 @@ export interface SystemSettings {
 
 export const defaultSettings: SystemSettings = {
   // بيانات المنشأة
-  companyNameAr: 'مستوصف المنار كلينك الطبي',
-  companyNameEn: 'Al-Manar Clinic Medical Center',
+  companyNameAr: '',
+  companyNameEn: '',
   logo: '',
-  crNumber: '107914',
-  mohLicense: '107914',
-  civilIdCompany: '201934',
-  pifssNumber: 'KUW-884920',
-  address: 'الكويت - حولي - شارع تونس - مجمع الأطباء الدولي',
-  phone: '+965 22000000',
-  email: 'hr@almanarclinic.com',
+  crNumber: '',
+  mohLicense: '',
+  civilIdCompany: '',
+  pifssNumber: '',
+  address: '',
+  phone: '',
+  email: '',
   currency: 'KWD',
   headerMarginTop: 48,
   showLogoOnPrint: true,
 
   // الرواتب و WPS
-  pamId: 'PAM-994821',
-  bankName: 'بيت التمويل الكويتي (KFH)',
-  bankCode: 'KFH',
-  iban: 'KW12KFH000000000000107914',
-  branchCode: '010',
-  wpsCorporateId: 'WSI-ALMANAR',
+  pamId: '',
+  bankName: '',
+  bankCode: '',
+  iban: '',
+  branchCode: '',
+  wpsCorporateId: '',
   workingDaysCalculation: '26_DAYS',
   enableWpsSif: true,
   salaryCutoffDay: 25,
@@ -94,9 +94,9 @@ export const defaultSettings: SystemSettings = {
   gracePeriodMinutes: 15,
   overtimeRateStandard: 1.25,
   overtimeRateHoliday: 1.5,
-  biometricIp: '192.168.1.200',
-  biometricPort: '4370',
-  enableBiometricSync: true,
+  biometricIp: '',
+  biometricPort: '',
+  enableBiometricSync: false,
 
   // نهاية الخدمة
   indemnityFirst5YearsDays: 15,
@@ -120,7 +120,7 @@ const STORAGE_KEY_PREFIX = 'aysed_odoo_general_settings_';
 
 export const SystemSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { activeCompany, updateActiveCompany } = useCompany();
-  const activeCompanyId = activeCompany?.id || 'comp-01';
+  const activeCompanyId = activeCompany?.id || 'default_settings';
 
   const [settings, setSettings] = useState<SystemSettings>(() => {
     try {

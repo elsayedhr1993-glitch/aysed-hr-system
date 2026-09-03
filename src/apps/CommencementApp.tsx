@@ -134,8 +134,8 @@ export const CommencementApp: React.FC<CommencementAppProps> = ({
   const [location, setLocation] = useState<string>('المقر الرئيسي - مدينة الكويت (الكويت)');
   const [notes, setNotes] = useState<string>('');
 
-  const companyEmployees = (employees || []).filter(e => e.companyId === (activeCompany?.id || 'comp-1') && !e.isDeleted);
-  const companyCommencements = (commencements || []).filter(c => c.companyId === (activeCompany?.id || 'comp-1'));
+  const companyEmployees = (employees || []).filter(e => e.companyId === activeCompany?.id && !e.isDeleted);
+  const companyCommencements = (commencements || []).filter(c => c.companyId === activeCompany?.id);
 
   const filteredCommencements = companyCommencements.filter(c => {
     if (filterTab === 'PENDING') return c.status === 'PENDING';
@@ -253,7 +253,7 @@ export const CommencementApp: React.FC<CommencementAppProps> = ({
         ...(existingComm || {}),
         id: editingCommId,
         employeeId: selectedEmpId,
-        companyId: activeCompany?.id || 'comp-1',
+        companyId: activeCompany?.id || '',
         actualJoiningDate,
         contractType,
         shiftId: selectedShiftId,
@@ -321,7 +321,7 @@ export const CommencementApp: React.FC<CommencementAppProps> = ({
     const newComm: EmploymentCommencement = {
       id: `comm-${Date.now()}`,
       employeeId: selectedEmpId,
-      companyId: activeCompany?.id || 'comp-1',
+      companyId: activeCompany?.id || '',
       actualJoiningDate,
       contractType,
       shiftId: selectedShiftId,

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Scan } from 'lucide-react';
 
 // Independent Modular Screen Components
 import { LeaveManagement } from '../components/LeaveManagement';
@@ -29,6 +29,7 @@ import { CompaniesApp } from '../apps/CompaniesApp';
 import { SettingsApp } from '../apps/SettingsApp';
 import { NotificationTemplatesLogApp } from '../apps/NotificationTemplatesLogApp';
 import { DailyMovementsApp } from '../apps/DailyMovementsApp';
+import { ScannerApp } from '../apps/ScannerApp';
 import { OdooAppLauncher } from '../components/OdooAppLauncher';
 
 export interface AppRouterProps {
@@ -299,6 +300,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
       case 'RECRUITMENT': return { title: 'التوظيف والمقابلات الذكية', code: 'hr.applicant' };
       case 'EOS': return { title: 'نهاية الخدمة - المادتان 51 و53', code: 'hr.eos' };
       case 'DOCUMENTS': return { title: 'الأرشيف والمستندات وOCR', code: 'ir.attachment' };
+      case 'SCANNER_APP': return { title: 'الماسح الضوئي الذكي', code: 'hr.document.scanner' };
       case 'DOCUMENT_TEMPLATES': return { title: 'قوالب ونماذج المستندات', code: 'hr.document.template' };
       case 'CUSTODY_LOANS': return { title: 'العهد والسلف والأقساط', code: 'hr.loan' };
       case 'COMMENCEMENT': return { title: 'مباشرة العمل الرسمية', code: 'hr.commencement' };
@@ -524,6 +526,18 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
           isOCRModalOpenInitially={isOCRModalOpen}
           onNavigateToApp={(app) => setActiveApp(app)}
           onSelectEmpForForm={(emp) => setSelectedEmpForForm(emp)}
+        />);
+
+    case 'SCANNER_APP':
+      return (
+        <ScannerApp
+          documents={scopedDocuments}
+          employees={scopedEmployees}
+          activeCompany={activeCompany}
+          onSaveDocument={handleSaveDocument}
+          onDeleteDocument={handleDeleteDocument}
+          onAutoAddEmpFromOCR={(empData: any) => { handleAutoAddEmpFromOCR(empData); return ''; }}
+          onNavigateToApp={(app) => setActiveApp(app)}
         />);
 
     case 'DOCUMENT_TEMPLATES':
@@ -777,6 +791,16 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
           >
             <ArrowRight className="w-4 h-4" />
             <span>العودة للتطبيقات الرئيسية</span>
+          </button>
+          
+          <button
+            type="button"
+            onClick={() => handleSetApp('SCANNER_APP')}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 active:scale-95 text-white rounded-lg text-xs font-bold shadow-xs transition-all cursor-pointer"
+            title="الماسح الضوئي الذكي (Odoo Document Scanner)"
+          >
+            <Scan className="w-4 h-4" />
+            <span>الماسح الضوئي</span>
           </button>
           <div className="h-4 w-px bg-slate-200" />
           <div className="flex items-center gap-2">

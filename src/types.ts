@@ -540,7 +540,7 @@ export interface DocumentItem {
   companyId: string;
   employeeId?: string; // NULL if company-wide document
   title: string; // اسم المستند (مثل: الترخيص التجاري)
-  category: 'CIVIL_ID' | 'PASSPORT' | 'WORK_CONTRACT' | 'MOH_LICENSE' | 'COMPANY_DEED' | 'COMPANY_LICENSE' | 'CONTRACT' | 'RESIDENCY' | 'OTHER';
+  category: 'CIVIL_ID' | 'PASSPORT' | 'DRIVING_LICENSE' | 'PROFESSIONAL_LICENSE' | 'WORK_CONTRACT' | 'MOH_LICENSE' | 'COMPANY_DEED' | 'COMPANY_LICENSE' | 'CONTRACT' | 'RESIDENCY' | 'OTHER' | string;
   folderPath?: string;
   documentType?: 'COMPANY_LICENSE' | 'EMPLOYEE_PASSPORT' | 'CIVIL_ID' | 'CONTRACT' | 'MOH_LICENSE' | 'COMPANY_DEED' | 'OTHER' | string;
   documentNumber?: string; // رقم المستند/الترخيص
@@ -803,7 +803,8 @@ export type ActiveApp =
   | 'DAILY_MOVEMENTS'
   | 'HOLIDAY_WORK'
   | 'LEAVE_TYPES_CONFIG'
-  | 'SECURITY_GUARDS';
+  | 'SECURITY_GUARDS'
+  | 'SCANNER_APP';
 
 export type ViewMode = 'KANBAN' | 'LIST' | 'FORM' | 'PIVOT' | 'GRAPH';
 

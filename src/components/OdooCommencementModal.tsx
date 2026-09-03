@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { CommencementData, printCommencementReport } from '../services/commencementService';
+import { useCompany } from '../context/CompanyContext';
 
 interface CommencementModalProps {
   isOpen: boolean;
@@ -9,6 +10,7 @@ interface CommencementModalProps {
 }
 
 export default function OdooCommencementModal({ isOpen, onClose, onSave, employeeList }: CommencementModalProps) {
+  const { activeCompany } = useCompany();
   const [activeTab, setActiveTab] = useState<'details' | 'credentials' | 'approvals'>('details');
   const [status, setStatus] = useState<'draft' | 'approved' | 'cancelled'>('draft');
 
@@ -19,8 +21,8 @@ export default function OdooCommencementModal({ isOpen, onClose, onSave, employe
   const [mohLicenseType, setMohLicenseType] = useState<'دائم (Permanent)' | 'مؤقت / تحت الإجراء (Temporary)'>('دائم (Permanent)');
   const [medicalFitness, setMedicalFitness] = useState<'لائق طبياً (Fit)' | 'قيد الفحص (Pending)'>('لائق طبياً (Fit)');
   const [criminalRecord, setCriminalRecord] = useState<'خلو سوابق معتمد (Cleared)' | 'قيد الإجراء (Pending)'>('خلو سوابق معتمد (Cleared)');
-  const [supervisor, setSupervisor] = useState('المدير الطبي / د. خالد الحمد');
-  const [notes, setNotes] = useState('باشر الموظف مهام عمله واستلم العهد الطبية وبطاقة الدخول.');
+  const [supervisor, setSupervisor] = useState((activeCompany as any)?.authorizedSignatory || (activeCompany as any)?.managerName || 'المسؤول المباشر');
+  const [notes, setNotes] = useState('باشر الموظف مهام عمله واستلم بطاقة الدخول وباشر مسؤولياته التعاقدية.');
 
   if (!isOpen) return null;
 
@@ -31,14 +33,15 @@ export default function OdooCommencementModal({ isOpen, onClose, onSave, employe
     const payload: CommencementData = {
       id: `COMM-${Date.now()}`,
       referenceNo: refNo,
-      employeeId: currentEmp?.id || 'EMP-001',
+      companyName: activeCompany?.nameAr || activeCompany?.name || 'المنشأة',
+      employeeId: currentEmp?.id || '',
       employeeNameAr: currentEmp?.nameAr || '',
       civilId: currentEmp?.civilId || '',
       jobTitleAr: currentEmp?.jobTitle || '',
       departmentAr: currentEmp?.dept || '',
       commencementDate,
       contractStartDate: currentEmp?.hireDate || commencementDate,
-      mohLicenseNo: currentEmp?.mohLicense || 'MOH-TEMP-00',
+      mohLicenseNo: currentEmp?.mohLicense || '',
       mohLicenseType,
       medicalFitnessStatus: medicalFitness,
       criminalRecordStatus: criminalRecord,
@@ -192,6 +195,7 @@ export default function OdooCommencementModal({ isOpen, onClose, onSave, employe
                   printCommencementReport({
                     id: 'PREVIEW',
                     referenceNo: refNo,
+                    companyName: activeCompany?.nameAr || activeCompany?.name || 'المنشأة',
                     employeeId: currentEmp.id,
                     employeeNameAr: currentEmp.nameAr,
                     civilId: currentEmp.civilId,

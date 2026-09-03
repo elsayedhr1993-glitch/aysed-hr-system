@@ -79,13 +79,13 @@ export const LeaveClearanceDocument: React.FC<Props> = ({
         <div className="flex items-center justify-between">
           <div className="text-right">
             <h1 className="text-xl font-black text-slate-900">
-              {activeCompany?.nameAr || 'مجموعة المنارة للمقاولات العامة والتجارة'}
+              {activeCompany?.nameAr || activeCompany?.name || ''}
             </h1>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
               إدارة الموارد البشرية والشؤون الإدارية والمالية (HR & Payroll Dept)
             </p>
             <p className="text-[11px] text-slate-400 font-mono">
-              سجل تجاري: {activeCompany?.commercialRegNo || '382914'} | الرقم المدني: {activeCompany?.civilIdCompany || '103948201934'}
+              سجل تجاري: {activeCompany?.commercialRegNo || (activeCompany as any)?.crNumber || '-'} | الرقم المدني: {activeCompany?.civilIdCompany || (activeCompany as any)?.civilId || '-'}
             </p>
           </div>
 

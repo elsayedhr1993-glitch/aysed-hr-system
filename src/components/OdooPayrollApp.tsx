@@ -28,9 +28,10 @@ import {
   Landmark,
   ArrowUpRight,
   Trash2
-} from 'lucide-react';
+, X} from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
 import { useSystemSettings } from '../context/SystemSettingsContext';
+import { useOdooHierarchy } from '../context/OdooHierarchyContext';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { exportToExcel, generateKuwaitWpsFiles } from '../utils/exportUtils';
 
@@ -56,6 +57,7 @@ export interface PayslipItem {
   absenceDeduction: number;
   delayMinutes: number;
   delayDeduction: number;
+  loanDeduction: number;
   pifssDeduction: number; // اشتراك التأمينات الاجتماعية للكويتيين
   grossSalary: number;
   totalDeductions: number;
@@ -65,126 +67,15 @@ export interface PayslipItem {
   notes?: string;
 }
 
-const initialPayslipsList: PayslipItem[] = [
-  {
-    id: 'SLIP-2026-08-001',
-    payslipNumber: 'PAY/2026/08/0001',
-    employeeId: 'EMP-001',
-    employeeName: 'أحمد محمود الكندري',
-    civilId: '290010112345',
-    jobTitle: 'طبيب استشاري باطنية',
-    department: 'الأطباء',
-    bankName: 'بنك الكويت الوطني (NBK)',
-    iban: 'KW82NBOK0000000000001234567890',
-    period: '2026-08',
-    basicSalary: 1200.000,
-    housingAllowance: 300.000,
-    transportAllowance: 100.000,
-    medicalAllowance: 150.000,
-    overtimeHours: 0,
-    overtimeAmount: 0.000,
-    absenceDays: 0,
-    absenceDeduction: 0.000,
-    delayMinutes: 0,
-    delayDeduction: 0.000,
-    pifssDeduction: 0.000,
-    grossSalary: 1750.000,
-    totalDeductions: 0.000,
-    netSalary: 1750.000,
-    status: 'paid',
-    wpsFileRef: 'WPS-202608-NBK-01',
-    notes: 'تم اعتماد وصرف المسير عبر نظام حماية الأجور WPS'
-  },
-  {
-    id: 'SLIP-2026-08-002',
-    payslipNumber: 'PAY/2026/08/0002',
-    employeeId: 'EMP-002',
-    employeeName: 'محمد إبراهيم السيد',
-    civilId: '288050498765',
-    jobTitle: 'أخصائي علاج طبيعي',
-    department: 'العلاج الطبيعي',
-    bankName: 'بنك بوبيان (Boubyan)',
-    iban: 'KW45BOUB0000000000009876543210',
-    period: '2026-08',
-    basicSalary: 650.000,
-    housingAllowance: 150.000,
-    transportAllowance: 50.000,
-    medicalAllowance: 0.000,
-    overtimeHours: 6,
-    overtimeAmount: 25.500, // (850 / 26 / 8) * 6 * 1.25
-    absenceDays: 0,
-    absenceDeduction: 0.000,
-    delayMinutes: 25,
-    delayDeduction: 1.700, // (850 / 26 / 8 / 60) * 25
-    pifssDeduction: 0.000,
-    grossSalary: 875.500,
-    totalDeductions: 1.700,
-    netSalary: 873.800,
-    status: 'confirmed',
-    wpsFileRef: 'WPS-202608-BOUB-02',
-    notes: 'معتمد وجاهز للتصدير البنكي'
-  },
-  {
-    id: 'SLIP-2026-08-003',
-    payslipNumber: 'PAY/2026/08/0003',
-    employeeId: 'EMP-003',
-    employeeName: 'سارة خالد المطيري',
-    civilId: '295081512999',
-    jobTitle: 'أخصائية موارد بشرية',
-    department: 'الموارد البشرية',
-    bankName: 'بيت التمويل الكويتي (KFH)',
-    iban: 'KW55KFH0000000000003456789012',
-    period: '2026-08',
-    basicSalary: 750.000,
-    housingAllowance: 150.000,
-    transportAllowance: 50.000,
-    medicalAllowance: 0.000,
-    overtimeHours: 0,
-    overtimeAmount: 0.000,
-    absenceDays: 1,
-    absenceDeduction: 36.538, // 950 / 26 = 36.538 د.ك
-    delayMinutes: 0,
-    delayDeduction: 0.000,
-    pifssDeduction: 0.000,
-    grossSalary: 950.000,
-    totalDeductions: 36.538,
-    netSalary: 913.462,
-    status: 'review',
-    notes: 'قيد مراجعة إذن الغياب المسجل'
-  },
-  {
-    id: 'SLIP-2026-08-004',
-    payslipNumber: 'PAY/2026/08/0004',
-    employeeId: 'EMP-004',
-    employeeName: 'عبدالرحمن يوسف الشمري',
-    civilId: '292031105432',
-    jobTitle: 'محاسب مالي',
-    department: 'الإدارة المالية',
-    bankName: 'بنك الخليج (Gulf Bank)',
-    iban: 'KW12GULF0000000000005678901234',
-    period: '2026-08',
-    basicSalary: 800.000,
-    housingAllowance: 200.000,
-    transportAllowance: 50.000,
-    medicalAllowance: 0.000,
-    overtimeHours: 0,
-    overtimeAmount: 0.000,
-    absenceDays: 0,
-    absenceDeduction: 0.000,
-    delayMinutes: 0,
-    delayDeduction: 0.000,
-    pifssDeduction: 0.000,
-    grossSalary: 1050.000,
-    totalDeductions: 0.000,
-    netSalary: 1050.000,
-    status: 'draft',
-    notes: 'مسودة مسير أولية بانتظار إغلاق بصمة الشهر'
-  }
-];
+const initialPayslipsList: PayslipItem[] = [];
+// Legacy mock payslips purged for live Firebase usage
 
 export const OdooPayrollApp: React.FC = () => {
   const { activeCompany } = useCompany();
   const { settings } = useSystemSettings();
+  const { employees, attendance, loans, addLoan, deleteLoan, computedPayslips, processMonthlyBatch, registerLoanPayment } = useOdooHierarchy();
+  
+  const [activeSubTab, setActiveSubTab] = useState<'payslips' | 'loans' | 'eos'>('payslips');
   const [payslips, setPayslips] = useState<PayslipItem[]>(initialPayslipsList);
   const [selectedMonth, setSelectedMonth] = useState('2026-08');
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'review' | 'confirmed' | 'paid'>('all');
@@ -194,6 +85,68 @@ export const OdooPayrollApp: React.FC = () => {
   const [activePayslipId, setActivePayslipId] = useState<string | null>(null);
   const [formActiveTab, setFormActiveTab] = useState<'computation' | 'wps_bank' | 'work_entries'>('computation');
   const [showNewPayslipModal, setShowNewPayslipModal] = useState(false);
+  const [showLoanModal, setShowLoanModal] = useState(false);
+
+  const [newLoan, setNewLoan] = useState({
+    employeeId: '',
+    totalAmount: '',
+    monthlyInstallment: '',
+    startDate: new Date().toISOString().split('T')[0]
+  });
+
+  const [eosData, setEosData] = useState({
+    empName: '',
+    salary: 0,
+    years: 0,
+    months: 0,
+    reason: 'termination_by_company'
+  });
+
+  const calculateEOS = () => {
+    const totalYears = eosData.years + (eosData.months / 12);
+    let amount = 0;
+    
+    // أول 5 سنوات: 15 يوم عن كل سنة (الراتب / 26 * 15)
+    if (totalYears <= 5) {
+      amount = totalYears * (eosData.salary / 26) * 15;
+    } else {
+      // 5 سنوات الأولى
+      const first5 = 5 * (eosData.salary / 26) * 15;
+      // ما زاد عن 5 سنوات: شهر عن كل سنة
+      const remaining = (totalYears - 5) * eosData.salary;
+      amount = first5 + remaining;
+    }
+
+    // الحد الأقصى 18 شهر
+    const maxAmount = eosData.salary * 18;
+    if (amount > maxAmount) amount = maxAmount;
+
+    // خصم الاستقالة (المادة 53)
+    if (eosData.reason === 'resignation') {
+      if (totalYears >= 3 && totalYears < 5) amount = amount / 2; // يستحق النصف
+      else if (totalYears >= 5 && totalYears < 10) amount = amount * 0.6667; // يستحق الثلثين
+      else if (totalYears < 3) amount = 0; // لا يستحق
+    }
+
+    return amount.toFixed(3);
+  };
+
+  const handleAddLoan = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newLoan.employeeId || !newLoan.totalAmount) return;
+    const tot = parseFloat(newLoan.totalAmount) || 0;
+    const inst = parseFloat(newLoan.monthlyInstallment) || 0;
+    
+    addLoan(newLoan.employeeId, tot, inst);
+    
+    setShowLoanModal(false);
+    setNewLoan({
+      employeeId: '',
+      totalAmount: '',
+      monthlyInstallment: '',
+      startDate: new Date().toISOString().split('T')[0]
+    });
+  };
 
   const handleDeletePayslip = (id: string) => {
     if (confirm('هل أنت متأكد من مسح مسير الراتب هذا؟')) {
@@ -246,6 +199,12 @@ export const OdooPayrollApp: React.FC = () => {
   const handleUpdateStatus = (id: string, newStatus: 'draft' | 'review' | 'confirmed' | 'paid') => {
     setPayslips(prev => prev.map(p => {
       if (p.id === id) {
+        if (newStatus === 'paid' && p.status !== 'paid' && p.loanDeduction > 0) {
+          const empLoan = loans.find(l => l.employeeId === p.employeeId && l.remainingAmount > 0);
+          if (empLoan) {
+            registerLoanPayment(empLoan.id, p.loanDeduction);
+          }
+        }
         return {
           ...p,
           status: newStatus,
@@ -291,39 +250,51 @@ export const OdooPayrollApp: React.FC = () => {
     }));
   };
 
-  // Batch Compute All for the month
+  // Batch Compute All for the month from Central Context (Attendance & Loans)
   const handleBatchComputeAll = () => {
-    const divisor = settings.workingDaysCalculation === '30_DAYS' ? 30 : 26;
-    const dailyHours = settings.standardDailyHours || 8;
-    const overtimeMult = settings.overtimeRateStandard || 1.25;
-
-    setPayslips(prev => prev.map(p => {
-      if (p.period === selectedMonth) {
-        const totalBase = p.basicSalary + p.housingAllowance + p.transportAllowance + p.medicalAllowance;
-        const dayRate = totalBase / divisor;
-        const hourRate = dayRate / dailyHours;
-        const minRate = hourRate / 60;
-
-        const overtimeAmount = Math.round((p.overtimeHours * hourRate * overtimeMult) * 1000) / 1000;
-        const absenceDeduction = Math.round((p.absenceDays * dayRate) * 1000) / 1000;
-        const delayDeduction = Math.round((p.delayMinutes * minRate) * 1000) / 1000;
-        
-        const grossSalary = totalBase + overtimeAmount;
-        const totalDeductions = absenceDeduction + delayDeduction + p.pifssDeduction;
-        const netSalary = Math.max(0, grossSalary - totalDeductions);
+    processMonthlyBatch(); // Refresh compute
+    const newPayslips: PayslipItem[] = computedPayslips.map((cp, idx) => {
+      const emp = employees.find(e => e.id === cp.employeeId);
+      const att = attendance[cp.employeeId] || { employeeId: cp.employeeId, delayMinutes: 0, unpaidAbsenceDays: 0, overtimeHours: 0 };
+      
+        const dayRate = (cp.basic + (emp?.housingAllowance || 0) + (emp?.transportAllowance || 0) + (emp?.medicalAllowance || 0)) / 26;
+        const minRate = (dayRate / (emp?.dailyHours || 8)) / 60;
+        const calcAbsenceDed = (att.unpaidAbsenceDays || 0) * dayRate;
+        const calcDelayDed = (att.delayMinutes || 0) * minRate;
 
         return {
-          ...p,
-          overtimeAmount,
-          absenceDeduction,
-          delayDeduction,
-          grossSalary,
-          totalDeductions,
-          netSalary
+          id: `SLIP-${selectedMonth}-${cp.employeeId}`,
+          payslipNumber: `PAY/${selectedMonth.replace('-', '/')}/${String(idx + 1).padStart(4, '0')}`,
+          employeeId: cp.employeeId,
+          employeeName: cp.name,
+          civilId: cp.civilId,
+          jobTitle: emp?.jobTitle || 'موظف',
+          department: emp?.department || 'إدارة',
+          bankName: emp?.bankName || 'البنك',
+          iban: cp.iban,
+          period: selectedMonth,
+          basicSalary: cp.basic,
+          housingAllowance: emp?.housingAllowance || 0,
+          transportAllowance: emp?.transportAllowance || 0,
+          medicalAllowance: emp?.medicalAllowance || 0,
+          overtimeHours: att.overtimeHours || 0,
+          overtimeAmount: cp.overtimeAmount,
+          absenceDays: att.unpaidAbsenceDays || 0,
+          absenceDeduction: calcAbsenceDed, 
+          delayMinutes: att.delayMinutes || 0,
+          delayDeduction: calcDelayDed,
+          loanDeduction: cp.loanDeduction,
+          pifssDeduction: cp.pifssDeduction,
+          grossSalary: cp.grossSalary,
+          totalDeductions: cp.attendanceDeduction + cp.loanDeduction + cp.pifssDeduction + cp.prepaidDeduction,
+          netSalary: cp.netSalary,
+          status: 'draft',
+          notes: 'تم استيراد واحتساب المسير تلقائياً من محرك البصمة والسلف (Odoo Core)'
         };
-      }
-      return p;
-    }));
+    });
+
+    setPayslips(newPayslips);
+    alert('تم توليد مسيرات الرواتب واحتساب التأخيرات والإضافي من سجل البصمة والسلف بنجاح!');
   };
 
   // Export Kuwait WPS File (.SIF) & Audit Sheet
@@ -332,9 +303,9 @@ export const OdooPayrollApp: React.FC = () => {
       filteredPayslips, 
       selectedMonth, 
       {
-        crNumber: activeCompany?.crNumber || '201934',
-        nameEn: activeCompany?.nameEn || 'ALMANAR_MEDICAL_CO',
-        nameAr: activeCompany?.nameAr || 'مستوصف المنار كلينك الطبي'
+        crNumber: activeCompany?.crNumber || activeCompany?.commercialRegNo || '',
+        nameEn: activeCompany?.nameEn || '',
+        nameAr: activeCompany?.nameAr || activeCompany?.name || ''
       }
     );
   };
@@ -416,6 +387,7 @@ export const OdooPayrollApp: React.FC = () => {
       absenceDeduction,
       delayMinutes: delMins,
       delayDeduction,
+      loanDeduction: 0,
       pifssDeduction: pifss,
       grossSalary,
       totalDeductions,
@@ -454,7 +426,90 @@ export const OdooPayrollApp: React.FC = () => {
             ) : (
               <span className="text-[#714B67] font-black">مسيرات الرواتب (Batch Payslips - شهر {selectedMonth})</span>
             )}
+      {/* --- MODAL: CREATE NEW LOAN --- */}
+      {showLoanModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-2xs flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 text-xs">
+            <div className="flex justify-between items-center border-b pb-3 mb-4">
+              <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
+                <DollarSign className="text-[#714B67]" size={18} />
+                تسجيل سلفة مالية جديدة
+              </h3>
+              <button onClick={() => setShowLoanModal(false)} className="text-slate-400 hover:text-slate-700 cursor-pointer">
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleAddLoan} className="space-y-4">
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">الموظف</label>
+                <select
+                  required
+                  value={newLoan.employeeId}
+                  onChange={(e) => setNewLoan({ ...newLoan, employeeId: e.target.value })}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#714B67] focus:border-[#714B67] transition-all"
+                >
+                  <option value="">-- اختر الموظف --</option>
+                  {employees.map(emp => (
+                    <option key={emp.id} value={emp.id}>{emp.name} ({emp.jobTitle})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">إجمالي مبلغ السلفة (د.ك)</label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  step="0.001"
+                  value={newLoan.totalAmount}
+                  onChange={(e) => setNewLoan({ ...newLoan, totalAmount: e.target.value })}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#714B67] focus:border-[#714B67] transition-all"
+                  placeholder="مثال: 500"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">القسط الشهري (يخصم من الراتب)</label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  step="0.001"
+                  value={newLoan.monthlyInstallment}
+                  onChange={(e) => setNewLoan({ ...newLoan, monthlyInstallment: e.target.value })}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#714B67] focus:border-[#714B67] transition-all"
+                  placeholder="مثال: 50"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">تاريخ بداية السلفة</label>
+                <input
+                  type="date"
+                  required
+                  value={newLoan.startDate}
+                  onChange={(e) => setNewLoan({ ...newLoan, startDate: e.target.value })}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#714B67] focus:border-[#714B67] transition-all"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t mt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowLoanModal(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold cursor-pointer transition"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-[#714B67] hover:bg-[#583950] text-white rounded-xl font-bold cursor-pointer transition shadow-sm"
+                >
+                  اعتماد وتأكيد السلفة
+                </button>
+              </div>
+            </form>
           </div>
+        </div>
+      )}
+    </div>
           <h1 className="text-xl font-black text-slate-900 flex items-center gap-2">
             <CreditCard className="text-[#714B67]" size={22} />
             {activePayslip ? `قسيمة راتب: ${activePayslip.employeeName}` : 'مسير الرواتب ونظام حماية الأجور (Odoo Kuwait WPS)'}
@@ -462,6 +517,38 @@ export const OdooPayrollApp: React.FC = () => {
           <p className="text-[11px] text-slate-500">
             المنشأة: <strong className="text-[#714B67]">{activeCompany?.nameAr || 'المؤسسة الطبية'}</strong> | حسابات قانون العمل الكويتي (أساس 26 يوماً / 8 ساعات)
           </p>
+          
+          {!activePayslip && (
+            <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold gap-1 mt-3 w-full md:w-auto overflow-x-auto">
+              <button
+                type="button"
+                onClick={() => setActiveSubTab('payslips')}
+                className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer ${
+                  activeSubTab === 'payslips' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <CreditCard size={14} /> مسيرات الرواتب
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveSubTab('loans')}
+                className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer ${
+                  activeSubTab === 'loans' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <DollarSign size={14} /> السلف والأقساط
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveSubTab('eos')}
+                className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer ${
+                  activeSubTab === 'eos' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Calculator size={14} /> التسويات ونهاية الخدمة
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Right: Actions */}
@@ -481,7 +568,7 @@ export const OdooPayrollApp: React.FC = () => {
                 <Printer size={14} /> طباعة القسيمة
               </button>
             </>
-          ) : (
+          ) : activeSubTab === 'payslips' ? (
             <>
               <button
                 onClick={() => setShowNewPayslipModal(true)}
@@ -511,13 +598,20 @@ export const OdooPayrollApp: React.FC = () => {
                 <Download size={14} /> تصدير ملف WPS (.SIF)
               </button>
             </>
-          )}
+          ) : activeSubTab === 'loans' ? (
+            <button
+              onClick={() => setShowLoanModal(true)}
+              className="bg-[#714B67] hover:bg-[#583950] text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+            >
+              <Plus size={15} /> تسجيل سلفة جديدة
+            </button>
+          ) : null}
         </div>
 
       </div>
 
       {/* VIEW 1: PAYSLIP FORM SHEET (WHEN A PAYSLIP IS SELECTED) */}
-      {activePayslip ? (
+      {activeSubTab === 'payslips' && activePayslip ? (
         <div className="space-y-4">
           
           {/* Status Pipeline & Control Header */}
@@ -887,11 +981,11 @@ export const OdooPayrollApp: React.FC = () => {
                     <div className="space-y-2">
                       <div className="flex justify-between">
                         <span className="text-slate-500">رقم السجل التجاري للشركة:</span>
-                        <span className="font-mono font-bold text-slate-900">{activeCompany?.crNumber || '201934'}</span>
+                        <span className="font-mono font-bold text-slate-900">{activeCompany?.crNumber || activeCompany?.commercialRegNo || '-'}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-500">رقم الملف بوزارة الشؤون:</span>
-                        <span className="font-mono font-bold text-slate-900">MOSAL-998231</span>
+                        <span className="font-mono font-bold text-slate-900">{activeCompany?.pifssNumber || '-'}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-500">مرجع عملية الصرف:</span>
@@ -950,7 +1044,7 @@ export const OdooPayrollApp: React.FC = () => {
           </div>
 
         </div>
-      ) : (
+      ) : activeSubTab === 'payslips' && !activePayslip ? (
         /* VIEW 2: PAYSLIPS BATCH LIST & DASHBOARD (ODOO LIST VIEW) */
         <div className="space-y-5">
           
@@ -1154,6 +1248,183 @@ export const OdooPayrollApp: React.FC = () => {
           </div>
 
         </div>
+      ) : null}
+
+      {/* --- TAB 2: LOANS --- */}
+      {activeSubTab === 'loans' && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-4 border-b border-slate-200 bg-slate-50/50">
+            <h3 className="font-bold text-sm text-slate-800">إدارة السلف والأقساط الشهرية</h3>
+            <p className="text-[11px] text-slate-500 mt-0.5">يتم استقطاع القسط الشهري تلقائياً من مسير الرواتب حتى سداد إجمالي السلفة.</p>
+          </div>
+          <table className="w-full text-right text-xs">
+            <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+              <tr>
+                <th className="p-3.5">رقم السلفة</th>
+                <th className="p-3.5">الموظف</th>
+                <th className="p-3.5">إجمالي السلفة</th>
+                <th className="p-3.5">القسط الشهري</th>
+                <th className="p-3.5">ما تم سداده</th>
+                <th className="p-3.5">الرصيد المتبقي</th>
+                <th className="p-3.5">الحالة</th>
+                <th className="p-3.5">الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {loans.map((ln) => {
+                const emp = employees.find(e => e.id === ln.employeeId);
+                const paidAmt = ln.totalAmount - ln.remainingAmount;
+                const isPaidOff = ln.remainingAmount <= 0;
+                return (
+                  <tr key={ln.id} className="hover:bg-slate-50/70 transition">
+                    <td className="p-3.5 font-mono font-bold text-slate-500">{ln.id}</td>
+                    <td className="p-3.5 font-bold text-slate-900">{emp?.name || '---'}</td>
+                    <td className="p-3.5 font-bold font-mono text-slate-800">{ln.totalAmount.toFixed(3)} د.ك</td>
+                    <td className="p-3.5 font-bold font-mono text-blue-600">{ln.monthlyInstallment.toFixed(3)} د.ك / شهر</td>
+                    <td className="p-3.5 font-bold font-mono text-emerald-600">{paidAmt.toFixed(3)} د.ك</td>
+                    <td className="p-3.5 font-bold font-mono text-rose-600">{ln.remainingAmount.toFixed(3)} د.ك</td>
+                    <td className="p-3.5">
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${isPaidOff ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'}`}>
+                        {isPaidOff ? 'تم السداد بالكامل' : 'جاري الخصم بالراتب'}
+                      </span>
+                    </td>
+                    <td className="p-3.5 flex items-center gap-1">
+                      {!isPaidOff && (
+                        <button onClick={() => registerLoanPayment(ln.id, ln.monthlyInstallment)} className="text-emerald-600 hover:text-emerald-800 p-1 rounded-md hover:bg-emerald-50 transition cursor-pointer" title="تسجيل سداد قسط يدوي (خارج الراتب)">
+                          سداد قسط
+                        </button>
+                      )}
+                      <button onClick={() => deleteLoan(ln.id)} className="text-rose-500 hover:text-rose-700 p-1 rounded-md hover:bg-rose-50 transition cursor-pointer" title="حذف السلفة">
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* --- TAB 3: EOS --- */}
+      {activeSubTab === 'eos' && (
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="border-b pb-3 mb-6">
+            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Calculator className="text-[#714B67]" size={20} />
+              حاسبة مكافأة نهاية الخدمة والتسوية الختامية (مادة 51 من قانون العمل الكويتي 6/2010)
+            </h3>
+            <p className="text-xs text-slate-500 mt-1">
+              تحسب المكافأة على أساس أجر 15 يوماً عن كل سنة من السنوات الـ 5 الأولى، وأجر شهر عن كل سنة تالية (الحد الأقصى 18 شهراً).
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-600 font-bold mb-1">اسم الموظف المعني بالتسوية:</label>
+                <input
+                  type="text"
+                  value={eosData.empName}
+                  onChange={(e) => setEosData({ ...eosData, empName: e.target.value })}
+                  className="w-full p-2.5 border rounded-lg bg-slate-50 font-bold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-600 font-bold mb-1">الراتب الشامل الأخير (د.ك):</label>
+                  <input
+                    type="number"
+                    value={eosData.salary}
+                    onChange={(e) => setEosData({ ...eosData, salary: Number(e.target.value) })}
+                    className="w-full p-2.5 border rounded-lg bg-slate-50 font-mono font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-600 font-bold mb-1">سبب إنهاء العلاقة التعاقدية:</label>
+                  <select
+                    value={eosData.reason}
+                    onChange={(e) => setEosData({ ...eosData, reason: e.target.value })}
+                    className="w-full p-2.5 border rounded-lg bg-slate-50 font-bold"
+                  >
+                    <option value="termination_by_company">إنهاء خدمة من طرف المنشأة / انتهاء العقد</option>
+                    <option value="resignation">استقالة الموظف (المادة 53)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-600 font-bold mb-1">سنوات الخدمة:</label>
+                  <input
+                    type="number"
+                    value={eosData.years}
+                    onChange={(e) => setEosData({ ...eosData, years: Number(e.target.value) })}
+                    className="w-full p-2.5 border rounded-lg bg-slate-50 font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-600 font-bold mb-1">الأشهر الإضافية:</label>
+                  <input
+                    type="number"
+                    value={eosData.months}
+                    onChange={(e) => setEosData({ ...eosData, months: Number(e.target.value) })}
+                    className="w-full p-2.5 border rounded-lg bg-slate-50 font-bold"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Live Calculation Output Card */}
+            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 flex flex-col justify-between text-xs">
+              <div>
+                <h4 className="font-bold text-sm text-slate-800 border-b pb-2 mb-4">صافي المستحقات (مكافأة نهاية الخدمة)</h4>
+                
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center text-slate-600">
+                    <span>الأساس القانوني:</span>
+                    <span className="font-bold font-mono">26 يوم عمل (راتب كامل)</span>
+                  </div>
+                  <div className="flex justify-between items-center text-slate-600">
+                    <span>معدل الأجر اليومي:</span>
+                    <span className="font-bold font-mono">{(eosData.salary / 26).toFixed(3)} د.ك</span>
+                  </div>
+                  <div className="flex justify-between items-center text-slate-600">
+                    <span>استحقاق أول 5 سنوات (15 يوم):</span>
+                    <span className="font-bold font-mono">
+                      {Math.min(5, eosData.years + (eosData.months/12)) * 15} يوم
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-slate-600">
+                    <span>استحقاق ما بعد 5 سنوات (شهر):</span>
+                    <span className="font-bold font-mono">
+                      {Math.max(0, (eosData.years + (eosData.months/12) - 5))} شهر
+                    </span>
+                  </div>
+                  {eosData.reason === 'resignation' && (
+                    <div className="flex justify-between items-center text-rose-600 bg-rose-50 p-2 rounded-lg mt-2">
+                      <span className="font-bold">خصم الاستقالة (المادة 53):</span>
+                      <span className="font-bold">مُطبق</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-slate-200">
+                <div className="flex justify-between items-center">
+                  <span className="font-black text-sm text-slate-900">إجمالي مكافأة نهاية الخدمة:</span>
+                  <span className="font-black text-xl text-[#714B67] bg-purple-50 px-3 py-1 rounded-lg border border-purple-100">
+                    {calculateEOS()} د.ك
+                  </span>
+                </div>
+                <div className="text-[10px] text-slate-500 mt-2">
+                  * هذا الحساب للمكافأة فقط ولا يشمل تصفية رصيد الإجازات المتبقي أو استقطاع السلف القائمة.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* --- MODAL: CREATE NEW PAYSLIP --- */}
@@ -1181,7 +1452,7 @@ export const OdooPayrollApp: React.FC = () => {
                   <input
                     type="text"
                     required
-                    placeholder="مثال: يوسف خالد العنزي"
+                    placeholder="اسم الموظف الثلاثي"
                     value={newForm.employeeName}
                     onChange={(e) => setNewForm({ ...newForm, employeeName: e.target.value })}
                     className="w-full p-2.5 border rounded-lg outline-none focus:border-[#714B67] font-bold"
@@ -1342,4 +1613,3 @@ export const OdooPayrollApp: React.FC = () => {
   );
 };
 
-export default OdooPayrollApp;

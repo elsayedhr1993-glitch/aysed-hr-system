@@ -41,32 +41,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   
   const [companyDocuments, setCompanyDocuments] = useState<CompanyDocument[]>(() => 
-    getPersistentData<CompanyDocument[]>(MANARA_STORAGE_KEYS.COMPANY_DOCUMENTS, [
-      {
-        id: 'demo-1',
-        name: 'رخصة تجارية رئيسية (المنار كلينك)',
-        documentType: 'commercial_license',
-        documentNumber: 'CN-2024-99821',
-        issuingAuthority: 'وزارة التجارة والصناعة (MCI)',
-        issueDate: '2025-01-10',
-        expiryDate: '2026-10-15',
-        responsiblePerson: 'أحمد المندوب',
-        fileUrl: '#',
-        notes: 'تتضمن أنشطة العيادات الطبية والتجميلية'
-      },
-      {
-        id: 'demo-2',
-        name: 'اعتماد توقيع رسمي',
-        documentType: 'signature_auth',
-        documentNumber: 'SIG-88219-KWD',
-        issuingAuthority: 'غرفة تجارة وصناعة الكويت',
-        issueDate: '2024-05-01',
-        expiryDate: '2026-09-01',
-        responsiblePerson: 'د. عبدالله المدير',
-        fileUrl: '#',
-        notes: 'معتمد لدى البنوك الرسمية'
-      }
-    ])
+    getPersistentData<CompanyDocument[]>(MANARA_STORAGE_KEYS.COMPANY_DOCUMENTS, [])
   );
 
   const handleSaveCompanyDoc = (doc: CompanyDocument) => {
@@ -114,7 +89,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
     let nearExpiryCount = 0;
     let expiredCount = 0;
 
-    const companyDocs = (documents || []).filter(d => d.companyId === (activeCompany?.id || 'comp-1'));
+    const companyDocs = (documents || []).filter(d => d.companyId === activeCompany?.id);
     
     companyDocs.forEach(doc => {
       if (!doc.expiryDate) return;
@@ -151,7 +126,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
   // Derived state for KanBan
   const enrichedDocs = useMemo(() => {
     return (documents || [])
-      .filter(d => d.companyId === (activeCompany?.id || 'comp-1'))
+      .filter(d => d.companyId === activeCompany?.id)
       .map(doc => {
         let currentStatus = doc.status || 'active';
         let daysToExpiry = null;
@@ -365,7 +340,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
                         const newEmpId = onAutoAddEmpFromOCR(scanResult.extractedData, scanResult.docType);
                         onSaveDocument({
                            id: `doc-${Date.now()}`,
-                           companyId: activeCompany?.id || 'comp-1',
+                           companyId: activeCompany?.id || '',
                            employeeId: newEmpId,
                            title: `${scanResult.docType} - ${scanResult.extractedData.fullNameAr}`,
                            category: scanResult.docType === 'CIVIL_ID' ? 'CIVIL_ID' : 'PASSPORT',

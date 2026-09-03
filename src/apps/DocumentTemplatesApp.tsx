@@ -316,7 +316,7 @@ export const DEFAULT_TEMPLATES_SEED: DocumentTemplate[] = [
     updatedAt: '2026-01-01',
   },
   {
-    id: 'tpl-salary-certificate-almanar',
+    id: 'tpl-salary-certificate-standard',
     companyId: 'a0000000-0000-0000-0000-000000000001',
     templateCode: 'SALARY_CERTIFICATE',
     titleAr: 'شهادة راتب واستمرارية عمل رسمية',
@@ -1299,7 +1299,7 @@ export const DocumentTemplatesApp: React.FC<DocumentTemplatesAppProps> = ({
   const [showEditorModal, setShowEditorModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<DocumentTemplate>({
     id: `tpl-${Date.now()}`,
-    companyId: activeCompany?.id || 'comp-1',
+    companyId: activeCompany?.id || '',
     templateCode: `TPL-CUSTOM-${Math.floor(Math.random() * 900) + 100}`,
     titleAr: '',
     titleEn: '',
@@ -1353,14 +1353,12 @@ export const DocumentTemplatesApp: React.FC<DocumentTemplatesAppProps> = ({
     };
 
     const empName = lang === 'EN' 
-      ? (emp?.fullNameEn || emp?.fullNameAr || 'Ahmed Mahmoud Al-Kuwaiti') 
-      : (emp?.fullNameAr || 'أحمد محمود الكويتي');
-    const rawCompany = activeCompany?.nameAr || 'مستوصف المنار كلينك';
-    const formattedCompanyName = (rawCompany.startsWith('مستوصف') || rawCompany.startsWith('شركة') || rawCompany.startsWith('مؤسسة'))
-      ? rawCompany
-      : `مستوصف ${rawCompany}`;
+      ? (emp?.fullNameEn || emp?.fullNameAr || '') 
+      : (emp?.fullNameAr || '');
+    const rawCompany = activeCompany?.nameAr || activeCompany?.name || '';
+    const formattedCompanyName = rawCompany;
     const companyName = lang === 'EN' ? (activeCompany?.nameEn || activeCompany?.nameAr || '') : formattedCompanyName;
-    const civilId = emp ? emp.civilId : '293041501234';
+    const civilId = emp ? emp.civilId : '';
 
     const isFemale = String(emp?.gender || '').toUpperCase() === 'FEMALE' || 
                      String(emp?.gender || '').toLowerCase() === 'female' || 
@@ -1515,10 +1513,10 @@ export const DocumentTemplatesApp: React.FC<DocumentTemplatesAppProps> = ({
       '{{bank_name_en}}': bankNameEn,
       '{{iban}}': iban,
       '{{iban_number}}': iban,
-      '{{moh_license}}': emp?.mohLicenseNo || 'MOH-8842',
+      '{{moh_license}}': emp?.mohLicenseNo || '—',
       '{{company_name}}': companyName,
       '{{company_name_ar}}': formattedCompanyName,
-      '{{company_name_en}}': activeCompany?.nameEn ? activeCompany.nameEn.toUpperCase() : 'AL MANAR CLINIC',
+      '{{company_name_en}}': activeCompany?.nameEn ? activeCompany.nameEn.toUpperCase() : (activeCompany?.nameAr || ''),
       '{{commercial_reg_no}}': activeCompany?.commercialRegNo || '',
       '{{wsi_code}}': activeCompany?.wsiCode || '',
       '{{contract_duration}}': contractDuration,
@@ -1540,12 +1538,12 @@ export const DocumentTemplatesApp: React.FC<DocumentTemplatesAppProps> = ({
       '{{contract_date}}': formatDateSlash(pamData.contract_date || today),
       '{{today_date}}': formatDateSlash(today),
       '{{salary_in_words}}': cleanSalaryInWords,
-      '{{manager_name}}': (activeCompany as any).managerName || 'د. عبدالله المنار',
-      '{{manager_name_ar}}': (activeCompany as any).managerNameAr || (activeCompany as any).managerName || 'د. عبدالله المنار',
-      '{{manager_name_en}}': (activeCompany as any).managerNameEn || 'Dr. Abdullah Al-Manar',
-      '{{manager_civil_id}}': (activeCompany as any).managerCivilId || '288051200526',
-      '{{business_activity}}': (activeCompany as any).businessActivity || 'الطب والرعاية الصحية',
-      '{{business_activity_en}}': (activeCompany as any).businessActivityEn || 'Medical and Healthcare',
+      '{{manager_name}}': (activeCompany as any).managerName || '',
+      '{{manager_name_ar}}': (activeCompany as any).managerNameAr || (activeCompany as any).managerName || '',
+      '{{manager_name_en}}': (activeCompany as any).managerNameEn || '',
+      '{{manager_civil_id}}': (activeCompany as any).managerCivilId || '',
+      '{{business_activity}}': (activeCompany as any).businessActivity || '',
+      '{{business_activity_en}}': (activeCompany as any).businessActivityEn || '',
       '{{contract_type_ar}}': cnt?.contractType === 'FIXED_TERM' ? 'محدد المدة' : 'غير محدد المدة',
       '{{contract_term_ar}}': cnt?.contractType === 'FIXED_TERM' ? 'عقد محدد المدة' : 'عقد غير محدد المدة',
       '{{contract_term_en}}': cnt?.contractType === 'FIXED_TERM' ? 'definite term contract' : 'indefinite term contract',
@@ -1596,7 +1594,7 @@ export const DocumentTemplatesApp: React.FC<DocumentTemplatesAppProps> = ({
 
     const genDoc: GeneratedDocument = {
       id: `gendoc-${Date.now()}`,
-      companyId: activeCompany?.id || 'comp-1',
+      companyId: activeCompany?.id || '',
       employeeId: selectedEmp.id,
       templateId: selectedTemplate.id,
       templateTitle: docLang === 'EN' ? (selectedTemplate.titleEn || selectedTemplate.titleAr) : selectedTemplate.titleAr,
@@ -1623,7 +1621,7 @@ export const DocumentTemplatesApp: React.FC<DocumentTemplatesAppProps> = ({
     // Auto Archive into Employee Digital Files
     const docItem: DocumentItem = {
       id: `doc-gen-${Date.now()}`,
-      companyId: activeCompany?.id || 'comp-1',
+      companyId: activeCompany?.id || '',
       employeeId: selectedEmp.id,
       title: `${selectedTemplate.titleAr} (${docNum})`,
       category: 'WORK_CONTRACT',
@@ -1641,7 +1639,7 @@ export const DocumentTemplatesApp: React.FC<DocumentTemplatesAppProps> = ({
 
     // Audit Trail Logging
     onAddAuditLog({
-      companyId: activeCompany?.id || 'comp-1',
+      companyId: activeCompany?.id || '',
       userId: 'HR-ADMIN',
       userName: 'مدير الموارد البشرية',
       action: 'ISSUE',
@@ -1678,7 +1676,7 @@ export const DocumentTemplatesApp: React.FC<DocumentTemplatesAppProps> = ({
     });
 
     onAddAuditLog({
-      companyId: activeCompany?.id || 'comp-1',
+      companyId: activeCompany?.id || '',
       userId: 'HR-ADMIN',
       userName: 'مدير الموارد البشرية',
       action: 'CREATE',
@@ -1693,7 +1691,7 @@ export const DocumentTemplatesApp: React.FC<DocumentTemplatesAppProps> = ({
 
   // Filtered employees for dropdown search
   const filteredEmployees = (employees || []).filter(e => {
-    if (e.companyId !== (activeCompany?.id || 'comp-1')) return false;
+    if (e.companyId !== activeCompany?.id) return false;
     if (issueSearchTerm) {
       return e.fullNameAr.includes(issueSearchTerm) || e.employeeCode.includes(issueSearchTerm) || e.civilId.includes(issueSearchTerm);
     }
@@ -1938,7 +1936,7 @@ export const DocumentTemplatesApp: React.FC<DocumentTemplatesAppProps> = ({
                 onClick={() => {
                   setEditingTemplate({
                     id: `tpl-${Date.now()}`,
-                    companyId: activeCompany?.id || 'comp-1',
+                    companyId: activeCompany?.id || '',
                     templateCode: `TPL-CUSTOM-${Math.floor(Math.random() * 900) + 100}`,
                     titleAr: '',
                     titleEn: '',

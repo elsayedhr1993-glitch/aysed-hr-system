@@ -109,7 +109,7 @@ export const CompanySwitcher: React.FC<{ onOpenSaasPortal?: () => void }> = ({ o
             <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 text-[11px] text-slate-600 space-y-1">
               <div className="flex justify-between">
                 <span>ملف التأمينات:</span>
-                <span className="font-mono font-bold text-slate-800">{activeCompany?.pifssNumber || 'KUW-884920'}</span>
+                <span className="font-mono font-bold text-slate-800">{activeCompany?.pifssNumber || '-'}</span>
               </div>
               <div className="flex justify-between">
                 <span>العملة الافتراضية:</span>

@@ -223,14 +223,14 @@ export function formatContractData(employee: any = {}, contract: any = {}) {
     nationality_en: nationality_en,
     job_title_ar: rawJob,
     job_title_en: job_title_en,
-    civil_id: emp?.civil_id || emp?.civilId || '290010101234',
+    civil_id: emp?.civil_id || emp?.civilId || '',
     residence_type_ar: "مادة 18 - قطاع أهلي",
     residence_type_en: "Article 18 - Private Sector",
-    salary_amount: Number(emp?.salary || 0).toString(),
-    company_name_en: "AL MANAR CLINIC",
-    manager_name_ar: "د. عبد الله المنار",
-    manager_name_en: "Dr. Abdullah Al-Manar",
-    manager_civil_id: "288051200526"
+    salary_amount: Number(emp?.salary || cnt?.wage || 0).toString(),
+    company_name_en: (cnt?.company_name_en || emp?.company_name_en || "").toUpperCase(),
+    manager_name_ar: cnt?.manager_name_ar || emp?.manager_name_ar || "المفوض بالتوقيع",
+    manager_name_en: cnt?.manager_name_en || emp?.manager_name_en || "Authorized Signatory",
+    manager_civil_id: cnt?.manager_civil_id || emp?.manager_civil_id || ""
   };
 }
 
@@ -743,120 +743,120 @@ export const EXTRACTED_CIVIL_ID_JOBS = [
 
 
 export const EXTRACTED_CIVIL_ID_JOBS_BATCH_2 = [
-  // 1. باسل سعد سلامه عليان
+  // Dental
   { ar: "طبيب اسنان", en: "Dentist", category: "Medical" },
   { ar: "طبيب أسنان", en: "Dentist", category: "Medical" },
 
-  // 2. ايرينا شاكر
+  // Dermatology
   { ar: "طبيب مسجل امراض جلديه وتناسليه", en: "Registrar - Dermatology & Venereology", category: "Medical" },
   { ar: "طبيب مسجل أمراض جلدية وتناسلية", en: "Registrar - Dermatology & Venereology", category: "Medical" },
   { ar: "طبيب مسجل جلدية وتناسلية", en: "Registrar - Dermatology & Venereology", category: "Medical" },
 
-  // 3. طلال مالك محمد خير الكردى
+  // General Dental
   { ar: "طبيب أسنان/عام", en: "General Dental Practitioner", category: "Medical" },
   { ar: "طبيب اسنان/عام", en: "General Dental Practitioner", category: "Medical" },
   { ar: "طبيب اسنان / عام", en: "General Dental Practitioner", category: "Medical" },
   { ar: "طبيب أسنان عام", en: "General Dental Practitioner", category: "Medical" },
 
-  // 4. عامر خضر شاكر
+  // Marketing
   { ar: "مسئول تسويق", en: "Marketing Officer", category: "Marketing" },
   { ar: "مسؤول تسويق", en: "Marketing Officer", category: "Marketing" },
 
-  // 5. ان ماري ريجينا جوزون جينيو
+  // Dental Lab Technician
   { ar: "فني اسنان", en: "Dental Lab Technician", category: "Medical" },
   { ar: "فني أسنان", en: "Dental Lab Technician", category: "Medical" },
 
-  // 6. جوليانيسا مانتيلا سانشيز
+  // Nursing
   { ar: "ممرض اختصاصي/صحة عامة", en: "Specialist Nurse / Public Health", category: "Medical" },
   { ar: "ممرض اختصاصي / صحة عامة", en: "Specialist Nurse / Public Health", category: "Medical" },
   { ar: "ممرض اختصاصي صحة عامة", en: "Specialist Nurse / Public Health", category: "Medical" },
 
-  // 7. دينا ماريا ديسوزا
+  // Nursing Assistant
   { ar: "مساعد تمريض عام", en: "General Nursing Assistant", category: "Medical" },
   { ar: "مساعد تمريض", en: "Nursing Assistant", category: "Medical" }
 ];
 
 
 export const EXTRACTED_CIVIL_ID_JOBS_BATCH_3 = [
-  // 1. احمد حسين ورودى
+  // Reception
   { ar: "كاتب استقبال/عام", en: "General Reception Clerk", category: "Administration" },
   { ar: "كاتب استقبال / عام", en: "General Reception Clerk", category: "Administration" },
 
-  // 2. اصف بشير بنى محمد بشير
+  // Messenger
   { ar: "مراسل", en: "Office Messenger", category: "Support" },
   { ar: "مراسل مكتبي", en: "Office Messenger", category: "Support" },
 
-  // 3. جاتجامول ماداثيلفيلي اوماتاكوتان
+  // Data Entry
   { ar: "كاتب ادخال بيانات", en: "Data Entry Clerk", category: "Administration" },
   { ar: "كاتب إدخال بيانات", en: "Data Entry Clerk", category: "Administration" },
 
-  // 4. فؤاد نصر عبدالكريم الحجوج
+  // Finance
   { ar: "مدير مالي", en: "Finance Manager", category: "Finance" },
   { ar: "المدير المالي", en: "Chief Financial Officer (CFO)", category: "Finance" },
 
-  // 5. لين باسم حمدان محمود
+  // Secretary
   { ar: "سكرتير", en: "Secretary", category: "Secretarial" },
   { ar: "سكرتيرة", en: "Secretary", category: "Secretarial" },
 
-  // 6. معصومه محمد ضيائي
+  // PR
   { ar: "مدير علاقات عامه", en: "Public Relations Manager", category: "Public Relations" },
   { ar: "مدير علاقات عامة", en: "Public Relations Manager", category: "Public Relations" },
   { ar: "مدير العلاقات العامة", en: "Public Relations Manager", category: "Public Relations" },
 
-  // 7. نورهان حسن كربوج
+  // Timekeeper
   { ar: "كاتب دوام", en: "Timekeeper / Attendance Clerk", category: "Administration" }
 ];
 
 
 export const EXTRACTED_CIVIL_ID_JOBS_BATCH_4 = [
-  // 1. سيد محمد سيد محمد هادي مدرسي
+  // Physician
   { ar: "طبيب بشري", en: "Human Physician / General Physician", category: "Medical" },
   { ar: "طبيب بشري عام", en: "General Physician", category: "Medical" },
 
-  // 2. عمار محمد محمود بني فواز
+  // Specialist Dermatology
   { ar: "طبيب اختصاصي/أمراض جلدية", en: "Specialist - Dermatology", category: "Medical" },
   { ar: "طبيب اختصاصي / أمراض جلدية", en: "Specialist - Dermatology", category: "Medical" },
   { ar: "طبيب اختصاصي/امراض جلدية", en: "Specialist - Dermatology", category: "Medical" },
   { ar: "طبيب اختصاصي أمراض جلدية", en: "Specialist - Dermatology", category: "Medical" },
 
-  // 3. فؤاد عوض خالد عداد
+  // General Dental
   { ar: "طبيب أسنان/عام", en: "General Dental Practitioner", category: "Medical" },
   { ar: "طبيب اسنان/عام", en: "General Dental Practitioner", category: "Medical" },
 
-  // 4. احمد رحيم بخش ساميراد
+  // Purchasing
   { ar: "مندوب مشتريات", en: "Purchasing Representative", category: "Logistics" },
   { ar: "مندوب المشتريات", en: "Purchasing Representative", category: "Logistics" },
 
-  // 5. الله بخش كريم بخش ساميراد
+  // Public Relations
   { ar: "موظف علاقات عامة", en: "Public Relations Officer (PRO)", category: "Public Relations" },
   { ar: "موظف علاقات عامه", en: "Public Relations Officer (PRO)", category: "Public Relations" },
 
-  // 6. انجليسا لازيليتا سلبنتان
+  // Reception
   { ar: "كاتب استقبال/عام", en: "General Reception Clerk", category: "Administration" },
   { ar: "كاتب استقبال / عام", en: "General Reception Clerk", category: "Administration" },
 
-  // 7. عبدالوهاب طارق نزير
+  // Messenger
   { ar: "مراسل", en: "Office Messenger", category: "Support" },
   { ar: "مراسل مكتبي", en: "Office Messenger", category: "Support" }
 ];
 
 
 export const EXTRACTED_CIVIL_ID_JOBS_BATCH_5 = [
-  // 1. حنان محمد احمد ابوالغيط
+  // General Practitioner
   { ar: "طبيب ممارس عام", en: "General Practitioner (GP)", category: "Medical" },
   { ar: "طبيب ممارس عام بشري", en: "General Practitioner (GP)", category: "Medical" },
 
-  // 2. داني مأمون نصر
+  // Public Health
   { ar: "طبيب صحة عامة", en: "Public Health Physician", category: "Medical" },
   { ar: "طبيب صحه عامه", en: "Public Health Physician", category: "Medical" },
 
-  // 3. سودير كومار نينجا ريدي
+  // Dermatology
   { ar: "طبيب اختصاصي/أمراض جلدية", en: "Specialist - Dermatology", category: "Medical" },
   { ar: "طبيب اختصاصي / أمراض جلدية", en: "Specialist - Dermatology", category: "Medical" },
   { ar: "طبيب اختصاصي/امراض جلدية", en: "Specialist - Dermatology", category: "Medical" },
   { ar: "طبيب اختصاصي أمراض جلدية", en: "Specialist - Dermatology", category: "Medical" },
 
-  // 4. على أ ك حسون
+  // General Dental
   { ar: "طبيب أسنان/عام", en: "General Dental Practitioner", category: "Medical" },
   { ar: "طبيب اسنان/عام", en: "General Dental Practitioner", category: "Medical" },
   { ar: "طبيب اسنان / عام", en: "General Dental Practitioner", category: "Medical" },

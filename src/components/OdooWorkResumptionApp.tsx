@@ -19,35 +19,7 @@ export const OdooWorkResumptionApp: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   
   // Local state for resumption records (in production, synchronized via db/context)
-  const [records, setRecords] = useState<ResumptionRecord[]>([
-    {
-      id: 'RES-2026-001',
-      employeeId: 'EMP-001',
-      employeeName: 'أحمد محمود الكندري',
-      type: 'RETURN_ANNUAL',
-      resumptionDate: '2026-08-15',
-      status: 'approved',
-      notes: 'تمت المباشرة فور انتهاء إجازته الدورية السنوية دون تأخير.'
-    },
-    {
-      id: 'RES-2026-002',
-      employeeId: 'EMP-002',
-      employeeName: 'محمد إبراهيم السيد',
-      type: 'RETURN_UNPAID',
-      resumptionDate: '2026-08-20',
-      status: 'approved',
-      notes: 'تمت مباشرة العمل، وإعادة تفعيل احتساب رصيد الإجازات التلقائي.'
-    },
-    {
-      id: 'RES-2026-003',
-      employeeId: 'EMP-003',
-      employeeName: 'سارة عبدالرحمن الفضلي',
-      type: 'NEW_JOIN',
-      resumptionDate: '2026-09-01',
-      status: 'draft',
-      notes: 'مباشرة عمل الموظف الجديد بعد توقيع العقد الوزاري.'
-    }
-  ]);
+  const [records, setRecords] = useState<ResumptionRecord[]>([]);
 
   // Form state
   const [newRecord, setNewRecord] = useState({

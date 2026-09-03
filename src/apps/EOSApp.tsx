@@ -13,11 +13,8 @@ interface EOSAppProps {
 }
 
 export const EOSApp: React.FC<EOSAppProps> = ({ employees, contracts, leaves = [], activeCompany, onNavigateToApp }) => {
-  const activeCompId = activeCompany?.id || 'comp-1';
-  let companyEmps = (employees || []).filter(e => !e.isDeleted && ((e.companyId || 'comp-1') === activeCompId || true));
-  if (companyEmps.length === 0 && (employees || []).filter(e => !e.isDeleted).length > 0) {
-    companyEmps = (employees || []).filter(e => !e.isDeleted);
-  }
+  const activeCompId = activeCompany?.id || '';
+  let companyEmps = (employees || []).filter(e => !e.isDeleted && e.companyId === activeCompId);
 
   const [selectedEmpId, setSelectedEmpId] = useState<string>(companyEmps[0]?.id || '');
   const [terminationType, setTerminationType] = useState<'RESIGNATION' | 'TERMINATION' | 'RETIREMENT' | 'CONTRACT_EXPIRED'>('RESIGNATION');

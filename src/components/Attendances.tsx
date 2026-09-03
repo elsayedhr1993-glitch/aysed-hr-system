@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useCompany } from '../context/CompanyContext';
-import { useOdooHierarchy, computeAttendanceAndOvertime } from '../context/OdooHierarchyContext';
+import { useOdooHierarchy, computeAttendanceAndOvertime, AttendanceLog } from '../context/OdooHierarchyContext';
 import { getDepartmentColorStyle } from '../utils/odooPalette';
 import { toast } from 'react-hot-toast';
 
@@ -95,10 +95,19 @@ export const Attendances: React.FC = () => {
     const contextRecords: AttendanceItem[] = employees.map(emp => {
       const log = attendance[emp.id] || { employeeId: emp.id, delayMinutes: 0, unpaidAbsenceDays: 0, overtimeHours: 0 };
       const empGross = emp.basicSalary + emp.housingAllowance + emp.transportAllowance;
-      const checkIn = log.checkIn || '08:00';
-      const checkOut = log.checkOut || '16:00';
+      const expectedIn = emp.shiftStartTime || '08:00';
+      const expectedOut = emp.shiftEndTime || '16:00';
+      const checkIn = log.checkIn || expectedIn;
+      const checkOut = log.checkOut || expectedOut;
       const isHoliday = log.isHoliday || false;
-      const calc = computeAttendanceAndOvertime(checkIn, checkOut, empGross, isHoliday);
+      const calc = computeAttendanceAndOvertime(checkIn, checkOut, empGross, isHoliday, {
+        dailyHours: emp.dailyHours,
+        shiftStartTime: emp.shiftStartTime,
+        shiftEndTime: emp.shiftEndTime,
+        gracePeriodMinutes: emp.gracePeriodMinutes,
+        employmentType: emp.employmentType,
+        hourlyRate: emp.hourlyRate
+      });
 
       let status: AttendanceItem['status'] = 'present';
       if (calc.delayMinutes > 0) status = 'late';
@@ -115,7 +124,7 @@ export const Attendances: React.FC = () => {
         checkIn,
         checkOut,
         workHours: Math.round(calc.actualHours * 10) / 10,
-        standardHours: 8,
+        standardHours: emp.dailyHours || 8,
         lateMinutes: calc.delayMinutes,
         overtimeHours: calc.overtimeHours,
         method: 'دستور بيومتري (Device)',
@@ -266,40 +275,39 @@ export const Attendances: React.FC = () => {
           const empName = foundEmp ? foundEmp.name : `موظف كود: ${daily.empId}`;
           const empDept = foundEmp ? foundEmp.department : 'غير محدد';
           const empTitle = foundEmp ? foundEmp.jobTitle : 'كادر مسجل بالبصمة';
-          const standardHours = 8;
+          const standardHours = foundEmp?.dailyHours || 8;
 
           if (foundEmp) matchedCount++;
           else unmatchedCount++;
 
-          // Compute Hours & Lateness
+          // Compute Hours & Lateness using unified logic
           let workHours = 0;
           let lateMinutes = 0;
           let overtimeHours = 0;
           let status: AttendanceItem['status'] = 'present';
 
-          if (firstIn && lastOut) {
-            const [inH, inM] = firstIn.split(':').map(Number);
-            const [outH, outM] = lastOut.split(':').map(Number);
-            const inMins = inH * 60 + (inM || 0);
-            const outMins = outH * 60 + (outM || 0);
-            const diffMins = Math.max(0, outMins - inMins);
-            workHours = Math.round((diffMins / 60) * 10) / 10;
+          if (firstIn && lastOut && typeof firstIn === 'string' && typeof lastOut === 'string') {
+            const empGross = foundEmp ? (foundEmp.basicSalary + foundEmp.housingAllowance + foundEmp.transportAllowance) : 350;
+            const calc = computeAttendanceAndOvertime(firstIn, lastOut, empGross, false, foundEmp ? {
+              dailyHours: foundEmp.dailyHours,
+              shiftStartTime: foundEmp.shiftStartTime,
+              shiftEndTime: foundEmp.shiftEndTime,
+              gracePeriodMinutes: foundEmp.gracePeriodMinutes,
+              employmentType: foundEmp.employmentType,
+              hourlyRate: foundEmp.hourlyRate
+            } : undefined);
+
+            workHours = Math.round(calc.actualHours * 10) / 10;
             totalCalculatedHours += workHours;
-
-            // Late threshold: standard shift starts at 08:00 (480 mins)
-            if (inMins > 480 + 15) { // 15 mins grace period
-              lateMinutes = inMins - 480;
-              status = 'late';
-            }
-
-            // Overtime: worked more than standard 8 hours
-            if (workHours > 8) {
-              overtimeHours = Math.round((workHours - 8) * 10) / 10;
-              if (lateMinutes === 0) status = 'overtime';
-            }
+            lateMinutes = calc.delayMinutes;
+            overtimeHours = calc.overtimeHours;
+            
+            if (lateMinutes > 0) status = 'late';
+            if (overtimeHours > 0 && lateMinutes === 0) status = 'overtime';
           } else if (firstIn && !lastOut) {
             status = 'single_punch';
             workHours = 4.0; // Half day penalty
+            totalCalculatedHours += workHours;
           } else {
             status = 'absent';
           }
@@ -374,8 +382,36 @@ export const Attendances: React.FC = () => {
   const handleKioskPunch = () => {
     if (!kioskSelectedEmp) return;
 
+    // Validate PIN
+    if (kioskSelectedEmp.pinCode && kioskPin !== kioskSelectedEmp.pinCode) {
+      toast.error('الرمز السري غير صحيح');
+      setKioskPin('');
+      return;
+    }
+
     const timeNow = new Date().toLocaleTimeString('ar-KW', { hour: '2-digit', minute: '2-digit', hour12: false });
     const actionLabel = kioskAction === 'in' ? 'تسجيل حضور (Check-In)' : 'تسجيل انصراف (Check-Out)';
+
+    // Check previous attendance for today to avoid overwriting or hardcoding checkIn
+    const empGross = kioskSelectedEmp.basicSalary + kioskSelectedEmp.housingAllowance + kioskSelectedEmp.transportAllowance;
+    const log: Partial<AttendanceLog> = attendance[kioskSelectedEmp.id] || {};
+    
+    let finalCheckIn = kioskAction === 'in' ? timeNow : (log.checkIn || kioskSelectedEmp.shiftStartTime || '08:00');
+    let finalCheckOut = kioskAction === 'out' ? timeNow : (log.checkOut || '');
+
+    const calc = computeAttendanceAndOvertime(finalCheckIn, finalCheckOut || timeNow, empGross, false, {
+      dailyHours: kioskSelectedEmp.dailyHours,
+      shiftStartTime: kioskSelectedEmp.shiftStartTime,
+      shiftEndTime: kioskSelectedEmp.shiftEndTime,
+      gracePeriodMinutes: kioskSelectedEmp.gracePeriodMinutes,
+      employmentType: kioskSelectedEmp.employmentType,
+      hourlyRate: kioskSelectedEmp.hourlyRate
+    });
+
+    let status: AttendanceItem['status'] = 'present';
+    if (calc.delayMinutes > 0) status = 'late';
+    if (calc.overtimeHours > 0 && calc.delayMinutes === 0) status = 'overtime';
+    if (!finalCheckOut && finalCheckIn) status = 'single_punch';
 
     // Update state
     const newRecord: AttendanceItem = {
@@ -385,18 +421,22 @@ export const Attendances: React.FC = () => {
       department: kioskSelectedEmp.department,
       jobTitle: kioskSelectedEmp.jobTitle,
       date: new Date().toISOString().split('T')[0],
-      checkIn: kioskAction === 'in' ? timeNow : '08:00',
-      checkOut: kioskAction === 'out' ? timeNow : '',
-      workHours: 8,
-      standardHours: 8,
-      lateMinutes: 0,
-      overtimeHours: 0,
+      checkIn: finalCheckIn,
+      checkOut: finalCheckOut,
+      workHours: Math.round(calc.actualHours * 10) / 10,
+      standardHours: kioskSelectedEmp.dailyHours || 8,
+      lateMinutes: calc.delayMinutes,
+      overtimeHours: calc.overtimeHours,
       method: 'كشك الحضور (Kiosk)',
-      status: 'present'
+      status: status
     };
 
-    setCustomAttendanceRecords(prev => [newRecord, ...prev]);
-    recordAttendanceTimes(kioskSelectedEmp.id, newRecord.checkIn, newRecord.checkOut);
+    setCustomAttendanceRecords(prev => {
+      const filtered = prev.filter(r => !(r.employeeId === kioskSelectedEmp.id && r.date === newRecord.date));
+      return [newRecord, ...filtered];
+    });
+    
+    recordAttendanceTimes(kioskSelectedEmp.id, finalCheckIn, finalCheckOut, calc.delayMinutes, calc.overtimeHours);
 
     setKioskGreeting({
       name: kioskSelectedEmp.name,
@@ -410,7 +450,7 @@ export const Attendances: React.FC = () => {
       setKioskStep('grid');
       setKioskSelectedEmp(null);
       setKioskPin('');
-    }, 3500);
+    }, 3000);
   };
 
   // Export Table to Excel

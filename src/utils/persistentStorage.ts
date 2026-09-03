@@ -141,53 +141,120 @@ export function removePersistentData(key: string, secondaryKey?: string): void {
 }
 
 /**
- * Purges all legacy mock companies and demo employees/contracts from localStorage
+ * Purges all legacy mock companies, demo subscriptions, and demo employees/contracts/leaves/custodies from localStorage
  */
 export function purgeLegacyMockData(): void {
   if (typeof window === 'undefined' || !window.localStorage) return;
   try {
-    // 1. Purge Companies
+    const isMockRecord = (item: any): boolean => {
+      if (!item) return false;
+      if (typeof item === 'string') {
+        const s = item.toLowerCase().trim();
+        return (
+          s === 'comp-1' ||
+          s === 'comp-01' ||
+          s === 'comp-demo' ||
+          s.startsWith('mock-') ||
+          s.startsWith('demo-') ||
+          s.startsWith('test-') ||
+          s.includes('تجريب') ||
+          s.includes('وهمي') ||
+          s.includes('demo') ||
+          s.includes('sample')
+        );
+      }
+      if (typeof item === 'object') {
+        if (item.isMock || item.isDemo || item.isSample) return true;
+        const id = String(item.id || '').toLowerCase();
+        if (id === 'comp-1' || id === 'comp-01' || id === 'comp-demo' || id === 'med-001' || id.startsWith('mock-') || id.startsWith('demo-') || id.startsWith('test-')) return true;
+        const compId = String(item.companyId || '').toLowerCase();
+        if (compId === 'comp-1' || compId === 'comp-01' || compId === 'comp-demo') return true;
+        const code = String(item.employeeCode || item.code || '').toLowerCase();
+        if (code === 'med-001' || code.includes('demo') || code.includes('mock')) return true;
+        const name = String(item.nameAr || item.name || item.fullNameAr || item.companyName || item.employeeName || item.empName || '').toLowerCase();
+        if (name.includes('تجريب') || name.includes('وهمي') || name.includes('demo') || name.includes('sample') || name.includes('الكندري') || name.includes('المنار')) return true;
+      }
+      return false;
+    };
+
+    // 1. Cleanse Companies & Tenants
     const rawComps = localStorage.getItem(MANARA_STORAGE_KEYS.COMPANIES);
     if (rawComps) {
       const comps = JSON.parse(rawComps);
       if (Array.isArray(comps)) {
-        const cleaned = comps.filter((c: any) => c.id !== 'comp-1' && !c.nameAr?.includes('مجموعة العيادات'));
+        const cleaned = comps.filter((c: any) => c.id !== 'comp-1' && c.id !== 'comp-demo' && !isMockRecord(c));
         localStorage.setItem(MANARA_STORAGE_KEYS.COMPANIES, JSON.stringify(cleaned));
         localStorage.setItem(MANARA_STORAGE_KEYS.TENANTS, JSON.stringify(cleaned));
       }
     }
 
-    // 2. Purge Employees
-    const rawEmps = localStorage.getItem(MANARA_STORAGE_KEYS.EMPLOYEES);
-    if (rawEmps) {
-      const emps = JSON.parse(rawEmps);
-      if (Array.isArray(emps)) {
-        const cleaned = emps.filter((e: any) => e.companyId !== 'comp-1' && !e.id?.startsWith('emp-20'));
-        localStorage.setItem(MANARA_STORAGE_KEYS.EMPLOYEES, JSON.stringify(cleaned));
+    // Cleanse registered_companies_v1 and aysed_saved_subscriptions
+    const rawReg = localStorage.getItem('registered_companies_v1');
+    if (rawReg) {
+      const regList = JSON.parse(rawReg);
+      if (Array.isArray(regList)) {
+        const cleanedReg = regList.filter((c: any) => c && c.id !== 'comp-1' && c.id !== 'comp-demo' && !isMockRecord(c));
+        localStorage.setItem('registered_companies_v1', JSON.stringify(cleanedReg));
       }
     }
 
-    // 3. Purge Contracts
-    const rawContracts = localStorage.getItem(MANARA_STORAGE_KEYS.CONTRACTS);
-    if (rawContracts) {
-      const contracts = JSON.parse(rawContracts);
-      if (Array.isArray(contracts)) {
-        const cleaned = contracts.filter((c: any) => c.companyId !== 'comp-1' && !c.id?.startsWith('cnt-20'));
-        localStorage.setItem(MANARA_STORAGE_KEYS.CONTRACTS, JSON.stringify(cleaned));
+    const rawSavedSubs = localStorage.getItem('aysed_saved_subscriptions');
+    if (rawSavedSubs) {
+      const savedSubs = JSON.parse(rawSavedSubs);
+      if (Array.isArray(savedSubs)) {
+        const cleanedSubs = savedSubs.filter((s: any) => s && s.id !== 'comp-1' && s.id !== 'comp-demo' && !isMockRecord(s));
+        localStorage.setItem('aysed_saved_subscriptions', JSON.stringify(cleanedSubs));
       }
     }
 
-    // 4. Purge Departments
+    // 2. Cleanse Employees
+    const empKeys = [MANARA_STORAGE_KEYS.EMPLOYEES, 'odoo_employees_v1', 'app_employees_data'];
+    empKeys.forEach(k => {
+      const rawEmps = localStorage.getItem(k);
+      if (rawEmps) {
+        try {
+          const emps = JSON.parse(rawEmps);
+          if (Array.isArray(emps)) {
+            const cleaned = emps.filter((e: any) => e.companyId !== 'comp-1' && !e.id?.startsWith('emp-20') && !isMockRecord(e));
+            localStorage.setItem(k, JSON.stringify(cleaned));
+          }
+        } catch (_) {}
+      }
+    });
+
+    // 3. Cleanse Contracts
+    // Remove obsolete unscoped legacy contract key completely
+    localStorage.removeItem('odoo_contracts_v1');
+    const contractKeys = [MANARA_STORAGE_KEYS.CONTRACTS];
+    contractKeys.forEach(k => {
+      const rawContracts = localStorage.getItem(k);
+      if (rawContracts) {
+        try {
+          const contracts = JSON.parse(rawContracts);
+          if (Array.isArray(contracts)) {
+            const cleaned = contracts.filter((c: any) => c && c.companyId && c.companyId !== 'comp-1' && !c.id?.startsWith('cnt-20') && !isMockRecord(c));
+            localStorage.setItem(k, JSON.stringify(cleaned));
+          }
+        } catch (_) {}
+      }
+    });
+
+    // 3b. Cleanse Commencements
+    // Remove obsolete unscoped legacy commencement key completely
+    localStorage.removeItem('odoo_commencements_v1');
+    localStorage.removeItem('odoo_leave_requests_v2');
+
+    // 4. Cleanse Departments
     const rawDepts = localStorage.getItem(MANARA_STORAGE_KEYS.DEPARTMENTS);
     if (rawDepts) {
       const depts = JSON.parse(rawDepts);
       if (Array.isArray(depts)) {
-        const cleaned = depts.filter((d: any) => d.companyId !== 'comp-1' && d.id !== 'dept-med' && d.id !== 'dept-derm');
+        const cleaned = depts.filter((d: any) => d.companyId !== 'comp-1' && !isMockRecord(d));
         localStorage.setItem(MANARA_STORAGE_KEYS.DEPARTMENTS, JSON.stringify(cleaned));
       }
     }
 
-    // 5. Purge Attendance, Leaves, Payslips for comp-1
+    // 5. Cleanse Attendance, Leaves, Payslips, Custodies, Loans, Warnings
     const arrayKeys = [
       MANARA_STORAGE_KEYS.ATTENDANCE,
       MANARA_STORAGE_KEYS.LEAVES,
@@ -203,7 +270,7 @@ export function purgeLegacyMockData(): void {
         try {
           const arr = JSON.parse(raw);
           if (Array.isArray(arr)) {
-            const cleaned = arr.filter((item: any) => item.companyId !== 'comp-1');
+            const cleaned = arr.filter((item: any) => item.companyId !== 'comp-1' && !isMockRecord(item));
             localStorage.setItem(k, JSON.stringify(cleaned));
           }
         } catch (_) {}
@@ -212,11 +279,11 @@ export function purgeLegacyMockData(): void {
 
     // 6. Reset active company ID if it was comp-1
     const activeComp = localStorage.getItem('activeCompanyId');
-    if (activeComp === 'comp-1') {
+    if (activeComp === 'comp-1' || activeComp === 'comp-01') {
       localStorage.setItem('activeCompanyId', 'comp-super-admin');
     }
   } catch (err) {
-    console.warn('[PersistentStorage] Purge mock data warning:', err);
+    console.warn('[PersistentStorage] Storage cleansing notification:', err);
   }
 }
 

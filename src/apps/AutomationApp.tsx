@@ -17,7 +17,7 @@ export const AutomationApp: React.FC<AutomationAppProps> = ({
 }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newRule, setNewRule] = useState<Partial<AutomationRule>>({
-    companyId: activeCompany?.id || 'comp-1',
+    companyId: activeCompany?.id || '',
     trigger: 'CIVIL_ID_EXPIRING',
     triggerDaysBefore: 30,
     action: 'SEND_NOTIFICATION',
@@ -25,7 +25,7 @@ export const AutomationApp: React.FC<AutomationAppProps> = ({
     active: true,
   });
 
-  const companyRules = (automationRules || []).filter(r => r.companyId === (activeCompany?.id || 'comp-1'));
+  const companyRules = (automationRules || []).filter(r => r.companyId === activeCompany?.id);
 
   const handleSave = () => {
     if (!newRule.name) {
@@ -35,7 +35,7 @@ export const AutomationApp: React.FC<AutomationAppProps> = ({
 
     const rule: AutomationRule = {
       id: `auto-${Date.now()}`,
-      companyId: activeCompany?.id || 'comp-1',
+      companyId: activeCompany?.id || '',
       name: newRule.name,
       trigger: newRule.trigger || 'CIVIL_ID_EXPIRING',
       triggerDaysBefore: newRule.triggerDaysBefore || 30,

@@ -76,7 +76,7 @@ export const ODOO_ACTIVITY_TYPES: Record<OdooActivityTypeKey, ActivityTypeConfig
     key: 'doc_renewal',
     label: '📅 تجديد مستند (Document Renewal)',
     icon: 'Calendar',
-    defaultAssignee: 'يوسف العلي',
+    defaultAssignee: 'مسؤول الجوازات والإقامات',
     defaultAssigneeRole: 'مسؤول الجوازات والإقامات',
     description: 'تجديد الإقامة، البطاقة المدنية، جواز السفر، أو الرخص الحكومية'
   },
@@ -84,7 +84,7 @@ export const ODOO_ACTIVITY_TYPES: Record<OdooActivityTypeKey, ActivityTypeConfig
     key: 'moh_license',
     label: '🩺 تجديد ترخيص طبي (MOH License)',
     icon: 'Stethoscope',
-    defaultAssignee: 'أحمد الكندري',
+    defaultAssignee: 'مدير الموارد البشرية',
     defaultAssigneeRole: 'مدير الموارد البشرية',
     description: 'تجديد ترخيص مزاولة المهنة الطبية أو تراخيص المنشأة من وزارة الصحة'
   },
@@ -92,7 +92,7 @@ export const ODOO_ACTIVITY_TYPES: Record<OdooActivityTypeKey, ActivityTypeConfig
     key: 'contract_review',
     label: '📝 متابعة عقد (Contract Review)',
     icon: 'FileText',
-    defaultAssignee: 'محمد إبراهيم السيد',
+    defaultAssignee: 'مسؤول شؤون العاملين',
     defaultAssigneeRole: 'مسؤول شؤون العاملين',
     description: 'مراجعة وتجديد عقود العمل، فترات التجربة، ومسودات العقود'
   }

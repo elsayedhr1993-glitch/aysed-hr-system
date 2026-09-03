@@ -96,12 +96,7 @@ function cleanKwd(amount: number | undefined | null): number {
 export function calculateServerAccrued2026(emp: any, asOfDateStr?: string): number {
   const asOf = asOfDateStr ? new Date(asOfDateStr) : new Date();
   
-  // إذا كان هناك تخصيصات رسمية مسجلة بالاسم أو الكود
-  if (emp?.fullNameAr?.includes('كريم بخش') || emp?.name?.includes('كريم بخش') || emp?.employeeCode === 'EMP-0012') {
-    return 0; // كريم بخش تم تسوية رصيده بالكامل في رصيد الافتتاحي 30.5
-  }
-
-  const joinDateStr = emp.joinDate || '2026-01-01';
+  const joinDateStr = emp?.joinDate || emp?.hireDate || '2026-01-01';
   const joinDate = new Date(joinDateStr);
   
   // حساب الأشهر من 1 يناير 2026 أو تاريخ المباشرة إن كان لاحقاً
@@ -128,39 +123,37 @@ export function calculateServerAccrued2026(emp: any, asOfDateStr?: string): numb
 
 /**
  * حساب الرصيد الافتتاحي المرحل من 2025 بدقة
+ * الاعتماد فقط على الحقول المخزنة في سجل الموظف (carriedOverLeave2025, carriedOverBalance, openingBalance, etc.)
+ * دون أي أسماء أو أكواد يدوية ثابتة
  */
 export function calculateServerOpeningBalance(emp: any): number {
   if (!emp) return 0;
 
-  // الحالات الخاصة المثبتة رسمياً
-  if (emp?.fullNameAr?.includes('كريم بخش') || emp?.name?.includes('كريم بخش') || emp?.employeeCode === 'EMP-0012') {
-    return 30.5;
-  }
-  if (emp?.fullNameAr?.includes('أحمد محمود') || emp?.name?.includes('أحمد محمود') || emp?.employeeCode === 'EMP-0001') {
-    return 32;
-  }
-  if (emp?.fullNameAr?.includes('سارة') || emp?.name?.includes('سارة') || emp?.employeeCode === 'EMP-0002') {
-    return 24;
-  }
-  if (emp?.fullNameAr?.includes('محمد العتيبي') || emp?.name?.includes('محمد العتيبي') || emp?.employeeCode === 'EMP-0003') {
-    return 15;
-  }
-  if (emp?.fullNameAr?.includes('فاطمة') || emp?.name?.includes('فاطمة') || emp?.employeeCode === 'EMP-0004') {
-    return 20;
-  }
+  // الحقول المخزنة في سجل الموظف للرصيد المرحل / الافتتاحي
+  const explicitVal = 
+    emp.carriedOverLeave2025 ?? 
+    emp.carriedOverBalance ?? 
+    emp.carriedOverLeaveBalance ?? 
+    emp.aysed_carried_over ?? 
+    emp.openingLeaveBalance ?? 
+    emp.openingBalance ?? 
+    emp.initialLeaveBalance ?? 
+    emp.carriedOver;
 
-  const explicitVal = emp.carriedOverLeave2025 ?? emp.carriedOverBalance ?? emp.aysed_carried_over ?? emp.openingBalance;
   if (explicitVal !== undefined && explicitVal !== null && !isNaN(Number(explicitVal))) {
-    return Number(explicitVal);
+    return cleanDays(Number(explicitVal));
   }
 
   // إذا تم التعيين في 2026 أو لاحقاً فالرصيد المرحل = 0
-  const joinDate = new Date(emp.joinDate || '2026-01-01');
-  if (joinDate >= new Date('2026-01-01')) {
-    return 0;
+  const joinDateStr = emp.joinDate || emp.hireDate;
+  if (joinDateStr) {
+    const joinDate = new Date(joinDateStr);
+    if (joinDate >= new Date('2026-01-01')) {
+      return 0;
+    }
   }
 
-  return 30; // القيمة الافتراضية للقدامى
+  return 0; // القيمة الافتراضية إذا لم يُحدد رصيد مرحل صريح في سجل الموظف
 }
 
 /**

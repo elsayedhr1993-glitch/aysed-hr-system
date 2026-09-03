@@ -51,7 +51,7 @@ export const DynamicQrKioskModal: React.FC<DynamicQrKioskModalProps> = ({
     address: string;
   }>>(() => {
     try {
-      const saved = localStorage.getItem(`geofence_branches_${activeCompany?.id || 'comp-1'}`);
+      const saved = localStorage.getItem(`geofence_branches_${activeCompany?.id || 'default'}`);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -89,26 +89,7 @@ export const DynamicQrKioskModal: React.FC<DynamicQrKioskModalProps> = ({
     branchName: string;
     avatar?: string;
     isWhatsappSent?: boolean;
-  }>>([
-    {
-      id: 'k1',
-      employeeName: 'د. أحمد الكندري',
-      employeeCode: 'EMP-001',
-      punchType: 'CHECK_IN',
-      time: '08:00:14 ص',
-      branchName: selectedBranch.name,
-      isWhatsappSent: true
-    },
-    {
-      id: 'k2',
-      employeeName: 'سارة المطيري',
-      employeeCode: 'EMP-002',
-      punchType: 'CHECK_IN',
-      time: '08:04:32 ص',
-      branchName: selectedBranch.name,
-      isWhatsappSent: true
-    }
-  ]);
+  }>>([]);
 
   // Manual PIN Mode
   const [isPinMode, setIsPinMode] = useState(false);

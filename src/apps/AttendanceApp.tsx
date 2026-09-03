@@ -238,7 +238,7 @@ export class AttendanceParser {
 
     const results: any[] = [];
     const timeToMins = (tStr: string) => {
-        if (!tStr) return 0;
+        if (!tStr || typeof tStr !== 'string') return 0;
         const parts = tStr.split(':');
         return parseInt(parts[0]) * 60 + parseInt(parts[1]);
     };
@@ -447,7 +447,8 @@ export const AttendanceApp: React.FC<any> = (props) => {
         const shiftStart = emp.shiftStart || emp.shift_start || emp.timeIn || '08:00';
         let shiftEnd = emp.shiftEnd || emp.shift_end || emp.timeOut;
         if (!shiftEnd) {
-           const startHour = parseInt(shiftStart.split(':')[0]) || 8;
+        let shiftStartStr = typeof shiftStart === 'string' ? shiftStart : '08:00';
+        const startHour = parseInt(shiftStartStr.split(':')[0]) || 8;
            shiftEnd = `${String(startHour + standardHours).padStart(2, '0')}:00`;
         }
         

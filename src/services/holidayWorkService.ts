@@ -264,7 +264,7 @@ export async function approveHolidayWork(
         ? `إجازة تعويضية / راحة بديلة (Comp-Off) عن عمل في (${record.holidayName || 'عطلة رسمية / راحة أسبوعية'})`
         : `إضافة للرصيد السنوي عن عمل في (${record.holidayName || 'عطلة رسمية / راحة أسبوعية'})`,
       employeeId: record.employeeId,
-      companyId: record.companyId || 'comp-1',
+      companyId: record.companyId || '',
       leaveType: 'ANNUAL',
       allocationType: isCompOff ? 'compensatory_off' : 'accrual',
       numberOfDays: addedDays,
