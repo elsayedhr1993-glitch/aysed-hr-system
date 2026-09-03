@@ -33,6 +33,7 @@ export interface ScannedData {
   confidenceScore?: number;
   residencyType?: string;
   mohLicenseNo?: string;
+  mohLicenseExpiryDate?: string;
   contractSalary?: number;
 }
 
@@ -119,6 +120,9 @@ export async function processAnyDocument(file: File, apiKey?: string, docType?: 
 
   // إرسال البيانات لمعالج الرؤية البصرية في السيرفر
   let response;
+  let useClientFallback = false;
+  let serverErrorMsg = '';
+
   try {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -137,17 +141,161 @@ export async function processAnyDocument(file: File, apiKey?: string, docType?: 
         customApiKey: effectiveApiKey || undefined,
       }),
     });
+
+    if (!response.ok) {
+      const errJson = await response.json().catch(() => ({}));
+      serverErrorMsg = errJson.error || 'فشل نظام القراءة الضوئية (OCR) في تحليل المستند.';
+      if (effectiveApiKey && effectiveApiKey.trim() !== '') {
+        useClientFallback = true;
+      } else {
+        throw new Error(serverErrorMsg + (errJson.details ? '\nالسبب: ' + errJson.details : ''));
+      }
+    }
   } catch (netErr: any) {
-    throw new Error('فشل الاتصال بالخادم. يرجى التأكد من اتصالك بالإنترنت أو تحديث الصفحة.');
+    if (effectiveApiKey && effectiveApiKey.trim() !== '') {
+      useClientFallback = true;
+      serverErrorMsg = netErr.message || 'فشل الاتصال بالخادم';
+    } else {
+      throw new Error('فشل الاتصال بالخادم. يرجى التأكد من اتصالك بالإنترنت أو تحديث الصفحة أو إدخال مفتاح الذكاء الاصطناعي في إعدادات النظام.');
+    }
   }
 
-  if (!response.ok) {
-    const errJson = await response.json().catch(() => ({}));
-    throw new Error((errJson.error || 'فشل نظام القراءة الضوئية (OCR) في تحليل المستند.') + (errJson.details ? '\nالسبب: ' + errJson.details : ''));
+  if (useClientFallback && effectiveApiKey) {
+    console.info('Server OCR failed or timed out. Initiating direct client-side Gemini OCR fallback...', serverErrorMsg);
+    try {
+      return await performClientSideGeminiOCR(docData.base64, docData.mimeType, effectiveApiKey, docType);
+    } catch (clientErr: any) {
+      throw new Error(`تعذر المسح الضوئي تلقائياً. فشل المسح السحابي والمحلي.\nالسبب: ${clientErr.message || clientErr}`);
+    }
   }
 
-  const text = await response.text();
+  const text = await response!.text();
   let result;
   try { result = JSON.parse(text); } catch(e) { throw new Error('استجابة غير صالحة من الخادم (تحديث النظام).'); }
   return result.data;
+}
+
+/**
+ * دالة مسح ضوئي مباشرة من جهة العميل (Client-Side Direct Gemini API Call)
+ * تحل مشكلة انتهاء مهلة الخادم (Gateway Timeout 10s) في بيئة Vercel
+ */
+async function performClientSideGeminiOCR(base64Data: string, mimeType: string, apiKey: string, docType?: string): Promise<ScannedData> {
+  // تنظيف الـ base64 من البادئة
+  let rawBase64 = base64Data.replace(/^data:.*?;base64,/, "").replace(/\s/g, "");
+  
+  // تحديد نوع الميديا المناسب
+  let resolvedMimeType = mimeType || "image/jpeg";
+  if (rawBase64.startsWith("JVBERi")) {
+    resolvedMimeType = "application/pdf";
+  } else if (rawBase64.startsWith("/9j/")) {
+    resolvedMimeType = "image/jpeg";
+  } else if (rawBase64.startsWith("iVBORw")) {
+    resolvedMimeType = "image/png";
+  } else if (rawBase64.startsWith("UklGR")) {
+    resolvedMimeType = "image/webp";
+  }
+
+  const prompt = `أنت نظام خبير في القراءة الضوئية واستخراج بيانات البطاقة المدنية والمستندات الرسمية الكويتية بدقة مطلقة (OCR Vision Engine).
+مهمتك استخراج كافة حقول وبيانات المستند المرفق حصرياً بدقة 100% دون أي تخمين. تحذير شديد: إياك أن تؤلف بيانات وهمية (مثل أحمد محمد عبدالله أو أرقام عشوائية). إذا لم تستطع قراءة حقل، أرجعه فارغاً "".
+أرجع الناتج بصيغة JSON فقط مطابق لهذا الهيكل بدقة:
+{
+  "civilId": "الرقم المدني (12 رقماً)",
+  "fullNameAr": "الاسم الكامل بالعربية",
+  "fullNameEn": "الاسم الكامل بالإنجليزية",
+  "nationality": "الجنسية",
+  "gender": "ذكر أو أنثى / MALE أو FEMALE",
+  "birthDate": "YYYY-MM-DD",
+  "unifiedNo": "الرقم الموحد / الرقم المرجع",
+  "passportNo": "رقم جواز السفر إن وجد",
+  "profession": "المهنة أو المسمى الوظيفي المسجل",
+  "expiryDate": "تاريخ الانتهاء للبطاقة المدنية أو الإقامة YYYY-MM-DD",
+  "issueDate": "تاريخ الإصدار YYYY-MM-DD",
+  "mohLicenseNo": "رقم الترخيص الصحي إن وجد",
+  "mohLicenseExpiryDate": "تاريخ انتهاء الترخيص الصحي YYYY-MM-DD",
+  "residencyType": "نوع الإقامة",
+  "bloodGroup": "فصيلة الدم",
+  "address": {
+    "block": "القطعة",
+    "street": "الشارع",
+    "building": "المبنى / القسيمة",
+    "area": "المنطقة / المحافظة"
+  }
+}`;
+
+  const body = {
+    contents: [
+      {
+        parts: [
+          {
+            inlineData: {
+              data: rawBase64,
+              mimeType: resolvedMimeType
+            }
+          },
+          {
+            text: prompt
+          }
+        ]
+      }
+    ],
+    generationConfig: {
+      responseMimeType: "application/json"
+    }
+  };
+
+  // سنقوم بتجربة Gemini 2.5 Flash كونه مجاني وسريع جداً وممتاز في الاستخراج
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey.trim()}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => '');
+    console.error('Client-side Gemini API call failed:', errorText);
+    throw new Error('فشل الاتصال المباشر بخوادم جوجل للذكاء الاصطناعي. يرجى التحقق من صلاحية مفتاح الـ API.');
+  }
+
+  const json = await response.json();
+  const textResponse = json.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+  
+  // استخراج الـ JSON بأمان من النص المسترجع
+  let cleanedJsonText = textResponse.trim();
+  if (cleanedJsonText.includes('```json')) {
+    cleanedJsonText = cleanedJsonText.split('```json')[1].split('```')[0].trim();
+  } else if (cleanedJsonText.includes('```')) {
+    cleanedJsonText = cleanedJsonText.split('```')[1].split('```')[0].trim();
+  }
+
+  let parsed: any;
+  try {
+    parsed = JSON.parse(cleanedJsonText);
+  } catch (parseErr) {
+    console.error('Failed to parse Gemini JSON output:', cleanedJsonText);
+    throw new Error('فشل في معالجة صيغة البيانات المستخرجة من المستند.');
+  }
+
+  return {
+    civilId: parsed.civilId || "",
+    fullNameAr: parsed.fullNameAr || parsed.fullName || "",
+    fullNameEn: parsed.fullNameEn || "",
+    nationality: parsed.nationality || "",
+    gender: parsed.gender || "MALE",
+    birthDate: parsed.birthDate || parsed.dob || "",
+    dob: parsed.birthDate || parsed.dob || "",
+    unifiedNo: parsed.unifiedNo || "",
+    passportNo: parsed.passportNo || "",
+    profession: parsed.profession || parsed.jobTitle || "",
+    jobTitle: parsed.profession || parsed.jobTitle || "",
+    expiryDate: parsed.expiryDate || "",
+    issueDate: parsed.issueDate || "",
+    bloodGroup: parsed.bloodGroup || "",
+    address: parsed.address || { block: "", street: "", building: "", area: "" },
+    residencyType: parsed.residencyType || "",
+    mohLicenseNo: parsed.mohLicenseNo || "",
+    mohLicenseExpiryDate: parsed.mohLicenseExpiryDate || "",
+    contractSalary: Number(parsed.contractSalary) || 0,
+  };
 }

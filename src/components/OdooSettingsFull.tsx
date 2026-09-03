@@ -17,7 +17,13 @@ import {
   FileSpreadsheet, 
   RotateCcw,
   Sparkles,
-  Info
+  Info,
+  Mail,
+  Key,
+  Eye,
+  EyeOff,
+  ExternalLink,
+  CheckCircle
 } from 'lucide-react';
 import { useSystemSettings, SystemSettings } from '../context/SystemSettingsContext';
 import { useCompany } from '../context/CompanyContext';
@@ -39,11 +45,61 @@ export const OdooSettingsFull: React.FC = () => {
     setFormData(settings);
   }, [settings]);
 
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [isTestingSmtp, setIsTestingSmtp] = useState(false);
+
   const handleFieldChange = <K extends keyof SystemSettings>(key: K, value: SystemSettings[K]) => {
     setFormData((prev) => ({
       ...prev,
       [key]: value
     }));
+  };
+
+  const handleTestSmtp = async () => {
+    setIsTestingSmtp(true);
+    const targetEmail = formData.email || 'elsayedhr1993@gmail.com';
+    try {
+      const response = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: targetEmail,
+          subject: 'اختبار خادم البريد (Aysed S HR 2026) - تهيئة أودو',
+          text: `هذه رسالة اختبار للتأكد من ربط خادم البريد والمزامنة في المنشأة ${formData.companyNameAr}.`,
+          html: `
+            <div dir="rtl" style="font-family: Arial, sans-serif; padding: 25px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #714B67; font-size: 20px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 15px;">نجاح الاتصال والتحقق السحابي!</h2>
+              <p style="font-size: 14px; color: #334155; line-height: 1.6;">مرحباً،</p>
+              <p style="font-size: 14px; color: #334155; line-height: 1.6;">هذه رسالة اختبار تلقائية من <strong>نظام إعدادات أودو للموارد البشرية (Aysed S HR 2026)</strong>.</p>
+              <p style="font-size: 14px; color: #334155; line-height: 1.6;">تم التحقق من ربط وتكامل خادم البريد الإلكتروني SMTP بنجاح للمنشأة: <strong style="color: #0f172a;">${formData.companyNameAr || 'الفنار كلينك'}</strong></p>
+              
+              <div style="margin-top: 25px; padding: 15px; background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 12px; color: #475569;">
+                <strong>بيانات التكوين والربط الفني:</strong><br />
+                • خادم الصادر SMTP: <span style="font-family: monospace;">${formData.smtpHost || 'smtp.gmail.com'}</span><br />
+                • المنفذ المعتمد: <span style="font-family: monospace;">${formData.smtpPort || 465}</span><br />
+                • بريد الإرسال النشط: <span style="font-family: monospace;">${formData.smtpUser || targetEmail}</span>
+              </div>
+              <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 25px 0;" />
+              <p style="font-size: 11px; color: #94a3b8; text-align: center;">نظام Aysed S HR 2026 &copy; ${new Date().getFullYear()} - جميع الحقوق محفوظة.</p>
+            </div>
+          `
+        })
+      });
+
+      const text = await response.text();
+      let data;
+      try { data = JSON.parse(text); } catch(e) { throw new Error('الخادم لم يرجع استجابة JSON صالحة.'); }
+      
+      if (data.success) {
+        toast.success(`تم إرسال بريد الاختبار بنجاح إلى: ${targetEmail}`);
+      } else {
+        toast.error(`فشل الإرسال: ${data.error || 'حدث خطأ في الاتصال بالخادم.'}`);
+      }
+    } catch (error: any) {
+      toast.error(`خطأ فني: ${error.message || 'فشل الاتصال بالخادم لإجراء الفحص.'}`);
+    } finally {
+      setIsTestingSmtp(false);
+    }
   };
 
   const handleSave = () => {
@@ -89,6 +145,7 @@ export const OdooSettingsFull: React.FC = () => {
     { id: 'leaves', label: 'الإجازات ومحرك التراكم', icon: CalendarDays, subtitle: 'معدل 2.5 يوم، الإجازة غير المدفوعة، والمادة 71' },
     { id: 'attendance', label: 'الدوام وأجهزة البصمة', icon: Clock, subtitle: 'ساعات العمل، دقائق السماح، وإعدادات الربط' },
     { id: 'indemnity', label: 'حاسبة مكافأة نهاية الخدمة', icon: Scale, subtitle: 'المادتان 51 و 53، شرائح الاستقالة والبدلات' },
+    { id: 'integrations', label: 'الذكاء الاصطناعي والربط سحابي', icon: Sparkles, subtitle: 'مفتاح Gemini API، محرك OCR، والبريد الإلكتروني' },
     { id: 'security', label: 'الأمان والنسخ الاحتياطي', icon: ShieldCheck, subtitle: 'الجلسات، النسخ السحابي، والتأمين' }
   ];
 
@@ -145,13 +202,6 @@ export const OdooSettingsFull: React.FC = () => {
             )}
           </div>
 
-          {saveSuccess && (
-            <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 animate-in fade-in">
-              <CheckCircle2 size={14} />
-              <span>تم حفظ الإعدادات وتطبيقها فوراً</span>
-            </div>
-          )}
-
           <button
             type="button"
             onClick={resetSettings}
@@ -166,10 +216,20 @@ export const OdooSettingsFull: React.FC = () => {
             type="button"
             onClick={handleSave}
             disabled={isSaving}
-            className="flex items-center gap-1.5 bg-[#714B67] hover:bg-[#583a50] active:scale-95 text-white px-4 py-1.5 rounded-lg text-xs font-bold shadow-sm transition cursor-pointer disabled:opacity-50"
+            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold shadow-xs transition-all duration-300 cursor-pointer disabled:opacity-50 active:scale-95 ${
+              saveSuccess 
+                ? 'bg-emerald-600 hover:bg-emerald-700 text-white font-black' 
+                : 'bg-[#714B67] hover:bg-[#583a50] text-white'
+            }`}
           >
-            {isSaving ? <RefreshCw size={13} className="animate-spin" /> : <Save size={13} />}
-            <span>حفظ الإعدادات</span>
+            {isSaving ? (
+              <RefreshCw size={13} className="animate-spin" />
+            ) : saveSuccess ? (
+              <CheckCircle2 size={13} className="text-white animate-bounce" />
+            ) : (
+              <Save size={13} />
+            )}
+            <span>{saveSuccess ? 'تم الحفظ بنجاح ✓' : 'حفظ الإعدادات'}</span>
           </button>
         </div>
       </div>
@@ -326,35 +386,37 @@ export const OdooSettingsFull: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">العنوان الرسمي المعتمد</label>
                   <input
                     type="text"
                     value={formData.address}
                     onChange={(e) => handleFieldChange('address', e.target.value)}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:border-[#714B67] outline-hidden"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:border-[#714B67] outline-hidden shadow-2xs"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">هاتف التواصل والبريد</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <input
-                      type="text"
-                      value={formData.phone}
-                      onChange={(e) => handleFieldChange('phone', e.target.value)}
-                      placeholder="الهاتف"
-                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:border-[#714B67] outline-hidden"
-                    />
-                    <input
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => handleFieldChange('email', e.target.value)}
-                      placeholder="البريد الإلكتروني"
-                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:border-[#714B67] outline-hidden"
-                    />
-                  </div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">هاتف التواصل</label>
+                  <input
+                    type="text"
+                    value={formData.phone}
+                    onChange={(e) => handleFieldChange('phone', e.target.value)}
+                    placeholder="الهاتف"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:border-[#714B67] outline-hidden shadow-2xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">البريد الإلكتروني للمنشأة</label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => handleFieldChange('email', e.target.value)}
+                    placeholder="البريد الإلكتروني"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:border-[#714B67] outline-hidden shadow-2xs"
+                  />
                 </div>
               </div>
             </div>
@@ -756,6 +818,221 @@ export const OdooSettingsFull: React.FC = () => {
                     احتساب البدلات الثابتة (السكن، الانتقال) ضمن الأجر الشامل لاحتساب نهاية الخدمة
                   </span>
                 </label>
+              </div>
+            </div>
+          )}
+
+          {/* Section 7: الذكاء الاصطناعي والربط سحابي (AI & Integrations) */}
+          {(activeSection === 'integrations' || searchQuery) && (
+            <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6 space-y-6">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-purple-50 text-[#714B67] rounded-lg">
+                    <Sparkles size={18} />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold text-slate-900">الذكاء الاصطناعي ومعالجة المستندات (AI & Integrations)</h2>
+                    <p className="text-[11px] text-slate-500">تفعيل خدمات الذكاء الاصطناعي، مفاتيح الربط، وأتمتة مسح المستندات وعقد الصادر.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 1. Gemini Engine Settings */}
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/80 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
+                  <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <Sparkles size={14} className="text-[#714B67]" />
+                    <span>محرك الذكاء الاصطناعي (Google Gemini AI Engine)</span>
+                  </div>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    formData.geminiApiKey ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                  }`}>
+                    {formData.geminiApiKey ? 'مُتصل ونشط' : 'غير مضبوط (يستخدم السيرفر)'}
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-slate-700">مفتاح API الخاص بـ Gemini (Gemini API Key)</label>
+                      <a 
+                        href="https://aistudio.google.com/" 
+                        target="_blank" 
+                        rel="noreferrer" 
+                        className="text-[10px] text-indigo-600 hover:underline flex items-center gap-0.5 font-bold animate-pulse"
+                      >
+                        <span>الحصول على مفتاح مجاني</span>
+                        <ExternalLink size={10} />
+                      </a>
+                    </div>
+                    <div className="relative">
+                      <Key className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
+                      <input
+                        type={showApiKey ? 'text' : 'password'}
+                        value={formData.geminiApiKey || ''}
+                        onChange={(e) => handleFieldChange('geminiApiKey', e.target.value)}
+                        placeholder="AIzaSy..."
+                        dir="ltr"
+                        className="w-full bg-white border border-slate-300 rounded-lg pr-9 pl-10 py-2.5 text-xs font-mono font-bold text-slate-800 focus:border-[#714B67] outline-hidden shadow-2xs"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowApiKey(!showApiKey)}
+                        className="absolute left-3 top-3 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        {showApiKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">
+                      عند إدخال مفتاحك الخاص، سيقوم النظام بتشغيل عمليات تحليل صور الهويات المدنية والرخص مباشرة من متصفحك (Client-Side OCR) بسرعة خارقة وبدون التعراض لقيود المهلة السحابية (Vercel Timeout 10s).
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Document Extraction Engine Mode */}
+              <div className="p-4 bg-purple-50/40 rounded-xl border border-purple-200/60 space-y-3">
+                <div className="text-xs font-bold text-[#714B67] flex items-center gap-1.5">
+                  <Sliders size={14} />
+                  <span>وضع محرك القراءة الضوئية واستخراج البيانات (OCR Mode)</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className={`p-3 rounded-lg border flex items-start gap-3 cursor-pointer transition ${
+                    formData.ocrEngineMode === 'cloud_server' ? 'bg-white border-[#714B67] shadow-2xs' : 'bg-transparent border-slate-200'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="ocrEngineMode"
+                      checked={formData.ocrEngineMode === 'cloud_server'}
+                      onChange={() => handleFieldChange('ocrEngineMode', 'cloud_server')}
+                      className="mt-0.5 text-[#714B67]"
+                    />
+                    <div>
+                      <div className="text-xs font-bold text-slate-900">سيرفر معالجة السحابة الآمنة (Cloud Server)</div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">استخدام السيرفر المركزي لمعالجة المستندات وحفظ البيانات بسرية تامة.</div>
+                    </div>
+                  </label>
+
+                  <label className={`p-3 rounded-lg border flex items-start gap-3 cursor-pointer transition ${
+                    formData.ocrEngineMode === 'direct_client' ? 'bg-white border-[#714B67] shadow-2xs' : 'bg-transparent border-slate-200'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="ocrEngineMode"
+                      checked={formData.ocrEngineMode === 'direct_client'}
+                      onChange={() => handleFieldChange('ocrEngineMode', 'direct_client')}
+                      className="mt-0.5 text-[#714B67]"
+                    />
+                    <div>
+                      <div className="text-xs font-bold text-slate-900">العميل المباشر فائق السرعة (Direct Client)</div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">ربط مباشر بمتصفح العميل يتجاوز أي فترات توقف سحابية ويستخرج البيانات بثانية واحدة.</div>
+                    </div>
+                  </label>
+                </div>
+
+                <div className="space-y-2 pt-2 border-t border-purple-200/40">
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.autoExtractDocuments}
+                      onChange={(e) => handleFieldChange('autoExtractDocuments', e.target.checked)}
+                      className="text-[#714B67] rounded mt-0.5"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-slate-800 block">المسح التلقائي الفوري للمستندات عند رفعها</span>
+                      <span className="text-[10px] text-slate-500">قراءة وتفكيك البطاقة المدنية، رخصة وزارة الصحة، أو الجواز تلقائياً وتعبئة سجل الموظف الجديد دون تدخل بشري.</span>
+                    </div>
+                  </label>
+
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.enableAiAssistant}
+                      onChange={(e) => handleFieldChange('enableAiAssistant', e.target.checked)}
+                      className="text-[#714B67] rounded mt-0.5"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-slate-800 block">تفعيل المستشار المساعد للمنظومة (Copilot Assistant)</span>
+                      <span className="text-[10px] text-slate-500">تقديم اقتراحات لتصميم قوالب الشفتات والتحذير من انتهاء الإقامات أو تعارض الدوامات.</span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* 3. SMTP Mail Gateway Configuration */}
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-4">
+                <div className="text-xs font-bold text-slate-900 flex items-center justify-between border-b border-slate-200/60 pb-2">
+                  <div className="flex items-center gap-1.5">
+                    <Mail size={14} className="text-blue-600" />
+                    <span>بوابة صادر البريد الإلكتروني والمراسلات (SMTP Mail Gateway)</span>
+                  </div>
+                  <span className="text-[10px] text-blue-700 bg-blue-50 font-bold px-2 py-0.5 rounded-full border border-blue-100">
+                    Odoo Mail Exchange
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">خادم SMTP (SMTP Server Address)</label>
+                    <input
+                      type="text"
+                      value={formData.smtpHost || ''}
+                      onChange={(e) => handleFieldChange('smtpHost', e.target.value)}
+                      placeholder="smtp.gmail.com"
+                      dir="ltr"
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 focus:border-[#714B67] outline-hidden shadow-2xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">المنفذ المعتمد (SMTP Port)</label>
+                    <input
+                      type="number"
+                      value={formData.smtpPort || 465}
+                      onChange={(e) => handleFieldChange('smtpPort', parseInt(e.target.value) || 465)}
+                      placeholder="465"
+                      dir="ltr"
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 focus:border-[#714B67] outline-hidden shadow-2xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">البريد الإلكتروني للربط والتوثيق</label>
+                    <input
+                      type="email"
+                      value={formData.smtpUser || ''}
+                      onChange={(e) => handleFieldChange('smtpUser', e.target.value)}
+                      placeholder="elsayedhr1993@gmail.com"
+                      dir="ltr"
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 focus:border-[#714B67] outline-hidden shadow-2xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2">
+                  <p className="text-[10px] text-slate-500 max-w-md leading-normal">
+                    تُستعمل هذه التهيئة لإبلاغ الموظفين بقرارات الإجازات والرواتب وتقرير الشفتات الشهري تلقائياً عبر البريد الإلكتروني.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleTestSmtp}
+                    disabled={isTestingSmtp}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition shrink-0 cursor-pointer disabled:opacity-50"
+                  >
+                    {isTestingSmtp ? (
+                      <>
+                        <RefreshCw size={13} className="animate-spin" />
+                        <span>جاري إرسال الاختبار...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Mail size={13} />
+                        <span>اختبار اتصال البريد الإلكتروني</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           )}

@@ -52,6 +52,15 @@ export interface SystemSettings {
   applyResignationTiersArticle53: boolean; // تطبيق المادة 53
   includeAllowancesInIndemnity: boolean; // احتساب الأجر الشامل
   workingDaysPerMonthDivisor: number; // 26 يوماً
+
+  // 6. الذكاء الاصطناعي ومعالجة المستندات (AI, OCR & Integrations)
+  geminiApiKey: string;
+  ocrEngineMode: 'cloud_server' | 'direct_client';
+  autoExtractDocuments: boolean;
+  smtpHost: string;
+  smtpPort: number;
+  smtpUser: string;
+  enableAiAssistant: boolean;
 }
 
 export const defaultSettings: SystemSettings = {
@@ -105,6 +114,15 @@ export const defaultSettings: SystemSettings = {
   applyResignationTiersArticle53: true,
   includeAllowancesInIndemnity: true,
   workingDaysPerMonthDivisor: 26,
+
+  // الذكاء الاصطناعي و OCR و البريد
+  geminiApiKey: localStorage.getItem('custom_gemini_key') || '',
+  ocrEngineMode: 'cloud_server',
+  autoExtractDocuments: true,
+  smtpHost: 'smtp.gmail.com',
+  smtpPort: 465,
+  smtpUser: 'elsayedhr1993@gmail.com',
+  enableAiAssistant: true,
 };
 
 interface SystemSettingsContextType {
@@ -186,6 +204,11 @@ export const SystemSettingsProvider: React.FC<{ children: React.ReactNode }> = (
     });
 
     // مزامنة فورية ومباشرة لبيانات الشركة النشطة في CompanyContext و localStorage
+    if (newSettings.geminiApiKey !== undefined) {
+      localStorage.setItem('custom_gemini_key', newSettings.geminiApiKey);
+      localStorage.setItem('custom_gemini_api_key', newSettings.geminiApiKey);
+    }
+
     if (
       newSettings.companyNameAr ||
       newSettings.companyNameEn ||

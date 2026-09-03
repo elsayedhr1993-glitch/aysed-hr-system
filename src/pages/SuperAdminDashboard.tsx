@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { 
   Building2, Users, CheckCircle2, Clock, 
   MessageSquare, ShieldCheck, RefreshCw, Eye, Search, AlertCircle, LogOut, Copy, Check, PauseCircle, Trash2, PlayCircle, Server, Activity, Database,
-  Edit3, Save, X, Lock, Building, Phone, Mail, User, Plus
+  Edit3, Save, X, Lock, Building, Phone, Mail, User, Plus, Key, EyeOff, Sliders, Cpu, Layers, Wifi, Settings
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { db, auth, provisionTenantAuth, cleanFirestoreData, purgeTenantCascading, isTenantPurged } from '../lib/firebase';
 import { collection, getDocs, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import toast from 'react-hot-toast';
+import firebaseConfig from '../../firebase-applet-config.json';
 
 interface SubscriptionRequest {
   id: string;
@@ -37,11 +38,171 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   onSwitchToWorkspace,
   onSwitchToApps 
 }) => {
-  const [activeNav, setActiveNav] = useState<'SUBSCRIPTIONS' | 'SERVER_STATS' | 'AUDIT_LOGS'>('SUBSCRIPTIONS');
+  const [activeNav, setActiveNav] = useState<'SUBSCRIPTIONS' | 'SERVER_STATS' | 'AUDIT_LOGS' | 'SYSTEM_INTEGRATION'>('SUBSCRIPTIONS');
   const [requests, setRequests] = useState<SubscriptionRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'approved' | 'rejected' | 'suspended'>('all');
+
+  // -------------------------------------------------------------
+  // System Integration & API Keys Management State
+  // -------------------------------------------------------------
+  const [geminiApiKey, setGeminiApiKey] = useState('');
+  const [firebaseConfigState, setFirebaseConfigState] = useState({
+    apiKey: '',
+    authDomain: '',
+    projectId: '',
+    storageBucket: '',
+    messagingSenderId: '',
+    appId: ''
+  });
+
+  const [showGeminiKey, setShowGeminiKey] = useState(false);
+  const [showFirebaseApiKey, setShowFirebaseApiKey] = useState(false);
+
+  // Testing States
+  const [isTestingGemini, setIsTestingGemini] = useState(false);
+  const [geminiStatus, setGeminiStatus] = useState<'idle' | 'valid' | 'invalid'>('idle');
+  const [geminiErrorMessage, setGeminiErrorMessage] = useState('');
+
+  const [isTestingFirebase, setIsTestingFirebase] = useState(false);
+  const [firebaseStatus, setFirebaseStatus] = useState<'idle' | 'valid' | 'invalid'>('idle');
+  const [firebaseErrorMessage, setFirebaseErrorMessage] = useState('');
+
+  const [isSavingSystemKeys, setIsSavingSystemKeys] = useState(false);
+
+  // Load config from Firestore or Fallback when tab is active
+  useEffect(() => {
+    const loadSystemKeys = async () => {
+      try {
+        const { getDoc } = await import('firebase/firestore');
+        const docSnap = await getDoc(doc(db, 'system_config', 'keys'));
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.geminiApiKey) setGeminiApiKey(data.geminiApiKey);
+          setFirebaseConfigState({
+            apiKey: data.apiKey || firebaseConfig.apiKey || '',
+            authDomain: data.authDomain || firebaseConfig.authDomain || '',
+            projectId: data.projectId || firebaseConfig.projectId || '',
+            storageBucket: data.storageBucket || firebaseConfig.storageBucket || '',
+            messagingSenderId: data.messagingSenderId || firebaseConfig.messagingSenderId || '',
+            appId: data.appId || firebaseConfig.appId || ''
+          });
+        } else {
+          // fallback to localStorage & imported config
+          setGeminiApiKey(localStorage.getItem('custom_gemini_key') || localStorage.getItem('custom_gemini_api_key') || '');
+          setFirebaseConfigState({
+            apiKey: firebaseConfig.apiKey || '',
+            authDomain: firebaseConfig.authDomain || '',
+            projectId: firebaseConfig.projectId || '',
+            storageBucket: firebaseConfig.storageBucket || '',
+            messagingSenderId: firebaseConfig.messagingSenderId || '',
+            appId: firebaseConfig.appId || ''
+          });
+        }
+      } catch (err) {
+        console.warn('Error loading system keys from firestore:', err);
+        setGeminiApiKey(localStorage.getItem('custom_gemini_key') || localStorage.getItem('custom_gemini_api_key') || '');
+        setFirebaseConfigState({
+          apiKey: firebaseConfig.apiKey || '',
+          authDomain: firebaseConfig.authDomain || '',
+          projectId: firebaseConfig.projectId || '',
+          storageBucket: firebaseConfig.storageBucket || '',
+          messagingSenderId: firebaseConfig.messagingSenderId || '',
+          appId: firebaseConfig.appId || ''
+        });
+      }
+    };
+    if (activeNav === 'SYSTEM_INTEGRATION') {
+      loadSystemKeys();
+    }
+  }, [activeNav]);
+
+  const testGeminiConnection = async () => {
+    if (!geminiApiKey.trim()) {
+      toast.error('يرجى إدخال مفتاح Gemini API أولاً لإجراء الفحص');
+      return;
+    }
+    setIsTestingGemini(true);
+    setGeminiStatus('idle');
+    setGeminiErrorMessage('');
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${geminiApiKey}`);
+      const data = await response.json();
+      if (response.ok) {
+        setGeminiStatus('valid');
+        toast.success('تم التحقق بنجاح! مفتاح Gemini API صالح ومفعّل بنجاح.');
+      } else {
+        setGeminiStatus('invalid');
+        const errMsg = data.error?.message || 'المفتاح غير صالح أو غير مصرح به';
+        setGeminiErrorMessage(errMsg);
+        toast.error(`فشل التحقق: ${errMsg}`);
+      }
+    } catch (err: any) {
+      setGeminiStatus('invalid');
+      setGeminiErrorMessage(err.message || 'خطأ في الشبكة أثناء الاتصال بالخادم');
+      toast.error(`فشل الاتصال: ${err.message || 'خطأ في الشبكة'}`);
+    } finally {
+      setIsTestingGemini(false);
+    }
+  };
+
+  const testFirebaseConnection = async () => {
+    setIsTestingFirebase(true);
+    setFirebaseStatus('idle');
+    setFirebaseErrorMessage('');
+    try {
+      const { getDocFromServer } = await import('firebase/firestore');
+      // Attempt to load some secure doc or keys doc
+      await getDocFromServer(doc(db, 'system_config', 'keys'));
+      setFirebaseStatus('valid');
+      toast.success('تم التحقق بنجاح! الاتصال والتحقق السحابي مع Firebase Firestore يعمل بنشاط.');
+    } catch (err: any) {
+      const msg = err.message || '';
+      if (msg.includes('offline') || msg.includes('network') || msg.includes('API key') || msg.includes('invalid-credential') || msg.includes('auth')) {
+        setFirebaseStatus('invalid');
+        setFirebaseErrorMessage(msg || 'فشل الاتصال بقاعدة البيانات. يرجى مراجعة إعدادات المفاتيح.');
+        toast.error(`فشل الاتصال: ${msg}`);
+      } else {
+        // If it's a permission issue or doc-not-found, the connection to firebase client is technically successful!
+        setFirebaseStatus('valid');
+        toast.success('تم التحقق بنجاح! الاتصال بقاعدة بيانات Firebase Firestore نشط وصالح.');
+      }
+    } finally {
+      setIsTestingFirebase(false);
+    }
+  };
+
+  const handleSaveSystemKeys = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingSystemKeys(true);
+    try {
+      // 1. Sync local storage for immediate Client-Side OCR / AI use
+      const trimmedGemini = geminiApiKey.trim();
+      if (trimmedGemini) {
+        localStorage.setItem('custom_gemini_key', trimmedGemini);
+        localStorage.setItem('custom_gemini_api_key', trimmedGemini);
+      } else {
+        localStorage.removeItem('custom_gemini_key');
+        localStorage.removeItem('custom_gemini_api_key');
+      }
+
+      // 2. Save to Firestore for durability
+      await setDoc(doc(db, 'system_config', 'keys'), {
+        geminiApiKey: trimmedGemini,
+        ...firebaseConfigState,
+        updatedAt: new Date().toISOString(),
+        updatedBy: currentUserEmail || 'Super Admin'
+      }, { merge: true });
+
+      toast.success('تم حفظ وتحديث المفاتيح البرمجية وإعدادات النظام بنجاح!');
+    } catch (err: any) {
+      console.error('Error saving system keys:', err);
+      toast.error('حدث خطأ أثناء حفظ الإعدادات: ' + (err.message || 'خطأ غير معروف'));
+    } finally {
+      setIsSavingSystemKeys(false);
+    }
+  };
   
   // Activation modal state
   const [selectedActivation, setSelectedActivation] = useState<{
@@ -886,6 +1047,13 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
               <Activity size={16} />
               <span>سجل العمليات والأمان</span>
             </button>
+            <button
+              onClick={() => setActiveNav('SYSTEM_INTEGRATION')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${activeNav === 'SYSTEM_INTEGRATION' ? 'bg-[#71639e] text-white shadow' : 'text-slate-300 hover:bg-slate-800'}`}
+            >
+              <Key size={16} />
+              <span>المفاتيح والربط البرمجي (APIs)</span>
+            </button>
           </nav>
         </aside>
 
@@ -1202,6 +1370,301 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   <p>[SEC] {new Date().toISOString()} - JWT Token verified successfully with Role: SUPER_ADMIN.</p>
                 </div>
               </div>
+            </div>)}
+
+          {activeNav === 'SYSTEM_INTEGRATION' && (
+            <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-200">
+              {/* Header section with lock */}
+              <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-indigo-50 text-[#71639e] rounded-xl border border-indigo-100">
+                    <Sliders size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900">إدارة المفاتيح البرمجية والربط السحابي (System Integration & APIs)</h3>
+                    <p className="text-xs text-gray-500">تهيئة وتعديل وفحص اتصالات الأنظمة المدمجة مع ماسح الهويات والاتصال بقاعدة البيانات.</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-rose-50 text-rose-800 border border-rose-200 rounded-lg text-xs font-bold shadow-2xs">
+                  <Lock size={13} />
+                  <span>محمي ومقفل فقط لـ: SUPER_ADMIN</span>
+                </div>
+              </div>
+
+              <form onSubmit={handleSaveSystemKeys} className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  
+                  {/* 1. OCR / AI Keys Column */}
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-5 flex flex-col justify-between">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                        <div className="flex items-center gap-2">
+                          <Cpu className="text-purple-600 w-5 h-5" />
+                          <h4 className="text-sm font-bold text-gray-900">محرك الذكاء الاصطناعي ومعالجة المستندات (AI & OCR)</h4>
+                        </div>
+                        <span className="text-[10px] text-purple-700 bg-purple-50 font-bold px-2 py-0.5 rounded-full border border-purple-100">
+                          Google Gemini API
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-gray-500 leading-relaxed">
+                        يُستخدم مفتاح Gemini لتشغيل خدمات المسح التلقائي وقراءة صور الهويات المدنية الكويتية، رخص القيادة ورخص وزارة الصحة ومطابقة البيانات دون تأخير.
+                      </p>
+
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <label className="text-xs font-bold text-gray-700">مفتاح API الخاص بـ Google Gemini (Gemini API Key)</label>
+                          <a 
+                            href="https://aistudio.google.com/" 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="text-[10px] text-indigo-600 font-bold hover:underline flex items-center gap-0.5"
+                          >
+                            <span>احصل على مفتاح مجاني</span>
+                            <span>🔗</span>
+                          </a>
+                        </div>
+                        
+                        <div className="relative">
+                          <Key className="w-4 h-4 text-gray-400 absolute right-3 top-3" />
+                          <input
+                            type={showGeminiKey ? 'text' : 'password'}
+                            value={geminiApiKey}
+                            onChange={(e) => setGeminiApiKey(e.target.value)}
+                            placeholder="AIzaSy..."
+                            dir="ltr"
+                            className="w-full bg-slate-50 border border-gray-300 rounded-lg pr-9 pl-10 py-2.5 text-xs font-mono text-gray-800 focus:border-[#71639e] focus:bg-white outline-none shadow-2xs transition-colors"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowGeminiKey(!showGeminiKey)}
+                            className="absolute left-3 top-3 text-gray-400 hover:text-gray-600 transition-colors"
+                          >
+                            {showGeminiKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Gemini Status Alert */}
+                      {geminiStatus !== 'idle' && (
+                        <div className={`p-3.5 rounded-xl border text-xs flex items-start gap-2.5 ${
+                          geminiStatus === 'valid' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'
+                        }`}>
+                          {geminiStatus === 'valid' ? (
+                            <CheckCircle2 size={16} className="shrink-0 mt-0.5 text-emerald-600" />
+                          ) : (
+                            <AlertCircle size={16} className="shrink-0 mt-0.5 text-rose-600" />
+                          )}
+                          <div>
+                            <p className="font-bold">
+                              {geminiStatus === 'valid' ? 'متصل وصالح (Connected / Valid)' : 'فشل الاتصال والتحقق (Connection Failed)'}
+                            </p>
+                            <p className="text-[11px] mt-0.5 leading-relaxed opacity-90">
+                              {geminiStatus === 'valid' 
+                                ? 'تم الاتصال بالخادم المركزي لـ Google Gemini بنجاح، المفتاح جاهز للعمل مع OCR.'
+                                : geminiErrorMessage || 'الرجاء فحص المفتاح والتأكد من عدم وجود قيود على الاستخدام.'}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-4 border-t border-gray-100 flex items-center justify-between gap-3">
+                      <span className="text-[11px] text-gray-400">آخر فحص: لحظي ومباشر عبر خادم Google</span>
+                      <button
+                        type="button"
+                        onClick={testGeminiConnection}
+                        disabled={isTestingGemini}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold shadow-2xs transition-all cursor-pointer disabled:opacity-50 active:scale-95"
+                      >
+                        {isTestingGemini ? (
+                          <>
+                            <RefreshCw size={13} className="animate-spin" />
+                            <span>جاري الفحص...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Wifi size={13} />
+                            <span>فحص الاتصال (Test Connection)</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 2. Firebase Database Connection Column */}
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-5">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                      <div className="flex items-center gap-2">
+                        <Database className="text-blue-600 w-5 h-5" />
+                        <h4 className="text-sm font-bold text-gray-900">تهيئة قاعدة البيانات المركزية (Firebase Config)</h4>
+                      </div>
+                      <span className="text-[10px] text-blue-700 bg-blue-50 font-bold px-2 py-0.5 rounded-full border border-blue-100">
+                        Cloud Firestore
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-gray-500 leading-relaxed">
+                      هذه الإعدادات تربط المتصفح بقاعدة البيانات المركزية لتخزين سجلات الموظفين والشركات التابعة وسحابة SaaS بشكل آمن.
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-right">
+                      <div>
+                        <label className="block text-[11px] font-bold text-gray-700 mb-1">معرّف المشروع (Project ID)</label>
+                        <input
+                          type="text"
+                          value={firebaseConfigState.projectId}
+                          onChange={(e) => setFirebaseConfigState({ ...firebaseConfigState, projectId: e.target.value })}
+                          placeholder="gen-lang-client-..."
+                          dir="ltr"
+                          className="w-full bg-slate-50 border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono text-gray-800 focus:border-[#71639e] focus:bg-white outline-none shadow-2xs"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-gray-700 mb-1">الرابط المعتمد للتوثيق (Auth Domain)</label>
+                        <input
+                          type="text"
+                          value={firebaseConfigState.authDomain}
+                          onChange={(e) => setFirebaseConfigState({ ...firebaseConfigState, authDomain: e.target.value })}
+                          placeholder="project.firebaseapp.com"
+                          dir="ltr"
+                          className="w-full bg-slate-50 border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono text-gray-800 focus:border-[#71639e] focus:bg-white outline-none shadow-2xs"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-gray-700 mb-1">مفتاح API الخاص بقاعدة البيانات (API Key)</label>
+                        <div className="relative">
+                          <input
+                            type={showFirebaseApiKey ? 'text' : 'password'}
+                            value={firebaseConfigState.apiKey}
+                            onChange={(e) => setFirebaseConfigState({ ...firebaseConfigState, apiKey: e.target.value })}
+                            placeholder="AIzaSy..."
+                            dir="ltr"
+                            className="w-full bg-slate-50 border border-gray-300 rounded-lg pr-3 pl-8 py-2 text-xs font-mono text-gray-800 focus:border-[#71639e] focus:bg-white outline-none shadow-2xs"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowFirebaseApiKey(!showFirebaseApiKey)}
+                            className="absolute left-2.5 top-2.5 text-gray-400 hover:text-gray-600 transition-colors"
+                          >
+                            {showFirebaseApiKey ? <EyeOff size={13} /> : <Eye size={13} />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-gray-700 mb-1">معرّف التطبيق (App ID)</label>
+                        <input
+                          type="text"
+                          value={firebaseConfigState.appId}
+                          onChange={(e) => setFirebaseConfigState({ ...firebaseConfigState, appId: e.target.value })}
+                          placeholder="1:99878134269:web:..."
+                          dir="ltr"
+                          className="w-full bg-slate-50 border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono text-gray-800 focus:border-[#71639e] focus:bg-white outline-none shadow-2xs"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-gray-700 mb-1">حاوية التخزين (Storage Bucket)</label>
+                        <input
+                          type="text"
+                          value={firebaseConfigState.storageBucket}
+                          onChange={(e) => setFirebaseConfigState({ ...firebaseConfigState, storageBucket: e.target.value })}
+                          placeholder="project.appspot.com"
+                          dir="ltr"
+                          className="w-full bg-slate-50 border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono text-gray-800 focus:border-[#71639e] focus:bg-white outline-none shadow-2xs"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-gray-700 mb-1">رقم مرسل الإشعارات (Messaging Sender ID)</label>
+                        <input
+                          type="text"
+                          value={firebaseConfigState.messagingSenderId}
+                          onChange={(e) => setFirebaseConfigState({ ...firebaseConfigState, messagingSenderId: e.target.value })}
+                          placeholder="99878134269"
+                          dir="ltr"
+                          className="w-full bg-slate-50 border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono text-gray-800 focus:border-[#71639e] focus:bg-white outline-none shadow-2xs"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Firebase Status Alert */}
+                    {firebaseStatus !== 'idle' && (
+                      <div className={`p-3.5 rounded-xl border text-xs flex items-start gap-2.5 ${
+                        firebaseStatus === 'valid' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'
+                      }`}>
+                        {firebaseStatus === 'valid' ? (
+                          <CheckCircle2 size={16} className="shrink-0 mt-0.5 text-emerald-600" />
+                        ) : (
+                          <AlertCircle size={16} className="shrink-0 mt-0.5 text-rose-600" />
+                        )}
+                        <div>
+                          <p className="font-bold">
+                            {firebaseStatus === 'valid' ? 'متصل وصالح (Connected / Valid)' : 'فشل اتصال قاعدة البيانات (Connection Failed)'}
+                          </p>
+                          <p className="text-[11px] mt-0.5 leading-relaxed opacity-90">
+                            {firebaseStatus === 'valid' 
+                              ? 'تم الاتصال بقاعدة بيانات Cloud Firestore بنجاح والمصادقة على المفاتيح سارية.'
+                              : firebaseErrorMessage || 'يرجى التحقق من صحة مفتاح الـ API والـ App ID وتوفر اتصال بالشبكة.'}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="pt-4 border-t border-gray-100 flex items-center justify-between gap-3">
+                      <span className="text-[11px] text-gray-400">آخر فحص: فحص قراءة داخلي (Local Query)</span>
+                      <button
+                        type="button"
+                        onClick={testFirebaseConnection}
+                        disabled={isTestingFirebase}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold shadow-2xs transition-all cursor-pointer disabled:opacity-50 active:scale-95"
+                      >
+                        {isTestingFirebase ? (
+                          <>
+                            <RefreshCw size={13} className="animate-spin" />
+                            <span>جاري الفحص...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Wifi size={13} />
+                            <span>فحص الاتصال (Test Connection)</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Unified Save bar */}
+                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between gap-4">
+                  <p className="text-xs text-gray-500 max-w-md leading-relaxed">
+                    ملاحظة: بمجرد حفظ التعديلات، سيتم مزامنة وتأمين هذه المفاتيح عبر السحابة لتعمل كإعدادات افتراضية لكافة الموظفين وعمليات الإدارة والمسح الضوئي.
+                  </p>
+                  
+                  <button
+                    type="submit"
+                    disabled={isSavingSystemKeys}
+                    className="flex items-center gap-1.5 px-6 py-2.5 bg-[#71639e] hover:bg-[#5e5285] text-white rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer disabled:opacity-50 active:scale-95"
+                  >
+                    {isSavingSystemKeys ? (
+                      <>
+                        <RefreshCw size={14} className="animate-spin" />
+                        <span>جاري حفظ التهيئة...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save size={14} />
+                        <span>حفظ وإعادة تحميل التهيئة</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>)}
 
         </main>

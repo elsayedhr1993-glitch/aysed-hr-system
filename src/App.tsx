@@ -161,6 +161,7 @@ function MainAppLayout() {
   const [newPassword, setNewPassword] = useState('');
   const [newPamNumber, setNewPamNumber] = useState('');
   const [newPhone, setNewPhone] = useState('');
+  const [superAdminSettingsTab, setSuperAdminSettingsTab] = useState<'tenants' | 'settings'>('tenants');
 
   // الوقت والتاريخ المباشر لدولة الكويت
   const [kuwaitTime, setKuwaitTime] = useState('');
@@ -562,11 +563,42 @@ function MainAppLayout() {
 
         {/* الحالة 12: شاشة لوحة تحكم السوبر أدمن وإدارة المشتركين (SaaS Settings) */}
         {activeApp === 'settings' && (
-          <main className="flex-1 p-4 md:p-6 bg-slate-50 overflow-y-auto w-full">
-            <div className="max-w-6xl mx-auto space-y-6">
-              
-              {isSuperAdmin ? (
-                <>
+          <main className="flex-1 bg-slate-50 overflow-y-auto w-full relative">
+            
+            {isSuperAdmin && (
+              <div className="max-w-6xl mx-auto px-4 md:px-6 pt-4 md:pt-6">
+                <div className="flex bg-slate-200/70 p-1 rounded-xl w-fit gap-1 border border-slate-300/50">
+                  <button 
+                    type="button"
+                    onClick={() => setSuperAdminSettingsTab('tenants')}
+                    className={`px-5 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
+                      superAdminSettingsTab === 'tenants' 
+                        ? 'bg-[#714B67] text-white shadow-md font-black' 
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-300/40'
+                    }`}
+                  >
+                    <Building2 size={14} />
+                    <span>إدارة المشتركين والشركات (SaaS Tenants)</span>
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => setSuperAdminSettingsTab('settings')}
+                    className={`px-5 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
+                      superAdminSettingsTab === 'settings' 
+                        ? 'bg-[#714B67] text-white shadow-md font-black' 
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-300/40'
+                    }`}
+                  >
+                    <Sliders size={14} />
+                    <span>إعدادات تهيئة الشركة النشطة</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {isSuperAdmin ? (
+              superAdminSettingsTab === 'tenants' ? (
+                <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
                   {/* ترويسة إدارة المشتركين */}
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
                     <div>
@@ -679,28 +711,13 @@ function MainAppLayout() {
                       </table>
                     </div>
                   </div>
-                </>
-              ) : (
-                /* ترويسة إعدادات المنشأة للشركات المشتركة */
-                <div className="flex justify-between items-center bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                  <div>
-                    <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                      <Building2 className="text-[#714B67]" size={24} />
-                      بيانات المنشأة والإعدادات (Company Profile & Settings)
-                    </h1>
-                    <p className="text-xs text-slate-500 mt-1 font-medium">
-                      إدارة معلومات منشأتك الحالية، التحقق البصري الموحد، وربط أجهزة البصمة بالفروع
-                    </p>
-                  </div>
                 </div>
-              )}
-
-              {/* قسم الإعدادات العامة الكاملة للنظام */}
-              <div className="mt-8">
+              ) : (
                 <OdooSettingsFull />
-              </div>
-
-            </div>
+              )
+            ) : (
+              <OdooSettingsFull />
+            )}
 
             {/* Modal إضافة مشترك جديد */}
             {showAddModal && (
