@@ -121,6 +121,43 @@ export const OdooCompanyDocsApp: React.FC = () => {
   const [newDoc, setNewDoc] = useState<Partial<CompanyDoc>>({
     docTitle: '', category: 'cr', issuer: '', documentNumber: '', issueDate: '', expiryDate: ''
   });
+  const [selectedAttachment, setSelectedAttachment] = useState<{ name: string; size: string; dataUrl?: string } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const processFile = (file: File) => {
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('حجم الملف يتجاوز 10 ميجابايت');
+      return;
+    }
+    const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+    const sizeStr = `${sizeMb} MB`;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setSelectedAttachment({
+        name: file.name,
+        size: sizeStr,
+        dataUrl: e.target?.result as string
+      });
+      toast.success(`تم اختيار المرفق: ${file.name}`);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      processFile(e.target.files[0]);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      processFile(e.dataTransfer.files[0]);
+    }
+  };
 
   const getDocStatus = (expiryDate: string) => {
     const today = new Date();
@@ -173,14 +210,15 @@ export const OdooCompanyDocsApp: React.FC = () => {
       documentNumber: newDoc.documentNumber || '---',
       issueDate: newDoc.issueDate || new Date().toISOString().split('T')[0],
       expiryDate: newDoc.expiryDate!,
-      fileName: 'new_document_scan.pdf',
-      fileSize: '1.0 MB'
+      fileName: selectedAttachment?.name || 'document_attachment.pdf',
+      fileSize: selectedAttachment?.size || '1.0 MB'
     };
     
     setDocs([addedDoc, ...docs]);
     setShowAddModal(false);
+    setSelectedAttachment(null);
     setNewDoc({docTitle: '', category: 'cr', issuer: '', documentNumber: '', issueDate: '', expiryDate: ''});
-    toast.success('تمت إضافة المستند للأرشيف بنجاح');
+    toast.success('تمت إضافة المستند والمرفق للأرشيف بنجاح');
   };
 
   const handleDeleteDoc = (id: string) => {
@@ -468,13 +506,19 @@ export const OdooCompanyDocsApp: React.FC = () => {
 
       {/* Add Document Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-slate-900/70 backdrop-blur-md overflow-y-auto pt-16 pb-8 animate-fade-in" dir="rtl">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[85vh] my-auto border border-slate-100">
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
               <h2 className="font-black text-slate-800 flex items-center gap-2">
                 <UploadCloud className="text-[#714B67]" size={20} /> أرشفة مستند جديد
               </h2>
-              <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-rose-500 cursor-pointer">
+              <button 
+                onClick={() => {
+                  setShowAddModal(false);
+                  setSelectedAttachment(null);
+                }} 
+                className="text-slate-400 hover:text-rose-500 transition p-1 rounded-lg cursor-pointer"
+              >
                 <X size={20} />
               </button>
             </div>
@@ -550,22 +594,68 @@ export const OdooCompanyDocsApp: React.FC = () => {
                 </div>
               </div>
 
-              <div className="mt-4 p-4 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-slate-100 transition">
-                <UploadCloud className="text-slate-400 mb-2" size={32} />
-                <span className="text-sm font-bold text-slate-700">اضغط لرفع المرفقات أو اسحب الملف هنا</span>
-                <span className="text-[10px] text-slate-500 mt-1">يدعم PDF, JPG, PNG بحجم أقصى 5MB</span>
-              </div>
+              {/* Hidden File Input */}
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleFileChange} 
+                accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" 
+                className="hidden" 
+              />
+
+              {/* Dropzone & File Preview */}
+              {selectedAttachment ? (
+                <div className="mt-4 p-4 border border-emerald-300 rounded-xl bg-emerald-50/80 flex items-center justify-between gap-3 animate-in fade-in">
+                  <div className="flex items-center gap-3 overflow-hidden">
+                    <div className="w-10 h-10 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <FileCheck size={20} />
+                    </div>
+                    <div className="truncate text-right">
+                      <p className="text-xs font-bold text-slate-900 truncate">{selectedAttachment.name}</p>
+                      <p className="text-[10px] font-semibold text-emerald-700">{selectedAttachment.size} • تم إرفاق الملف بنجاح</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedAttachment(null)}
+                    className="text-rose-600 hover:text-rose-800 p-1.5 hover:bg-rose-100 rounded-lg transition shrink-0 cursor-pointer"
+                    title="حذف المرفق"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ) : (
+                <div 
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={handleDrop}
+                  className={`mt-4 p-5 border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-center cursor-pointer transition select-none ${
+                    isDragging 
+                      ? 'border-[#714B67] bg-[#714B67]/10' 
+                      : 'border-slate-300 hover:border-[#714B67] bg-slate-50 hover:bg-slate-100/80'
+                  }`}
+                >
+                  <UploadCloud className={`${isDragging ? 'text-[#714B67]' : 'text-slate-400'} mb-2`} size={36} />
+                  <span className="text-sm font-bold text-slate-700">اضغط لرفع المرفقات أو اسحب الملف هنا</span>
+                  <span className="text-[10px] text-slate-500 mt-1">يدعم PDF, JPG, PNG, DOCX بحجم أقصى 10MB</span>
+                </div>
+              )}
             </div>
             
-            <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 shrink-0">
               <button 
                 type="button" 
-                onClick={() => setShowAddModal(false)}
+                onClick={() => {
+                  setShowAddModal(false);
+                  setSelectedAttachment(null);
+                }}
                 className="px-5 py-2.5 rounded-xl font-bold text-sm text-slate-600 hover:bg-slate-200 transition cursor-pointer"
               >
                 إلغاء
               </button>
               <button 
+                type="button"
                 onClick={handleAddDocument}
                 className="px-5 py-2.5 rounded-xl font-bold text-sm bg-[#714B67] text-white hover:bg-[#5a3c52] shadow-md transition cursor-pointer flex items-center gap-2"
               >

@@ -1,3 +1,5 @@
+import { getStoredGeminiKey } from '../utils/ocrService';
+
 export interface ExtractedEmployeeData {
   nameAr?: string;
   nameEn?: string;
@@ -41,13 +43,20 @@ export const parseKuwaitCivilCardOCR = async (imageBase64: string): Promise<Extr
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 25000); // 25s timeout
 
+    const effectiveApiKey = getStoredGeminiKey();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (effectiveApiKey) {
+      headers['x-gemini-key'] = effectiveApiKey;
+    }
+
     const res = await fetch('/api/ocr-scan', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         imageBase64,
         mimeType: 'image/jpeg',
-        docType: 'بطاقة مدنية أو ترخيص صحي أو جواز سفر كويتي'
+        docType: 'بطاقة مدنية أو ترخيص صحي أو جواز سفر كويتي',
+        customApiKey: effectiveApiKey || undefined
       }),
       signal: controller.signal
     });

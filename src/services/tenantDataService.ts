@@ -341,7 +341,7 @@ export const TenantDatabaseService = {
           id: d.id,
           companyId: resolvedCompId,
           company_id: resolvedCompId
-        } as Employee;
+        } as unknown as Employee;
       });
 
       if (companyId === 'comp-super-admin') {

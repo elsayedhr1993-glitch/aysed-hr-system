@@ -93,6 +93,37 @@ function convertImageToBase64(file: File): Promise<{ base64: string; mimeType: s
 }
 
 /**
+ * دالة جلب مفتاح Gemini الحقيقي المخزن في المتصفح بكل المسميات المحتملة
+ */
+export function getStoredGeminiKey(): string | null {
+  if (typeof window === 'undefined') return null;
+  const knownKeys = [
+    'custom_gemini_key',
+    'custom_gemini_api_key',
+    'gemini_api_key',
+    'sys_gemini_key',
+    'VITE_GEMINI_API_KEY'
+  ];
+  for (const k of knownKeys) {
+    const val = localStorage.getItem(k);
+    if (val && val.trim() !== '' && !val.includes('YOUR_')) {
+      return val.trim().replace(/^['"]|['"]$/g, '');
+    }
+  }
+  // البحث الشامل في localStorage لأي مفتاح يحتوي على gemini
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.toLowerCase().includes('gemini') && (k.toLowerCase().includes('key') || k.toLowerCase().includes('api'))) {
+      const val = localStorage.getItem(k);
+      if (val && val.trim() !== '' && !val.includes('YOUR_')) {
+        return val.trim().replace(/^['"]|['"]$/g, '');
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * الدالة الرئيسية الشاملة للماسح الضوئي الذكي (تعالج PDF, BDF, والـ صور بكفاءة عالية)
  */
 export async function processAnyDocument(file: File, apiKey?: string, docType?: string): Promise<ScannedData> {
@@ -110,13 +141,8 @@ export async function processAnyDocument(file: File, apiKey?: string, docType?: 
     docData = await convertImageToBase64(file);
   }
 
-  // Get active Gemini API key from parameters, localStorage fallback (custom_gemini_key / custom_gemini_api_key)
-  const effectiveApiKey = apiKey || 
-    (typeof window !== 'undefined' ? (
-      localStorage.getItem('custom_gemini_key') || 
-      localStorage.getItem('custom_gemini_api_key') || 
-      localStorage.getItem('gemini_api_key')
-    ) : null);
+  // Get active Gemini API key from parameters or localStorage fallback
+  const effectiveApiKey = apiKey || getStoredGeminiKey();
 
   // إرسال البيانات لمعالج الرؤية البصرية في السيرفر
   let response;
@@ -243,59 +269,78 @@ async function performClientSideGeminiOCR(base64Data: string, mimeType: string, 
     }
   };
 
-  // سنقوم بتجربة Gemini 2.5 Flash كونه مجاني وسريع جداً وممتاز في الاستخراج
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey.trim()}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(body)
-  });
+  const modelsToTry = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
+  let lastErrorDetail = '';
 
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => '');
-    console.error('Client-side Gemini API call failed:', errorText);
-    throw new Error('فشل الاتصال المباشر بخوادم جوجل للذكاء الاصطناعي. يرجى التحقق من صلاحية مفتاح الـ API.');
+  for (const modelName of modelsToTry) {
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey.trim()}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+
+      if (response.ok) {
+        const json = await response.json();
+        const textResponse = json.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+        
+        let cleanedJsonText = textResponse.trim();
+        if (cleanedJsonText.includes('```json')) {
+          cleanedJsonText = cleanedJsonText.split('```json')[1].split('```')[0].trim();
+        } else if (cleanedJsonText.includes('```')) {
+          cleanedJsonText = cleanedJsonText.split('```')[1].split('```')[0].trim();
+        }
+
+        let parsed: any;
+        try {
+          parsed = JSON.parse(cleanedJsonText);
+        } catch (parseErr) {
+          console.error('Failed to parse Gemini JSON output:', cleanedJsonText);
+          throw new Error('فشل في معالجة صيغة البيانات المستخرجة من المستند.');
+        }
+
+        return {
+          civilId: parsed.civilId || "",
+          fullNameAr: parsed.fullNameAr || parsed.fullName || "",
+          fullNameEn: parsed.fullNameEn || "",
+          nationality: parsed.nationality || "",
+          gender: parsed.gender || "MALE",
+          birthDate: parsed.birthDate || parsed.dob || "",
+          dob: parsed.birthDate || parsed.dob || "",
+          unifiedNo: parsed.unifiedNo || "",
+          passportNo: parsed.passportNo || "",
+          profession: parsed.profession || parsed.jobTitle || "",
+          jobTitle: parsed.profession || parsed.jobTitle || "",
+          expiryDate: parsed.expiryDate || "",
+          issueDate: parsed.issueDate || "",
+          bloodGroup: parsed.bloodGroup || "",
+          address: parsed.address || { block: "", street: "", building: "", area: "" },
+          residencyType: parsed.residencyType || "",
+          mohLicenseNo: parsed.mohLicenseNo || "",
+          mohLicenseExpiryDate: parsed.mohLicenseExpiryDate || "",
+          contractSalary: Number(parsed.contractSalary) || 0,
+        };
+      } else {
+        const errJson = await response.json().catch(() => ({}));
+        lastErrorDetail = errJson.error?.message || `كود الاستجابة ${response.status}`;
+        console.warn(`Gemini model ${modelName} call failed:`, lastErrorDetail);
+      }
+    } catch (err: any) {
+      lastErrorDetail = err.message || String(err);
+      console.warn(`Gemini model ${modelName} error:`, lastErrorDetail);
+    }
   }
 
-  const json = await response.json();
-  const textResponse = json.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-  
-  // استخراج الـ JSON بأمان من النص المسترجع
-  let cleanedJsonText = textResponse.trim();
-  if (cleanedJsonText.includes('```json')) {
-    cleanedJsonText = cleanedJsonText.split('```json')[1].split('```')[0].trim();
-  } else if (cleanedJsonText.includes('```')) {
-    cleanedJsonText = cleanedJsonText.split('```')[1].split('```')[0].trim();
+  let userFriendlyCause = lastErrorDetail;
+  if (lastErrorDetail.includes('API_KEY_INVALID') || lastErrorDetail.includes('API key not valid') || lastErrorDetail.includes('400')) {
+    userFriendlyCause = 'مفتاح الـ API الممرر غير صحيح أو لم يتم تفعيله في Google AI Studio.';
+  } else if (lastErrorDetail.includes('RESOURCE_EXHAUSTED') || lastErrorDetail.includes('429') || lastErrorDetail.includes('Quota')) {
+    userFriendlyCause = 'تم تجاوز الحد الأقصى للاستخدام اليومي لمفتاح الـ API (Quota Exceeded).';
+  } else if (lastErrorDetail.includes('PERMISSION_DENIED')) {
+    userFriendlyCause = 'مفتاح الـ API لا يملك صلاحية الوصول لنماذج الذكاء الاصطناعي.';
   }
 
-  let parsed: any;
-  try {
-    parsed = JSON.parse(cleanedJsonText);
-  } catch (parseErr) {
-    console.error('Failed to parse Gemini JSON output:', cleanedJsonText);
-    throw new Error('فشل في معالجة صيغة البيانات المستخرجة من المستند.');
-  }
-
-  return {
-    civilId: parsed.civilId || "",
-    fullNameAr: parsed.fullNameAr || parsed.fullName || "",
-    fullNameEn: parsed.fullNameEn || "",
-    nationality: parsed.nationality || "",
-    gender: parsed.gender || "MALE",
-    birthDate: parsed.birthDate || parsed.dob || "",
-    dob: parsed.birthDate || parsed.dob || "",
-    unifiedNo: parsed.unifiedNo || "",
-    passportNo: parsed.passportNo || "",
-    profession: parsed.profession || parsed.jobTitle || "",
-    jobTitle: parsed.profession || parsed.jobTitle || "",
-    expiryDate: parsed.expiryDate || "",
-    issueDate: parsed.issueDate || "",
-    bloodGroup: parsed.bloodGroup || "",
-    address: parsed.address || { block: "", street: "", building: "", area: "" },
-    residencyType: parsed.residencyType || "",
-    mohLicenseNo: parsed.mohLicenseNo || "",
-    mohLicenseExpiryDate: parsed.mohLicenseExpiryDate || "",
-    contractSalary: Number(parsed.contractSalary) || 0,
-  };
+  throw new Error(`فشل الاتصال المباشر بخوادم جوجل للذكاء الاصطناعي.\nالسبب: ${userFriendlyCause}`);
 }

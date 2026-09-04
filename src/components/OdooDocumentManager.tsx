@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import toast from 'react-hot-toast';
 import { 
   Folder, 
   FolderPlus, 
@@ -110,6 +111,34 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
   const [uploadExpiryDate, setUploadExpiryDate] = useState('');
   const [uploadDocNo, setUploadDocNo] = useState('');
   const [uploadUploader, setUploadUploader] = useState('المسؤول المعتمد');
+  const [selectedFileObj, setSelectedFileObj] = useState<{ name: string; size: string; dataUrl?: string } | null>(null);
+  const [isDropzoneDragging, setIsDropzoneDragging] = useState(false);
+  const docFileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const processDocFile = (file: File) => {
+    const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+    const sizeStr = `${sizeMb} MB`;
+    
+    if (!uploadFileName) {
+      setUploadFileName(file.name);
+    }
+    
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (ext === 'pdf') setUploadFileType('pdf');
+    else if (['png', 'jpg', 'jpeg', 'webp'].includes(ext || '')) setUploadFileType('image');
+    else if (['doc', 'docx'].includes(ext || '')) setUploadFileType('doc');
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setSelectedFileObj({
+        name: file.name,
+        size: sizeStr,
+        dataUrl: e.target?.result as string
+      });
+      toast.success(`تم اختيار المرفق: ${file.name}`);
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Preview Modal
   const [previewDoc, setPreviewDoc] = useState<DocumentAttachment | null>(null);
@@ -606,8 +635,8 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
 
       {/* Modal 2: Upload File / Document */}
       {showUploadModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 max-w-lg w-full shadow-2xl animate-in fade-in zoom-in duration-150">
+        <div className="fixed inset-0 z-[100] bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 overflow-y-auto pt-16 pb-8 animate-fade-in" dir="rtl">
+          <div className="bg-white rounded-2xl border border-slate-100 p-5 max-w-lg w-full shadow-2xl my-auto animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
                 <UploadCloud size={16} className="text-[#714B67]" />
@@ -615,8 +644,11 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
               </h3>
               <button 
                 type="button" 
-                onClick={() => setShowUploadModal(false)}
-                className="text-slate-400 hover:text-slate-700 p-1 rounded-lg"
+                onClick={() => {
+                  setShowUploadModal(false);
+                  setSelectedFileObj(null);
+                }}
+                className="text-slate-400 hover:text-slate-700 p-1 rounded-lg transition cursor-pointer"
               >
                 <X size={16} />
               </button>
@@ -639,14 +671,14 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
               </div>
 
               <div>
-                <label className="text-slate-600 font-bold block mb-1">اسم الملف أو عنوان المستند</label>
+                <label className="text-slate-600 font-bold block mb-1">اسم الملف أو عنوان المستند <span className="text-rose-500">*</span></label>
                 <input
                   type="text"
                   required
                   placeholder="مثال: ترخيص مزاولة المهنة الطبية 2026.pdf"
                   value={uploadFileName}
                   onChange={(e) => setUploadFileName(e.target.value)}
-                  className="w-full p-2.5 border rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:border-[#714B67]"
+                  className="w-full p-2.5 border rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:border-[#714B67] font-bold"
                 />
               </div>
 
@@ -699,25 +731,80 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
                 </div>
               </div>
 
-              <div className="border border-dashed border-slate-300 rounded-xl p-4 text-center bg-slate-50/50">
-                <UploadCloud className="mx-auto text-slate-400 mb-1" size={24} />
-                <span className="text-[11px] text-slate-500 block">اسحب وأفلت الملف هنا أو انقر للاختيار</span>
-                <span className="text-[10px] text-slate-400">يدعم صيغ PDF, PNG, JPG, DOCX حتى 25 ميجابايت</span>
-              </div>
+              {/* Hidden File Input */}
+              <input 
+                type="file" 
+                ref={docFileInputRef} 
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    processDocFile(e.target.files[0]);
+                  }
+                }} 
+                accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" 
+                className="hidden" 
+              />
+
+              {/* Dropzone & File Preview */}
+              {selectedFileObj ? (
+                <div className="p-3.5 border border-emerald-300 rounded-xl bg-emerald-50/80 flex items-center justify-between gap-3 animate-in fade-in">
+                  <div className="flex items-center gap-3 overflow-hidden">
+                    <div className="w-9 h-9 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <FileCheck size={18} />
+                    </div>
+                    <div className="truncate text-right">
+                      <p className="text-xs font-bold text-slate-900 truncate">{selectedFileObj.name}</p>
+                      <p className="text-[10px] font-semibold text-emerald-700">{selectedFileObj.size} • المرفق جاهز للحفظ</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedFileObj(null)}
+                    className="text-rose-600 hover:text-rose-800 p-1 hover:bg-rose-100 rounded-lg transition shrink-0 cursor-pointer"
+                    title="إزالة المرفق"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              ) : (
+                <div 
+                  onClick={() => docFileInputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); setIsDropzoneDragging(true); }}
+                  onDragLeave={() => setIsDropzoneDragging(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsDropzoneDragging(false);
+                    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                      processDocFile(e.dataTransfer.files[0]);
+                    }
+                  }}
+                  className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition select-none ${
+                    isDropzoneDragging
+                      ? 'border-[#714B67] bg-[#714B67]/10'
+                      : 'border-slate-300 hover:border-[#714B67] bg-slate-50/70 hover:bg-slate-100/80'
+                  }`}
+                >
+                  <UploadCloud className={`mx-auto mb-1 ${isDropzoneDragging ? 'text-[#714B67]' : 'text-slate-400'}`} size={28} />
+                  <span className="text-[11px] font-bold text-slate-700 block">اسحب وأفلت الملف هنا أو انقر للاختيار من جهازك</span>
+                  <span className="text-[10px] text-slate-400">يدعم صيغ PDF, PNG, JPG, DOCX حتى 25 ميجابايت</span>
+                </div>
+              )}
 
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowUploadModal(false)}
-                  className="px-4 py-2 border border-slate-300 rounded-xl text-slate-600 font-bold hover:bg-slate-50 transition"
+                  onClick={() => {
+                    setShowUploadModal(false);
+                    setSelectedFileObj(null);
+                  }}
+                  className="px-4 py-2 border border-slate-300 rounded-xl text-slate-600 font-bold hover:bg-slate-50 transition cursor-pointer"
                 >
                   إلغاء
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#714B67] hover:bg-[#5a3a52] text-white rounded-xl font-bold transition shadow-xs"
+                  className="px-4 py-2 bg-[#714B67] hover:bg-[#5a3a52] text-white rounded-xl font-bold transition shadow-xs cursor-pointer flex items-center gap-1.5"
                 >
-                  حفظ ورفع المستند
+                  <CheckCircle2 size={15} /> حفظ ورفع المستند
                 </button>
               </div>
             </form>
