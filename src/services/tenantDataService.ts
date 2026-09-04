@@ -24,8 +24,25 @@ export enum OperationType {
 }
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errMessage = error instanceof Error ? error.message : String(error);
+  const isIgnorable =
+    errMessage.includes('unavailable') ||
+    errMessage.includes('offline') ||
+    errMessage.includes('closing') ||
+    errMessage.includes('hidden') ||
+    errMessage.includes('Database is closing') ||
+    errMessage.includes('Failed to get document because the client is offline') ||
+    errMessage.includes('Could not reach Cloud Firestore backend') ||
+    errMessage.includes('cancelled') ||
+    errMessage.includes('terminated');
+
+  if (isIgnorable) {
+    console.warn(`[TenantDatabaseService] Handled connection notice for ${path}:`, errMessage);
+    return { error: errMessage, operationType, path };
+  }
+
   const errInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: errMessage,
     authInfo: {
       userId: auth.currentUser?.uid,
       email: auth.currentUser?.email,

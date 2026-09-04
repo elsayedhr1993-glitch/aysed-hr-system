@@ -2168,14 +2168,6 @@ class ResConfigSettings(models.TransientModel):
                       <Trash2 className="w-4 h-4" />
                       <span>🗑️ مسح البيانات التجريبية / Clear Demo Data</span>
                     </button>
-
-                    <button
-                      onClick={() => setShowDemoModal(true)}
-                      className="w-full bg-amber-400 hover:bg-amber-500 text-slate-950 font-bold py-3.5 px-4 rounded-xl shadow transition flex items-center justify-center gap-2 cursor-pointer text-xs sm:text-sm"
-                    >
-                      <RefreshCw className="w-4 h-4 text-slate-950" />
-                      <span>⚡ توليد بيانات تجريبية / Load Demo Data</span>
-                    </button>
                   </div>
                 </div>
 

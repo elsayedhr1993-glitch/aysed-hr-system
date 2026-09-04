@@ -253,9 +253,9 @@ async function performClientSideGeminiOCR(base64Data: string, mimeType: string, 
       {
         parts: [
           {
-            inlineData: {
+            inline_data: {
               data: rawBase64,
-              mimeType: resolvedMimeType
+              mime_type: resolvedMimeType
             }
           },
           {
@@ -265,11 +265,11 @@ async function performClientSideGeminiOCR(base64Data: string, mimeType: string, 
       }
     ],
     generationConfig: {
-      responseMimeType: "application/json"
+      response_mime_type: "application/json"
     }
   };
 
-  const modelsToTry = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
+  const modelsToTry = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.0-flash-lite"];
   let lastErrorDetail = '';
 
   for (const modelName of modelsToTry) {

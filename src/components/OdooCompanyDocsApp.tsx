@@ -329,7 +329,7 @@ export const OdooCompanyDocsApp: React.FC = () => {
           </div>
           <h3 className="text-lg font-bold text-slate-800">أرشيف المستندات فارغ تماماً</h3>
           <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
-            يبدأ الأرشيف بنظافة تامة على نمط Odoo المحترف. يمكنك البدء بأرشفة تراخيص ومستندات شركتك الرسمية أو تحميل عينة تجريبية للاختبار.
+            يبدأ الأرشيف بنظافة تامة على نمط Odoo المحترف. يمكنك البدء بأرشفة تراخيص ومستندات شركتك الرسمية مباشرة.
           </p>
           <div className="flex justify-center gap-3 pt-2">
             <button
@@ -337,12 +337,6 @@ export const OdooCompanyDocsApp: React.FC = () => {
               className="px-5 py-2.5 bg-[#714B67] hover:bg-[#5a3c52] text-white rounded-xl text-xs font-bold transition shadow-md flex items-center gap-2 cursor-pointer"
             >
               <PlusCircle size={16} /> أرشفة مستند جديد
-            </button>
-            <button
-              onClick={() => setDocs(initialCompanyDocs)}
-              className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer"
-            >
-              <Sparkles size={16} /> تحميل عينة تجريبية (Demo Data)
             </button>
           </div>
         </div>

@@ -37,11 +37,17 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   const isOfflineOrUnavailable =
     errMessage.includes('unavailable') ||
     errMessage.includes('offline') ||
+    errMessage.includes('closing') ||
+    errMessage.includes('hidden') ||
+    errMessage.includes('Database is closing') ||
     errMessage.includes('Failed to get document because the client is offline') ||
     errMessage.includes('Could not reach Cloud Firestore backend') ||
-    errMessage.includes('Missing or insufficient permissions');
+    errMessage.includes('Missing or insufficient permissions') ||
+    errMessage.includes('cancelled') ||
+    errMessage.includes('terminated');
 
   if (isOfflineOrUnavailable) {
+    console.warn(`[FirestoreSync] Handled ignorable connection notice for ${path}:`, errMessage);
     return;
   }
 

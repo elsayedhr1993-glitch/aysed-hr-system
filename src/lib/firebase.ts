@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { initializeFirestore, getFirestore, setLogLevel, doc, setDoc, deleteDoc, collection, getDocs, query, where, writeBatch } from 'firebase/firestore';
+import { initializeFirestore, getFirestore, memoryLocalCache, setLogLevel, doc, setDoc, deleteDoc, collection, getDocs, query, where, writeBatch } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { supabase } from './supabase';
 import firebaseConfig from '../../firebase-applet-config.json';
@@ -15,16 +15,18 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
 let firestoreInstance;
 try {
-  if (firebaseConfig.firestoreDatabaseId) {
-    firestoreInstance = getFirestore(app, firebaseConfig.firestoreDatabaseId);
-  } else {
-    firestoreInstance = getFirestore(app);
-  }
+  const dbId = (firebaseConfig as any).firestoreDatabaseId || undefined;
+  firestoreInstance = initializeFirestore(app, {
+    localCache: memoryLocalCache(),
+    experimentalAutoDetectLongPolling: true,
+  }, dbId);
 } catch {
   try {
-    firestoreInstance = initializeFirestore(app, {
-      experimentalAutoDetectLongPolling: true,
-    }, firebaseConfig.firestoreDatabaseId);
+    if (firebaseConfig.firestoreDatabaseId) {
+      firestoreInstance = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+    } else {
+      firestoreInstance = getFirestore(app);
+    }
   } catch {
     firestoreInstance = getFirestore(app);
   }
