@@ -95,7 +95,9 @@ export const OdooSettingsFull: React.FC = () => {
       try { 
         data = JSON.parse(text); 
       } catch(e) { 
-        throw new Error('الخادم لم يرجع استجابة JSON صالحة. يرجى التحقق من استجابة خادم البريد وسرعة اتصاله.'); 
+        console.error("Invalid JSON from server:", text);
+        const truncatedText = text.substring(0, 150) + (text.length > 150 ? '...' : '');
+        throw new Error(`الخادم لم يرجع استجابة JSON صالحة. محتوى الاستجابة: "${truncatedText}". يرجى التحقق من استجابة خادم البريد وسرعة اتصاله.`); 
       }
       
       if (data.success) {

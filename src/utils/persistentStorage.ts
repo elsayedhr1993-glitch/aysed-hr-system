@@ -172,7 +172,7 @@ export function purgeLegacyMockData(): void {
         const code = String(item.employeeCode || item.code || '').toLowerCase();
         if (code === 'med-001' || code.includes('demo') || code.includes('mock')) return true;
         const name = String(item.nameAr || item.name || item.fullNameAr || item.companyName || item.employeeName || item.empName || '').toLowerCase();
-        if (name.includes('تجريب') || name.includes('وهمي') || name.includes('demo') || name.includes('sample') || name.includes('الكندري') || name.includes('المنار')) return true;
+        if (name.includes('تجريب') || name.includes('وهمي') || name.includes('demo') || name.includes('sample') || name.includes('الكندري')) return true;
       }
       return false;
     };

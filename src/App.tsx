@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TenantProvider, useTenant } from './context/TenantContext';
+import { useCompany } from './context/CompanyContext';
 import { OdooHierarchyProvider, useOdooHierarchy } from './context/OdooHierarchyContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { toast, Toaster } from 'react-hot-toast';
@@ -80,9 +81,11 @@ function MainAppLayout() {
     deleteCompany
   } = useTenant();
 
+  const { startImpersonation, exitImpersonation: exitCompanyImpersonation } = useCompany();
+
   const { employees, addEmployee } = useOdooHierarchy();
 
-  const { logout, user, isLoading } = useAuth();
+  const { logout, user, isLoading, updateAvatar } = useAuth();
 
 
   const [shifts, setShifts] = useState<any[]>([]);
@@ -92,8 +95,15 @@ function MainAppLayout() {
 
   // User Avatar & Profile state
   const [userAvatar, setUserAvatar] = useState<string>(
-    localStorage.getItem('aysed_user_avatar') || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'
+    user?.photoURL || localStorage.getItem('aysed_user_avatar') || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'
   );
+
+  useEffect(() => {
+    if (user?.photoURL) {
+      setUserAvatar(user.photoURL);
+      localStorage.setItem('aysed_user_avatar', user.photoURL);
+    }
+  }, [user?.photoURL]);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [newAvatarUrl, setNewAvatarUrl] = useState('');
 
@@ -246,7 +256,7 @@ function MainAppLayout() {
 
   return (
     <div className="h-screen w-full flex flex-col font-sans overflow-hidden bg-slate-100 dir-rtl text-right text-slate-800" dir="rtl">
-      <Toaster position="top-center" reverseOrder={false} />
+      <Toaster position="top-center" containerStyle={{ zIndex: 99999 }} reverseOrder={false} />
 
       {/* شريط تنبيه الدخول كمسؤول (Strict Impersonation Banner) */}
       {impersonatingCompanyId && (
@@ -267,6 +277,7 @@ function MainAppLayout() {
           <button 
             onClick={() => {
               exitImpersonation();
+              exitCompanyImpersonation();
               toast.success('تم إنهاء وضع المحاكاة والعودة للوحة السوبر أدمن المركزية');
             }} 
             className="bg-slate-950 hover:bg-black text-amber-300 hover:text-white px-3 py-1 rounded-md text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
@@ -678,6 +689,7 @@ function MainAppLayout() {
                                     <button 
                                       onClick={() => {
                                         impersonateCompany(comp.id);
+                                        startImpersonation(comp);
                                         toast.success(`أنت الآن تتصفح بيانات شركة ${comp.nameAr}`);
                                       }}
                                       className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition flex items-center gap-1.5 shadow-sm border border-transparent cursor-pointer ${
@@ -913,11 +925,16 @@ function MainAppLayout() {
                   إلغاء
                 </button>
                 <button 
-                  onClick={() => {
+                  onClick={async () => {
                     if (newAvatarUrl.trim()) {
                       setUserAvatar(newAvatarUrl);
                       localStorage.setItem('aysed_user_avatar', newAvatarUrl);
-                      toast.success('تم تحديث وحفظ الصورة الشخصية محلياً بنجاح');
+                      try {
+                        await updateAvatar(newAvatarUrl);
+                        toast.success('تم تحديث وحفظ الصورة الشخصية في قاعدة بيانات Firestore ومزامنتها بنجاح');
+                      } catch (err) {
+                        toast.success('تم تحديث وحفظ الصورة محلياً بنجاح');
+                      }
                       setShowAvatarModal(false);
                     } else {
                       toast.error('يرجى اختيار صورة أولاً');

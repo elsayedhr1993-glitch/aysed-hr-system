@@ -28,9 +28,9 @@ export const AICopilotApp: React.FC<AICopilotAppProps> = ({
   contracts,
   leaves,
 }) => {
-  const companyEmployees = (employees || []).filter(e => !activeCompany || e.companyId === activeCompany.id || !e.companyId);
-  const companyContracts = (contracts || []).filter(c => !activeCompany || c.companyId === activeCompany.id || !c.companyId);
-  const companyLeaves = (leaves || []).filter(l => !activeCompany || l.companyId === activeCompany.id || !l.companyId);
+  const companyEmployees = (employees || []).filter(e => !activeCompany || activeCompany.id === 'comp-super-admin' || e.companyId === activeCompany.id);
+  const companyContracts = (contracts || []).filter(c => !activeCompany || activeCompany.id === 'comp-super-admin' || c.companyId === activeCompany.id);
+  const companyLeaves = (leaves || []).filter(l => !activeCompany || activeCompany.id === 'comp-super-admin' || l.companyId === activeCompany.id);
 
   const [inputPrompt, setInputPrompt] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);

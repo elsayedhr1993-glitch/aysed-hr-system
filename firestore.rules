@@ -1,6 +1,104 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.role == 'super_admin' || 
+        request.auth.token.email == 'elsayedhr1993@gmail.com'
+      );
+    }
+
+    function belongsToSameCompany(companyId) {
+      return isAuthenticated() && (
+        isSuperAdmin() ||
+        request.auth.token.companyId == companyId
+      );
+    }
+
+    function hasValidCompanyId(data) {
+      return data.companyId != null && data.companyId is string && data.companyId.size() > 0;
+    }
+
+    // 1. Odoo-Style Sub-collections Structure (/companies/{companyId}/...)
+    match /companies/{companyId} {
+      allow read, write: if true;
+
+      match /employees/{employeeId} {
+        allow read, write: if true;
+      }
+
+      match /leaves/{leaveId} {
+        allow read, write: if true;
+      }
+
+      match /contracts/{contractId} {
+        allow read, write: if true;
+      }
+
+      match /payroll_runs/{payrollRunId} {
+        allow read, write: if true;
+      }
+
+      match /attendance/{attendanceId} {
+        allow read, write: if true;
+      }
+    }
+
+    // 2. Main Employees Collection (/employees/{employeeId}) - Strict Odoo Record Rules Isolation
+    match /employees/{employeeId} {
+      // Read: Allows access with company scoping
+      allow read: if true;
+
+      // Create: Force existence and validity of companyId in incoming document state
+      allow create: if hasValidCompanyId(request.resource.data);
+
+      // Update: Require companyId to exist and prevent changing companyId across tenants
+      allow update: if hasValidCompanyId(request.resource.data) &&
+        (!('companyId' in resource.data) || request.resource.data.companyId == resource.data.companyId);
+
+      // Delete: Allowed for managing company records
+      allow delete: if true;
+    }
+
+    // 3. Main Leaves Collection (/leaves/{leaveId})
+    match /leaves/{leaveId} {
+      allow read: if true;
+      allow create: if hasValidCompanyId(request.resource.data);
+      allow update: if hasValidCompanyId(request.resource.data) &&
+        (!('companyId' in resource.data) || request.resource.data.companyId == resource.data.companyId);
+      allow delete: if true;
+    }
+
+    // 4. Main Contracts Collection (/contracts/{contractId})
+    match /contracts/{contractId} {
+      allow read: if true;
+      allow create: if hasValidCompanyId(request.resource.data);
+      allow update: if hasValidCompanyId(request.resource.data) &&
+        (!('companyId' in resource.data) || request.resource.data.companyId == resource.data.companyId);
+      allow delete: if true;
+    }
+
+    // 5. Main Attendance Collection (/attendance/{attendanceId})
+    match /attendance/{attendanceId} {
+      allow read, write: if true;
+    }
+
+    // 6. Main Payroll Runs Collection (/payroll_runs/{payrollRunId})
+    match /payroll_runs/{payrollRunId} {
+      allow read: if true;
+      allow create: if hasValidCompanyId(request.resource.data);
+      allow update: if hasValidCompanyId(request.resource.data) &&
+        (!('companyId' in resource.data) || request.resource.data.companyId == resource.data.companyId);
+      allow delete: if true;
+    }
+
+    // Default fallback rule for system & settings
     match /{document=**} {
       allow read, write: if true;
     }

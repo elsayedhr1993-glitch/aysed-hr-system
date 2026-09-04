@@ -141,8 +141,8 @@ export async function getHolidayWorkRecords(companyId?: string): Promise<WorkOnH
   // Persist clean deduplicated list to local storage
   setPersistentData(MANARA_STORAGE_KEYS.HOLIDAY_WORK_RECORDS, all);
 
-  if (companyId) {
-    return all.filter(r => !r.companyId || r.companyId === companyId);
+  if (companyId && companyId !== 'comp-super-admin') {
+    return all.filter(r => r.companyId === companyId);
   }
   return all;
 }

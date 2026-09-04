@@ -67,10 +67,7 @@ export const PayrollApp: React.FC<PayrollAppProps> = ({
   const query = (searchTerm || localSearch).trim().toLowerCase();
 
   const activeCompId = activeCompany?.id || '';
-  let companyEmps = (employees || []).filter(e => !e.isDeleted && (!activeCompId || e.companyId === activeCompId));
-  if (companyEmps.length === 0 && (employees || []).filter(e => !e.isDeleted).length > 0) {
-    companyEmps = (employees || []).filter(e => !e.isDeleted);
-  }
+  let companyEmps = (employees || []).filter(e => !e.isDeleted && (!activeCompId || activeCompId === 'comp-super-admin' || e.companyId === activeCompId));
   
   // Filtered employees for Salary Structure tab
   const filteredEmps = companyEmps.filter(e => {

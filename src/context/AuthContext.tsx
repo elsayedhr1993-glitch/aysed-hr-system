@@ -9,6 +9,7 @@ export interface User {
   email: string;
   role: string;
   companyId?: string; // For tenant isolation
+  photoURL?: string;
 }
 
 export interface AuthContextType {
@@ -19,6 +20,7 @@ export interface AuthContextType {
   login: (token: string, userData: User) => void;
   logout: () => Promise<void>;
   toggleDebugMode: () => void;
+  updateAvatar: (url: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -52,6 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           let role = isSuper ? 'SUPER_ADMIN' : 'COMPANY_ADMIN';
           let name = isSuper ? 'مدير النظام (Super Admin)' : 'مسؤول الشركة';
           let companyId = undefined;
+          let photoURL = firebaseUser.photoURL || localStorage.getItem('aysed_user_avatar') || '';
 
           // Attempt to fetch profile
           try {
@@ -61,6 +64,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               role = data.role || role;
               name = data.name || name;
               companyId = data.companyId;
+              photoURL = data.photoURL || data.avatar || photoURL;
             } else {
               if (isSuper) {
                 // Auto-seed for the first time login if it's the known admin
@@ -69,6 +73,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   email: firebaseUser.email,
                   name: 'مدير النظام المركزية',
                   role: 'SUPER_ADMIN',
+                  photoURL: photoURL,
                   createdAt: new Date().toISOString()
                 });
                 role = 'SUPER_ADMIN';
@@ -103,6 +108,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     name: name,
                     role: 'COMPANY_ADMIN',
                     companyId: companyId,
+                    photoURL: photoURL,
                     createdAt: new Date().toISOString()
                   });
                 } else {
@@ -113,6 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     email: firebaseUser.email,
                     name: name,
                     role: 'COMPANY_ADMIN',
+                    photoURL: photoURL,
                     createdAt: new Date().toISOString()
                   });
                 }
@@ -129,7 +136,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             name,
             email: firebaseUser.email || '',
             role,
-            companyId
+            companyId,
+            photoURL
           });
           setToken(jwt);
         } else {
@@ -180,8 +188,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
+  const updateAvatar = async (url: string) => {
+    if (!auth.currentUser) {
+      setUser(prev => prev ? { ...prev, photoURL: url } : null);
+      localStorage.setItem('aysed_user_avatar', url);
+      return;
+    }
+    try {
+      const { setDoc } = await import('firebase/firestore');
+      const { updateProfile } = await import('firebase/auth');
+
+      // Firebase Auth photoURL is limited to max 2048 chars. Avoid setting long base64 data URLs on auth profile
+      if (url && url.length <= 2000 && !url.startsWith('data:')) {
+        try {
+          await updateProfile(auth.currentUser, { photoURL: url });
+        } catch (authProfileErr) {
+          console.warn('Firebase Auth photoURL bypassed (exceeds limit):', authProfileErr);
+        }
+      }
+
+      await setDoc(doc(db, 'users', auth.currentUser.uid), {
+        photoURL: url,
+        avatar: url,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      setUser(prev => prev ? { ...prev, photoURL: url } : null);
+      localStorage.setItem('aysed_user_avatar', url);
+    } catch (err) {
+      console.error("Error updating avatar:", err);
+      setUser(prev => prev ? { ...prev, photoURL: url } : null);
+      localStorage.setItem('aysed_user_avatar', url);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, isDebugMode, isLoading, login, logout, toggleDebugMode }}>
+    <AuthContext.Provider value={{ user, token, isDebugMode, isLoading, login, logout, toggleDebugMode, updateAvatar }}>
       {children}
     </AuthContext.Provider>
   );

@@ -42,10 +42,15 @@ export const EmployeeKanbanView: React.FC<EmployeeKanbanViewProps> = ({
                     <p className="text-[10px] text-slate-500 font-semibold truncate mt-0.5">
                       {emp.jobTitle}
                     </p>
-                    <span className={`inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-md font-bold border mt-1 ${deptStyle.badgeBg}`}>
-                      <span>{deptStyle.icon}</span>
-                      <span>{emp.department}</span>
-                    </span>
+                    <div className="flex flex-wrap items-center gap-1 mt-1">
+                      <span className={`inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-md font-bold border ${deptStyle.badgeBg}`}>
+                        <span>{deptStyle.icon}</span>
+                        <span>{emp.department}</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-md font-bold border bg-purple-50 text-purple-900 border-purple-200 font-mono">
+                        🏢 companyId: {emp.companyId || (emp as any).company_id}
+                      </span>
+                    </div>
                   </div>
                 </div>
 

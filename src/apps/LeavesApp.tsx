@@ -182,9 +182,10 @@ export const LeavesApp: React.FC<LeavesAppProps> = ({  autoOpenNewLeaveForEmpId,
     }
   }, [initialEmployeeId]);
 
-  const rawCompanyEmployees = (employees || []).filter(e => !e.isDeleted && (!activeCompany || e.companyId === activeCompany.id || !e.companyId));
-  const companyEmployees = rawCompanyEmployees.length > 0 ? rawCompanyEmployees : (employees || []).filter(e => !e.isDeleted);
-  const companyLeaves = (leaves || []).filter(l => !activeCompany || l.companyId === activeCompany.id || !l.companyId);
+  const activeCompId = activeCompany?.id;
+  const rawCompanyEmployees = (employees || []).filter(e => !e.isDeleted && (!activeCompId || activeCompId === 'comp-super-admin' || e.companyId === activeCompId));
+  const companyEmployees = rawCompanyEmployees.length > 0 ? rawCompanyEmployees : (employees || []).filter(e => !e.isDeleted && (!activeCompId || activeCompId === 'comp-super-admin' || e.companyId === activeCompId));
+  const companyLeaves = (leaves || []).filter(l => !activeCompId || activeCompId === 'comp-super-admin' || l.companyId === activeCompId);
   const activeSearchTerm = localSearch || searchTerm;
 
   // Ensure baseline allocations exist for all active employees and clean up any duplicates

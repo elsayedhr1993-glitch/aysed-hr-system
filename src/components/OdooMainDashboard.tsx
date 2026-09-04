@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, 
   FileText, 
@@ -30,9 +30,40 @@ export const OdooMainDashboard: React.FC<OdooMainDashboardProps> = ({ onNavigate
   const { activeCompany } = useCompany();
 
   // Load real employees from persistent storage
-  const allEmployees = getPersistentData<any[]>(MANARA_STORAGE_KEYS.EMPLOYEES, []);
-  const companyEmployees = activeCompany?.id 
-    ? allEmployees.filter(e => !e.companyId || e.companyId === activeCompany.id)
+  // Load real employees from partitioned persistent storage
+  const currentCompanyId = activeCompany?.id || 'comp-super-admin';
+  const [allEmployees, setAllEmployees] = useState<any[]>([]);
+  
+  useEffect(() => {
+    let isMounted = true;
+    const rawEmployees = localStorage.getItem(`odoo_employees_v1_${currentCompanyId}`);
+    if (rawEmployees) {
+      try {
+        const parsed = JSON.parse(rawEmployees);
+        setAllEmployees(parsed);
+      } catch (e) {
+        setAllEmployees([]);
+      }
+    } else {
+      setAllEmployees([]);
+    }
+
+    // Background fetch to ensure dashboard is up to date
+    import('../services/tenantDataService').then(({ TenantDatabaseService }) => {
+      TenantDatabaseService.getEmployeesByTenant(currentCompanyId).then(dbEmps => {
+        if (isMounted && dbEmps && dbEmps.length > 0) {
+          const mapped = dbEmps.map(emp => ({ ...emp, companyId: emp.companyId || currentCompanyId }));
+          setAllEmployees(mapped);
+          localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(mapped));
+        }
+      });
+    });
+
+    return () => { isMounted = false; };
+  }, [currentCompanyId]);
+
+  const companyEmployees = activeCompany?.id && activeCompany.id !== 'comp-super-admin'
+    ? allEmployees.filter(e => e.companyId === activeCompany.id)
     : allEmployees;
 
   // Calculate live KPI metrics

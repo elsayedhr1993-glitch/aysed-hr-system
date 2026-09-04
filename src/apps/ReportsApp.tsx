@@ -79,27 +79,27 @@ export const ReportsApp: React.FC<ReportsAppProps> = ({
 
   // Active Company filtering
   const companyEmployees = useMemo(() => {
-    return employees.filter(e => !activeCompany || e.companyId === activeCompany.id || !e.companyId);
+    return employees.filter(e => !activeCompany || activeCompany.id === 'comp-super-admin' || e.companyId === activeCompany.id);
   }, [employees, activeCompany]);
 
   const companyContracts = useMemo(() => {
-    return contracts.filter(c => !activeCompany || c.companyId === activeCompany.id || !c.companyId);
+    return contracts.filter(c => !activeCompany || activeCompany.id === 'comp-super-admin' || c.companyId === activeCompany.id);
   }, [contracts, activeCompany]);
 
   const companyLeaves = useMemo(() => {
-    return leaves.filter(l => !activeCompany || l.companyId === activeCompany.id || !l.companyId);
+    return leaves.filter(l => !activeCompany || activeCompany.id === 'comp-super-admin' || l.companyId === activeCompany.id);
   }, [leaves, activeCompany]);
 
   const companyAttendance = useMemo(() => {
-    return attendance.filter(a => !activeCompany || a.companyId === activeCompany.id || !a.companyId);
+    return attendance.filter(a => !activeCompany || activeCompany.id === 'comp-super-admin' || a.companyId === activeCompany.id);
   }, [attendance, activeCompany]);
 
   const companyPayslips = useMemo(() => {
-    return payslips.filter(p => !activeCompany || p.companyId === activeCompany.id || !p.companyId);
+    return payslips.filter(p => !activeCompany || activeCompany.id === 'comp-super-admin' || p.companyId === activeCompany.id);
   }, [payslips, activeCompany]);
 
   const companyDocuments = useMemo(() => {
-    return documents.filter(d => !activeCompany || d.companyId === activeCompany.id || !d.companyId);
+    return documents.filter(d => !activeCompany || activeCompany.id === 'comp-super-admin' || d.companyId === activeCompany.id);
   }, [documents, activeCompany]);
 
   // Extract distinct departments

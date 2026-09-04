@@ -1201,9 +1201,9 @@ app.post("/api/send-email", express.json(), async (req, res) => {
         user: resolvedUser,
         pass: resolvedPass,
       },
-      connectionTimeout: 8000, // 8 seconds timeout
-      greetingTimeout: 8000,
-      socketTimeout: 8000,
+      connectionTimeout: 4000, // 4 seconds timeout to fail faster than proxy
+      greetingTimeout: 4000,
+      socketTimeout: 4000,
     });
 
     await transporter.sendMail({

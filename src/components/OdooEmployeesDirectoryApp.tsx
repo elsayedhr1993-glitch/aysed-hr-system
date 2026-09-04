@@ -128,6 +128,7 @@ export interface EmployeeProfile {
 
   // Attached Documents
   documents: EmployeeDocument[];
+  companyId?: string;
 }
 
 export const OdooEmployeesDirectoryApp: React.FC = () => {
@@ -139,6 +140,7 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
   // Sync live with Firestore for active company
   useEffect(() => {
     let isMounted = true;
+    setEmployees([]); // Clear immediately when switching companies to prevent data bleed
     async function syncDirectoryEmployees() {
       if (!currentCompanyId) return;
       try {
@@ -147,6 +149,7 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
           if (dbEmps && dbEmps.length > 0) {
             const mapped: EmployeeProfile[] = dbEmps.map(emp => ({
               id: emp.id,
+              companyId: emp.companyId || currentCompanyId,
               name: emp.fullNameAr || (emp as any).nameAr || 'موظف',
               nameEn: emp.fullNameEn || (emp as any).nameEn || '',
               civilId: emp.civilId || '',
@@ -256,12 +259,22 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
 
   const departments = ['الكل', 'الموارد البشرية', 'الإدارة العليا', 'الأطباء', 'التمريض', 'الأمن والخدمات'];
 
-  const filteredEmployees = employees.filter(emp => {
-    const matchesSearch = emp.name.includes(searchQuery) || 
+  // 3. حظر تسريب الموظفين في العرض (Front-end Strict Filter)
+  const visibleEmployees = employees.filter(emp => {
+    const empComp = emp.companyId || (emp as any).company_id;
+    if (activeCompanyId === 'comp-super-admin') {
+      return true;
+    }
+    return empComp === activeCompanyId;
+  });
+
+  const filteredEmployees = visibleEmployees.filter(emp => {
+    const matchesSearch = (emp.name || '').includes(searchQuery) || 
                           (emp.nameEn && emp.nameEn.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                          emp.civilId.includes(searchQuery) || 
-                          emp.jobTitle.includes(searchQuery) ||
-                          emp.id.toLowerCase().includes(searchQuery.toLowerCase());
+                          (emp.civilId && emp.civilId.includes(searchQuery)) || 
+                          ((emp as any).civil_id_number && (emp as any).civil_id_number.includes(searchQuery)) ||
+                          (emp.jobTitle && emp.jobTitle.includes(searchQuery)) ||
+                          (emp.id && emp.id.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesDept = selectedDept === 'الكل' || emp.department === selectedDept;
     return matchesSearch && matchesDept;
   });
@@ -282,6 +295,7 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
 
   const handleStartCreate = () => {
     setIsCreating(true);
+    const targetCompId = activeCompany?.id || 'comp-super-admin';
     const newEmp: EmployeeProfile = {
       id: `EMP-${String(employees.length + 1).padStart(3, '0')}`,
       name: '',
@@ -313,7 +327,8 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
       bankName: 'بنك الكويت الوطني (NBK)',
       iban: '',
       residencyType: 'مادة 18 (قطاع أهلي)',
-      documents: []
+      documents: [],
+      companyId: targetCompId // ربط الموظف بالشركة الحالية إجبارياً
     };
     setSelectedEmployee(newEmp);
     setActiveFormTab('work');
@@ -325,31 +340,54 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
       return;
     }
     
-    const targetCompId = activeCompany?.id || 'comp-super-admin';
+    const activeCompanyId = currentCompanyId || activeCompany?.id || 'comp-super-admin';
+    const civilId = ((selectedEmployee as any).civil_id_number || selectedEmployee.civilId || '').trim();
+    const editingEmployeeId = isCreating ? null : selectedEmployee.id;
+
+    // 1. منع التكرار برقم البطاقة المدنية (Unique Civil ID)
+    if (civilId) {
+      const isDuplicate = employees.some(
+        emp => emp.id !== editingEmployeeId &&
+        (emp.companyId === activeCompanyId || activeCompanyId === 'comp-super-admin') && 
+        (((emp as any).civil_id_number && (emp as any).civil_id_number.trim() === civilId) || 
+         (emp.civilId && emp.civilId.trim() === civilId))
+      );
+
+      if (isDuplicate && !editingEmployeeId) {
+        alert('خطأ: الموظف مسجل بالفعل! الرقم المدني مكرر في هذه الشركة.');
+        toast.error('خطأ: الموظف مسجل بالفعل! الرقم المدني مكرر في هذه الشركة.');
+        return;
+      }
+    }
+
+    // 2. إدراج companyId إجبارياً في الـ Payload
     const payload = {
       ...selectedEmployee,
+      companyId: activeCompanyId, // الربط الصارم بالشركة النشطة
+      civil_id_number: civilId,
+      civilId: civilId,
       fullNameAr: selectedEmployee.name,
       fullNameEn: selectedEmployee.nameEn,
-      companyId: targetCompId
+      createdAt: (selectedEmployee as any).createdAt || new Date().toISOString()
     };
 
     try {
-      await TenantDatabaseService.saveEmployee(payload as any, targetCompId);
+      await TenantDatabaseService.saveEmployee(payload as any, activeCompanyId);
     } catch (err) {
       console.error('Error saving employee to Firestore:', err);
     }
 
     let updated: EmployeeProfile[];
     if (isCreating) {
-      updated = [selectedEmployee, ...employees];
+      updated = [payload, ...employees];
       setEmployees(updated);
-      setPersistentData(MANARA_STORAGE_KEYS.EMPLOYEES, updated);
+      localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(updated));
       setIsCreating(false);
       toast.success(`تم تسجيل الموظف (${selectedEmployee.name}) بنجاح في قاعدة بيانات Firebase`);
     } else {
-      updated = employees.map(e => e.id === selectedEmployee.id ? selectedEmployee : e);
+      updated = employees.map(e => e.id === selectedEmployee.id ? payload : e);
       setEmployees(updated);
-      setPersistentData(MANARA_STORAGE_KEYS.EMPLOYEES, updated);
+      localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(updated));
       toast.success(`تم حفظ بيانات الموظف (${selectedEmployee.name}) حياً في Firebase`);
     }
   };
@@ -402,7 +440,7 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
       }
       const updated = employees.filter(e => !selectedIds.includes(e.id));
       setEmployees(updated);
-      setPersistentData(MANARA_STORAGE_KEYS.EMPLOYEES, updated);
+      localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(updated));
       setSelectedIds([]);
       setIsBulkDeleting(false);
       setEmployeeToDelete(null);
@@ -415,7 +453,7 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
     await TenantDatabaseService.deleteEmployee(employeeToDelete.id, targetCompId);
     const updated = employees.filter(e => e.id !== employeeToDelete.id);
     setEmployees(updated);
-    setPersistentData(MANARA_STORAGE_KEYS.EMPLOYEES, updated);
+    localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(updated));
     
     if (selectedEmployee?.id === employeeToDelete.id) {
       setSelectedEmployee(null);

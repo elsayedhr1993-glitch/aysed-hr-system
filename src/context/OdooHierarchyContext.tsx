@@ -6,6 +6,7 @@ import { TenantDatabaseService } from '../services/tenantDataService';
 // 1. المستوى الأول: العقد والبيانات الثابتة (hr.contract & hr.employee)
 export interface EmployeeContract {
   id: string;
+  companyId?: string;
   name: string;
   civilId: string;
   jobTitle: string;
@@ -202,6 +203,7 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
   // مزامنة الموظفين حياً من قاعدة البيانات للشركة النشطة
   useEffect(() => {
     let isMounted = true;
+    setEmployees([]); // Clear immediately on company change to prevent cross-company bleed
     async function syncEmployeesFromDb() {
       if (!currentCompanyId) return;
       try {
@@ -210,6 +212,7 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
           if (dbEmps && dbEmps.length > 0) {
             const mapped: EmployeeContract[] = dbEmps.map(emp => ({
               id: emp.id,
+              companyId: emp.companyId || currentCompanyId,
               name: emp.fullNameAr || (emp as any).nameAr || (emp as any).name || 'موظف',
               civilId: emp.civilId || '',
               jobTitle: emp.jobTitle || 'موظف',
@@ -423,31 +426,60 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const addEmployee = async (emp: EmployeeContract) => {
-    setEmployees(prev => [emp, ...prev]);
-    // Save to Firestore
+    const activeCompanyId = currentCompanyId;
+    const civilId = ((emp as any).civil_id_number || emp.civilId || '').trim();
+
+    // 1. منع التكرار برقم البطاقة المدنية (Unique Civil ID)
+    if (civilId) {
+      const isDuplicate = employees.some(
+        e => (e.companyId === activeCompanyId || activeCompanyId === 'comp-super-admin') &&
+        (((e as any).civil_id_number && (e as any).civil_id_number.trim() === civilId) ||
+         (e.civilId && e.civilId.trim() === civilId))
+      );
+      if (isDuplicate) {
+        alert('خطأ: الموظف مسجل بالفعل! الرقم المدني مكرر في هذه الشركة.');
+        return false;
+      }
+    }
+
+    // 2. إدراج companyId إجبارياً في الـ Payload
+    const newEmployee: EmployeeContract = {
+      ...emp,
+      companyId: activeCompanyId, // الربط الصارم بالشركة النشطة
+      civilId: civilId,
+    };
+    (newEmployee as any).civil_id_number = civilId;
+    (newEmployee as any).createdAt = (emp as any).createdAt || new Date().toISOString();
+
+    setEmployees(prev => [newEmployee, ...prev]);
+
+    // Save to Firestore with explicit companyId
     await TenantDatabaseService.saveEmployee({
-      id: emp.id,
-      fullNameAr: emp.name,
-      civilId: emp.civilId,
-      jobTitle: emp.jobTitle,
-      department: emp.department,
-      bankName: emp.bankName,
-      iban: emp.iban,
-      contractSalary: emp.basicSalary,
-      basicSalary: emp.basicSalary,
-      companyId: currentCompanyId
-    } as any, currentCompanyId);
+      id: newEmployee.id,
+      fullNameAr: newEmployee.name,
+      civilId: civilId,
+      civil_id_number: civilId,
+      jobTitle: newEmployee.jobTitle,
+      department: newEmployee.department,
+      bankName: newEmployee.bankName,
+      iban: newEmployee.iban,
+      contractSalary: newEmployee.basicSalary,
+      basicSalary: newEmployee.basicSalary,
+      companyId: activeCompanyId,
+      createdAt: new Date().toISOString()
+    } as any, activeCompanyId);
 
     // Create default attendance
     setAttendance(prev => ({
       ...prev,
-      [emp.id]: { employeeId: emp.id, delayMinutes: 0, unpaidAbsenceDays: 0, overtimeHours: 0 }
+      [newEmployee.id]: { employeeId: newEmployee.id, delayMinutes: 0, unpaidAbsenceDays: 0, overtimeHours: 0 }
     }));
     // Create default leave accrual
     setLeaveAccruals(prev => ({
       ...prev,
-      [emp.id]: { employeeId: emp.id, carriedFrom2025: 0, earned2026: 0, consumedDays: 0, prepaidLeaveDays: 0 }
+      [newEmployee.id]: { employeeId: newEmployee.id, carriedFrom2025: 0, earned2026: 0, consumedDays: 0, prepaidLeaveDays: 0 }
     }));
+    return true;
   };
 
   const recordUnpaidAbsence = (empId: string, days: number) => {

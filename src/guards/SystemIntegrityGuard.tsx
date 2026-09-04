@@ -55,7 +55,25 @@ export const SystemIntegrityGuard: React.FC = () => {
       setActiveAlerts(prev => [e.detail, ...prev]);
     };
     window.addEventListener('system_guard_alert', handleAlert);
-    return () => window.removeEventListener('system_guard_alert', handleAlert);
+
+    // Observer تلقائي لمراقبة النوافذ المنبثقة وتثبيت التمرير (Body Scroll Lock Guard)
+    const checkModalState = () => {
+      const activeModal = document.querySelector('.fixed.inset-0, [role="dialog"]');
+      if (activeModal && document.body.style.overflow !== 'hidden') {
+        document.body.style.overflow = 'hidden';
+      } else if (!activeModal && document.body.style.overflow === 'hidden') {
+        document.body.style.overflow = '';
+      }
+    };
+
+    const observer = new MutationObserver(checkModalState);
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    return () => {
+      window.removeEventListener('system_guard_alert', handleAlert);
+      observer.disconnect();
+      document.body.style.overflow = '';
+    };
   }, []);
 
   const handleClearAlert = (id: string) => {

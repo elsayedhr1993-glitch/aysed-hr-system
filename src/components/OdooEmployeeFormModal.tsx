@@ -87,9 +87,11 @@ interface EmployeeModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (employeeData: any) => void;
+  existingEmployees?: any[];
+  activeCompanyId?: string;
 }
 
-export default function OdooEmployeeFormModal({ isOpen, onClose, onSave }: EmployeeModalProps) {
+export default function OdooEmployeeFormModal({ isOpen, onClose, onSave, existingEmployees = [], activeCompanyId }: EmployeeModalProps) {
   const [activeTab, setActiveTab] = useState<'work' | 'private' | 'hr' | 'resume' | 'warnings'>('work');
 
   // البيانات العامة
@@ -158,11 +160,32 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave }: Emplo
       return;
     }
 
+    const cleanCivilId = (civilId || '').trim();
+    if (existingEmployees && existingEmployees.length > 0 && cleanCivilId) {
+      const compId = activeCompanyId || 'comp-super-admin';
+      const isDuplicate = existingEmployees.some(emp => 
+        (emp.companyId === compId || compId === 'comp-super-admin') && 
+        ((emp.civil_id_number && emp.civil_id_number.trim() === cleanCivilId) ||
+         (emp.civilId && emp.civilId.trim() === cleanCivilId) ||
+         (emp.civil_id && emp.civil_id.trim() === cleanCivilId))
+      );
+      if (isDuplicate) {
+        alert('خطأ: الموظف مسجل بالفعل! الرقم المدني مكرر في هذه الشركة.');
+        return;
+      }
+    }
+
     const payload = {
       id: `EMP-${Math.floor(100 + Math.random() * 900)}`,
+      companyId: activeCompanyId || 'comp-super-admin',
+      civilId: cleanCivilId,
+      civil_id_number: cleanCivilId,
+      createdAt: new Date().toISOString(),
       badgeId,
       nameAr,
       nameEn: nameEn || nameAr,
+      fullNameAr: nameAr,
+      fullNameEn: nameEn || nameAr,
       dept: selectedDeptAr,
       department: selectedDeptAr,
       jobTitle: selectedJob.ar,
@@ -172,7 +195,6 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave }: Emplo
       phone: workPhone || '+965 9',
       manager,
       workLocation,
-      civilId,
       passportNo,
       passportExpiry,
       nationality,

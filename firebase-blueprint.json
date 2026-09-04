@@ -78,17 +78,25 @@
       "schema": { "$ref": "Company" },
       "description": "Collection of all enterprise tenants/companies"
     },
+    "/companies/{companyId}/employees/{employeeId}": {
+      "schema": { "$ref": "Employee" },
+      "description": "Odoo-style subcollection isolation for company employees"
+    },
+    "/companies/{companyId}/leaves/{leaveId}": {
+      "schema": { "$ref": "Leave" },
+      "description": "Odoo-style subcollection isolation for company leaves"
+    },
     "/employees/{employeeId}": {
       "schema": { "$ref": "Employee" },
-      "description": "Collection of employees associated with tenants"
+      "description": "Collection of employees associated with tenants (requires companyId field)"
     },
     "/leaves/{leaveId}": {
       "schema": { "$ref": "Leave" },
-      "description": "Collection of employee leave requests"
+      "description": "Collection of employee leave requests (requires companyId field)"
     },
     "/payroll_runs/{payrollRunId}": {
       "schema": { "$ref": "PayrollRun" },
-      "description": "Collection of tenant payroll run archives"
+      "description": "Collection of tenant payroll run archives (requires companyId field)"
     }
   }
 }

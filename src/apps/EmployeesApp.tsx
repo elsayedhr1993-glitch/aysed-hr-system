@@ -66,8 +66,9 @@ export function EmployeesApp(props?: any) {
       await TenantDatabaseService.deleteEmployee(id, currentCompanyId);
       setEmployees(prev => {
         const updated = prev.filter(emp => emp.id !== id);
-        localStorage.setItem('app_employees_data', JSON.stringify(updated));
-        localStorage.setItem('odoo_employees_v1', JSON.stringify(updated));
+        if (currentCompanyId) {
+          localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(updated));
+        }
         return updated;
       });
       if (selectedEmployee && String(selectedEmployee.id) === String(id)) {
@@ -170,36 +171,65 @@ export function EmployeesApp(props?: any) {
     'البنك الأهلي الكويتي (ABK)'
   ]);
 
-  // 1. قراءة البيانات المحفوظة أو تحميل البيانات الافتراضية لأول مرة فقط
-  const [employees, setEmployees] = useState(() => {
-    const saved = localStorage.getItem('app_employees_data') || localStorage.getItem('odoo_employees_v1');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
-      } catch (e) {}
-    }
-    return [];
-  });
+  // 1. قراءة البيانات المحفوظة مقيدة بالشركة النشطة
+  const [employees, setEmployees] = useState<any[]>([]);
 
-  // 2. تحديث التخزين المحلي تلقائياً عند أي إضافة أو تعديل
+  // 2. تحديث التخزين المحلي للشركة النشطة فقط
   useEffect(() => {
-    localStorage.setItem('app_employees_data', JSON.stringify(employees));
-    localStorage.setItem('odoo_employees_v1', JSON.stringify(employees));
-  }, [employees]);
+    if (currentCompanyId) {
+      const allBelong = employees.every(e => e.companyId === currentCompanyId || currentCompanyId === 'comp-super-admin');
+      if (allBelong) {
+        localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(employees));
+      }
+    }
+  }, [employees, currentCompanyId]);
 
   // 3. مزامنة قاعدة البيانات Firestore الحية للمؤسسة أو الشركة النشطة
   useEffect(() => {
     let isMounted = true;
+
+    async function initialWipeAndSeedIfNeeded() {
+      if (!localStorage.getItem('aysed_wiped_and_seeded_v6')) {
+        localStorage.setItem('aysed_wiped_and_seeded_v6', 'true');
+        await TenantDatabaseService.clearAllEmployeesAndSeedOne(currentCompanyId || 'comp-almanar');
+      }
+    }
+
+    // Clear state immediately on company change, then load from local storage
+    if (currentCompanyId) {
+      const saved = localStorage.getItem(`odoo_employees_v1_${currentCompanyId}`);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            setEmployees(parsed.filter((e: any) => {
+              const cId = e.companyId || e.company_id;
+              if (currentCompanyId === 'comp-super-admin') return true;
+              return cId === currentCompanyId;
+            }));
+          }
+        } catch (e) {
+          setEmployees([]);
+        }
+      } else {
+        setEmployees([]);
+      }
+    } else {
+      setEmployees([]);
+    }
+
     async function syncTenantEmployees() {
       if (!currentCompanyId) return;
       setIsLoadingDb(true);
       try {
+        await initialWipeAndSeedIfNeeded();
         const dbEmps = await TenantDatabaseService.getEmployeesByTenant(currentCompanyId);
         if (isMounted) {
           if (dbEmps && dbEmps.length > 0) {
             const mapped = dbEmps.map(emp => ({
               id: emp.id,
+              companyId: emp.companyId || (emp as any).company_id || currentCompanyId,
+              company_id: emp.companyId || (emp as any).company_id || currentCompanyId,
               nameAr: emp.fullNameAr || (emp as any).nameAr || 'موظف',
               nameEn: emp.fullNameEn || (emp as any).nameEn || '',
               civilId: emp.civilId || '',
@@ -226,7 +256,6 @@ export function EmployeesApp(props?: any) {
               allowances: (emp as any).allowances || 0,
               status: emp.status || 'على رأس العمل',
               avatarColor: (emp as any).avatarColor || 'bg-purple-600',
-              companyId: currentCompanyId,
               chatter: (emp as any).chatter || []
             }));
             setEmployees(mapped);
@@ -282,8 +311,10 @@ export function EmployeesApp(props?: any) {
   }, [currentCompanyId]);
 
   useEffect(() => {
-    localStorage.setItem('odoo_employees_v1', JSON.stringify(employees));
-  }, [employees]);
+    if (currentCompanyId) {
+      localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(employees));
+    }
+  }, [employees, currentCompanyId]);
 
   useEffect(() => {
     if (currentCompanyId) {
@@ -420,10 +451,21 @@ export function EmployeesApp(props?: any) {
     setChatterInput('');
   };
 
-  // فلترة الموظفين
-  const filteredEmployees = employees.filter(emp => {
-    const matchDept = selectedDept === 'الكل' || emp.dept === selectedDept;
-    const matchSearch = emp.nameAr.includes(searchQuery) || emp.civilId.includes(searchQuery) || emp.id.toLowerCase().includes(searchQuery.toLowerCase()) || emp.jobTitle.includes(searchQuery);
+  // 3. حظر تسريب الموظفين في العرض (Front-end Strict Filter)
+  const visibleEmployees = employees.filter(emp => {
+    const empCompanyId = emp.companyId || (emp as any).company_id;
+    if (activeCompanyId === 'comp-super-admin') {
+      return true;
+    }
+    return empCompanyId === activeCompanyId;
+  });
+
+  const filteredEmployees = visibleEmployees.filter(emp => {
+    const matchDept = selectedDept === 'الكل' || emp.dept === selectedDept || emp.department === selectedDept;
+    const matchSearch = (emp.nameAr || emp.fullNameAr || '').includes(searchQuery) || 
+                        (emp.civilId || emp.civil_id_number || '').includes(searchQuery) || 
+                        (emp.id || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+                        (emp.jobTitle || '').includes(searchQuery);
     return matchDept && matchSearch;
   });
 
@@ -455,6 +497,8 @@ export function EmployeesApp(props?: any) {
     link.click();
     document.body.removeChild(link);
   };
+
+
 
   return (
     <div className="flex-1 flex flex-col bg-slate-100 overflow-y-auto w-full p-4 font-sans select-none text-slate-800" dir="rtl">
@@ -606,9 +650,14 @@ export function EmployeesApp(props?: any) {
                         <div>
                           <h3 className="font-bold text-slate-800 text-xs group-hover:text-purple-900 transition">{emp.nameAr}</h3>
                           <p className="text-[11px] text-slate-500">{emp.jobTitle}</p>
-                          <span className="inline-block mt-1 bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[10px] font-semibold">
-                            {emp.dept}
-                          </span>
+                          <div className="flex flex-wrap items-center gap-1 mt-1">
+                            <span className="inline-block bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[10px] font-semibold">
+                              {emp.dept}
+                            </span>
+                            <span className="inline-block bg-purple-100 text-purple-900 border border-purple-200 px-2 py-0.5 rounded text-[10px] font-mono font-bold">
+                              🏢 companyId: {emp.companyId || (emp as any).company_id}
+                            </span>
+                          </div>
                         </div>
                       </div>
                       <span className="text-[10px] bg-purple-50 text-purple-700 px-2 py-0.5 rounded font-mono font-bold">
@@ -670,7 +719,12 @@ export function EmployeesApp(props?: any) {
                       <td className="p-3.5 font-mono text-slate-600">{emp.civilId}</td>
                       <td className="p-3.5 text-slate-700">
                         <div>{emp.jobTitle}</div>
-                        <div className="text-[10px] text-slate-400">{emp.dept}</div>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <span className="text-[10px] text-slate-400">{emp.dept}</span>
+                          <span className="text-[10px] bg-purple-50 text-purple-800 border border-purple-200 px-1.5 py-0.2 rounded font-mono font-bold">
+                            🏢 {emp.companyId || (emp as any).company_id}
+                          </span>
+                        </div>
                       </td>
                       <td className="p-3.5 font-mono text-purple-800 font-bold">{emp.mohLicense}</td>
                       <td className="p-3.5 font-mono font-bold text-emerald-700">{(emp.basicSalary + emp.allowances).toFixed(3)} د.ك</td>
@@ -1370,7 +1424,17 @@ export function EmployeesApp(props?: any) {
                         emp.id === selectedEmployee.id ? selectedEmployee : emp
                       );
                       setEmployees(updatedList);
-                      localStorage.setItem('odoo_employees_v1', JSON.stringify(updatedList));
+                      if (currentCompanyId) {
+                        localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(updatedList));
+                      }
+                      TenantDatabaseService.saveEmployee({
+                        ...selectedEmployee,
+                        fullNameAr: selectedEmployee.nameAr || selectedEmployee.fullNameAr,
+                        fullNameEn: selectedEmployee.nameEn || selectedEmployee.fullNameEn,
+                        department: selectedEmployee.dept || selectedEmployee.department,
+                        joinDate: selectedEmployee.hireDate || selectedEmployee.joinDate,
+                        mohLicenseNo: selectedEmployee.mohLicense || selectedEmployee.mohLicenseNo
+                      } as any, currentCompanyId);
                     }
                     alert('تم حفظ كافة التعديلات على ملف الموظف بنجاح.');
                     setShowEmployeeModal(false);
@@ -1713,20 +1777,48 @@ export function EmployeesApp(props?: any) {
       <OdooEmployeeFormModal 
         isOpen={showAddEmployeeModal}
         onClose={() => setShowAddEmployeeModal(false)}
+        existingEmployees={employees}
+        activeCompanyId={currentCompanyId}
         onSave={async (newEmp) => {
-          const empWithComp = { ...newEmp, companyId: currentCompanyId };
-          await TenantDatabaseService.saveEmployee({
-            ...empWithComp,
-            fullNameAr: empWithComp.nameAr,
-            fullNameEn: empWithComp.nameEn,
-            department: empWithComp.dept,
-            joinDate: empWithComp.hireDate,
-            mohLicenseNo: empWithComp.mohLicense
-          } as any, currentCompanyId);
+          const activeCompanyId = currentCompanyId;
+          const civilId = (newEmp.civil_id_number || newEmp.civilId || newEmp.civil_id || '').trim();
 
-          const updated = [empWithComp, ...employees];
+          // 1. منع التكرار برقم البطاقة المدنية (Unique Civil ID)
+          if (civilId) {
+            const isDuplicate = employees.some(
+              emp => (emp.companyId === activeCompanyId || activeCompanyId === 'comp-super-admin') && 
+              ((emp.civil_id_number && emp.civil_id_number.trim() === civilId) || 
+               (emp.civilId && emp.civilId.trim() === civilId) ||
+               (emp.civil_id && emp.civil_id.trim() === civilId))
+            );
+
+            if (isDuplicate) {
+              alert('خطأ: الموظف مسجل بالفعل! الرقم المدني مكرر في هذه الشركة.');
+              return;
+            }
+          }
+
+          // 2. إدراج companyId إجبارياً في الـ Payload
+          const payload = {
+            ...newEmp,
+            companyId: activeCompanyId, // الربط الصارم بالشركة النشطة
+            civil_id_number: civilId,
+            civilId: civilId,
+            fullNameAr: newEmp.nameAr || newEmp.fullNameAr,
+            fullNameEn: newEmp.nameEn || newEmp.fullNameEn,
+            department: newEmp.dept || newEmp.department,
+            joinDate: newEmp.hireDate || newEmp.joinDate,
+            mohLicenseNo: newEmp.mohLicense || newEmp.mohLicenseNo,
+            createdAt: new Date().toISOString()
+          };
+
+          await TenantDatabaseService.saveEmployee(payload as any, activeCompanyId);
+
+          const updated = [payload, ...employees];
           setEmployees(updated);
-          localStorage.setItem('odoo_employees_v1', JSON.stringify(updated));
+          if (activeCompanyId) {
+            localStorage.setItem(`odoo_employees_v1_${activeCompanyId}`, JSON.stringify(updated));
+          }
           setSelectedDept('الكل');
           setSearchQuery('');
           setShowAddEmployeeModal(false);
