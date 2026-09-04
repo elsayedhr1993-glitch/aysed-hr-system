@@ -269,7 +269,7 @@ async function performClientSideGeminiOCR(base64Data: string, mimeType: string, 
     }
   };
 
-  const modelsToTry = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.0-flash-lite"];
+  const modelsToTry = ["gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-3.6-flash", "gemini-1.5-flash"];
   let lastErrorDetail = '';
 
   for (const modelName of modelsToTry) {

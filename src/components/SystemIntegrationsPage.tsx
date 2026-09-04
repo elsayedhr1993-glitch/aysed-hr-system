@@ -1240,7 +1240,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
                   <code className="bg-white px-1.5 py-0.5 rounded border border-slate-300 font-mono text-slate-700">AIzaSy...</code> (مدعومة بالكامل).
                 </li>
                 <li>
-                  <span className="font-bold text-slate-800">النماذج الذكية التلقائية:</span> يتم التشغيل تلقائياً على نموذج <code className="bg-white px-1.5 py-0.5 rounded border border-slate-300 font-mono font-bold text-purple-700">gemini-2.0-flash</code> و <code className="bg-white px-1.5 py-0.5 rounded border border-slate-300 font-mono font-bold text-purple-700">gemini-1.5-flash</code> لقراءة البطاقات المدنية واستخراج النصوص بنسبة دقة 100%.
+                  <span className="font-bold text-slate-800">النماذج الذكية التلقائية:</span> يتم التشغيل تلقائياً على نموذج <code className="bg-white px-1.5 py-0.5 rounded border border-slate-300 font-mono font-bold text-purple-700">gemini-3.5-flash-lite</code> و <code className="bg-white px-1.5 py-0.5 rounded border border-slate-300 font-mono font-bold text-purple-700">gemini-3.8-flash</code> لقراءة البطاقات المدنية واستخراج النصوص بنسبة دقة 100%.
                 </li>
               </ul>
             </div>

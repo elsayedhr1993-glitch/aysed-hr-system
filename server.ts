@@ -182,7 +182,7 @@ app.post("/api/ai/test-key", async (req, res) => {
       });
     }
 
-    const modelsToTry = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.0-flash-lite"];
+    const modelsToTry = ["gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-3.6-flash", "gemini-1.5-flash"];
     let lastError: any = null;
     const startTime = Date.now();
 
@@ -525,7 +525,7 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
   }
 }`;
 
-  const modelsToTry = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.0-flash-lite"];
+  const modelsToTry = ["gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-3.6-flash", "gemini-1.5-flash"];
   let lastError: any = null;
 
   for (const modelName of modelsToTry) {
@@ -794,7 +794,7 @@ ${contextSummary || 'المؤسسة الحالية'}
 
     contents.push({ text: `سؤال المستخدم الحالي: ${prompt}` });
 
-    const modelsForChat = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.0-flash-lite"];
+    const modelsForChat = ["gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-3.6-flash", "gemini-1.5-flash"];
     let replyText = "";
     let usedModel = "";
 
