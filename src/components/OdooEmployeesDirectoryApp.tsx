@@ -42,7 +42,9 @@ import {
   LayoutGrid,
   Network,
   Trash2,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Stethoscope,
+  AlertTriangle
 } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
 import { TenantDatabaseService } from '../services/tenantDataService';
@@ -129,6 +131,9 @@ export interface EmployeeProfile {
   // Attached Documents
   documents: EmployeeDocument[];
   companyId?: string;
+  civilIdExpiry?: string;
+  civilIdExpiryDate?: string;
+  civil_id_expiry?: string;
 }
 
 export const OdooEmployeesDirectoryApp: React.FC = () => {
@@ -147,40 +152,58 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
         const dbEmps = await TenantDatabaseService.getEmployeesByTenant(currentCompanyId);
         if (isMounted) {
           if (dbEmps && dbEmps.length > 0) {
-            const mapped: EmployeeProfile[] = dbEmps.map(emp => ({
-              id: emp.id,
-              companyId: emp.companyId || currentCompanyId,
-              name: emp.fullNameAr || (emp as any).nameAr || 'موظف',
-              nameEn: emp.fullNameEn || (emp as any).nameEn || '',
-              civilId: emp.civilId || '',
-              jobTitle: emp.jobTitle || 'موظف',
-              department: emp.department || (emp as any).dept || 'العموم',
-              email: emp.email || '',
-              phone: emp.phone || '',
-              avatarBg: 'bg-[#714B67]',
-              status: (emp.status === 'ACTIVE' || (emp.status as any) === 'على رأس العمل') ? 'active' : 'on_leave',
-              joinDate: emp.joinDate || new Date().toISOString().split('T')[0],
-              leaveBalance: emp.paid_days_remaining || 30.0,
-              shiftType: 'دوام صباحي (8:00 ص - 4:00 م)',
-              directManager: (emp as any).manager || '',
-              nationality: emp.nationality || 'كويتي',
-              birthDate: emp.dob || '1990-01-01',
-              gender: emp.gender === 'FEMALE' ? 'أنثى' : 'ذكر',
-              maritalStatus: 'متزوج',
-              paciAddressNo: (emp as any).paciAddressNo || '',
-              fullAddress: (emp as any).fullAddress || '',
-              emergencyContactName: (emp as any).emergencyContactName || '',
-              emergencyContactPhone: (emp as any).emergencyContactPhone || '',
-              emergencyRelation: (emp as any).emergencyRelation || '',
-              basicSalary: (emp as any).basicSalary || 0,
-              housingAllowance: (emp as any).housingAllowance || 0,
-              transportAllowance: (emp as any).transportAllowance || 0,
-              medicalAllowance: (emp as any).otherAllowance || 0,
-              bankName: emp.bankName || 'بيت التمويل الكويتي',
-              iban: emp.iban || '',
-              residencyType: emp.nationality === 'كويتي' ? 'مواطن كويتي' : 'مادة 18',
-              documents: []
-            }));
+            const mapped: EmployeeProfile[] = dbEmps.map(emp => {
+              const civilExp = (emp as any).civilIdExpiry || (emp as any).civilIdExpiryDate || (emp as any).civil_id_expiry || (emp as any).expiryDate || '';
+              const resExp = (emp as any).residencyExpiry || civilExp;
+              const passNo = (emp as any).passportNo || '';
+              const passExp = (emp as any).passportExpiry || '';
+              const mohLic = (emp as any).mohLicenseNo || '';
+              const mohExp = (emp as any).mohLicenseExpiry || '';
+              const docs = Array.isArray((emp as any).documents) ? (emp as any).documents : [];
+
+              return {
+                id: emp.id,
+                companyId: emp.companyId || currentCompanyId,
+                name: emp.fullNameAr || (emp as any).nameAr || 'موظف',
+                nameEn: emp.fullNameEn || (emp as any).nameEn || '',
+                civilId: emp.civilId || '',
+                jobTitle: emp.jobTitle || 'موظف',
+                department: emp.department || (emp as any).dept || 'العموم',
+                email: emp.email || '',
+                phone: emp.phone || '',
+                avatarBg: 'bg-[#714B67]',
+                status: (emp.status === 'ACTIVE' || (emp.status as any) === 'على رأس العمل') ? 'active' : 'on_leave',
+                joinDate: emp.joinDate || new Date().toISOString().split('T')[0],
+                leaveBalance: emp.paid_days_remaining || 30.0,
+                shiftType: 'دوام صباحي (8:00 ص - 4:00 م)',
+                directManager: (emp as any).manager || '',
+                nationality: emp.nationality || 'كويتي',
+                birthDate: emp.dob || (emp as any).birthDate || '1990-01-01',
+                gender: emp.gender === 'FEMALE' ? 'أنثى' : 'ذكر',
+                maritalStatus: 'متزوج',
+                paciAddressNo: (emp as any).paciAddressNo || '',
+                fullAddress: (emp as any).fullAddress || '',
+                emergencyContactName: (emp as any).emergencyContactName || '',
+                emergencyContactPhone: (emp as any).emergencyContactPhone || '',
+                emergencyRelation: (emp as any).emergencyRelation || '',
+                basicSalary: (emp as any).basicSalary || 0,
+                housingAllowance: (emp as any).housingAllowance || 0,
+                transportAllowance: (emp as any).transportAllowance || 0,
+                medicalAllowance: (emp as any).otherAllowance || 0,
+                bankName: emp.bankName || 'بيت التمويل الكويتي',
+                iban: emp.iban || '',
+                residencyType: (emp as any).residencyType || (emp.nationality === 'كويتي' ? 'مواطن كويتي' : 'مادة 18'),
+                residencyExpiry: resExp,
+                civilIdExpiryDate: civilExp,
+                civilIdExpiry: civilExp,
+                civil_id_expiry: civilExp,
+                passportNo: passNo,
+                passportExpiry: passExp,
+                mohLicenseNo: mohLic,
+                mohLicenseExpiry: mohExp,
+                documents: docs
+              };
+            });
             setEmployees(mapped);
           } else {
             setEmployees([]);
@@ -268,6 +291,166 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
     return empComp === activeCompanyId;
   });
 
+  // 4. KPI & Quick Filter Alert Cards Bar State
+  const [kpiFilter, setKpiFilter] = useState<'all' | 'residency_expiring' | 'moh_expiring' | 'expired'>('all');
+
+  const parseAnyDate = (dateStr?: any): Date | null => {
+    if (!dateStr) return null;
+    const str = String(dateStr).trim();
+    if (!str) return null;
+
+    let d = new Date(str);
+    if (!isNaN(d.getTime()) && str.includes('-') && str.indexOf('-') === 4) {
+      return d;
+    }
+
+    const parts = str.split(/[\/\-\.]/);
+    if (parts.length === 3) {
+      let day = parseInt(parts[0], 10);
+      let month = parseInt(parts[1], 10);
+      let year = parseInt(parts[2], 10);
+
+      if (parts[0].length === 4) {
+        year = parseInt(parts[0], 10);
+        month = parseInt(parts[1], 10);
+        day = parseInt(parts[2], 10);
+      }
+
+      if (year && month && day && !isNaN(year) && !isNaN(month) && !isNaN(day)) {
+        if (year < 100) year += 2000;
+        d = new Date(year, month - 1, day);
+        if (!isNaN(d.getTime())) return d;
+      }
+    }
+
+    if (!isNaN(d.getTime())) return d;
+    return null;
+  };
+
+  const getDaysDiff = (dateStr?: any): number | null => {
+    const expiry = parseAnyDate(dateStr);
+    if (!expiry) return null;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const expiryZero = new Date(expiry);
+    expiryZero.setHours(0, 0, 0, 0);
+
+    const diffTime = expiryZero.getTime() - today.getTime();
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
+  const collectEmployeeDates = (emp: any): string[] => {
+    const dates: string[] = [];
+
+    const fields = [
+      'residencyExpiry', 'residencyExpiryDate', 'residency_expiry',
+      'civilIdExpiry', 'civilIdExpiryDate', 'civil_id_expiry',
+      'passportExpiry', 'passport_expiry',
+      'iqamaExpiry', 'iqama_expiry', 'visa_expire',
+      'mohLicenseExpiry', 'mohLicenseExpiryDate', 'moh_license_expiry',
+      'expiryDate', 'expireDate', 'expire_date'
+    ];
+
+    fields.forEach(f => {
+      if (emp[f] && typeof emp[f] === 'string' && emp[f].trim() !== '') {
+        dates.push(emp[f].trim());
+      }
+    });
+
+    const docLists = [emp.documents, emp.docs, emp.attachments];
+    docLists.forEach(list => {
+      if (Array.isArray(list)) {
+        list.forEach((d: any) => {
+          if (!d) return;
+          ['expiryDate', 'expiry', 'date', 'expire_date', 'issue_expiry'].forEach(f => {
+            if (d[f] && typeof d[f] === 'string' && d[f].trim() !== '') {
+              dates.push(d[f].trim());
+            }
+          });
+        });
+      }
+    });
+
+    return dates;
+  };
+
+  // Check if employee has residency / civil ID / passport / PAM expiring within 90 days
+  const checkResidencyExpiringSoon = (emp: EmployeeProfile): boolean => {
+    const statusStr = String(emp.status || '').toLowerCase();
+    if (statusStr.includes('قريب') || statusStr.includes('expiring')) return true;
+
+    const dates = collectEmployeeDates(emp);
+    return dates.some(dStr => {
+      const diff = getDaysDiff(dStr);
+      return diff !== null && diff >= 0 && diff <= 90;
+    });
+  };
+
+  // Check if employee has MOH license expiring within 90 days
+  const checkMohLicenseExpiringSoon = (emp: EmployeeProfile): boolean => {
+    const mohDates: string[] = [];
+    ['mohLicenseExpiry', 'mohLicenseExpiryDate', 'moh_license_expiry', 'mohLicense'].forEach(f => {
+      if ((emp as any)[f] && typeof (emp as any)[f] === 'string' && (emp as any)[f].trim() !== '') {
+        mohDates.push((emp as any)[f].trim());
+      }
+    });
+
+    if (emp.documents && Array.isArray(emp.documents)) {
+      emp.documents.forEach((d: any) => {
+        if (d && (d.type === 'moh_license' || String(d.title || d.docTitleAr || d.category || '').includes('ترخيص') || String(d.title || d.docTitleAr || d.category || '').includes('MOH'))) {
+          if (d.expiryDate) mohDates.push(d.expiryDate);
+          if (d.expiry) mohDates.push(d.expiry);
+        }
+      });
+    }
+
+    const isExpiringByDate = mohDates.some(dStr => {
+      const diff = getDaysDiff(dStr);
+      return diff !== null && diff >= 0 && diff <= 90;
+    });
+
+    if (isExpiringByDate) return true;
+
+    if (emp.documents && Array.isArray(emp.documents)) {
+      const hasExpiringMohDoc = emp.documents.some((d: any) => (d.type === 'moh_license' || String(d.title || '').includes('ترخيص')) && (d.status === 'expiring_soon' || String(d.status).includes('قريب')));
+      if (hasExpiringMohDoc) return true;
+    }
+
+    return false;
+  };
+
+  // Check if employee has ANY expired document / residency
+  const checkExpiredDocs = (emp: EmployeeProfile): boolean => {
+    const empStatus = String(emp.status || '').toLowerCase();
+    if (empStatus.includes('منتهي') || empStatus.includes('expired') || empStatus.includes('غير فعال') || empStatus.includes('موقوف')) {
+      return true;
+    }
+
+    if (emp.documents && Array.isArray(emp.documents)) {
+      for (const d of emp.documents) {
+        if (!d) continue;
+        const dStatus = String(d.status || '').toLowerCase();
+        if (dStatus.includes('expired') || dStatus.includes('منتهي')) {
+          return true;
+        }
+      }
+    }
+
+    const dates = collectEmployeeDates(emp);
+    return dates.some(dStr => {
+      const diff = getDaysDiff(dStr);
+      return diff !== null && diff < 0;
+    });
+  };
+
+  // KPI Card Counters for active company
+  const activeEmployeesCount = visibleEmployees.length;
+  const residencyExpiringCount = visibleEmployees.filter(checkResidencyExpiringSoon).length;
+  const mohExpiringCount = visibleEmployees.filter(checkMohLicenseExpiringSoon).length;
+  const expiredDocsCount = visibleEmployees.filter(checkExpiredDocs).length;
+
   const filteredEmployees = visibleEmployees.filter(emp => {
     const matchesSearch = (emp.name || '').includes(searchQuery) || 
                           (emp.nameEn && emp.nameEn.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -276,7 +459,17 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
                           (emp.jobTitle && emp.jobTitle.includes(searchQuery)) ||
                           (emp.id && emp.id.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesDept = selectedDept === 'الكل' || emp.department === selectedDept;
-    return matchesSearch && matchesDept;
+
+    let matchesKpi = true;
+    if (kpiFilter === 'residency_expiring') {
+      matchesKpi = checkResidencyExpiringSoon(emp);
+    } else if (kpiFilter === 'moh_expiring') {
+      matchesKpi = checkMohLicenseExpiringSoon(emp);
+    } else if (kpiFilter === 'expired') {
+      matchesKpi = checkExpiredDocs(emp);
+    }
+
+    return matchesSearch && matchesDept && matchesKpi;
   });
 
   const handleToggleSelect = (id: string) => {
@@ -328,7 +521,10 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
       iban: '',
       residencyType: 'مادة 18 (قطاع أهلي)',
       documents: [],
-      companyId: targetCompId // ربط الموظف بالشركة الحالية إجبارياً
+      companyId: targetCompId, // ربط الموظف بالشركة الحالية إجبارياً
+      civilIdExpiry: '',
+      civilIdExpiryDate: '',
+      civil_id_expiry: ''
     };
     setSelectedEmployee(newEmp);
     setActiveFormTab('work');
@@ -361,12 +557,21 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
     }
 
     // 2. إدراج companyId إجبارياً في الـ Payload
+    const civilExpiry = (selectedEmployee as any).civilIdExpiry || (selectedEmployee as any).civilIdExpiryDate || (selectedEmployee as any).residencyExpiry || (selectedEmployee as any).civil_id_expiry || '';
+    const resExpiry = (selectedEmployee as any).residencyExpiry || civilExpiry;
     const payload = {
       ...selectedEmployee,
       companyId: activeCompanyId, // الربط الصارم بالشركة النشطة
       civil_id_number: civilId,
       civilId: civilId,
-      fullNameAr: selectedEmployee.name,
+      civilIdExpiry: civilExpiry,
+      civilIdExpiryDate: civilExpiry,
+      civil_id_expiry: civilExpiry,
+      residencyExpiry: resExpiry,
+      birthDate: selectedEmployee.birthDate,
+      dob: selectedEmployee.birthDate,
+      gender: selectedEmployee.gender,
+      fullNameAr: selectedEmployee.name || (selectedEmployee as any).nameAr,
       fullNameEn: selectedEmployee.nameEn,
       createdAt: (selectedEmployee as any).createdAt || new Date().toISOString()
     };
@@ -507,9 +712,12 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
           nameEn: scanned.fullNameEn || updatedEmp.nameEn,
           birthDate: bDate || updatedEmp.birthDate,
           gender: genderVal || updatedEmp.gender,
-          paciAddressNo: (scanned.address as any)?.block ? `${(scanned.address as any).block}-${(scanned.address as any).building || ''}` : updatedEmp.paciAddressNo,
+          paciAddressNo: scanned.paciBuildingRef || ((scanned.address as any)?.block ? `${(scanned.address as any).block}-${(scanned.address as any).building || ''}` : updatedEmp.paciAddressNo),
           fullAddress: scanned.address ? `${scanned.address.area || ''} - ق ${scanned.address.block || ''} - ش ${scanned.address.street || ''} - مبنى ${scanned.address.building || ''}` : updatedEmp.fullAddress,
-          nationality: scanned.nationality || updatedEmp.nationality
+          nationality: scanned.nationality || updatedEmp.nationality,
+          passportNo: scanned.passportNo || updatedEmp.passportNo,
+          passportExpiry: scanned.passportExpiryDate || updatedEmp.passportExpiry,
+          residencyExpiry: scanned.residencyExpiryDate || updatedEmp.residencyExpiry || scanned.expiryDate || ''
         };
 
         newDoc = {
@@ -1042,16 +1250,37 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
                     <option value="الأمن والخدمات">الأمن والخدمات</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-xs text-slate-400 mb-1">الرقم المدني الكويتي (12 رقم)</label>
-                  <input
-                    type="text"
-                    maxLength={12}
-                    value={selectedEmployee.civilId}
-                    onChange={(e) => setSelectedEmployee({ ...selectedEmployee, civilId: e.target.value })}
-                    placeholder="290010112345"
-                    className="w-full text-xs font-mono font-bold text-slate-800 border-b border-slate-200 py-1 outline-none focus:border-[#714B67] bg-transparent"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1">الرقم المدني الكويتي (12 رقم)</label>
+                    <input
+                      type="text"
+                      maxLength={12}
+                      value={selectedEmployee.civilId}
+                      onChange={(e) => setSelectedEmployee({ ...selectedEmployee, civilId: e.target.value })}
+                      placeholder="290010112345"
+                      className="w-full text-xs font-mono font-bold text-slate-800 border-b border-slate-200 py-1 outline-none focus:border-[#714B67] bg-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1">تاريخ انتهاء البطاقة المدنية</label>
+                    <input
+                      type="date"
+                      value={(selectedEmployee as any).civilIdExpiry || (selectedEmployee as any).civilIdExpiryDate || (selectedEmployee as any).civil_id_expiry || ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSelectedEmployee({
+                          ...selectedEmployee,
+                          civilIdExpiry: val,
+                          civilIdExpiryDate: val,
+                          civil_id_expiry: val
+                        });
+                      }}
+                      dir="ltr"
+                      style={{ direction: 'ltr', textAlign: 'right' }}
+                      className="w-full text-xs font-mono font-bold text-slate-800 border-b border-slate-200 py-1 outline-none focus:border-[#714B67] bg-transparent text-right"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -1145,7 +1374,9 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
                         type="date"
                         value={selectedEmployee.joinDate}
                         onChange={(e) => setSelectedEmployee({ ...selectedEmployee, joinDate: e.target.value })}
-                        className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50 text-slate-800 font-mono font-bold"
+                        dir="ltr"
+                        style={{ direction: 'ltr', textAlign: 'right' }}
+                        className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50 text-slate-800 font-mono font-bold text-right"
                       />
                     </div>
                     <div>
@@ -1204,7 +1435,9 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
                           type="date"
                           value={selectedEmployee.birthDate}
                           onChange={(e) => setSelectedEmployee({ ...selectedEmployee, birthDate: e.target.value })}
-                          className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50 font-mono font-bold text-slate-800"
+                          dir="ltr"
+                          style={{ direction: 'ltr', textAlign: 'right' }}
+                          className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50 font-mono font-bold text-slate-800 text-right"
                         />
                       </div>
                     </div>
@@ -1407,7 +1640,7 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
                         maxLength={30}
                         value={selectedEmployee.iban}
                         onChange={(e) => setSelectedEmployee({ ...selectedEmployee, iban: e.target.value })}
-                        placeholder="KW00XXXX0000000000000000000000"
+                        placeholder="أدخل رقم الآيبان الحقيقي (IBAN)"
                         className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50 font-mono font-bold uppercase text-slate-900"
                         dir="ltr"
                       />
@@ -1456,7 +1689,9 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
                       type="date"
                       value={selectedEmployee.residencyExpiry || ''}
                       onChange={(e) => setSelectedEmployee({ ...selectedEmployee, residencyExpiry: e.target.value })}
-                      className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50 font-mono font-bold"
+                      dir="ltr"
+                      style={{ direction: 'ltr', textAlign: 'right' }}
+                      className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50 font-mono font-bold text-right"
                     />
                   </div>
                 </div>
@@ -1478,7 +1713,9 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
                       type="date"
                       value={selectedEmployee.passportExpiry || ''}
                       onChange={(e) => setSelectedEmployee({ ...selectedEmployee, passportExpiry: e.target.value })}
-                      className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50 font-mono font-bold"
+                      dir="ltr"
+                      style={{ direction: 'ltr', textAlign: 'right' }}
+                      className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50 font-mono font-bold text-right"
                     />
                   </div>
                   <div>
@@ -1617,7 +1854,9 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
                       type="date"
                       value={selectedEmployee.mohLicenseExpiry || ''}
                       onChange={(e) => setSelectedEmployee({ ...selectedEmployee, mohLicenseExpiry: e.target.value })}
-                      className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50 font-mono font-bold text-slate-800"
+                      dir="ltr"
+                      style={{ direction: 'ltr', textAlign: 'right' }}
+                      className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50 font-mono font-bold text-slate-800 text-right"
                     />
                   </div>
                   <div>
@@ -1678,6 +1917,154 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
       ) : (
         /* EMPLOYEES DIRECTORY MAIN CONTAINER */
         <div className="space-y-4">
+
+          {/* 1. Odoo Enterprise KPI & Alert Cards Bar */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            
+            {/* Card 1: Active Employees */}
+            <div
+              onClick={() => setKpiFilter('all')}
+              className={`bg-white p-4 rounded-2xl border transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-md flex items-center justify-between group ${
+                kpiFilter === 'all'
+                  ? 'border-[#714B67] ring-2 ring-[#714B67]/20 bg-gradient-to-br from-white to-purple-50/30'
+                  : 'border-slate-200 hover:border-slate-300'
+              }`}
+            >
+              <div className="space-y-1">
+                <span className="text-[11px] font-bold text-slate-500 block">إجمالي القوة العاملة (Active)</span>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-black text-slate-900 font-mono">{activeEmployeesCount}</span>
+                  <span className="text-[10px] text-slate-400 font-bold">موظف مفعّل</span>
+                </div>
+                <span className="text-[10px] text-slate-400 block">جميع الموظفين على رأس عملهم</span>
+              </div>
+              <div className={`p-3 rounded-2xl transition-transform group-hover:scale-110 ${
+                kpiFilter === 'all' ? 'bg-[#714B67] text-white shadow-xs' : 'bg-slate-100 text-slate-600 group-hover:bg-purple-50 group-hover:text-[#714B67]'
+              }`}>
+                <Users className="w-5 h-5" />
+              </div>
+            </div>
+
+            {/* Card 2: Residencies Expiring Soon */}
+            <div
+              onClick={() => setKpiFilter(prev => prev === 'residency_expiring' ? 'all' : 'residency_expiring')}
+              className={`bg-white p-4 rounded-2xl border transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-md flex items-center justify-between group ${
+                kpiFilter === 'residency_expiring'
+                  ? 'border-amber-500 ring-2 ring-amber-500/30 bg-gradient-to-br from-white to-amber-50/50 scale-[1.01]'
+                  : 'border-slate-200 hover:border-amber-300'
+              }`}
+            >
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-bold text-slate-700 block">إقامات تنتهي قريباً</span>
+                  {residencyExpiringCount > 0 && (
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                  )}
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-black text-amber-600 font-mono">{residencyExpiringCount}</span>
+                  <span className="text-[10px] text-amber-700/80 font-bold">خلال 90 يوماً</span>
+                </div>
+                <span className="text-[10px] text-slate-400 block">لتفادي غرامات ومخالفات الشؤون</span>
+              </div>
+              <div className={`p-3 rounded-2xl transition-transform group-hover:scale-110 ${
+                kpiFilter === 'residency_expiring' ? 'bg-amber-500 text-white shadow-xs' : 'bg-amber-50 text-amber-600 group-hover:bg-amber-100'
+              }`}>
+                <Clock className="w-5 h-5" />
+              </div>
+            </div>
+
+            {/* Card 3: MOH Medical Licenses Expiring Soon */}
+            <div
+              onClick={() => setKpiFilter(prev => prev === 'moh_expiring' ? 'all' : 'moh_expiring')}
+              className={`bg-white p-4 rounded-2xl border transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-md flex items-center justify-between group ${
+                kpiFilter === 'moh_expiring'
+                  ? 'border-indigo-500 ring-2 ring-indigo-500/30 bg-gradient-to-br from-white to-indigo-50/50 scale-[1.01]'
+                  : 'border-slate-200 hover:border-indigo-300'
+              }`}
+            >
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-bold text-slate-700 block">تراخيص MOH تنتهي قريباً</span>
+                  {mohExpiringCount > 0 && (
+                    <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+                  )}
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-black text-indigo-600 font-mono">{mohExpiringCount}</span>
+                  <span className="text-[10px] text-indigo-700/80 font-bold">خلال 90 يوماً</span>
+                </div>
+                <span className="text-[10px] text-slate-400 block">مزاولة المهنة كادر الأطباء والتمريض</span>
+              </div>
+              <div className={`p-3 rounded-2xl transition-transform group-hover:scale-110 ${
+                kpiFilter === 'moh_expiring' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100'
+              }`}>
+                <Stethoscope className="w-5 h-5" />
+              </div>
+            </div>
+
+            {/* Card 4: Expired Residencies & Documents */}
+            <div
+              onClick={() => setKpiFilter(prev => prev === 'expired' ? 'all' : 'expired')}
+              className={`bg-white p-4 rounded-2xl border transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-md flex items-center justify-between group ${
+                kpiFilter === 'expired'
+                  ? 'border-rose-500 ring-2 ring-rose-500/30 bg-gradient-to-br from-white to-rose-50/50 scale-[1.01]'
+                  : 'border-slate-200 hover:border-rose-300'
+              }`}
+            >
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-bold text-slate-700 block">إقامات / مستندات منتهية</span>
+                  {expiredDocsCount > 0 && (
+                    <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping"></span>
+                  )}
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-black text-rose-600 font-mono">{expiredDocsCount}</span>
+                  <span className="text-[10px] text-rose-700/80 font-bold">حالة حرجة</span>
+                </div>
+                <span className="text-[10px] text-slate-400 block">تجاوزت تاريخ الصلاحية الفعلي</span>
+              </div>
+              <div className={`p-3 rounded-2xl transition-transform group-hover:scale-110 ${
+                kpiFilter === 'expired' ? 'bg-rose-600 text-white shadow-xs' : 'bg-rose-50 text-rose-600 group-hover:bg-rose-100'
+              }`}>
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+            </div>
+
+          </div>
+
+          {/* Active Quick Filter Notice Banner */}
+          {kpiFilter !== 'all' && (
+            <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-3 animate-fadeIn">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-500">التصفية النشطة:</span>
+                <span className={`px-3 py-1 rounded-xl text-xs font-bold border flex items-center gap-2 ${
+                  kpiFilter === 'residency_expiring' ? 'bg-amber-50 text-amber-900 border-amber-300' :
+                  kpiFilter === 'moh_expiring' ? 'bg-indigo-50 text-indigo-900 border-indigo-300' :
+                  'bg-rose-50 text-rose-900 border-rose-300'
+                }`}>
+                  <span className="w-2 h-2 rounded-full bg-current animate-pulse"></span>
+                  <span>
+                    {kpiFilter === 'residency_expiring' && 'عرض الموظفين: إقامات تنتهي قريباً (خلال 90 يوماً)'}
+                    {kpiFilter === 'moh_expiring' && 'عرض الموظفين: تراخيص MOH تنتهي قريباً (خلال 90 يوماً)'}
+                    {kpiFilter === 'expired' && 'عرض الموظفين: إقامات ومستندات منتهية الصلاحية'}
+                  </span>
+                </span>
+                <span className="text-xs text-slate-400 font-bold">
+                  (المطابق: {filteredEmployees.length} موظف)
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setKpiFilter('all')}
+                className="text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl transition flex items-center gap-1 cursor-pointer"
+              >
+                <X size={14} />
+                <span>إلغاء الفلتر واظهار الكل</span>
+              </button>
+            </div>
+          )}
           {/* Department Filter, Search Bar & Bulk Actions */}
           <div className="flex flex-col md:flex-row gap-3 items-center justify-between">
             <div className="flex gap-1.5 overflow-x-auto w-full md:w-auto pb-1">

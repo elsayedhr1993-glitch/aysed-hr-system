@@ -154,48 +154,67 @@ export interface PayrollRunRecord {
 
 export function toEmployeeDbRow(emp: Employee, companyId?: string): EmployeeRecord {
   const compId = companyId || emp.companyId || 'comp-super-admin';
+  const civilExpiry = emp.civilIdExpiry || (emp as any).civilIdExpiryDate || (emp as any).civil_id_expiry || (emp as any).raw_payload?.civilIdExpiry || (emp as any).raw_payload?.civilIdExpiryDate || (emp as any).raw_payload?.civil_id_expiry || '';
   return {
     id: emp.id,
     company_id: compId,
     employee_code: emp.employeeCode || '',
-    full_name_ar: emp.fullNameAr || '',
-    full_name_en: emp.fullNameEn || '',
-    civil_id: emp.civilId || '',
-    civil_id_expiry: emp.civilIdExpiry || '',
+    full_name_ar: emp.fullNameAr || (emp as any).nameAr || (emp as any).name || '',
+    full_name_en: emp.fullNameEn || (emp as any).nameEn || '',
+    civil_id: emp.civilId || (emp as any).civil_id_number || '',
+    civil_id_expiry: civilExpiry,
     passport_no: emp.passportNo || '',
     passport_expiry: emp.passportExpiry || '',
     nationality: emp.nationality || '',
     gender: emp.gender || 'MALE',
-    dob: emp.dob || '',
-    department: emp.department || '',
+    dob: emp.dob || (emp as any).birthDate || '',
+    department: emp.department || (emp as any).dept || '',
     job_title: emp.jobTitle || '',
     email: emp.email || '',
     phone: emp.phone || '',
-    join_date: emp.joinDate || '',
-    moh_license_no: emp.mohLicenseNo || '',
+    join_date: emp.joinDate || (emp as any).hireDate || '',
+    moh_license_no: emp.mohLicenseNo || (emp as any).mohLicense || '',
     moh_license_expiry: emp.mohLicenseExpiry || '',
     status: emp.status || 'ACTIVE',
     bank_name: emp.bankName || '',
     iban: emp.iban || '',
-    basic_salary: (emp as any).contractSalary || 0,
+    basic_salary: (emp as any).contractSalary || (emp as any).basicSalary || 0,
     carried_over_leave_2025: Number((emp as any).carriedOverLeave2025 ?? (emp as any).carriedOverBalance ?? (emp as any).openingBalance ?? 0),
     accrued_leave_2026: (emp as any).accruedLeave2026 || (emp as any).aysed_accrued_2026 || 0,
     remaining_leaves: emp.paid_days_remaining || 0,
-    raw_payload: emp as any,
+    raw_payload: {
+      ...emp,
+      dob: emp.dob || (emp as any).birthDate || '',
+      birthDate: (emp as any).birthDate || emp.dob || '',
+      civilIdExpiry: civilExpiry,
+      civilIdExpiryDate: civilExpiry,
+      civil_id_expiry: civilExpiry
+    } as any,
     updated_at: new Date().toISOString()
   };
 }
 
 export function fromEmployeeDbRow(row: any): Employee {
   const resolvedCompId = row.companyId || row.company_id || row.raw_payload?.companyId || row.raw_payload?.company_id || 'comp-super-admin';
+  const civilExpiry = row.civil_id_expiry || row.civilIdExpiry || row.civilIdExpiryDate || row.raw_payload?.civilIdExpiry || row.raw_payload?.civilIdExpiryDate || row.raw_payload?.civil_id_expiry || '';
+
   if (row.raw_payload && typeof row.raw_payload === 'object') {
     return {
       ...row.raw_payload,
       id: row.id || row.raw_payload.id,
       companyId: resolvedCompId,
       company_id: resolvedCompId,
-      fullNameAr: row.full_name_ar || row.fullNameAr || row.raw_payload.fullNameAr,
-      civilId: row.civil_id || row.civilId || row.raw_payload.civilId,
+      fullNameAr: row.full_name_ar || row.fullNameAr || row.raw_payload.fullNameAr || row.raw_payload.nameAr || '',
+      civilId: row.civil_id || row.civilId || row.raw_payload.civilId || row.raw_payload.civil_id_number || '',
+      civilIdExpiry: civilExpiry,
+      civilIdExpiryDate: civilExpiry,
+      civil_id_expiry: civilExpiry,
+      birthDate: row.raw_payload.birthDate || row.raw_payload.dob || row.dob || '',
+      dob: row.raw_payload.dob || row.raw_payload.birthDate || row.dob || '',
+      nationality: row.raw_payload.nationality || row.nationality || '',
+      gender: row.raw_payload.gender || row.gender || 'MALE',
+      passportNo: row.raw_payload.passportNo || row.passport_no || row.passportNo || '',
+      residencyType: row.raw_payload.residencyType || row.residency_type || row.residencyType || '',
       carriedOverLeave2025: Number(row.raw_payload.carriedOverLeave2025 ?? row.carried_over_leave_2025 ?? 0),
       carriedOverBalance: Number(row.raw_payload.carriedOverBalance ?? row.carried_over_leave_2025 ?? 0),
       openingBalance: Number(row.raw_payload.openingBalance ?? row.carried_over_leave_2025 ?? 0),
@@ -209,7 +228,9 @@ export function fromEmployeeDbRow(row: any): Employee {
     fullNameAr: row.full_name_ar || row.fullNameAr || '',
     fullNameEn: row.full_name_en || row.fullNameEn || '',
     civilId: row.civil_id || row.civilId || '',
-    civilIdExpiry: row.civil_id_expiry || row.civilIdExpiry || '',
+    civilIdExpiry: civilExpiry,
+    civilIdExpiryDate: civilExpiry,
+    civil_id_expiry: civilExpiry,
     passportNo: row.passport_no || row.passportNo || '',
     passportExpiry: row.passport_expiry || row.passportExpiry || '',
     nationality: row.nationality || '',
@@ -220,7 +241,8 @@ export function fromEmployeeDbRow(row: any): Employee {
     ),
     residencyType: (row.residency_type || row.residencyType || (row.nationality?.includes('كويت') ? 'كويتي' : 'مادة 18 - قطاع أهلي')) as any,
     gender: (row.gender || 'MALE') as 'MALE' | 'FEMALE',
-    dob: row.dob || '',
+    dob: row.dob || row.birthDate || '',
+    birthDate: row.dob || row.birthDate || '',
     department: row.department || '',
     jobTitle: row.job_title || row.jobTitle || '',
     email: row.email || '',
@@ -342,6 +364,15 @@ export const TenantDatabaseService = {
         if (!error && Array.isArray(data) && data.length > 0) {
           return data.map(fromEmployeeDbRow);
         }
+
+        // Also check hr_employee table
+        const { data: hrData, error: hrError } = await supabase
+          .from('hr_employee')
+          .select('*')
+          .eq('company_id', companyId);
+        if (!hrError && Array.isArray(hrData) && hrData.length > 0) {
+          return hrData.map(fromEmployeeDbRow);
+        }
       } catch (sbErr) {
         console.warn('[TenantDatabaseService] Supabase fetch error, fallback to Firestore:', sbErr);
       }
@@ -391,7 +422,7 @@ export const TenantDatabaseService = {
   },
 
   /**
-   * Zero out all employees in Firestore and local storage, and seed 1 full lifecycle test employee in activeCompanyId
+   * Zero out all employees in Firestore and local storage without seeding any mock data
    */
   async clearAllEmployeesAndSeedOne(activeCompanyId: string = 'comp-almanar'): Promise<{ success: boolean; testEmployee: any; message: string }> {
     try {
@@ -410,232 +441,19 @@ export const TenantDatabaseService = {
       // 2. Clear local storage employee keys
       if (typeof window !== 'undefined' && window.localStorage) {
         Object.keys(localStorage).forEach(key => {
-          if (key.includes('odoo_employees_') || key.includes('employees_') || key.includes('hr_')) {
+          if (key.includes('odoo_employees_') || key.includes('employees_') || key.includes('hr_') || key.includes('clean_attendances') || key.includes('documents_')) {
             localStorage.removeItem(key);
           }
         });
       }
 
-      // 3. Create rich test employees bound to targetCompId (Manager + Doctor)
-      const targetCompId = activeCompanyId || 'comp-almanar';
-
-      const managerEmp = {
-        id: 'EMP-ALMANAR-MGR-01',
-        companyId: targetCompId,
-        fullNameAr: 'د. إبراهيم الفيلكاوي',
-        fullNameEn: 'Dr. Ibrahim Al-Filakawi',
-        nameAr: 'د. إبراهيم الفيلكاوي',
-        nameEn: 'Dr. Ibrahim Al-Filakawi',
-        name: 'د. إبراهيم الفيلكاوي',
-        civilId: '280010199887',
-        civil_id_number: '280010199887',
-        jobTitle: 'المدير الطبي العام',
-        department: 'الإدارة الطبية',
-        dept: 'الإدارة الطبية',
-        workLocation: 'فرع المنار - العاصمة',
-        manager: 'مجلس الإدارة',
-        phone: '+965 99001122',
-        email: 'dr.ibrahim@almanar-clinic.kw',
-        nationality: 'كويتي',
-        dob: '1980-01-01',
-        maritalStatus: 'متزوج',
-        dependents: 4,
-        passportNo: 'K99001122',
-        passportExpiry: '2032-12-31',
-        mohLicenseNo: 'MOH-100200',
-        mohLicenseExpiry: '2029-12-31',
-        pamPermitNo: 'PAM-280010199887',
-        residencyType: 'مواطن',
-        hireDate: '2020-01-01',
-        joinDate: '2020-01-01',
-        basicSalary: 3500,
-        housingAllowance: 300,
-        transportAllowance: 200,
-        medicalAllowance: 0,
-        contractSalary: 4000,
-        allowances: 500,
-        bankName: 'بنك الكويت الوطني (NBK)',
-        iban: 'KW12NBOK000000000000280010',
-        status: 'active',
-        avatarColor: 'bg-purple-700',
-        createdAt: new Date().toISOString()
-      };
-
-      const testEmp = {
-        id: 'EMP-TEST-ALMANAR-01',
-        companyId: targetCompId, // الربط الصريح بـ activeCompanyId
-        fullNameAr: 'د. محمد علي الكندري',
-        fullNameEn: 'Dr. Mohamed Ali Al-Kandari',
-        nameAr: 'د. محمد علي الكندري',
-        nameEn: 'Dr. Mohamed Ali Al-Kandari',
-        name: 'د. محمد علي الكندري',
-        civilId: '295051512345',
-        civil_id_number: '295051512345',
-        jobTitle: 'طبيب أخصائي - عيادة الباطنية',
-        department: 'الأطباء',
-        dept: 'الأطباء',
-        workLocation: 'فرع المنار - العاصمة',
-        manager: 'د. إبراهيم الفيلكاوي',
-        phone: '+965 98765432',
-        email: 'dr.kandari@almanar-clinic.kw',
-        nationality: 'كويتي',
-        dob: '1988-05-15',
-        maritalStatus: 'متزوج',
-        dependents: 3,
-        passportNo: 'K88776655',
-        passportExpiry: '2031-05-15',
-        mohLicenseNo: 'MOH-887766',
-        mohLicenseExpiry: '2028-12-31',
-        pamPermitNo: 'PAM-295051512345',
-        residencyType: 'مواطن',
-        hireDate: '2024-01-01',
-        joinDate: '2024-01-01',
-        basicSalary: 1500,
-        housingAllowance: 150,
-        transportAllowance: 150,
-        medicalAllowance: 0,
-        contractSalary: 1800,
-        allowances: 300,
-        bankName: 'بنك الكويت الوطني (NBK)',
-        iban: 'KW12NBOK000000000000295051',
-        status: 'active',
-        avatarColor: 'bg-emerald-600',
-        createdAt: new Date().toISOString()
-      };
-
-      // 4. Save test employees to Firestore
-      await setDoc(doc(db, 'employees', managerEmp.id), cleanFirestoreData(managerEmp));
-      await setDoc(doc(db, 'employees', testEmp.id), cleanFirestoreData(testEmp));
-
-      // 5. Save contract, commencement, attendance, leave, and payroll records in Firestore & localStorage
-      const contract = {
-        id: 'CNT-ALMANAR-001',
-        employeeId: testEmp.id,
-        employeeName: testEmp.name,
-        civilId: testEmp.civilId,
-        companyId: targetCompId,
-        contractType: 'محدد المدة (2 سنة)',
-        startDate: '2024-01-01',
-        endDate: '2026-12-31',
-        basicSalary: 1500,
-        allowances: 300,
-        probationDays: 100,
-        status: 'نشط / ساري'
-      };
-
-      const commencement = {
-        id: 'COM-ALMANAR-001',
-        employeeId: testEmp.id,
-        employeeName: testEmp.name,
-        companyId: targetCompId,
-        commencementDate: '2024-01-02',
-        department: 'الأطباء',
-        jobTitle: 'طبيب أخصائي - عيادة الباطنية',
-        mohLicenseNo: 'MOH-887766',
-        status: 'معتمد رسمياً'
-      };
-
-      const leaveReq = {
-        id: 'LV-ALMANAR-001',
-        employeeId: testEmp.id,
-        employeeName: testEmp.name,
-        companyId: targetCompId,
-        leaveType: 'إجازة سنوية',
-        startDate: '2026-08-10',
-        endDate: '2026-08-12',
-        daysCount: 3,
-        status: 'approved',
-        reason: 'إجازة سنوية اعتيادية'
-      };
-
-      const attendanceRecord = {
-        id: 'ATT-ALMANAR-001',
-        employeeId: testEmp.id,
-        employeeName: testEmp.name,
-        companyId: targetCompId,
-        date: new Date().toISOString().split('T')[0],
-        checkIn: '08:00',
-        checkOut: '16:00',
-        workHours: 8,
-        status: 'حاضر (منتظم)',
-        geofenceVerified: true,
-        branch: 'فرع المنار - العاصمة'
-      };
-
-      const docAttachments = [
-        {
-          id: 'DOC-PACI-001',
-          employeeId: testEmp.id,
-          companyId: targetCompId,
-          type: 'civil_id',
-          title: 'البطاقة المدنية (الوجهين) - PACI',
-          docNumber: testEmp.civilId,
-          expiryDate: '2028-10-15',
-          status: 'valid'
-        },
-        {
-          id: 'DOC-MOH-001',
-          employeeId: testEmp.id,
-          companyId: targetCompId,
-          type: 'moh_license',
-          title: 'ترخيص مزاولة المهنة الطبية - MOH',
-          docNumber: testEmp.mohLicenseNo,
-          expiryDate: testEmp.mohLicenseExpiry,
-          status: 'valid'
-        }
-      ];
-
-      const holidayAssignment = {
-        id: 'HOL-ALMANAR-001',
-        employeeId: testEmp.id,
-        employeeName: testEmp.name,
-        companyId: targetCompId,
-        holidayTitle: 'عطلة رأس السنة الهجرية',
-        date: '2026-07-16',
-        overtimeRate: 1.5,
-        extraAllowance: 90, // 150% of daily rate
-        status: 'معتمد / مدفوع'
-      };
-
-      const eosSettlement = {
-        id: 'EOS-ALMANAR-001',
-        employeeId: testEmp.id,
-        employeeName: testEmp.name,
-        companyId: targetCompId,
-        serviceYears: 2.5,
-        lastSalary: 1800,
-        eosAmount: 2250, // Kuwait Labor Law Art. 51 calculation
-        leaveBalancePay: 180,
-        totalNetSettlement: 2430,
-        status: 'مسودة جارية / حساب معتمد'
-      };
-
-      await setDoc(doc(db, 'contracts', contract.id), cleanFirestoreData(contract));
-      await setDoc(doc(db, 'commencements', commencement.id), cleanFirestoreData(commencement));
-      await setDoc(doc(db, 'leaves', leaveReq.id), cleanFirestoreData(leaveReq));
-      await setDoc(doc(db, 'attendances', attendanceRecord.id), cleanFirestoreData(attendanceRecord));
-      await setDoc(doc(db, 'holidays', holidayAssignment.id), cleanFirestoreData(holidayAssignment));
-      await setDoc(doc(db, 'settlements', eosSettlement.id), cleanFirestoreData(eosSettlement));
-
-      // 6. Store in local storage for the active company
-      if (typeof window !== 'undefined' && window.localStorage) {
-        localStorage.setItem(`odoo_employees_v1_${targetCompId}`, JSON.stringify([managerEmp, testEmp]));
-        localStorage.setItem(`odoo_contracts_v1_${targetCompId}`, JSON.stringify([contract]));
-        localStorage.setItem(`odoo_commencements_v1_${targetCompId}`, JSON.stringify([commencement]));
-        localStorage.setItem(`odoo_leaves_v1_${targetCompId}`, JSON.stringify([leaveReq]));
-        localStorage.setItem(`odoo_attendances_v1_${targetCompId}`, JSON.stringify([attendanceRecord]));
-        localStorage.setItem(`odoo_documents_v1_${targetCompId}`, JSON.stringify(docAttachments));
-        localStorage.setItem(`odoo_holidays_v1_${targetCompId}`, JSON.stringify([holidayAssignment]));
-        localStorage.setItem(`odoo_eos_v1_${targetCompId}`, JSON.stringify([eosSettlement]));
-      }
-
       return {
         success: true,
-        testEmployee: testEmp,
-        message: `تم تثبيت الموظف التجريبي الكامل (د. محمد علي الكندري - ${targetCompId}) في كافة تطبيقات النظام بنجاح.`
+        testEmployee: null,
+        message: 'تم تفريغ كافة البيانات القديمة بنجاح واعتماد السحابة فقط.'
       };
     } catch (err: any) {
-      console.error('[TenantDatabaseService] Error clearing and seeding:', err);
+      console.error('[TenantDatabaseService] Error clearing:', err);
       return {
         success: false,
         testEmployee: null,
@@ -897,6 +715,139 @@ export const TenantDatabaseService = {
       return true;
     } catch (fsErr) {
       console.error('[TenantDatabaseService] Firestore attendance save error:', fsErr);
+      return false;
+    }
+  },
+
+  /**
+   * Fetch Attendance records for tenant from Supabase/Firestore
+   */
+  async getAttendanceByTenant(companyId: string): Promise<AttendanceRecord[]> {
+    if (!companyId) return [];
+    if (isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase
+          .from('attendance')
+          .select('*')
+          .eq('company_id', companyId);
+        if (!error && Array.isArray(data) && data.length > 0) {
+          return data.map(d => ({
+            id: d.id,
+            companyId: d.company_id,
+            employeeId: d.employee_id,
+            date: d.date,
+            checkIn: d.check_in,
+            checkOut: d.check_out,
+            workHours: Number(d.work_hours || 0),
+            overtimeHours: Number(d.overtime_hours || 0),
+            status: d.status || 'حاضر'
+          } as unknown as AttendanceRecord));
+        }
+      } catch (e) {
+        console.warn('[TenantDatabaseService] Supabase attendance fetch error:', e);
+      }
+    }
+
+    try {
+      const q = query(collection(db, 'attendance'), where('companyId', '==', companyId));
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({ ...d.data(), id: d.id } as AttendanceRecord));
+    } catch (e) {
+      console.warn('[TenantDatabaseService] Firestore attendance fetch error:', e);
+      return [];
+    }
+  },
+
+  /**
+   * Save a Document Item to Supabase & Firestore
+   */
+  async saveDocument(docItem: any, targetCompanyId?: string): Promise<boolean> {
+    const compId = targetCompanyId || docItem.companyId || 'comp-super-admin';
+    if (isSupabaseConfigured) {
+      try {
+        const payload = {
+          id: docItem.id,
+          company_id: compId,
+          employee_id: docItem.employeeId || null,
+          title: docItem.title || docItem.name || '',
+          type: docItem.type || docItem.category || 'general',
+          doc_number: docItem.docNumber || '',
+          issue_date: docItem.issueDate || null,
+          expiry_date: docItem.expiryDate || null,
+          file_url: docItem.fileUrl || docItem.url || '',
+          status: docItem.status || 'valid',
+          updated_at: new Date().toISOString()
+        };
+        await supabase.from('documents').upsert([payload], { onConflict: 'id' });
+      } catch (e) {
+        console.warn('[TenantDatabaseService] Supabase document save fallback:', e);
+      }
+    }
+
+    try {
+      const cleanDoc = cleanFirestoreData({ ...docItem, companyId: compId, updatedAt: new Date().toISOString() });
+      await setDoc(doc(db, 'documents', docItem.id), cleanDoc, { merge: true });
+      return true;
+    } catch (fsErr) {
+      console.error('[TenantDatabaseService] Firestore document save error:', fsErr);
+      return false;
+    }
+  },
+
+  /**
+   * Fetch all documents for tenant from Supabase & Firestore
+   */
+  async getDocumentsByTenant(companyId: string): Promise<any[]> {
+    if (!companyId) return [];
+    if (isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase
+          .from('documents')
+          .select('*')
+          .eq('company_id', companyId);
+        if (!error && Array.isArray(data) && data.length > 0) {
+          return data.map(d => ({
+            id: d.id,
+            companyId: d.company_id,
+            employeeId: d.employee_id,
+            title: d.title,
+            type: d.type,
+            docNumber: d.doc_number,
+            issueDate: d.issue_date,
+            expiryDate: d.expiry_date,
+            fileUrl: d.file_url,
+            status: d.status
+          }));
+        }
+      } catch (e) {
+        console.warn('[TenantDatabaseService] Supabase documents fetch error:', e);
+      }
+    }
+
+    try {
+      const q = query(collection(db, 'documents'), where('companyId', '==', companyId));
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({ ...d.data(), id: d.id }));
+    } catch (e) {
+      console.warn('[TenantDatabaseService] Firestore documents fetch error:', e);
+      return [];
+    }
+  },
+
+  /**
+   * Delete a Document from Supabase and Firestore
+   */
+  async deleteDocument(docId: string, targetCompanyId?: string): Promise<boolean> {
+    if (isSupabaseConfigured) {
+      try {
+        await supabase.from('documents').delete().eq('id', docId);
+      } catch (e) {}
+    }
+    try {
+      await deleteDoc(doc(db, 'documents', docId));
+      return true;
+    } catch (e) {
+      console.error('[TenantDatabaseService] Firestore document delete error:', e);
       return false;
     }
   },

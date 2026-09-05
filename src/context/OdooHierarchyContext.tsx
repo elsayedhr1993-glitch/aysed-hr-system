@@ -210,22 +210,29 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
         const dbEmps = await TenantDatabaseService.getEmployeesByTenant(currentCompanyId);
         if (isMounted) {
           if (dbEmps && dbEmps.length > 0) {
-            const mapped: EmployeeContract[] = dbEmps.map(emp => ({
-              id: emp.id,
-              companyId: emp.companyId || currentCompanyId,
-              name: emp.fullNameAr || (emp as any).nameAr || (emp as any).name || 'موظف',
-              civilId: emp.civilId || '',
-              jobTitle: emp.jobTitle || 'موظف',
-              department: emp.department || (emp as any).dept || 'العموم',
-              basicSalary: (emp as any).basicSalary || (emp as any).contractSalary || 1000,
-              housingAllowance: (emp as any).housingAllowance || 0,
-              transportAllowance: (emp as any).transportAllowance || 0,
-              medicalAllowance: (emp as any).medicalAllowance || 0,
-              isKuwaiti: Boolean(emp.isKuwaiti),
-              bankName: emp.bankName || 'بيت التمويل الكويتي (KFH)',
-              iban: emp.iban || '',
-              contractStatus: 'running'
-            }));
+            const mapped: EmployeeContract[] = dbEmps.map(emp => {
+              const civilExpiry = emp.civilIdExpiry || (emp as any).civilIdExpiryDate || (emp as any).civil_id_expiry || (emp as any).raw_payload?.civilIdExpiry || (emp as any).raw_payload?.civilIdExpiryDate || (emp as any).raw_payload?.civil_id_expiry || '';
+              return {
+                ...emp,
+                id: emp.id,
+                companyId: emp.companyId || currentCompanyId,
+                name: emp.fullNameAr || (emp as any).nameAr || (emp as any).name || 'موظف',
+                civilId: emp.civilId || '',
+                civilIdExpiry: civilExpiry,
+                civilIdExpiryDate: civilExpiry,
+                civil_id_expiry: civilExpiry,
+                jobTitle: emp.jobTitle || 'موظف',
+                department: emp.department || (emp as any).dept || 'العموم',
+                basicSalary: (emp as any).basicSalary || (emp as any).contractSalary || 1000,
+                housingAllowance: (emp as any).housingAllowance || 0,
+                transportAllowance: (emp as any).transportAllowance || 0,
+                medicalAllowance: (emp as any).medicalAllowance || 0,
+                isKuwaiti: Boolean(emp.isKuwaiti),
+                bankName: emp.bankName || 'بيت التمويل الكويتي (KFH)',
+                iban: emp.iban || '',
+                contractStatus: 'running'
+              };
+            });
             setEmployees(mapped);
           } else {
             setEmployees([]);
@@ -367,11 +374,25 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [employees, attendance, loans, leaveAccruals]);
 
   const updateContractSalary = (empId: string, newBasic: number, newHousing: number) => {
-    setEmployees(employees.map(e => e.id === empId ? { ...e, basicSalary: newBasic, housingAllowance: newHousing } : e));
+    setEmployees(prev => prev.map(e => {
+      if (e.id === empId) {
+        const updated = { ...e, basicSalary: newBasic, housingAllowance: newHousing };
+        TenantDatabaseService.saveEmployee(updated as any, currentCompanyId).catch(err => console.error(err));
+        return updated;
+      }
+      return e;
+    }));
   };
 
   const updateContractDetails = (contractData: Partial<EmployeeContract> & { id: string }) => {
-    setEmployees(prev => prev.map(e => e.id === contractData.id ? { ...e, ...contractData } : e));
+    setEmployees(prev => prev.map(e => {
+      if (e.id === contractData.id) {
+        const updated = { ...e, ...contractData };
+        TenantDatabaseService.saveEmployee(updated as any, currentCompanyId).catch(err => console.error(err));
+        return updated;
+      }
+      return e;
+    }));
   };
 
   const recordAttendanceShift = (empId: string, delayMin: number, overtimeHr: number) => {
@@ -455,10 +476,22 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
 
     // Save to Firestore with explicit companyId
     await TenantDatabaseService.saveEmployee({
+      ...newEmployee,
       id: newEmployee.id,
-      fullNameAr: newEmployee.name,
+      fullNameAr: newEmployee.name || (newEmployee as any).fullNameAr || '',
+      fullNameEn: (newEmployee as any).fullNameEn || (newEmployee as any).nameEn || '',
       civilId: civilId,
       civil_id_number: civilId,
+      civilIdExpiry: (newEmployee as any).civilIdExpiry || (newEmployee as any).civilIdExpiryDate || (newEmployee as any).expiryDate || '',
+      civilIdExpiryDate: (newEmployee as any).civilIdExpiry || (newEmployee as any).civilIdExpiryDate || (newEmployee as any).expiryDate || '',
+      civil_id_expiry: (newEmployee as any).civilIdExpiry || (newEmployee as any).civilIdExpiryDate || (newEmployee as any).expiryDate || '',
+      passportNo: (newEmployee as any).passportNo || '',
+      passportExpiry: (newEmployee as any).passportExpiry || '',
+      nationality: (newEmployee as any).nationality || 'كويتي',
+      gender: (newEmployee as any).gender || 'MALE',
+      dob: (newEmployee as any).birthDate || (newEmployee as any).dob || '',
+      birthDate: (newEmployee as any).birthDate || (newEmployee as any).dob || '',
+      residencyType: (newEmployee as any).residencyType || '',
       jobTitle: newEmployee.jobTitle,
       department: newEmployee.department,
       bankName: newEmployee.bankName,

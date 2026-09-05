@@ -1,6 +1,7 @@
 import * as pdfjsLib from 'pdfjs-dist';
 // Vite will statically analyze this and serve the file correctly
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import { parseKuwaitCivilId } from './kuwaitLaw';
 
 if (typeof window !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
@@ -35,6 +36,9 @@ export interface ScannedData {
   mohLicenseNo?: string;
   mohLicenseExpiryDate?: string;
   contractSalary?: number;
+  passportExpiryDate?: string;
+  residencyExpiryDate?: string;
+  paciBuildingRef?: string;
 }
 
 /**
@@ -195,10 +199,106 @@ export async function processAnyDocument(file: File, apiKey?: string, docType?: 
     }
   }
 
-  const text = await response!.text();
-  let result;
-  try { result = JSON.parse(text); } catch(e) { throw new Error('استجابة غير صالحة من الخادم (تحديث النظام).'); }
-  return result.data;
+  const rawParsed = await response.json();
+  const dataToNormalize = rawParsed.data || rawParsed;
+  return normalizeScannedData(dataToNormalize);
+}
+
+export function normalizeScannedData(parsed: any): ScannedData {
+  if (!parsed || typeof parsed !== 'object') parsed = {};
+
+  const toWesternDigits = (str: string) => {
+    if (!str) return '';
+    return str.replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d).toString());
+  };
+
+  let civilId = toWesternDigits((parsed.civilId || parsed.civil_id || parsed.civilIdNumber || '').toString()).replace(/\D/g, '');
+  let fullNameAr = (parsed.fullNameAr || parsed.fullName || parsed.nameAr || parsed.name || '').toString().trim();
+  let fullNameEn = (parsed.fullNameEn || parsed.nameEn || '').toString().trim();
+  let nationality = (parsed.nationality || parsed.citizenship || parsed.country || parsed.nationalityAr || '').toString().trim();
+  let genderRaw = (parsed.gender || parsed.sex || parsed.genderAr || '').toString().trim();
+  let birthDateRaw = (parsed.birthDate || parsed.dob || parsed.birth_date || parsed.dateOfBirth || parsed.date_of_birth || '').toString().trim();
+  let passportNo = (parsed.passportNo || parsed.passport_no || parsed.passportNumber || parsed.passport || '').toString().trim().toUpperCase();
+  let residencyType = (parsed.residencyType || parsed.residency_type || parsed.article || parsed.residencyArticle || '').toString().trim();
+  let profession = (parsed.profession || parsed.jobTitle || parsed.job_title || parsed.occupation || '').toString().trim();
+  let expiryDate = toWesternDigits((parsed.expiryDate || parsed.expiry_date || parsed.expirationDate || '').toString()).trim();
+  let issueDate = toWesternDigits((parsed.issueDate || parsed.issue_date || '').toString()).trim();
+  let unifiedNo = toWesternDigits((parsed.unifiedNo || parsed.unified_no || parsed.referenceNo || '').toString()).trim();
+  let mohLicenseNo = toWesternDigits((parsed.mohLicenseNo || parsed.moh_license_no || '').toString()).trim();
+  let mohLicenseExpiryDate = toWesternDigits((parsed.mohLicenseExpiryDate || parsed.moh_license_expiry || '').toString()).trim();
+  let passportExpiryDateRaw = (parsed.passportExpiryDate || parsed.passport_expiry_date || parsed.passportExpiry || '').toString().trim();
+  let residencyExpiryDateRaw = (parsed.residencyExpiryDate || parsed.residency_expiry_date || parsed.residencyExpiry || '').toString().trim();
+  let paciBuildingRef = toWesternDigits((parsed.paciBuildingRef || parsed.paci_building_ref || parsed.paciBuildingNumber || parsed.paciBuildingRefNo || '').toString()).replace(/\D/g, '').trim();
+
+  const formatOcrDate = (raw: string): string => {
+    if (!raw) return '';
+    const clean = toWesternDigits(raw).replace(/[\/\.]/g, '-');
+    const parts = clean.split('-').map(p => p.trim());
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+      } else if (parts[2].length === 4) {
+        return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      }
+    }
+    return clean;
+  };
+
+  let birthDate = formatOcrDate(birthDateRaw);
+  expiryDate = formatOcrDate(expiryDate);
+  issueDate = formatOcrDate(issueDate);
+  let passportExpiryDate = formatOcrDate(passportExpiryDateRaw);
+  let residencyExpiryDate = formatOcrDate(residencyExpiryDateRaw);
+
+  let gender = 'MALE';
+  if (genderRaw) {
+    const gUpper = genderRaw.toUpperCase();
+    if (gUpper.includes('FEMALE') || gUpper.includes('أنثى') || gUpper === 'F') {
+      gender = 'FEMALE';
+    } else if (gUpper.includes('MALE') || gUpper.includes('ذكر') || gUpper === 'M') {
+      gender = 'MALE';
+    }
+  }
+
+  // Automatic Fallback: Compute birthDate and gender from Kuwait Civil ID (12 digits) if missing or incomplete
+  if (civilId.length === 12) {
+    const parsedCivil = parseKuwaitCivilId(civilId);
+    if (parsedCivil) {
+      if (!birthDate || birthDate.length !== 10) {
+        birthDate = parsedCivil.birthDate;
+      }
+      if (!genderRaw || genderRaw === '') {
+        gender = parsedCivil.gender;
+      }
+    }
+  }
+
+  return {
+    ...parsed,
+    civilId,
+    fullNameAr,
+    fullName: fullNameAr,
+    fullNameEn,
+    nationality: nationality || 'كويتي',
+    gender,
+    birthDate,
+    dob: birthDate,
+    unifiedNo,
+    passportNo,
+    profession,
+    jobTitle: profession,
+    expiryDate,
+    issueDate,
+    residencyType,
+    mohLicenseNo,
+    mohLicenseExpiryDate,
+    passportExpiryDate,
+    residencyExpiryDate,
+    paciBuildingRef,
+    bloodGroup: parsed.bloodGroup || '',
+    address: parsed.address || { block: '', street: '', building: '', area: '' },
+    contractSalary: Number(parsed.contractSalary) || 0
+  };
 }
 
 /**
@@ -232,13 +332,16 @@ async function performClientSideGeminiOCR(base64Data: string, mimeType: string, 
   "gender": "ذكر أو أنثى / MALE أو FEMALE",
   "birthDate": "YYYY-MM-DD",
   "unifiedNo": "الرقم الموحد / الرقم المرجع",
-  "passportNo": "رقم جواز السفر إن وجد",
+  "passportNo": "رقم جواز السفر إن وجد بالوجه الخلفي للبطاقة أو في جواز السفر",
+  "passportExpiryDate": "تاريخ انتهاء جواز السفر إن وجد بالوجه الخلفي للبطاقة أو في جواز السفر YYYY-MM-DD",
+  "residencyExpiryDate": "تاريخ انتهاء الإقامة المستقل والمكتوب بظهر البطاقة المدنية YYYY-MM-DD",
+  "paciBuildingRef": "الرقم الآلي للعنوان (8 أرقام) المكتوب بظهر البطاقة المدنية"،
   "profession": "المهنة أو المسمى الوظيفي المسجل",
   "expiryDate": "تاريخ الانتهاء للبطاقة المدنية أو الإقامة YYYY-MM-DD",
   "issueDate": "تاريخ الإصدار YYYY-MM-DD",
   "mohLicenseNo": "رقم الترخيص الصحي إن وجد",
   "mohLicenseExpiryDate": "تاريخ انتهاء الترخيص الصحي YYYY-MM-DD",
-  "residencyType": "نوع الإقامة",
+  "residencyType": "نوع الإقامة أو مادة الإقامة (مثل مادة 18 أو غيرها)",
   "bloodGroup": "فصيلة الدم",
   "address": {
     "block": "القطعة",
@@ -301,27 +404,7 @@ async function performClientSideGeminiOCR(base64Data: string, mimeType: string, 
           throw new Error('فشل في معالجة صيغة البيانات المستخرجة من المستند.');
         }
 
-        return {
-          civilId: parsed.civilId || "",
-          fullNameAr: parsed.fullNameAr || parsed.fullName || "",
-          fullNameEn: parsed.fullNameEn || "",
-          nationality: parsed.nationality || "",
-          gender: parsed.gender || "MALE",
-          birthDate: parsed.birthDate || parsed.dob || "",
-          dob: parsed.birthDate || parsed.dob || "",
-          unifiedNo: parsed.unifiedNo || "",
-          passportNo: parsed.passportNo || "",
-          profession: parsed.profession || parsed.jobTitle || "",
-          jobTitle: parsed.profession || parsed.jobTitle || "",
-          expiryDate: parsed.expiryDate || "",
-          issueDate: parsed.issueDate || "",
-          bloodGroup: parsed.bloodGroup || "",
-          address: parsed.address || { block: "", street: "", building: "", area: "" },
-          residencyType: parsed.residencyType || "",
-          mohLicenseNo: parsed.mohLicenseNo || "",
-          mohLicenseExpiryDate: parsed.mohLicenseExpiryDate || "",
-          contractSalary: Number(parsed.contractSalary) || 0,
-        };
+        return normalizeScannedData(parsed);
       } else {
         const errJson = await response.json().catch(() => ({}));
         lastErrorDetail = errJson.error?.message || `كود الاستجابة ${response.status}`;

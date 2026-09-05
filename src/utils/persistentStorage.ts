@@ -282,8 +282,68 @@ export function purgeLegacyMockData(): void {
     if (activeComp === 'comp-1' || activeComp === 'comp-01') {
       localStorage.setItem('activeCompanyId', 'comp-super-admin');
     }
+
+    // 7. Comprehensive Purge of Outdated LocalStorage Keys
+    const keysToRemove = [
+      'clean_attendances_db',
+      'clean_attendances_ignored',
+      'staff_db',
+      'manara_employees',
+      'app_employees_data',
+      'aysed_wiped_and_seeded_v6'
+    ];
+    keysToRemove.forEach(k => localStorage.removeItem(k));
+
+    // Remove all company-scoped mock/legacy keys
+    Object.keys(localStorage).forEach(key => {
+      if (
+        key.startsWith('odoo_employees_v1') ||
+        key.startsWith('odoo_contracts_v1') ||
+        key.startsWith('odoo_attendances_v1') ||
+        key.startsWith('odoo_documents_v1') ||
+        key.startsWith('odoo_leaves_v1') ||
+        key.startsWith('odoo_holidays_v1') ||
+        key.startsWith('odoo_eos_v1') ||
+        key.startsWith('documents_comp-') ||
+        key.startsWith('aysed_wiped_')
+      ) {
+        // If the key contains mock data or old format, purge it
+        const val = localStorage.getItem(key) || '';
+        if (val.includes('EMP-ALMANAR-') || val.includes('الكندري') || val.includes('الفيلكاوي') || val.includes('mock') || val.includes('demo')) {
+          localStorage.removeItem(key);
+        }
+      }
+    });
   } catch (err) {
     console.warn('[PersistentStorage] Storage cleansing notification:', err);
+  }
+}
+
+/**
+ * دالة لتنظيف المتصفح فوراً من كافة المفاتيح القديمة والمؤقتة لضمان استرجاع البيانات من السحابة حصراً
+ */
+export function clearOutdatedLocalStorage(): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    const keys = Object.keys(localStorage);
+    keys.forEach(k => {
+      if (
+        k.startsWith('odoo_employees_v1_') ||
+        k.startsWith('odoo_contracts_v1_') ||
+        k.startsWith('odoo_attendances_v1_') ||
+        k.startsWith('odoo_documents_v1_') ||
+        k.startsWith('clean_attendances_') ||
+        k === 'staff_db' ||
+        k === 'manara_employees' ||
+        k === 'app_employees_data' ||
+        k.startsWith('aysed_wiped_')
+      ) {
+        localStorage.removeItem(k);
+      }
+    });
+    console.log('[PersistentStorage] All outdated localStorage keys cleared.');
+  } catch (e) {
+    console.warn('[PersistentStorage] Error clearing outdated storage:', e);
   }
 }
 

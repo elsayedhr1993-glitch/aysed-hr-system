@@ -4,6 +4,7 @@ import crypto from "crypto";
 import zlib from "zlib";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import nodemailer from "nodemailer";
 import { initializeApp, cert, getApps, App } from "firebase-admin/app";
@@ -39,7 +40,7 @@ const PORT = 3000;
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-gemini-key, x-gemini-api-key, x-api-key");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, apikey, prefer, range, x-gemini-key, x-gemini-api-key, x-api-key");
   if (req.method === "OPTIONS") {
     return res.sendStatus(200);
   }
@@ -165,9 +166,172 @@ function getGeminiClient(customKey?: string) {
   });
 }
 
+let supabaseAdminClient: any = null;
+function getSupabaseAdmin() {
+  if (supabaseAdminClient) return supabaseAdminClient;
+  const rawUrl = process.env.VITE_SUPABASE_URL || 'https://ywukequruqkkwvqkvcia.supabase.co';
+  const cleanUrl = rawUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '');
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey || !serviceKey.trim()) return null;
+
+  supabaseAdminClient = createSupabaseClient(cleanUrl, serviceKey.trim(), {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+  return supabaseAdminClient;
+}
+
 // API Routes
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", system: "Aysed S HR 2026", odooVersion: "17.0-Enterprise" });
+  const hasServiceRole = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY.trim().length > 0);
+  res.json({ 
+    status: "ok", 
+    system: "Aysed S HR 2026", 
+    odooVersion: "17.0-Enterprise",
+    supabase: {
+      url: (process.env.VITE_SUPABASE_URL || 'https://ywukequruqkkwvqkvcia.supabase.co').replace(/\/rest\/v1\/?$/, ''),
+      hasServiceRole,
+      hasAnonKey: Boolean(process.env.VITE_SUPABASE_ANON_KEY)
+    }
+  });
+});
+
+// Endpoint to verify Supabase Admin connection with Service Role Key
+app.get("/api/supabase/status", async (req, res) => {
+  try {
+    const rawUrl = process.env.VITE_SUPABASE_URL || 'https://ywukequruqkkwvqkvcia.supabase.co';
+    const cleanUrl = rawUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '');
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!serviceKey || !serviceKey.trim()) {
+      return res.json({
+        configured: false,
+        connected: false,
+        message: "لم يتم العثور على مفتاح SUPABASE_SERVICE_ROLE_KEY في ملف .env",
+      });
+    }
+
+    const admin = getSupabaseAdmin();
+    if (!admin) {
+      return res.status(500).json({
+        configured: true,
+        connected: false,
+        message: "تعذر تهيئة عميل Supabase Admin",
+      });
+    }
+
+    // Ping Supabase using service_role admin privileges
+    const { data: usersData, error: usersError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1 });
+    if (usersError) {
+      return res.status(500).json({
+        configured: true,
+        connected: false,
+        error: usersError.message,
+        message: "فشل التحقق من صلاحيات مفتاح service_role",
+      });
+    }
+
+    return res.json({
+      configured: true,
+      connected: true,
+      projectUrl: cleanUrl,
+      role: "service_role",
+      userCountAud: usersData?.aud || "authenticated",
+      message: "تم التحقق والربط بنجاح مع Supabase بمستوى صلاحيات service_role الإدارية الكاملة.",
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      configured: true,
+      connected: false,
+      error: err.message,
+    });
+  }
+});
+
+// Comprehensive Environment & Cloud Services Health Check Endpoint
+app.get("/api/system/env-health", async (req, res) => {
+  try {
+    // 1. Supabase Verification
+    const rawSupabaseUrl = process.env.VITE_SUPABASE_URL || 'https://ywukequruqkkwvqkvcia.supabase.co';
+    const isCleanSupabaseUrl = !rawSupabaseUrl.includes('/rest/v1');
+    const cleanSupabaseUrl = rawSupabaseUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '');
+    const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || '';
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+    let supabasePingSuccess = false;
+    let supabasePingMessage = '';
+    try {
+      const pingRes = await fetch(`${cleanSupabaseUrl}/auth/v1/settings`, {
+        headers: {
+          apikey: supabaseAnonKey || supabaseServiceKey,
+          Authorization: `Bearer ${supabaseAnonKey || supabaseServiceKey}`,
+        },
+      });
+      supabasePingSuccess = pingRes.ok;
+      supabasePingMessage = pingRes.ok ? `HTTP ${pingRes.status} OK` : `HTTP ${pingRes.status} ${pingRes.statusText}`;
+    } catch (e: any) {
+      supabasePingMessage = e.message || 'فشل الاتصال';
+    }
+
+    // 2. Firebase Verification
+    let firebaseProject = process.env.FIREBASE_PROJECT_ID || 'gen-lang-client-0326692360';
+    let firestoreDb = 'ai-studio-remixaysedshr202-98c882d5-9491-4f4b-a838-c6b0b10a0472';
+    const hasServiceAccount = Boolean(
+      (process.env.FIREBASE_SERVICE_ACCOUNT && process.env.FIREBASE_SERVICE_ACCOUNT.trim().length > 0) ||
+      (process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY)
+    );
+    const adminReady = Boolean(getAdminAuth());
+
+    // 3. UltraMsg WhatsApp Verification
+    const ultraInstance = process.env.VITE_ULTRAMSG_INSTANCE_ID || process.env.ULTRAMSG_INSTANCE_ID || '';
+    const ultraToken = process.env.VITE_ULTRAMSG_TOKEN || process.env.ULTRAMSG_TOKEN || '';
+    const ultraBaseUrl = process.env.VITE_ULTRAMSG_BASE_URL || process.env.ULTRAMSG_BASE_URL || '';
+
+    // 4. SMTP Verification
+    const smtpUser = process.env.SMTP_USER || '';
+    const hasSmtpPass = Boolean(process.env.SMTP_PASS && process.env.SMTP_PASS.trim().length > 0);
+    const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
+    const smtpPort = process.env.SMTP_PORT || 587;
+
+    return res.json({
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      supabase: {
+        url: cleanSupabaseUrl,
+        isCleanUrl: isCleanSupabaseUrl,
+        hasAnonKey: Boolean(supabaseAnonKey && supabaseAnonKey.trim().length > 0),
+        hasServiceRole: Boolean(supabaseServiceKey && supabaseServiceKey.trim().length > 0),
+        livePing: {
+          success: supabasePingSuccess,
+          statusText: supabasePingMessage
+        }
+      },
+      firebase: {
+        projectId: firebaseProject,
+        firestoreDatabaseId: firestoreDb,
+        hasServiceAccount,
+        adminReady
+      },
+      ultramsg: {
+        instanceId: ultraInstance,
+        hasToken: Boolean(ultraToken && ultraToken.trim().length > 0),
+        baseUrl: ultraBaseUrl,
+        configured: Boolean(ultraInstance && ultraToken)
+      },
+      smtp: {
+        host: smtpHost,
+        port: smtpPort,
+        user: smtpUser,
+        hasPass: hasSmtpPass,
+        configured: Boolean(smtpUser && hasSmtpPass)
+      }
+    });
+  } catch (err: any) {
+    return res.status(500).json({ status: "error", error: err.message });
+  }
 });
 
 // Test Gemini API Key endpoint for Settings / Admin Panel
@@ -392,6 +556,111 @@ app.all("/api/guards/nightly-audit", async (req, res) => {
 });
 
 // OCR Document Scanner via OpenAI Vision or Gemini Vision API
+function parseKuwaitCivilIdServer(civilId: string): { birthDate: string; gender: 'MALE' | 'FEMALE' } | null {
+  const cleanId = (civilId || '').replace(/\D/g, '');
+  if (cleanId.length !== 12) return null;
+
+  const centuryDigit = cleanId.charAt(0);
+  const yy = cleanId.substring(1, 3);
+  const mm = cleanId.substring(3, 5);
+  const dd = cleanId.substring(5, 7);
+  const genderDigit = parseInt(cleanId.charAt(8), 10) || parseInt(cleanId.charAt(9), 10);
+
+  const century = centuryDigit === '2' ? '19' : '20';
+  const birthDate = `${century}${yy}-${mm}-${dd}`;
+  const gender = (genderDigit % 2 !== 0) ? 'MALE' : 'FEMALE';
+
+  return { birthDate, gender };
+}
+
+function normalizeOcrDataServer(parsed: any) {
+  if (!parsed || typeof parsed !== 'object') parsed = {};
+
+  const toWesternDigits = (str: string) => {
+    if (!str) return '';
+    return str.replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d).toString());
+  };
+
+  let civilId = toWesternDigits((parsed.civilId || parsed.civil_id || parsed.civilIdNumber || '').toString()).replace(/\D/g, '');
+  let fullNameAr = (parsed.fullNameAr || parsed.fullName || parsed.nameAr || parsed.name || '').toString().trim();
+  let fullNameEn = (parsed.fullNameEn || parsed.nameEn || '').toString().trim();
+  let nationality = (parsed.nationality || parsed.citizenship || parsed.country || parsed.nationalityAr || '').toString().trim();
+  let genderRaw = (parsed.gender || parsed.sex || parsed.genderAr || '').toString().trim();
+  let birthDateRaw = (parsed.birthDate || parsed.dob || parsed.birth_date || parsed.dateOfBirth || parsed.date_of_birth || '').toString().trim();
+  let passportNo = (parsed.passportNo || parsed.passport_no || parsed.passportNumber || parsed.passport || '').toString().trim().toUpperCase();
+  let residencyType = (parsed.residencyType || parsed.residency_type || parsed.article || parsed.residencyArticle || '').toString().trim();
+  let profession = (parsed.profession || parsed.jobTitle || parsed.job_title || parsed.occupation || '').toString().trim();
+  let expiryDate = toWesternDigits((parsed.expiryDate || parsed.expiry_date || parsed.expirationDate || parsed.civilIdExpiry || '').toString()).trim();
+  let issueDate = toWesternDigits((parsed.issueDate || parsed.issue_date || '').toString()).trim();
+  let unifiedNo = toWesternDigits((parsed.unifiedNo || parsed.unified_no || parsed.referenceNo || '').toString()).trim();
+  let mohLicenseNo = toWesternDigits((parsed.mohLicenseNo || parsed.moh_license_no || '').toString()).trim();
+  let mohLicenseExpiryDate = toWesternDigits((parsed.mohLicenseExpiryDate || parsed.moh_license_expiry || '').toString()).trim();
+
+  const formatOcrDate = (raw: string): string => {
+    if (!raw) return '';
+    const clean = toWesternDigits(raw).replace(/[\/\.]/g, '-');
+    const parts = clean.split('-').map(p => p.trim());
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+      } else if (parts[2].length === 4) {
+        return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      }
+    }
+    return clean;
+  };
+
+  let birthDate = formatOcrDate(birthDateRaw);
+  expiryDate = formatOcrDate(expiryDate);
+  issueDate = formatOcrDate(issueDate);
+
+  let gender = 'MALE';
+  if (genderRaw) {
+    const gUpper = genderRaw.toUpperCase();
+    if (gUpper.includes('FEMALE') || gUpper.includes('أنثى') || gUpper === 'F') {
+      gender = 'FEMALE';
+    } else if (gUpper.includes('MALE') || gUpper.includes('ذكر') || gUpper === 'M') {
+      gender = 'MALE';
+    }
+  }
+
+  // Automatic Fallback: Compute birthDate and gender from Kuwait Civil ID (12 digits) if missing or incomplete
+  if (civilId.length === 12) {
+    const parsedCivil = parseKuwaitCivilIdServer(civilId);
+    if (parsedCivil) {
+      if (!birthDate || birthDate.length !== 10) {
+        birthDate = parsedCivil.birthDate;
+      }
+      if (!genderRaw || genderRaw === '') {
+        gender = parsedCivil.gender;
+      }
+    }
+  }
+
+  return {
+    civilId,
+    fullNameAr,
+    fullName: fullNameAr,
+    fullNameEn,
+    nationality: nationality || 'كويتي',
+    gender,
+    birthDate,
+    dob: birthDate,
+    unifiedNo,
+    passportNo,
+    profession,
+    jobTitle: profession,
+    expiryDate,
+    issueDate,
+    residencyType,
+    mohLicenseNo,
+    mohLicenseExpiryDate,
+    bloodGroup: parsed.bloodGroup || '',
+    address: parsed.address || { block: '', street: '', building: '', area: '' },
+    contractSalary: Number(parsed.contractSalary) || 0
+  };
+}
+
 app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
   const { imageBase64, mimeType, docType, customApiKey } = req.body;
   const headerKey = (req.headers['x-gemini-api-key'] || req.headers['x-gemini-key']) as string | undefined;
@@ -401,7 +670,47 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
     return res.status(400).json({ error: "يرجى اختيار ورفع صورة المستند الحقيقي أولاً قبل إجراء الماسح الضوئي OCR" });
   }
 
-  // 1. Check if OPENAI_API_KEY is available and use OpenAI Vision API (gpt-4o with detail: high and json_object response_format)
+  const systemPrompt = `أنت نظام خبير في القراءة الضوئية واستخراج بيانات البطاقة المدنية وجواز السفر والإقامة والمستندات الرسمية الكويتية (Kuwait OCR Vision Engine).
+مهمتك استخراج كافة النصوص والبيانات الحقيقية الموجودة في المستند بدقة 100% دون أي تخمين. تحذير شديد: إياك أن تؤلف بيانات وهمية. إذا لم تجد الحقل، اتركه فارغاً.
+قم باستخراج البيانات التالية بدقة:
+- civilId: الرقم المدني الكويتي (12 رقماً).
+- fullNameAr: الاسم الكامل بالعربية.
+- fullNameEn: الاسم الكامل بالإنجليزية (Full Name in English).
+- nationality: الجنسية المسجلة (مثال: مصري، كويتي، هندي، سوري، أردني، فلبيني، إلخ).
+- gender: نوع الجنس (ذكر أو أنثى / MALE أو FEMALE).
+- birthDate: تاريخ الميلاد بصيغة YYYY-MM-DD. ابحث بتمعن عن تاريخ الميلاد / Birth Date / Date of Birth.
+- passportNo: رقم جواز السفر (Passport No) من الجواز أو خلفية البطاقة أو الإقامة.
+- residencyType: نوع الإقامة أو رقم المادة (مثال: مادة 18، مادة 17، مادة 22، مادة 20، إقامة عمل، مواطن).
+- unifiedNo: الرقم الموحد / الرقم المرجع.
+- profession: المهنة أو الوظيفة المسجلة.
+- expiryDate: تاريخ انتهاء الوثيقة YYYY-MM-DD.
+- issueDate: تاريخ الإصدار YYYY-MM-DD.
+- mohLicenseNo: رقم ترخيص وزارة الصحة إن وجد.
+- mohLicenseExpiryDate: تاريخ انتهاء ترخيص الصحة YYYY-MM-DD.
+- bloodGroup: فصيلة الدم.
+- address: تفاصيل العنوان (قطعة، شارع، مبنى، منطقة).
+
+أرجع النتيجة حصرياً بصيغة JSON مطابق للهيكل التالي:
+{
+  "civilId": "",
+  "fullNameAr": "",
+  "fullNameEn": "",
+  "nationality": "",
+  "gender": "",
+  "birthDate": "",
+  "unifiedNo": "",
+  "passportNo": "",
+  "profession": "",
+  "expiryDate": "",
+  "issueDate": "",
+  "mohLicenseNo": "",
+  "mohLicenseExpiryDate": "",
+  "residencyType": "",
+  "bloodGroup": "",
+  "address": { "block": "", "street": "", "building": "", "area": "" }
+}`;
+
+  // 1. Check if OPENAI_API_KEY is available and use OpenAI Vision API
   const openaiApiKey = process.env.OPENAI_API_KEY;
   const isPdfFile = mimeType === 'application/pdf' || mimeType?.includes('pdf');
   if (openaiApiKey && openaiApiKey.trim() !== "" && !openaiApiKey.includes("YOUR_") && !isPdfFile) {
@@ -419,12 +728,12 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
           messages: [
             {
               role: "system",
-               content: "أنت نظام خبير في القراءة الضوئية واستخراج بيانات البطاقة المدنية والمستندات الرسمية الكويتية بدقة مطلقة (OCR Vision Engine). مهمتك استخراج النصوص والأسماء الحقيقية الموجودة في المستند حصرياً بدقة 100% بدون أي تخمين أو اختصار. تحذير شديد: إياك أن تؤلف أو تفترض بيانات وهمية (مثل أحمد محمد عبدالله أو جون ديفيد أو أرقام مدنية عشوائية). إذا كان الحقل غير مقروء، اتركه فارغاً. أرجع النتيجة حصرياً بصيغة JSON مطابق تماماً للهيكل التالي:\n{\n  \"civilId\": \"الرقم المدني (12 رقماً)\",\n  \"fullNameAr\": \"الاسم الكامل بالعربية\",\n  \"fullNameEn\": \"الاسم الكامل بالإنجليزية\",\n  \"nationality\": \"الجنسية\",\n  \"gender\": \"ذكر أو أنثى / MALE أو FEMALE\",\n  \"birthDate\": \"تاريخ الميلاد YYYY-MM-DD\",\n  \"unifiedNo\": \"الرقم الموحد / الرقم المرجع\",\n  \"passportNo\": \"رقم جواز السفر إن وجد\",\n  \"profession\": \"المهنة أو المسمى الوظيفي المسجل\",\n  \"expiryDate\": \"تاريخ الانتهاء للبطاقة المدنية أو الإقامة YYYY-MM-DD\",\n  \"issueDate\": \"تاريخ الإصدار YYYY-MM-DD\",\n  \"mohLicenseNo\": \"رقم الترخيص الصحي إن وجد\",\n  \"mohLicenseExpiryDate\": \"تاريخ انتهاء الترخيص الصحي YYYY-MM-DD\",\n  \"residencyType\": \"نوع الإقامة\",\n  \"bloodGroup\": \"فصيلة الدم\",\n  \"address\": {\n    \"block\": \"القطعة\",\n    \"street\": \"الشارع\",\n    \"building\": \"المبنى / القسيمة\",\n    \"area\": \"المنطقة / المحافظة\"\n  }\n}"
+              content: systemPrompt
             },
             {
               role: "user",
               content: [
-                { type: "text", text: `قم بتحليل صورة المستند (${docType || 'بطاقة مدنية'}) واستخراج كافة البيانات والحقول بدقة تامة باستخدام تفاصيل عالية الوضوح.` },
+                { type: "text", text: `قم بتحليل صورة المستند (${docType || 'بطاقة مدنية/جواز سفر'}) واستخراج كافة الحقول وخاصة (تاريخ الميلاد، الجنسية، نوع الجنس، رقم الجواز، ونوع الإقامة).` },
                 { type: "image_url", image_url: { url: base64Data, detail: "high" } }
               ]
             }
@@ -438,29 +747,10 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
         const oaiData = await oaiResponse.json();
         const contentStr = oaiData.choices?.[0]?.message?.content || "{}";
         const parsed = JSON.parse(contentStr);
+        const normalized = normalizeOcrDataServer(parsed);
         return res.json({
           success: true,
-          data: {
-            civilId: parsed.civilId || "",
-            fullNameAr: parsed.fullNameAr || parsed.fullName || "",
-            fullNameEn: parsed.fullNameEn || "",
-            nationality: parsed.nationality || "",
-            gender: parsed.gender || "MALE",
-            birthDate: parsed.birthDate || parsed.dob || "",
-            dob: parsed.birthDate || parsed.dob || "",
-            unifiedNo: parsed.unifiedNo || "",
-            passportNo: parsed.passportNo || "",
-            profession: parsed.profession || parsed.jobTitle || "",
-            jobTitle: parsed.profession || parsed.jobTitle || "",
-            expiryDate: parsed.expiryDate || "",
-            issueDate: parsed.issueDate || "",
-            bloodGroup: parsed.bloodGroup || "",
-            address: parsed.address || { block: "", street: "", building: "", area: "" },
-            residencyType: parsed.residencyType || "",
-            mohLicenseNo: parsed.mohLicenseNo || "",
-            mohLicenseExpiryDate: parsed.mohLicenseExpiryDate || "",
-            contractSalary: Number(parsed.contractSalary) || 0,
-          },
+          data: normalized,
           source: "openai-vision-gpt4o"
         });
       }
@@ -476,8 +766,6 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
     });
   }
 
-  // Normalize BDF or unknown mime types
-  
   let rawBase64 = imageBase64.replace(/^data:.*?;base64,/, "").replace(/\s/g, "");
   let resolvedMimeType = "image/jpeg";
   
@@ -490,40 +778,11 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
   } else if (rawBase64.startsWith("UklGR")) {
     resolvedMimeType = "image/webp";
   } else {
-    // Fallback to what the client sent if we don't recognize the magic number
     resolvedMimeType = mimeType || "image/jpeg";
     if (resolvedMimeType.includes('bdf') || resolvedMimeType === '' || !resolvedMimeType) {
       resolvedMimeType = 'application/pdf';
     }
   }
-
-
-  const prompt = `أنت نظام خبير في القراءة الضوئية واستخراج بيانات البطاقة المدنية والمستندات الرسمية الكويتية بدقة مطلقة (OCR Vision Engine).
-مهمتك استخراج كافة حقول وبيانات المستند المرفق حصرياً بدقة 100% دون أي تخمين. تحذير شديد: إياك أن تؤلف بيانات وهمية (مثل أحمد محمد عبدالله أو أرقام عشوائية). إذا لم تستطع قراءة حقل، أرجعه فارغاً "".
-أرجع الناتج بصيغة JSON فقط مطابق لهذا الهيكل بدقة:
-{
-  "civilId": "الرقم المدني (12 رقماً)",
-  "fullNameAr": "الاسم الكامل بالعربية",
-  "fullNameEn": "الاسم الكامل بالإنجليزية",
-  "nationality": "الجنسية",
-  "gender": "ذكر أو أنثى / MALE أو FEMALE",
-  "birthDate": "YYYY-MM-DD",
-  "unifiedNo": "الرقم الموحد / الرقم المرجع",
-  "passportNo": "رقم جواز السفر إن وجد",
-  "profession": "المهنة أو المسمى الوظيفي المسجل",
-  "expiryDate": "تاريخ الانتهاء للبطاقة المدنية أو الإقامة YYYY-MM-DD",
-  "issueDate": "تاريخ الإصدار YYYY-MM-DD",
-  "mohLicenseNo": "رقم الترخيص الصحي إن وجد",
-  "mohLicenseExpiryDate": "تاريخ انتهاء الترخيص الصحي YYYY-MM-DD",
-  "residencyType": "نوع الإقامة",
-  "bloodGroup": "فصيلة الدم",
-  "address": {
-    "block": "القطعة",
-    "street": "الشارع",
-    "building": "المبنى / القسيمة",
-    "area": "المنطقة / المحافظة"
-  }
-}`;
 
   const modelsToTry = ["gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-3.6-flash", "gemini-1.5-flash"];
   let lastError: any = null;
@@ -540,7 +799,7 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
                 mimeType: resolvedMimeType,
               },
             },
-            { text: prompt },
+            { text: systemPrompt },
           ],
         },
         config: {
@@ -581,39 +840,21 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
       const responseText = response.text || "{}";
       const cleanedJsonText = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
       const parsedData = JSON.parse(cleanedJsonText);
+      const normalized = normalizeOcrDataServer(parsedData);
 
       return res.json({
         success: true,
-        data: {
-          civilId: parsedData.civilId || "",
-          fullNameAr: parsedData.fullNameAr || "",
-          fullNameEn: parsedData.fullNameEn || "",
-          nationality: parsedData.nationality || "",
-          gender: parsedData.gender || "MALE",
-          birthDate: parsedData.birthDate || parsedData.dob || "",
-          dob: parsedData.birthDate || parsedData.dob || "",
-          unifiedNo: parsedData.unifiedNo || "",
-          passportNo: parsedData.passportNo || "",
-          profession: parsedData.profession || parsedData.jobTitle || "",
-          jobTitle: parsedData.profession || parsedData.jobTitle || "",
-          expiryDate: parsedData.expiryDate || "",
-          issueDate: parsedData.issueDate || "",
-          mohLicenseNo: parsedData.mohLicenseNo || "",
-          mohLicenseExpiryDate: parsedData.mohLicenseExpiryDate || "",
-          residencyType: parsedData.residencyType || "",
-          bloodGroup: parsedData.bloodGroup || "",
-          address: parsedData.address || { block: "", street: "", building: "", area: "" },
-        },
+        data: normalized,
         source: `gemini-vision-${modelName}`,
       });
     } catch (err: any) {
       console.error("Model " + modelName + " failed with schema:", err);
       lastError = err;
-      continue; // Try next model
+      continue;
     }
   }
 
-  // If all models with schema failed, try without schema
+  // Fallback without schema
   for (const modelName of modelsToTry) {
     try {
       const response = await ai.models.generateContent({
@@ -626,7 +867,7 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
                 mimeType: resolvedMimeType,
               },
             },
-            { text: prompt + "\nأرجع النتيجة بصيغة JSON فقط." },
+            { text: systemPrompt + "\nأرجع النتيجة بصيغة JSON فقط." },
           ],
         },
         config: {
@@ -638,28 +879,14 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
       const responseText = response.text || "{}";
       const cleanedJsonText = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
       const parsedData = JSON.parse(cleanedJsonText);
+      const normalized = normalizeOcrDataServer(parsedData);
 
       return res.json({
         success: true,
-        data: {
-          civilId: parsedData.civilId || "",
-          fullNameAr: parsedData.fullNameAr || "",
-          fullNameEn: parsedData.fullNameEn || "",
-          nationality: parsedData.nationality || "",
-          dob: parsedData.dob || "",
-          passportNo: parsedData.passportNo || "",
-          jobTitle: parsedData.jobTitle || "",
-          expiryDate: parsedData.expiryDate || "",
-          gender: parsedData.gender || "MALE",
-          residencyType: parsedData.residencyType || "",
-          mohLicenseNo: parsedData.mohLicenseNo || "",
-          mohLicenseExpiryDate: parsedData.mohLicenseExpiryDate || "",
-          contractSalary: Number(parsedData.contractSalary) || 0,
-        },
-        source: `gemini-vision-fallback-${modelName}`,
+        data: normalized,
+        source: `gemini-vision-${modelName}-noschema`,
       });
     } catch (err: any) {
-      console.error("Model " + modelName + " fallback failed:", err);
       lastError = err;
       continue;
     }
@@ -2000,8 +2227,41 @@ async function startServer() {
     });
   }
 
+  function runStartupEnvironmentAudit() {
+    console.log("=================================================");
+    console.log("🚀 [AYSED HR 2026] Running Environment Validation Audit");
+    console.log("=================================================");
+    
+    // 1. Supabase
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://ywukequruqkkwvqkvcia.supabase.co';
+    const supabaseAnon = process.env.VITE_SUPABASE_ANON_KEY ? '✔ Configured' : '❌ Undefined';
+    const supabaseService = process.env.SUPABASE_SERVICE_ROLE_KEY ? '✔ Configured (Server-only)' : '❌ Undefined';
+    const cleanUrl = supabaseUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '');
+    const urlCleanStatus = !supabaseUrl.includes('/rest/v1') ? '✔ Clean' : '⚠ Stripped /rest/v1';
+    console.log(`[Supabase] URL: ${cleanUrl} [${urlCleanStatus}]`);
+    console.log(`[Supabase] Anon Key (Client): ${supabaseAnon}`);
+    console.log(`[Supabase] Service Role Key (Admin): ${supabaseService}`);
+
+    // 2. Firebase
+    const fbProject = process.env.FIREBASE_PROJECT_ID || 'gen-lang-client-0326692360';
+    const fbSa = process.env.FIREBASE_SERVICE_ACCOUNT ? '✔ Provided' : 'ℹ Config File Mode';
+    console.log(`[Firebase] Project: ${fbProject} | Service Account: ${fbSa}`);
+
+    // 3. UltraMsg & Messaging
+    const ultraInst = process.env.VITE_ULTRAMSG_INSTANCE_ID || process.env.ULTRAMSG_INSTANCE_ID || 'instance188430';
+    const ultraTok = (process.env.VITE_ULTRAMSG_TOKEN || process.env.ULTRAMSG_TOKEN) ? '✔ Configured' : 'ℹ Default Preset';
+    console.log(`[UltraMsg] Instance ID: ${ultraInst} | Token: ${ultraTok}`);
+
+    // 4. SMTP
+    const smtpUsr = process.env.SMTP_USER || 'Not set';
+    const smtpPass = process.env.SMTP_PASS ? '✔ Configured' : 'ℹ Optional';
+    console.log(`[SMTP] User: ${smtpUsr} | Pass: ${smtpPass}`);
+    console.log("=================================================");
+  }
+
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Aysed S HR 2026 (Odoo Enterprise Kuwait) running on http://0.0.0.0:${PORT}`);
+    runStartupEnvironmentAudit();
   });
 }
 

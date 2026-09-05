@@ -28,6 +28,7 @@ export interface ExtractedCivilData {
   rawTextPreview?: string;
   mohLicenseNo?: string;
   pamPermitNo?: string;
+  residencyType?: string;
 }
 
 interface ScannerProps {
@@ -88,6 +89,7 @@ export const OdooDocScannerModal: React.FC<ScannerProps> = ({ isOpen, onClose, o
         passportNo: scanned.passportNo || '',
         profession: scanned.profession || scanned.jobTitle || '',
         mohLicenseNo: scanned.mohLicenseNo || '',
+        residencyType: scanned.residencyType || '',
         rawTextPreview: scanned.rawText || ''
       };
 
@@ -337,14 +339,38 @@ export const OdooDocScannerModal: React.FC<ScannerProps> = ({ isOpen, onClose, o
                     />
                   </div>
                   <div>
+                    <label className="text-[10px] font-bold text-slate-500 block mb-0.5">نوع الجنس:</label>
+                    <select
+                      value={extractedData.gender || 'MALE'}
+                      onChange={(e) => setExtractedData(prev => prev ? { ...prev, gender: e.target.value } : prev)}
+                      className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 text-slate-800 text-xs"
+                    >
+                      <option value="MALE">ذكر (Male)</option>
+                      <option value="FEMALE">أنثى (Female)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
                     <label className="text-[10px] font-bold text-slate-500 block mb-0.5">رقم الجواز (إن وجد):</label>
                     <input
                       type="text"
                       value={extractedData.passportNo || ''}
-                      onChange={(e) => setExtractedData(prev => prev ? { ...prev, passportNo: e.target.value } : prev)}
+                      onChange={(e) => setExtractedData(prev => prev ? { ...prev, passportNo: e.target.value.toUpperCase() } : prev)}
                       className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 text-slate-800 text-xs font-mono"
                       placeholder="K12345678"
                       dir="ltr"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block mb-0.5">نوع الإقامة / المادة:</label>
+                    <input
+                      type="text"
+                      value={extractedData.residencyType || ''}
+                      onChange={(e) => setExtractedData(prev => prev ? { ...prev, residencyType: e.target.value } : prev)}
+                      className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 text-slate-800 text-xs"
+                      placeholder="مادة 18 / عمل..."
                     />
                   </div>
                 </div>

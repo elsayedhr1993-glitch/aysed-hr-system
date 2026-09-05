@@ -5,6 +5,7 @@ import {
   FolderOpen, Calendar, Shield, Sparkles, Filter, Eye, Plus, ArrowRight
 } from 'lucide-react';
 import { processAnyDocument } from '../utils/ocrService';
+import { parseKuwaitCivilId } from '../utils/kuwaitLaw';
 import toast from 'react-hot-toast';
 
 interface ScannerAppProps {
@@ -15,6 +16,57 @@ interface ScannerAppProps {
   onDeleteDocument: (docId: string) => void;
   onAutoAddEmpFromOCR: (empData: any, docType?: string) => string;
   onNavigateToApp?: (app: any) => void;
+}
+
+function compressImage(file: File): Promise<string> {
+  return new Promise((resolve) => {
+    if (!file.type.startsWith('image/')) {
+      resolve('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23f1f5f9"/><text x="50" y="55" font-family="sans-serif" font-size="10" fill="%2364748b" text-anchor="middle">PDF Document</text></svg>');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 250;
+        const MAX_HEIGHT = 250;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
+          resolve(dataUrl);
+        } else {
+          resolve(event.target?.result as string || '');
+        }
+      };
+      img.onerror = () => {
+        resolve(event.target?.result as string || '');
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.onerror = () => {
+      resolve('');
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 export const ScannerApp: React.FC<ScannerAppProps> = ({
@@ -29,6 +81,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [viewMode, setViewMode] = useState<'KANBAN' | 'LIST'>('KANBAN');
+  const [previewDocUrl, setPreviewDocUrl] = useState<string | null>(null);
   
   // Scanner Modal state
   const [isScannerModalOpen, setIsScannerModalOpen] = useState(false);
@@ -55,13 +108,22 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
       setIsScanning(true);
+      
+      let compressedBase64 = '';
+      try {
+        compressedBase64 = await compressImage(file);
+      } catch (err) {
+        console.warn('Image compression failed:', err);
+      }
+
       try {
         const result = await processAnyDocument(file, undefined, selectedDocType);
         setScanResult({
           docType: selectedDocType || result.documentType || 'CIVIL_ID',
           extractedData: result,
           fileName: file.name,
-          isManualFallback: false
+          isManualFallback: false,
+          compressedImage: compressedBase64
         });
         toast.success('تم مسح وتحليل المستند بنجاح عبر الماسح الذكي');
       } catch (error: any) {
@@ -80,7 +142,8 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
             expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 1 year from now
           },
           fileName: file.name,
-          isManualFallback: true
+          isManualFallback: true,
+          compressedImage: compressedBase64
         });
       } finally {
         setIsScanning(false);
@@ -267,7 +330,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                         <button 
                           onClick={() => {
                             if (doc.fileUrl && doc.fileUrl !== '#') {
-                              window.open(doc.fileUrl, '_blank');
+                              setPreviewDocUrl(doc.fileUrl);
                             } else {
                               toast.error('الملف غير متوفر للعرض المباشر');
                             }
@@ -315,8 +378,11 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                           <td className="p-3 text-center flex items-center justify-center gap-2">
                             <button 
                               onClick={() => {
-                                if (doc.fileUrl && doc.fileUrl !== '#') window.open(doc.fileUrl, '_blank');
-                                else toast.error('الملف غير متوفر');
+                                if (doc.fileUrl && doc.fileUrl !== '#') {
+                                  setPreviewDocUrl(doc.fileUrl);
+                                } else {
+                                  toast.error('الملف غير متوفر');
+                                }
                               }}
                               className="p-1.5 text-slate-600 hover:text-[#714B67] hover:bg-slate-100 rounded transition"
                             >
@@ -356,7 +422,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
 
       {/* New Scan / OCR Modal */}
       {isScannerModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
           <div className="bg-white rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden border border-slate-100 flex flex-col">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
               <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
@@ -408,55 +474,198 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">الاسم الكامل بالعربية (أو كما هو مبين):</label>
-                      <input
-                        type="text"
-                        value={scanResult.extractedData.fullNameAr || ''}
-                        onChange={(e) => setScanResult({
-                          ...scanResult,
-                          extractedData: {
-                            ...scanResult.extractedData,
-                            fullNameAr: e.target.value
-                          }
-                        })}
-                        className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 text-xs font-bold focus:border-[#714B67] outline-none"
-                        placeholder="أدخل الاسم الكامل"
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">الاسم الكامل بالعربية:</label>
+                        <input
+                          type="text"
+                          value={scanResult.extractedData.fullNameAr || ''}
+                          onChange={(e) => setScanResult({
+                            ...scanResult,
+                            extractedData: {
+                              ...scanResult.extractedData,
+                              fullNameAr: e.target.value
+                            }
+                          })}
+                          className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 text-xs font-bold focus:border-[#714B67] outline-none"
+                          placeholder="أدخل الاسم بالعربية"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Full Name (English):</label>
+                        <input
+                          type="text"
+                          value={scanResult.extractedData.fullNameEn || ''}
+                          onChange={(e) => setScanResult({
+                            ...scanResult,
+                            extractedData: {
+                              ...scanResult.extractedData,
+                              fullNameEn: e.target.value
+                            }
+                          })}
+                          className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 text-xs font-mono focus:border-[#714B67] outline-none"
+                          placeholder="Name in English"
+                          dir="ltr"
+                        />
+                      </div>
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">الرقم المدني / رقم الهوية الوطنية (12 رقماً):</label>
-                      <input
-                        type="text"
-                        maxLength={12}
-                        value={scanResult.extractedData.civilId || ''}
-                        onChange={(e) => setScanResult({
-                          ...scanResult,
-                          extractedData: {
-                            ...scanResult.extractedData,
-                            civilId: e.target.value.replace(/\D/g, '')
-                          }
-                        })}
-                        className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 text-xs font-mono font-bold focus:border-[#714B67] outline-none"
-                        placeholder="أدخل الرقم المدني"
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">الرقم المدني (12 رقماً):</label>
+                        <input
+                          type="text"
+                          maxLength={12}
+                          value={scanResult.extractedData.civilId || ''}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, '');
+                            let bDate = scanResult.extractedData.birthDate;
+                            let gVal = scanResult.extractedData.gender;
+                            if (val.length === 12) {
+                              const parsed = parseKuwaitCivilId(val);
+                              if (parsed) {
+                                if (!bDate) bDate = parsed.birthDate;
+                                if (!gVal) gVal = parsed.gender;
+                              }
+                            }
+                            setScanResult({
+                              ...scanResult,
+                              extractedData: {
+                                ...scanResult.extractedData,
+                                civilId: val,
+                                birthDate: bDate,
+                                gender: gVal
+                              }
+                            });
+                          }}
+                          className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 text-xs font-mono font-bold focus:border-[#714B67] outline-none"
+                          placeholder="290010112345"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">تاريخ الميلاد:</label>
+                        <input
+                          type="date"
+                          value={scanResult.extractedData.birthDate || scanResult.extractedData.dob || ''}
+                          onChange={(e) => setScanResult({
+                            ...scanResult,
+                            extractedData: {
+                              ...scanResult.extractedData,
+                              birthDate: e.target.value,
+                              dob: e.target.value
+                            }
+                          })}
+                          className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 text-xs font-mono focus:border-[#714B67] outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">نوع الجنس:</label>
+                        <select
+                          value={scanResult.extractedData.gender || 'MALE'}
+                          onChange={(e) => setScanResult({
+                            ...scanResult,
+                            extractedData: {
+                              ...scanResult.extractedData,
+                              gender: e.target.value
+                            }
+                          })}
+                          className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 text-xs focus:border-[#714B67] outline-none"
+                        >
+                          <option value="MALE">ذكر (Male)</option>
+                          <option value="FEMALE">أنثى (Female)</option>
+                        </select>
+                      </div>
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">تاريخ الانتهاء للمستند:</label>
-                      <input
-                        type="date"
-                        value={scanResult.extractedData.expiryDate || ''}
-                        onChange={(e) => setScanResult({
-                          ...scanResult,
-                          extractedData: {
-                            ...scanResult.extractedData,
-                            expiryDate: e.target.value
-                          }
-                        })}
-                        className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 text-xs font-mono focus:border-[#714B67] outline-none"
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">الجنسية:</label>
+                        <input
+                          type="text"
+                          value={scanResult.extractedData.nationality || ''}
+                          onChange={(e) => setScanResult({
+                            ...scanResult,
+                            extractedData: {
+                              ...scanResult.extractedData,
+                              nationality: e.target.value
+                            }
+                          })}
+                          className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 text-xs focus:border-[#714B67] outline-none"
+                          placeholder="مثال: كويتي / مصري"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">رقم جواز السفر:</label>
+                        <input
+                          type="text"
+                          value={scanResult.extractedData.passportNo || ''}
+                          onChange={(e) => setScanResult({
+                            ...scanResult,
+                            extractedData: {
+                              ...scanResult.extractedData,
+                              passportNo: e.target.value.toUpperCase()
+                            }
+                          })}
+                          className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 text-xs font-mono focus:border-[#714B67] outline-none"
+                          placeholder="A12345678"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">نوع الإقامة / المادة:</label>
+                        <input
+                          type="text"
+                          value={scanResult.extractedData.residencyType || ''}
+                          onChange={(e) => setScanResult({
+                            ...scanResult,
+                            extractedData: {
+                              ...scanResult.extractedData,
+                              residencyType: e.target.value
+                            }
+                          })}
+                          className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 text-xs focus:border-[#714B67] outline-none"
+                          placeholder="مثال: مادة 18 / عمل"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">المهنة / المسمى الوظيفي:</label>
+                        <input
+                          type="text"
+                          value={scanResult.extractedData.profession || scanResult.extractedData.jobTitle || ''}
+                          onChange={(e) => setScanResult({
+                            ...scanResult,
+                            extractedData: {
+                              ...scanResult.extractedData,
+                              profession: e.target.value,
+                              jobTitle: e.target.value
+                            }
+                          })}
+                          className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 text-xs focus:border-[#714B67] outline-none"
+                          placeholder="المسمى الوظيفي المسجل"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">تاريخ انتهاء المستند:</label>
+                        <input
+                          type="date"
+                          value={scanResult.extractedData.expiryDate || ''}
+                          onChange={(e) => setScanResult({
+                            ...scanResult,
+                            extractedData: {
+                              ...scanResult.extractedData,
+                              expiryDate: e.target.value
+                            }
+                          })}
+                          className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 text-xs font-mono focus:border-[#714B67] outline-none"
+                        />
+                      </div>
                     </div>
                   </div>
 
@@ -464,14 +673,19 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                     <button
                       onClick={() => {
                         const newEmpId = onAutoAddEmpFromOCR(scanResult.extractedData, scanResult.docType);
+                        const docNo = scanResult.extractedData.civilId || 
+                                      scanResult.extractedData.passportNo || 
+                                      scanResult.extractedData.documentNumber || 
+                                      '';
                         onSaveDocument({
                           id: `doc-${Date.now()}`,
                           companyId: activeCompany?.id || '',
                           employeeId: newEmpId,
                           title: `${scanResult.docType} - ${scanResult.extractedData.fullNameAr || scanResult.fileName}`,
                           category: scanResult.docType || 'CIVIL_ID',
-                          fileUrl: 'https://storage.googleapis.com/simulated-upload/document.pdf',
+                          fileUrl: scanResult.compressedImage || 'https://storage.googleapis.com/simulated-upload/document.pdf',
                           expiryDate: scanResult.extractedData.expiryDate || '2027-01-01',
+                          documentNumber: docNo,
                           status: 'active'
                         });
                         toast.success('تم أرشفة المستند وإنشاء السجل بنجاح');
@@ -527,6 +741,47 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Document Preview Modal */}
+      {previewDocUrl && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
+          <div className="bg-white rounded-2xl overflow-hidden max-w-2xl w-full shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+              <h4 className="font-bold text-slate-800 text-sm">معاينة المستند المؤرشف</h4>
+              <button 
+                onClick={() => setPreviewDocUrl(null)}
+                className="text-slate-400 hover:text-slate-600 font-bold text-sm bg-slate-200 hover:bg-slate-300 w-8 h-8 rounded-full flex items-center justify-center transition"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-6 bg-slate-100 flex items-center justify-center">
+              {previewDocUrl.startsWith('data:') ? (
+                <img 
+                  src={previewDocUrl} 
+                  alt="معاينة المستند" 
+                  className="max-w-full max-h-[60vh] object-contain rounded-lg border border-slate-200 shadow-sm"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <iframe 
+                  src={previewDocUrl} 
+                  title="Document Preview" 
+                  className="w-full h-[60vh] border-0 rounded-lg"
+                />
+              )}
+            </div>
+            <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end">
+              <button 
+                onClick={() => setPreviewDocUrl(null)}
+                className="px-5 py-2 bg-[#714B67] hover:bg-[#5a3a51] text-white rounded-xl text-xs font-bold transition"
+              >
+                إغلاق المعاينة
+              </button>
             </div>
           </div>
         </div>

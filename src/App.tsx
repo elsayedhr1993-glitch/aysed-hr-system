@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { parseKuwaitCivilId } from './utils/kuwaitLaw';
 import { TenantProvider, useTenant } from './context/TenantContext';
 import { useCompany } from './context/CompanyContext';
 import { OdooHierarchyProvider, useOdooHierarchy } from './context/OdooHierarchyContext';
@@ -51,6 +52,7 @@ import { ScannerApp } from './apps/ScannerApp';
 import { SuperAdminDashboard } from './pages/SuperAdminDashboard';
 import { OdooDebugMenu } from './components/OdooDebugMenu';
 import OdooLoginPage from './components/OdooLoginPage';
+import { TenantDatabaseService } from './services/tenantDataService';
 
 type AppId = 
   | 'switcher' 
@@ -112,34 +114,87 @@ function MainAppLayout() {
   const [searchQuery, setSearchQuery] = useState('');
   const [documents, setDocuments] = useState<any[]>([]);
 
-  const handleSaveDocument = (doc: any) => {
+  // Load documents when activeCompany?.id changes (Cloud-First Single Source of Truth)
+  useEffect(() => {
+    let isMounted = true;
+    if (activeCompany?.id) {
+      TenantDatabaseService.getDocumentsByTenant(activeCompany.id).then(dbDocs => {
+        if (isMounted) {
+          if (dbDocs && dbDocs.length > 0) {
+            setDocuments(dbDocs);
+          } else {
+            setDocuments([]);
+          }
+        }
+      }).catch(() => {
+        if (isMounted) setDocuments([]);
+      });
+    } else {
+      setDocuments([]);
+    }
+    return () => { isMounted = false; };
+  }, [activeCompany?.id]);
+
+  const handleSaveDocument = async (doc: any) => {
     setDocuments(prev => [doc, ...prev]);
-    toast.success('تم حفظ المستند في الأرشيف بنجاح');
+    if (activeCompany?.id) {
+      await TenantDatabaseService.saveDocument(doc, activeCompany.id);
+    }
+    toast.success('تم حفظ المستند في الأرشيف والسحابة بنجاح');
   };
-  const handleDeleteDocument = (docId: string) => {
+
+  const handleDeleteDocument = async (docId: string) => {
     setDocuments(prev => prev.filter(d => d.id !== docId));
+    if (activeCompany?.id) {
+      await TenantDatabaseService.deleteDocument(docId, activeCompany.id);
+    }
     toast.success('تم حذف المستند');
   };
   const [employeeNotifications, setEmployeeNotifications] = useState<any[]>([]);
 
   const handleAutoAddEmpFromOCR = (empData: any, docType?: string) => {
     const newEmpId = `emp-${Date.now()}`;
+    const civilIdClean = (empData.civilId || '').replace(/\D/g, '');
+    let birthDateVal = empData.birthDate || empData.dob || '';
+    let genderVal = empData.gender || 'MALE';
+
+    if (civilIdClean.length === 12) {
+      const parsedCivil = parseKuwaitCivilId(civilIdClean);
+      if (parsedCivil) {
+        if (!birthDateVal) birthDateVal = parsedCivil.birthDate;
+        if (!empData.gender) genderVal = parsedCivil.gender;
+      }
+    }
+
     const newEmp = {
       id: newEmpId,
       name: empData.fullNameAr || empData.fullName || 'موظف جديد مستخرج بالذكاء الاصطناعي',
-      civilId: empData.civilId || '',
+      fullNameAr: empData.fullNameAr || empData.fullName || 'موظف جديد مستخرج بالذكاء الاصطناعي',
+      fullNameEn: empData.fullNameEn || '',
+      civilId: civilIdClean,
+      civil_id_number: civilIdClean,
       passportNo: empData.passportNo || '',
+      passportExpiry: empData.passportExpiryDate || '',
+      residencyExpiry: empData.residencyExpiryDate || empData.expiryDate || '',
+      paciAddressNo: empData.paciBuildingRef || (empData.address?.block ? `${empData.address.block}-${empData.address.building || ''}` : ''),
+      fullAddress: empData.address ? `${empData.address.area || ''} - ق ${empData.address.block || ''} - ش ${empData.address.street || ''} - مبنى ${empData.address.building || ''}` : '',
+      residencyType: empData.residencyType || 'مادة 18',
       jobTitle: empData.profession || empData.jobTitle || 'موظف معتمد',
       department: 'الإدارة العامة',
-      basicSalary: 1000,
-      housingAllowance: 0,
-      transportAllowance: 0,
+      basicSalary: 600,
+      housingAllowance: 150,
+      transportAllowance: 50,
       medicalAllowance: 0,
       status: 'ACTIVE',
       joinDate: new Date().toISOString().split('T')[0],
-      nationality: empData.nationality || 'الكويت',
-      birthDate: empData.birthDate || empData.dob || '1990-01-01',
-      expiryDate: empData.expiryDate || '2027-01-01'
+      nationality: empData.nationality || 'كويتي',
+      gender: genderVal,
+      birthDate: birthDateVal || '1990-01-01',
+      dob: birthDateVal || '1990-01-01',
+      expiryDate: empData.expiryDate || '2027-01-01',
+      civilIdExpiry: empData.expiryDate || '2027-01-01',
+      civilIdExpiryDate: empData.expiryDate || '2027-01-01',
+      iban: ''
     };
 
     if (addEmployee) {
@@ -289,7 +344,7 @@ function MainAppLayout() {
       )}
 
             {/* الشريط العلوي النحيف الموحد (Odoo Enterprise Navbar) */}
-      <header className="h-12 bg-[#714B67] text-white flex items-center justify-between px-4 z-[60] select-none shadow-sm shrink-0">
+      <header className="h-12 bg-[#714B67] text-white flex items-center justify-between px-4 z-30 select-none shadow-sm shrink-0">
         <div className="flex items-center gap-3">
           {activeApp !== 'switcher' && (
             <button 

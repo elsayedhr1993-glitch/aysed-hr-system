@@ -228,7 +228,7 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave, existin
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto select-none" dir="rtl">
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-3 sm:p-6 overflow-y-auto select-none" dir="rtl">
       <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden text-xs">
         
         {/* 1. Header (Odoo Form Title) */}
@@ -698,7 +698,7 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave, existin
                       type="text" 
                       value={iban} 
                       onChange={(e) => setIban(e.target.value)} 
-                      placeholder="KW00XXXX0000000000000000000000"
+                      placeholder="أدخل رقم الآيبان الحقيقي (IBAN)"
                       maxLength={30}
                       className="w-full bg-white border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-purple-600 focus:outline-none font-mono text-xs"
                     />

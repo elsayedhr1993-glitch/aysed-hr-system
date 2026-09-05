@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase';
 import { CompanyProvider } from './CompanyContext';
 import { SystemSettingsProvider } from './SystemSettingsContext';
 export { CompanyProvider, useCompany } from './CompanyContext';
@@ -15,12 +15,6 @@ interface AysedContextType {
 }
 
 const AysedContext = createContext<AysedContextType | undefined>(undefined);
-
-// تهيئة Supabase إذا توفرت المتغيرات وصحتها، وإلا توفير عميل وهمي آمن لمنع تعطل التطبيق
-const rawSupabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-const isValidUrl = rawSupabaseUrl.startsWith('http://') || rawSupabaseUrl.startsWith('https://');
-const supabase = isValidUrl && supabaseAnonKey ? createClient(rawSupabaseUrl, supabaseAnonKey) : null;
 
 export const AysedCoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [systemState, setSystemState] = useState<any>({

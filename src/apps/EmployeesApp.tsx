@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Users, Clock, Stethoscope, AlertTriangle, X } from 'lucide-react';
 import OdooEmployeeFormModal from '../components/OdooEmployeeFormModal';
 import OdooContractsApp from "../components/OdooContractsApp";
 import { useCompany } from '../context/CompanyContext';
@@ -171,94 +172,66 @@ export function EmployeesApp(props?: any) {
     'البنك الأهلي الكويتي (ABK)'
   ]);
 
-  // 1. قراءة البيانات المحفوظة مقيدة بالشركة النشطة
+  // 1. حالة الموظفين معتمدة حصراً على قاعدة البيانات السحابية (Supabase / Firestore)
   const [employees, setEmployees] = useState<any[]>([]);
 
-  // 2. تحديث التخزين المحلي للشركة النشطة فقط
-  useEffect(() => {
-    if (currentCompanyId) {
-      const allBelong = employees.every(e => e.companyId === currentCompanyId || currentCompanyId === 'comp-super-admin');
-      if (allBelong) {
-        localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(employees));
-      }
-    }
-  }, [employees, currentCompanyId]);
-
-  // 3. مزامنة قاعدة البيانات Firestore الحية للمؤسسة أو الشركة النشطة
+  // 2. مزامنة قاعدة البيانات الحية للمؤسسة أو الشركة النشطة (Single Source of Truth)
   useEffect(() => {
     let isMounted = true;
 
-    async function initialWipeAndSeedIfNeeded() {
-      if (!localStorage.getItem('aysed_wiped_and_seeded_v6')) {
-        localStorage.setItem('aysed_wiped_and_seeded_v6', 'true');
-        await TenantDatabaseService.clearAllEmployeesAndSeedOne(currentCompanyId || 'comp-almanar');
-      }
-    }
-
-    // Clear state immediately on company change, then load from local storage
-    if (currentCompanyId) {
-      const saved = localStorage.getItem(`odoo_employees_v1_${currentCompanyId}`);
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) {
-            setEmployees(parsed.filter((e: any) => {
-              const cId = e.companyId || e.company_id;
-              if (currentCompanyId === 'comp-super-admin') return true;
-              return cId === currentCompanyId;
-            }));
-          }
-        } catch (e) {
-          setEmployees([]);
-        }
-      } else {
-        setEmployees([]);
-      }
-    } else {
-      setEmployees([]);
-    }
+    // Reset list immediately when company changes to prevent cross-company leak
+    setEmployees([]);
 
     async function syncTenantEmployees() {
       if (!currentCompanyId) return;
       setIsLoadingDb(true);
       try {
-        await initialWipeAndSeedIfNeeded();
         const dbEmps = await TenantDatabaseService.getEmployeesByTenant(currentCompanyId);
         if (isMounted) {
           if (dbEmps && dbEmps.length > 0) {
-            const mapped = dbEmps.map(emp => ({
-              id: emp.id,
-              companyId: emp.companyId || (emp as any).company_id || currentCompanyId,
-              company_id: emp.companyId || (emp as any).company_id || currentCompanyId,
-              nameAr: emp.fullNameAr || (emp as any).nameAr || 'موظف',
-              nameEn: emp.fullNameEn || (emp as any).nameEn || '',
-              civilId: emp.civilId || '',
-              jobTitle: emp.jobTitle || 'موظف',
-              dept: emp.department || (emp as any).dept || 'العموم',
-              workLocation: (emp as any).workLocation || 'الفرع الرئيسي',
-              manager: (emp as any).manager || '',
-              phone: emp.phone || '',
-              email: emp.email || '',
-              nationality: emp.nationality || 'كويتي',
-              dob: emp.dob || '',
-              maritalStatus: (emp as any).maritalStatus || 'أعزب',
-              dependents: (emp as any).dependents || 0,
-              passportNo: emp.passportNo || '',
-              passportExpiry: emp.passportExpiry || '',
-              residencyType: (emp as any).residencyType || 'مواطن',
-              hireDate: emp.joinDate || (emp as any).hireDate || new Date().toISOString().slice(0, 10),
-              mohLicense: emp.mohLicenseNo || (emp as any).mohLicense || '',
-              mohLicenseExpiry: emp.mohLicenseExpiry || '',
-              specialty: (emp as any).specialty || '',
-              degree: (emp as any).degree || '',
-              contractType: (emp as any).contractType || 'دائم',
-              basicSalary: (emp as any).basicSalary || (emp as any).contractSalary || 1000,
-              allowances: (emp as any).allowances || 0,
-              status: emp.status || 'على رأس العمل',
-              avatarColor: (emp as any).avatarColor || 'bg-purple-600',
-              chatter: (emp as any).chatter || []
-            }));
+            const mapped = dbEmps.map(emp => {
+              const civilExpiry = emp.civilIdExpiry || (emp as any).civilIdExpiryDate || (emp as any).civil_id_expiry || (emp as any).raw_payload?.civilIdExpiry || (emp as any).raw_payload?.civilIdExpiryDate || (emp as any).raw_payload?.civil_id_expiry || '';
+              return {
+                ...emp,
+                id: emp.id,
+                companyId: emp.companyId || (emp as any).company_id || currentCompanyId,
+                company_id: emp.companyId || (emp as any).company_id || currentCompanyId,
+                nameAr: emp.fullNameAr || (emp as any).nameAr || (emp as any).name || 'موظف',
+                nameEn: emp.fullNameEn || (emp as any).nameEn || '',
+                civilId: emp.civilId || '',
+                civilIdExpiry: civilExpiry,
+                civilIdExpiryDate: civilExpiry,
+                civil_id_expiry: civilExpiry,
+                jobTitle: emp.jobTitle || 'موظف',
+                dept: emp.department || (emp as any).dept || 'العموم',
+                workLocation: (emp as any).workLocation || 'الفرع الرئيسي',
+                manager: (emp as any).manager || '',
+                phone: emp.phone || '',
+                email: emp.email || '',
+                nationality: emp.nationality || 'كويتي',
+                dob: emp.dob || '',
+                maritalStatus: (emp as any).maritalStatus || 'أعزب',
+                dependents: (emp as any).dependents || 0,
+                passportNo: emp.passportNo || '',
+                passportExpiry: emp.passportExpiry || '',
+                residencyType: (emp as any).residencyType || 'مواطن',
+                hireDate: emp.joinDate || (emp as any).hireDate || new Date().toISOString().slice(0, 10),
+                mohLicense: emp.mohLicenseNo || (emp as any).mohLicense || '',
+                mohLicenseExpiry: emp.mohLicenseExpiry || '',
+                specialty: (emp as any).specialty || '',
+                degree: (emp as any).degree || '',
+                contractType: (emp as any).contractType || 'دائم',
+                basicSalary: (emp as any).basicSalary || (emp as any).contractSalary || 1000,
+                allowances: (emp as any).allowances || 0,
+                status: emp.status || 'على رأس العمل',
+                avatarColor: (emp as any).avatarColor || 'bg-purple-600',
+                chatter: (emp as any).chatter || []
+              };
+            });
             setEmployees(mapped);
+            if (currentCompanyId) {
+              localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(mapped));
+            }
           } else {
             setEmployees([]);
           }
@@ -460,13 +433,184 @@ export function EmployeesApp(props?: any) {
     return empCompanyId === activeCompanyId;
   });
 
+  // 4. KPI Alert Cards State & Quick Filtering
+  const [kpiFilter, setKpiFilter] = useState<'all' | 'residency_expiring' | 'moh_expiring' | 'expired'>('all');
+
+  const parseAnyDate = (dateStr?: any): Date | null => {
+    if (!dateStr) return null;
+    const str = String(dateStr).trim();
+    if (!str) return null;
+
+    let d = new Date(str);
+    if (!isNaN(d.getTime()) && str.includes('-') && str.indexOf('-') === 4) {
+      return d;
+    }
+
+    const parts = str.split(/[\/\-\.]/);
+    if (parts.length === 3) {
+      let day = parseInt(parts[0], 10);
+      let month = parseInt(parts[1], 10);
+      let year = parseInt(parts[2], 10);
+
+      if (parts[0].length === 4) {
+        year = parseInt(parts[0], 10);
+        month = parseInt(parts[1], 10);
+        day = parseInt(parts[2], 10);
+      }
+
+      if (year && month && day && !isNaN(year) && !isNaN(month) && !isNaN(day)) {
+        if (year < 100) year += 2000;
+        d = new Date(year, month - 1, day);
+        if (!isNaN(d.getTime())) return d;
+      }
+    }
+
+    if (!isNaN(d.getTime())) return d;
+    return null;
+  };
+
+  const getDaysDiff = (dateStr?: any): number | null => {
+    const expiry = parseAnyDate(dateStr);
+    if (!expiry) return null;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const expiryZero = new Date(expiry);
+    expiryZero.setHours(0, 0, 0, 0);
+
+    const diffTime = expiryZero.getTime() - today.getTime();
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
+  const collectEmployeeDates = (emp: any): string[] => {
+    const dates: string[] = [];
+
+    const fields = [
+      'residencyExpiry', 'residencyExpiryDate', 'residency_expiry',
+      'civilIdExpiry', 'civilIdExpiryDate', 'civil_id_expiry',
+      'passportExpiry', 'passport_expiry',
+      'iqamaExpiry', 'iqama_expiry', 'visa_expire',
+      'mohLicenseExpiry', 'mohLicenseExpiryDate', 'moh_license_expiry',
+      'expiryDate', 'expireDate', 'expire_date'
+    ];
+
+    fields.forEach(f => {
+      if (emp[f] && typeof emp[f] === 'string' && emp[f].trim() !== '') {
+        dates.push(emp[f].trim());
+      }
+    });
+
+    const docLists = [emp.documents, emp.docs, emp.attachments, emp.scannedDocs];
+    docLists.forEach(list => {
+      if (Array.isArray(list)) {
+        list.forEach((d: any) => {
+          if (!d) return;
+          ['expiryDate', 'expiry', 'date', 'expire_date', 'issue_expiry'].forEach(f => {
+            if (d[f] && typeof d[f] === 'string' && d[f].trim() !== '') {
+              dates.push(d[f].trim());
+            }
+          });
+        });
+      }
+    });
+
+    return dates;
+  };
+
+  const checkResidencyExpiringSoon = (emp: any): boolean => {
+    const statusStr = String(emp.status || '').toLowerCase();
+    if (statusStr.includes('قريب') || statusStr.includes('expiring')) return true;
+
+    const dates = collectEmployeeDates(emp);
+    return dates.some(dStr => {
+      const diff = getDaysDiff(dStr);
+      return diff !== null && diff >= 0 && diff <= 60;
+    });
+  };
+
+  const checkMohLicenseExpiringSoon = (emp: any): boolean => {
+    const mohDates: string[] = [];
+    ['mohLicenseExpiry', 'mohLicenseExpiryDate', 'moh_license_expiry', 'mohLicense'].forEach(f => {
+      if (emp[f] && typeof emp[f] === 'string' && emp[f].trim() !== '') {
+        mohDates.push(emp[f].trim());
+      }
+    });
+
+    const docLists = [emp.documents, emp.docs, emp.attachments];
+    docLists.forEach(list => {
+      if (Array.isArray(list)) {
+        list.forEach((d: any) => {
+          if (d && (d.type === 'moh_license' || String(d.title || d.docTitleAr || d.category || '').includes('ترخيص') || String(d.title || d.docTitleAr || d.category || '').includes('MOH'))) {
+            if (d.expiryDate) mohDates.push(d.expiryDate);
+            if (d.expiry) mohDates.push(d.expiry);
+          }
+        });
+      }
+    });
+
+    const isExpiringByDate = mohDates.some(dStr => {
+      const diff = getDaysDiff(dStr);
+      return diff !== null && diff >= 0 && diff <= 60;
+    });
+
+    if (isExpiringByDate) return true;
+
+    if (docLists.some(list => Array.isArray(list) && list.some((d: any) => (d.type === 'moh_license' || String(d.title || '').includes('ترخيص')) && (d.status === 'expiring_soon' || String(d.status).includes('قريب'))))) {
+      return true;
+    }
+
+    return false;
+  };
+
+  const checkExpiredDocs = (emp: any): boolean => {
+    const empStatus = String(emp.status || '').toLowerCase();
+    if (empStatus.includes('منتهي') || empStatus.includes('expired') || empStatus.includes('غير فعال') || empStatus.includes('موقوف')) {
+      return true;
+    }
+
+    const docLists = [emp.documents, emp.docs, emp.attachments];
+    for (const list of docLists) {
+      if (Array.isArray(list)) {
+        for (const d of list) {
+          if (!d) continue;
+          const dStatus = String(d.status || '').toLowerCase();
+          if (dStatus.includes('expired') || dStatus.includes('منتهي')) {
+            return true;
+          }
+        }
+      }
+    }
+
+    const dates = collectEmployeeDates(emp);
+    return dates.some(dStr => {
+      const diff = getDaysDiff(dStr);
+      return diff !== null && diff < 0;
+    });
+  };
+
+  const activeEmployeesCount = visibleEmployees.length;
+  const residencyExpiringCount = visibleEmployees.filter(checkResidencyExpiringSoon).length;
+  const mohExpiringCount = visibleEmployees.filter(checkMohLicenseExpiringSoon).length;
+  const expiredDocsCount = visibleEmployees.filter(checkExpiredDocs).length;
+
   const filteredEmployees = visibleEmployees.filter(emp => {
     const matchDept = selectedDept === 'الكل' || emp.dept === selectedDept || emp.department === selectedDept;
     const matchSearch = (emp.nameAr || emp.fullNameAr || '').includes(searchQuery) || 
                         (emp.civilId || emp.civil_id_number || '').includes(searchQuery) || 
                         (emp.id || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
                         (emp.jobTitle || '').includes(searchQuery);
-    return matchDept && matchSearch;
+
+    let matchesKpi = true;
+    if (kpiFilter === 'residency_expiring') {
+      matchesKpi = checkResidencyExpiringSoon(emp);
+    } else if (kpiFilter === 'moh_expiring') {
+      matchesKpi = checkMohLicenseExpiringSoon(emp);
+    } else if (kpiFilter === 'expired') {
+      matchesKpi = checkExpiredDocs(emp);
+    }
+
+    return matchDept && matchSearch && matchesKpi;
   });
 
   // تصدير Excel حقيقي
@@ -599,7 +743,157 @@ export function EmployeesApp(props?: any) {
         </div>
 
         {activeTab === 'directory' && (
-          <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-3 border-t border-slate-100">
+          <div className="mt-4 pt-3 border-t border-slate-100 space-y-3">
+            {/* 1. Odoo Enterprise KPI & Alert Cards Bar */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              
+              {/* Card 1: Active Employees */}
+              <div
+                onClick={() => setKpiFilter('all')}
+                className={`bg-white p-4 rounded-2xl border transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-md flex items-center justify-between group ${
+                  kpiFilter === 'all'
+                    ? 'border-[#714B67] ring-2 ring-[#714B67]/20 bg-gradient-to-br from-white to-purple-50/30'
+                    : 'border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <div className="space-y-1">
+                  <span className="text-[11px] font-bold text-slate-500 block">إجمالي القوة العاملة (Active)</span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-black text-slate-900 font-mono">{activeEmployeesCount}</span>
+                    <span className="text-[10px] text-slate-400 font-bold">موظف مفعّل</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 block">جميع الموظفين على رأس عملهم</span>
+                </div>
+                <div className={`p-3 rounded-2xl transition-transform group-hover:scale-110 ${
+                  kpiFilter === 'all' ? 'bg-[#714B67] text-white shadow-xs' : 'bg-slate-100 text-slate-600 group-hover:bg-purple-50 group-hover:text-[#714B67]'
+                }`}>
+                  <Users className="w-5 h-5" />
+                </div>
+              </div>
+
+              {/* Card 2: Residencies Expiring Soon */}
+              <div
+                onClick={() => setKpiFilter(prev => prev === 'residency_expiring' ? 'all' : 'residency_expiring')}
+                className={`bg-white p-4 rounded-2xl border transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-md flex items-center justify-between group ${
+                  kpiFilter === 'residency_expiring'
+                    ? 'border-amber-500 ring-2 ring-amber-500/30 bg-gradient-to-br from-white to-amber-50/50 scale-[1.01]'
+                    : 'border-slate-200 hover:border-amber-300'
+                }`}
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-bold text-slate-700 block">إقامات تنتهي قريباً</span>
+                    {residencyExpiringCount > 0 && (
+                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                    )}
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-black text-amber-600 font-mono">{residencyExpiringCount}</span>
+                    <span className="text-[10px] text-amber-700/80 font-bold">خلال 60 يوماً</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 block">لتفادي غرامات ومخالفات الشؤون</span>
+                </div>
+                <div className={`p-3 rounded-2xl transition-transform group-hover:scale-110 ${
+                  kpiFilter === 'residency_expiring' ? 'bg-amber-500 text-white shadow-xs' : 'bg-amber-50 text-amber-600 group-hover:bg-amber-100'
+                }`}>
+                  <Clock className="w-5 h-5" />
+                </div>
+              </div>
+
+              {/* Card 3: MOH Medical Licenses Expiring Soon */}
+              <div
+                onClick={() => setKpiFilter(prev => prev === 'moh_expiring' ? 'all' : 'moh_expiring')}
+                className={`bg-white p-4 rounded-2xl border transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-md flex items-center justify-between group ${
+                  kpiFilter === 'moh_expiring'
+                    ? 'border-indigo-500 ring-2 ring-indigo-500/30 bg-gradient-to-br from-white to-indigo-50/50 scale-[1.01]'
+                    : 'border-slate-200 hover:border-indigo-300'
+                }`}
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-bold text-slate-700 block">تراخيص MOH تنتهي قريباً</span>
+                    {mohExpiringCount > 0 && (
+                      <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+                    )}
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-black text-indigo-600 font-mono">{mohExpiringCount}</span>
+                    <span className="text-[10px] text-indigo-700/80 font-bold">ترخيص طبي</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 block">مزاولة المهنة كادر الأطباء والتمريض</span>
+                </div>
+                <div className={`p-3 rounded-2xl transition-transform group-hover:scale-110 ${
+                  kpiFilter === 'moh_expiring' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100'
+                }`}>
+                  <Stethoscope className="w-5 h-5" />
+                </div>
+              </div>
+
+              {/* Card 4: Expired Residencies & Documents */}
+              <div
+                onClick={() => setKpiFilter(prev => prev === 'expired' ? 'all' : 'expired')}
+                className={`bg-white p-4 rounded-2xl border transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-md flex items-center justify-between group ${
+                  kpiFilter === 'expired'
+                    ? 'border-rose-500 ring-2 ring-rose-500/30 bg-gradient-to-br from-white to-rose-50/50 scale-[1.01]'
+                    : 'border-slate-200 hover:border-rose-300'
+                }`}
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-bold text-slate-700 block">إقامات / مستندات منتهية</span>
+                    {expiredDocsCount > 0 && (
+                      <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping"></span>
+                    )}
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-black text-rose-600 font-mono">{expiredDocsCount}</span>
+                    <span className="text-[10px] text-rose-700/80 font-bold">حالة حرجة</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 block">تجاوزت تاريخ الصلاحية الفعلي</span>
+                </div>
+                <div className={`p-3 rounded-2xl transition-transform group-hover:scale-110 ${
+                  kpiFilter === 'expired' ? 'bg-rose-600 text-white shadow-xs' : 'bg-rose-50 text-rose-600 group-hover:bg-rose-100'
+                }`}>
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+              </div>
+
+            </div>
+
+            {/* Active Quick Filter Notice Banner */}
+            {kpiFilter !== 'all' && (
+              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-2 animate-fadeIn text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-slate-500">التصفية النشطة:</span>
+                  <span className={`px-2.5 py-0.5 rounded-lg font-bold border flex items-center gap-1.5 ${
+                    kpiFilter === 'residency_expiring' ? 'bg-amber-100 text-amber-900 border-amber-300' :
+                    kpiFilter === 'moh_expiring' ? 'bg-indigo-100 text-indigo-900 border-indigo-300' :
+                    'bg-rose-100 text-rose-900 border-rose-300'
+                  }`}>
+                    <span className="w-2 h-2 rounded-full bg-current animate-pulse"></span>
+                    <span>
+                      {kpiFilter === 'residency_expiring' && 'عرض الموظفين: إقامات تنتهي قريباً (خلال 60 يوماً)'}
+                      {kpiFilter === 'moh_expiring' && 'عرض الموظفين: تراخيص MOH تنتهي قريباً'}
+                      {kpiFilter === 'expired' && 'عرض الموظفين: إقامات ومستندات منتهية الصلاحية'}
+                    </span>
+                  </span>
+                  <span className="text-slate-400 font-bold">
+                    (المطابق: {filteredEmployees.length} موظف)
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setKpiFilter('all')}
+                  className="font-bold text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 transition flex items-center gap-1 cursor-pointer"
+                >
+                  <X size={13} />
+                  <span>إلغاء الفلتر واظهار الكل</span>
+                </button>
+              </div>
+            )}
+
+            {/* Search Bar & Department Filters */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
             <div className="relative w-72">
               <input 
                 type="text" 
@@ -625,6 +919,7 @@ export function EmployeesApp(props?: any) {
               ))}
             </div>
           </div>
+        </div>
         )}
       </div>
 
@@ -859,7 +1154,7 @@ export function EmployeesApp(props?: any) {
 
       {/* 5. نموذج بطاقة الموظف التفصيلية (Odoo Employee Form - hr.employee) */}
       {showEmployeeModal && selectedEmployee && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col border border-slate-200 overflow-hidden">
             
             {/* T-Bar / Header */}
@@ -1097,14 +1392,24 @@ export function EmployeesApp(props?: any) {
                   <div className="p-6 space-y-4 text-xs">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
-                        <label className="block text-slate-500 font-semibold mb-1">الرقم المدني الكويتي (12 رقم)</label>
-                        <input 
-                          type="text" 
-                          value={selectedEmployee.civilId} 
-                          maxLength={12}
-                          onChange={(e) => setSelectedEmployee({...selectedEmployee, civilId: e.target.value})}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                        />
+                        <label className="block text-slate-500 font-semibold mb-1">الرقم المدني الكويتي وتاريخ الانتهاء</label>
+                        <div className="flex gap-2">
+                          <input 
+                            type="text" 
+                            value={selectedEmployee.civilId || ''} 
+                            maxLength={12}
+                            onChange={(e) => setSelectedEmployee({...selectedEmployee, civilId: e.target.value})}
+                            className="w-1/2 border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                            placeholder="12 رقماً"
+                          />
+                          <input 
+                            type="date" 
+                            value={selectedEmployee.civilIdExpiry || ''} 
+                            onChange={(e) => setSelectedEmployee({...selectedEmployee, civilIdExpiry: e.target.value})}
+                            className="w-1/2 border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                            title="تاريخ انتهاء البطاقة المدنية"
+                          />
+                        </div>
                         <div className="mt-1 text-[11px]">
                           {validateKuwaitCivilId(selectedEmployee.civilId) ? (
                             <span className="text-emerald-700 font-bold">✓ الرقم المدني مطابق لقانون MOD 11 الكويتي</span>
@@ -1240,7 +1545,7 @@ export function EmployeesApp(props?: any) {
                           value={selectedEmployee.iban || ''} 
                           onChange={(e) => setSelectedEmployee({...selectedEmployee, iban: e.target.value})}
                           className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                          placeholder="KW00XXXX0000000000000000000000"
+                          placeholder="أدخل رقم الآيبان الحقيقي (IBAN)"
                         />
                       </div>
                     </div>
@@ -1420,21 +1725,26 @@ export function EmployeesApp(props?: any) {
                 <button
                   onClick={() => {
                     if (selectedEmployee) {
+                      const expiryVal = selectedEmployee.civilIdExpiry || selectedEmployee.civilIdExpiryDate || selectedEmployee.civil_id_expiry || '';
+                      const updatedEmp = {
+                        ...selectedEmployee,
+                        civilIdExpiry: expiryVal,
+                        civilIdExpiryDate: expiryVal,
+                        civil_id_expiry: expiryVal,
+                        fullNameAr: selectedEmployee.nameAr || selectedEmployee.fullNameAr || selectedEmployee.name,
+                        fullNameEn: selectedEmployee.nameEn || selectedEmployee.fullNameEn,
+                        department: selectedEmployee.dept || selectedEmployee.department,
+                        joinDate: selectedEmployee.hireDate || selectedEmployee.joinDate,
+                        mohLicenseNo: selectedEmployee.mohLicense || selectedEmployee.mohLicenseNo
+                      };
                       const updatedList = employees.map((emp: any) => 
-                        emp.id === selectedEmployee.id ? selectedEmployee : emp
+                        emp.id === selectedEmployee.id ? updatedEmp : emp
                       );
                       setEmployees(updatedList);
                       if (currentCompanyId) {
                         localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(updatedList));
                       }
-                      TenantDatabaseService.saveEmployee({
-                        ...selectedEmployee,
-                        fullNameAr: selectedEmployee.nameAr || selectedEmployee.fullNameAr,
-                        fullNameEn: selectedEmployee.nameEn || selectedEmployee.fullNameEn,
-                        department: selectedEmployee.dept || selectedEmployee.department,
-                        joinDate: selectedEmployee.hireDate || selectedEmployee.joinDate,
-                        mohLicenseNo: selectedEmployee.mohLicense || selectedEmployee.mohLicenseNo
-                      } as any, currentCompanyId);
+                      TenantDatabaseService.saveEmployee(updatedEmp as any, currentCompanyId);
                     }
                     alert('تم حفظ كافة التعديلات على ملف الموظف بنجاح.');
                     setShowEmployeeModal(false);
@@ -1458,7 +1768,7 @@ export function EmployeesApp(props?: any) {
 
       {/* Employee Sub-Modals (Contracts, Attendance, Leave Balance, Assets) */}
       {employeeSubModal !== 'none' && selectedEmployee && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl p-6 space-y-4 border border-slate-200">
             <div className="flex items-center justify-between border-b pb-3">
               <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
@@ -1588,7 +1898,7 @@ export function EmployeesApp(props?: any) {
 
       {/* 6. نموذج إقرار المباشرة وتراخيص MOH الرسمية (Work Commencement Form Modal) */}
       {showCommencementModal && selectedCommencement && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col border border-slate-200 overflow-hidden">
             
             {/* T-Bar / Header */}

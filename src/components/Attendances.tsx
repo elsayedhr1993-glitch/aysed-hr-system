@@ -93,26 +93,46 @@ export const Attendances: React.FC = () => {
   const liveTableData = useMemo(() => {
     // 1. First map from context employees
     const contextRecords: AttendanceItem[] = employees.map(emp => {
-      const log = attendance[emp.id] || { employeeId: emp.id, delayMinutes: 0, unpaidAbsenceDays: 0, overtimeHours: 0 };
+      const log = attendance[emp.id];
+      // ONLY consider it a valid log if log exists and has a checkIn value
+      const hasRealLog = log && log.checkIn;
+      
       const empGross = emp.basicSalary + emp.housingAllowance + emp.transportAllowance;
       const expectedIn = emp.shiftStartTime || '08:00';
       const expectedOut = emp.shiftEndTime || '16:00';
-      const checkIn = log.checkIn || expectedIn;
-      const checkOut = log.checkOut || expectedOut;
-      const isHoliday = log.isHoliday || false;
-      const calc = computeAttendanceAndOvertime(checkIn, checkOut, empGross, isHoliday, {
-        dailyHours: emp.dailyHours,
-        shiftStartTime: emp.shiftStartTime,
-        shiftEndTime: emp.shiftEndTime,
-        gracePeriodMinutes: emp.gracePeriodMinutes,
-        employmentType: emp.employmentType,
-        hourlyRate: emp.hourlyRate
-      });
 
-      let status: AttendanceItem['status'] = 'present';
-      if (calc.delayMinutes > 0) status = 'late';
-      if (calc.overtimeHours > 0 && calc.delayMinutes === 0) status = 'overtime';
-      if (!checkOut && checkIn) status = 'single_punch';
+      const checkIn = hasRealLog ? (log.checkIn || '') : '';
+      const checkOut = hasRealLog ? (log.checkOut || '') : '';
+      const isHoliday = log?.isHoliday || false;
+
+      let calc = {
+        actualHours: 0,
+        overtimeHours: 0,
+        delayMinutes: 0
+      };
+
+      let status: AttendanceItem['status'] = 'absent';
+
+      if (hasRealLog) {
+        const calculated = computeAttendanceAndOvertime(checkIn, checkOut, empGross, isHoliday, {
+          dailyHours: emp.dailyHours,
+          shiftStartTime: emp.shiftStartTime,
+          shiftEndTime: emp.shiftEndTime,
+          gracePeriodMinutes: emp.gracePeriodMinutes,
+          employmentType: emp.employmentType,
+          hourlyRate: emp.hourlyRate
+        });
+        calc = {
+          actualHours: calculated.actualHours,
+          overtimeHours: calculated.overtimeHours,
+          delayMinutes: calculated.delayMinutes
+        };
+
+        status = 'present';
+        if (calc.delayMinutes > 0) status = 'late';
+        if (calc.overtimeHours > 0 && calc.delayMinutes === 0) status = 'overtime';
+        if (!checkOut && checkIn) status = 'single_punch';
+      }
 
       return {
         id: `ATT-${emp.id}-${selectedDate}`,
@@ -812,6 +832,7 @@ export const Attendances: React.FC = () => {
                 <option value="late">تأخير صباحي</option>
                 <option value="overtime">عمل إضافي</option>
                 <option value="single_punch">بصمة واحدة</option>
+                <option value="absent">لم يسجل حضور / غياب</option>
               </select>
             </div>
           </div>
@@ -876,13 +897,15 @@ export const Attendances: React.FC = () => {
                               {row.checkIn}
                             </span>
                           ) : (
-                            <span className="text-slate-300">-</span>
+                            <span className="text-slate-400">--:--</span>
                           )}
                         </td>
 
                         {/* Check-Out */}
                         <td className="p-3.5 text-center font-mono font-bold text-slate-800">
-                          {row.checkOut && row.checkOut !== 'لم يتم التبصيم' ? (
+                          {!row.checkIn ? (
+                            <span className="text-slate-400">--:--</span>
+                          ) : row.checkOut && row.checkOut !== 'لم يتم التبصيم' ? (
                             <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md border border-blue-200">
                               {row.checkOut}
                             </span>
@@ -895,7 +918,7 @@ export const Attendances: React.FC = () => {
 
                         {/* Actual Work Hours */}
                         <td className="p-3.5 text-center font-mono font-black text-slate-900">
-                          {row.workHours} س
+                          {row.checkIn ? `${row.workHours} س` : <span className="text-slate-400">--:--</span>}
                         </td>
 
                         {/* Overtime */}
@@ -949,6 +972,12 @@ export const Attendances: React.FC = () => {
                             <span className="bg-rose-100 text-rose-800 text-[10px] font-bold px-2.5 py-1 rounded-full border border-rose-200 inline-flex items-center gap-1">
                               <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
                               <span>بصمة واحدة</span>
+                            </span>
+                          )}
+                          {row.status === 'absent' && (
+                            <span className="bg-slate-100 text-slate-500 text-[10px] font-bold px-2.5 py-1 rounded-full border border-slate-200 inline-flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                              <span>لم يسجل حضور / غياب</span>
                             </span>
                           )}
                         </td>

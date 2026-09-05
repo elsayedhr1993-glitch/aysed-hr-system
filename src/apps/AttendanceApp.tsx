@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { Calendar, Clock, Download, FileSpreadsheet, Search, Upload, FileText, CheckCircle, AlertCircle, XCircle, Trash2, UserCheck, CheckCircle2, AlertTriangle, UserX, Printer, ChevronDown } from 'lucide-react';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
+import { TenantDatabaseService } from '../services/tenantDataService';
 
 export class KuwaitLaborRateEngine {
   // حساب أجر اليوم والساعة وفق معيار 26 يوم عمل
@@ -480,16 +481,49 @@ export const AttendanceApp: React.FC<any> = (props) => {
     }
     return map;
   };
-useEffect(() => {
-    const saved = localStorage.getItem('clean_attendances_db');
-    if (saved) {
-      try { setAttendances(JSON.parse(saved)); } catch (e) {}
+  useEffect(() => {
+    let isMounted = true;
+    const activeCompId = props.activeCompany?.id || 'comp-super-admin';
+
+    async function loadCloudAttendance() {
+      setLoading(true);
+      try {
+        const cloudRecords = await TenantDatabaseService.getAttendanceByTenant(activeCompId);
+        if (isMounted) {
+          if (cloudRecords && cloudRecords.length > 0) {
+            const mapped = cloudRecords.map(r => ({
+              id: r.id,
+              empId: r.employeeId,
+              empName: (r as any).employeeName || (r as any).empName || `موظف (${r.employeeId})`,
+              date: r.date,
+              checkIn: r.checkIn || '--:--',
+              checkOut: r.checkOut || '--:--',
+              targetHours: (r as any).targetHours || 8,
+              workedHours: r.workHours || 8,
+              lateIn: (r as any).lateIn || 0,
+              earlyOut: (r as any).earlyOut || 0,
+              overtime: r.overtimeHours || 0,
+              shortage: (r as any).shortage || 0,
+              punchesCount: (r as any).punchesCount || 2,
+              status: r.status || 'completed',
+              notes: (r as any).notes || 'سجل حضور معتمد'
+            }));
+            setAttendances(mapped);
+          } else {
+            setAttendances([]);
+          }
+        }
+      } catch (e) {
+        console.warn('Error fetching cloud attendance:', e);
+        if (isMounted) setAttendances([]);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
     }
-    const savedIgnored = localStorage.getItem('clean_attendances_ignored');
-    if (savedIgnored) {
-        try { setIgnoredCount(Number(savedIgnored)); } catch (e) {}
-    }
-  }, []);
+
+    loadCloudAttendance();
+    return () => { isMounted = false; };
+  }, [props.activeCompany?.id]);
 
   const handleClearAll = () => {
     localStorage.removeItem('clean_attendances_db');
@@ -522,10 +556,28 @@ useEffect(() => {
       
       setIgnoredCount(ignored);
       setAttendances(processed);
-      localStorage.setItem('clean_attendances_db', JSON.stringify(processed));
-      localStorage.setItem('clean_attendances_ignored', String(ignored));
 
-      let msg = `تم قراءة واعتماد ${processed.length} يوم عمل ومطابقتها بساعات عقود الموظفين.`;
+      // Persist to Cloud database (Supabase & Firestore)
+      const activeCompId = props.activeCompany?.id || 'comp-super-admin';
+      for (const item of processed) {
+        const normalizedStatus = item.status === 'absent' ? 'ABSENT' : item.status === 'leave' ? 'ON_LEAVE' : (item.lateIn > 0 ? 'LATE' : 'PRESENT');
+        await TenantDatabaseService.saveAttendance({
+          id: item.id || `ATT-${item.empId}-${item.date}`,
+          companyId: activeCompId,
+          employeeId: item.empId,
+          date: item.date,
+          checkIn: item.checkIn,
+          checkOut: item.checkOut,
+          workHours: item.workedHours || 8,
+          overtimeHours: item.overtime || 0,
+          shortageHours: item.shortage || 0,
+          latenessMinutes: item.lateIn || 0,
+          earlyLeaveMinutes: item.earlyOut || 0,
+          status: normalizedStatus as any
+        }, activeCompId);
+      }
+
+      let msg = `تم قراءة واعتماد ${processed.length} يوم عمل وحفظها بالسحابة ومطابقتها بعقود الموظفين.`;
       if (ignored > 0) {
         msg += `\n(تم تجاهل ${ignored} بصمة لموظفين غير مسجلين أو غادروا الشركة تلقائياً).`;
       }

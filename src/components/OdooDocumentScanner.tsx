@@ -24,6 +24,7 @@ export interface ExtractedData {
   gender?: string;
   passportNo?: string;
   profession?: string;
+  residencyType?: string;
 }
 
 interface OdooDocumentScannerProps {
@@ -67,7 +68,8 @@ export const OdooDocumentScanner: React.FC<OdooDocumentScannerProps> = ({ onAppl
         expiryDate: scanned.expiryDate || '',
         gender: gender || 'MALE',
         passportNo: scanned.passportNo || '',
-        profession: scanned.profession || scanned.jobTitle || ''
+        profession: scanned.profession || scanned.jobTitle || '',
+        residencyType: scanned.residencyType || ''
       });
 
       toast.success('تمت قراءة بيانات الوثيقة الحقيقية بنجاح');
@@ -85,7 +87,8 @@ export const OdooDocumentScanner: React.FC<OdooDocumentScannerProps> = ({ onAppl
         expiryDate: '',
         gender: 'MALE',
         passportNo: '',
-        profession: ''
+        profession: '',
+        residencyType: ''
       });
     } finally {
       setScanning(false);
@@ -195,6 +198,29 @@ export const OdooDocumentScanner: React.FC<OdooDocumentScannerProps> = ({ onAppl
                 />
               </div>
 
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-slate-500 block text-[10px] font-bold mb-0.5">تاريخ الميلاد:</label>
+                  <input
+                    type="date"
+                    value={scanResult.birthDate || ''}
+                    onChange={(e) => setScanResult(prev => prev ? { ...prev, birthDate: e.target.value } : prev)}
+                    className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-slate-800 text-xs font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-slate-500 block text-[10px] font-bold mb-0.5">نوع الجنس:</label>
+                  <select
+                    value={scanResult.gender || 'MALE'}
+                    onChange={(e) => setScanResult(prev => prev ? { ...prev, gender: e.target.value } : prev)}
+                    className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-slate-800 text-xs"
+                  >
+                    <option value="MALE">ذكر (Male)</option>
+                    <option value="FEMALE">أنثى (Female)</option>
+                  </select>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-2 border-t pt-1">
                 <div>
                   <label className="text-slate-500 block text-[10px] font-bold mb-0.5">الجنسية:</label>
@@ -203,6 +229,28 @@ export const OdooDocumentScanner: React.FC<OdooDocumentScannerProps> = ({ onAppl
                     value={scanResult.nationality}
                     onChange={(e) => setScanResult(prev => prev ? { ...prev, nationality: e.target.value } : prev)}
                     className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-slate-800 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-slate-500 block text-[10px] font-bold mb-0.5">رقم الجواز:</label>
+                  <input
+                    type="text"
+                    value={scanResult.passportNo || ''}
+                    onChange={(e) => setScanResult(prev => prev ? { ...prev, passportNo: e.target.value.toUpperCase() } : prev)}
+                    className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-slate-800 text-xs font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 border-t pt-1">
+                <div>
+                  <label className="text-slate-500 block text-[10px] font-bold mb-0.5">نوع الإقامة / المادة:</label>
+                  <input
+                    type="text"
+                    value={scanResult.residencyType || ''}
+                    onChange={(e) => setScanResult(prev => prev ? { ...prev, residencyType: e.target.value } : prev)}
+                    className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-slate-800 text-xs"
+                    placeholder="مادة 18 / عمل..."
                   />
                 </div>
                 <div>
