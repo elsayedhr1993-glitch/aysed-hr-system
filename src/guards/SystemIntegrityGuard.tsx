@@ -23,25 +23,18 @@ export const triggerSystemAlert = (alert: Omit<SystemAlertEvent, 'id' | 'timesta
 
 // دالة الطباعة المحروسة التفاعلية 100%
 export const safePrintAction = (targetDocumentName = 'التقرير الرسمي A4') => {
-  // 1. التحقق من بيئة المتصفح ودعم الطباعة
-  if (typeof window === 'undefined' || typeof window.print !== 'function') {
-    triggerSystemAlert({
-      type: 'warning',
-      title: 'محرك الطباعة غير مدعوم في هذه البيئة',
-      solution: 'يرجى استخدام متصفح حديث مثل Google Chrome أو تصدير المستند كملف PDF.'
-    });
-    return;
-  }
-
-  // 2. تنبيه الحارس وبدء عملية الطباعة
+  // 1. التحقق من بيئة المتصفح ودعم الطباعة داخل try/catch لمنع أخطاء الأمان
   try {
-    window.print();
+    if (typeof window !== 'undefined') {
+      window.print();
+      return;
+    }
   } catch (err: any) {
-    console.warn('Print execution caught error:', err);
+    console.warn('Print execution caught error or sandbox limitation:', err);
     triggerSystemAlert({
-      type: 'error',
-      title: `فشل تشغيل أمر الطباعة: ${err?.message || 'خطأ غير معروف'}`,
-      solution: 'يرجى مراجعة صلاحيات المتصفح أو الضغط على زر التصدير إلى PDF.'
+      type: 'info',
+      title: `إشعار الطباعة (${targetDocumentName})`,
+      solution: 'تم تقييد الطباعة المباشرة بواسطة إعدادات أمان المتصفح/الإطار. يمكنك فتح التطبيق في نافذة مستقلة أو تنزيل المستند بصيغة PDF.'
     });
   }
 };

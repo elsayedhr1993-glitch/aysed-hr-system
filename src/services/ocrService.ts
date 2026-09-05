@@ -90,3 +90,74 @@ export const parseKuwaitCivilCardOCR = async (imageBase64: string): Promise<Extr
   // Fallback / smart extraction if API fails or times out
   return {};
 };
+
+/**
+ * دالة تحديث واستقبال بيانات الـ OCR حسب نوع المستند الممسوح (Document Type Logic):
+ * 1. بطاقة مدنية (civil_id): المرجع الأساسي للاسم العربي، الرقم المدني، تاريخ الميلاد، والجنسية.
+ * 2. جواز سفر (passport): يحدّث فقط: رقم الجواز (passport_no)، تاريخ انتهاء الجواز (passport_expiry)، والاسم بالإنجليزي (name_en إذا كان فارغاً)، ولا يلمس الرقم المدني أو الاسم بالعربية.
+ * 3. ترخيص صحي / مزاولة مهنة (medical_license / license): يحدّث فقط: رقم الترخيص (license_no)، تاريخ انتهاء الترخيص (license_expiry)، والمسمى الفني للترخيص، ولا يلمس البيانات الشخصية.
+ */
+export const handleOcrResult = (
+  scannedData: any, 
+  docType: string, 
+  setFormData?: (updater: (prev: any) => any) => void
+) => {
+  const updater = (prev: any) => {
+    const current = prev || {};
+    const normalizedDoc = (docType || scannedData?.documentType || 'civil_id').toLowerCase();
+
+    // 1. حالة البطاقة المدنية: تحديث البيانات الشخصية الأساسية
+    if (normalizedDoc === 'civil_id' || normalizedDoc === 'civilid') {
+      return {
+        ...current,
+        civil_id: scannedData.civil_id || scannedData.civilId || current.civil_id || current.civilId,
+        civilId: scannedData.civil_id || scannedData.civilId || current.civilId || current.civil_id,
+        full_name: scannedData.full_name || scannedData.fullNameAr || scannedData.fullName || current.full_name || current.name,
+        name: scannedData.full_name || scannedData.fullNameAr || scannedData.fullName || current.name || current.full_name,
+        fullNameAr: scannedData.full_name || scannedData.fullNameAr || scannedData.fullName || current.fullNameAr || current.nameAr,
+        nameAr: scannedData.full_name || scannedData.fullNameAr || scannedData.fullName || current.nameAr || current.fullNameAr,
+        nationality: scannedData.nationality || current.nationality,
+        birth_date: scannedData.birth_date || scannedData.birthDate || scannedData.dob || current.birth_date || current.birthDate,
+        birthDate: scannedData.birth_date || scannedData.birthDate || scannedData.dob || current.birthDate || current.birth_date,
+        gender: scannedData.gender || current.gender,
+        civil_id_expiry: scannedData.expiry_date || scannedData.expiryDate || scannedData.civil_id_expiry || current.civil_id_expiry || current.civilIdExpiry,
+        civilIdExpiry: scannedData.expiry_date || scannedData.expiryDate || scannedData.civil_id_expiry || current.civilIdExpiry || current.civil_id_expiry,
+      };
+    }
+
+    // 2. حالة جواز السفر: تحديث بيانات الجواز فقط
+    if (normalizedDoc === 'passport') {
+      const existingNameEn = current.name_en || current.nameEn || current.fullNameEn;
+      const incomingNameEn = scannedData.name_en || scannedData.fullNameEn || scannedData.nameEn;
+      return {
+        ...current,
+        passport_no: scannedData.passport_no || scannedData.passportNo || current.passport_no || current.passportNo,
+        passportNo: scannedData.passport_no || scannedData.passportNo || current.passportNo || current.passport_no,
+        passport_expiry: scannedData.passport_expiry || scannedData.passportExpiry || scannedData.expiry_date || scannedData.expiryDate || current.passport_expiry || current.passportExpiry,
+        passportExpiry: scannedData.passport_expiry || scannedData.passportExpiry || scannedData.expiry_date || scannedData.expiryDate || current.passportExpiry || current.passport_expiry,
+        name_en: existingNameEn ? existingNameEn : (incomingNameEn || existingNameEn),
+        nameEn: existingNameEn ? existingNameEn : (incomingNameEn || existingNameEn),
+        fullNameEn: existingNameEn ? existingNameEn : (incomingNameEn || existingNameEn),
+      };
+    }
+
+    // 3. حالة الترخيص الصحي (وزارة الصحة MOH): تحديث التراخيص فقط
+    if (normalizedDoc === 'medical_license' || normalizedDoc === 'license' || normalizedDoc === 'moh_license' || normalizedDoc === 'professional_license') {
+      return {
+        ...current,
+        medical_license_no: scannedData.license_no || scannedData.medical_license_no || scannedData.mohLicenseNo || scannedData.mohLicense || current.medical_license_no || current.mohLicense,
+        medical_license_expiry: scannedData.license_expiry || scannedData.medical_license_expiry || scannedData.mohLicenseExpiryDate || scannedData.mohLicenseExpiry || scannedData.expiryDate || current.medical_license_expiry || current.mohLicenseExpiry,
+        mohLicense: scannedData.license_no || scannedData.medical_license_no || scannedData.mohLicenseNo || scannedData.mohLicense || current.mohLicense || current.medical_license_no,
+        mohLicenseExpiry: scannedData.license_expiry || scannedData.medical_license_expiry || scannedData.mohLicenseExpiryDate || scannedData.mohLicenseExpiry || scannedData.expiryDate || current.mohLicenseExpiry || current.medical_license_expiry,
+        license_title: scannedData.license_title || scannedData.profession || scannedData.jobTitle || current.license_title,
+      };
+    }
+
+    return current;
+  };
+
+  if (setFormData) {
+    setFormData(updater);
+  }
+  return updater(undefined);
+};

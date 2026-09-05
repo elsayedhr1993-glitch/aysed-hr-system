@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Camera, 
   Paperclip, 
@@ -109,6 +109,18 @@ export const OdooChatter: React.FC<OdooChatterProps> = ({
   });
   const [activityAssignee, setActivityAssignee] = useState(ODOO_ACTIVITY_TYPES.doc_renewal.defaultAssignee);
   const [activityNote, setActivityNote] = useState('');
+
+  // Close modal on Escape key press
+  useEffect(() => {
+    if (!showActivityModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowActivityModal(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showActivityModal]);
 
   // Handle activity type change to auto-fill responsible officer
   const handleActivityTypeSelect = (key: OdooActivityTypeKey) => {
@@ -485,139 +497,151 @@ export const OdooChatter: React.FC<OdooChatterProps> = ({
 
       {/* 📅 Modal: جدولة نشاط (Odoo Activity Scheduler Modal) */}
       {showActivityModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in" dir="rtl">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full overflow-hidden">
-            <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 animate-in fade-in" 
+          dir="rtl"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowActivityModal(false);
+          }}
+        >
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95">
+            {/* Modal Header */}
+            <div className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
-                <Clock className="w-5 h-5 text-amber-400" />
+                <Clock className="w-5 h-5 text-amber-400 shrink-0" />
                 <h3 className="font-bold text-sm">جدولة نشاط جديد (Schedule Activity - Odoo)</h3>
               </div>
               <button 
                 type="button" 
                 onClick={() => setShowActivityModal(false)}
-                className="text-slate-400 hover:text-white transition cursor-pointer"
+                className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer hover:scale-105 active:scale-95"
+                title="إغلاق النافذة (Esc)"
+                aria-label="إغلاق النافذة"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleScheduleSubmit} className="p-5 space-y-4 text-xs">
-              
-              {/* Activity Type Selection */}
-              <div>
-                <label className="block text-slate-700 font-bold mb-1.5">
-                  نوع النشاط (Activity Type) *
-                </label>
-                <div className="grid grid-cols-1 gap-2">
-                  {(Object.keys(ODOO_ACTIVITY_TYPES) as OdooActivityTypeKey[]).map((key) => {
-                    const cfg = ODOO_ACTIVITY_TYPES[key];
-                    const isSelected = selectedActivityType === key;
-                    return (
-                      <div
-                        key={key}
-                        onClick={() => handleActivityTypeSelect(key)}
-                        className={`p-3 rounded-xl border transition cursor-pointer flex items-start justify-between ${
-                          isSelected 
-                            ? 'bg-[#714B67]/5 border-[#714B67] ring-1 ring-[#714B67]' 
-                            : 'bg-slate-50 border-slate-200 hover:bg-slate-100/80'
-                        }`}
-                      >
-                        <div>
-                          <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
-                            {cfg.label}
-                          </div>
-                          <p className="text-[11px] text-slate-500 mt-0.5">{cfg.description}</p>
-                          <div className="text-[10px] text-[#714B67] font-semibold mt-1">
-                            المسؤول التلقائي: {cfg.defaultAssignee} ({cfg.defaultAssigneeRole})
-                          </div>
-                        </div>
-                        <input
-                          type="radio"
-                          name="activityType"
-                          checked={isSelected}
-                          onChange={() => handleActivityTypeSelect(key)}
-                          className="mt-1 text-[#714B67] focus:ring-[#714B67]"
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Due Date & Assignee */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Scrollable Form Content */}
+            <form onSubmit={handleScheduleSubmit} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-5 space-y-4 text-xs overflow-y-auto flex-1">
+                
+                {/* Activity Type Selection */}
                 <div>
-                  <label className="block text-slate-700 font-bold mb-1">
-                    تاريخ الاستحقاق (Due Date) *
+                  <label className="block text-slate-700 font-bold mb-1.5">
+                    نوع النشاط (Activity Type) *
                   </label>
-                  <input
-                    type="date"
-                    required
-                    value={activityDueDate}
-                    onChange={(e) => setActivityDueDate(e.target.value)}
-                    className="w-full p-2 border border-slate-300 rounded-lg text-xs bg-slate-50 focus:bg-white outline-none focus:border-[#714B67]"
-                  />
-                  {/* Live Status Badge Preview */}
-                  {activityDueDate && (() => {
-                    const exp = getExpiryStatus(activityDueDate);
-                    if (!exp) return null;
-                    return (
-                      <div className="mt-1 text-[10px]">
-                        <span className={`px-2 py-0.5 rounded font-bold inline-block ${exp.badgeClass}`}>
-                          {exp.text}
-                        </span>
-                      </div>
-                    );
-                  })()}
+                  <div className="grid grid-cols-1 gap-2">
+                    {(Object.keys(ODOO_ACTIVITY_TYPES) as OdooActivityTypeKey[]).map((key) => {
+                      const cfg = ODOO_ACTIVITY_TYPES[key];
+                      const isSelected = selectedActivityType === key;
+                      return (
+                        <div
+                          key={key}
+                          onClick={() => handleActivityTypeSelect(key)}
+                          className={`p-3 rounded-xl border transition cursor-pointer flex items-start justify-between ${
+                            isSelected 
+                              ? 'bg-[#714B67]/5 border-[#714B67] ring-1 ring-[#714B67]' 
+                              : 'bg-slate-50 border-slate-200 hover:bg-slate-100/80'
+                          }`}
+                        >
+                          <div>
+                            <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+                              {cfg.label}
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-0.5">{cfg.description}</p>
+                            <div className="text-[10px] text-[#714B67] font-semibold mt-1">
+                              المسؤول التلقائي: {cfg.defaultAssignee} ({cfg.defaultAssigneeRole})
+                            </div>
+                          </div>
+                          <input
+                            type="radio"
+                            name="activityType"
+                            checked={isSelected}
+                            onChange={() => handleActivityTypeSelect(key)}
+                            className="mt-1 text-[#714B67] focus:ring-[#714B67]"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
+                {/* Due Date & Assignee */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1">
+                      تاريخ الاستحقاق (Due Date) *
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={activityDueDate}
+                      onChange={(e) => setActivityDueDate(e.target.value)}
+                      className="w-full p-2 border border-slate-300 rounded-lg text-xs bg-slate-50 focus:bg-white outline-none focus:border-[#714B67]"
+                    />
+                    {/* Live Status Badge Preview */}
+                    {activityDueDate && (() => {
+                      const exp = getExpiryStatus(activityDueDate);
+                      if (!exp) return null;
+                      return (
+                        <div className="mt-1 text-[10px]">
+                          <span className={`px-2 py-0.5 rounded font-bold inline-block ${exp.badgeClass}`}>
+                            {exp.text}
+                          </span>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1">
+                      المسؤول المكلف (Assignee) *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={activityAssignee}
+                      onChange={(e) => setActivityAssignee(e.target.value)}
+                      className="w-full p-2 border border-slate-300 rounded-lg text-xs bg-slate-50 focus:bg-white outline-none focus:border-[#714B67]"
+                    />
+                  </div>
+                </div>
+
+                {/* Summary / Notes */}
                 <div>
                   <label className="block text-slate-700 font-bold mb-1">
-                    المسؤول المكلف (Assignee) *
+                    ملخص النشاط (Summary)
                   </label>
                   <input
                     type="text"
-                    required
-                    value={activityAssignee}
-                    onChange={(e) => setActivityAssignee(e.target.value)}
+                    placeholder="مثال: متابعة تجديد ترخيص مزاولة المهنة قبل انتهاء المهلة"
+                    value={activitySummary}
+                    onChange={(e) => setActivitySummary(e.target.value)}
+                    className="w-full p-2 border border-slate-300 rounded-lg text-xs bg-slate-50 focus:bg-white outline-none focus:border-[#714B67]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    تفاصيل إضافية / تعليمات المتابعة
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="أدخل أي ملاحظات خاصة بجهة التجديد أو المستندات المطلوبة..."
+                    value={activityNote}
+                    onChange={(e) => setActivityNote(e.target.value)}
                     className="w-full p-2 border border-slate-300 rounded-lg text-xs bg-slate-50 focus:bg-white outline-none focus:border-[#714B67]"
                   />
                 </div>
               </div>
 
-              {/* Summary / Notes */}
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">
-                  ملخص النشاط (Summary)
-                </label>
-                <input
-                  type="text"
-                  placeholder="مثال: متابعة تجديد ترخيص مزاولة المهنة قبل انتهاء المهلة"
-                  value={activitySummary}
-                  onChange={(e) => setActivitySummary(e.target.value)}
-                  className="w-full p-2 border border-slate-300 rounded-lg text-xs bg-slate-50 focus:bg-white outline-none focus:border-[#714B67]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">
-                  تفاصيل إضافية / تعليمات المتابعة
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="أدخل أي ملاحظات خاصة بجهة التجديد أو المستندات المطلوبة..."
-                  value={activityNote}
-                  onChange={(e) => setActivityNote(e.target.value)}
-                  className="w-full p-2 border border-slate-300 rounded-lg text-xs bg-slate-50 focus:bg-white outline-none focus:border-[#714B67]"
-                />
-              </div>
-
-              {/* Modal Buttons */}
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              {/* Bottom Sticky Action Footer */}
+              <div className="flex items-center justify-end gap-2 p-4 bg-slate-50 border-t border-slate-200 shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowActivityModal(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition cursor-pointer"
+                  className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold rounded-lg transition cursor-pointer"
                 >
                   إلغاء
                 </button>

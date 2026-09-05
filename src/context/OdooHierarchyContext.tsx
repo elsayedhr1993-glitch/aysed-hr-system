@@ -179,6 +179,7 @@ interface OdooHierarchyContextType {
   deleteLoan: (loanId: string) => void;
   registerLoanPayment: (loanId: string, amountToPay: number) => void;
   addEmployee: (emp: EmployeeContract) => void;
+  updateEmployee: (id: string, partial: Partial<EmployeeContract>) => void;
   recordUnpaidAbsence: (empId: string, days: number) => void;
   updateLeaveAccrual: (empId: string, carried: number, earned: number, consumed: number, excludedServiceDays?: number) => void;
   processMonthlyAccruals: () => void;
@@ -515,6 +516,10 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
     return true;
   };
 
+  const updateEmployee = (id: string, partial: Partial<EmployeeContract>) => {
+    setEmployees(prev => prev.map(e => e.id === id ? { ...e, ...partial } : e));
+  };
+
   const recordUnpaidAbsence = (empId: string, days: number) => {
     setAttendance(prev => ({
       ...prev,
@@ -625,6 +630,7 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
       deleteLoan,
       registerLoanPayment,
       addEmployee,
+      updateEmployee,
       recordUnpaidAbsence,
       updateLeaveAccrual,
       processMonthlyAccruals,

@@ -684,9 +684,16 @@ export const AttendanceApp: React.FC<any> = (props) => {
             </div>
           </div>
           <script>
-            window.onload = () => {
-              safePrintAction('طباعة التقرير');
-              setTimeout(() => window.close(), 500);
+            window.onload = function() {
+              try {
+                window.focus();
+                window.print();
+              } catch(e) {
+                console.warn('Popup print error:', e);
+              }
+              setTimeout(function() {
+                try { window.close(); } catch(e) {}
+              }, 1000);
             };
           </script>
         </body>

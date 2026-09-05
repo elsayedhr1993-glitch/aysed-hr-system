@@ -25,17 +25,22 @@ export interface ExtractedData {
   passportNo?: string;
   profession?: string;
   residencyType?: string;
+  medical_license_no?: string;
+  medical_license_expiry?: string;
+  license_no?: string;
+  license_expiry?: string;
+  license_title?: string;
 }
 
 interface OdooDocumentScannerProps {
-  onApplyData?: (data: ExtractedData) => void;
+  onApplyData?: (data: ExtractedData, docType: string) => void;
 }
 
 export const OdooDocumentScanner: React.FC<OdooDocumentScannerProps> = ({ onApplyData }) => {
   const [scanning, setScanning] = useState(false);
   const [scanResult, setScanResult] = useState<ExtractedData | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const [docType, setDocType] = useState<'civil_id' | 'passport' | 'moh_license' | 'pam_permit'>('civil_id');
+  const [docType, setDocType] = useState<'civil_id' | 'passport' | 'medical_license' | 'pam_permit'>('civil_id');
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -69,7 +74,12 @@ export const OdooDocumentScanner: React.FC<OdooDocumentScannerProps> = ({ onAppl
         gender: gender || 'MALE',
         passportNo: scanned.passportNo || '',
         profession: scanned.profession || scanned.jobTitle || '',
-        residencyType: scanned.residencyType || ''
+        residencyType: scanned.residencyType || '',
+        medical_license_no: scanned.mohLicenseNo || '',
+        medical_license_expiry: scanned.mohLicenseExpiryDate || '',
+        license_no: scanned.mohLicenseNo || '',
+        license_expiry: scanned.mohLicenseExpiryDate || '',
+        license_title: scanned.profession || scanned.jobTitle || ''
       });
 
       toast.success('تمت قراءة بيانات الوثيقة الحقيقية بنجاح');
@@ -116,16 +126,30 @@ export const OdooDocumentScanner: React.FC<OdooDocumentScannerProps> = ({ onAppl
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label className="border-2 border-dashed border-slate-300 hover:border-[#714B67] rounded-2xl p-6 flex flex-col items-center justify-center gap-3 cursor-pointer bg-slate-50 min-h-[240px] transition">
+          <div className="mb-3">
+            <label className="block text-xs font-bold text-slate-700 mb-1">نوع المستند الممسوح (Document Type):</label>
+            <select
+              value={docType}
+              onChange={(e) => setDocType(e.target.value as any)}
+              className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-[#714B67] outline-none"
+            >
+              <option value="civil_id">🪪 بطاقة مدنية كويتية (Civil ID - يحدث الاسم، الرقم، الميلاد، الجنسية)</option>
+              <option value="passport">🛂 جواز سفر (Passport - يحدث رقم الجواز، وتاريخ الانتهاء، والاسم بالإنجليزية)</option>
+              <option value="medical_license">🩺 ترخيص صحي / مزاولة مهنة (MOH License - يحدث رقم وتاريخ الترخيص فقط)</option>
+              <option value="pam_permit">📋 تصريح عمل / شؤون (PAM Work Permit)</option>
+            </select>
+          </div>
+
+          <label className="border-2 border-dashed border-slate-300 hover:border-[#714B67] rounded-2xl p-6 flex flex-col items-center justify-center gap-3 cursor-pointer bg-slate-50 min-h-[200px] transition">
             <input type="file" accept="image/*,application/pdf" className="hidden" onChange={handleUpload} />
             {preview ? (
-              <img src={preview} alt="Doc" className="max-h-48 object-contain rounded-lg border shadow-xs" />
+              <img src={preview} alt="Doc" className="max-h-44 object-contain rounded-lg border shadow-xs" />
             ) : (
               <>
-                <div className="w-14 h-14 rounded-2xl bg-[#714B67]/10 text-[#714B67] flex items-center justify-center">
-                  <UploadCloud size={28} />
+                <div className="w-12 h-12 rounded-2xl bg-[#714B67]/10 text-[#714B67] flex items-center justify-center">
+                  <UploadCloud size={24} />
                 </div>
-                <p className="text-xs font-bold text-slate-800">اضغط أو اسحب لرفع صورة البطاقة المدنية أو الجواز</p>
+                <p className="text-xs font-bold text-slate-800">اضغط أو اسحب لرفع صورة المستند الحقيقي</p>
                 <p className="text-[10px] text-slate-400 font-mono">JPG, PNG, WebP, PDF</p>
               </>
             )}
@@ -266,7 +290,7 @@ export const OdooDocumentScanner: React.FC<OdooDocumentScannerProps> = ({ onAppl
 
               <button 
                 type="button" 
-                onClick={() => onApplyData && onApplyData(scanResult)}
+                onClick={() => onApplyData && onApplyData(scanResult, docType)}
                 className="w-full mt-2 bg-[#714B67] hover:bg-[#5a3a52] text-white py-2 rounded-lg font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition"
               >
                 <UserCheck size={15} /> اعتماد ونقل إلى بيانات الموظف

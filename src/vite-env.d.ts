@@ -9,3 +9,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+declare module 'arabic-persian-reshaper';
+declare module 'bidi-js';

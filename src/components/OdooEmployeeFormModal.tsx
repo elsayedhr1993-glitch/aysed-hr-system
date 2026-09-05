@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { parseKuwaitCivilCardOCR, validateKuwaitCivilId } from '../services/ocrService';
+import OdooPamContractModal from './OdooPamContractModal';
 
 // 1. الأقسام والإدارات (عربي / إنجليزي)
 const DEPARTMENTS = [
@@ -93,6 +94,7 @@ interface EmployeeModalProps {
 
 export default function OdooEmployeeFormModal({ isOpen, onClose, onSave, existingEmployees = [], activeCompanyId }: EmployeeModalProps) {
   const [activeTab, setActiveTab] = useState<'work' | 'private' | 'hr' | 'resume' | 'warnings'>('work');
+  const [showPamContractModal, setShowPamContractModal] = useState(false);
 
   // البيانات العامة
   const [nameAr, setNameAr] = useState('');
@@ -143,6 +145,53 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave, existin
   const [employeeType, setEmployeeType] = useState('employee');
   const [relatedUser, setRelatedUser] = useState('');
   const [pinCode, setPinCode] = useState('');
+  const [scanDocType, setScanDocType] = useState<'civil_id' | 'passport' | 'medical_license'>('civil_id');
+
+  // استقبال ومعالجة بيانات الـ OCR بحسب نوع المستند (Document Type Logic)
+  const handleOcrResult = (scannedData: any, docType: string) => {
+    // 1. حالة البطاقة المدنية: المرجع الأساسي للاسم العربي، الرقم المدني، تاريخ الميلاد، والجنسية
+    if (docType === 'civil_id') {
+      const cId = scannedData.civil_id || scannedData.civilId;
+      if (cId) setCivilId(cId);
+      const fName = scannedData.full_name || scannedData.fullNameAr || scannedData.nameAr;
+      if (fName) setNameAr(fName);
+      if (scannedData.nationality) setNationality(scannedData.nationality);
+      const bDate = scannedData.birth_date || scannedData.birthDate || scannedData.dob;
+      if (bDate) setCivilIdData(prev => ({ ...prev, birthDate: bDate }));
+      if (scannedData.gender) {
+        setGender(scannedData.gender.toLowerCase().includes('female') || scannedData.gender.includes('أنثى') ? 'أنثى - Female' : 'ذكر - Male');
+      }
+      const expDate = scannedData.expiry_date || scannedData.civil_id_expiry || scannedData.expiryDate;
+      if (expDate) setResidencyExpiry(expDate);
+      return;
+    }
+
+    // 2. حالة جواز السفر: يحدّث فقط: رقم الجواز، تاريخ انتهاء الجواز، والاسم بالإنجليزي (إن كان فارغاً)
+    // لا يلمس الرقم المدني أو الاسم باللغة العربية
+    if (docType === 'passport') {
+      const pNo = scannedData.passport_no || scannedData.passportNo;
+      if (pNo) setPassportNo(pNo);
+      const pExp = scannedData.passport_expiry || scannedData.passportExpiry || scannedData.expiry_date || scannedData.expiryDate;
+      if (pExp) setPassportExpiry(pExp);
+      const incomingNameEn = scannedData.name_en || scannedData.fullNameEn || scannedData.nameEn;
+      if (!nameEn && incomingNameEn) {
+        setNameEn(incomingNameEn);
+      }
+      return;
+    }
+
+    // 3. حالة الترخيص الصحي (وزارة الصحة MOH): يحدّث فقط: رقم الترخيص، تاريخ انتهاء الترخيص، والمسمى الفني للترخيص
+    // لا يلمس أياً من البيانات الشخصية الأساسية للموظف
+    if (docType === 'medical_license' || docType === 'license' || docType === 'moh_license') {
+      const licNo = scannedData.license_no || scannedData.medical_license_no || scannedData.mohLicenseNo || scannedData.mohLicense;
+      if (licNo) setMohLicense(licNo);
+      const licExp = scannedData.license_expiry || scannedData.medical_license_expiry || scannedData.mohLicenseExpiryDate || scannedData.mohLicenseExpiry;
+      if (licExp) setMohLicenseExpiry(licExp);
+      const licTitle = scannedData.license_title || scannedData.profession || scannedData.jobTitle || scannedData.specialty;
+      if (licTitle) setSpecialty(licTitle);
+      return;
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -459,65 +508,56 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave, existin
                       <p className="text-[11px] text-purple-200">ارفع صورة البطاقة المدنية أو جواز السفر لقراءة البيانات واستخراجها آلياً بالذكاء الاصطناعي</p>
                     </div>
                   </div>
-                  <label className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-lg font-bold text-xs transition shadow flex items-center gap-2 shrink-0 cursor-pointer">
-                    <span>📁</span> {isScanning ? '⏳ جاري القراءة بالذكاء الاصطناعي...' : 'رفع وتصوير المستند (Real OCR)'}
-                    <input 
-                      type="file" 
-                      accept="image/*,.pdf" 
-                      className="hidden" 
-                      disabled={isScanning}
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={scanDocType}
+                      onChange={(e) => setScanDocType(e.target.value as any)}
+                      className="bg-purple-950/80 border border-purple-400 text-white rounded-lg px-2.5 py-2 text-xs font-bold outline-none cursor-pointer"
+                    >
+                      <option value="civil_id">🪪 بطاقة مدنية (Civil ID)</option>
+                      <option value="passport">🛂 جواز سفر (Passport)</option>
+                      <option value="medical_license">🩺 ترخيص صحي (MOH)</option>
+                    </select>
+                    <label className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-bold text-xs transition shadow flex items-center gap-2 shrink-0 cursor-pointer">
+                      <span>📁</span> {isScanning ? '⏳ جاري القراءة بالذكاء الاصطناعي...' : 'رفع وقراءة المستند'}
+                      <input 
+                        type="file" 
+                        accept="image/*,.pdf" 
+                        className="hidden" 
+                        disabled={isScanning}
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
 
-                        setIsScanning(true);
-                        try {
-                          const reader = new FileReader();
-                          reader.onload = async () => {
-                            const base64String = reader.result as string;
-                            try {
-                              const d = await parseKuwaitCivilCardOCR(base64String);
-                              if (d) {
-                                if (d.civilId) {
-                                  if (validateKuwaitCivilId(d.civilId)) {
-                                    setCivilId(d.civilId);
-                                  } else {
-                                    setCivilId(d.civilId);
-                                  }
+                          setIsScanning(true);
+                          try {
+                            const reader = new FileReader();
+                            reader.onload = async () => {
+                              const base64String = reader.result as string;
+                              try {
+                                const d = await parseKuwaitCivilCardOCR(base64String);
+                                if (d) {
+                                  handleOcrResult(d, scanDocType);
+                                  setScanSuccess(true);
+                                  setTimeout(() => setScanSuccess(false), 5000);
+                                } else {
+                                  alert('تعذر قراءة المستند واستخراج البيانات بالذكاء الاصطناعي');
                                 }
-                                if (d.nameAr) setNameAr(d.nameAr);
-                                if (d.nameEn) setNameEn(d.nameEn);
-                                if (d.nationality) setNationality(d.nationality);
-                                if (d.gender) {
-                                  setGender(d.gender.toLowerCase().includes('female') || d.gender.includes('أنثى') ? 'أنثى - Female' : 'ذكر - Male');
-                                }
-                                if (d.passportNo) setPassportNo(d.passportNo);
-                                if (d.expiryDate) setResidencyExpiry(d.expiryDate);
-                                if (d.birthDate) {
-                                  setCivilIdData(prev => ({...prev, birthDate: d.birthDate}));
-                                }
-                                if (d.mohLicense) setMohLicense(d.mohLicense);
-                                if (d.mohLicenseExpiry) setMohLicenseExpiry(d.mohLicenseExpiry);
-                                if (d.residencyType) setResidencyType(d.residencyType);
-                                setScanSuccess(true);
-                                setTimeout(() => setScanSuccess(false), 5000);
-                              } else {
-                                alert('تعذر قراءة المستند واستخراج البيانات بالذكاء الاصطناعي');
+                              } catch (apiErr: any) {
+                                alert('حدث خطأ أثناء الاتصال بخدمة الماسح الضوئي: ' + apiErr.message);
+                              } finally {
+                                setIsScanning(false);
                               }
-                            } catch (apiErr: any) {
-                              alert('حدث خطأ أثناء الاتصال بخدمة الماسح الضوئي: ' + apiErr.message);
-                            } finally {
-                              setIsScanning(false);
-                            }
-                          };
-                          reader.readAsDataURL(file);
-                        } catch (err: any) {
-                          setIsScanning(false);
-                          alert('فشل قراءة الملف: ' + err.message);
-                        }
-                      }}
-                    />
-                  </label>
+                            };
+                            reader.readAsDataURL(file);
+                          } catch (err: any) {
+                            setIsScanning(false);
+                            alert('فشل قراءة الملف: ' + err.message);
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between border-t border-purple-700/60 pt-2 text-[11px] text-purple-200">
@@ -792,13 +832,7 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave, existin
                               try {
                                 const d = await parseKuwaitCivilCardOCR(base64String);
                                 if (d) {
-                                  if (d.mohLicense) setMohLicense(d.mohLicense);
-                                  if (d.mohLicenseExpiry) setMohLicenseExpiry(d.mohLicenseExpiry);
-                                  if (d.nameAr && !nameAr) setNameAr(d.nameAr);
-                                  if (d.nameEn && !nameEn) setNameEn(d.nameEn);
-                                  if (d.civilId && !civilId) {
-                                    setCivilId(d.civilId);
-                                  }
+                                  handleOcrResult(d, 'medical_license');
                                   setScanSuccess(true);
                                   setTimeout(() => setScanSuccess(false), 5000);
                                 } else {
@@ -848,6 +882,25 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave, existin
                       className="w-full bg-white border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-purple-600 focus:outline-none font-mono"
                     />
                   </div>
+                </div>
+
+                {/* 📄 عقد العمل الحكومي الرسمي (PAM Form 2) */}
+                <div className="mt-4 p-4 bg-purple-50/70 border border-purple-200 rounded-xl flex items-center justify-between">
+                  <div>
+                    <h5 className="font-bold text-purple-950 text-xs flex items-center gap-1.5 mb-1">
+                      <span>📄</span> نموذج عقد العمل الحكومي (الهيئة العامة للقوى العاملة - PAM 2)
+                    </h5>
+                    <p className="text-slate-600 text-[11px]">
+                      إصدار وتعبئة عقد العمل طبق الأصل للنموذج الرسمي الكويتي المعتمد بتقنية PDF Overlay.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowPamContractModal(true)}
+                    className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-3 py-2 rounded-lg font-bold text-xs transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  >
+                    <span>📜</span> إصدار وتوليد PAM 2
+                  </button>
                 </div>
               </div>
             </div>
@@ -908,6 +961,15 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave, existin
             </span>
 
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowPamContractModal(true)}
+                className="bg-purple-50 hover:bg-purple-100 text-[#714B67] border border-purple-300 px-3 py-2 rounded-lg font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                title="إصدار عقد العمل الحكومي الرسمي (نموذج 2 - القوى العاملة PAM)"
+              >
+                <span>📄</span>
+                <span>عقد العمل الحكومي (PAM 2)</span>
+              </button>
               <button 
                 type="button" 
                 onClick={onClose}
@@ -953,6 +1015,25 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave, existin
           )}
         </form>
       </div>
+
+      {/* PAM Contract Modal */}
+      {showPamContractModal && (
+        <OdooPamContractModal
+          isOpen={showPamContractModal}
+          onClose={() => setShowPamContractModal(false)}
+          employee={{
+            name: nameAr,
+            nameEn: nameEn,
+            civilId: civilId,
+            passportNo: passportNo,
+            nationality: nationality,
+            jobTitle: selectedJob?.ar || 'طبيب بشري عام',
+            jobTitleEn: selectedJob?.en || 'General Practitioner',
+            salary: 850,
+            hireDate: hireDate || new Date().toISOString().slice(0, 10)
+          }}
+        />
+      )}
     </div>
   );
 }

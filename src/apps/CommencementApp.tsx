@@ -1333,7 +1333,12 @@ class HrCommencement(models.Model):
                         </div>
                         <script>
                           window.onload = function() {
-                            safePrintAction('طباعة التقرير');
+                            try {
+                              window.focus();
+                              window.print();
+                            } catch(e) {
+                              console.warn('Popup print error:', e);
+                            }
                           };
                         </script>
                       </body>

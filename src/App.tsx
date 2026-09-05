@@ -85,7 +85,7 @@ function MainAppLayout() {
 
   const { startImpersonation, exitImpersonation: exitCompanyImpersonation } = useCompany();
 
-  const { employees, addEmployee } = useOdooHierarchy();
+  const { employees, addEmployee, updateEmployee } = useOdooHierarchy();
 
   const { logout, user, isLoading, updateAvatar } = useAuth();
 
@@ -153,8 +153,59 @@ function MainAppLayout() {
   const [employeeNotifications, setEmployeeNotifications] = useState<any[]>([]);
 
   const handleAutoAddEmpFromOCR = (empData: any, docType?: string) => {
+    const normalizedDoc = (docType || empData?.documentType || 'civil_id').toLowerCase();
+    const civilIdClean = (empData.civilId || empData.civil_id || '').replace(/\D/g, '');
+    const passportClean = (empData.passportNo || empData.passport_no || '').trim();
+    const licenseClean = (empData.license_no || empData.medical_license_no || empData.mohLicenseNo || empData.mohLicense || '').trim();
+
+    // فحص هل الموظف موجود مسبقاً في المنظومة
+    const existingEmp = (employees || []).find(e => 
+      (civilIdClean && (e.civilId === civilIdClean || (e as any).civil_id === civilIdClean)) ||
+      (passportClean && (e as any).passportNo === passportClean)
+    );
+
+    // إذا كان الموظف مسجلاً بالفعل، يتم التحديث طبقاً لنوع المستند الممسوح بدقة متناهية
+    if (existingEmp && updateEmployee) {
+      if (normalizedDoc === 'civil_id' || normalizedDoc === 'civilid') {
+        updateEmployee(existingEmp.id, {
+          civilId: civilIdClean || existingEmp.civilId,
+          name: empData.fullNameAr || empData.fullName || existingEmp.name,
+          nationality: empData.nationality || (existingEmp as any).nationality,
+          birthDate: empData.birthDate || empData.dob || (existingEmp as any).birthDate,
+          gender: empData.gender || (existingEmp as any).gender,
+          civilIdExpiry: empData.expiryDate || empData.civilIdExpiry || (existingEmp as any).civilIdExpiry,
+          residencyExpiry: empData.expiryDate || (existingEmp as any).residencyExpiry
+        } as any);
+        toast.success(`تم تحديث البيانات الشخصية للموظف (${existingEmp.name}) من البطاقة المدنية`);
+        return existingEmp.id;
+      }
+
+      if (normalizedDoc === 'passport') {
+        const existingNameEn = (existingEmp as any).nameEn || (existingEmp as any).fullNameEn;
+        const incomingNameEn = empData.name_en || empData.fullNameEn || empData.nameEn;
+        updateEmployee(existingEmp.id, {
+          passportNo: passportClean || (existingEmp as any).passportNo,
+          passportExpiry: empData.passport_expiry || empData.passportExpiry || empData.expiryDate || (existingEmp as any).passportExpiry,
+          nameEn: existingNameEn ? existingNameEn : (incomingNameEn || existingNameEn),
+          fullNameEn: existingNameEn ? existingNameEn : (incomingNameEn || existingNameEn)
+        } as any);
+        toast.success(`تم تحديث بيانات جواز السفر للموظف (${existingEmp.name}) دون المساس بالبيانات الشخصية`);
+        return existingEmp.id;
+      }
+
+      if (normalizedDoc === 'medical_license' || normalizedDoc === 'license' || normalizedDoc === 'moh_license' || normalizedDoc === 'professional_license') {
+        updateEmployee(existingEmp.id, {
+          mohLicense: licenseClean || (existingEmp as any).mohLicense,
+          mohLicenseExpiry: empData.license_expiry || empData.medical_license_expiry || empData.mohLicenseExpiryDate || empData.expiryDate || (existingEmp as any).mohLicenseExpiry,
+          jobTitle: empData.license_title || empData.profession || empData.jobTitle || existingEmp.jobTitle
+        } as any);
+        toast.success(`تم تحديث ترخيص مزاولة المهنة للموظف (${existingEmp.name}) دون المساس بالبيانات الشخصية`);
+        return existingEmp.id;
+      }
+    }
+
+    // إذا لم يكن الموظف مسجلاً، يتم إنشاء سجل جديد مع ضبط الحقول حسب نوع المستند
     const newEmpId = `emp-${Date.now()}`;
-    const civilIdClean = (empData.civilId || '').replace(/\D/g, '');
     let birthDateVal = empData.birthDate || empData.dob || '';
     let genderVal = empData.gender || 'MALE';
 
@@ -168,19 +219,21 @@ function MainAppLayout() {
 
     const newEmp = {
       id: newEmpId,
-      name: empData.fullNameAr || empData.fullName || 'موظف جديد مستخرج بالذكاء الاصطناعي',
-      fullNameAr: empData.fullNameAr || empData.fullName || 'موظف جديد مستخرج بالذكاء الاصطناعي',
-      fullNameEn: empData.fullNameEn || '',
-      civilId: civilIdClean,
+      name: (normalizedDoc === 'civil_id' || normalizedDoc === 'civilid') 
+        ? (empData.fullNameAr || empData.fullName || 'موظف جديد') 
+        : (empData.fullNameAr || empData.fullNameEn || 'موظف مستخرج من الوثائق'),
+      fullNameAr: empData.fullNameAr || empData.fullName || '',
+      fullNameEn: empData.fullNameEn || empData.name_en || '',
+      civilId: (normalizedDoc === 'civil_id' || normalizedDoc === 'civilid') ? civilIdClean : (civilIdClean || ''),
       civil_id_number: civilIdClean,
-      passportNo: empData.passportNo || '',
-      passportExpiry: empData.passportExpiryDate || '',
+      passportNo: (normalizedDoc === 'passport') ? (passportClean || empData.passportNo || '') : (empData.passportNo || ''),
+      passportExpiry: empData.passportExpiryDate || empData.passport_expiry || '',
       residencyExpiry: empData.residencyExpiryDate || empData.expiryDate || '',
       paciAddressNo: empData.paciBuildingRef || (empData.address?.block ? `${empData.address.block}-${empData.address.building || ''}` : ''),
       fullAddress: empData.address ? `${empData.address.area || ''} - ق ${empData.address.block || ''} - ش ${empData.address.street || ''} - مبنى ${empData.address.building || ''}` : '',
       residencyType: empData.residencyType || 'مادة 18',
-      jobTitle: empData.profession || empData.jobTitle || 'موظف معتمد',
-      department: 'الإدارة العامة',
+      jobTitle: empData.license_title || empData.profession || empData.jobTitle || 'موظف معتمد',
+      department: (normalizedDoc.includes('medical') || normalizedDoc.includes('license')) ? 'الخدمات الطبية' : 'الإدارة العامة',
       basicSalary: 600,
       housingAllowance: 150,
       transportAllowance: 50,
@@ -194,6 +247,8 @@ function MainAppLayout() {
       expiryDate: empData.expiryDate || '2027-01-01',
       civilIdExpiry: empData.expiryDate || '2027-01-01',
       civilIdExpiryDate: empData.expiryDate || '2027-01-01',
+      mohLicense: licenseClean,
+      mohLicenseExpiry: empData.license_expiry || empData.medical_license_expiry || empData.mohLicenseExpiryDate || '',
       iban: ''
     };
 
@@ -205,7 +260,7 @@ function MainAppLayout() {
       setEmployeeNotifications(prev => [
         {
           id: `notif-${Date.now()}`,
-          title: `تنبيه تجديد مستند (${docType || 'البطاقة المدنية'})`,
+          title: `تنبيه تجديد مستند (${docType || 'المستند'})`,
           message: `المستند الخاص بالموظف ${newEmp.name} ينتهي في تاريخ ${empData.expiryDate}. يرجى اتخاذ الإجراء اللازم.`,
           date: empData.expiryDate,
           type: 'warning',
@@ -215,7 +270,7 @@ function MainAppLayout() {
       ]);
     }
 
-    toast.success(`تم إنشاء ملف الموظف وترحيل بيانات ${docType || 'المستند'} بنجاح`);
+    toast.success(`تم اعتماد بيانات ${docType || 'المستند'} بنجاح`);
     return newEmpId;
   };
 

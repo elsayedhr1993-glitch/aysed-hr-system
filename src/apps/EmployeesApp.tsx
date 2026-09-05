@@ -1,36 +1,45 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Clock, Stethoscope, AlertTriangle, X } from 'lucide-react';
+import { Users, Clock, Stethoscope, AlertTriangle, X, FileText, Printer, Calendar, RefreshCw, DollarSign, CheckCircle2, Building2, Briefcase, ExternalLink } from 'lucide-react';
 import OdooEmployeeFormModal from '../components/OdooEmployeeFormModal';
 import OdooContractsApp from "../components/OdooContractsApp";
+import OdooPamContractModal from '../components/OdooPamContractModal';
 import { useCompany } from '../context/CompanyContext';
 import { TenantDatabaseService } from '../services/tenantDataService';
+import { safePrintAction } from '../guards/SystemIntegrityGuard';
 
 export const safePrintA4Document = (htmlContent: string) => {
-  // إنشاء عنصر iframe خفي
-  const iframe = document.createElement('iframe');
-  iframe.style.position = 'fixed';
-  iframe.style.right = '0';
-  iframe.style.bottom = '0';
-  iframe.style.width = '0';
-  iframe.style.height = '0';
-  iframe.style.border = '0';
-  document.body.appendChild(iframe);
+  try {
+    const printWindow = window.open('', '_blank');
+    if (printWindow && !printWindow.closed) {
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html dir="rtl" lang="ar">
+        <head>
+          <meta charset="utf-8">
+          <title>طباعة مستند رسمي</title>
+          <style>
+            body { font-family: 'Cairo', Tahoma, sans-serif; padding: 20px; color: #1e293b; direction: rtl; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          ${htmlContent}
+          <script>
+            window.onload = function() {
+              try { window.focus(); window.print(); } catch(e) {}
+            };
+          </script>
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
+      return;
+    }
+  } catch (e) {
+    console.warn('safePrintA4Document window.open error:', e);
+  }
 
-  const doc = iframe.contentWindow?.document;
-  if (!doc) return;
-
-  doc.open();
-  doc.write(htmlContent);
-  doc.close();
-
-  // تشغيل أمر الطباعة بمجرد تحميل المحتوى بالكامل ثم إزالة العنصر
-  iframe.contentWindow?.focus();
-  setTimeout(() => {
-    iframe.contentWindow?.print();
-    setTimeout(() => {
-      document.body.removeChild(iframe);
-    }, 1000);
-  }, 500);
+  safePrintAction('طباعة المستند');
 };
 
 export function EmployeesApp(props?: any) {
@@ -58,8 +67,9 @@ export function EmployeesApp(props?: any) {
   const [showAddEmployeeModal, setShowAddEmployeeModal] = useState(false);
   const [showEmployeeModal, setShowEmployeeModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
-  const [employeeActiveTab, setEmployeeActiveTab] = useState<'work' | 'private' | 'hr' | 'resume'>('work');
+  const [employeeActiveTab, setEmployeeActiveTab] = useState<'work' | 'contract_pam' | 'private' | 'hr' | 'resume'>('work');
   const [employeeSubModal, setEmployeeSubModal] = useState<'none' | 'contracts' | 'attendance' | 'leave' | 'assets' | 'payslips' | 'documents'>('none');
+  const [showPamContractModal, setShowPamContractModal] = useState(false);
 
   const handleDeleteEmployee = async (id: string, name: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -1183,15 +1193,20 @@ export function EmployeesApp(props?: any) {
             {/* Smart Buttons Header */}
             <div className="bg-white border-b border-slate-200 p-2 flex items-center justify-between gap-4 text-xs overflow-x-auto">
               <div className="flex items-center gap-1.5 min-w-max">
-                {/* Contracts Button */}
+                {/* Contracts & PAM Button */}
                 <button 
-                  onClick={() => setEmployeeSubModal('contracts')}
-                  className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 h-12 px-3 rounded shadow-sm transition flex items-center gap-3 whitespace-nowrap shrink-0 min-w-[120px]"
+                  onClick={() => setEmployeeActiveTab('contract_pam')}
+                  className={`border h-12 px-3 rounded shadow-sm transition flex items-center gap-3 whitespace-nowrap shrink-0 min-w-[130px] ${
+                    employeeActiveTab === 'contract_pam'
+                      ? 'bg-purple-50 border-purple-400 text-purple-900 ring-2 ring-purple-200'
+                      : 'bg-white border-slate-300 hover:bg-slate-50 text-slate-700'
+                  }`}
+                  title="عرض وإدارة عقد العمل ونموذج القوى العاملة والتجديد"
                 >
-                  <span className="text-xl text-purple-700">📝</span>
+                  <span className="text-xl text-purple-700">📜</span>
                   <div className="flex flex-col items-start leading-tight">
-                    <span className="font-bold text-slate-900 text-sm">1</span>
-                    <span className="text-[10px] text-slate-500 font-bold">العقود (Contracts)</span>
+                    <span className="font-bold text-slate-900 text-sm">عقد PAM</span>
+                    <span className="text-[10px] text-purple-700 font-bold">عقد العمل والتجديد</span>
                   </div>
                 </button>
 
@@ -1256,12 +1271,24 @@ export function EmployeesApp(props?: any) {
                 </button>
               </div>
 
-              <button
-                onClick={() => handleTriggerPrint(`ملف الموظف الشامل - ${selectedEmployee?.nameAr || ''}`, selectedEmployee)}
-                className="bg-purple-900 hover:bg-purple-950 text-white h-12 px-4 rounded shadow-sm font-bold transition flex items-center gap-2 whitespace-nowrap shrink-0"
-              >
-                <span className="text-lg">🖨️</span> طباعة
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPamContractModal(true)}
+                  className="bg-purple-50 hover:bg-purple-100 text-[#714B67] border border-[#714B67]/40 h-12 px-3.5 rounded shadow-sm font-bold transition flex items-center gap-1.5 whitespace-nowrap shrink-0"
+                  title="إصدار عقد العمل الحكومي الرسمي (نموذج 2 - القوى العاملة PAM)"
+                >
+                  <span className="text-base">🏛️</span>
+                  <span>عقد القوى العاملة (PAM 2)</span>
+                </button>
+
+                <button
+                  onClick={() => handleTriggerPrint(`ملف الموظف الشامل - ${selectedEmployee?.nameAr || ''}`, selectedEmployee)}
+                  className="bg-purple-900 hover:bg-purple-950 text-white h-12 px-4 rounded shadow-sm font-bold transition flex items-center gap-2 whitespace-nowrap shrink-0"
+                >
+                  <span className="text-lg">🖨️</span> طباعة الملف
+                </button>
+              </div>
             </div>
 
             {/* Notebook Sub-tabs */}
@@ -1276,6 +1303,15 @@ export function EmployeesApp(props?: any) {
                     }`}
                   >
                     💼 معلومات العمل (Work Information)
+                  </button>
+
+                  <button
+                    onClick={() => setEmployeeActiveTab('contract_pam')}
+                    className={`px-4 py-2 rounded-t-lg transition border-t border-x shrink-0 ${
+                      employeeActiveTab === 'contract_pam' ? 'bg-white text-purple-900 border-slate-200 font-black -mb-px shadow-sm' : 'bg-slate-100 border-transparent text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    📜 عقد العمل والقوى العاملة (PAM & Contracts)
                   </button>
 
                   <button
@@ -1384,6 +1420,252 @@ export function EmployeesApp(props?: any) {
                         />
                       </div>
                     </div>
+                  </div>
+                )}
+
+                {/* Tab 2: Contracts & PAM 2 Official Forms (تبويب عقد العمل والقوى العاملة وتجديد العقود) */}
+                {employeeActiveTab === 'contract_pam' && (
+                  <div className="p-6 space-y-6 text-xs animate-fade-in">
+                    
+                    {/* Header Action Banner */}
+                    <div className="bg-gradient-to-r from-[#714B67]/10 via-purple-50 to-indigo-50 border border-[#714B67]/20 p-4 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="p-3 bg-[#714B67] text-white rounded-xl shadow-sm">
+                          <FileText className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-black text-slate-900">عقد العمل الرسمي ونموذج الهيئة العامة للقوى العاملة (PAM 2)</h4>
+                          <p className="text-[11px] text-slate-600 font-medium">
+                            إدارة عقود العمل وتجديدها فورياً وطباعة نموذج (2) المعتمد للقطاع الأهلي الكويتي
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Quick Action Buttons */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        {/* Renew Contract 1 Year Button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const currentEnd = selectedEmployee.contractEndDate || selectedEmployee.endDate || new Date().toISOString().slice(0, 10);
+                            const nextEnd = new Date(currentEnd);
+                            nextEnd.setFullYear(nextEnd.getFullYear() + 1);
+                            const newEndDateStr = nextEnd.toISOString().slice(0, 10);
+                            
+                            const updated = {
+                              ...selectedEmployee,
+                              contractStatus: 'ساري',
+                              contractEndDate: newEndDateStr,
+                              endDate: newEndDateStr,
+                              contractStartDate: selectedEmployee.contractStartDate || selectedEmployee.startDate || new Date().toISOString().slice(0, 10),
+                              contractRef: selectedEmployee.contractRef || `KW-CNT-${selectedEmployee.id || '01'}-${new Date().getFullYear()}`
+                            };
+                            setSelectedEmployee(updated);
+                            alert(`تم تجديد عقد الموظف بنجاح حتى تاريخ: ${newEndDateStr}`);
+                          }}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2.5 rounded-xl font-bold flex items-center gap-1.5 shadow-sm transition"
+                        >
+                          <RefreshCw size={14} />
+                          <span>تجديد العقد (+سنة)</span>
+                        </button>
+
+                        {/* Open PAM 2 Form */}
+                        <button
+                          type="button"
+                          onClick={() => setShowPamContractModal(true)}
+                          className="bg-[#714B67] hover:bg-[#593951] text-white px-4 py-2.5 rounded-xl font-bold flex items-center gap-1.5 shadow-md transition"
+                        >
+                          <ExternalLink size={14} />
+                          <span>فتح وتوليد نموذج PAM 2 PDF</span>
+                        </button>
+
+                        {/* Print Contract */}
+                        <button
+                          type="button"
+                          onClick={() => handleTriggerPrint(`عقد عمل كويتي رسمي - ${selectedEmployee?.nameAr || selectedEmployee?.name || ''}`, selectedEmployee)}
+                          className="bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2.5 rounded-xl font-bold flex items-center gap-1.5 shadow-sm transition"
+                        >
+                          <Printer size={14} />
+                          <span>طباعة عقد العمل A4</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Contract Details Form */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      
+                      {/* Contract Reference */}
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">مرجع العقد (Contract Reference)</label>
+                        <input 
+                          type="text" 
+                          value={selectedEmployee.contractRef || `KW-CNT-${selectedEmployee.id || '01'}-2026`} 
+                          onChange={(e) => setSelectedEmployee({...selectedEmployee, contractRef: e.target.value})}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                          placeholder="KW-CNT-001-2026"
+                        />
+                      </div>
+
+                      {/* Contract Status */}
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">حالة العقد (Contract Status)</label>
+                        <select
+                          value={selectedEmployee.contractStatus || 'ساري'}
+                          onChange={(e) => setSelectedEmployee({...selectedEmployee, contractStatus: e.target.value})}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        >
+                          <option value="ساري">ساري (Running / Active)</option>
+                          <option value="قيد التجديد">قيد التجديد (To Renew)</option>
+                          <option value="فترة تجربة">فترة تجربة (Probation)</option>
+                          <option value="منتهي">منتهي (Expired)</option>
+                          <option value="ملغي">ملغي (Cancelled)</option>
+                        </select>
+                      </div>
+
+                      {/* Contract Type */}
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">نوع العقد (Contract Type)</label>
+                        <select
+                          value={selectedEmployee.contractType || 'محدد المدة'}
+                          onChange={(e) => setSelectedEmployee({...selectedEmployee, contractType: e.target.value})}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        >
+                          <option value="محدد المدة">محدد المدة (Fixed-Term)</option>
+                          <option value="غير محدد المدة">غير محدد المدة (Indefinite)</option>
+                          <option value="عقد تدريب / تأهيل">عقد تدريب / تأهيل (Internship)</option>
+                        </select>
+                      </div>
+
+                      {/* Start Date */}
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">تاريخ بداية العقد (Start Date)</label>
+                        <input 
+                          type="date" 
+                          value={selectedEmployee.contractStartDate || selectedEmployee.startDate || selectedEmployee.hireDate || ''} 
+                          onChange={(e) => setSelectedEmployee({
+                            ...selectedEmployee, 
+                            contractStartDate: e.target.value,
+                            startDate: e.target.value
+                          })}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        />
+                      </div>
+
+                      {/* End Date */}
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">تاريخ نهاية العقد (End Date)</label>
+                        <input 
+                          type="date" 
+                          value={selectedEmployee.contractEndDate || selectedEmployee.endDate || ''} 
+                          onChange={(e) => setSelectedEmployee({
+                            ...selectedEmployee, 
+                            contractEndDate: e.target.value,
+                            endDate: e.target.value
+                          })}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        />
+                      </div>
+
+                      {/* Probation Period */}
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">فترة التجربة (Probation Days)</label>
+                        <input 
+                          type="number" 
+                          value={selectedEmployee.probationDays || '100'} 
+                          onChange={(e) => setSelectedEmployee({...selectedEmployee, probationDays: e.target.value})}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                          placeholder="100 يوماً (المادة 24)"
+                        />
+                      </div>
+
+                    </div>
+
+                    {/* Salary and Allowances Package */}
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                      <div className="flex items-center justify-between border-b pb-2">
+                        <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                          <DollarSign size={15} className="text-emerald-600" />
+                          <span>حزمة الأجور والبدلات الشهرية (د.ك)</span>
+                        </span>
+                        <div className="text-emerald-800 font-black text-sm font-mono">
+                          الإجمالي: {(
+                            (parseFloat(selectedEmployee.basicSalary || selectedEmployee.salary || 0)) +
+                            (parseFloat(selectedEmployee.housingAllowance || 0)) +
+                            (parseFloat(selectedEmployee.transportAllowance || 0)) +
+                            (parseFloat(selectedEmployee.medicalAllowance || 0))
+                          ).toFixed(3)} د.ك
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div>
+                          <label className="block text-slate-500 font-semibold mb-1">الراتب الأساسي</label>
+                          <input 
+                            type="number" 
+                            step="0.001"
+                            value={selectedEmployee.basicSalary ?? selectedEmployee.salary ?? '0.000'} 
+                            onChange={(e) => setSelectedEmployee({...selectedEmployee, basicSalary: parseFloat(e.target.value) || 0})}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 bg-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-slate-500 font-semibold mb-1">بدل السكن</label>
+                          <input 
+                            type="number" 
+                            step="0.001"
+                            value={selectedEmployee.housingAllowance ?? '0.000'} 
+                            onChange={(e) => setSelectedEmployee({...selectedEmployee, housingAllowance: parseFloat(e.target.value) || 0})}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 bg-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-slate-500 font-semibold mb-1">بدل الانتقال</label>
+                          <input 
+                            type="number" 
+                            step="0.001"
+                            value={selectedEmployee.transportAllowance ?? '0.000'} 
+                            onChange={(e) => setSelectedEmployee({...selectedEmployee, transportAllowance: parseFloat(e.target.value) || 0})}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 bg-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-slate-500 font-semibold mb-1">بدل طبي / أخرى</label>
+                          <input 
+                            type="number" 
+                            step="0.001"
+                            value={selectedEmployee.medicalAllowance ?? '0.000'} 
+                            onChange={(e) => setSelectedEmployee({...selectedEmployee, medicalAllowance: parseFloat(e.target.value) || 0})}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 bg-white"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* PAM Form 2 Preview Box */}
+                    <div className="bg-white border-2 border-dashed border-[#714B67]/30 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 font-black text-slate-900">
+                          <span className="bg-[#714B67] text-white text-[10px] px-2 py-0.5 rounded font-mono">PAM-FORM-2</span>
+                          <span>نموذج عقد العمل الأهلي الموحد (الهيئة العامة للقوى العاملة)</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500">
+                          مطابق لاشتراطات مكاتب العمل وتصاريح وإقامات الشؤون (مادة 18) مع كامل التواقيع والبيانات الرسمية.
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setShowPamContractModal(true)}
+                        className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-sm shrink-0 cursor-pointer transition"
+                      >
+                        <ExternalLink size={15} />
+                        <span>فتح نموذج (2) وتنزيل PDF</span>
+                      </button>
+                    </div>
+
                   </div>
                 )}
 
@@ -2186,15 +2468,37 @@ export function EmployeesApp(props?: any) {
               </button>
               <button
                 onClick={() => {
-                  window.print();
+                  safePrintAction(printTitle || 'مستند رسمي');
                 }}
-                className="bg-purple-900 hover:bg-purple-950 text-white px-5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-md"
+                className="bg-purple-900 hover:bg-purple-950 text-white px-5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-md cursor-pointer"
               >
                 <span>🖨️</span> طباعة المستند الآن (Print)
               </button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* PAM Contract Modal Mount */}
+      {showPamContractModal && selectedEmployee && (
+        <OdooPamContractModal
+          isOpen={showPamContractModal}
+          onClose={() => setShowPamContractModal(false)}
+          employee={{
+            ...selectedEmployee,
+            name: selectedEmployee.nameAr || selectedEmployee.name,
+            civilId: selectedEmployee.civilId || selectedEmployee.civil_id_number,
+            jobTitle: selectedEmployee.jobTitle,
+            dept: selectedEmployee.dept || selectedEmployee.department,
+            basicSalary: selectedEmployee.basicSalary || selectedEmployee.salary,
+            housingAllowance: selectedEmployee.housingAllowance,
+            transportAllowance: selectedEmployee.transportAllowance,
+            medicalAllowance: selectedEmployee.medicalAllowance,
+            startDate: selectedEmployee.contractStartDate || selectedEmployee.startDate || selectedEmployee.hireDate,
+            endDate: selectedEmployee.contractEndDate || selectedEmployee.endDate
+          }}
+          company={activeCompany}
+        />
       )}
 
     </div>

@@ -53,6 +53,7 @@ import { OdooChatter } from './OdooChatter';
 import { toast } from 'react-hot-toast';
 import { processAnyDocument, ScannedData } from '../utils/ocrService';
 import { validateKuwaitCivilId, parseKuwaitCivilId } from '../utils/kuwaitLaw';
+import OdooPamContractModal from './OdooPamContractModal';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { exportToExcel } from '../utils/exportUtils';
 import { getPersistentData, setPersistentData, MANARA_STORAGE_KEYS } from '../utils/persistentStorage';
@@ -222,6 +223,7 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeProfile | null>(null);
   const [activeFormTab, setActiveFormTab] = useState<'work' | 'private' | 'payroll' | 'residency' | 'medical'>('work');
   const [isCreating, setIsCreating] = useState(false);
+  const [showPamContractModal, setShowPamContractModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDept, setSelectedDept] = useState<string>('الكل');
   
@@ -735,15 +737,16 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
 
       } else if (scanningDocType === 'passport') {
         const passNum = (scanned.passportNo || '').trim();
-        const resExpiry = scanned.expiryDate || updatedEmp.residencyExpiry || '';
+        const passExp = scanned.passportExpiryDate || scanned.expiryDate || updatedEmp.passportExpiry || '';
+        const incomingNameEn = scanned.fullNameEn || (scanned as any).nameEn || '';
 
+        // يحدّث فقط: رقم الجواز، تاريخ انتهاء الجواز، والاسم بالإنجليزي (إن كان فارغاً)
+        // لا يلمس الرقم المدني أو الاسم باللغة العربية أو الجنسية
         updatedEmp = {
           ...updatedEmp,
           passportNo: passNum || updatedEmp.passportNo,
-          passportExpiry: scanned.expiryDate || updatedEmp.passportExpiry,
-          residencyReferenceNo: scanned.unifiedNo || updatedEmp.residencyReferenceNo,
-          residencyExpiry: resExpiry || updatedEmp.residencyExpiry,
-          nationality: scanned.nationality || updatedEmp.nationality
+          passportExpiry: passExp || updatedEmp.passportExpiry,
+          nameEn: updatedEmp.nameEn ? updatedEmp.nameEn : (incomingNameEn || updatedEmp.nameEn)
         };
 
         newDoc = {
@@ -751,24 +754,27 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
           type: 'passport',
           title: 'جواز السفر ومرجع الإقامة',
           docNumber: passNum || updatedEmp.passportNo,
-          expiryDate: resExpiry || '2027-11-30',
+          expiryDate: passExp || '2027-11-30',
           status: 'valid',
           scannedAt: new Date().toISOString().split('T')[0]
         };
 
         setActiveFormTab('residency');
-        toast.success('تم مسح جواز السفر والإقامة واستخراج البيانات بنجاح');
+        toast.success('تم تحديث بيانات جواز السفر دون المساس بالبيانات الشخصية');
 
       } else if (scanningDocType === 'moh_license') {
-        const mohLic = (scanned.mohLicenseNo || scanned.civilId || '').trim();
-        const mohExp = scanned.expiryDate || '2027-12-31';
+        const mohLic = (scanned.mohLicenseNo || (scanned as any).license_no || scanned.civilId || '').trim();
+        const mohExp = scanned.expiryDate || (scanned as any).license_expiry || '2027-12-31';
+        const licTitle = (scanned as any).license_title || scanned.profession || updatedEmp.specialty || 'ممارس صحي مرخص';
 
+        // يحدّث فقط: رقم الترخيص، تاريخ انتهاء الترخيص، والمسمى الفني للترخيص
+        // لا يلمس أياً من البيانات الشخصية الأساسية للموظف
         updatedEmp = {
           ...updatedEmp,
           mohLicenseNo: mohLic || updatedEmp.mohLicenseNo,
           mohLicenseExpiry: mohExp,
-          medicalDegree: scanned.profession || updatedEmp.medicalDegree || 'طبيب أخصائي (Specialist)',
-          specialty: scanned.profession || updatedEmp.specialty || 'طب عام وجراحة'
+          medicalDegree: licTitle,
+          specialty: licTitle
         };
 
         newDoc = {
@@ -782,7 +788,7 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
         };
 
         setActiveFormTab('medical');
-        toast.success('تم مسح ترخيص وزارة الصحة (MOH) وتعبئة بيانات الترخيص بنجاح');
+        toast.success('تم تحديث ترخيص مزاولة المهنة (MOH) دون المساس بالبيانات الشخصية');
 
       } else if (scanningDocType === 'pam_permit') {
         const pamNo = (scanned.civilId || scanned.unifiedNo || '').trim();
@@ -893,6 +899,16 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
               >
                 <Printer size={14} />
                 <span className="hidden sm:inline">طباعة</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowPamContractModal(true)}
+                className="bg-purple-50 hover:bg-purple-100 text-[#714B67] border border-[#714B67]/30 px-2.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-xs"
+                title="إصدار عقد العمل الحكومي الرسمي (نموذج 2 - القوى العاملة PAM)"
+              >
+                <FileText size={14} className="text-[#714B67]" />
+                <span className="hidden sm:inline">عقد القوى العاملة (PAM 2)</span>
               </button>
 
               {!isCreating && (
@@ -1653,6 +1669,27 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
             {/* TAB 4: Residency & PAM */}
             {activeFormTab === 'residency' && (
               <div className="space-y-4 text-xs">
+                <div className="p-4 bg-gradient-to-l from-purple-50 to-white rounded-2xl border border-purple-200 text-purple-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <FileText size={18} className="text-[#714B67]" />
+                      <span className="font-bold text-sm text-[#714B67]">عقد العمل الرسمي - نموذج (2) الهيئة العامة للقوى العاملة</span>
+                      <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-300">PDF Overlay طبق الأصل 100%</span>
+                    </div>
+                    <p className="text-slate-600 text-xs">
+                      توليد وطباعة عقد العمل طبق الأصل للنموذج الرسمي الكويتي المعتمد، مع تعبئة المتغيرات باللغتين العربية والإنجليزية آلياً.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowPamContractModal(true)}
+                    className="bg-[#714B67] hover:bg-[#593951] text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 shadow-md cursor-pointer"
+                  >
+                    <FileText size={15} />
+                    فتح وتوليد نموذج (PAM Form 2)
+                  </button>
+                </div>
+
                 <h4 className="font-bold text-slate-900 border-b pb-2 flex items-center gap-2">
                   <FolderKanban size={14} className="text-amber-600" />
                   <span>الهيئة العامة للقوى العاملة والجوازات (PAM & Residency)</span>
@@ -2261,6 +2298,16 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
           jobTitle: emp.jobTitle
         }))}
       />
+
+      {/* PAM Contract Form 2 Modal */}
+      {showPamContractModal && selectedEmployee && (
+        <OdooPamContractModal
+          isOpen={showPamContractModal}
+          onClose={() => setShowPamContractModal(false)}
+          employee={selectedEmployee}
+          company={activeCompany}
+        />
+      )}
 
     </div>
   );

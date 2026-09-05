@@ -1,3 +1,5 @@
+import { safePrintAction } from '../guards/SystemIntegrityGuard';
+
 export const printDocumentA4 = (title: string, contentHtml: string) => {
   const container = document.createElement('div');
   container.className = 'print-area';
@@ -8,8 +10,10 @@ export const printDocumentA4 = (title: string, contentHtml: string) => {
     </div>
   `;
   document.body.appendChild(container);
-  window.print();
+  safePrintAction(title);
   setTimeout(() => {
-    container.remove();
+    if (document.body.contains(container)) {
+      container.remove();
+    }
   }, 1000);
 };

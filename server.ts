@@ -2115,6 +2115,134 @@ app.put("/api/settings", express.json(), (req, res) => {
   }
 });
 
+// Endpoint: توليد عقد العمل الحكومي (نموذج 2 - الهيئة العامة للقوى العاملة) سحابياً
+app.post("/api/generate-pam-contract", express.json(), async (req, res) => {
+  try {
+    const data = req.body;
+    const fs = await import("fs");
+    const { PDFDocument, rgb } = await import("pdf-lib");
+    const fontkit = (await import("@pdf-lib/fontkit")).default;
+    const reshaperModule = await import("arabic-persian-reshaper");
+    const reshaper = (reshaperModule as any).default || reshaperModule;
+
+    const templatePath = path.join(process.cwd(), "public", "pam_contract_form_2.pdf");
+    const fontPath = path.join(process.cwd(), "public", "fonts", "Amiri-Bold.ttf");
+
+    if (!fs.existsSync(templatePath)) {
+      return res.status(404).json({ error: "ملف نموذج عقد العمل pam_contract_form_2.pdf غير موجود" });
+    }
+    if (!fs.existsSync(fontPath)) {
+      return res.status(404).json({ error: "ملف الخط العربي غير موجود" });
+    }
+
+    const templateBytes = fs.readFileSync(templatePath);
+    const fontBytes = fs.readFileSync(fontPath);
+
+    const pdfDoc = await PDFDocument.load(templateBytes);
+    pdfDoc.registerFontkit(fontkit);
+    const customFont = await pdfDoc.embedFont(fontBytes);
+
+    function shapeAr(text: string): string {
+      if (!text) return "";
+      const hasArabic = /[\u0600-\u06FF]/.test(text);
+      if (!hasArabic) return text;
+      let shaperObj = (reshaper as any).ArabicShaper || reshaper;
+      let reshaped = text;
+      if (shaperObj && typeof shaperObj.convertArabic === "function") {
+        reshaped = shaperObj.convertArabic(text);
+      }
+      const segments = reshaped.split(/(\d+)/);
+      const reversed = segments.map((s: string) => {
+        if (/^\d+$/.test(s)) return s;
+        return s.split("").reverse().join("");
+      });
+      return reversed.reverse().join("");
+    }
+
+    const pages = pdfDoc.getPages();
+    const page1 = pages[0];
+    const page2 = pages[1] || pages[0];
+    const blue = rgb(0.04, 0.15, 0.52);
+
+    const draw = (p: any, txt: any, x: number, y: number, sz = 8.5, right = true) => {
+      if (!txt) return;
+      const s = String(txt).trim();
+      if (!s) return;
+      const shaped = /[\u0600-\u06FF]/.test(s) ? shapeAr(s) : s;
+      const w = customFont.widthOfTextAtSize(shaped, sz);
+      p.drawText(shaped, {
+        x: right ? x - w : x,
+        y,
+        size: sz,
+        font: customFont,
+        color: blue,
+      });
+    };
+
+    // Page 1
+    draw(page1, data.companyLaborDept, 400, 695, 8.5, true);
+    draw(page1, data.companyLaborDeptEn || data.companyLaborDept, 155, 695, 8, false);
+
+    draw(page1, data.contractDay, 490, 682, 8.5, true);
+    draw(page1, data.contractDate, 435, 682, 8.5, true);
+    draw(page1, data.contractDayEn || data.contractDay, 65, 682, 8, false);
+    draw(page1, data.contractDate, 160, 682, 8, false);
+
+    draw(page1, data.companyName, 460, 667, 8.5, true);
+    draw(page1, data.companyRepName, 475, 654, 8.5, true);
+    draw(page1, data.companyRepCivilId, 475, 641, 8.5, true);
+    draw(page1, data.companyNameEn || data.companyName, 140, 657, 8, false);
+    draw(page1, data.companyRepNameEn || data.companyRepName, 95, 634, 8, false);
+    draw(page1, data.companyRepCivilId, 105, 622, 8, false);
+
+    draw(page1, data.employeeNameAr, 495, 613, 8.5, true);
+    draw(page1, data.employeeNationality, 485, 600, 8.5, true);
+    draw(page1, data.employeeCivilId, 485, 587, 8.5, true);
+    draw(page1, data.employeeResidence, 485, 574, 8.5, true);
+    draw(page1, data.employeeNameEn, 95, 596, 8, false);
+    draw(page1, data.employeeNationalityEn || data.employeeNationality, 110, 584, 8, false);
+    draw(page1, data.employeeCivilId, 105, 572, 8, false);
+    draw(page1, data.employeeResidenceEn || data.employeeResidence, 105, 560, 8, false);
+
+    draw(page1, data.companyName, 440, 534, 8, true);
+    draw(page1, data.companyField, 370, 534, 8, true);
+    draw(page1, data.jobTitleAr, 420, 522, 8, true);
+    draw(page1, data.companyNameEn || data.companyName, 145, 534, 7.5, false);
+    draw(page1, data.companyFieldEn || data.companyField, 85, 523, 7.5, false);
+    draw(page1, data.jobTitleEn || data.jobTitleAr, 115, 512, 7.5, false);
+
+    draw(page1, data.jobTitleAr, 430, 460, 8, true);
+    draw(page1, data.jobTitleEn || data.jobTitleAr, 115, 449, 7.5, false);
+
+    draw(page1, data.basicSalary, 440, 375, 8.5, true);
+    draw(page1, data.salaryPeriod, 480, 364, 8, true);
+    draw(page1, data.basicSalary, 100, 365, 8, false);
+    draw(page1, data.salaryPeriodEn || data.salaryPeriod, 65, 355, 8, false);
+
+    draw(page1, data.effectiveDate, 470, 308, 8, true);
+    draw(page1, data.effectiveDate, 140, 308, 7.5, false);
+
+    draw(page1, data.effectiveDate, 475, 254, 8, true);
+    draw(page1, data.durationYears, 395, 254, 8.5, true);
+    draw(page1, data.effectiveDate, 65, 254, 7.5, false);
+    draw(page1, data.durationYears, 160, 254, 8, false);
+
+    // Page 2
+    draw(page2, data.leaveDay, 440, 706, 8.5, true);
+    draw(page2, data.leaveDay, 85, 706, 8, false);
+    draw(page2, "الإنجليزية", 450, 218, 8, true);
+    draw(page2, "English", 125, 218, 7.5, false);
+
+    const pdfBytes = await pdfDoc.save();
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="PAM_Contract_Form2_${encodeURIComponent(data.employeeNameAr || 'Doc')}.pdf"`);
+    res.send(Buffer.from(pdfBytes));
+  } catch (err: any) {
+    console.error("Error generating PAM contract PDF:", err);
+    res.status(500).json({ error: "فشل توليد عقد العمل الحكومي", details: err.message });
+  }
+});
+
 // 3. Send 2FA OTP
 app.post("/api/auth/send-2fa-otp", express.json(), async (req, res) => {
   try {
@@ -2213,6 +2341,9 @@ INSERT INTO system_settings (
 });
 
 async function startServer() {
+  const publicPath = path.join(process.cwd(), "public");
+  app.use(express.static(publicPath));
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },

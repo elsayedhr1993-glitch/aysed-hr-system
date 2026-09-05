@@ -24,9 +24,13 @@ export interface ExtractedCivilData {
   nationality: string;
   gender?: string;
   passportNo?: string;
+  passportExpiry?: string;
   profession?: string;
   rawTextPreview?: string;
   mohLicenseNo?: string;
+  mohLicenseExpiry?: string;
+  medical_license_no?: string;
+  medical_license_expiry?: string;
   pamPermitNo?: string;
   residencyType?: string;
 }
@@ -34,7 +38,7 @@ export interface ExtractedCivilData {
 interface ScannerProps {
   isOpen: boolean;
   onClose: () => void;
-  onScanComplete: (data: ExtractedCivilData) => void;
+  onScanComplete: (data: ExtractedCivilData, docType?: string) => void;
 }
 
 export const OdooDocScannerModal: React.FC<ScannerProps> = ({ isOpen, onClose, onScanComplete }) => {
@@ -44,7 +48,7 @@ export const OdooDocScannerModal: React.FC<ScannerProps> = ({ isOpen, onClose, o
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [extractedData, setExtractedData] = useState<ExtractedCivilData | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [docType, setDocType] = useState<'civil_id' | 'passport' | 'moh_license' | 'pam_permit'>('civil_id');
+  const [docType, setDocType] = useState<'civil_id' | 'passport' | 'medical_license' | 'pam_permit'>('civil_id');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
@@ -127,7 +131,7 @@ export const OdooDocScannerModal: React.FC<ScannerProps> = ({ isOpen, onClose, o
       }
     }
 
-    onScanComplete(extractedData);
+    onScanComplete(extractedData, docType);
     onClose();
   };
 
@@ -185,9 +189,9 @@ export const OdooDocScannerModal: React.FC<ScannerProps> = ({ isOpen, onClose, o
             </button>
             <button
               type="button"
-              onClick={() => setDocType('moh_license')}
+              onClick={() => setDocType('medical_license')}
               className={`flex-1 py-1.5 px-3 rounded-lg font-bold transition cursor-pointer text-center ${
-                docType === 'moh_license' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                docType === 'medical_license' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               ترخيص صحي (MOH)

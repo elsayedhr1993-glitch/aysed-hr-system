@@ -4,7 +4,10 @@ import { OdooChatter, ChatterMessage } from './OdooChatter';
 import { getExpiryStatus } from '../utils/expiryUtils';
 import { getDepartmentColorStyle } from '../utils/odooPalette';
 import { OdooDocumentScanner, ExtractedData } from './OdooDocumentScanner';
+import { handleOcrResult } from '../utils/ocrService';
 import { OdooDocumentManager, DocumentFolder, DocumentAttachment } from './OdooDocumentManager';
+import OdooPamContractModal from './OdooPamContractModal';
+import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { 
   Users, 
   UserPlus, 
@@ -88,6 +91,7 @@ export const OdooEmployeesFull: React.FC<OdooEmployeesFullProps> = ({ activeComp
   const [activeTab, setActiveTab] = useState<'work' | 'private' | 'medical_docs' | 'payroll' | 'contract'>('work');
   const [isEditing, setIsEditing] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+  const [showPamContractModal, setShowPamContractModal] = useState(false);
 
   // حساب أيام انتهاء الإقامة
   const checkExpiryStatus = (expiryDate: string) => {
@@ -290,12 +294,22 @@ export const OdooEmployeesFull: React.FC<OdooEmployeesFullProps> = ({ activeComp
 
               <button
                 type="button"
-                onClick={() => window.print()}
+                onClick={() => safePrintAction('ملف الموظف')}
                 className="bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
                 title="طباعة ملف الموظف"
               >
                 <Printer size={14} />
                 <span className="hidden sm:inline">طباعة</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowPamContractModal(true)}
+                className="bg-purple-50 hover:bg-purple-100 text-[#714B67] border border-[#714B67]/30 px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                title="إصدار عقد العمل الرسمي (نموذج 2 - القوى العاملة PAM)"
+              >
+                <FileText size={14} className="text-[#714B67]" />
+                <span className="hidden sm:inline">عقد القوى العاملة (PAM 2)</span>
               </button>
             </div>
           )}
@@ -628,18 +642,8 @@ export const OdooEmployeesFull: React.FC<OdooEmployeesFullProps> = ({ activeComp
 
                 {showScanner && (
                   <OdooDocumentScanner
-                    onApplyData={(data) => {
-                      setSelectedEmployee(prev => {
-                        if (!prev) return prev;
-                        return {
-                          ...prev,
-                          civilId: data.civilId,
-                          name: data.fullNameAr,
-                          nameEn: data.fullNameEn,
-                          nationality: data.nationality,
-                          residencyExpiry: data.expiryDate
-                        };
-                      });
+                    onApplyData={(data, docType) => {
+                      handleOcrResult(data, docType, setSelectedEmployee);
                       setShowScanner(false);
                     }}
                   />
@@ -954,6 +958,27 @@ export const OdooEmployeesFull: React.FC<OdooEmployeesFullProps> = ({ activeComp
                   <p className="font-bold mb-1">احتساب مكافأة نهاية الخدمة التلقائي (قانون 6/2010):</p>
                   <p>يتم احتساب 15 يوماً عن كل سنة من السنوات الخمس الأولى، وشهر كامل عن كل سنة تالية، وفق آخر أجر شامل تلقائياً عند تسوية الاستقالة أو إنهاء الخدمة.</p>
                 </div>
+
+                <div className="p-4 bg-gradient-to-l from-purple-50 to-white rounded-xl border border-purple-200 text-purple-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <FileText size={18} className="text-[#714B67]" />
+                      <span className="font-bold text-sm text-[#714B67]">عقد العمل الرسمي - نموذج (2) الهيئة العامة للقوى العاملة</span>
+                      <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-300">معتمد PDF Overlay</span>
+                    </div>
+                    <p className="text-slate-600 text-xs">
+                      توليد وطباعة عقد العمل طبق الأصل 100% للنموذج الحكومي الكويتي المعتمد، مع تعبئة المتغيرات باللغتين العربية والإنجليزية فوق الخطوط المنقطة.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowPamContractModal(true)}
+                    className="bg-[#714B67] hover:bg-[#593951] text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 shadow-md cursor-pointer"
+                  >
+                    <FileText size={15} />
+                    فتح وتوليد نموذج (PAM Form 2)
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -1212,6 +1237,16 @@ export const OdooEmployeesFull: React.FC<OdooEmployeesFullProps> = ({ activeComp
             </table>
           </div>
         )
+      )}
+
+      {/* PAM Contract Form 2 Modal */}
+      {showPamContractModal && selectedEmployee && (
+        <OdooPamContractModal
+          isOpen={showPamContractModal}
+          onClose={() => setShowPamContractModal(false)}
+          employee={selectedEmployee}
+          company={activeCompany}
+        />
       )}
     </div>
   );

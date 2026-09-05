@@ -5,6 +5,7 @@ import {
   printKuwaitContractReport 
 } from '../services/contractService';
 import { useCompany } from '../context/CompanyContext';
+import OdooPamContractModal from './OdooPamContractModal';
 
 interface ContractModalProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ export default function OdooContractFormModal({ isOpen, onClose, onSave, employe
 
   // مسار حالة العقد (Odoo Status Pipeline)
   const [contractState, setContractState] = useState<'draft' | 'running' | 'expired' | 'cancelled'>('draft');
+  const [showPamModal, setShowPamModal] = useState(false);
 
   // البيانات العامة
   const [contractRef, setContractRef] = useState(`CONT-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`);
@@ -418,9 +420,17 @@ export default function OdooContractFormModal({ isOpen, onClose, onSave, employe
                   });
                 }
               }}
-              className="px-3.5 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 font-bold transition flex items-center gap-1.5"
+              className="px-3.5 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 font-bold transition flex items-center gap-1.5 cursor-pointer"
             >
-              <span>🖨️</span> معاينة وطباعة العقد الرسمي
+              <span>🖨️</span> تقرير العقد
+            </button>
+
+            <button 
+              type="button"
+              onClick={() => setShowPamModal(true)}
+              className="px-3.5 py-2 rounded-lg bg-purple-50 border border-purple-200 text-[#714B67] hover:bg-purple-100 font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+            >
+              <span>📄</span> نموذج (2) القوى العاملة (PAM PDF)
             </button>
 
             <div className="flex items-center gap-2">
@@ -442,6 +452,24 @@ export default function OdooContractFormModal({ isOpen, onClose, onSave, employe
 
         </form>
       </div>
+
+      {showPamModal && currentEmp && (
+        <OdooPamContractModal
+          isOpen={showPamModal}
+          onClose={() => setShowPamModal(false)}
+          employee={{
+            id: currentEmp.id,
+            name: currentEmp.nameAr,
+            nameEn: currentEmp.nameEn,
+            civilId: currentEmp.civilId,
+            jobTitle: currentEmp.jobTitle,
+            department: currentEmp.dept,
+            salary: basicWage,
+            hireDate: startDate
+          }}
+          company={activeCompany}
+        />
+      )}
     </div>
   );
 }
