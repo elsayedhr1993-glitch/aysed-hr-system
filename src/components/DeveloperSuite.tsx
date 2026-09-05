@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
 import { 
   Bug, Copy, Check, Trash2, RefreshCw, Database, 
-  Terminal, Activity, ShieldAlert, Cpu, HardDrive, CheckCircle2 
-, Wrench } from 'lucide-react';
+  Terminal, Activity, ShieldAlert, Cpu, HardDrive, CheckCircle2,
+  Wrench, AlertTriangle
+} from 'lucide-react';
+import { TenantDatabaseService } from '../services/tenantDataService';
 
 interface DeveloperSuiteProps {
   onDisableDevMode: () => void;
 }
 
 export const DeveloperSuite: React.FC<DeveloperSuiteProps> = ({ onDisableDevMode }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'database' | 'logs' | 'cache'>('cache');
+  const [activeTab, setActiveTab] = useState<'overview' | 'database' | 'logs' | 'cache'>('database');
   const [copied, setCopied] = useState(false);
   const [cacheCleared, setCacheCleared] = useState(false);
+  const [isWiping, setIsWiping] = useState(false);
+  const [wipeSuccess, setWipeSuccess] = useState(false);
 
   const handleCopyReport = () => {
     const report = {
@@ -27,28 +31,55 @@ export const DeveloperSuite: React.FC<DeveloperSuiteProps> = ({ onDisableDevMode
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleFullDatabaseWipe = async () => {
+    setIsWiping(true);
+    try {
+      await TenantDatabaseService.wipeEntireSystem();
+      setWipeSuccess(true);
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+    } catch (e) {
+      console.error('Wipe error:', e);
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+    } finally {
+      setIsWiping(false);
+    }
+  };
+
   const handleClearCache = () => {
     setCacheCleared(true);
     setTimeout(() => {
       // 1. حفظ بيانات الجلسة الحالية
-      const authSession = localStorage.getItem('aysed_hr_auth');
-      const currentUser = localStorage.getItem('current_user');
+      const authSession = localStorage.getItem('aysed_hr_auth') || localStorage.getItem('aysed_token');
+      const currentUser = localStorage.getItem('current_user') || localStorage.getItem('aysed_user');
       
       // اضافة حفظ للشركات حتى لا تعود البيانات الوهمية
       const registeredCompanies = localStorage.getItem('aysed_registered_companies_live');
       const activeCompanyId = localStorage.getItem('activeCompanyId');
-      const devMode = localStorage.getItem('aysed_dev_mode'); // عشان ما يقفل وضع المطور بعد الـ reload
+      const devMode = localStorage.getItem('aysed_dev_mode') || localStorage.getItem('aysed_debug');
 
       // 2. تفريغ الكاش والبيانات المؤقتة القديمة
       localStorage.clear();
       sessionStorage.clear();
 
       // 3. إعادة استرجاع الجلسة
-      if (authSession) localStorage.setItem('aysed_hr_auth', authSession);
-      if (currentUser) localStorage.setItem('current_user', currentUser);
+      if (authSession) {
+        localStorage.setItem('aysed_hr_auth', authSession);
+        localStorage.setItem('aysed_token', authSession);
+      }
+      if (currentUser) {
+        localStorage.setItem('current_user', currentUser);
+        localStorage.setItem('aysed_user', currentUser);
+      }
       if (registeredCompanies) localStorage.setItem('aysed_registered_companies_live', registeredCompanies);
       if (activeCompanyId) localStorage.setItem('activeCompanyId', activeCompanyId);
-      if (devMode) localStorage.setItem('aysed_dev_mode', devMode);
+      if (devMode) {
+        localStorage.setItem('aysed_dev_mode', devMode);
+        localStorage.setItem('aysed_debug', devMode);
+      }
 
       // 4. إعادة تحميل الواجهة بسلاسة
       window.location.reload();
@@ -204,15 +235,43 @@ export const DeveloperSuite: React.FC<DeveloperSuiteProps> = ({ onDisableDevMode
 
         {/* تبويب قاعدة البيانات والتخزين */}
         {activeTab === 'database' && (
-          <div className="space-y-4 text-xs relative z-20 pointer-events-auto">
-            <h3 className="text-sm font-black text-slate-800">مفاتيح التخزين النشطة (Local Storage Keys)</h3>
-            <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden relative z-20 pointer-events-auto">
-              {Object.keys(localStorage).map((k) => (
-                <div key={k} className="p-3 flex justify-between items-center bg-slate-50/50 hover:bg-slate-50 relative z-20 pointer-events-auto">
-                  <span className="font-mono font-bold text-slate-700">{k}</span>
-                  <span className="text-slate-400 text-[11px] font-mono">{(localStorage.getItem(k) || '').length} bytes</span>
+          <div className="space-y-6 text-xs relative z-20 pointer-events-auto">
+            {/* بطاقة التصفير الشامل لقاعدة البيانات */}
+            <div className="bg-rose-50 border-2 border-rose-300 rounded-2xl p-5 shadow-sm space-y-4">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="p-2.5 bg-rose-600 text-white rounded-xl shadow-sm">
+                    <AlertTriangle size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-rose-900">تصفير شامل لقاعدة البيانات (Full Database Reset)</h3>
+                    <p className="text-xs text-rose-700 mt-1 leading-relaxed">
+                      حذف جميع الموظفين، العقود، طلبات وأرصدة الإجازات، حركات البصمة، مسيرات الرواتب وسندات الصرف، وتصفير عدادات لوحة القيادة إلى 0.000 د.ك لبدء إدخال بيانات فعلية على نظافة.
+                    </p>
+                  </div>
                 </div>
-              ))}
+
+                <button
+                  onClick={handleFullDatabaseWipe}
+                  disabled={isWiping}
+                  className="flex items-center justify-center gap-2 px-6 py-3 bg-rose-700 hover:bg-rose-800 active:scale-95 text-white font-black text-xs rounded-xl shadow-md transition whitespace-nowrap cursor-pointer disabled:opacity-50"
+                >
+                  {isWiping ? <RefreshCw size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                  <span>{isWiping ? 'جارِ تصفير النظام كاملاً...' : wipeSuccess ? 'تم التصفير بنجاح' : 'تصفير شامل ومسح البيانات الآن'}</span>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-black text-slate-800 mb-3">مفاتيح التخزين النشطة (Local Storage Keys)</h3>
+              <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden relative z-20 pointer-events-auto">
+                {Object.keys(localStorage).map((k) => (
+                  <div key={k} className="p-3 flex justify-between items-center bg-slate-50/50 hover:bg-slate-50 relative z-20 pointer-events-auto">
+                    <span className="font-mono font-bold text-slate-700">{k}</span>
+                    <span className="text-slate-400 text-[11px] font-mono">{(localStorage.getItem(k) || '').length} bytes</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}

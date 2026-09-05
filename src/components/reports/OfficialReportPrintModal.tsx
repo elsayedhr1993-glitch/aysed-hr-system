@@ -582,6 +582,33 @@ export const OfficialReportPrintModal: React.FC<OfficialReportPrintModalProps> =
           </div>
         </div>
 
+        {/* Bottom Sticky Actions Bar */}
+        <div className="bg-slate-100 border-t border-slate-200 p-3 sm:p-4 flex items-center justify-between gap-3 shrink-0 print:hidden">
+          <span className="text-xs text-slate-700 font-bold">المستند جاهز للطباعة والتصدير بجودة A4 الرسمية</span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExportExcel}
+              className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>تصدير Excel</span>
+            </button>
+            <button
+              onClick={handlePrint}
+              className="bg-[#714B67] hover:bg-[#5a3b52] text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+            >
+              <Printer className="w-4 h-4 text-amber-300" />
+              <span>طباعة المستند الرسمي (PDF)</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="bg-white hover:bg-slate-200 text-slate-800 border border-slate-300 text-xs font-bold px-4 py-2 rounded-xl transition cursor-pointer"
+            >
+              إغلاق
+            </button>
+          </div>
+        </div>
+
       </div>
     </div>
   );

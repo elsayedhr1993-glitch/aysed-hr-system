@@ -2,7 +2,6 @@ import express from "express";
 import path from "path";
 import crypto from "crypto";
 import zlib from "zlib";
-import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
@@ -17,18 +16,18 @@ import {
   sendDailyBackupFailureAlert,
   getSystemDefaultEmail,
   BackupMetadata
-} from "./src/services/emailService";
+} from "./src/services/emailService.ts";
 import { 
   validateLeaveSettlement,
   cleanDuplicatePunches,
   runNightlyAudit
-} from "./src/services/guards";
+} from "./src/services/guards.ts";
 import { 
   calculateServerFifoBalance, 
   calculateServerSettlement, 
   calculateServerWorkingDays,
   validateSettlementConstraints
-} from "./server/leaveCalculatorServer";
+} from "./server/leaveCalculatorServer.ts";
 
 dotenv.config();
 dotenv.config({ path: ".env.local", override: true });
@@ -346,7 +345,7 @@ app.post("/api/ai/test-key", async (req, res) => {
       });
     }
 
-    const modelsToTry = ["gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-3.6-flash", "gemini-1.5-flash"];
+    const modelsToTry = ["gemini-3.6-flash", "gemini-3.1-pro-preview"];
     let lastError: any = null;
     const startTime = Date.now();
 
@@ -655,9 +654,12 @@ function normalizeOcrDataServer(parsed: any) {
     residencyType,
     mohLicenseNo,
     mohLicenseExpiryDate,
+    pamStartDate: parsed.pamStartDate || '',
+    pamEndDate: parsed.pamEndDate || '',
+    basicSalary: parsed.basicSalary || '',
     bloodGroup: parsed.bloodGroup || '',
     address: parsed.address || { block: '', street: '', building: '', area: '' },
-    contractSalary: Number(parsed.contractSalary) || 0
+    contractSalary: Number(parsed.contractSalary) || Number(parsed.basicSalary) || 0
   };
 }
 
@@ -687,6 +689,9 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
 - issueDate: تاريخ الإصدار YYYY-MM-DD.
 - mohLicenseNo: رقم ترخيص وزارة الصحة إن وجد.
 - mohLicenseExpiryDate: تاريخ انتهاء ترخيص الصحة YYYY-MM-DD.
+- pamStartDate: تاريخ بداية إذن العمل أو العقد YYYY-MM-DD.
+- pamEndDate: تاريخ نهاية إذن العمل أو العقد YYYY-MM-DD.
+- basicSalary: الراتب الأساسي (أرقام فقط د.ك).
 - bloodGroup: فصيلة الدم.
 - address: تفاصيل العنوان (قطعة، شارع، مبنى، منطقة).
 
@@ -705,6 +710,9 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
   "issueDate": "",
   "mohLicenseNo": "",
   "mohLicenseExpiryDate": "",
+  "pamStartDate": "",
+  "pamEndDate": "",
+  "basicSalary": "",
   "residencyType": "",
   "bloodGroup": "",
   "address": { "block": "", "street": "", "building": "", "area": "" }
@@ -784,7 +792,7 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
     }
   }
 
-  const modelsToTry = ["gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-3.6-flash", "gemini-1.5-flash"];
+  const modelsToTry = ["gemini-3.6-flash", "gemini-3.1-pro-preview"];
   let lastError: any = null;
 
   for (const modelName of modelsToTry) {
@@ -2345,6 +2353,7 @@ async function startServer() {
   app.use(express.static(publicPath));
 
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",

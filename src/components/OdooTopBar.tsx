@@ -415,6 +415,27 @@ export const OdooTopBar: React.FC<OdooTopBarProps> = ({
                     <User className="w-3.5 h-3.5 text-[#261928]" />
                     <span>الملف الشخصي والأمان</span>
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setShowUserMenu(false);
+                      const toastId = toast.loading('جارِ تصفير قاعدة البيانات ومسح كافة السجلات...');
+                      try {
+                        const { TenantDatabaseService } = await import('../services/tenantDataService');
+                        await TenantDatabaseService.wipeEntireSystem();
+                        toast.success('تم تصفير قاعدة البيانات بنجاح! جاري التحديث...', { id: toastId });
+                        setTimeout(() => window.location.reload(), 500);
+                      } catch (err) {
+                        toast.error('حدث خطأ أثناء التصفير', { id: toastId });
+                        setTimeout(() => window.location.reload(), 500);
+                      }
+                    }}
+                    className="w-full text-right px-3 py-1.5 hover:bg-rose-50 flex items-center gap-2 text-rose-700 font-medium cursor-pointer text-xs"
+                  >
+                    <Database className="w-3.5 h-3.5 text-rose-600" />
+                    <span className="font-bold">تصفير شامل لقاعدة البيانات</span>
+                  </button>
                 </div>
                 <div className="border-t border-slate-100 pt-1 mt-1">
                   <button

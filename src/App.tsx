@@ -530,6 +530,26 @@ function MainAppLayout() {
                   {debugMode && <span className="mr-auto w-2 h-2 rounded-full bg-emerald-500"></span>}
                 </button>
 
+                <button 
+                  onClick={async () => {
+                    setShowUserMenu(false);
+                    const toastId = toast.loading('جارِ تصفير قاعدة البيانات ومسح كافة الموظفين...');
+                    try {
+                      const { TenantDatabaseService } = await import('./services/tenantDataService');
+                      await TenantDatabaseService.wipeEntireSystem();
+                      toast.success('تم التصفير بنجاح! جاري التحديث...', { id: toastId });
+                      setTimeout(() => window.location.reload(), 500);
+                    } catch (err) {
+                      toast.error('حدث خطأ أثناء التصفير', { id: toastId });
+                      setTimeout(() => window.location.reload(), 500);
+                    }
+                  }}
+                  className="w-full text-right px-4 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-50 transition flex items-center gap-2.5 cursor-pointer rounded-xl"
+                >
+                  <Trash2 size={15} className="text-rose-600" /> 
+                  <span>تصفير شامل ومسح كافة الموظفين</span>
+                </button>
+
                 <div className="h-px bg-slate-100 my-1"></div>
                 
                 <button 

@@ -1690,6 +1690,8 @@ export const LeavesApp: React.FC<LeavesAppProps> = ({  autoOpenNewLeaveForEmpId,
                   <label className="block font-bold text-slate-800 mb-1">تاريخ السريان (Date From) *</label>
                   <input
                     type="date"
+                    min="2020-01-01"
+                    max="2027-12-31"
                     value={editingAllocation.dateFrom || ''}
                     onChange={e => setEditingAllocation({ ...editingAllocation, dateFrom: e.target.value })}
                     className="w-full border border-slate-300 rounded-xl p-2.5 text-xs font-mono font-bold bg-slate-50"
@@ -1700,6 +1702,8 @@ export const LeavesApp: React.FC<LeavesAppProps> = ({  autoOpenNewLeaveForEmpId,
                   <label className="block font-bold text-slate-800 mb-1">تاريخ الانتهاء / الصلاحية (Valid Until)</label>
                   <input
                     type="date"
+                    min="2020-01-01"
+                    max="2027-12-31"
                     value={editingAllocation.dateTo || ''}
                     onChange={e => setEditingAllocation({ ...editingAllocation, dateTo: e.target.value, expiryDate: e.target.value })}
                     className="w-full border border-slate-300 rounded-xl p-2.5 text-xs font-mono font-bold bg-slate-50"

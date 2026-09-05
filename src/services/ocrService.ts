@@ -12,6 +12,10 @@ export interface ExtractedEmployeeData {
   mohLicense?: string;
   mohLicenseExpiry?: string;
   residencyType?: string;
+  pamStartDate?: string;
+  pamEndDate?: string;
+  basicSalary?: string;
+  profession?: string;
 }
 
 // دالة فحص وتدقيق الرقم المدني الكويتي (12 رقم) مع خوارزمية Modulo 11
@@ -38,7 +42,7 @@ export const validateKuwaitCivilId = (civilId: string): boolean => {
 };
 
 // محرك استخراج البيانات الموجه للوثائق الكويتية
-export const parseKuwaitCivilCardOCR = async (imageBase64: string): Promise<ExtractedEmployeeData> => {
+export const parseKuwaitCivilCardOCR = async (imageBase64: string, docTypeContext: string = 'بطاقة مدنية أو ترخيص صحي أو جواز سفر كويتي'): Promise<ExtractedEmployeeData> => {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 25000); // 25s timeout
@@ -55,7 +59,7 @@ export const parseKuwaitCivilCardOCR = async (imageBase64: string): Promise<Extr
       body: JSON.stringify({
         imageBase64,
         mimeType: 'image/jpeg',
-        docType: 'بطاقة مدنية أو ترخيص صحي أو جواز سفر كويتي',
+        docType: docTypeContext,
         customApiKey: effectiveApiKey || undefined
       }),
       signal: controller.signal
@@ -80,7 +84,11 @@ export const parseKuwaitCivilCardOCR = async (imageBase64: string): Promise<Extr
         gender: genderStr,
         mohLicense: json.data.mohLicenseNo || json.data.mohLicense || '',
         mohLicenseExpiry: json.data.mohLicenseExpiryDate || '',
-        residencyType: json.data.residencyType || ''
+        residencyType: json.data.residencyType || '',
+        pamStartDate: json.data.pamStartDate || '',
+        pamEndDate: json.data.pamEndDate || '',
+        basicSalary: json.data.basicSalary || '',
+        profession: json.data.profession || ''
       };
     }
   } catch (err) {

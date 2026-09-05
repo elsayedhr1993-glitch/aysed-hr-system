@@ -295,26 +295,58 @@ export const OfficialLeaveModal: React.FC<OfficialLeaveModalProps> = ({
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-600 mb-1">من تاريخ</label>
-                        <input
-                          type="date"
-                          value={formData.startDate || ''}
-                          onChange={(e) => setFormData(prev => ({ ...prev, startDate: e.target.value }))}
-                          required
-                          className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#71639e] font-mono"
-                        />
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-600 mb-1">من تاريخ (2026 - 2027)</label>
+                          <input
+                            type="date"
+                            min="2020-01-01"
+                            max="2027-12-31"
+                            value={formData.startDate || ''}
+                            onChange={(e) => setFormData(prev => ({ ...prev, startDate: e.target.value }))}
+                            required
+                            className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#71639e] font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-600 mb-1">إلى تاريخ (2026 - 2027)</label>
+                          <input
+                            type="date"
+                            min="2020-01-01"
+                            max="2027-12-31"
+                            value={formData.endDate || ''}
+                            onChange={(e) => setFormData(prev => ({ ...prev, endDate: e.target.value }))}
+                            required
+                            className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#71639e] font-mono"
+                          />
+                        </div>
                       </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-600 mb-1">إلى تاريخ</label>
-                        <input
-                          type="date"
-                          value={formData.endDate || ''}
-                          onChange={(e) => setFormData(prev => ({ ...prev, endDate: e.target.value }))}
-                          required
-                          className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#71639e] font-mono"
-                        />
+
+                      {/* Quick presets for Official Leave Modal */}
+                      <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                        <span className="text-[10px] text-slate-500 font-bold">فترات سريعة:</span>
+                        <button
+                          type="button"
+                          onClick={() => setFormData(prev => ({ ...prev, startDate: '2026-09-01', endDate: '2026-09-15' }))}
+                          className="px-2 py-0.5 bg-slate-100 hover:bg-[#71639e] hover:text-white rounded text-[10px] font-bold text-slate-700 transition cursor-pointer"
+                        >
+                          📅 سبتمبر 2026
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFormData(prev => ({ ...prev, startDate: '2026-10-01', endDate: '2026-10-30' }))}
+                          className="px-2 py-0.5 bg-slate-100 hover:bg-[#71639e] hover:text-white rounded text-[10px] font-bold text-slate-700 transition cursor-pointer"
+                        >
+                          📅 أكتوبر 2026
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFormData(prev => ({ ...prev, startDate: '2027-01-10', endDate: '2027-01-25' }))}
+                          className="px-2 py-0.5 bg-purple-100 text-purple-900 hover:bg-[#71639e] hover:text-white rounded text-[10px] font-bold transition cursor-pointer"
+                        >
+                          📅 يناير 2027
+                        </button>
                       </div>
                     </div>
 
@@ -391,6 +423,28 @@ export const OfficialLeaveModal: React.FC<OfficialLeaveModalProps> = ({
                 </div>
               </div>
           </form>
+        </div>
+
+        {/* الشريط السفلي الثابت - Sticky Footer */}
+        <div className="bg-slate-50 border-t border-slate-200 px-6 py-3 flex items-center justify-between shrink-0">
+          <span className="text-xs text-slate-700 font-medium">نظام احتساب الإجازات معتمد طبقاً للمواد 70 و 71 و 77 من قانون العمل الكويتي</span>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 px-4 py-2 rounded-lg text-xs font-bold transition"
+            >
+              إلغاء
+            </button>
+            <button
+              type="submit"
+              form="official-leave-form"
+              className="bg-[#71639e] hover:bg-[#5a4f80] text-white px-5 py-2 rounded-lg text-xs font-bold shadow-md transition flex items-center gap-1.5"
+            >
+              <CheckCircle size={16} />
+              حفظ واعتماد رسمي
+            </button>
+          </div>
         </div>
       </div>
     </div>

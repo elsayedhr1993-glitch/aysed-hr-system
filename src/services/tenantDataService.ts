@@ -13,6 +13,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { db, auth, cleanFirestoreData } from '../lib/firebase';
 import { collection, doc, setDoc, deleteDoc, getDocs, query, where, getDoc } from 'firebase/firestore';
 import { Company, Employee, LeaveRequest, AttendanceRecord, Payslip, Contract } from '../types';
+import { triggerContractRunningLeaveAllocation } from '../utils/contractLeaveTrigger';
 
 export enum OperationType {
   CREATE = 'create',
@@ -625,6 +626,17 @@ export const TenantDatabaseService = {
       });
       const docId = (contract.id || '').replace(/\//g, '_') || doc(collection(db, 'contracts')).id;
       await setDoc(doc(db, 'contracts', docId), cleanDoc, { merge: true });
+
+      // تفعيل رصيد الإجازات السنوية التلقائي (30 يوماً لسنة 2026) عند سريان العقد (Running Trigger)
+      if (contract.employeeId) {
+        triggerContractRunningLeaveAllocation({
+          employeeId: contract.employeeId,
+          startDate: contract.startDate || '2026-01-01',
+          status: contract.status,
+          companyId: compId
+        });
+      }
+
       return true;
     } catch (fsErr) {
       handleFirestoreError(fsErr, OperationType.WRITE, `contracts/${contract.id}`);
@@ -891,7 +903,19 @@ export const TenantDatabaseService = {
    * Clear all records in Firestore for a specific tenant and wipe localStorage
    */
   async clearAllDataForTenant(companyId: string): Promise<boolean> {
-    const collectionsToClear = ['employees', 'contracts', 'commencements', 'attendance', 'leaves', 'payroll_runs', 'payslips'];
+    const collectionsToClear = [
+      'employees', 
+      'contracts', 
+      'commencements', 
+      'attendance', 
+      'leaves', 
+      'leave_allocations',
+      'payroll_runs', 
+      'payslips',
+      'documents',
+      'loans',
+      'settlements'
+    ];
     try {
       for (const colName of collectionsToClear) {
         const q = query(collection(db, colName), where('companyId', '==', companyId));
@@ -900,7 +924,25 @@ export const TenantDatabaseService = {
           await deleteDoc(doc(db, colName, d.id));
         }
       }
-      localStorage.clear();
+      
+      // Also clear Supabase tables if configured
+      if (isSupabaseConfigured) {
+        try {
+          await supabase.from('employees').delete().eq('company_id', companyId);
+          await supabase.from('contracts').delete().eq('company_id', companyId);
+          await supabase.from('leaves').delete().eq('company_id', companyId);
+          await supabase.from('attendance').delete().eq('company_id', companyId);
+          await supabase.from('payslips').delete().eq('company_id', companyId);
+          await supabase.from('documents').delete().eq('company_id', companyId);
+        } catch (sbErr) {
+          console.warn('[TenantDatabaseService] Supabase tenant wipe notice:', sbErr);
+        }
+      }
+
+      // Remove specific cached keys for this company
+      const prefix = `odoo_employees_v1_${companyId}`;
+      localStorage.removeItem(prefix);
+      localStorage.removeItem(`aysed_emp_cache_${companyId}`);
       return true;
     } catch (e) {
       console.error('Error clearing tenant data:', e);
@@ -909,18 +951,76 @@ export const TenantDatabaseService = {
   },
 
   /**
-   * Wipe all demo/test data across all collections in Firestore and localStorage
+   * Wipe all demo/test data across all collections in Firestore, Supabase, and localStorage
    */
   async wipeEntireSystem(): Promise<boolean> {
-    const collectionsToClear = ['employees', 'contracts', 'commencements', 'attendance', 'leaves', 'payroll_runs', 'payslips'];
+    const collectionsToClear = [
+      'employees', 
+      'contracts', 
+      'commencements', 
+      'attendance', 
+      'leaves', 
+      'leave_allocations',
+      'payroll_runs', 
+      'payslips',
+      'documents',
+      'loans',
+      'settlements'
+    ];
     try {
       for (const colName of collectionsToClear) {
-        const snap = await getDocs(collection(db, colName));
-        for (const d of snap.docs) {
-          await deleteDoc(doc(db, colName, d.id));
+        try {
+          const snap = await getDocs(collection(db, colName));
+          const deletePromises = snap.docs.map(d => deleteDoc(doc(db, colName, d.id)).catch(err => console.warn(`Delete doc ${d.id} warning:`, err)));
+          await Promise.all(deletePromises);
+        } catch (colErr) {
+          console.warn(`[TenantDatabaseService] Error wiping collection ${colName}:`, colErr);
         }
       }
-      localStorage.clear();
+
+      if (isSupabaseConfigured) {
+        try {
+          await supabase.from('employees').delete().neq('id', '___non_existent___');
+          await supabase.from('contracts').delete().neq('id', '___non_existent___');
+          await supabase.from('leaves').delete().neq('id', '___non_existent___');
+          await supabase.from('attendance').delete().neq('id', '___non_existent___');
+          await supabase.from('payslips').delete().neq('id', '___non_existent___');
+          await supabase.from('documents').delete().neq('id', '___non_existent___');
+        } catch (sbErr) {
+          console.warn('[TenantDatabaseService] Supabase full wipe notice:', sbErr);
+        }
+      }
+
+      // Preserve essential auth and company selection so UI doesn't crash
+      const authSession = localStorage.getItem('aysed_hr_auth') || localStorage.getItem('aysed_token');
+      const currentUser = localStorage.getItem('current_user') || localStorage.getItem('aysed_user');
+      const devMode = localStorage.getItem('aysed_dev_mode') || localStorage.getItem('aysed_debug');
+      const activeCompanyId = localStorage.getItem('activeCompanyId') || 'comp-almanar';
+
+      // Clear all items in localStorage and sessionStorage
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch (e) {
+        console.warn('Storage clear notice:', e);
+      }
+
+      if (authSession) {
+        localStorage.setItem('aysed_hr_auth', authSession);
+        localStorage.setItem('aysed_token', authSession);
+      }
+      if (currentUser) {
+        localStorage.setItem('current_user', currentUser);
+        localStorage.setItem('aysed_user', currentUser);
+      }
+      if (devMode) {
+        localStorage.setItem('aysed_dev_mode', devMode);
+        localStorage.setItem('aysed_debug', devMode);
+      }
+      if (activeCompanyId) {
+        localStorage.setItem('activeCompanyId', activeCompanyId);
+      }
+
       return true;
     } catch (e) {
       console.error('Error wiping entire system:', e);

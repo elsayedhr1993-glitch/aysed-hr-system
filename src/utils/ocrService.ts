@@ -182,11 +182,14 @@ export async function processAnyDocument(file: File, apiKey?: string, docType?: 
       }
     }
   } catch (netErr: any) {
+    if (netErr.message && netErr.message.includes('السبب:')) {
+      throw netErr; // Throw the exact error if it originated from the block above
+    }
     if (effectiveApiKey && effectiveApiKey.trim() !== '') {
       useClientFallback = true;
       serverErrorMsg = netErr.message || 'فشل الاتصال بالخادم';
     } else {
-      throw new Error('فشل الاتصال بالخادم. يرجى التأكد من اتصالك بالإنترنت أو تحديث الصفحة أو إدخال مفتاح الذكاء الاصطناعي في إعدادات النظام.');
+      throw new Error('فشل الاتصال بالخادم. يرجى التأكد من اتصالك بالإنترنت أو تحديث الصفحة أو إدخال مفتاح الذكاء الاصطناعي في إعدادات النظام. \n' + (netErr.message || ''));
     }
   }
 

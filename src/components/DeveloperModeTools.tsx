@@ -15,10 +15,12 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
+import { TenantDatabaseService } from '../services/tenantDataService';
 
 export const DeveloperModeTools: React.FC = () => {
   const { isDebugMode, toggleDebugMode } = useAuth();
   const [copied, setCopied] = useState(false);
+  const [isWiping, setIsWiping] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'database' | 'logs' | 'cache'>('overview');
   const [logs, setLogs] = useState<string[]>([
     `[${new Date().toLocaleTimeString()}] INFO: Odoo Core Developer Mode Active`,
@@ -172,6 +174,46 @@ Storage Keys: ${Object.keys(localStorage).filter(k => k.startsWith('aysed_') || 
 
       {activeTab === 'database' && (
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+          <div className="bg-rose-50 border-2 border-rose-300 rounded-2xl p-5 shadow-sm space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="p-2.5 bg-rose-600 text-white rounded-xl shadow-sm">
+                  <AlertTriangle size={24} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-rose-900">تصفير شامل لقاعدة البيانات (Full Database Reset)</h3>
+                  <p className="text-xs text-rose-700 mt-1 leading-relaxed">
+                    حذف جميع الموظفين، العقود، طلبات وأرصدة الإجازات، حركات البصمة، مسيرات الرواتب وسندات الصرف، وتصفير عدادات لوحة القيادة إلى 0.000 د.ك لبدء إدخال بيانات فعلية على نظافة.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={async () => {
+                  if (!window.confirm('⚠️ تنبيه حاسم: هل أنت متأكد تماماً من تصفير قاعدة البيانات ومسح كافة الموظفين، العقود، طلبات الإجازات، مسيرات الرواتب وسندات الصرف؟ سيصبح النظام أبيض تماماً.')) {
+                    return;
+                  }
+                  setIsWiping(true);
+                  try {
+                    await TenantDatabaseService.wipeEntireSystem();
+                    toast.success('تم تصفير قاعدة البيانات بالكامل');
+                    setTimeout(() => window.location.reload(), 600);
+                  } catch (e) {
+                    toast.error('حدث خطأ أثناء التصفير');
+                    setTimeout(() => window.location.reload(), 600);
+                  } finally {
+                    setIsWiping(false);
+                  }
+                }}
+                disabled={isWiping}
+                className="flex items-center justify-center gap-2 px-6 py-3 bg-rose-700 hover:bg-rose-800 active:scale-95 text-white font-black text-xs rounded-xl shadow-md transition whitespace-nowrap cursor-pointer disabled:opacity-50"
+              >
+                {isWiping ? <RefreshCw size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                <span>{isWiping ? 'جارِ تصفير النظام...' : 'تصفير شامل ومسح البيانات الآن'}</span>
+              </button>
+            </div>
+          </div>
+
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-bold text-slate-800">حالة قاعدة البيانات والتخزين المحلي</h3>

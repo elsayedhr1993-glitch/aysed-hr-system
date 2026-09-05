@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Users, UserPlus, FileSignature, Calendar, Clock, 
   Banknote, Scale, FolderKanban, Zap, Building2, Sparkles, Scan,
@@ -35,28 +35,93 @@ interface OdooAppLauncherProps {
 export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({ onSelectApp, currentUserEmail = '', currentUserRole = '', activeCompany, stats }) => {
   const isSuperAdmin = currentUserRole === 'SUPER_ADMIN' || currentUserEmail.toLowerCase() === 'admin@aysed.com'.toLowerCase() || currentUserEmail.toLowerCase() === 'elsayedhr1993@gmail.com'.toLowerCase();
   const companyDisplayName = activeCompany?.nameAr || activeCompany?.nameEn || 'Aysed HR S 2026';
+  const currentCompanyId = activeCompany?.id || 'comp-super-admin';
+
+  // استخراج الموظفين الحقيقيين للشركة من الذاكرة المحلية
+  const [realEmployees, setRealEmployees] = useState<any[]>(() => {
+    try {
+      const raw = localStorage.getItem(`odoo_employees_v1_${currentCompanyId}`);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return [];
+  });
+
+  // استخراج طلبات الإجازات الحقيقية
+  const [realLeaves, setRealLeaves] = useState<any[]>(() => {
+    try {
+      const raw = localStorage.getItem('odoo_leave_requests_v2');
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return [];
+  });
+
+  // تحديث البيانات دورياً
+  useEffect(() => {
+    try {
+      const rawEmp = localStorage.getItem(`odoo_employees_v1_${currentCompanyId}`);
+      if (rawEmp) setRealEmployees(JSON.parse(rawEmp));
+      const rawLev = localStorage.getItem('odoo_leave_requests_v2');
+      if (rawLev) setRealLeaves(JSON.parse(rawLev));
+    } catch (e) {}
+  }, [currentCompanyId]);
+
+  // حساب توزيع الرواتب الفعلي طبقاً للعقود المسجلة
+  const payrollDeptData = React.useMemo(() => {
+    if (!realEmployees || realEmployees.length === 0) {
+      return [{ name: 'لا توجد رواتب مسجلة', value: 0, color: '#94a3b8' }];
+    }
+    const deptMap: Record<string, number> = {};
+    const palette = ['#714B67', '#10B981', '#3B82F6', '#F59E0B', '#8B5CF6', '#EC4899'];
+    
+    realEmployees.forEach(emp => {
+      const dept = emp.department || 'إدارة عامة';
+      const basic = Number(emp.basicSalary || emp.salary || 0);
+      const housing = Number(emp.housingAllowance || 0);
+      const transport = Number(emp.transportAllowance || 0);
+      const nature = Number(emp.natureOfWorkAllowance || 0);
+      const total = basic + housing + transport + nature;
+      deptMap[dept] = (deptMap[dept] || 0) + total;
+    });
+
+    const entries = Object.entries(deptMap);
+    if (entries.length === 0 || entries.every(([_, val]) => val === 0)) {
+      return [{ name: 'إجمالي الرواتب 0', value: 0, color: '#94a3b8' }];
+    }
+
+    return entries.map(([deptName, totalVal], idx) => ({
+      name: deptName,
+      value: Number(totalVal.toFixed(3)),
+      color: palette[idx % palette.length]
+    }));
+  }, [realEmployees]);
+
+  // حساب طلبات الإجازات الحقيقية
+  const leavesStatusData = React.useMemo(() => {
+    const counts: Record<string, number> = {
+      'سنوية': 0,
+      'مرضية': 0,
+      'عزاء / مادة 77': 0,
+      'بدون راتب': 0,
+    };
+
+    realLeaves.forEach(req => {
+      const type = req.leaveType || req.type || 'annual';
+      if (type === 'annual' || type === 'ANNUAL') counts['سنوية'] += 1;
+      else if (type === 'sick' || type === 'SICK') counts['مرضية'] += 1;
+      else if (type === 'bereavement' || type === 'BEREAVEMENT') counts['عزاء / مادة 77'] += 1;
+      else if (type === 'unpaid' || type === 'UNPAID') counts['بدون راتب'] += 1;
+    });
+
+    return Object.entries(counts).map(([name, count]) => ({ name, count }));
+  }, [realLeaves]);
 
   const attendanceData = [
-    { day: 'السبت', حضور: 94, غياب: 6 },
-    { day: 'الأحد', حضور: 98, غياب: 2 },
-    { day: 'الإثنين', حضور: 96, غياب: 4 },
-    { day: 'الثلاثاء', حضور: 99, غياب: 1 },
-    { day: 'الأربعاء', حضور: 95, غياب: 5 },
-    { day: 'الخميس', حضور: 92, غياب: 8 },
-  ];
-
-  const payrollDeptData = [
-    { name: 'الإدارة العليا', value: 8500, color: '#714B67' },
-    { name: 'التطوير التقني', value: 14200, color: '#10B981' },
-    { name: 'العمليات والتشغيل', value: 9800, color: '#3B82F6' },
-    { name: 'المبيعات والتسويق', value: 6400, color: '#F59E0B' },
-  ];
-
-  const leavesStatusData = [
-    { name: 'إجازة سنوية', count: 12 },
-    { name: 'إجازة مرضية', count: 4 },
-    { name: 'إجازة طارئة', count: 2 },
-    { name: 'بدون راتب', count: 1 },
+    { day: 'السبت', حضور: 100, غياب: 0 },
+    { day: 'الأحد', حضور: 100, غياب: 0 },
+    { day: 'الإثنين', حضور: 100, غياب: 0 },
+    { day: 'الثلاثاء', حضور: 100, غياب: 0 },
+    { day: 'الأربعاء', حضور: 100, غياب: 0 },
+    { day: 'الخميس', حضور: 100, غياب: 0 },
   ];
 
   const apps = [

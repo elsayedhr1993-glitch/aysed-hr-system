@@ -34,6 +34,8 @@ import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { exportToExcel } from '../utils/exportUtils';
 import { toast } from 'react-hot-toast';
 import { LeaveSettlementCalculator } from './LeaveSettlementCalculator';
+import { calculate2026AccruedDays, getCarriedOverBalance, getGlobalCompensatoryDays } from '../utils/kuwaitLaw';
+import { computeFifoLeaveAllocations, buildEmployeeBaselineAllocations } from '../services/leaveService';
 
 export interface LeaveRequest {
   id: string;
@@ -135,6 +137,58 @@ export const OdooTimeOffApp: React.FC = () => {
   const [showAllocationModal, setShowAllocationModal] = useState(false);
   const [selectedSettlementReq, setSelectedSettlementReq] = useState<LeaveRequest | null>(null);
 
+  // Helper to dynamically calculate employee leave balance linked to their Contract & Fiscal Year
+  const getEmployeeContractBalance = (empId: string) => {
+    const emp = companyEmployees.find(e => e.id === empId);
+    const empAny = emp as any;
+    const contractStartStr = empAny?.joinDate || empAny?.contractStartDate || empAny?.date_start || empAny?.startDate || '2026-01-01';
+    const contractEndStr = empAny?.contractEndDate || empAny?.date_end || '2027-12-31';
+
+    // Use unified FIFO engine for exact accuracy (matching LeavesApp & Kuwait Law)
+    const mappedAllocations = allocations.map(a => ({
+      ...a,
+      numberOfDays: a.days,
+      allocationType: 'regular',
+      state: 'validate',
+      name: a.notes,
+      dateFrom: a.allocationDate
+    }));
+
+    let carried = 0;
+    let earned = 0;
+    let consumed = 0;
+    let available = 0;
+
+    if (emp) {
+      const empAllocs = buildEmployeeBaselineAllocations(emp as any, mappedAllocations as any);
+      const fifo = computeFifoLeaveAllocations(emp as any, empAllocs, requests as any);
+      
+      const totalOpening = fifo.allocations.filter(a => a.allocationType === 'regular').reduce((s, a) => s + (a.numberOfDays || 0), 0);
+      const totalAccrued = fifo.allocations.filter(a => a.allocationType === 'accrual' && !a.name?.includes('تعويضي') && !a.name?.includes('بديل') && !a.name?.includes('عطلة')).reduce((s, a) => s + (a.numberOfDays || 0), 0);
+      const totalCompensatory = getGlobalCompensatoryDays(emp as any);
+      
+      carried = totalOpening;
+      earned = totalAccrued + totalCompensatory;
+      consumed = fifo.totalConsumed;
+      available = Math.max(0, (carried + earned) - consumed);
+    }
+
+    const startYear = contractStartStr ? contractStartStr.slice(0, 4) : '2025';
+    const endYear = contractEndStr ? contractEndStr.slice(0, 4) : '2027';
+
+    return {
+      emp,
+      carried,
+      earned,
+      consumed,
+      available,
+      contractStartStr,
+      contractEndStr,
+      fiscalYearLabel: `السنة المالية للعقد (${startYear} - ${endYear})`,
+      contractRef: (emp as any)?.contractRef || `KW-CNT-${empId}-${startYear}`
+    };
+  };
+
   // Form Inputs - Leave Request
   const [newRequest, setNewRequest] = useState({
     employeeId: companyEmployees[0]?.id || '',
@@ -142,8 +196,8 @@ export const OdooTimeOffApp: React.FC = () => {
     civilId: companyEmployees[0]?.civilId || '',
     department: companyEmployees[0]?.department || '',
     leaveType: 'annual' as LeaveRequest['leaveType'],
-    startDate: '',
-    endDate: '',
+    startDate: '2026-09-01',
+    endDate: '2026-09-15',
     reason: '',
     replacementEmployee: '',
     basicSalary: companyEmployees[0]?.basicSalary || 0,
@@ -155,7 +209,7 @@ export const OdooTimeOffApp: React.FC = () => {
   const [newAllocation, setNewAllocation] = useState({
     employeeId: companyEmployees[0]?.id || '',
     employeeName: companyEmployees[0]?.name || (companyEmployees[0] as any)?.fullNameAr || '',
-    fromYear: new Date().getFullYear().toString(),
+    fromYear: '2026',
     days: '0',
     leaveType: 'annual',
     notes: ''
@@ -223,19 +277,15 @@ export const OdooTimeOffApp: React.FC = () => {
       return;
     }
 
-    // Check available balance for Annual Leave
+    // Check available balance for Annual Leave linked to Contract & Fiscal Year
     if (newRequest.leaveType === 'annual') {
       const empId = newRequest.employeeId || companyEmployees[0]?.id || '';
-      const currentAccrual = leaveAccruals?.[empId];
-      const carried = currentAccrual?.carriedFrom2025 || 0;
-      const earned = currentAccrual?.earned2026 || 0;
-      const consumed = currentAccrual?.consumedDays || 0;
-      const available = (carried + earned) - consumed;
+      const { available } = getEmployeeContractBalance(empId);
 
       if (count > available) {
         const excess = count - available;
         const confirmOverride = window.confirm(
-          `الرصيد غير كافٍ!\nرصيد الموظف المتاح هو ${available.toFixed(2)} يوم فقط، بينما المطلوب ${count} أيام.\n\nهل ترغب بالسماح بتجاوز الرصيد بمقدار (${excess.toFixed(2)} يوم) على أن يتم إدراج الأيام الزائدة كأيام غير مدفوعة تُخصم من مدة الخدمة عند النهاية؟`
+          `الرصيد غير كافٍ!\nرصيد الموظف المتاح وفق استحقاق العقد هو ${available.toFixed(2)} يوم فقط، بينما المطلوب ${count} أيام.\n\nهل ترغب بالسماح بتجاوز الرصيد بمقدار (${excess.toFixed(2)} يوم) على أن يتم إدراج الأيام الزائدة كأيام غير مدفوعة تُخصم من مدة الخدمة عند النهاية؟`
         );
         if (!confirmOverride) {
           return;
@@ -898,22 +948,42 @@ export const OdooTimeOffApp: React.FC = () => {
                   <option value="bereavement">إجازة عزاء وحداد (3 أيام - مادة 77)</option>
                   <option value="unpaid">إجازة بدون راتب</option>
                 </select>
-                {newRequest.leaveType === 'annual' && (
-                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between mt-2 shadow-sm">
-                    <span className="text-emerald-800 font-bold">الرصيد المتاح حالياً للموظف:</span>
-                    <span className="text-emerald-900 font-black text-sm" dir="ltr">
-                      {(() => {
-                        const empId = newRequest.employeeId;
-                        const currentAccrual = leaveAccruals?.[empId];
-                        const carried = currentAccrual?.carriedFrom2025 || 0;
-                        const earned = currentAccrual?.earned2026 || 0;
-                        const consumed = currentAccrual?.consumedDays || 0;
-                        const available = (carried + earned) - consumed;
-                        return available.toFixed(2);
-                      })()} يوم
-                    </span>
-                  </div>
-                )}
+                {newRequest.leaveType === 'annual' && (() => {
+                  const empId = newRequest.employeeId;
+                  const balanceData = getEmployeeContractBalance(empId);
+                  return (
+                    <div className="p-3.5 bg-gradient-to-br from-emerald-50 to-teal-50/70 border border-emerald-200/80 rounded-xl mt-2.5 shadow-2xs space-y-2">
+                      <div className="flex items-center justify-between border-b border-emerald-200/60 pb-2">
+                        <span className="text-emerald-900 font-bold flex items-center gap-1.5 text-xs">
+                          <Calendar size={14} className="text-emerald-700" />
+                          <span>{balanceData.fiscalYearLabel}</span>
+                        </span>
+                        <span className="text-[10px] bg-emerald-100 text-emerald-800 font-mono font-bold px-2 py-0.5 rounded-full border border-emerald-300/60">
+                          سريان العقد: {balanceData.contractStartStr}
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-4 gap-1 text-center pt-0.5">
+                        <div className="bg-white/80 p-1.5 rounded-lg border border-emerald-100">
+                          <span className="text-[10px] text-slate-500 block">المرحل/المخصص</span>
+                          <span className="font-mono font-bold text-emerald-800 text-xs">+{balanceData.carried.toFixed(1)}</span>
+                        </div>
+                        <div className="bg-white/80 p-1.5 rounded-lg border border-emerald-100">
+                          <span className="text-[10px] text-slate-500 block">المكتسب بالعقد</span>
+                          <span className="font-mono font-bold text-emerald-800 text-xs">+{balanceData.earned.toFixed(1)}</span>
+                        </div>
+                        <div className="bg-white/80 p-1.5 rounded-lg border border-emerald-100">
+                          <span className="text-[10px] text-slate-500 block">المستهلك</span>
+                          <span className="font-mono font-bold text-rose-700 text-xs">-{balanceData.consumed.toFixed(1)}</span>
+                        </div>
+                        <div className="bg-emerald-600 text-white p-1.5 rounded-lg shadow-xs">
+                          <span className="text-[10px] text-emerald-100 block font-bold">الصافي المتاح</span>
+                          <span className="font-mono font-black text-xs">{balanceData.available.toFixed(2)} يوم</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Medical Certificate Upload if Sick Leave */}
@@ -928,26 +998,72 @@ export const OdooTimeOffApp: React.FC = () => {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">تاريخ البدء *</label>
-                  <input
-                    type="date"
-                    required
-                    value={newRequest.startDate}
-                    onChange={(e) => setNewRequest({ ...newRequest, startDate: e.target.value })}
-                    className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:border-[#714B67] font-mono"
-                  />
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">تاريخ البدء (2026 - 2027) *</label>
+                    <input
+                      type="date"
+                      min="2020-01-01"
+                      max="2027-12-31"
+                      required
+                      value={newRequest.startDate}
+                      onChange={(e) => setNewRequest({ ...newRequest, startDate: e.target.value })}
+                      className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:border-[#714B67] font-mono bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">تاريخ الانتهاء (2026 - 2027) *</label>
+                    <input
+                      type="date"
+                      min="2020-01-01"
+                      max="2027-12-31"
+                      required
+                      value={newRequest.endDate}
+                      onChange={(e) => setNewRequest({ ...newRequest, endDate: e.target.value })}
+                      className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:border-[#714B67] font-mono bg-white"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">تاريخ الانتهاء *</label>
-                  <input
-                    type="date"
-                    required
-                    value={newRequest.endDate}
-                    onChange={(e) => setNewRequest({ ...newRequest, endDate: e.target.value })}
-                    className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:border-[#714B67] font-mono"
-                  />
+
+                {/* Quick Date Presets for 2026 and 2027 */}
+                <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                  <span className="text-[10px] text-slate-500 font-bold">فترات سريعة:</span>
+                  <button
+                    type="button"
+                    onClick={() => setNewRequest({ ...newRequest, startDate: '2026-09-01', endDate: '2026-09-15' })}
+                    className="px-2 py-0.5 bg-slate-100 hover:bg-[#714B67] hover:text-white rounded text-[10px] font-bold text-slate-700 transition cursor-pointer"
+                  >
+                    📅 سبتمبر 2026 (15 يوم)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewRequest({ ...newRequest, startDate: '2026-10-01', endDate: '2026-10-30' })}
+                    className="px-2 py-0.5 bg-slate-100 hover:bg-[#714B67] hover:text-white rounded text-[10px] font-bold text-slate-700 transition cursor-pointer"
+                  >
+                    📅 أكتوبر 2026 (30 يوم)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewRequest({ ...newRequest, startDate: '2026-12-15', endDate: '2026-12-31' })}
+                    className="px-2 py-0.5 bg-slate-100 hover:bg-[#714B67] hover:text-white rounded text-[10px] font-bold text-slate-700 transition cursor-pointer"
+                  >
+                    📅 نهاية 2026
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewRequest({ ...newRequest, startDate: '2027-01-10', endDate: '2027-01-25' })}
+                    className="px-2 py-0.5 bg-purple-100 text-purple-900 hover:bg-purple-800 hover:text-white rounded text-[10px] font-bold transition cursor-pointer"
+                  >
+                    📅 يناير 2027
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewRequest({ ...newRequest, startDate: '2027-06-01', endDate: '2027-06-30' })}
+                    className="px-2 py-0.5 bg-purple-100 text-purple-900 hover:bg-purple-800 hover:text-white rounded text-[10px] font-bold transition cursor-pointer"
+                  >
+                    📅 صيف 2027
+                  </button>
                 </div>
               </div>
 
@@ -1107,10 +1223,11 @@ export const OdooTimeOffApp: React.FC = () => {
                     onChange={(e) => setNewAllocation({ ...newAllocation, fromYear: e.target.value })}
                     className="w-full p-2.5 bg-white border border-slate-300 rounded-xl outline-none font-mono font-bold focus:border-[#714B67] focus:ring-1 focus:ring-[#714B67]"
                   >
-                    <option value="2025">2025 (العام السابق)</option>
+                    <option value="2027">2027 (استحقاق السنة المالية 2027)</option>
+                    <option value="2026">2026 (استحقاق السنة المالية 2026)</option>
+                    <option value="2025">2025 (رصيد مرحل من 2025)</option>
                     <option value="2024">2024</option>
                     <option value="2023">2023</option>
-                    <option value="2026">2026 (تخصيص استثنائي)</option>
                   </select>
                   <span className="text-[10px] text-slate-400 block mt-1">تحديد السنة التي استُحق عنها الرصيد المرحل</span>
                 </div>

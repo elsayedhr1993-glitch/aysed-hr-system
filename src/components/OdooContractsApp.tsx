@@ -37,6 +37,7 @@ import { OdooChatter, ChatterMessage } from './OdooChatter';
 import { toast } from 'react-hot-toast';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { exportToExcel } from '../utils/exportUtils';
+import { triggerContractRunningLeaveAllocation } from '../utils/contractLeaveTrigger';
 import { FileSpreadsheet } from 'lucide-react';
 
 export interface DetailedContract extends EmployeeContract {
@@ -342,12 +343,21 @@ export const OdooContractsApp: React.FC = () => {
       console.error('Error saving contract to Firestore:', e);
     }
 
+    // الربط الآلي للإجازات (Running Trigger Hook): إنشاء وتثبيت رصيد إجازات سنوية 30 يوم لسنة 2026 فور تفعيل العقد الساري
+    triggerContractRunningLeaveAllocation({
+      employeeId: selectedContract.id,
+      employeeName: selectedContract.name,
+      startDate: selectedContract.startDate || '2026-01-01',
+      contractStatus: selectedContract.contractStatus,
+      companyId: currentCompanyId
+    });
+
     if (isCreatingNew) {
       setContracts([selectedContract, ...contracts]);
-      toast.success(`تم إنشاء العقد رقم ${selectedContract.contractRef} للموظف (${selectedContract.name}) وحفظه في Firebase`);
+      toast.success(`تم إنشاء العقد (${selectedContract.contractRef}) للموظف ${selectedContract.name} واعتماد رصيد 30 يوماً لسنة 2026 تلقائياً`);
     } else {
       setContracts(contracts.map(c => c.contractRef === selectedContract.contractRef ? selectedContract : c));
-      toast.success(`تم تحديث بيانات العقد (${selectedContract.contractRef}) في Firebase`);
+      toast.success(`تم تحديث بيانات العقد (${selectedContract.contractRef}) وتحديث رصيد الإجازات لسنة 2026`);
     }
 
     // Sync full contract properties with global hierarchy

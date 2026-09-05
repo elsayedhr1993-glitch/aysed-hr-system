@@ -51,10 +51,15 @@ export const OdooMainDashboard: React.FC<OdooMainDashboardProps> = ({ onNavigate
     // Background fetch to ensure dashboard is up to date
     import('../services/tenantDataService').then(({ TenantDatabaseService }) => {
       TenantDatabaseService.getEmployeesByTenant(currentCompanyId).then(dbEmps => {
-        if (isMounted && dbEmps && dbEmps.length > 0) {
-          const mapped = dbEmps.map(emp => ({ ...emp, companyId: emp.companyId || currentCompanyId }));
-          setAllEmployees(mapped);
-          localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(mapped));
+        if (isMounted) {
+          if (dbEmps && dbEmps.length > 0) {
+            const mapped = dbEmps.map(emp => ({ ...emp, companyId: emp.companyId || currentCompanyId }));
+            setAllEmployees(mapped);
+            localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(mapped));
+          } else {
+            setAllEmployees([]);
+            localStorage.removeItem(`odoo_employees_v1_${currentCompanyId}`);
+          }
         }
       });
     });

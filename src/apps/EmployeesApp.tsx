@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Clock, Stethoscope, AlertTriangle, X, FileText, Printer, Calendar, RefreshCw, DollarSign, CheckCircle2, Building2, Briefcase, ExternalLink } from 'lucide-react';
+import { Users, Clock, Stethoscope, AlertTriangle, X, FileText, Printer, Calendar, RefreshCw, DollarSign, CheckCircle2, Building2, Briefcase, ExternalLink, Trash2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import OdooEmployeeFormModal from '../components/OdooEmployeeFormModal';
+import { OdooEmployeeDetailView } from '../components/employees/OdooEmployeeDetailView';
 import OdooContractsApp from "../components/OdooContractsApp";
 import OdooPamContractModal from '../components/OdooPamContractModal';
 import { useCompany } from '../context/CompanyContext';
@@ -70,49 +72,75 @@ export function EmployeesApp(props?: any) {
   const [employeeActiveTab, setEmployeeActiveTab] = useState<'work' | 'contract_pam' | 'private' | 'hr' | 'resume'>('work');
   const [employeeSubModal, setEmployeeSubModal] = useState<'none' | 'contracts' | 'attendance' | 'leave' | 'assets' | 'payslips' | 'documents'>('none');
   const [showPamContractModal, setShowPamContractModal] = useState(false);
+  const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+
+  const handlePerformFullReset = async () => {
+    setIsResetting(true);
+    try {
+      await TenantDatabaseService.wipeEntireSystem();
+      setEmployees([]);
+      setContracts([]);
+      setCommencements([]);
+      toast.success('تم تصفير كافة الموظفين وقاعدة البيانات بنجاح!');
+      setShowResetConfirmModal(false);
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+    } catch (e) {
+      console.error('Error performing full reset:', e);
+      toast.error('حدث خطأ أثناء التصفير، سيتم التحديث الآن');
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+    } finally {
+      setIsResetting(false);
+    }
+  };
 
   const handleDeleteEmployee = async (id: string, name: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    if (window.confirm(`هل أنت متأكد من رغبتك في حذف ملف الموظف: ${name || id} من قاعدة البيانات؟`)) {
-      await TenantDatabaseService.deleteEmployee(id, currentCompanyId);
-      setEmployees(prev => {
-        const updated = prev.filter(emp => emp.id !== id);
-        if (currentCompanyId) {
-          localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(updated));
-        }
-        return updated;
-      });
-      if (selectedEmployee && String(selectedEmployee.id) === String(id)) {
-        setShowEmployeeModal(false);
-        setSelectedEmployee(null);
+    await TenantDatabaseService.deleteEmployee(id, currentCompanyId);
+    setEmployees(prev => {
+      const updated = prev.filter(emp => emp.id !== id);
+      if (currentCompanyId) {
+        localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(updated));
       }
+      return updated;
+    });
+    toast.success(`تم حذف الموظف: ${name || id}`);
+    if (selectedEmployee && String(selectedEmployee.id) === String(id)) {
+      setShowEmployeeModal(false);
+      setSelectedEmployee(null);
     }
   };
 
   const handleDeleteContract = (contractId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    if (confirm('هل أنت متأكد من حذف هذا العقد نهائياً من سجلات النظام؟')) {
-      const updated = contracts.filter((c: any) => c.id !== contractId);
-      setContracts(updated);
-      if (selectedContract && selectedContract.id === contractId) {
-        setShowContractModal(false);
-        setSelectedContract(null);
-      }
-      alert('تم حذف العقد بنجاح.');
+    const updated = contracts.filter((c: any) => c.id !== contractId);
+    setContracts(updated);
+    if (currentCompanyId) {
+      localStorage.setItem(`odoo_contracts_v1_${currentCompanyId}`, JSON.stringify(updated));
     }
+    if (selectedContract && selectedContract.id === contractId) {
+      setShowContractModal(false);
+      setSelectedContract(null);
+    }
+    toast.success('تم حذف العقد بنجاح');
   };
 
   const handleDeleteCommencement = (comId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    if (confirm('هل أنت متأكد من حذف إقرار المباشرة هذا نهائياً؟')) {
-      const updated = commencements.filter((c: any) => c.id !== comId);
-      setCommencements(updated);
-      if (selectedCommencement && selectedCommencement.id === comId) {
-        setShowCommencementModal(false);
-        setSelectedCommencement(null);
-      }
-      alert('تم حذف إقرار المباشرة بنجاح.');
+    const updated = commencements.filter((c: any) => c.id !== comId);
+    setCommencements(updated);
+    if (currentCompanyId) {
+      localStorage.setItem(`odoo_commencements_v1_${currentCompanyId}`, JSON.stringify(updated));
     }
+    if (selectedCommencement && selectedCommencement.id === comId) {
+      setShowCommencementModal(false);
+      setSelectedCommencement(null);
+    }
+    toast.success('تم حذف إقرار المباشرة بنجاح');
   };
 
   const validateKuwaitCivilId = (civilId: string) => {
@@ -244,6 +272,9 @@ export function EmployeesApp(props?: any) {
             }
           } else {
             setEmployees([]);
+            if (currentCompanyId) {
+              localStorage.removeItem(`odoo_employees_v1_${currentCompanyId}`);
+            }
           }
         }
       } catch (e) {
@@ -311,10 +342,104 @@ export function EmployeesApp(props?: any) {
     }
   }, [commencements, currentCompanyId]);
 
-  // فتح نموذج الموظف (hr.employee)
+  // فتح نموذج الموظف (hr.employee) كصفحة نظيفة ومباشرة
   const openEmployeeModal = (emp: any) => {
     setSelectedEmployee(emp);
-    setShowEmployeeModal(true);
+    setShowEmployeeModal(false);
+  };
+
+  // إنشاء موظف جديد كصفحة كاملة نظيفة
+  const handleCreateNewEmployee = () => {
+    const nextSeq = employees.length + 1;
+    const defaultDept = selectedDept !== 'الكل' ? selectedDept : 'الموارد البشرية';
+    
+    // Auto-detect if medical staff based on department to set a relevant default job title
+    const isMedicalDept = ['الأطباء', 'التمريض'].includes(defaultDept);
+    const defaultJobTitle = defaultDept === 'الأطباء' ? 'طبيب أخصائي' : 
+                            defaultDept === 'التمريض' ? 'ممرض عام' : 'موظف إداري';
+
+    const newEmp = {
+      id: `EMP-2026-${String(nextSeq).padStart(3, '0')}`,
+      nameAr: '',
+      nameEn: '',
+      fullNameAr: '',
+      fullNameEn: '',
+      civilId: '',
+      civil_id_number: '',
+      civilIdExpiry: '',
+      jobTitle: defaultJobTitle,
+      dept: defaultDept,
+      companyId: currentCompanyId,
+      basicSalary: 350,
+      housingAllowance: 50,
+      transportAllowance: 25,
+      medicalAllowance: 25,
+      allowances: 0,
+      hireDate: '2026-01-01',
+      contractStartDate: '2026-01-01',
+      contractEndDate: '2027-01-01',
+      contractType: 'محدد المدة',
+      contractStatus: 'ساري',
+      status: 'active',
+      mohLicense: '',
+      phone: '',
+      email: '',
+      nationality: 'كويتي',
+      avatarColor: 'bg-[#714B67]',
+      pifssStatus: 'subscribed',
+      isNewRecord: true
+    };
+    setSelectedEmployee(newEmp);
+  };
+
+  const handleSaveEmployee = async (updatedEmp: any) => {
+    if (!updatedEmp) return;
+    const activeCompanyId = currentCompanyId;
+    const civilId = (updatedEmp.civil_id_number || updatedEmp.civilId || updatedEmp.civil_id || '').trim();
+
+    if (updatedEmp.isNewRecord && civilId) {
+      const isDuplicate = employees.some(
+        emp => (emp.companyId === activeCompanyId || activeCompanyId === 'comp-super-admin') && 
+        ((emp.civil_id_number && emp.civil_id_number.trim() === civilId) || 
+         (emp.civilId && emp.civilId.trim() === civilId) ||
+         (emp.civil_id && emp.civil_id.trim() === civilId))
+      );
+
+      if (isDuplicate) {
+        alert('خطأ: الموظف مسجل بالفعل! الرقم المدني مكرر في هذه الشركة.');
+        return;
+      }
+    }
+
+    const payload = {
+      ...updatedEmp,
+      companyId: activeCompanyId,
+      civil_id_number: civilId,
+      civilId: civilId,
+      nameAr: updatedEmp.nameAr || updatedEmp.fullNameAr || 'موظف جديد',
+      fullNameAr: updatedEmp.nameAr || updatedEmp.fullNameAr || 'موظف جديد',
+      nameEn: updatedEmp.nameEn || updatedEmp.fullNameEn || '',
+      fullNameEn: updatedEmp.nameEn || updatedEmp.fullNameEn || '',
+      department: updatedEmp.dept || updatedEmp.department,
+      joinDate: (updatedEmp.hireDate || updatedEmp.joinDate || '2026-01-01').slice(0, 10),
+      hireDate: (updatedEmp.hireDate || updatedEmp.joinDate || '2026-01-01').slice(0, 10),
+      mohLicenseNo: updatedEmp.mohLicense || updatedEmp.mohLicenseNo,
+      updatedAt: new Date().toISOString()
+    };
+    delete payload.isNewRecord;
+
+    await TenantDatabaseService.saveEmployee(payload as any, activeCompanyId);
+
+    setEmployees(prev => {
+      const exists = prev.some(e => e.id === payload.id);
+      const nextList = exists ? prev.map(e => e.id === payload.id ? payload : e) : [payload, ...prev];
+      if (activeCompanyId) {
+        localStorage.setItem(`odoo_employees_v1_${activeCompanyId}`, JSON.stringify(nextList));
+      }
+      return nextList;
+    });
+
+    setSelectedEmployee(payload);
   };
 
   // فتح نموذج العقد (hr.contract)
@@ -711,8 +836,8 @@ export function EmployeesApp(props?: any) {
           <div className="flex items-center gap-2 min-w-max">
             {activeTab === 'directory' && (
               <button 
-                onClick={() => setShowAddEmployeeModal(true)}
-                className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+                onClick={handleCreateNewEmployee}
+                className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
               >
                 <span>+</span>
                 <span>تسجيل موظف جديد (hr.employee)</span>
@@ -731,6 +856,15 @@ export function EmployeesApp(props?: any) {
               className="bg-white border border-slate-300 hover:bg-slate-50 text-emerald-700 border-emerald-300 hover:bg-emerald-50 px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5"
             >
               <span>📊</span> تصدير Excel
+            </button>
+
+            <button 
+              onClick={() => setShowResetConfirmModal(true)}
+              className="bg-rose-50 border border-rose-300 hover:bg-rose-100 text-rose-700 px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+              title="تصفير ومسح كافة الموظفين والعقود"
+            >
+              <Trash2 size={14} className="text-rose-600" />
+              <span>تصفير وحذف الكل</span>
             </button>
           </div>
 
@@ -938,124 +1072,138 @@ export function EmployeesApp(props?: any) {
       {/* 3.1 دليل وبطاقات الموظفين */}
       {activeTab === 'directory' && (
         <>
-          {viewMode === 'cards' ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-              {filteredEmployees.map((emp) => (
-                <div 
-                  key={emp.id} 
-                  onClick={() => openEmployeeModal(emp)}
-                  className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition cursor-pointer relative flex flex-col justify-between group"
-                >
-                  <div>
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-11 h-11 rounded-xl ${emp.avatarColor} text-white flex items-center justify-center font-bold text-sm shadow-sm`}>
-                          {emp.nameAr.slice(0, 2)}
+          {selectedEmployee ? (
+            <OdooEmployeeDetailView
+              employee={selectedEmployee}
+              activeCompany={activeCompany}
+              onSave={handleSaveEmployee}
+              onBack={() => setSelectedEmployee(null)}
+              onDelete={(id, name) => handleDeleteEmployee(id, name)}
+              onTriggerPrint={(title, data) => handleTriggerPrint(title, data)}
+              onOpenPamModal={() => setShowPamContractModal(true)}
+            />
+          ) : (
+            <>
+              {viewMode === 'cards' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                  {filteredEmployees.map((emp) => (
+                    <div 
+                      key={emp.id} 
+                      onClick={() => openEmployeeModal(emp)}
+                      className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition cursor-pointer relative flex flex-col justify-between group"
+                    >
+                      <div>
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-11 h-11 rounded-xl ${emp.avatarColor} text-white flex items-center justify-center font-bold text-sm shadow-sm`}>
+                              {emp.nameAr.slice(0, 2)}
+                            </div>
+                            <div>
+                              <h3 className="font-bold text-slate-800 text-xs group-hover:text-purple-900 transition">{emp.nameAr}</h3>
+                              <p className="text-[11px] text-slate-500">{emp.jobTitle}</p>
+                              <div className="flex flex-wrap items-center gap-1 mt-1">
+                                <span className="inline-block bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[10px] font-semibold">
+                                  {emp.dept}
+                                </span>
+                                <span className="inline-block bg-purple-100 text-purple-900 border border-purple-200 px-2 py-0.5 rounded text-[10px] font-mono font-bold">
+                                  🏢 companyId: {emp.companyId || (emp as any).company_id}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <span className="text-[10px] bg-purple-50 text-purple-700 px-2 py-0.5 rounded font-mono font-bold">
+                            {emp.id}
+                          </span>
                         </div>
-                        <div>
-                          <h3 className="font-bold text-slate-800 text-xs group-hover:text-purple-900 transition">{emp.nameAr}</h3>
-                          <p className="text-[11px] text-slate-500">{emp.jobTitle}</p>
-                          <div className="flex flex-wrap items-center gap-1 mt-1">
-                            <span className="inline-block bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[10px] font-semibold">
-                              {emp.dept}
-                            </span>
-                            <span className="inline-block bg-purple-100 text-purple-900 border border-purple-200 px-2 py-0.5 rounded text-[10px] font-mono font-bold">
-                              🏢 companyId: {emp.companyId || (emp as any).company_id}
-                            </span>
+
+                        <div className="space-y-1 text-[11px] text-slate-500 border-t border-slate-100 pt-3 font-mono">
+                          <div className="flex items-center justify-between">
+                            <span>📞 {emp.phone}</span>
+                            <span className="text-emerald-700 font-bold">{emp.mohLicense}</span>
                           </div>
                         </div>
                       </div>
-                      <span className="text-[10px] bg-purple-50 text-purple-700 px-2 py-0.5 rounded font-mono font-bold">
-                        {emp.id}
-                      </span>
-                    </div>
 
-                    <div className="space-y-1 text-[11px] text-slate-500 border-t border-slate-100 pt-3 font-mono">
-                      <div className="flex items-center justify-between">
-                        <span>📞 {emp.phone}</span>
-                        <span className="text-emerald-700 font-bold">{emp.mohLicense}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border-t border-slate-100 mt-4 pt-3 flex items-center justify-between">
-                    <span className="font-mono font-bold text-slate-800 text-xs">
-                      {(emp.basicSalary + emp.allowances).toFixed(3)} د.ك
-                    </span>
-                    <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={() => openEmployeeModal(emp)}
-                        className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-900 rounded font-bold transition text-[10px] flex items-center gap-1"
-                        title="تعديل وعرض الملف"
-                      >
-                        ✏️ تعديل
-                      </button>
-                      <button
-                        onClick={(e) => handleDeleteEmployee(emp.id, emp.nameAr, e)}
-                        className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded font-bold transition text-[10px] flex items-center gap-1"
-                        title="حذف الموظف"
-                      >
-                        🗑️ حذف
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-4">
-              <table className="w-full text-right text-xs">
-                <thead className="bg-slate-50 text-slate-700 border-b border-slate-200 font-bold">
-                  <tr>
-                    <th className="p-3.5">المعرف</th>
-                    <th className="p-3.5">اسم الموظف</th>
-                    <th className="p-3.5">الرقم المدني</th>
-                    <th className="p-3.5">المسمى الوظيفي والقسم</th>
-                    <th className="p-3.5">ترخيص وزارة الصحة</th>
-                    <th className="p-3.5">الراتب الشامل</th>
-                    <th className="p-3.5 text-center">الإجراء والتحكم</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredEmployees.map((emp) => (
-                    <tr key={emp.id} className="hover:bg-slate-50 transition cursor-pointer" onClick={() => openEmployeeModal(emp)}>
-                      <td className="p-3.5 font-mono text-purple-900 font-bold">{emp.id}</td>
-                      <td className="p-3.5 font-bold text-slate-800">{emp.nameAr}</td>
-                      <td className="p-3.5 font-mono text-slate-600">{emp.civilId}</td>
-                      <td className="p-3.5 text-slate-700">
-                        <div>{emp.jobTitle}</div>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <span className="text-[10px] text-slate-400">{emp.dept}</span>
-                          <span className="text-[10px] bg-purple-50 text-purple-800 border border-purple-200 px-1.5 py-0.2 rounded font-mono font-bold">
-                            🏢 {emp.companyId || (emp as any).company_id}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="p-3.5 font-mono text-purple-800 font-bold">{emp.mohLicense}</td>
-                      <td className="p-3.5 font-mono font-bold text-emerald-700">{(emp.basicSalary + emp.allowances).toFixed(3)} د.ك</td>
-                      <td className="p-3.5 text-center">
-                        <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                      <div className="border-t border-slate-100 mt-4 pt-3 flex items-center justify-between">
+                        <span className="font-mono font-bold text-slate-800 text-xs">
+                          {(emp.basicSalary + emp.allowances).toFixed(3)} د.ك
+                        </span>
+                        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => openEmployeeModal(emp)}
-                            className="bg-purple-50 hover:bg-purple-100 text-purple-700 px-2.5 py-1 rounded font-bold transition text-[11px] flex items-center gap-1"
+                            className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-900 rounded font-bold transition text-[10px] flex items-center gap-1"
                             title="تعديل وعرض الملف"
                           >
                             ✏️ تعديل
                           </button>
                           <button
                             onClick={(e) => handleDeleteEmployee(emp.id, emp.nameAr, e)}
-                            className="bg-rose-50 hover:bg-rose-100 text-rose-600 px-2.5 py-1 rounded font-bold transition text-[11px] flex items-center gap-1"
+                            className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded font-bold transition text-[10px] flex items-center gap-1"
                             title="حذف الموظف"
                           >
                             🗑️ حذف
                           </button>
                         </div>
-                      </td>
-                    </tr>
+                      </div>
+                    </div>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </div>
+              ) : (
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-4">
+                  <table className="w-full text-right text-xs">
+                    <thead className="bg-slate-50 text-slate-700 border-b border-slate-200 font-bold">
+                      <tr>
+                        <th className="p-3.5">المعرف</th>
+                        <th className="p-3.5">اسم الموظف</th>
+                        <th className="p-3.5">الرقم المدني</th>
+                        <th className="p-3.5">المسمى الوظيفي والقسم</th>
+                        <th className="p-3.5">ترخيص وزارة الصحة</th>
+                        <th className="p-3.5">الراتب الشامل</th>
+                        <th className="p-3.5 text-center">الإجراء والتحكم</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredEmployees.map((emp) => (
+                        <tr key={emp.id} className="hover:bg-slate-50 transition cursor-pointer" onClick={() => openEmployeeModal(emp)}>
+                          <td className="p-3.5 font-mono text-purple-900 font-bold">{emp.id}</td>
+                          <td className="p-3.5 font-bold text-slate-800">{emp.nameAr}</td>
+                          <td className="p-3.5 font-mono text-slate-600">{emp.civilId}</td>
+                          <td className="p-3.5 text-slate-700">
+                            <div>{emp.jobTitle}</div>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <span className="text-[10px] text-slate-400">{emp.dept}</span>
+                              <span className="text-[10px] bg-purple-50 text-purple-800 border border-purple-200 px-1.5 py-0.2 rounded font-mono font-bold">
+                                🏢 {emp.companyId || (emp as any).company_id}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="p-3.5 font-mono text-purple-800 font-bold">{emp.mohLicense}</td>
+                          <td className="p-3.5 font-mono font-bold text-emerald-700">{(emp.basicSalary + emp.allowances).toFixed(3)} د.ك</td>
+                          <td className="p-3.5 text-center">
+                            <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                onClick={() => openEmployeeModal(emp)}
+                                className="bg-purple-50 hover:bg-purple-100 text-purple-700 px-2.5 py-1 rounded font-bold transition text-[11px] flex items-center gap-1"
+                                title="تعديل وعرض الملف"
+                              >
+                                ✏️ تعديل
+                              </button>
+                              <button
+                                onClick={(e) => handleDeleteEmployee(emp.id, emp.nameAr, e)}
+                                className="bg-rose-50 hover:bg-rose-100 text-rose-600 px-2.5 py-1 rounded font-bold transition text-[11px] flex items-center gap-1"
+                                title="حذف الموظف"
+                              >
+                                🗑️ حذف
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
           )}
         </>
       )}
@@ -1161,1022 +1309,6 @@ export function EmployeesApp(props?: any) {
         </div>
       </div>
 
-
-      {/* 5. نموذج بطاقة الموظف التفصيلية (Odoo Employee Form - hr.employee) */}
-      {showEmployeeModal && selectedEmployee && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col border border-slate-200 overflow-hidden">
-            
-            {/* T-Bar / Header */}
-            <div className="bg-[#714B67] text-white px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={`w-12 h-12 rounded-xl ${selectedEmployee.avatarColor} text-white flex items-center justify-center font-bold text-base shadow`}>
-                  {selectedEmployee.nameAr.slice(0, 2)}
-                </div>
-                <div>
-                  <div className="flex items-center gap-2 min-w-max">
-                    <h2 className="text-base font-bold">{selectedEmployee.nameAr}</h2>
-                    <span className="text-xs bg-white/20 px-2 py-0.5 rounded font-mono">{selectedEmployee.id}</span>
-                  </div>
-                  <p className="text-xs text-purple-200">{selectedEmployee.jobTitle} | {selectedEmployee.dept}</p>
-                </div>
-              </div>
-
-              <button 
-                onClick={() => setShowEmployeeModal(false)}
-                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Smart Buttons Header */}
-            <div className="bg-white border-b border-slate-200 p-2 flex items-center justify-between gap-4 text-xs overflow-x-auto">
-              <div className="flex items-center gap-1.5 min-w-max">
-                {/* Contracts & PAM Button */}
-                <button 
-                  onClick={() => setEmployeeActiveTab('contract_pam')}
-                  className={`border h-12 px-3 rounded shadow-sm transition flex items-center gap-3 whitespace-nowrap shrink-0 min-w-[130px] ${
-                    employeeActiveTab === 'contract_pam'
-                      ? 'bg-purple-50 border-purple-400 text-purple-900 ring-2 ring-purple-200'
-                      : 'bg-white border-slate-300 hover:bg-slate-50 text-slate-700'
-                  }`}
-                  title="عرض وإدارة عقد العمل ونموذج القوى العاملة والتجديد"
-                >
-                  <span className="text-xl text-purple-700">📜</span>
-                  <div className="flex flex-col items-start leading-tight">
-                    <span className="font-bold text-slate-900 text-sm">عقد PAM</span>
-                    <span className="text-[10px] text-purple-700 font-bold">عقد العمل والتجديد</span>
-                  </div>
-                </button>
-
-                {/* Attendance Button */}
-                <button 
-                  onClick={() => setEmployeeSubModal('attendance')}
-                  className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 h-12 px-3 rounded shadow-sm transition flex items-center gap-3 whitespace-nowrap shrink-0 min-w-[120px]"
-                >
-                  <span className="text-xl text-emerald-600">🕒</span>
-                  <div className="flex flex-col items-start leading-tight">
-                    <span className="font-bold text-slate-900 text-sm">98%</span>
-                    <span className="text-[10px] text-slate-500 font-bold">الحضور (Attendance)</span>
-                  </div>
-                </button>
-
-                {/* Leave Button */}
-                <button 
-                  onClick={() => setEmployeeSubModal('leave')}
-                  className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 h-12 px-3 rounded shadow-sm transition flex items-center gap-3 whitespace-nowrap shrink-0 min-w-[120px]"
-                >
-                  <span className="text-xl text-blue-600">✈️</span>
-                  <div className="flex flex-col items-start leading-tight">
-                    <span className="font-bold text-slate-900 text-sm">30 يوم</span>
-                    <span className="text-[10px] text-slate-500 font-bold">الإجازات (Time Off)</span>
-                  </div>
-                </button>
-
-                {/* Payslips Button */}
-                <button 
-                  onClick={() => setEmployeeSubModal('payslips')}
-                  className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 h-12 px-3 rounded shadow-sm transition flex items-center gap-3 whitespace-nowrap shrink-0 min-w-[120px]"
-                >
-                  <span className="text-xl text-amber-600">💰</span>
-                  <div className="flex flex-col items-start leading-tight">
-                    <span className="font-bold text-slate-900 text-sm">12</span>
-                    <span className="text-[10px] text-slate-500 font-bold">الرواتب (Payslips)</span>
-                  </div>
-                </button>
-
-                {/* Documents Button */}
-                <button 
-                  onClick={() => setEmployeeSubModal('documents')}
-                  className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 h-12 px-3 rounded shadow-sm transition flex items-center gap-3 whitespace-nowrap shrink-0 min-w-[120px]"
-                >
-                  <span className="text-xl text-rose-600">📂</span>
-                  <div className="flex flex-col items-start leading-tight">
-                    <span className="font-bold text-slate-900 text-sm">5</span>
-                    <span className="text-[10px] text-slate-500 font-bold">المستندات (Documents)</span>
-                  </div>
-                </button>
-
-                {/* Assets Button */}
-                <button 
-                  onClick={() => setEmployeeSubModal('assets')}
-                  className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 h-12 px-3 rounded shadow-sm transition flex items-center gap-3 whitespace-nowrap shrink-0 min-w-[120px]"
-                >
-                  <span className="text-xl text-indigo-600">📦</span>
-                  <div className="flex flex-col items-start leading-tight">
-                    <span className="font-bold text-slate-900 text-sm">2</span>
-                    <span className="text-[10px] text-slate-500 font-bold">العهد (Equipments)</span>
-                  </div>
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowPamContractModal(true)}
-                  className="bg-purple-50 hover:bg-purple-100 text-[#714B67] border border-[#714B67]/40 h-12 px-3.5 rounded shadow-sm font-bold transition flex items-center gap-1.5 whitespace-nowrap shrink-0"
-                  title="إصدار عقد العمل الحكومي الرسمي (نموذج 2 - القوى العاملة PAM)"
-                >
-                  <span className="text-base">🏛️</span>
-                  <span>عقد القوى العاملة (PAM 2)</span>
-                </button>
-
-                <button
-                  onClick={() => handleTriggerPrint(`ملف الموظف الشامل - ${selectedEmployee?.nameAr || ''}`, selectedEmployee)}
-                  className="bg-purple-900 hover:bg-purple-950 text-white h-12 px-4 rounded shadow-sm font-bold transition flex items-center gap-2 whitespace-nowrap shrink-0"
-                >
-                  <span className="text-lg">🖨️</span> طباعة الملف
-                </button>
-              </div>
-            </div>
-
-            {/* Notebook Sub-tabs */}
-            <div className="p-6 overflow-y-auto space-y-6 flex-1">
-              
-              <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-                <div className="flex items-center bg-slate-100 border-b border-slate-200 px-4 pt-2 gap-2 text-xs font-bold text-slate-600 overflow-x-auto whitespace-nowrap scrollbar-hide">
-                  <button
-                    onClick={() => setEmployeeActiveTab('work')}
-                    className={`px-4 py-2 rounded-t-lg transition border-t border-x shrink-0 ${
-                      employeeActiveTab === 'work' ? 'bg-white text-purple-900 border-slate-200 font-bold -mb-px' : 'bg-slate-100 border-transparent text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    💼 معلومات العمل (Work Information)
-                  </button>
-
-                  <button
-                    onClick={() => setEmployeeActiveTab('contract_pam')}
-                    className={`px-4 py-2 rounded-t-lg transition border-t border-x shrink-0 ${
-                      employeeActiveTab === 'contract_pam' ? 'bg-white text-purple-900 border-slate-200 font-black -mb-px shadow-sm' : 'bg-slate-100 border-transparent text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    📜 عقد العمل والقوى العاملة (PAM & Contracts)
-                  </button>
-
-                  <button
-                    onClick={() => setEmployeeActiveTab('private')}
-                    className={`px-4 py-2 rounded-t-lg transition border-t border-x shrink-0 ${
-                      employeeActiveTab === 'private' ? 'bg-white text-purple-900 border-slate-200 font-bold -mb-px' : 'bg-slate-100 border-transparent text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    🪪 المعلومات الخاصة / الشخصية (Private Information)
-                  </button>
-
-                  <button
-                    onClick={() => setEmployeeActiveTab('hr')}
-                    className={`px-4 py-2 rounded-t-lg transition border-t border-x shrink-0 ${
-                      employeeActiveTab === 'hr' ? 'bg-white text-purple-900 border-slate-200 font-bold -mb-px' : 'bg-slate-100 border-transparent text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    ⚙️ إعدادات الموارد البشرية (HR Settings)
-                  </button>
-
-                  <button
-                    onClick={() => setEmployeeActiveTab('resume')}
-                    className={`px-4 py-2 rounded-t-lg transition border-t border-x shrink-0 ${
-                      employeeActiveTab === 'resume' ? 'bg-white text-purple-900 border-slate-200 font-bold -mb-px' : 'bg-slate-100 border-transparent text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    🎓 السيرة الذاتية والمهارات (Resume & Skills)
-                  </button>
-                </div>
-
-                {/* Tab 1: Work Information */}
-                {employeeActiveTab === 'work' && (
-                  <div className="p-6 space-y-4 text-xs">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">المسمى الوظيفي (Job Position)</label>
-                        <select
-                          value={selectedEmployee.jobTitle}
-                          onChange={(e) => handleMasterDropdownChange(e.target.value, 'jobTitle', selectedEmployee, setSelectedEmployee, masterJobTitles, setMasterJobTitles, 'أدخل المسمى الوظيفي الجديد:')}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                        >
-                          {masterJobTitles.map(j => <option key={j} value={j}>{j}</option>)}
-                          <option value="__ADD_NEW__" className="text-purple-700 font-bold">➕ إضافة مسمى وظيفي جديد...</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">موقع العمل / العيادة (Work Location)</label>
-                        <input 
-                          type="text" 
-                          value={selectedEmployee.workLocation} 
-                          onChange={(e) => setSelectedEmployee({...selectedEmployee, workLocation: e.target.value})}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">الإدارة / القسم (Department)</label>
-                        <select
-                          value={selectedEmployee.dept}
-                          onChange={(e) => handleMasterDropdownChange(e.target.value, 'dept', selectedEmployee, setSelectedEmployee, masterDepts, setMasterDepts, 'أدخل اسم القسم الجديد:')}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                        >
-                          {masterDepts.map(d => <option key={d} value={d}>{d}</option>)}
-                          <option value="__ADD_NEW__" className="text-purple-700 font-bold">➕ إضافة قسم جديد...</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">المدير المباشر (Coach / Manager)</label>
-                        <input 
-                          type="text" 
-                          value={selectedEmployee.manager} 
-                          onChange={(e) => setSelectedEmployee({...selectedEmployee, manager: e.target.value})}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">البريد الإلكتروني الرسمي (Work Email)</label>
-                        <input 
-                          type="email" 
-                          value={selectedEmployee.email} 
-                          onChange={(e) => setSelectedEmployee({...selectedEmployee, email: e.target.value})}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none font-mono"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">رقم هاتف العمل (Work Phone)</label>
-                        <input 
-                          type="text" 
-                          value={selectedEmployee.phone} 
-                          onChange={(e) => setSelectedEmployee({...selectedEmployee, phone: e.target.value})}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none font-mono"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">تاريخ المباشرة والتعيين</label>
-                        <input 
-                          type="date" 
-                          value={selectedEmployee.hireDate} 
-                          onChange={(e) => setSelectedEmployee({...selectedEmployee, hireDate: e.target.value})}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none font-mono"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Tab 2: Contracts & PAM 2 Official Forms (تبويب عقد العمل والقوى العاملة وتجديد العقود) */}
-                {employeeActiveTab === 'contract_pam' && (
-                  <div className="p-6 space-y-6 text-xs animate-fade-in">
-                    
-                    {/* Header Action Banner */}
-                    <div className="bg-gradient-to-r from-[#714B67]/10 via-purple-50 to-indigo-50 border border-[#714B67]/20 p-4 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm">
-                      <div className="flex items-center gap-3">
-                        <div className="p-3 bg-[#714B67] text-white rounded-xl shadow-sm">
-                          <FileText className="w-6 h-6" />
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-black text-slate-900">عقد العمل الرسمي ونموذج الهيئة العامة للقوى العاملة (PAM 2)</h4>
-                          <p className="text-[11px] text-slate-600 font-medium">
-                            إدارة عقود العمل وتجديدها فورياً وطباعة نموذج (2) المعتمد للقطاع الأهلي الكويتي
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Quick Action Buttons */}
-                      <div className="flex flex-wrap items-center gap-2">
-                        {/* Renew Contract 1 Year Button */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const currentEnd = selectedEmployee.contractEndDate || selectedEmployee.endDate || new Date().toISOString().slice(0, 10);
-                            const nextEnd = new Date(currentEnd);
-                            nextEnd.setFullYear(nextEnd.getFullYear() + 1);
-                            const newEndDateStr = nextEnd.toISOString().slice(0, 10);
-                            
-                            const updated = {
-                              ...selectedEmployee,
-                              contractStatus: 'ساري',
-                              contractEndDate: newEndDateStr,
-                              endDate: newEndDateStr,
-                              contractStartDate: selectedEmployee.contractStartDate || selectedEmployee.startDate || new Date().toISOString().slice(0, 10),
-                              contractRef: selectedEmployee.contractRef || `KW-CNT-${selectedEmployee.id || '01'}-${new Date().getFullYear()}`
-                            };
-                            setSelectedEmployee(updated);
-                            alert(`تم تجديد عقد الموظف بنجاح حتى تاريخ: ${newEndDateStr}`);
-                          }}
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2.5 rounded-xl font-bold flex items-center gap-1.5 shadow-sm transition"
-                        >
-                          <RefreshCw size={14} />
-                          <span>تجديد العقد (+سنة)</span>
-                        </button>
-
-                        {/* Open PAM 2 Form */}
-                        <button
-                          type="button"
-                          onClick={() => setShowPamContractModal(true)}
-                          className="bg-[#714B67] hover:bg-[#593951] text-white px-4 py-2.5 rounded-xl font-bold flex items-center gap-1.5 shadow-md transition"
-                        >
-                          <ExternalLink size={14} />
-                          <span>فتح وتوليد نموذج PAM 2 PDF</span>
-                        </button>
-
-                        {/* Print Contract */}
-                        <button
-                          type="button"
-                          onClick={() => handleTriggerPrint(`عقد عمل كويتي رسمي - ${selectedEmployee?.nameAr || selectedEmployee?.name || ''}`, selectedEmployee)}
-                          className="bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2.5 rounded-xl font-bold flex items-center gap-1.5 shadow-sm transition"
-                        >
-                          <Printer size={14} />
-                          <span>طباعة عقد العمل A4</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Contract Details Form */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      
-                      {/* Contract Reference */}
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">مرجع العقد (Contract Reference)</label>
-                        <input 
-                          type="text" 
-                          value={selectedEmployee.contractRef || `KW-CNT-${selectedEmployee.id || '01'}-2026`} 
-                          onChange={(e) => setSelectedEmployee({...selectedEmployee, contractRef: e.target.value})}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                          placeholder="KW-CNT-001-2026"
-                        />
-                      </div>
-
-                      {/* Contract Status */}
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">حالة العقد (Contract Status)</label>
-                        <select
-                          value={selectedEmployee.contractStatus || 'ساري'}
-                          onChange={(e) => setSelectedEmployee({...selectedEmployee, contractStatus: e.target.value})}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                        >
-                          <option value="ساري">ساري (Running / Active)</option>
-                          <option value="قيد التجديد">قيد التجديد (To Renew)</option>
-                          <option value="فترة تجربة">فترة تجربة (Probation)</option>
-                          <option value="منتهي">منتهي (Expired)</option>
-                          <option value="ملغي">ملغي (Cancelled)</option>
-                        </select>
-                      </div>
-
-                      {/* Contract Type */}
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">نوع العقد (Contract Type)</label>
-                        <select
-                          value={selectedEmployee.contractType || 'محدد المدة'}
-                          onChange={(e) => setSelectedEmployee({...selectedEmployee, contractType: e.target.value})}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                        >
-                          <option value="محدد المدة">محدد المدة (Fixed-Term)</option>
-                          <option value="غير محدد المدة">غير محدد المدة (Indefinite)</option>
-                          <option value="عقد تدريب / تأهيل">عقد تدريب / تأهيل (Internship)</option>
-                        </select>
-                      </div>
-
-                      {/* Start Date */}
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">تاريخ بداية العقد (Start Date)</label>
-                        <input 
-                          type="date" 
-                          value={selectedEmployee.contractStartDate || selectedEmployee.startDate || selectedEmployee.hireDate || ''} 
-                          onChange={(e) => setSelectedEmployee({
-                            ...selectedEmployee, 
-                            contractStartDate: e.target.value,
-                            startDate: e.target.value
-                          })}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                        />
-                      </div>
-
-                      {/* End Date */}
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">تاريخ نهاية العقد (End Date)</label>
-                        <input 
-                          type="date" 
-                          value={selectedEmployee.contractEndDate || selectedEmployee.endDate || ''} 
-                          onChange={(e) => setSelectedEmployee({
-                            ...selectedEmployee, 
-                            contractEndDate: e.target.value,
-                            endDate: e.target.value
-                          })}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                        />
-                      </div>
-
-                      {/* Probation Period */}
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">فترة التجربة (Probation Days)</label>
-                        <input 
-                          type="number" 
-                          value={selectedEmployee.probationDays || '100'} 
-                          onChange={(e) => setSelectedEmployee({...selectedEmployee, probationDays: e.target.value})}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                          placeholder="100 يوماً (المادة 24)"
-                        />
-                      </div>
-
-                    </div>
-
-                    {/* Salary and Allowances Package */}
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
-                      <div className="flex items-center justify-between border-b pb-2">
-                        <span className="font-bold text-slate-800 flex items-center gap-1.5">
-                          <DollarSign size={15} className="text-emerald-600" />
-                          <span>حزمة الأجور والبدلات الشهرية (د.ك)</span>
-                        </span>
-                        <div className="text-emerald-800 font-black text-sm font-mono">
-                          الإجمالي: {(
-                            (parseFloat(selectedEmployee.basicSalary || selectedEmployee.salary || 0)) +
-                            (parseFloat(selectedEmployee.housingAllowance || 0)) +
-                            (parseFloat(selectedEmployee.transportAllowance || 0)) +
-                            (parseFloat(selectedEmployee.medicalAllowance || 0))
-                          ).toFixed(3)} د.ك
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <div>
-                          <label className="block text-slate-500 font-semibold mb-1">الراتب الأساسي</label>
-                          <input 
-                            type="number" 
-                            step="0.001"
-                            value={selectedEmployee.basicSalary ?? selectedEmployee.salary ?? '0.000'} 
-                            onChange={(e) => setSelectedEmployee({...selectedEmployee, basicSalary: parseFloat(e.target.value) || 0})}
-                            className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 bg-white"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-slate-500 font-semibold mb-1">بدل السكن</label>
-                          <input 
-                            type="number" 
-                            step="0.001"
-                            value={selectedEmployee.housingAllowance ?? '0.000'} 
-                            onChange={(e) => setSelectedEmployee({...selectedEmployee, housingAllowance: parseFloat(e.target.value) || 0})}
-                            className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 bg-white"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-slate-500 font-semibold mb-1">بدل الانتقال</label>
-                          <input 
-                            type="number" 
-                            step="0.001"
-                            value={selectedEmployee.transportAllowance ?? '0.000'} 
-                            onChange={(e) => setSelectedEmployee({...selectedEmployee, transportAllowance: parseFloat(e.target.value) || 0})}
-                            className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 bg-white"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-slate-500 font-semibold mb-1">بدل طبي / أخرى</label>
-                          <input 
-                            type="number" 
-                            step="0.001"
-                            value={selectedEmployee.medicalAllowance ?? '0.000'} 
-                            onChange={(e) => setSelectedEmployee({...selectedEmployee, medicalAllowance: parseFloat(e.target.value) || 0})}
-                            className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 bg-white"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* PAM Form 2 Preview Box */}
-                    <div className="bg-white border-2 border-dashed border-[#714B67]/30 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2 font-black text-slate-900">
-                          <span className="bg-[#714B67] text-white text-[10px] px-2 py-0.5 rounded font-mono">PAM-FORM-2</span>
-                          <span>نموذج عقد العمل الأهلي الموحد (الهيئة العامة للقوى العاملة)</span>
-                        </div>
-                        <p className="text-[11px] text-slate-500">
-                          مطابق لاشتراطات مكاتب العمل وتصاريح وإقامات الشؤون (مادة 18) مع كامل التواقيع والبيانات الرسمية.
-                        </p>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => setShowPamContractModal(true)}
-                        className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-sm shrink-0 cursor-pointer transition"
-                      >
-                        <ExternalLink size={15} />
-                        <span>فتح نموذج (2) وتنزيل PDF</span>
-                      </button>
-                    </div>
-
-                  </div>
-                )}
-
-                {/* Tab 2: Private Information */}
-                {employeeActiveTab === 'private' && (
-                  <div className="p-6 space-y-4 text-xs">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">الرقم المدني الكويتي وتاريخ الانتهاء</label>
-                        <div className="flex gap-2">
-                          <input 
-                            type="text" 
-                            value={selectedEmployee.civilId || ''} 
-                            maxLength={12}
-                            onChange={(e) => setSelectedEmployee({...selectedEmployee, civilId: e.target.value})}
-                            className="w-1/2 border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                            placeholder="12 رقماً"
-                          />
-                          <input 
-                            type="date" 
-                            value={selectedEmployee.civilIdExpiry || ''} 
-                            onChange={(e) => setSelectedEmployee({...selectedEmployee, civilIdExpiry: e.target.value})}
-                            className="w-1/2 border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                            title="تاريخ انتهاء البطاقة المدنية"
-                          />
-                        </div>
-                        <div className="mt-1 text-[11px]">
-                          {validateKuwaitCivilId(selectedEmployee.civilId) ? (
-                            <span className="text-emerald-700 font-bold">✓ الرقم المدني مطابق لقانون MOD 11 الكويتي</span>
-                          ) : (
-                            <span className="text-rose-600 font-bold">⚠️ تنبيه: الرقم المدني يجب أن يكون 12 رقماً صحيحاً</span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">الجنسية (Nationality)</label>
-                        <input 
-                          type="text" 
-                          value={selectedEmployee.nationality || ''} 
-                          onChange={(e) => setSelectedEmployee({...selectedEmployee, nationality: e.target.value})}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">تاريخ الميلاد (Date of Birth)</label>
-                        <input 
-                          type="date" 
-                          value={selectedEmployee.dob || ''} 
-                          onChange={(e) => setSelectedEmployee({...selectedEmployee, dob: e.target.value})}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none font-mono"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">النوع (Gender)</label>
-                        <select 
-                          value={selectedEmployee.gender || 'ذكر - Male'} 
-                          onChange={(e) => setSelectedEmployee({...selectedEmployee, gender: e.target.value})}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                        >
-                          <option value="ذكر - Male">ذكر (Male)</option>
-                          <option value="أنثى - Female">أنثى (Female)</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">الحالة الاجتماعية وعدد المعالين</label>
-                        <div className="flex gap-2">
-                          <input 
-                            type="text" 
-                            value={selectedEmployee.maritalStatus || ''} 
-                            onChange={(e) => setSelectedEmployee({...selectedEmployee, maritalStatus: e.target.value})}
-                            className="w-1/2 border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                            placeholder="متزوج"
-                          />
-                          <input 
-                            type="number" 
-                            value={selectedEmployee.dependents || 0} 
-                            onChange={(e) => setSelectedEmployee({...selectedEmployee, dependents: Number(e.target.value)})}
-                            className="w-1/2 border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                            placeholder="المعالين"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">فصيلة الدم (Blood Type)</label>
-                        <select 
-                          value={selectedEmployee.bloodType || 'O+'} 
-                          onChange={(e) => setSelectedEmployee({...selectedEmployee, bloodType: e.target.value})}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-bold font-mono text-slate-800 bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                        >
-                          <option value="O+">O+</option>
-                          <option value="O-">O-</option>
-                          <option value="A+">A+</option>
-                          <option value="A-">A-</option>
-                          <option value="B+">B+</option>
-                          <option value="B-">B-</option>
-                          <option value="AB+">AB+</option>
-                          <option value="AB-">AB-</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">رقم جواز السفر وتاريخ الانتهاء</label>
-                        <div className="flex gap-2">
-                          <input 
-                            type="text" 
-                            value={selectedEmployee.passportNo || ''} 
-                            onChange={(e) => setSelectedEmployee({...selectedEmployee, passportNo: e.target.value})}
-                            className="w-1/2 border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                            placeholder="رقم الجواز"
-                          />
-                          <input 
-                            type="date" 
-                            value={selectedEmployee.passportExpiry || ''} 
-                            onChange={(e) => setSelectedEmployee({...selectedEmployee, passportExpiry: e.target.value})}
-                            className="w-1/2 border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">نوع الإقامة وتاريخ الانتهاء</label>
-                        <div className="flex gap-2">
-                          <input 
-                            type="text" 
-                            value={selectedEmployee.residencyType || ''} 
-                            onChange={(e) => setSelectedEmployee({...selectedEmployee, residencyType: e.target.value})}
-                            className="w-1/2 border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                            placeholder="مادة 18"
-                          />
-                          <input 
-                            type="date" 
-                            value={selectedEmployee.residencyExpiry || ''} 
-                            onChange={(e) => setSelectedEmployee({...selectedEmployee, residencyExpiry: e.target.value})}
-                            className="w-1/2 border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">اسم البنك (Bank Name)</label>
-                        <input 
-                          type="text" 
-                          value={selectedEmployee.bankName || ''} 
-                          onChange={(e) => setSelectedEmployee({...selectedEmployee, bankName: e.target.value})}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                          placeholder="بنك الكويت الوطني (NBK)"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">رقم الآيبان (IBAN)</label>
-                        <input 
-                          type="text" 
-                          value={selectedEmployee.iban || ''} 
-                          onChange={(e) => setSelectedEmployee({...selectedEmployee, iban: e.target.value})}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                          placeholder="أدخل رقم الآيبان الحقيقي (IBAN)"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Tab 3: HR Settings */}
-                {employeeActiveTab === 'hr' && (
-                  <div className="p-6 space-y-4 text-xs">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">نوع الموظف (Employee Type)</label>
-                        <select 
-                          value={selectedEmployee.employeeType || 'employee'} 
-                          onChange={(e) => setSelectedEmployee({...selectedEmployee, employeeType: e.target.value})}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                        >
-                          <option value="employee">موظف (Employee)</option>
-                          <option value="student">متدرب / طالب (Student)</option>
-                          <option value="contractor">مقاول (Contractor)</option>
-                          <option value="freelance">مستقل (Freelancer)</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">المستخدم المرتبط (Related User)</label>
-                        <input 
-                          type="text" 
-                          placeholder="ربط بحساب مستخدم..."
-                          value={selectedEmployee.relatedUser || ''} 
-                          onChange={(e) => setSelectedEmployee({...selectedEmployee, relatedUser: e.target.value})}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">رقم تعريف البصمة (Badge ID)</label>
-                        <input 
-                          type="text" 
-                          value={selectedEmployee.badgeId || ''} 
-                          onChange={(e) => setSelectedEmployee({...selectedEmployee, badgeId: e.target.value})}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">الرقم السري للحضور (PIN Code)</label>
-                        <input 
-                          type="password" 
-                          value={selectedEmployee.pinCode || ''} 
-                          onChange={(e) => setSelectedEmployee({...selectedEmployee, pinCode: e.target.value})}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                        />
-                      </div>
-                      
-                      <div className="md:col-span-2 pt-4 border-t border-slate-100">
-                        <h5 className="font-bold text-slate-700 mb-3">تراخيص وزارة الصحة (MOH Credentials) - خاص بالكادر الطبي</h5>
-                      </div>
-                      
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">رقم ترخيص مزاولة المهنة (MOH License)</label>
-                        <input 
-                          type="text" 
-                          value={selectedEmployee.mohLicense || ''} 
-                          onChange={(e) => setSelectedEmployee({...selectedEmployee, mohLicense: e.target.value})}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-purple-900 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">تاريخ انتهاء الترخيص (Expiry Date)</label>
-                        <input 
-                          type="date" 
-                          value={selectedEmployee.mohLicenseExpiry || ''} 
-                          onChange={(e) => setSelectedEmployee({...selectedEmployee, mohLicenseExpiry: e.target.value})}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Tab 4: Resume & Skills */}
-                {employeeActiveTab === 'resume' && (
-                  <div className="p-6 space-y-6 text-xs">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">الدرجة العلمية والشهادة (Degree)</label>
-                        <input 
-                          type="text" 
-                          value={selectedEmployee.degree || ''} 
-                          onChange={(e) => setSelectedEmployee({...selectedEmployee, degree: e.target.value})}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-slate-500 font-semibold mb-1">التخصص الدقيق (Specialty)</label>
-                        <input 
-                          type="text" 
-                          value={selectedEmployee.specialty || ''} 
-                          onChange={(e) => setSelectedEmployee({...selectedEmployee, specialty: e.target.value})}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="border-t border-slate-200 pt-4">
-                      <div className="flex justify-between items-center mb-4">
-                        <h5 className="font-bold text-slate-700">السيرة الذاتية (Resume Lines)</h5>
-                        <button className="text-purple-600 hover:text-purple-800 font-bold transition">➕ إضافة خبرة جديدة</button>
-                      </div>
-                      <div className="text-slate-400 text-center py-4 bg-slate-50 rounded-lg border border-dashed border-slate-300">
-                        لا توجد بيانات سيرة ذاتية مسجلة حالياً
-                      </div>
-                    </div>
-                    
-                    <div className="border-t border-slate-200 pt-4">
-                      <div className="flex justify-between items-center mb-4">
-                        <h5 className="font-bold text-slate-700">المهارات (Skills)</h5>
-                        <button className="text-purple-600 hover:text-purple-800 font-bold transition">➕ إضافة مهارة جديدة</button>
-                      </div>
-                      <div className="text-slate-400 text-center py-4 bg-slate-50 rounded-lg border border-dashed border-slate-300">
-                        لا توجد مهارات مسجلة حالياً
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Odoo Chatter inside Employee Modal */}
-              <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-3">
-                <h4 className="font-bold text-slate-800 text-xs flex items-center gap-2">
-                  <span>💬</span> سجل الملاحظات والأنشطة (Odoo Chatter)
-                </h4>
-
-                <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {selectedEmployee.chatter?.map((msg: any) => (
-                    <div key={msg.id} className="bg-white p-2.5 rounded-lg border border-slate-200 text-xs">
-                      <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1 font-mono">
-                        <span className="font-bold text-purple-900">{msg.user}</span>
-                        <span>{msg.date}</span>
-                      </div>
-                      <div className="text-slate-700">{msg.text}</div>
-                    </div>
-                  ))}
-                </div>
-
-                <form onSubmit={(e) => handleAddChatter('employee', e)} className="flex gap-2 pt-2">
-                  <input 
-                    type="text"
-                    value={chatterInput}
-                    onChange={(e) => setChatterInput(e.target.value)}
-                    placeholder="اكتب ملاحظة أو توثيق إداري هنا..."
-                    className="flex-1 bg-white border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                  />
-                  <button
-                    type="submit"
-                    className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-4 py-2 rounded-lg text-xs font-bold transition"
-                  >
-                    إرسال وسجل
-                  </button>
-                </form>
-              </div>
-
-            </div>
-
-            {/* Modal Footer */}
-            <div className="bg-slate-100 border-t border-slate-200 px-6 py-3 flex items-center justify-between">
-              <button
-                onClick={() => handleDeleteEmployee(selectedEmployee.id, selectedEmployee.nameAr)}
-                className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
-              >
-                <span>🗑️</span> حذف الموظف نهائياً
-              </button>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    if (selectedEmployee) {
-                      const expiryVal = selectedEmployee.civilIdExpiry || selectedEmployee.civilIdExpiryDate || selectedEmployee.civil_id_expiry || '';
-                      const updatedEmp = {
-                        ...selectedEmployee,
-                        civilIdExpiry: expiryVal,
-                        civilIdExpiryDate: expiryVal,
-                        civil_id_expiry: expiryVal,
-                        fullNameAr: selectedEmployee.nameAr || selectedEmployee.fullNameAr || selectedEmployee.name,
-                        fullNameEn: selectedEmployee.nameEn || selectedEmployee.fullNameEn,
-                        department: selectedEmployee.dept || selectedEmployee.department,
-                        joinDate: selectedEmployee.hireDate || selectedEmployee.joinDate,
-                        mohLicenseNo: selectedEmployee.mohLicense || selectedEmployee.mohLicenseNo
-                      };
-                      const updatedList = employees.map((emp: any) => 
-                        emp.id === selectedEmployee.id ? updatedEmp : emp
-                      );
-                      setEmployees(updatedList);
-                      if (currentCompanyId) {
-                        localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(updatedList));
-                      }
-                      TenantDatabaseService.saveEmployee(updatedEmp as any, currentCompanyId);
-                    }
-                    alert('تم حفظ كافة التعديلات على ملف الموظف بنجاح.');
-                    setShowEmployeeModal(false);
-                  }}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm"
-                >
-                  💾 حفظ التغييرات (Save)
-                </button>
-                <button
-                  onClick={() => setShowEmployeeModal(false)}
-                  className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold transition"
-                >
-                  إغلاق
-                </button>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      )}
-
-      {/* Employee Sub-Modals (Contracts, Attendance, Leave Balance, Assets) */}
-      {employeeSubModal !== 'none' && selectedEmployee && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl p-6 space-y-4 border border-slate-200">
-            <div className="flex items-center justify-between border-b pb-3">
-              <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
-                {employeeSubModal === 'contracts' && '📝 عقود الموظف: ' + selectedEmployee.nameAr}
-                {employeeSubModal === 'attendance' && '🕒 سجل الحضور والبصمة: ' + selectedEmployee.nameAr}
-                {employeeSubModal === 'leave' && '✈️ رصيد الإجازات السنوية: ' + selectedEmployee.nameAr}
-                {employeeSubModal === 'assets' && '📦 العهد والأصول المسلمة: ' + selectedEmployee.nameAr}
-                {employeeSubModal === 'payslips' && '💰 كشوف المرتبات: ' + selectedEmployee.nameAr}
-                {employeeSubModal === 'documents' && '📂 المستندات المرفقة: ' + selectedEmployee.nameAr}
-              </h3>
-              <button 
-                onClick={() => setEmployeeSubModal('none')}
-                className="text-slate-400 hover:text-slate-600 font-bold text-base"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="text-xs text-slate-700 space-y-3">
-              {employeeSubModal === 'contracts' && (
-                <div className="bg-purple-50 border border-purple-200 p-4 rounded-xl space-y-2">
-                  <div className="flex justify-between font-bold text-purple-900">
-                    <span>رقم العقد: CNT-{selectedEmployee.id}-2026</span>
-                    <span className="text-emerald-700">ساري ومصادق</span>
-                  </div>
-                  <div>المسمى الوظيفي: {selectedEmployee.jobTitle}</div>
-                  <div>الراتب الأساسي: {selectedEmployee.basicSalary} د.ك + بدل طبيعة عمل: {selectedEmployee.allowances} د.ك</div>
-                  <div>النوع: عقد كادر أهلي / محدد المدة</div>
-                </div>
-              )}
-
-              {employeeSubModal === 'attendance' && (
-                <div className="space-y-2">
-                  <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl flex justify-between items-center">
-                    <span>📅 اليوم: حضور في الموعد (08:00 صباحاً)</span>
-                    <span className="text-emerald-700 font-bold">بصمة معتمدة ✓</span>
-                  </div>
-                  <div className="bg-slate-50 border p-3 rounded-xl flex justify-between items-center">
-                    <span>📅 الأمس: حضور (07:55 ص) - انصراف (04:05 م)</span>
-                    <span className="text-slate-600 font-bold">8 ساعات</span>
-                  </div>
-                </div>
-              )}
-
-              {employeeSubModal === 'leave' && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-blue-50 border border-blue-200 p-3 rounded-xl text-center">
-                    <div className="text-lg font-bold text-blue-900">30 يوم</div>
-                    <div className="text-[11px] text-slate-600">رصيد الإجازات السنوية المستحق</div>
-                  </div>
-                  <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl text-center">
-                    <div className="text-lg font-bold text-amber-900">15 يوم</div>
-                    <div className="text-[11px] text-slate-600">إجازة مرضية متبقية</div>
-                  </div>
-                </div>
-              )}
-
-              {employeeSubModal === 'assets' && (
-                <div className="space-y-2">
-                  <div className="bg-slate-50 border p-3 rounded-xl flex justify-between items-center">
-                    <span>💻 جهاز حاسب آلي محمول (Dell Latitude)</span>
-                    <span className="text-purple-800 font-bold">مسلم بحالة ممتازة</span>
-                  </div>
-                  <div className="bg-slate-50 border p-3 rounded-xl flex justify-between items-center">
-                    <span>🩺 سماعة طبية ومعدات فحص عيادة</span>
-                    <span className="text-purple-800 font-bold">عهدة شخصية</span>
-                  </div>
-                </div>
-              )}
-
-              {employeeSubModal === 'payslips' && (
-                <div className="space-y-2">
-                  <div className="bg-slate-50 border p-3 rounded-xl flex justify-between items-center">
-                    <div>
-                      <div className="font-bold text-slate-800">راتب شهر أغسطس 2026</div>
-                      <div className="text-[10px] text-slate-500">تم التحويل إلى بنك الكويت الوطني</div>
-                    </div>
-                    <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-1 rounded">تم الدفع</span>
-                  </div>
-                  <div className="bg-slate-50 border p-3 rounded-xl flex justify-between items-center">
-                    <div>
-                      <div className="font-bold text-slate-800">راتب شهر يوليو 2026</div>
-                      <div className="text-[10px] text-slate-500">تم التحويل إلى بنك الكويت الوطني</div>
-                    </div>
-                    <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-1 rounded">تم الدفع</span>
-                  </div>
-                </div>
-              )}
-
-              {employeeSubModal === 'documents' && (
-                <div className="space-y-2">
-                  <div className="bg-slate-50 border p-3 rounded-xl flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                      <span className="text-rose-600 text-lg">📄</span>
-                      <div>
-                        <div className="font-bold text-slate-800">صورة البطاقة المدنية</div>
-                        <div className="text-[10px] text-slate-500">تاريخ الرفع: 01-09-2026</div>
-                      </div>
-                    </div>
-                    <button className="text-blue-600 font-bold hover:underline text-xs">عرض</button>
-                  </div>
-                  <div className="bg-slate-50 border p-3 rounded-xl flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                      <span className="text-blue-600 text-lg">📄</span>
-                      <div>
-                        <div className="font-bold text-slate-800">ترخيص مزاولة المهنة</div>
-                        <div className="text-[10px] text-slate-500">تاريخ الرفع: 15-08-2026</div>
-                      </div>
-                    </div>
-                    <button className="text-blue-600 font-bold hover:underline text-xs">عرض</button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <button
-                onClick={() => setEmployeeSubModal('none')}
-                className="bg-purple-900 hover:bg-purple-950 text-white px-4 py-2 rounded-lg text-xs font-bold transition"
-              >
-                إغلاق
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* 6. نموذج إقرار المباشرة وتراخيص MOH الرسمية (Work Commencement Form Modal) */}
       {showCommencementModal && selectedCommencement && (
@@ -2365,59 +1497,6 @@ export function EmployeesApp(props?: any) {
       )}
 
 
-      {/* Odoo Employee Form Modal */}
-      <OdooEmployeeFormModal 
-        isOpen={showAddEmployeeModal}
-        onClose={() => setShowAddEmployeeModal(false)}
-        existingEmployees={employees}
-        activeCompanyId={currentCompanyId}
-        onSave={async (newEmp) => {
-          const activeCompanyId = currentCompanyId;
-          const civilId = (newEmp.civil_id_number || newEmp.civilId || newEmp.civil_id || '').trim();
-
-          // 1. منع التكرار برقم البطاقة المدنية (Unique Civil ID)
-          if (civilId) {
-            const isDuplicate = employees.some(
-              emp => (emp.companyId === activeCompanyId || activeCompanyId === 'comp-super-admin') && 
-              ((emp.civil_id_number && emp.civil_id_number.trim() === civilId) || 
-               (emp.civilId && emp.civilId.trim() === civilId) ||
-               (emp.civil_id && emp.civil_id.trim() === civilId))
-            );
-
-            if (isDuplicate) {
-              alert('خطأ: الموظف مسجل بالفعل! الرقم المدني مكرر في هذه الشركة.');
-              return;
-            }
-          }
-
-          // 2. إدراج companyId إجبارياً في الـ Payload
-          const payload = {
-            ...newEmp,
-            companyId: activeCompanyId, // الربط الصارم بالشركة النشطة
-            civil_id_number: civilId,
-            civilId: civilId,
-            fullNameAr: newEmp.nameAr || newEmp.fullNameAr,
-            fullNameEn: newEmp.nameEn || newEmp.fullNameEn,
-            department: newEmp.dept || newEmp.department,
-            joinDate: newEmp.hireDate || newEmp.joinDate,
-            mohLicenseNo: newEmp.mohLicense || newEmp.mohLicenseNo,
-            createdAt: new Date().toISOString()
-          };
-
-          await TenantDatabaseService.saveEmployee(payload as any, activeCompanyId);
-
-          const updated = [payload, ...employees];
-          setEmployees(updated);
-          if (activeCompanyId) {
-            localStorage.setItem(`odoo_employees_v1_${activeCompanyId}`, JSON.stringify(updated));
-          }
-          setSelectedDept('الكل');
-          setSearchQuery('');
-          setShowAddEmployeeModal(false);
-          alert('تم تسجيل الموظف الجديد بنجاح وتخزينه حياً في قاعدة بيانات Firebase!');
-        }}
-      />
-
       {/* Print Preview Modal */}
       {showPrintModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
@@ -2499,6 +1578,74 @@ export function EmployeesApp(props?: any) {
           }}
           company={activeCompany}
         />
+      )}
+
+      {/* مودال تأكيد التصفير الشامل التفاعلي (In-App Database Wipe Modal) */}
+      {showResetConfirmModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl border border-rose-200 max-w-md w-full overflow-hidden text-right">
+            <div className="bg-rose-600 text-white p-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                  <AlertTriangle size={24} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base">تأكيد التصفير الشامل للنظام</h3>
+                  <p className="text-xs text-rose-100">مسح قاعدة البيانات والتخزين المؤقت</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => !isResetting && setShowResetConfirmModal(false)}
+                disabled={isResetting}
+                className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 text-xs text-rose-900 leading-relaxed space-y-2">
+                <p className="font-bold text-sm text-rose-800">⚠️ تنبيه هام وحاسم:</p>
+                <p>
+                  سيتم فوراً مسح وتصفير كافة سجلات الموظفين، عقود العمل، إقرارات المباشرة، حركات البصمة، طلبات وأرصدة الإجازات، مسيرات الرواتب وسندات الصرف من قاعدة البيانات السحابية والتخزين المحلي.
+                </p>
+                <p className="font-medium text-slate-700">
+                  سيكون النظام نظيفاً وأبيض بالكامل وجاهزاً لإدخال بياناتك الفعلية الجديدة.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handlePerformFullReset}
+                  disabled={isResetting}
+                  className="flex-1 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white py-3 px-4 rounded-xl font-bold text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {isResetting ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      <span>جارِ التصفير ومسح السجلات...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 size={16} />
+                      <span>نعم، تصفير ومسح الكل الآن</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowResetConfirmModal(false)}
+                  disabled={isResetting}
+                  className="px-5 py-3 border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl font-bold text-xs transition cursor-pointer"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

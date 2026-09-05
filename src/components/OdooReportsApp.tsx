@@ -131,9 +131,49 @@ export const OdooReportsApp: React.FC = () => {
       const housing = Number(emp.housingAllowance || 0);
       const transport = Number(emp.transportAllowance || 0);
       const nature = Number(emp.natureOfWorkAllowance || 0);
-      const total = basic + housing + transport + nature;
+      const other = Number(emp.medicalAllowance || emp.otherAllowance || 0);
+      const total = basic + housing + transport + nature + other;
       const isKw = !!emp.isKuwaiti || emp.nationality?.includes('كويت');
-      const leaveBal = Number(emp.leaveBalance || 30);
+      
+      // احتساب مدة الخدمة الفعلية وتاريخ بداية العقد
+      const joinDateStr = emp.joinDate || emp.contractStartDate || emp.date_start || '2026-01-01';
+      const joinDateObj = new Date(joinDateStr);
+      const now = new Date();
+      const elapsedDays = Math.max(0, (now.getTime() - joinDateObj.getTime()) / (1000 * 60 * 60 * 24));
+      const serviceYears = elapsedDays / 365.25;
+      const serviceMonths = elapsedDays / 30.4375;
+
+      // احتساب رصيد الإجازات المستحق طبقاً لقانون العمل (2.5 يوم عن كل شهر خدمة)
+      const accruedDays = Math.max(0, serviceMonths * 2.5);
+      const openingDays = Number(emp.openingBalance || 0);
+      const consumedDays = Number(emp.consumedLeaveDays || 0);
+      const leaveBal = emp.leaveBalance !== undefined 
+        ? Number(emp.leaveBalance) 
+        : Math.max(0, Math.min(30, (accruedDays + openingDays) - consumedDays));
+
+      // أجر اليوم الواحد وفق معيار الـ 26 يوم عمل (المادتين 70 و 71)
+      const dailyWage = total > 0 ? (total / 26) : 0;
+      // الالتزام المالي لرصيد الإجازات = أجر اليوم × رصيد الأيام
+      const leaveCashLiability = dailyWage * leaveBal;
+
+      // احتساب مخصص مكافأة نهاية الخدمة المتراكم (المادة 51)
+      let eosAccruedAmount = 0;
+      if (!isKw && total > 0 && serviceYears > 0) {
+        if (serviceYears <= 5) {
+          // أول 5 سنوات: 15 يوماً عن كل سنة خدمة
+          eosAccruedAmount = serviceYears * 15 * dailyWage;
+        } else {
+          // ما بعد 5 سنوات: 15 يوماً للخمس سنوات الأولى + شهر كامل عن كل سنة إضافية
+          const first5Years = 5 * 15 * dailyWage;
+          const remainingYears = (serviceYears - 5) * total;
+          eosAccruedAmount = first5Years + remainingYears;
+        }
+        // الحد الأقصى للمكافأة: أجر 18 شهراً كحد أقصى
+        const maxCap = total * 18;
+        if (eosAccruedAmount > maxCap) {
+          eosAccruedAmount = maxCap;
+        }
+      }
       
       return {
         id: emp.id || `EMP-${Math.random().toString(36).substring(2, 7)}`,
@@ -144,13 +184,13 @@ export const OdooReportsApp: React.FC = () => {
         jobTitle: emp.jobTitle || 'موظف',
         cadre: (emp.cadre as any) || 'إداري ومالي',
         department: emp.department || 'إدارة عامة',
-        joinDate: emp.joinDate || '2025-01-01',
-        serviceYears: Number(emp.serviceYears || 1),
+        joinDate: joinDateStr,
+        serviceYears: Number(serviceYears.toFixed(2)),
         basicSalary: basic,
         housingAllowance: housing,
         transportAllowance: transport,
         natureOfWorkAllowance: nature,
-        otherAllowances: 0,
+        otherAllowances: other,
         totalSalary: total,
         bankName: emp.bankName || 'بنك الكويت الوطني (NBK)',
         iban: emp.iban || '',
@@ -166,10 +206,10 @@ export const OdooReportsApp: React.FC = () => {
         mohDaysLeft: 365,
         complianceStatus: 'ساري ومطابق',
         leaveBalance: leaveBal,
-        consumedLeaveDays: Number(emp.consumedLeaveDays || 0),
+        consumedLeaveDays: consumedDays,
         annualEntitlement: 30,
-        leaveCashLiability: total > 0 ? (total / 26) * leaveBal : 0,
-        eosAccruedAmount: isKw ? 0 : total * 0.5,
+        leaveCashLiability: Number(leaveCashLiability.toFixed(3)),
+        eosAccruedAmount: Number(eosAccruedAmount.toFixed(3)),
         overtimeHours: 0,
         overtimeAmount: 0,
         delayMinutes: 0,

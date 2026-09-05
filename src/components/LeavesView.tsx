@@ -120,6 +120,8 @@ export const LeavesView: React.FC = () => {
               <label className="block text-sm font-semibold text-gray-700 mb-1">تاريخ البدء:</label>
               <input
                 type="date"
+                min="2020-01-01"
+                max="2027-12-31"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
