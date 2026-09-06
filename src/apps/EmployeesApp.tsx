@@ -174,7 +174,7 @@ export function EmployeesApp(props?: any) {
 
   const [activeTab, setActiveTab] = useState<'directory' | 'contracts' | 'commencement'>('directory');
   const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
-  const [selectedDept, setSelectedDept] = useState('الأطباء');
+  const [selectedDept, setSelectedDept] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoadingDb, setIsLoadingDb] = useState(false);
   
@@ -854,8 +854,8 @@ export function EmployeesApp(props?: any) {
   const expiredDocsCount = visibleEmployees.filter(checkExpiredDocs).length;
 
   const filteredEmployees = visibleEmployees.filter(emp => {
-    const empDept = emp.dept || emp.department || 'الأطباء';
-    const matchDept = !selectedDept || empDept === selectedDept || empDept.includes(selectedDept) || selectedDept.includes(empDept);
+    const empDept = emp.dept || emp.department || '';
+    const matchDept = selectedDept === null || !empDept || empDept === selectedDept || empDept.includes(selectedDept) || selectedDept.includes(empDept);
     const matchSearch = !searchQuery || 
                         (emp.nameAr || emp.fullNameAr || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
                         (emp.civilId || emp.civil_id_number || '').includes(searchQuery) || 
@@ -961,13 +961,83 @@ export function EmployeesApp(props?: any) {
         <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
           <div className="flex items-center gap-2 min-w-max">
             {activeTab === 'directory' && (
-              <button 
-                onClick={handleCreateNewEmployee}
-                className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
-              >
-                <span>+</span>
-                <span>تسجيل موظف جديد (hr.employee)</span>
-              </button>
+              <>
+                <button 
+                  onClick={handleCreateNewEmployee}
+                  className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                >
+                  <span>+</span>
+                  <span>تسجيل موظف جديد (hr.employee)</span>
+                </button>
+                <button 
+                  onClick={() => {
+                    const mockEmployees = [
+                      {
+                        id: `EMP-${Math.floor(1000 + Math.random() * 9000)}`,
+                        nameAr: 'د. أحمد خالد المنصور',
+                        fullNameAr: 'د. أحمد خالد المنصور',
+                        civilId: '290121501234',
+                        jobTitle: 'استشاري جراحة عامة',
+                        dept: 'الأطباء',
+                        department: 'الأطباء',
+                        basicSalary: 1200,
+                        allowances: 150,
+                        nationality: 'كويتي',
+                        hireDate: '2024-01-15',
+                        status: 'active',
+                        mohLicense: 'MOH-DOC-9821',
+                        companyId: currentCompanyId
+                      },
+                      {
+                        id: `EMP-${Math.floor(1000 + Math.random() * 9000)}`,
+                        nameAr: 'سارة عبد الله العتيبي',
+                        fullNameAr: 'سارة عبد الله العتيبي',
+                        civilId: '293041205678',
+                        jobTitle: 'رئيسة هيئة التمريض',
+                        dept: 'التمريض',
+                        department: 'التمريض',
+                        basicSalary: 850,
+                        allowances: 100,
+                        nationality: 'كويتي',
+                        hireDate: '2023-05-10',
+                        status: 'active',
+                        mohLicense: 'MOH-NUR-4412',
+                        companyId: currentCompanyId
+                      },
+                      {
+                        id: `EMP-${Math.floor(1000 + Math.random() * 9000)}`,
+                        nameAr: 'محمد فوزي الصباح',
+                        fullNameAr: 'محمد فوزي الصباح',
+                        civilId: '288090209988',
+                        jobTitle: 'أخصائي أشعة وتشخيص طبي',
+                        dept: 'الفنيين',
+                        department: 'الفنيين',
+                        basicSalary: 650,
+                        allowances: 80,
+                        nationality: 'مصري',
+                        hireDate: '2025-02-01',
+                        status: 'active',
+                        mohLicense: 'MOH-TEC-1190',
+                        companyId: currentCompanyId
+                      }
+                    ];
+                    
+                    const updatedList = [...mockEmployees, ...employees];
+                    setEmployees(updatedList);
+                    if (currentCompanyId) {
+                      localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(updatedList));
+                      TenantDatabaseService.saveEmployee(mockEmployees[0], currentCompanyId);
+                      TenantDatabaseService.saveEmployee(mockEmployees[1], currentCompanyId);
+                      TenantDatabaseService.saveEmployee(mockEmployees[2], currentCompanyId);
+                    }
+                    toast.success('تم توليد 3 موظفين تجريبيين (طبيب، تمريض، فني) بنجاح وإضافتهم للجدول والقسم فوراً!');
+                  }}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                >
+                  <span>⚡</span>
+                  <span>توليد موظفين تجريبيين</span>
+                </button>
+              </>
             )}
 
             <button 
@@ -1179,7 +1249,7 @@ export function EmployeesApp(props?: any) {
               {['الأطباء', 'التمريض', 'الموارد البشرية', 'الإدارة العليا', 'مناديب وسائقين'].map((dept) => (
                 <button
                   key={dept}
-                  onClick={() => setSelectedDept(dept)}
+                  onClick={() => setSelectedDept(selectedDept === dept ? null : dept)}
                   className={`px-3 py-1 rounded-lg transition ${
                     selectedDept === dept ? 'bg-slate-800 text-white font-bold' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}

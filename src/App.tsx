@@ -261,6 +261,27 @@ function MainAppLayout() {
     if (addEmployee) {
       addEmployee(newEmp as any);
     }
+    
+    // Fallback direct storage guarantee for Scanner to ensure employee appears instantly in all views
+    try {
+      const activeCompId = activeCompany?.id || 'comp-super-admin';
+      const existingKey = `odoo_employees_v1_${activeCompId}`;
+      const existingList = JSON.parse(localStorage.getItem(existingKey) || '[]');
+      const isAlreadyThere = existingList.some((e: any) => e.id === newEmp.id || e.civilId === newEmp.civilId);
+      if (!isAlreadyThere) {
+        const updatedList = [newEmp, ...existingList];
+        localStorage.setItem(existingKey, JSON.stringify(updatedList));
+        localStorage.setItem('manara_employees_data', JSON.stringify(updatedList));
+        window.dispatchEvent(new Event('storage'));
+        window.dispatchEvent(new Event('manara_employees_updated'));
+      }
+      TenantDatabaseService.saveEmployee({
+        ...newEmp,
+        companyId: activeCompId
+      } as any, activeCompId);
+    } catch (err) {
+      console.error('Error in scanner direct persist:', err);
+    }
 
     if (empData.expiryDate) {
       setEmployeeNotifications(prev => [

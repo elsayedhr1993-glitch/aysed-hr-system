@@ -61,7 +61,31 @@ export const OdooPamWorkforceApp: React.FC = () => {
 
   // Load employees
   useEffect(() => {
-    const loaded = getPersistentData<any[]>(MANARA_STORAGE_KEYS.EMPLOYEES, []);
+    let loaded = getPersistentData<any[]>(MANARA_STORAGE_KEYS.EMPLOYEES, []);
+    
+    // Ensure dummy employee "السيد بخيت" exists for system debugging and visibility
+    const dummyExists = loaded.some(e => (e.nameAr || e.fullNameAr || '').includes('السيد بخيت'));
+    if (!dummyExists) {
+      const dummyEmp = {
+        id: 'emp_elsayed_bakhit_01',
+        nameAr: 'السيد بخيت',
+        fullNameAr: 'السيد بخيت أحمد',
+        civilId: '292051201234',
+        jobTitle: 'مدير نظام إدارة القوى العاملة',
+        department: 'إدارة النظام',
+        dept: 'إدارة النظام',
+        basicSalary: '750',
+        nationality: 'مصري',
+        startDate: '2025-01-01',
+        passportNo: 'A9876543',
+        passportExpiry: '2032-12-31',
+        workPermitNo: 'PAM-998822',
+        workPermitExpiry: '2028-05-15'
+      };
+      loaded = [dummyEmp, ...loaded];
+      setPersistentData(MANARA_STORAGE_KEYS.EMPLOYEES, loaded);
+    }
+
     setEmployees(loaded);
 
     const handleStorage = () => {
