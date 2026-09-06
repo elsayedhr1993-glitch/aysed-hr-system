@@ -962,7 +962,7 @@ export const OdooPamWorkforceApp: React.FC = () => {
                     <div className="flex justify-end gap-3 pt-2">
                       <button
                         onClick={() => {
-                          const finalBodyToPrint = previewRef.current ? previewRef.current.innerText : customBody;
+                          const htmlToPrint = previewRef.current ? previewRef.current.innerHTML : customBody;
                           const today = new Date().toLocaleDateString('ar-KW');
 
                           const printWindow = window.open('', '_blank');
@@ -975,34 +975,13 @@ export const OdooPamWorkforceApp: React.FC = () => {
                                 <title>${customSubject}</title>
                                 <style>
                                   body { font-family: 'Cairo', Tahoma, sans-serif; padding: 40px; color: #1e293b; direction: rtl; background: #ffffff; }
-                                  @media print { body { padding: 20px; } }
+                                  @media print { body { padding: 10px; } }
                                 </style>
                               </head>
                               <body>
-                                <div style="text-align: left; font-size: 13px; font-weight: bold; margin-bottom: 25px;">
-                                  التاريخ: ${today}
+                                <div style="font-size: 14px; line-height: 2.2; text-align: justify; white-space: pre-wrap;">
+                                  ${htmlToPrint}
                                 </div>
-                                
-                                <div style="text-align: center; margin-bottom: 30px;">
-                                  <div style="font-size: 14px; font-weight: bold; margin-bottom: 8px;">السادة / إلى من يهمه الأمر المحترمين</div>
-                                  <h2 style="margin: 0; color: #000; font-size: 18px; font-weight: bold; text-decoration: underline;">${customSubject}</h2>
-                                </div>
-
-                                <div style="font-size: 14px; line-height: 2.2; text-align: justify; margin-bottom: 60px; white-space: pre-wrap;">
-                                  <p>${finalBodyToPrint}</p>
-                                </div>
-
-                                <div style="text-align: right; font-size: 14px; margin-top: 40px; margin-bottom: 80px;">
-                                  وتفضلوا بقبول فائق الاحترام والتقدير،،،
-                                </div>
-
-                                <div style="display: flex; justify-content: flex-start; margin-top: 50px;">
-                                  <div style="text-align: center; width: 220px;">
-                                    <p style="font-weight: bold; color: #1e293b; font-size: 13px; margin-bottom: 60px;">المفوض بالتوقيع</p>
-                                    <div style="border-bottom: 1px solid #64748b; width: 100%; margin-bottom: 5px;"></div>
-                                  </div>
-                                </div>
-
                                 <script>window.onload = function() { window.focus(); window.print(); };</script>
                               </body>
                               </html>
