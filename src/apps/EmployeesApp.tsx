@@ -854,11 +854,13 @@ export function EmployeesApp(props?: any) {
   const expiredDocsCount = visibleEmployees.filter(checkExpiredDocs).length;
 
   const filteredEmployees = visibleEmployees.filter(emp => {
-    const matchDept = emp.dept === selectedDept || emp.department === selectedDept;
-    const matchSearch = (emp.nameAr || emp.fullNameAr || '').includes(searchQuery) || 
+    const empDept = emp.dept || emp.department || 'الأطباء';
+    const matchDept = !selectedDept || empDept === selectedDept || empDept.includes(selectedDept) || selectedDept.includes(empDept);
+    const matchSearch = !searchQuery || 
+                        (emp.nameAr || emp.fullNameAr || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
                         (emp.civilId || emp.civil_id_number || '').includes(searchQuery) || 
                         (emp.id || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
-                        (emp.jobTitle || '').includes(searchQuery);
+                        (emp.jobTitle || '').toLowerCase().includes(searchQuery.toLowerCase());
 
     let matchesKpi = true;
     if (kpiFilter === 'residency_expiring') {
