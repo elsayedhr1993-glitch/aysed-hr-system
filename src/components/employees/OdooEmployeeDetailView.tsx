@@ -183,6 +183,16 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
             <span>طباعة الملف (A4)</span>
           </button>
 
+          <button
+            type="button"
+            onClick={() => onTriggerPrint(`كشف رصيد إجازات الموظف - ${employee.nameAr || employee.id}`, employee)}
+            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+            title="طباعة كشف رصيد الإجازات المعتمد والمستحق للموظف"
+          >
+            <Printer size={15} className="text-emerald-700 animate-pulse" />
+            <span>طباعة كشف الإجازات</span>
+          </button>
+
           {onDelete && employee.id && (
             <button
               type="button"
@@ -266,9 +276,9 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
 
             {/* Smart Button 2: رصيد الإجازات (Time Off) */}
             <div 
-              onClick={() => setActiveTab('work')}
+              onClick={() => onTriggerPrint(`كشف رصيد إجازات الموظف - ${employee.nameAr || employee.id}`, employee)}
               className="bg-emerald-50/70 hover:bg-emerald-100/80 border border-emerald-300 rounded-xl p-2.5 min-w-[135px] flex items-center gap-3 transition cursor-pointer shadow-2xs group"
-              title="رصيد الإجازات السنوية المستحق"
+              title="انقر لطباعة كشف رصيد الإجازات السنوية المعتمد والمستحق فوراً"
             >
               <div className="w-9 h-9 rounded-lg bg-emerald-700 text-white flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
                 <Plane size={18} />
@@ -420,7 +430,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
                 <label className="block text-slate-900 font-bold mb-1.5">تاريخ التعيين والمباشرة (YYYY-MM-DD)</label>
                 <input
                   type="date"
-                  value={employee.hireDate ? employee.hireDate.slice(0, 10) : '2026-01-01'}
+                  value={employee.hireDate ? employee.hireDate.slice(0, 10) : ''}
                   onChange={(e) => handleFieldChange('hireDate', e.target.value)}
                   className="w-full border border-slate-300 rounded-xl p-2.5 font-mono font-bold text-slate-900 bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
                 />
@@ -758,7 +768,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
                 <label className="block text-slate-900 font-bold mb-1.5">تاريخ بداية العقد الحالي (YYYY-MM-DD)</label>
                 <input
                   type="date"
-                  value={employee.contractStartDate ? employee.contractStartDate.slice(0, 10) : '2026-01-01'}
+                  value={employee.contractStartDate ? employee.contractStartDate.slice(0, 10) : ''}
                   onChange={(e) => handleFieldChange('contractStartDate', e.target.value)}
                   className="w-full border border-slate-300 rounded-xl p-2.5 font-mono font-bold text-slate-900 bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
                 />

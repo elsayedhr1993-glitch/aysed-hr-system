@@ -29,7 +29,11 @@ import { useSystemSettings, SystemSettings } from '../context/SystemSettingsCont
 import { useCompany } from '../context/CompanyContext';
 import { toast } from 'react-hot-toast';
 
-export const OdooSettingsFull: React.FC = () => {
+interface OdooSettingsFullProps {
+  onNavigateToDeveloperTools?: () => void;
+}
+
+export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({ onNavigateToDeveloperTools }) => {
   const { settings, updateSettings, resetSettings, isSaving } = useSystemSettings();
   const { activeCompany, updateActiveCompany } = useCompany();
 
@@ -156,7 +160,8 @@ export const OdooSettingsFull: React.FC = () => {
     { id: 'attendance', label: 'الدوام وأجهزة البصمة', icon: Clock, subtitle: 'ساعات العمل، دقائق السماح، وإعدادات الربط' },
     { id: 'indemnity', label: 'حاسبة مكافأة نهاية الخدمة', icon: Scale, subtitle: 'المادتان 51 و 53، شرائح الاستقالة والبدلات' },
     { id: 'integrations', label: 'الذكاء الاصطناعي والربط سحابي', icon: Sparkles, subtitle: 'مفتاح Gemini API، محرك OCR، والبريد الإلكتروني' },
-    { id: 'security', label: 'الأمان والنسخ الاحتياطي', icon: ShieldCheck, subtitle: 'الجلسات، النسخ السحابي، والتأمين' }
+    { id: 'security', label: 'الأمان والنسخ الاحتياطي', icon: ShieldCheck, subtitle: 'الجلسات، النسخ السحابي، والتأمين' },
+    { id: 'developer', label: 'أدوات المطور ومحاكي البيانات', icon: Sparkles, subtitle: 'توليد دورة تجريبية شاملة (10 موظفين)، تصفير البيانات، ومحاكاة الأنظمة' }
   ];
 
   // تصفية الأقسام بحسب البحث
@@ -260,7 +265,13 @@ export const OdooSettingsFull: React.FC = () => {
                 <button
                   type="button"
                   key={sec.id}
-                  onClick={() => setActiveSection(sec.id)}
+                  onClick={() => {
+                    if (sec.id === 'developer' && onNavigateToDeveloperTools) {
+                      onNavigateToDeveloperTools();
+                    } else {
+                      setActiveSection(sec.id);
+                    }
+                  }}
                   className={`w-full text-right px-3 py-2.5 rounded-lg transition-all flex items-center justify-between cursor-pointer ${
                     isActive 
                       ? 'bg-[#714B67] text-white font-bold shadow-xs' 

@@ -23,7 +23,7 @@ export const EmployeeHierarchyView: React.FC<EmployeeHierarchyViewProps> = ({
       {departments.map(dept => {
         const deptEmps = employees.filter(e => e.department === dept);
         const totalPayroll = deptEmps.reduce((sum, e) => sum + (e.basicSalary + e.housingAllowance + e.transportAllowance + (e.medicalAllowance || 0)), 0);
-        const deptStyle = getDepartmentColorStyle(dept, '');
+        const deptStyle = getDepartmentColorStyle(String(dept || ''), '');
 
         return (
           <div key={dept} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">

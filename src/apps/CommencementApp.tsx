@@ -118,7 +118,7 @@ export const CommencementApp: React.FC<CommencementAppProps> = ({
 
   // Form Fields
   const [selectedEmpId, setSelectedEmpId] = useState<string>('');
-  const [actualJoiningDate, setActualJoiningDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [actualJoiningDate, setActualJoiningDate] = useState<string>('');
   const [contractType, setContractType] = useState<'INDEFINITE' | 'FIXED_TERM'>('INDEFINITE');
   
   // Odoo Working Schedule fields
@@ -158,7 +158,7 @@ export const CommencementApp: React.FC<CommencementAppProps> = ({
       setContractType('INDEFINITE');
     }
 
-    setActualJoiningDate(new Date().toISOString().split('T')[0]);
+    setActualJoiningDate(defaultEmp?.joinDate || new Date().toISOString().split('T')[0]);
     setResourceCalendarId('cal-std-8h-6d');
     setWorkingSchedule(STANDARD_WORKING_SCHEDULES[0].name);
     setWorkHoursType('STANDARD');
@@ -176,7 +176,7 @@ export const CommencementApp: React.FC<CommencementAppProps> = ({
   const handleOpenEdit = (comm: EmploymentCommencement) => {
     setEditingCommId(comm.id);
     setSelectedEmpId(comm.employeeId);
-    setActualJoiningDate(comm.actualJoiningDate || new Date().toISOString().split('T')[0]);
+    setActualJoiningDate(comm.actualJoiningDate || '');
     setContractType(comm.contractType || 'INDEFINITE');
     setResourceCalendarId(comm.resourceCalendarId || 'cal-std-8h-6d');
     setWorkingSchedule(comm.workingSchedule || STANDARD_WORKING_SCHEDULES[0].name);
@@ -209,7 +209,7 @@ export const CommencementApp: React.FC<CommencementAppProps> = ({
       }
     }
     if (emp?.joinDate) {
-      setActualJoiningDate(emp.joinDate);
+      setActualJoiningDate(emp.joinDate || '');
     }
   };
 
@@ -549,7 +549,7 @@ class HrCommencement(models.Model):
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl font-black text-slate-900 flex items-center gap-2">
-                  <span>مباشرة العمل (Employment Commencement)</span>
+                  <span>إقرارات مباشرة العمل</span>
                   <span className="text-xs bg-[#714B67] text-white px-2.5 py-0.5 rounded-full font-mono font-bold">
                     {filteredCommencements.length} نموذج
                   </span>

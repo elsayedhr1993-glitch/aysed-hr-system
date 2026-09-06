@@ -1008,3 +1008,30 @@ table {
   }
 }
 
+
+/* 1. حركة خط المسح الضوئي */
+@keyframes scanLaser {
+  0% { top: 0%; opacity: 0.8; }
+  50% { opacity: 1; }
+  100% { top: 100%; opacity: 0.8; }
+}
+
+.laser-scanner-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #2563eb, #38bdf8, transparent);
+  box-shadow: 0 0 12px #38bdf8;
+  animation: scanLaser 1.8s ease-in-out infinite alternate;
+}
+
+/* 2. انسيابية ظهور الكروت الذكية */
+.fade-slide-up {
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}

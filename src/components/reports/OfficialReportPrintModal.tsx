@@ -513,22 +513,22 @@ export const OfficialReportPrintModal: React.FC<OfficialReportPrintModalProps> =
                           الإجمالي العام لكافة الموظفين (GRAND TOTAL) - عدد: {activeList.length || employees.length}
                         </td>
                         <td className="p-2.5 text-center font-mono text-amber-900 font-black">
-                          {((grandTotal.carriedOver ?? 0)).toFixed(1)} يوم
+                          {(((grandTotal as any).carriedOver ?? 0)).toFixed(1)} يوم
                         </td>
                         <td className="p-2.5 text-center font-mono text-blue-900 font-black">
-                          {((grandTotal.accruedDays ?? 0)).toFixed(1)} يوم
+                          {(((grandTotal as any).accruedDays ?? 0)).toFixed(1)} يوم
                         </td>
                         <td className="p-2.5 text-center font-mono text-purple-900 font-black">
-                          {((grandTotal.totalAvailable ?? 0)).toFixed(1)} يوم
+                          {(((grandTotal as any).totalAvailable ?? 0)).toFixed(1)} يوم
                         </td>
                         <td className="p-2.5 text-center font-mono text-rose-700 font-black">
-                          {((grandTotal.paidConsumed ?? grandTotal.totalDays ?? 0)).toFixed(1)} يوم
+                          {(((grandTotal as any).paidConsumed ?? (grandTotal as any).totalDays ?? 0)).toFixed(1)} يوم
                         </td>
                         <td className="p-2.5 text-center font-mono text-emerald-800 font-black bg-emerald-100/60">
-                          {((grandTotal.remainingDays ?? 0)).toFixed(1)} يوم
+                          {(((grandTotal as any).remainingDays ?? 0)).toFixed(1)} يوم
                         </td>
                         <td className="p-2.5 text-center font-mono text-slate-700 font-black">
-                          {((grandTotal.excessUnpaid ?? 0)).toFixed(1)} يوم
+                          {(((grandTotal as any).excessUnpaid ?? 0)).toFixed(1)} يوم
                         </td>
                         <td className="p-2.5 text-center text-[10px] text-emerald-800 font-bold">معتمد</td>
                       </tr>

@@ -80,7 +80,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
 
   const [editingBranch, setEditingBranch] = useState<Partial<CompanyBranch> | null>(null);
   const [isBranchModalOpen, setIsBranchModalOpen] = useState(false);
-  const [selectedBranchForPreview, setSelectedBranchForPreview] = useState<CompanyBranch>(branches[0] || DEFAULT_BRANCHES[0]);
+  const [selectedBranchForPreview, setSelectedBranchForPreview] = useState<CompanyBranch | undefined>(branches[0] || DEFAULT_BRANCHES[0]);
 
   // Test Coordinate for Distance Calculation
   const [testLat, setTestLat] = useState<number>(29.3760);
@@ -271,7 +271,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
     }
     const updated = branches.filter(b => b.id !== branchId);
     setBranches(updated);
-    if (selectedBranchForPreview.id === branchId) {
+    if (selectedBranchForPreview?.id === branchId) {
       setSelectedBranchForPreview(updated[0]);
     }
     toast.success('تم حذف الفرع بنجاح.');
@@ -582,7 +582,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
             </thead>
             <tbody className="divide-y divide-slate-200 bg-white">
               {branches.map((branch) => {
-                const isSelected = selectedBranchForPreview.id === branch.id;
+                const isSelected = selectedBranchForPreview?.id === branch.id;
                 return (
                   <tr 
                     key={branch.id} 
@@ -652,7 +652,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
             <div className="flex items-center gap-2">
               <Radio className="w-4 h-4 text-[#714B67] animate-pulse" />
               <h3 className="text-xs font-bold text-slate-800">
-                محاكي واختبار النطاق الجغرافي للفرع المختار: [{selectedBranchForPreview.branchName}]
+                محاكي واختبار النطاق الجغرافي للفرع المختار: [{selectedBranchForPreview?.branchName || 'لا يوجد فرع محدد'}]
               </h3>
             </div>
             <button
@@ -694,7 +694,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
                     المسافة المحسوبة: <span className="font-mono font-black">{calculatedDistance} متر</span>
                   </div>
                   <div className="text-[10px]">
-                    نطاق السماح المعتمد: {selectedBranchForPreview.radiusMeters} متر
+                    نطاق السماح المعتمد: {selectedBranchForPreview?.radiusMeters || 0} متر
                   </div>
                 </div>
                 <div className="flex items-center gap-1 font-black text-xs">

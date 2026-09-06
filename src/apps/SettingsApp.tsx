@@ -10,7 +10,7 @@ import { SystemSettingsPage } from '../components/SystemSettingsPage';
 import { SystemIntegrationsPage } from '../components/SystemIntegrationsPage';
 import { AutomatedBackupCenter } from '../components/AutomatedBackupCenter';
 import { db, cleanFirestoreData, auth } from '../lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import toast from 'react-hot-toast';
 
@@ -62,6 +62,7 @@ export const SettingsApp: React.FC<SettingsAppProps> = ({
   const [activeTab, setActiveTab] = useState<'AYSED_CONFIG' | 'COMPANY' | 'INTEGRATIONS' | 'BACKUP_CENTER' | 'SYSTEM_SECURITY' | 'APPEARANCE' | 'DEVELOPER_TOOLS'>(defaultTab);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>(activeCompany?.id || companies?.[0]?.id || '');
   const [isSeeding, setIsSeeding] = useState(false);
+  const [isPurging, setIsPurging] = useState(false);
 
   // Security guard for non-superadmin accounts
   useEffect(() => {
@@ -763,6 +764,778 @@ class ResConfigSettings(models.TransientModel):
     } catch (error) {
       console.error(error);
       toast.error('حدث خطأ أثناء التهيئة.', { id: loadingToast });
+    }
+  };
+
+  const handleSeedFullEcosystem = async () => {
+    if (isSeeding || isPurging) return;
+    setIsSeeding(true);
+    const loadToast = toast.loading('جاري توليد دورة تجريبية شاملة وتغذية المنظومة (11 تطبيقاً)...');
+    
+    try {
+      const companyId = activeCompany?.id || selectedCompanyId || 'comp-super-admin';
+      
+      // 1. Employees (10 Employees)
+      const mockEmps = [
+        {
+          id: 'seeder-emp-01',
+          companyId,
+          name: 'د. أحمد الكندري',
+          fullNameAr: 'د. أحمد الكندري',
+          fullNameEn: 'Dr. Ahmad Al-Kandari',
+          civilId: '285041201234',
+          civil_id_number: '285041201234',
+          passportNo: 'P0102034',
+          passportExpiry: '2028-11-20',
+          nationality: 'كويتي',
+          isKuwaiti: true,
+          gender: 'MALE',
+          birthDate: '1985-04-12',
+          dob: '1985-04-12',
+          jobTitle: 'طبيب ممارس (Medical Doctor)',
+          department: 'الخدمات الطبية',
+          basicSalary: 2200,
+          housingAllowance: 200,
+          transportAllowance: 100,
+          medicalAllowance: 150,
+          joinDate: '2024-01-15',
+          iban: 'KW12KFH00000000000123456789',
+          bankName: 'بيت التمويل الكويتي (KFH)',
+          status: 'ACTIVE',
+          mohLicense: 'MOH-7832-DOC',
+          mohLicenseExpiry: '2027-10-01'
+        },
+        {
+          id: 'seeder-emp-02',
+          companyId,
+          name: 'د. فاطمة الصايغ',
+          fullNameAr: 'د. فاطمة الصايغ',
+          fullNameEn: 'Dr. Fatima Al-Sayegh',
+          civilId: '290082201345',
+          civil_id_number: '290082201345',
+          passportNo: 'P0203045',
+          passportExpiry: '2029-05-15',
+          nationality: 'كويتي',
+          isKuwaiti: true,
+          gender: 'FEMALE',
+          birthDate: '1990-08-22',
+          dob: '1990-08-22',
+          jobTitle: 'طبيب ممارس (Medical Doctor)',
+          department: 'الخدمات الطبية',
+          basicSalary: 2400,
+          housingAllowance: 250,
+          transportAllowance: 120,
+          medicalAllowance: 150,
+          joinDate: '2023-06-01',
+          iban: 'KW34KFH00000000000987654321',
+          bankName: 'بيت التمويل الكويتي (KFH)',
+          status: 'ACTIVE',
+          mohLicense: 'MOH-9912-DOC',
+          mohLicenseExpiry: '2028-02-28'
+        },
+        {
+          id: 'seeder-emp-03',
+          companyId,
+          name: 'د. خالد السعيد',
+          fullNameAr: 'د. خالد السعيد',
+          fullNameEn: 'Dr. Khaled Al-Saeed',
+          civilId: '282031102456',
+          civil_id_number: '282031102456',
+          passportNo: 'A7729103',
+          passportExpiry: '2027-09-12',
+          nationality: 'مصر',
+          isKuwaiti: false,
+          gender: 'MALE',
+          birthDate: '1982-03-11',
+          dob: '1982-03-11',
+          jobTitle: 'طبيب ممارس (Medical Doctor)',
+          department: 'الخدمات الطبية',
+          basicSalary: 1900,
+          housingAllowance: 180,
+          transportAllowance: 80,
+          medicalAllowance: 100,
+          joinDate: '2022-09-15',
+          iban: 'KW56NBK00000000000456123789',
+          bankName: 'بنك الكويت الوطني (NBK)',
+          status: 'ACTIVE',
+          mohLicense: 'MOH-3342-DOC',
+          mohLicenseExpiry: '2027-01-15'
+        },
+        {
+          id: 'seeder-emp-04',
+          companyId,
+          name: 'منى الرشيدي',
+          fullNameAr: 'منى الرشيدي',
+          fullNameEn: 'Mona Al-Rashidi',
+          civilId: '295051401567',
+          civil_id_number: '295051401567',
+          passportNo: 'P0405067',
+          passportExpiry: '2030-01-10',
+          nationality: 'كويتي',
+          isKuwaiti: true,
+          gender: 'FEMALE',
+          birthDate: '1995-05-14',
+          dob: '1995-05-14',
+          jobTitle: 'ممرض / ممرضة (Nurse)',
+          department: 'الخدمات الطبية',
+          basicSalary: 750,
+          housingAllowance: 100,
+          transportAllowance: 50,
+          medicalAllowance: 0,
+          joinDate: '2024-03-01',
+          iban: 'KW78KFH00000000000222333444',
+          bankName: 'بيت التمويل الكويتي (KFH)',
+          status: 'ACTIVE',
+          mohLicense: 'MOH-2241-NUR',
+          mohLicenseExpiry: '2027-04-12'
+        },
+        {
+          id: 'seeder-emp-05',
+          companyId,
+          name: 'سارة العجمي',
+          fullNameAr: 'سارة العجمي',
+          fullNameEn: 'Sara Al-Ajmi',
+          civilId: '297090201678',
+          civil_id_number: '297090201678',
+          passportNo: 'P0506078',
+          passportExpiry: '2029-08-18',
+          nationality: 'كويتي',
+          isKuwaiti: true,
+          gender: 'FEMALE',
+          birthDate: '1997-09-02',
+          dob: '1997-09-02',
+          jobTitle: 'ممرض / ممرضة (Nurse)',
+          department: 'الخدمات الطبية',
+          basicSalary: 800,
+          housingAllowance: 100,
+          transportAllowance: 50,
+          medicalAllowance: 0,
+          joinDate: '2023-11-15',
+          iban: 'KW89KFH00000000000555666777',
+          bankName: 'بيت التمويل الكويتي (KFH)',
+          status: 'ACTIVE',
+          mohLicense: 'MOH-8823-NUR',
+          mohLicenseExpiry: '2028-10-25'
+        },
+        {
+          id: 'seeder-emp-06',
+          companyId,
+          name: 'زينب محمد',
+          fullNameAr: 'زينب محمد',
+          fullNameEn: 'Zainab Mohammad',
+          civilId: '293121502789',
+          civil_id_number: '293121502789',
+          passportNo: 'A8829311',
+          passportExpiry: '2028-06-05',
+          nationality: 'مصر',
+          isKuwaiti: false,
+          gender: 'FEMALE',
+          birthDate: '1993-12-15',
+          dob: '1993-12-15',
+          jobTitle: 'ممرض / ممرضة (Nurse)',
+          department: 'الخدمات الطبية',
+          basicSalary: 550,
+          housingAllowance: 80,
+          transportAllowance: 40,
+          medicalAllowance: 0,
+          joinDate: '2021-05-10',
+          iban: 'KW90NBK00000000000111222333',
+          bankName: 'بنك الكويت الوطني (NBK)',
+          status: 'ACTIVE',
+          mohLicense: 'MOH-1149-NUR',
+          mohLicenseExpiry: '2026-09-15'
+        },
+        {
+          id: 'seeder-emp-07',
+          companyId,
+          name: 'محمد العتيبي',
+          fullNameAr: 'محمد العتيبي',
+          fullNameEn: 'Mohammad Al-Otaibi',
+          civilId: '292051001890',
+          civil_id_number: '292051001890',
+          passportNo: 'P0708090',
+          passportExpiry: '2030-05-25',
+          nationality: 'كويتي',
+          isKuwaiti: true,
+          gender: 'MALE',
+          birthDate: '1992-05-10',
+          dob: '1992-05-10',
+          jobTitle: 'محاسب (Accountant)',
+          department: 'القطاع الإداري',
+          basicSalary: 950,
+          housingAllowance: 120,
+          transportAllowance: 60,
+          medicalAllowance: 0,
+          joinDate: '2022-02-15',
+          iban: 'KW11KFH00000000000777888999',
+          bankName: 'بيت التمويل الكويتي (KFH)',
+          status: 'ACTIVE',
+          mohLicense: '',
+          mohLicenseExpiry: ''
+        },
+        {
+          id: 'seeder-emp-08',
+          companyId,
+          name: 'علي حسين',
+          fullNameAr: 'علي حسين',
+          fullNameEn: 'Ali Hussein',
+          civilId: '289112002901',
+          civil_id_number: '289112002901',
+          passportNo: 'A6639102',
+          passportExpiry: '2027-11-30',
+          nationality: 'مصر',
+          isKuwaiti: false,
+          gender: 'MALE',
+          birthDate: '1989-11-20',
+          dob: '1989-11-20',
+          jobTitle: 'فني تقنية معلومات (IT Support)',
+          department: 'القطاع الإداري',
+          basicSalary: 700,
+          housingAllowance: 100,
+          transportAllowance: 50,
+          medicalAllowance: 0,
+          joinDate: '2023-01-20',
+          iban: 'KW22NBK00000000000999000111',
+          bankName: 'بنك الكويت الوطني (NBK)',
+          status: 'ACTIVE',
+          mohLicense: '',
+          mohLicenseExpiry: ''
+        },
+        {
+          id: 'seeder-emp-09',
+          companyId,
+          name: 'فهد الشمري',
+          fullNameAr: 'فهد الشمري',
+          fullNameEn: 'Fahad Al-Shammari',
+          civilId: '294021201123',
+          civil_id_number: '294021201123',
+          passportNo: 'P0909112',
+          passportExpiry: '2031-02-10',
+          nationality: 'كويتي',
+          isKuwaiti: true,
+          gender: 'MALE',
+          birthDate: '1994-02-12',
+          dob: '1994-02-12',
+          jobTitle: 'مدير موارد بشرية (HR Manager)',
+          department: 'القطاع الإداري',
+          basicSalary: 1200,
+          housingAllowance: 150,
+          transportAllowance: 70,
+          medicalAllowance: 0,
+          joinDate: '2020-07-01',
+          iban: 'KW33KFH00000000000333222111',
+          bankName: 'بيت التمويل الكويتي (KFH)',
+          status: 'ACTIVE',
+          mohLicense: '',
+          mohLicenseExpiry: ''
+        },
+        {
+          id: 'seeder-emp-10',
+          companyId,
+          name: 'حنان الحربي',
+          fullNameAr: 'حنان الحربي',
+          fullNameEn: 'Hanan Al-Harbi',
+          civilId: '299101001234',
+          civil_id_number: '299101001234',
+          passportNo: 'P1010123',
+          passportExpiry: '2029-10-10',
+          nationality: 'كويتي',
+          isKuwaiti: true,
+          gender: 'FEMALE',
+          birthDate: '1999-10-10',
+          dob: '1999-10-10',
+          jobTitle: 'موظف استقبال (Receptionist)',
+          department: 'القطاع الإداري',
+          basicSalary: 500,
+          housingAllowance: 80,
+          transportAllowance: 40,
+          medicalAllowance: 0,
+          joinDate: '2024-05-01',
+          iban: 'KW44KFH00000000000444555666',
+          bankName: 'بيت التمويل الكويتي (KFH)',
+          status: 'ACTIVE',
+          mohLicense: '',
+          mohLicenseExpiry: ''
+        }
+      ];
+
+      for (const emp of mockEmps) {
+        await setDoc(doc(db, 'employees', emp.id), cleanFirestoreData(emp));
+        
+        // Save running contracts for all
+        const contract = {
+          id: `seeder-contract-${emp.id.split('-').pop()}`,
+          employeeId: emp.id,
+          companyId,
+          basicSalary: emp.basicSalary,
+          housingAllowance: emp.housingAllowance,
+          transportAllowance: emp.transportAllowance,
+          medicalAllowance: emp.medicalAllowance,
+          status: 'running',
+          startDate: emp.joinDate,
+          wageType: 'monthly',
+          workingHours: 40
+        };
+        await setDoc(doc(db, 'contracts', contract.id), cleanFirestoreData(contract));
+        
+        // Save leave allocations (30 days)
+        const allocation = {
+          id: `seeder-alloc-${emp.id.split('-').pop()}`,
+          employeeId: emp.id,
+          companyId,
+          allocatedDays: 30,
+          leaveType: 'annual',
+          allocationType: 'regular',
+          notes: 'رصيد افتتاحي معتمد بقانون العمل الكويتي 30 يوماً سنوياً',
+          createdAt: new Date().toISOString()
+        };
+        await setDoc(doc(db, 'leave_allocations', allocation.id), cleanFirestoreData(allocation));
+      }
+
+      // 2. Shift Schedules
+      for (const emp of mockEmps) {
+        let shiftId = 'shift-admin';
+        let shiftName = 'الشفت الإداري (08:00 - 16:00)';
+        if (emp.id === 'seeder-emp-01' || emp.id === 'seeder-emp-02' || emp.id === 'seeder-emp-03') {
+          shiftId = 'shift-clinic-morning';
+          shiftName = 'شفت العيادات الصباحي (08:00 - 13:00 / 17:00 - 21:00)';
+        } else if (emp.id === 'seeder-emp-04' || emp.id === 'seeder-emp-05' || emp.id === 'seeder-emp-06') {
+          shiftId = 'shift-nursing-evening';
+          shiftName = 'شفت التمريض والطوارئ المسائي (14:00 - 22:00)';
+        }
+
+        const commencement = {
+          id: `seeder-comm-${emp.id.split('-').pop()}`,
+          employeeId: emp.id,
+          companyId,
+          commencementDate: emp.joinDate,
+          shiftId,
+          shiftName,
+          status: 'COMPLETED',
+          notes: 'مباشرة عمل منتظمة بعد تقديم المستندات الرسمية وإصدار البطاقة الصحية'
+        };
+        await setDoc(doc(db, 'commencements', commencement.id), cleanFirestoreData(commencement));
+      }
+
+      // 3. Attendance
+      const datesToSeed = ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04', '2026-09-05'];
+      for (const emp of mockEmps) {
+        for (const d of datesToSeed) {
+          if (emp.id === 'seeder-emp-07' && d === '2026-09-03') {
+            continue; // Absent
+          }
+
+          let checkIn = `${d}T08:00:00`;
+          let checkOut = `${d}T16:00:00`;
+          let status = 'PRESENT';
+          let delayMinutes = 0;
+
+          if (emp.id === 'seeder-emp-01' && d === '2026-09-02') {
+            checkIn = `${d}T08:45:00`;
+            status = 'DELAYED';
+            delayMinutes = 45;
+          }
+
+          const attRecord = {
+            id: `seeder-att-${emp.id.split('-').pop()}-${d}`,
+            employeeId: emp.id,
+            companyId,
+            date: d,
+            checkIn,
+            checkOut,
+            status,
+            delayMinutes,
+            overtimeHours: 0,
+            isHoliday: false
+          };
+          await setDoc(doc(db, 'attendance', attRecord.id), cleanFirestoreData(attRecord));
+        }
+      }
+
+      // 4. Leave requests
+      const req1 = {
+        id: 'seeder-leave-01',
+        employeeId: 'seeder-emp-01',
+        companyId,
+        leaveType: 'annual',
+        startDate: '2026-09-10',
+        endDate: '2026-09-12',
+        requestedDays: 3,
+        status: 'approved',
+        reason: 'إجازة سنوية قصيرة لظروف عائلية',
+        createdAt: new Date().toISOString()
+      };
+      await setDoc(doc(db, 'leaves', req1.id), cleanFirestoreData(req1));
+
+      const req2 = {
+        id: 'seeder-leave-02',
+        employeeId: 'seeder-emp-04',
+        companyId,
+        leaveType: 'sick',
+        startDate: '2026-09-15',
+        endDate: '2026-09-16',
+        requestedDays: 2,
+        status: 'approved',
+        reason: 'وعكة صحية طارئة - مرفق تقرير طبي معتمد من وزارة الصحة',
+        createdAt: new Date().toISOString()
+      };
+      await setDoc(doc(db, 'leaves', req2.id), cleanFirestoreData(req2));
+
+      const req3 = {
+        id: 'seeder-leave-03',
+        employeeId: 'seeder-emp-07',
+        companyId,
+        leaveType: 'emergency',
+        startDate: '2026-09-03',
+        endDate: '2026-09-03',
+        requestedDays: 1,
+        status: 'approved',
+        reason: 'عارضة طارئة - مراجعة جهة حكومية بصفة عاجلة',
+        createdAt: new Date().toISOString()
+      };
+      await setDoc(doc(db, 'leaves', req3.id), cleanFirestoreData(req3));
+
+      // 5. Loans
+      const loan1 = {
+        id: 'seeder-loan-01',
+        employeeId: 'seeder-emp-01',
+        companyId,
+        totalAmount: 600,
+        monthlyInstallment: 100,
+        remainingAmount: 500,
+        purpose: 'سلفة زواج جارية تُخصم شهرياً من كشف الرواتب',
+        status: 'active',
+        createdAt: '2026-08-01T10:00:00Z'
+      };
+      await setDoc(doc(db, 'loans', loan1.id), cleanFirestoreData(loan1));
+
+      const loan2 = {
+        id: 'seeder-loan-02',
+        employeeId: 'seeder-emp-04',
+        companyId,
+        totalAmount: 300,
+        monthlyInstallment: 100,
+        remainingAmount: 0,
+        purpose: 'سلفة طارئة لتصليح السيارة (تم سدادها بالكامل)',
+        status: 'approved',
+        createdAt: '2026-05-01T10:00:00Z',
+        settledAt: '2026-08-01T12:00:00Z'
+      };
+      await setDoc(doc(db, 'loans', loan2.id), cleanFirestoreData(loan2));
+
+      const loan3 = {
+        id: 'seeder-loan-03',
+        employeeId: 'seeder-emp-07',
+        companyId,
+        totalAmount: 500,
+        monthlyInstallment: 50,
+        remainingAmount: 500,
+        purpose: 'طلب سلفة معلقة - بانتظار موافقة المدير المالي والـ HR',
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      };
+      await setDoc(doc(db, 'loans', loan3.id), cleanFirestoreData(loan3));
+
+      // 6. Custodies
+      const mockCustodies = [
+        {
+          id: 'seeder-custody-01',
+          employeeId: 'seeder-emp-01',
+          companyId,
+          itemName: 'جهاز ليزر فوتونا الطبي Fotona Laser',
+          serialNumber: 'SN-PHOTONA-9821',
+          value: 12000,
+          deliveredDate: '2025-06-01',
+          status: 'delivered',
+          notes: 'عهدة عيادة الدكتور - جهاز طبي معتمد ومفحوص من وزارة الصحة'
+        },
+        {
+          id: 'seeder-custody-02',
+          employeeId: 'seeder-emp-04',
+          companyId,
+          itemName: 'جهاز تابلت طبي للملاحظة الطبية Apple iPad Air',
+          serialNumber: 'SN-APPLE-MED-872',
+          value: 350,
+          deliveredDate: '2025-08-10',
+          status: 'delivered',
+          notes: 'تابلت لمراجعة تدوينات الأطباء والجرعات العلاجية'
+        },
+        {
+          id: 'seeder-custody-03',
+          employeeId: 'seeder-emp-07',
+          companyId,
+          itemName: 'لابتوب إداري Lenovo ThinkPad L14',
+          serialNumber: 'SN-LENOVO-9921',
+          value: 450,
+          deliveredDate: '2025-02-15',
+          status: 'delivered',
+          notes: 'جهاز إداري لمتابعة الفواتير وحسابات كشوف الرواتب والـ WPS'
+        },
+        {
+          id: 'seeder-custody-04',
+          employeeId: 'seeder-emp-08',
+          companyId,
+          itemName: 'أختام الشركة الرسمية ومعدات شبكة طارئة',
+          serialNumber: 'STAMP-01',
+          value: 50,
+          deliveredDate: '2024-12-01',
+          status: 'delivered',
+          notes: 'أختام رسمية مرخصة لأغراض التخليص ومراجعة وزارة الشؤون'
+        }
+      ];
+      for (const cust of mockCustodies) {
+        await setDoc(doc(db, 'custodies', cust.id), cleanFirestoreData(cust));
+      }
+
+      // 7. Documents Archive
+      const mockDocs = [
+        {
+          id: 'seeder-doc-01',
+          employeeId: 'seeder-emp-01',
+          companyId,
+          title: 'البطاقة المدنية - د. أحمد الكندري',
+          documentType: 'civil_id',
+          expiryDate: '2027-05-15',
+          fileUrl: 'https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?w=600',
+          status: 'valid'
+        },
+        {
+          id: 'seeder-doc-02',
+          employeeId: 'seeder-emp-01',
+          companyId,
+          title: 'ترخيص مزاولة المهنة الطبي (وزارة الصحة MOH)',
+          documentType: 'medical_license',
+          expiryDate: '2027-10-01',
+          fileUrl: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=600',
+          status: 'valid'
+        },
+        {
+          id: 'seeder-doc-03',
+          employeeId: 'seeder-emp-06',
+          companyId,
+          title: 'البطاقة المدنية - زينب محمد',
+          documentType: 'civil_id',
+          expiryDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          fileUrl: 'https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?w=600',
+          status: 'critical'
+        }
+      ];
+      for (const d of mockDocs) {
+        await setDoc(doc(db, 'documents', d.id), cleanFirestoreData(d));
+      }
+
+      // 8. OCR Scanner Logs
+      const scan1 = {
+        id: 'seeder-scan-01',
+        companyId,
+        title: 'عملية مسح بطاقة مدنية ناجحة - د. أحمد الكندري',
+        documentType: 'civil_id',
+        scannedAt: new Date().toISOString(),
+        extractedData: {
+          fullNameAr: 'أحمد الكندري',
+          civilId: '285041201234',
+          nationality: 'كويتي',
+          expiryDate: '2027-05-15'
+        },
+        status: 'SUCCESS'
+      };
+      await setDoc(doc(db, 'scans', scan1.id), cleanFirestoreData(scan1));
+
+      const scan2 = {
+        id: 'seeder-scan-02',
+        companyId,
+        title: 'عملية مسح ترخيص طبي ناجحة - منى الرشيدي',
+        documentType: 'medical_license',
+        scannedAt: new Date().toISOString(),
+        extractedData: {
+          fullNameAr: 'منى الرشيدي',
+          licenseNo: 'MOH-2241-NUR',
+          expiryDate: '2027-04-12'
+        },
+        status: 'SUCCESS'
+      };
+      await setDoc(doc(db, 'scans', scan2.id), cleanFirestoreData(scan2));
+
+      // 9. Letters & Templates
+      const letter1 = {
+        id: 'seeder-letter-01',
+        employeeId: 'seeder-emp-01',
+        companyId,
+        title: 'شهادة راتب موجهة لبيت التمويل الكويتي KFH',
+        documentType: 'salary_certificate',
+        issuedDate: new Date().toISOString().split('T')[0],
+        content: `إلى من يهمه الأمر / بيت التمويل الكويتي الموقر... نشهد نحن إدارة المنشأة بأن السيد د. أحمد الكندري يعمل لدينا براتب أساسي قدره 2200 د.ك وبدلات تبلغ 450 د.ك شهرياً...`,
+        status: 'issued'
+      };
+      await setDoc(doc(db, 'documents', letter1.id), cleanFirestoreData(letter1));
+
+      const letter2 = {
+        id: 'seeder-letter-02',
+        companyId,
+        title: 'إشعار فحص أجهزة الليزر الطبية الموجه للقسم الوقائي بوزارة الصحة MOH',
+        documentType: 'official_letter',
+        issuedDate: new Date().toISOString().split('T')[0],
+        content: `السادة إدارة الوقاية الإشعاعية بوزارة الصحة الموقرين... نود إعلامكم بتركيب وفحص جهاز ليزر فوتونا الطبي ذو الرقم التسلسلي SN-PHOTONA-9821 في عياداتنا الطبية من قبل مهندسي الموارد البشرية والتقنية...`,
+        status: 'issued'
+      };
+      await setDoc(doc(db, 'documents', letter2.id), cleanFirestoreData(letter2));
+
+      // 10. Public Holidays
+      const mockHolidays = [
+        {
+          id: 'seeder-holiday-01',
+          companyId,
+          name: 'العيد الوطني الكويتي (National Day)',
+          date: '2026-02-25',
+          notes: 'عطلة رسمية مدفوعة الأجر - القطاعين الحكومي والخاص'
+        },
+        {
+          id: 'seeder-holiday-02',
+          companyId,
+          name: 'عيد التحرير الكويتي (Liberation Day)',
+          date: '2026-02-26',
+          notes: 'عطلة رسمية مدفوعة الأجر بموجب المادة 68'
+        },
+        {
+          id: 'seeder-holiday-03',
+          companyId,
+          name: 'المولد النبوي الشريف (Prophet Birthday)',
+          date: '2026-09-15',
+          notes: 'عطلة دينية رسمية هجرية مدفوعة بالكامل'
+        }
+      ];
+      for (const h of mockHolidays) {
+        await setDoc(doc(db, 'work_on_holidays', h.id), cleanFirestoreData(h));
+      }
+
+      // 11. Payroll run + Payslips (WPS Ready)
+      const runRecord = {
+        id: 'seeder-pr-run-2026-09',
+        companyId,
+        month: '2026-09',
+        status: 'draft',
+        title: 'مسير رواتب سبتمبر 2026 الشامل (WPS Seeder Run)',
+        createdAt: new Date().toISOString()
+      };
+      await setDoc(doc(db, 'payroll_runs', runRecord.id), cleanFirestoreData(runRecord));
+
+      for (const emp of mockEmps) {
+        const allowancesSum = emp.housingAllowance + emp.transportAllowance + emp.medicalAllowance;
+        const totalComp = emp.basicSalary + allowancesSum;
+        const gosiDeduction = emp.isKuwaiti ? Number((totalComp * 0.115).toFixed(3)) : 0;
+        
+        let loanDeduction = 0;
+        if (emp.id === 'seeder-emp-01') {
+          loanDeduction = 100;
+        }
+
+        let latenessDeduction = 0;
+        if (emp.id === 'seeder-emp-01') {
+          latenessDeduction = 15;
+        }
+
+        const netSalary = totalComp - gosiDeduction - loanDeduction - latenessDeduction;
+
+        const payslip = {
+          id: `seeder-ps-${emp.id.split('-').pop()}-2026-09`,
+          companyId,
+          payrollRunId: 'seeder-pr-run-2026-09',
+          employeeId: emp.id,
+          employeeName: emp.name,
+          employeeCode: emp.id.toUpperCase(),
+          basicSalary: emp.basicSalary,
+          housingAllowance: emp.housingAllowance,
+          transportAllowance: emp.transportAllowance,
+          medicalAllowance: emp.medicalAllowance,
+          otherAllowances: 0,
+          gosiDeduction,
+          loanDeduction,
+          latenessDeduction,
+          unpaidLeaveDeduction: 0,
+          otherDeductions: 0,
+          netSalary,
+          status: 'calculated',
+          workingDays: 26,
+          bankName: emp.bankName,
+          iban: emp.iban,
+          civilId: emp.civilId,
+          processedAt: new Date().toISOString()
+        };
+        await setDoc(doc(db, 'payslips', payslip.id), cleanFirestoreData(payslip));
+      }
+
+      // Clear local storage cache to force immediate UI sync upon reload
+      localStorage.removeItem(`odoo_employees_v1_${companyId}`);
+      localStorage.removeItem(`aysed_emp_cache_${companyId}`);
+      localStorage.removeItem(`odoo_contracts_v1_${companyId}`);
+      localStorage.removeItem(`odoo_commencements_v1_${companyId}`);
+
+      toast.success('تم توليد الدورة التجريبية الشاملة لـ 11 تطبيقاً و 10 موظفين بنجاح تام!', { id: loadToast });
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+
+    } catch (e) {
+      console.error(e);
+      toast.error('حدث خطأ أثناء توليد البيانات التجريبية.', { id: loadToast });
+    } finally {
+      setIsSeeding(false);
+    }
+  };
+
+  const handlePurgeFullEcosystem = async () => {
+    if (isSeeding || isPurging) return;
+    
+    const confirmPurge = window.confirm('هل أنت متأكد من رغبتك في تصفير وحذف كافة البيانات التجريبية وحركات البصمة والرواتب من النظام؟ لن يمكن التراجع عن هذه الخطوة.');
+    if (!confirmPurge) return;
+
+    setIsPurging(true);
+    const loadToast = toast.loading('جاري تصفير وحذف كافة البيانات التجريبية وقاعدة البيانات...');
+
+    try {
+      const companyId = activeCompany?.id || selectedCompanyId || 'comp-super-admin';
+      const collectionsToWipe = [
+        'employees',
+        'contracts',
+        'commencements',
+        'attendance',
+        'leaves',
+        'leave_allocations',
+        'payroll_runs',
+        'payslips',
+        'documents',
+        'custodies',
+        'loans',
+        'warnings',
+        'scans',
+        'employeeNotes',
+        'notifications',
+        'work_on_holidays'
+      ];
+
+      for (const colName of collectionsToWipe) {
+        const q = query(collection(db, colName), where('companyId', '==', companyId));
+        const snap = await getDocs(q);
+        const deletePromises = snap.docs.map(d => deleteDoc(doc(db, colName, d.id)));
+        await Promise.all(deletePromises);
+      }
+
+      // Clear local storage cache
+      localStorage.removeItem(`odoo_employees_v1_${companyId}`);
+      localStorage.removeItem(`aysed_emp_cache_${companyId}`);
+      localStorage.removeItem(`odoo_contracts_v1_${companyId}`);
+      localStorage.removeItem(`odoo_commencements_v1_${companyId}`);
+
+      toast.success('تمت تصفية وحذف كافة بيانات وهيكل النظام بنجاح تام!', { id: loadToast });
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+
+    } catch (e) {
+      console.error(e);
+      toast.error('حدث خطأ أثناء تصفير وحذف البيانات.', { id: loadToast });
+    } finally {
+      setIsPurging(false);
     }
   };
 
@@ -1880,14 +2653,42 @@ class ResConfigSettings(models.TransientModel):
             </div>
 
             <div className="mt-8 pt-6 border-t border-purple-200">
-               <h3 className="text-lg font-bold text-slate-800 mb-2">تهيئة البيانات الأساسية (XML Data Seeding)</h3>
-               <p className="text-sm text-slate-600 mb-4">هذه الأداة تقوم بإدراج الأقسام والمسميات الوظيفية (القطاع الطبي والإداري) مباشرة إلى قاعدة البيانات.</p>
+               <h3 className="text-lg font-bold text-[#714B67] mb-2 flex items-center justify-center gap-2">
+                 <Sparkles className="w-5 h-5 text-amber-500" />
+                 <span>محاكي الأنظمة وتوليد البيانات التجريبية الشاملة (System Mock Seeder)</span>
+               </h3>
+               <p className="text-xs text-slate-600 mb-6 max-w-lg mx-auto leading-relaxed">
+                 توليد بيئة عمل متكاملة وحقيقية لـ 10 موظفين تشمل الهياكل الوظيفية وتراخيص وزارة الصحة والعقود وحركات البصمة والرواتب والسلف والعهَد والملفات والمسح الضوئي الذكي لتجربة النظام بضغطة زر واحدة.
+               </p>
+               
+               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
+                 <button
+                   onClick={handleSeedFullEcosystem}
+                   disabled={isSeeding || isPurging}
+                   className="w-full sm:w-auto px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
+                 >
+                   <Database className="w-4 h-4" />
+                   <span>توليد دورة تجريبية شاملة (Seed Full Ecosystem)</span>
+                 </button>
+
+                 <button
+                   onClick={handlePurgeFullEcosystem}
+                   disabled={isSeeding || isPurging}
+                   className="w-full sm:w-auto px-6 py-3.5 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-300 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
+                 >
+                   <Trash2 className="w-4 h-4" />
+                   <span>تصفير وحذف البيانات التجريبية (Purge Demo Data)</span>
+                 </button>
+               </div>
+
+               <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">أدوات إضافية</h4>
                <button
                  onClick={handleSeedOdooData}
-                 className="px-8 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl shadow-lg transition flex items-center justify-center gap-2.5 mx-auto cursor-pointer"
+                 disabled={isSeeding || isPurging}
+                 className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 disabled:bg-slate-100 text-slate-700 font-bold text-xs rounded-xl border border-slate-300 transition flex items-center justify-center gap-1.5 mx-auto cursor-pointer"
                >
-                 <Database className="w-5 h-5" />
-                 <span>تهيئة المسميات والأقسام (Odoo XML)</span>
+                 <Database className="w-3.5 h-3.5 text-slate-500" />
+                 <span>تهيئة المسميات والأقسام فقط (Odoo XML)</span>
                </button>
             </div>
           </div>

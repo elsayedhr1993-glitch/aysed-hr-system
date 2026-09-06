@@ -11,7 +11,7 @@ interface State {
   errorInfo: ErrorInfo | null;
 }
 
-export class SystemErrorBoundary extends Component<Props, State> {
+export class SystemErrorBoundary extends React.Component<Props, State> {
   public state: State = {
     hasError: false,
     error: null,

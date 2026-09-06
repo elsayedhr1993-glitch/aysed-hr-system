@@ -510,7 +510,7 @@ export const OdooTimeOffApp: React.FC = () => {
       {/* Metric Cards - Odoo Balance Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs fade-slide-up">
           <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-1">
             <span>الرصيد السنوي الأساسي</span>
             <Calendar className="w-4 h-4 text-emerald-600" />
@@ -523,7 +523,7 @@ export const OdooTimeOffApp: React.FC = () => {
 
         {/* Trigger Allocation Modal from Balance Card */}
         <div 
-          className="bg-white p-4 rounded-xl border border-purple-200 shadow-2xs cursor-pointer hover:border-purple-400 hover:shadow-md transition group relative overflow-hidden" 
+          className="bg-white p-4 rounded-xl border border-purple-200 shadow-2xs cursor-pointer hover:border-purple-400 hover:shadow-md transition group relative overflow-hidden fade-slide-up" 
           onClick={() => setShowAllocationModal(true)}
           title="انقر لفتح نافذة تخصيص وترحيل الرصيد"
         >
@@ -537,7 +537,7 @@ export const OdooTimeOffApp: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs fade-slide-up">
           <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-1">
             <span>طلبات قيد المراجعة والاعتماد</span>
             <Clock className="w-4 h-4 text-amber-500" />
@@ -548,7 +548,7 @@ export const OdooTimeOffApp: React.FC = () => {
           <div className="text-[10px] text-slate-500 mt-1">تتطلب اعتماد المدير / الموارد البشرية</div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs fade-slide-up">
           <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-1">
             <span>الإجازات المستهلكة المعتمدة</span>
             <CheckCircle2 className="w-4 h-4 text-blue-600" />
@@ -952,7 +952,7 @@ export const OdooTimeOffApp: React.FC = () => {
                   const empId = newRequest.employeeId;
                   const balanceData = getEmployeeContractBalance(empId);
                   return (
-                    <div className="p-3.5 bg-gradient-to-br from-emerald-50 to-teal-50/70 border border-emerald-200/80 rounded-xl mt-2.5 shadow-2xs space-y-2">
+                    <div className="p-3.5 bg-gradient-to-br from-emerald-50 to-teal-50/70 border border-emerald-200/80 rounded-xl mt-2.5 shadow-2xs space-y-2 fade-slide-up">
                       <div className="flex items-center justify-between border-b border-emerald-200/60 pb-2">
                         <span className="text-emerald-900 font-bold flex items-center gap-1.5 text-xs">
                           <Calendar size={14} className="text-emerald-700" />

@@ -4,6 +4,7 @@ import {
   MessageSquare, ShieldCheck, RefreshCw, Eye, Search, AlertCircle, LogOut, Copy, Check, PauseCircle, Trash2, PlayCircle, Server, Activity, Database,
   Edit3, Save, X, Lock, Building, Phone, Mail, User, Plus, Key, EyeOff, Sliders, Cpu, Layers, Wifi, Settings
 } from 'lucide-react';
+import { SystemDiagnosticSuite } from '../components/SystemDiagnosticSuite';
 import { supabase } from '../lib/supabase';
 import { db, auth, provisionTenantAuth, cleanFirestoreData, purgeTenantCascading, isTenantPurged } from '../lib/firebase';
 import { collection, getDocs, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
@@ -1369,6 +1370,11 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   <p>[INFO] {new Date().toISOString()} - Successfully loaded {requests.length} tenant subscriptions.</p>
                   <p>[SEC] {new Date().toISOString()} - JWT Token verified successfully with Role: SUPER_ADMIN.</p>
                 </div>
+              </div>
+
+              {/* Integration of the full diagnostic and verification suite */}
+              <div className="mt-6">
+                <SystemDiagnosticSuite />
               </div>
             </div>)}
 

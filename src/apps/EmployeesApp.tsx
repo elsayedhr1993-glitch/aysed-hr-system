@@ -8,6 +8,8 @@ import OdooPamContractModal from '../components/OdooPamContractModal';
 import { useCompany } from '../context/CompanyContext';
 import { TenantDatabaseService } from '../services/tenantDataService';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
+import { getPersistentData } from '../utils/persistentStorage';
+import { get_aysed_official_balance, getCarriedOverBalance, getGlobalCompensatoryDays } from '../utils/kuwaitLaw';
 
 export const safePrintA4Document = (htmlContent: string) => {
   try {
@@ -44,13 +46,135 @@ export const safePrintA4Document = (htmlContent: string) => {
   safePrintAction('طباعة المستند');
 };
 
+const generateLeavePrintHtml = (printData: any, companyName: string, companyNameEn: string) => {
+  const leavesList = getPersistentData<any[]>('manara_leaves_data', []);
+  const empLeaves = leavesList.filter(l => l.employeeId === printData.id && l.leaveType === 'ANNUAL' && (l.status === 'APPROVED' || l.status === 'VALIDATED'));
+  
+  const totalTaken = empLeaves.reduce((sum, l) => sum + (Number(l.totalDays) || 0), 0);
+  const carriedOver = getCarriedOverBalance(printData);
+  const accrued2026 = get_aysed_official_balance(printData);
+  const compensatory = getGlobalCompensatoryDays(printData);
+  const netAvailable = Number((carriedOver + accrued2026 + compensatory - totalTaken).toFixed(1));
+
+  return `
+    <div style="direction: rtl; font-family: 'Arial', 'Tahoma', sans-serif; padding: 25px; line-height: 1.6; color: #1e293b;">
+      <div style="text-align: center; border-b: 2px double #cbd5e1; padding-bottom: 20px; margin-bottom: 30px;">
+        <h2 style="margin: 0; color: #714b67; font-size: 22px;">${companyName}</h2>
+        <div style="font-size: 11px; color: #64748b; margin-top: 4px;">${companyNameEn}</div>
+        <h3 style="margin: 15px 0 0 0; color: #1e293b; font-size: 16px; border-bottom: 1px solid #714b67; display: inline-block; padding-bottom: 5px;">كشف رصيد وحساب الإجازات المعتمد</h3>
+      </div>
+
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 12px;">
+        <tr>
+          <td style="padding: 8px; font-weight: bold; color: #64748b; width: 18%;">اسم الموظف:</td>
+          <td style="padding: 8px; font-weight: bold; font-size: 13px; color: #0f172a; border-bottom: 1px solid #f1f5f9;">${printData.nameAr || printData.fullNameAr || 'غير متوفر'}</td>
+          <td style="padding: 8px; font-weight: bold; color: #64748b; width: 18%;">الرقم المدني:</td>
+          <td style="padding: 8px; font-family: monospace; border-bottom: 1px solid #f1f5f9;">${printData.civilId || printData.civil_id_number || 'غير متوفر'}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px; font-weight: bold; color: #64748b;">المسمى الوظيفي:</td>
+          <td style="padding: 8px; border-bottom: 1px solid #f1f5f9;">${printData.jobTitle || 'غير متوفر'}</td>
+          <td style="padding: 8px; font-weight: bold; color: #64748b;">القسم / الإدارة:</td>
+          <td style="padding: 8px; border-bottom: 1px solid #f1f5f9;">${printData.dept || printData.department || 'غير متوفر'}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px; font-weight: bold; color: #64748b;">تاريخ التعيين:</td>
+          <td style="padding: 8px; font-family: monospace; border-bottom: 1px solid #f1f5f9;">${printData.hireDate || printData.joinDate || '2026-01-01'}</td>
+          <td style="padding: 8px; font-weight: bold; color: #64748b;">الجنسية:</td>
+          <td style="padding: 8px; border-bottom: 1px solid #f1f5f9;">${printData.nationality || 'غير متوفر'}</td>
+        </tr>
+      </table>
+
+      <div style="margin-bottom: 30px;">
+        <h4 style="margin: 0 0 15px 0; color: #714b67; font-size: 14px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">ملخص أرصدة الإجازات السنوية المعتمدة</h4>
+        <table style="width: 100%; border-collapse: collapse; text-align: center; font-size: 11px;">
+          <tr>
+            <td style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 6px; width: 20%;">
+              <div style="font-size: 10px; color: #64748b; font-weight: bold; margin-bottom: 5px;">الرصيد المرحل من 2025</div>
+              <div style="font-size: 15px; font-weight: bold; color: #334155;">${carriedOver} يوم</div>
+            </td>
+            <td style="background-color: #faf5ff; border: 1px solid #f3e8ff; padding: 12px; border-radius: 6px; width: 20%;">
+              <div style="font-size: 10px; color: #6b21a8; font-weight: bold; margin-bottom: 5px;">المستحق لعام 2026</div>
+              <div style="font-size: 15px; font-weight: bold; color: #7e22ce;">+${accrued2026} يوم</div>
+            </td>
+            <td style="background-color: #f0fdf4; border: 1px solid #dcfce7; padding: 12px; border-radius: 6px; width: 20%;">
+              <div style="font-size: 10px; color: #166534; font-weight: bold; margin-bottom: 5px;">أيام تعويضية (العطلات)</div>
+              <div style="font-size: 15px; font-weight: bold; color: #15803d;">+${compensatory} يوم</div>
+            </td>
+            <td style="background-color: #fef2f2; border: 1px solid #fee2e2; padding: 12px; border-radius: 6px; width: 20%;">
+              <div style="font-size: 10px; color: #991b1b; font-weight: bold; margin-bottom: 5px;">المستهلك الفعلي</div>
+              <div style="font-size: 15px; font-weight: bold; color: #b91c1c;">-${totalTaken} يوم</div>
+            </td>
+            <td style="background-color: #f0fdfa; border: 1px solid #ccfbf1; padding: 12px; border-radius: 6px; width: 20%;">
+              <div style="font-size: 10px; color: #115e59; font-weight: bold; margin-bottom: 5px;">الرصيد المتاح الصافي</div>
+              <div style="font-size: 16px; font-weight: bold; color: #0f766e;">${netAvailable} يوم</div>
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="margin-bottom: 35px;">
+        <h4 style="margin: 0 0 12px 0; color: #714b67; font-size: 14px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">سجل حركات الإجازات السنوية المصدقة</h4>
+        ${empLeaves.length === 0 ? `
+          <div style="text-align: center; padding: 15px; color: #94a3b8; font-size: 12px; border: 1px dashed #cbd5e1; border-radius: 6px;">لا يوجد طلبات إجازات معتمدة مسجلة للموظف.</div>
+        ` : `
+          <table style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: right;">
+            <thead>
+              <tr style="background-color: #f8fafc; border-bottom: 1px solid #cbd5e1;">
+                <th style="padding: 8px; border: 1px solid #e2e8f0;">تاريخ البدء</th>
+                <th style="padding: 8px; border: 1px solid #e2e8f0;">تاريخ الانتهاء</th>
+                <th style="padding: 8px; border: 1px solid #e2e8f0; text-align: center;">المدة الفعلية</th>
+                <th style="padding: 8px; border: 1px solid #e2e8f0;">السبب / البيان</th>
+                <th style="padding: 8px; border: 1px solid #e2e8f0; text-align: center;">الحالة</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${empLeaves.slice(0, 10).map(l => `
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                  <td style="padding: 8px; border: 1px solid #e2e8f0; font-family: monospace;">${l.startDate}</td>
+                  <td style="padding: 8px; border: 1px solid #e2e8f0; font-family: monospace;">${l.endDate}</td>
+                  <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold;">${l.totalDays} يوم</td>
+                  <td style="padding: 8px; border: 1px solid #e2e8f0;">${l.reason || 'إجازة سنوية اعتيادية'}</td>
+                  <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center; color: #15803d; font-weight: bold;">معتمد</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `}
+      </div>
+
+      <div style="margin-top: 40px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; text-align: center; font-size: 12px;">
+        <div>
+          <p style="font-weight: bold; color: #475569; margin-bottom: 50px;">توقيع وإقرار الموظف</p>
+          <div style="border-bottom: 1px solid #94a3b8; width: 80%; margin: 0 auto 5px auto;"></div>
+          <span style="font-size: 10px; color: #94a3b8;">التوقيع: ............................</span>
+        </div>
+        <div>
+          <p style="font-weight: bold; color: #475569; margin-bottom: 50px;">مسؤول شؤون الموظفين</p>
+          <div style="border-bottom: 1px solid #94a3b8; width: 80%; margin: 0 auto 5px auto;"></div>
+          <span style="font-size: 10px; color: #94a3b8;">التوقيع والختم</span>
+        </div>
+        <div>
+          <p style="font-weight: bold; color: #475569; margin-bottom: 50px;">اعتماد إدارة الموارد البشرية</p>
+          <div style="border-bottom: 1px solid #94a3b8; width: 80%; margin: 0 auto 5px auto;"></div>
+          <span style="font-size: 10px; color: #94a3b8;">التوقيع والختم الرسمي</span>
+        </div>
+      </div>
+
+      <div style="margin-top: 60px; border-top: 1px solid #e2e8f0; padding-top: 10px; text-align: center; font-size: 10px; color: #94a3b8;">
+        تم إنشاؤه تلقائياً بواسطة نظام المنارة لتقنية المعلومات والموارد البشرية (Odoo 18 ERP) - تاريخ الاستخراج: ${new Date().toLocaleDateString('ar-KW')}
+      </div>
+    </div>
+  `;
+};
+
 export function EmployeesApp(props?: any) {
   const { activeCompany, activeCompanyId } = useCompany();
   const currentCompanyId = activeCompanyId || activeCompany?.id || 'comp-super-admin';
 
   const [activeTab, setActiveTab] = useState<'directory' | 'contracts' | 'commencement'>('directory');
   const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
-  const [selectedDept, setSelectedDept] = useState('الكل');
+  const [selectedDept, setSelectedDept] = useState('الأطباء');
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoadingDb, setIsLoadingDb] = useState(false);
   
@@ -253,7 +377,7 @@ export function EmployeesApp(props?: any) {
                 passportNo: emp.passportNo || '',
                 passportExpiry: emp.passportExpiry || '',
                 residencyType: (emp as any).residencyType || 'مواطن',
-                hireDate: emp.joinDate || (emp as any).hireDate || new Date().toISOString().slice(0, 10),
+                hireDate: emp.joinDate || (emp as any).hireDate || '',
                 mohLicense: emp.mohLicenseNo || (emp as any).mohLicense || '',
                 mohLicenseExpiry: emp.mohLicenseExpiry || '',
                 specialty: (emp as any).specialty || '',
@@ -421,8 +545,8 @@ export function EmployeesApp(props?: any) {
       nameEn: updatedEmp.nameEn || updatedEmp.fullNameEn || '',
       fullNameEn: updatedEmp.nameEn || updatedEmp.fullNameEn || '',
       department: updatedEmp.dept || updatedEmp.department,
-      joinDate: (updatedEmp.hireDate || updatedEmp.joinDate || '2026-01-01').slice(0, 10),
-      hireDate: (updatedEmp.hireDate || updatedEmp.joinDate || '2026-01-01').slice(0, 10),
+      joinDate: updatedEmp.hireDate || updatedEmp.joinDate || '',
+      hireDate: updatedEmp.hireDate || updatedEmp.joinDate || '',
       mohLicenseNo: updatedEmp.mohLicense || updatedEmp.mohLicenseNo,
       updatedAt: new Date().toISOString()
     };
@@ -730,7 +854,7 @@ export function EmployeesApp(props?: any) {
   const expiredDocsCount = visibleEmployees.filter(checkExpiredDocs).length;
 
   const filteredEmployees = visibleEmployees.filter(emp => {
-    const matchDept = selectedDept === 'الكل' || emp.dept === selectedDept || emp.department === selectedDept;
+    const matchDept = emp.dept === selectedDept || emp.department === selectedDept;
     const matchSearch = (emp.nameAr || emp.fullNameAr || '').includes(searchQuery) || 
                         (emp.civilId || emp.civil_id_number || '').includes(searchQuery) || 
                         (emp.id || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -826,7 +950,7 @@ export function EmployeesApp(props?: any) {
                 activeTab === 'commencement' ? 'bg-white text-purple-900 shadow-sm border border-slate-200' : 'hover:bg-slate-200/60'
               }`}
             >
-              <span>🏥</span> إقرارات المباشرة وتراخيص MOH
+              <span>🏥</span> مباشرة العمل
             </button>
           </div>
         </div>
@@ -1050,7 +1174,7 @@ export function EmployeesApp(props?: any) {
             </div>
 
             <div className="flex items-center gap-1.5 overflow-x-auto text-xs font-semibold">
-              {['الكل', 'الموارد البشرية', 'الإدارة العليا', 'الأطباء', 'التمريض', 'الأمن والخدمات'].map((dept) => (
+              {['الأطباء', 'التمريض', 'الموارد البشرية', 'الإدارة العليا', 'مناديب وسائقين'].map((dept) => (
                 <button
                   key={dept}
                   onClick={() => setSelectedDept(dept)}
@@ -1215,13 +1339,13 @@ export function EmployeesApp(props?: any) {
         </div>
       )}
 
-      {/* 3.3 إقرارات المباشرة وتراخيص MOH */}
+      {/* 3.3 إقرارات مباشرة العمل */}
       {activeTab === 'commencement' && (
         <div className="space-y-4">
           <div className="bg-gradient-to-r from-emerald-900 to-teal-900 text-white rounded-xl p-4 shadow-sm flex items-center justify-between">
             <div>
-              <h2 className="text-sm font-bold">إقرارات المباشرة وتراخيص وزارة الصحة (Work Commencement & MOH)</h2>
-              <p className="text-[11px] text-emerald-200 mt-0.5">إدارة إقرارات مباشرة العمل، فحص اللياقة الصحية، بصمات الأدلة الجنائية، وتراخيص مزاولة المهنة الرسمية بدولة الكويت</p>
+              <h2 className="text-sm font-bold">إقرارات مباشرة العمل (Employment Commencement)</h2>
+              <p className="text-[11px] text-emerald-200 mt-0.5">إدارة إقرارات مباشرة العمل الرسمية وجداول الدوام بدولة الكويت</p>
             </div>
             <button
               onClick={handleCreateCommencement}
@@ -1238,8 +1362,6 @@ export function EmployeesApp(props?: any) {
                   <th className="p-3.5">رقم الإقرار</th>
                   <th className="p-3.5">اسم الموظف والرقم المدني</th>
                   <th className="p-3.5">تاريخ المباشرة الفعلي</th>
-                  <th className="p-3.5">حالة الفحص والبصمات</th>
-                  <th className="p-3.5">ترخيص وزارة الصحة</th>
                   <th className="p-3.5">القسم المشرف</th>
                   <th className="p-3.5 text-center">الإجراء والطباعة</th>
                 </tr>
@@ -1253,11 +1375,6 @@ export function EmployeesApp(props?: any) {
                       <div className="text-[10px] text-slate-400 font-mono">{com.civilId}</div>
                     </td>
                     <td className="p-3.5 font-mono text-slate-700">{com.commencementDate}</td>
-                    <td className="p-3.5 text-slate-600">
-                      <div className="font-semibold text-emerald-700">{com.healthCheckStatus}</div>
-                      <div className="text-[10px] text-slate-400">{com.fingerprintStatus}</div>
-                    </td>
-                    <td className="p-3.5 font-mono text-purple-700 font-bold">{com.mohLicenseStatus}</td>
                     <td className="p-3.5 text-slate-700">{com.supervisingDept}</td>
                     <td className="p-3.5 text-center flex items-center justify-center gap-1.5">
                       <button
@@ -1521,20 +1638,141 @@ export function EmployeesApp(props?: any) {
               </div>
 
               {printData && (
-                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4 text-xs">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div><strong className="text-slate-500">الاسم:</strong> {printData.nameAr || printData.employeeName || printData.refTitle || 'غير متوفر'}</div>
-                    <div><strong className="text-slate-500">المعرف / الرقم:</strong> {printData.id || printData.employeeId || 'N/A'}</div>
-                    <div><strong className="text-slate-500">الرقم المدني:</strong> {printData.civilId || '290010112345'}</div>
-                    <div><strong className="text-slate-500">المسمى الوظيفي:</strong> {printData.jobTitle || printData.jobPosition || 'غير متوفر'}</div>
-                    <div><strong className="text-slate-500">القسم:</strong> {printData.dept || printData.department || 'غير متوفر'}</div>
-                    <div><strong className="text-slate-500">تاريخ التعيين / الإصدار:</strong> {printData.hireDate || printData.startDate || printData.commencementDate || '2026-01-01'}</div>
-                  </div>
-                  <div className="border-t pt-4 mt-4 flex justify-between items-center text-[11px] text-slate-500">
-                    <div>معتمد من إدارة الموارد البشرية والشؤون الإدارية (Odoo 18 ERP)</div>
-                    <div>تاريخ الطباعة: {new Date().toLocaleDateString('ar-KW')}</div>
-                  </div>
-                </div>
+                (() => {
+                  const isLeaveReport = printTitle.includes('كشف رصيد إجازات');
+                  if (isLeaveReport) {
+                    const leavesList = getPersistentData<any[]>('manara_leaves_data', []);
+                    const empLeaves = leavesList.filter(l => l.employeeId === printData.id && l.leaveType === 'ANNUAL' && (l.status === 'APPROVED' || l.status === 'VALIDATED'));
+                    
+                    const totalTaken = empLeaves.reduce((sum, l) => sum + (Number(l.totalDays) || 0), 0);
+                    const carriedOver = getCarriedOverBalance(printData);
+                    const accrued2026 = get_aysed_official_balance(printData);
+                    const compensatory = getGlobalCompensatoryDays(printData);
+                    const netAvailable = Number((carriedOver + accrued2026 + compensatory - totalTaken).toFixed(1));
+
+                    return (
+                      <div className="space-y-6">
+                        {/* Summary Cards */}
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                          <h4 className="text-xs font-bold text-slate-800 border-b pb-2 mb-3 flex items-center gap-1.5">
+                            <span>👤</span> بيانات الموظف الأساسية (Employee Info)
+                          </h4>
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs">
+                            <div><strong className="text-slate-500">اسم الموظف:</strong> <span className="font-bold text-slate-900">{printData.nameAr || printData.fullNameAr || 'غير متوفر'}</span></div>
+                            <div><strong className="text-slate-500">الرقم المدني:</strong> <span className="font-mono">{printData.civilId || printData.civil_id_number || 'غير متوفر'}</span></div>
+                            <div><strong className="text-slate-500">الجنسية:</strong> <span>{printData.nationality || 'غير متوفر'}</span></div>
+                            <div><strong className="text-slate-500">المسمى الوظيفي:</strong> <span>{printData.jobTitle || 'غير متوفر'}</span></div>
+                            <div><strong className="text-slate-500">القسم / الإدارة:</strong> <span>{printData.dept || printData.department || 'غير متوفر'}</span></div>
+                            <div><strong className="text-slate-500">تاريخ التعيين:</strong> <span className="font-mono">{printData.hireDate || printData.joinDate || '2026-01-01'}</span></div>
+                          </div>
+                        </div>
+
+                        {/* Leave Balance Sheet Table */}
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                          <h4 className="text-xs font-bold text-slate-800 border-b pb-2 mb-3 flex items-center gap-1.5">
+                            <span>📊</span> تفاصيل رصيد الإجازات المعتمد (Approved Balances)
+                          </h4>
+                          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-center">
+                            <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
+                              <div className="text-[10px] text-slate-500 font-bold mb-1">الرصيد المرحل</div>
+                              <div className="text-base font-black text-slate-800 font-mono">{carriedOver} يوم</div>
+                            </div>
+                            <div className="p-3 rounded-lg bg-purple-50/50 border border-purple-200">
+                              <div className="text-[10px] text-purple-900 font-bold mb-1">المستحق لعام 2026</div>
+                              <div className="text-base font-black text-[#714B67] font-mono">+{accrued2026} يوم</div>
+                            </div>
+                            <div className="p-3 rounded-lg bg-emerald-50/50 border border-emerald-200">
+                              <div className="text-[10px] text-emerald-900 font-bold mb-1">أيام تعويضية مضافة</div>
+                              <div className="text-base font-black text-emerald-800 font-mono">+{compensatory} يوم</div>
+                            </div>
+                            <div className="p-3 rounded-lg bg-rose-50/50 border border-rose-200">
+                              <div className="text-[10px] text-rose-900 font-bold mb-1">المستهلك الفعلي</div>
+                              <div className="text-base font-black text-rose-800 font-mono">-{totalTaken} يوم</div>
+                            </div>
+                            <div className="p-3 rounded-lg bg-teal-50 border border-teal-200 col-span-2 md:col-span-1">
+                              <div className="text-[10px] text-teal-950 font-bold mb-1">الرصيد المتاح الصافي</div>
+                              <div className="text-lg font-black text-teal-900 font-mono">{netAvailable} يوم</div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Recent Leave Requests List */}
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                          <h4 className="text-xs font-bold text-slate-800 border-b pb-2 mb-1 flex items-center gap-1.5">
+                            <span>📅</span> سجل طلبات الإجازات السنوية المصدقة (Annual Leaves Log)
+                          </h4>
+                          {empLeaves.length === 0 ? (
+                            <div className="text-center py-4 text-slate-400 font-bold text-xs">لا يوجد حركات إجازات معتمدة مسجلة لهذا الموظف.</div>
+                          ) : (
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-right text-xs table-auto">
+                                <thead className="bg-slate-100 text-slate-700 font-bold">
+                                  <tr>
+                                    <th className="p-2 border">تاريخ البدء</th>
+                                    <th className="p-2 border">تاريخ الانتهاء</th>
+                                    <th className="p-2 border text-center">المدة (أيام)</th>
+                                    <th className="p-2 border">السبب / نوع الطلب</th>
+                                    <th className="p-2 border text-center">الحالة</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {empLeaves.slice(0, 8).map((l, i) => (
+                                    <tr key={i} className="hover:bg-slate-50">
+                                      <td className="p-2 border font-mono">{l.startDate}</td>
+                                      <td className="p-2 border font-mono">{l.endDate}</td>
+                                      <td className="p-2 border text-center font-mono font-bold">{l.totalDays} يوم</td>
+                                      <td className="p-2 border">{l.reason || 'إجازة سنوية اعتيادية'}</td>
+                                      <td className="p-2 border text-center">
+                                        <span className="bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded text-[10px] font-bold">معتمد</span>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Official Signatures Section */}
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm grid grid-cols-3 gap-6 text-center text-xs pt-8">
+                          <div className="space-y-12">
+                            <div className="font-bold text-slate-600">إقرار وتوقيع الموظف</div>
+                            <div className="border-b border-slate-300 w-3/4 mx-auto"></div>
+                            <div className="text-[10px] text-slate-400">التوقيع: ............................</div>
+                          </div>
+                          <div className="space-y-12">
+                            <div className="font-bold text-slate-600">مسؤول شؤون الموظفين</div>
+                            <div className="border-b border-slate-300 w-3/4 mx-auto"></div>
+                            <div className="text-[10px] text-slate-400">التوقيع والختم</div>
+                          </div>
+                          <div className="space-y-12">
+                            <div className="font-bold text-slate-600">اعتماد مدير الموارد البشرية</div>
+                            <div className="border-b border-slate-300 w-3/4 mx-auto"></div>
+                            <div className="text-[10px] text-slate-400">التوقيع والختم الرسمي</div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // Default view for other prints
+                  return (
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4 text-xs">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div><strong className="text-slate-500">الاسم:</strong> {printData.nameAr || printData.employeeName || printData.refTitle || 'غير متوفر'}</div>
+                        <div><strong className="text-slate-500">المعرف / الرقم:</strong> {printData.id || printData.employeeId || 'N/A'}</div>
+                        <div><strong className="text-slate-500">الرقم المدني:</strong> {printData.civilId || printData.civil_id_number || '290010112345'}</div>
+                        <div><strong className="text-slate-500">المسمى الوظيفي:</strong> {printData.jobTitle || printData.jobPosition || 'غير متوفر'}</div>
+                        <div><strong className="text-slate-500">القسم:</strong> {printData.dept || printData.department || 'غير متوفر'}</div>
+                        <div><strong className="text-slate-500">تاريخ التعيين / الإصدار:</strong> {printData.hireDate || printData.startDate || printData.commencementDate || '2026-01-01'}</div>
+                      </div>
+                      <div className="border-t pt-4 mt-4 flex justify-between items-center text-[11px] text-slate-500">
+                        <div>معتمد من إدارة الموارد البشرية والشؤون الإدارية (Odoo 18 ERP)</div>
+                        <div>تاريخ الطباعة: {new Date().toLocaleDateString('ar-KW')}</div>
+                      </div>
+                    </div>
+                  );
+                })()
               )}
             </div>
 
@@ -1547,7 +1785,14 @@ export function EmployeesApp(props?: any) {
               </button>
               <button
                 onClick={() => {
-                  safePrintAction(printTitle || 'مستند رسمي');
+                  const isLeaveReport = printTitle.includes('كشف رصيد إجازات');
+                  if (isLeaveReport && printData) {
+                    const html = generateLeavePrintHtml(printData, activeCompany?.nameAr || activeCompany?.name || 'تقرير المنشأة', activeCompany?.nameEn || 'State of Kuwait');
+                    safePrintA4Document(html);
+                    setShowPrintModal(false);
+                  } else {
+                    safePrintAction(printTitle || 'مستند رسمي');
+                  }
                 }}
                 className="bg-purple-900 hover:bg-purple-950 text-white px-5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-md cursor-pointer"
               >

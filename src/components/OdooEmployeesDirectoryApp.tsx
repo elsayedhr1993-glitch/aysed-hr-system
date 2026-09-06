@@ -174,7 +174,7 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
                 phone: emp.phone || '',
                 avatarBg: 'bg-[#714B67]',
                 status: (emp.status === 'ACTIVE' || (emp.status as any) === 'على رأس العمل') ? 'active' : 'on_leave',
-                joinDate: emp.joinDate || new Date().toISOString().split('T')[0],
+                joinDate: emp.joinDate || '',
                 leaveBalance: emp.paid_days_remaining || 30.0,
                 shiftType: 'دوام صباحي (8:00 ص - 4:00 م)',
                 directManager: (emp as any).manager || '',
@@ -2220,7 +2220,8 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
               {isScanningInProgress ? (
                 /* Scanning Progress Indicator */
                 <div className="py-12 text-center space-y-4">
-                  <div className="w-16 h-16 rounded-3xl bg-purple-50 text-[#714B67] border-2 border-purple-200 flex items-center justify-center mx-auto animate-spin">
+                  <div className="w-16 h-16 rounded-3xl bg-purple-50 text-[#714B67] border-2 border-purple-200 flex items-center justify-center mx-auto animate-spin relative overflow-hidden">
+                    <div className="laser-scanner-line" />
                     <Sparkles className="w-8 h-8" />
                   </div>
                   <div className="space-y-1">

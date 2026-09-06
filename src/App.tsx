@@ -33,7 +33,8 @@ import {
   Layers,
   ArrowRight,
   Scan,
-  Upload
+  Upload,
+  Stethoscope
 } from 'lucide-react';
 
 // استيراد التطبيقات الكاملة الـ 11
@@ -48,7 +49,10 @@ import { OdooTemplatesApp } from './components/OdooTemplatesApp';
 import { OdooPublicHolidaysApp } from './components/OdooPublicHolidaysApp';
 import { OdooReportsApp } from './components/OdooReportsApp';
 import { OdooSettingsFull } from './components/OdooSettingsFull';
+import { SettingsApp } from './apps/SettingsApp';
 import { ScannerApp } from './apps/ScannerApp';
+import { OdooMohMedicalHubApp } from './apps/OdooMohMedicalHubApp';
+import { OdooPamWorkforceApp } from './apps/OdooPamWorkforceApp';
 import { SuperAdminDashboard } from './pages/SuperAdminDashboard';
 import { OdooDebugMenu } from './components/OdooDebugMenu';
 import OdooLoginPage from './components/OdooLoginPage';
@@ -67,8 +71,10 @@ type AppId =
   | 'holidays' 
   | 'reports' 
   | 'settings'
+  | 'settings_dev'
   | 'saas_admin'
-  | 'scanner';
+  | 'scanner'
+  | 'moh';
 
 function MainAppLayout() {
   const { 
@@ -323,6 +329,8 @@ function MainAppLayout() {
     { id: 'letters', name: 'النماذج والخطابات', subtitle: 'Templates & Letters', icon: FileText, color: 'bg-sky-600' },
     { id: 'holidays', name: 'العطلات الرسمية', subtitle: 'Public Holidays', icon: Sparkles, color: 'bg-purple-600' },
     { id: 'reports', name: 'لوحة القيادة والتقارير', subtitle: 'Executive Dashboard', icon: BarChart3, color: 'bg-blue-600' },
+    { id: 'moh', name: 'تراخيص وزارة الصحة', subtitle: 'MOH Medical Hub', icon: Stethoscope, color: 'bg-teal-700' },
+    { id: 'pam', name: 'الهيئة العامة للقوى العاملة', subtitle: 'PAM Workforce Hub', icon: Users, color: 'bg-blue-700' },
     { id: 'settings', name: isSuperAdmin ? 'الإعدادات والمشتركين' : 'بيانات المنشأة والإعدادات', subtitle: isSuperAdmin ? 'Settings & SaaS Tenants' : 'Company Profile & Settings', icon: Sliders, color: 'bg-slate-700' },
   ];
 
@@ -345,7 +353,9 @@ function MainAppLayout() {
       case 'letters': return 'النماذج والخطابات (Templates & Letters)';
       case 'holidays': return 'العطلات الرسمية (Public Holidays)';
       case 'reports': return 'لوحة القيادة والتقارير (Executive Dashboard)';
+      case 'moh': return 'إدارة التراخيص الطبية والكادر الصحي (MOH Medical Hub)';
       case 'settings': return isSuperAdmin ? 'الإعدادات والمشتركين (Settings & SaaS Tenants)' : 'بيانات المنشأة والإعدادات (Company Profile & Settings)';
+      case 'settings_dev': return 'أدوات المطور ومحاكي البيانات (Developer Tools)';
       default: return 'نظام Aysed S HR 2026';
     }
   };
@@ -531,6 +541,14 @@ function MainAppLayout() {
                 </button>
 
                 <button 
+                  onClick={() => { setActiveApp('settings_dev'); setShowUserMenu(false); }}
+                  className="w-full text-right px-4 py-2.5 text-xs font-bold text-indigo-700 bg-indigo-50/70 hover:bg-indigo-100 transition flex items-center gap-2.5 cursor-pointer rounded-xl"
+                >
+                  <Sparkles size={15} className="text-indigo-600 animate-pulse" /> 
+                  <span className="font-extrabold">أدوات المطور ومحاكي البيانات</span>
+                </button>
+
+                <button 
                   onClick={async () => {
                     setShowUserMenu(false);
                     const toastId = toast.loading('جارِ تصفير قاعدة البيانات ومسح كافة الموظفين...');
@@ -702,6 +720,20 @@ function MainAppLayout() {
           </main>
         )}
 
+        {/* الحالة الطبية: تراخيص وزارة الصحة والكادر الطبي (MOH Medical Hub) */}
+        {activeApp === 'moh' && (
+          <main className="flex-1 bg-slate-50 overflow-y-auto w-full">
+            <OdooMohMedicalHubApp />
+          </main>
+        )}
+
+        {/* تطبيق الهيئة العامة للقوى العاملة (PAM Workforce Hub) */}
+        {activeApp === 'pam' && (
+          <main className="flex-1 bg-slate-50 overflow-y-auto w-full">
+            <OdooPamWorkforceApp />
+          </main>
+        )}
+
         {/* الحالة 12: شاشة لوحة تحكم السوبر أدمن وإدارة المشتركين (SaaS Settings) */}
         {activeApp === 'settings' && (
           <div className="flex-1 flex flex-col bg-slate-50 overflow-hidden w-full relative">
@@ -857,10 +889,10 @@ function MainAppLayout() {
                   </div>
                 </div>
               ) : (
-                <OdooSettingsFull />
+                <OdooSettingsFull onNavigateToDeveloperTools={() => setActiveApp('settings_dev')} />
               )
             ) : (
-              <OdooSettingsFull />
+              <OdooSettingsFull onNavigateToDeveloperTools={() => setActiveApp('settings_dev')} />
             )}
 
             {/* Modal إضافة مشترك جديد */}
@@ -990,6 +1022,28 @@ function MainAppLayout() {
         {activeApp === 'saas_admin' && (
           <main className="flex-1 overflow-y-auto w-full">
             <SuperAdminDashboard />
+          </main>
+        )}
+
+        {/* الحالة 14: أدوات المطور ومحاكي البيانات */}
+        {activeApp === 'settings_dev' && (
+          <main className="flex-1 overflow-y-auto w-full">
+            <SettingsApp
+              companies={companies || []}
+              activeCompany={activeCompany}
+              onSaveCompany={(c) => addCompany(c)}
+              onAddCompany={(c) => addCompany(c)}
+              onDeleteCompany={(id) => deleteCompany(id)}
+              onSelectCompany={(c) => impersonateCompany(c.id)}
+              bgTheme="FOREST_VIDEO"
+              setBgTheme={() => {}}
+              motionEnabled={true}
+              setMotionEnabled={() => {}}
+              initialSubTab="DEVELOPER_TOOLS"
+              currentUserEmail={user?.email || ''}
+              currentUserRole={isSuperAdmin ? 'SUPER_ADMIN' : 'COMPANY_ADMIN'}
+              onNavigateHome={() => setActiveApp('switcher')}
+            />
           </main>
         )}
       </div>
