@@ -1,509 +1,1289 @@
-import React, { useState, useEffect } from 'react';
-import { FileText, Printer, Download, CheckCircle2, AlertTriangle, Users, ExternalLink, Calendar, Briefcase, DollarSign, Building2 } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { 
+  FileText, 
+  Printer, 
+  Download, 
+  CheckCircle2, 
+  Users, 
+  Calendar, 
+  Briefcase, 
+  DollarSign, 
+  Building2, 
+  ShieldCheck, 
+  FileSignature, 
+  Globe, 
+  FolderArchive, 
+  Eye, 
+  Sparkles, 
+  RefreshCw, 
+  FileSpreadsheet, 
+  Check, 
+  FileCheck2, 
+  Layers, 
+  Copy,
+  Info,
+  Scale,
+  Columns2,
+  Maximize2,
+  Minimize2,
+  Edit3,
+  RotateCcw,
+  UserCheck
+} from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
-import { useOdooHierarchy } from '../context/OdooHierarchyContext';
+import { useOdooHierarchy, EmployeeContract } from '../context/OdooHierarchyContext';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
-import { downloadTextFile } from '../utils/exportUtils';
+import { exportElementToPdf } from '../utils/printUtils';
+import { tafqeet } from '../utils/tafqeet';
+import { MANARA_STORAGE_KEYS, getPersistentData, setPersistentData } from '../utils/persistentStorage';
+import { DocumentItem } from '../types';
 import { toast } from 'react-hot-toast';
+import QRCode from 'qrcode';
 import OdooPamContractModal from './OdooPamContractModal';
+import OdooRichDocumentEditor from './OdooRichDocumentEditor';
+
+export type TemplateCategory = 'ALL' | 'CONTRACTS' | 'BANKING' | 'ADMIN';
+export type WorkspaceView = 'split' | 'editor' | 'preview';
+
+export type TemplateId = 
+  | 'contract_kuwait' 
+  | 'pam_contract' 
+  | 'contract_part_time'
+  | 'salary_cert_ar' 
+  | 'salary_cert_en' 
+  | 'to_whom' 
+  | 'noc_letter'
+  | 'commencement'
+  | 'return_from_leave'
+  | 'warning' 
+  | 'non_renewal'
+  | 'eos_settlement' 
+  | 'experience_cert';
+
+interface TemplateDef {
+  id: TemplateId;
+  category: 'CONTRACTS' | 'BANKING' | 'ADMIN';
+  title: string;
+  subtitle: string;
+  badge: string;
+  icon: string;
+  isPamModal?: boolean;
+}
+
+const TEMPLATES_LIST: TemplateDef[] = [
+  // 1. عقود العمل الرسمية
+  {
+    id: 'contract_kuwait',
+    category: 'CONTRACTS',
+    title: 'عقد عمل أهلي كويتي رسمي',
+    subtitle: 'شامل كافة المواد الإلزامية طبقاً لقانون العمل الكويتي رقم 6 لسنة 2010',
+    badge: 'معتمد قانونياً',
+    icon: '📜'
+  },
+  {
+    id: 'pam_contract',
+    category: 'CONTRACTS',
+    title: 'عقد القوى العاملة الموحد (PAM 2)',
+    subtitle: 'النموذج الرسمي للهيئة العامة للقوى العاملة بدولة الكويت للتحويل وتجديد الإقامة',
+    badge: 'نموذج PAM',
+    icon: '🏛️',
+    isPamModal: true
+  },
+  {
+    id: 'contract_part_time',
+    category: 'CONTRACTS',
+    title: 'عقد عمل بدوام جزئي / استشاري',
+    subtitle: 'عقد مهني مرن بالساعة والمهام للمستشارين والكوادر المؤقتة',
+    badge: 'دوام جزئي',
+    icon: '⏳'
+  },
+
+  // 2. الشهادات والخطابات البنكية
+  {
+    id: 'salary_cert_ar',
+    category: 'BANKING',
+    title: 'شهادة تفصيل راتب واستمرارية تحويل (عربي)',
+    subtitle: 'موجهة للبنوك والجهات التمويلية موثقة برقم الآيبان ونظام حماية الأجور WPS',
+    badge: 'معاملات بنكية',
+    icon: '🏦'
+  },
+  {
+    id: 'salary_cert_en',
+    category: 'BANKING',
+    title: 'Salary Certificate & Proof of Income (EN)',
+    subtitle: 'Official certified salary certificate for Embassies, Consulates & International Banks',
+    badge: 'English / Visa',
+    icon: '🌐'
+  },
+  {
+    id: 'to_whom',
+    category: 'BANKING',
+    title: 'شهادة لمن يهمه الأمر (إثبات عمل)',
+    subtitle: 'إثبات رأس العمل والمسمى الوظيفي للجهات الحكومية والوزارات الكويتية',
+    badge: 'إثبات كادر',
+    icon: '📋'
+  },
+  {
+    id: 'noc_letter',
+    category: 'BANKING',
+    title: 'خطاب عدم ممانعة (NOC)',
+    subtitle: 'للمرور (استخراج رخصة قيادة) أو فتح حساب بنكي أو استكمال دراسات عليا',
+    badge: 'عدم ممانعة',
+    icon: '🚗'
+  },
+
+  // 3. الإجراءات الإدارية والقانونية
+  {
+    id: 'commencement',
+    category: 'ADMIN',
+    title: 'إشعار مباشرة عمل واستلام مهام',
+    subtitle: 'توثيق تاريخ الالتحاق الفعلي بالعمل واستحقاق الراتب وتفعيل البصمة',
+    badge: 'مباشرة عمل',
+    icon: '🚀'
+  },
+  {
+    id: 'return_from_leave',
+    category: 'ADMIN',
+    title: 'إشعار استئناف العمل بعد الإجازة',
+    subtitle: 'إقرار بالعودة في الموعد المحدد وتحديث أرصدة الإجازات السنوية',
+    badge: 'عودة من إجازة',
+    icon: '🏖️'
+  },
+  {
+    id: 'warning',
+    category: 'ADMIN',
+    title: 'كتاب إنذار ولفت نظر إداري رسمي',
+    subtitle: 'وفق لائحة الجزاءات والمادة 35 من قانون العمل الكويتي رقم 6 لسنة 2010',
+    badge: 'مساءلة قانونية',
+    icon: '⚠️'
+  },
+  {
+    id: 'non_renewal',
+    category: 'ADMIN',
+    title: 'إشعار عدم الرغبة في تجديد العقد',
+    subtitle: 'إخطار رسمي للموظف قبل انتهاء مدة الإخطار المقررة قانوناً (Notice Period)',
+    badge: 'إشعار تعاقدي',
+    icon: '⏱️'
+  },
+  {
+    id: 'eos_settlement',
+    category: 'ADMIN',
+    title: 'سند مخالصة نهائية وتصفية نهاية الخدمة',
+    subtitle: 'حساب المستحقات وبدل الإجازات وإبراء الذمة الشامل طبقاً للمادتين 51 و 53',
+    badge: 'إبراء ذمة',
+    icon: '⚖️'
+  },
+  {
+    id: 'experience_cert',
+    category: 'ADMIN',
+    title: 'شهادة خبرة وخدمة معتمدة',
+    subtitle: 'وفق المادة 47 من قانون العمل الكويتي (تسلم للعامل عند انتهاء خدمته دون رسوم)',
+    badge: 'شهادة خبرة',
+    icon: '🎓'
+  }
+];
+
+// Default HTML template bodies with smart placeholders embedded
+const DEFAULT_TEMPLATE_BODIES: Record<TemplateId, string> = {
+  salary_cert_ar: `
+<div style="text-align: center; margin: 15px 0;">
+  <h1 style="font-size: 20px; font-weight: 900; border-bottom: 2px solid #0f172a; display: inline-block; padding-bottom: 6px;">
+    شهادة تفصيل راتب واستمرارية تحويل
+  </h1>
+</div>
+
+<p><strong>السادة / إلى من يهمه الأمر المحترمين</strong></p>
+<p>تحية طيبة وبعد ،،،</p>
+
+<p>
+  تشهد إدارة <strong>{اسم_الشركة}</strong> بأن {السيد_السيدة}/ <strong>{اسم_الموظف}</strong>، حامل البطاقة المدنية رقم (<strong>{الرقم_المدني}</strong>)، وجنسيته (<strong>{الجنسية}</strong>)، {يعمل_تعمل} لدينا بوظيفة (<strong>{المسمى_الوظيفي}</strong>) في قسم (<strong>{القسم}</strong>) وذلك اعتباراً من تاريخ <strong>{تاريخ_المباشرة}</strong> ولا يزال على رأس عمله حتى تاريخه.
+</p>
+
+<p>ويتقاضى المذكور راتباً شهرياً شاملاً ومفصلاً على النحو الآتي:</p>
+
+<table style="width: 100%; border-collapse: collapse; margin: 15px 0; border: 1px solid #cbd5e1;">
+  <thead>
+    <tr style="background-color: #f1f5f9;">
+      <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: right;">الراتب الأساسي</th>
+      <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: right;">بدل السكن</th>
+      <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: right;">بدل الانتقال</th>
+      <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: right; color: #714B67;">إجمالي الراتب الشهري</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr style="font-weight: bold;">
+      <td style="border: 1px solid #cbd5e1; padding: 8px;">{الراتب_الأساسي}</td>
+      <td style="border: 1px solid #cbd5e1; padding: 8px;">{بدل_السكن}</td>
+      <td style="border: 1px solid #cbd5e1; padding: 8px;">{بدل_الانتقال}</td>
+      <td style="border: 1px solid #cbd5e1; padding: 8px; background-color: #faf5ff; color: #714B67; font-size: 15px;">
+        {الراتب_الشامل}
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>فقط وقدره:</strong> ({تفقيت_الراتب}).</p>
+
+<p>
+  ويتم تحويل مستحقاته الشهرية بانتظام عبر نظام حماية الأجور (WPS) لحسابه البنكي طرف <strong>{اسم_البنك}</strong>، رقم الآيبان (IBAN): <strong>{الآيبان}</strong>.
+</p>
+
+<p>
+  وقد أُعطيت {له_لها} هذه الشهادة بناءً على طلبه دون أدنى مسؤولية مالية أو قانونية على المنشأة تجاه حقوق الغير.
+</p>
+
+<p style="text-align: center; font-weight: bold; margin-top: 25px;">وتفضلوا بقبول فائق التقدير والاحترام ،،،</p>
+`,
+
+  salary_cert_en: `
+<div style="text-align: center; margin: 15px 0;" dir="ltr">
+  <h1 style="font-size: 20px; font-weight: 900; border-bottom: 2px solid #0f172a; display: inline-block; padding-bottom: 6px;">
+    SALARY CERTIFICATE & PROOF OF EMPLOYMENT
+  </h1>
+</div>
+
+<div dir="ltr">
+  <p><strong>To Whom It May Concern</strong></p>
+  <p>Dear Sir / Madam,</p>
+
+  <p>
+    This is to certify that Mr./Ms. <strong>{اسم_الموظف}</strong>, holding Civil ID No. (<strong>{الرقم_المدني}</strong>) and {الجنسية} nationality, is a full-time employee with <strong>{اسم_الشركة}</strong>.
+  </p>
+
+  <p>
+    The employee has been actively engaged as a <strong>{المسمى_الوظيفي}</strong> in the {القسم} department since <strong>{تاريخ_المباشرة}</strong>, and remains in good standing up to the present date.
+  </p>
+
+  <p>His/Her current gross monthly remuneration is structured as follows:</p>
+
+  <table style="width: 100%; border-collapse: collapse; margin: 15px 0; border: 1px solid #cbd5e1;">
+    <thead>
+      <tr style="background-color: #f1f5f9;">
+        <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: left;">Basic Salary</th>
+        <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: left;">Housing Allowance</th>
+        <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: left;">Transport</th>
+        <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: left; color: #714B67;">Total Gross Salary</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="font-weight: bold;">
+        <td style="border: 1px solid #cbd5e1; padding: 8px;">{الراتب_الأساسي}</td>
+        <td style="border: 1px solid #cbd5e1; padding: 8px;">{بدل_السكن}</td>
+        <td style="border: 1px solid #cbd5e1; padding: 8px;">{بدل_الانتقال}</td>
+        <td style="border: 1px solid #cbd5e1; padding: 8px; background-color: #faf5ff; color: #714B67; font-size: 15px;">
+          {الراتب_الشامل}
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>
+    Remuneration is remitted monthly in compliance with the Kuwait Wages Protection System (WPS) to {اسم_البنك}, IBAN: <strong>{الآيبان}</strong>.
+  </p>
+
+  <p>
+    This certificate is issued upon the employee's request without any financial liability or commitment on the company's part towards third parties.
+  </p>
+
+  <p style="margin-top: 25px;">Sincerely,</p>
+</div>
+`,
+
+  contract_kuwait: `
+<div style="text-align: center; margin: 10px 0;">
+  <h1 style="font-size: 20px; font-weight: 900; border-bottom: 2px solid #0f172a; display: inline-block; padding-bottom: 4px;">
+    عقد عمل في القطاع الأهلي
+  </h1>
+  <div style="font-size: 12px; color: #475569; font-weight: bold; margin-top: 4px;">
+    (محرر وفقاً لأحكام قانون العمل الكويتي في القطاع الأهلي رقم 6 لسنة 2010 والقرارات المنفذة له)
+  </div>
+</div>
+
+<p>
+  إنه في يوم <strong>{تاريخ_اليوم}</strong> بدولة الكويت، تم الاتفاق والتراضي بين كل من:
+</p>
+
+<div style="padding: 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; margin: 10px 0;">
+  <p style="margin: 4px 0;"><strong>الطرف الأول (صاحب العمل):</strong> {اسم_الشركة}، سجل تجاري: {السجل_التجاري}، الرقم الآلي: {الرقم_الآلي}.</p>
+  <p style="margin: 4px 0;"><strong>الطرف الثاني (العامل):</strong> {السيد_السيدة}/ {اسم_الموظف}، الجنسية: {الجنسية}، البطاقة المدنية: ({الرقم_المدني}).</p>
+</div>
+
+<p>
+  <strong>البند الأول (طبيعة العمل ومكانه):</strong> {يعمل_تعمل} {العامل_العاملة} لدى الطرف الأول بمهنة (<strong>{المسمى_الوظيفي}</strong>) في إدارة (<strong>{القسم}</strong>)، ويلتزم بأداء واجباته في مقرات المنشأة وفروعها بدولة الكويت.
+</p>
+
+<p>
+  <strong>البند الثاني (مدة العقد والتجربة):</strong> يبدأ سريان هذا العقد من تاريخ <strong>{تاريخ_المباشرة}</strong> وحتى <strong>{نهاية_العقد}</strong>، ويخضع الطرف الثاني لفترة تجربة مدتها <strong>100 يوم عمل</strong> طبقاً للمادة (24) من قانون العمل.
+</p>
+
+<p>
+  <strong>البند الثالث (الأجر والبدلات):</strong> يتقاضى الطرف الثاني أجراً شهرياً شاملاً قدره (<strong>{الراتب_الشامل}</strong>) فقط ({تفقيت_الراتب})، مفصلاً كالتالي: أساسي ({الراتب_الأساسي}) + بدل سكن ({بدل_السكن}) + بدل انتقال ({بدل_الانتقال})، ويحول عبر نظام حماية الأجور (WPS) لحسابه طرف {اسم_البنك}.
+</p>
+
+<p>
+  <strong>البند الرابع (ساعات العمل والراحة):</strong> ساعات العمل <strong>48 ساعة أسبوعياً</strong>، مع منح العامل يوم راحة أسبوعية مدفوعة الأجر طبقاً للمادتين (64 و 67).
+</p>
+
+<p>
+  <strong>البند الخامس (الإجازات السنوية ومكافأة نهاية الخدمة):</strong> يستحق العامل إجازة سنوية مدتها 30 يوماً مدفوعة الأجر، وتصرف مكافأة نهاية الخدمة طبقاً للمادة (51) من القانون رقم 6 لسنة 2010.
+</p>
+
+<p>
+  <strong>البند السادس (المحاكم المختصة):</strong> تختص المحاكم العمالية بدولة الكويت بنظر أي نزاع قد ينشأ، وحُرر هذا العقد من نسختين بيد كل طرف نسخة للعمل بموجبها.
+</p>
+`,
+
+  pam_contract: `<p>نموذج عقد القوى العاملة الموحد PAM 2</p>`,
+
+  contract_part_time: `
+<div style="text-align: center; margin: 10px 0;">
+  <h1 style="font-size: 20px; font-weight: 900; border-bottom: 2px solid #0f172a; display: inline-block; padding-bottom: 4px;">
+    عقد عمل جزئي وتقديم خدمات استشارية (Part-Time)
+  </h1>
+</div>
+
+<p>
+  تم الاتفاق بين <strong>{اسم_الشركة}</strong> (طرف أول) و{السيد_السيدة}/ <strong>{اسم_الموظف}</strong>، المدني: <strong>{الرقم_المدني}</strong> (طرف ثانٍ) {بصفته_بصفتها} مستشاراً وخبيراً في مجال (<strong>{المسمى_الوظيفي}</strong>).
+</p>
+
+<p>
+  <strong>1. نطاق المهام:</strong> يقدم الطرف الثاني استشاراته التخصصية بما لا يقل عن <strong>20 ساعة شهرياً</strong> بمقر الشركة أو عن بُعد بحسب حاجة العمل.
+</p>
+<p>
+  <strong>2. المقابل المالي:</strong> يتقاضى الطرف الثاني أتعاباً شهرية إجمالية قدرها (<strong>{الراتب_الشامل}</strong>) فقط ({تفقيت_الراتب}) تصرف في نهاية كل شهر ميلادي.
+</p>
+<p>
+  <strong>3. السرية والملكية الفكرية:</strong> يتعهد الطرف الثاني بالمحافظة على سرية بيانات المنشأة ومشاريعها وعملائها تعهداً أبدياً لا يسقط بانتهاء العقد.
+</p>
+`,
+
+  to_whom: `
+<div style="text-align: center; margin: 15px 0;">
+  <h1 style="font-size: 20px; font-weight: 900; border-bottom: 2px solid #0f172a; display: inline-block; padding-bottom: 6px;">
+    شهادة لمن يهمه الأمر
+  </h1>
+</div>
+
+<p><strong>السادة / الجهات الرسمية والمعنية المحترمين</strong></p>
+<p>تحية طيبة وبعد ،،،</p>
+
+<p>
+  تفيد إدارة <strong>{اسم_الشركة}</strong> بأن {المذكور_المذكورة}/ <strong>{اسم_الموظف}</strong>، حامل البطاقة المدنية رقم (<strong>{الرقم_المدني}</strong>)، من الجنسية (<strong>{الجنسية}</strong>)، {يعمل_تعمل} لدينا بالمنشأة بمسمى (<strong>{المسمى_الوظيفي}</strong>) في قسم (<strong>{القسم}</strong>) وذلك اعتباراً من <strong>{تاريخ_المباشرة}</strong> وما زال على رأس عمله حتى تاريخ هذا الخطاب.
+</p>
+
+<p>
+  وقد أعطيت {له_لها} هذه الشهادة بناءً على طلبه لتقديمها إلى من يهمه الأمر دون أي التزام مالي أو قانوني على الشركة تجاه الغير.
+</p>
+
+<p style="text-align: center; font-weight: bold; margin-top: 30px;">وتفضلوا بقبول فائق الاحترام والتقدير ،،،</p>
+`,
+
+  noc_letter: `
+<div style="text-align: center; margin: 15px 0;">
+  <h1 style="font-size: 20px; font-weight: 900; border-bottom: 2px solid #0f172a; display: inline-block; padding-bottom: 6px;">
+    كتاب عدم ممانعة رسمي (No Objection Certificate)
+  </h1>
+</div>
+
+<p><strong>السادة / الإدارة العامة للمرور - وزارة الداخلية المحترمين</strong></p>
+<p>تحية طيبة وبعد ،،،</p>
+
+<p>
+  تفيد شركة <strong>{اسم_الشركة}</strong> بأنها لا تمانع من قيام {مكفولها_مكفولتها} {السيد_السيدة}/ <strong>{اسم_الموظف}</strong>، حامل البطاقة المدنية رقم (<strong>{الرقم_المدني}</strong>)، والذي {يعمل_تعمل} لدينا بمهنة (<strong>{المسمى_الوظيفي}</strong>) باستخراج رخصة سوق خاصة طبقاً للقوانين واللوائح المعمول بها بدولة الكويت.
+</p>
+
+<p>
+  وهذا إقرار وتفويض منا بذلك دون أي مسؤولية مدنية أو جنائية على كاهل الشركة.
+</p>
+
+<p style="text-align: center; font-weight: bold; margin-top: 30px;">وتفضلوا بقبول فائق التقدير ،،،</p>
+`,
+
+  commencement: `
+<div style="text-align: center; margin: 15px 0;">
+  <h1 style="font-size: 20px; font-weight: 900; border-bottom: 2px solid #0f172a; display: inline-block; padding-bottom: 6px;">
+    إشعار مباشرة عمل واستلام مهام وظيفية
+  </h1>
+</div>
+
+<p>نحيطكم علماً بأن الموظف الموضحة بياناته أدناه قد باشر مهام عمله رسمياً بالمنشأة وفق الآتي:</p>
+
+<div style="padding: 12px; background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; margin: 15px 0; font-size: 13px;">
+  <p style="margin: 4px 0;">اسم الموظف: <strong>{اسم_الموظف}</strong></p>
+  <p style="margin: 4px 0;">الرقم المدني: <strong>{الرقم_المدني}</strong> | الجنسية: <strong>{الجنسية}</strong></p>
+  <p style="margin: 4px 0;">المسمى التعاقدي: <strong>{المسمى_الوظيفي}</strong> | القسم: <strong>{القسم}</strong></p>
+  <p style="margin: 4px 0;">تاريخ المباشرة الفعلية: <strong>{تاريخ_المباشرة}</strong> (الساعة 08:00 صباحاً عبر البصمة)</p>
+</div>
+
+<p>
+  بناءً عليه، يرجى من إدارة الموارد البشرية والمالية إدراج الموظف ضمن كشوفات الرواتب وحسابات الدوام والبصمة والعهد من تاريخ مباشرته الموضح أعلاه.
+</p>
+`,
+
+  return_from_leave: `
+<div style="text-align: center; margin: 15px 0;">
+  <h1 style="font-size: 20px; font-weight: 900; border-bottom: 2px solid #0f172a; display: inline-block; padding-bottom: 6px;">
+    إشعار عودة واستئناف العمل بعد إجازة دورية
+  </h1>
+</div>
+
+<p>
+  أقر أنا {السيد_السيدة}/ <strong>{اسم_الموظف}</strong>، المدني: (<strong>{الرقم_المدني}</strong>)، بأنني قد استأنفت مهام عملي رسمياً في <strong>{اسم_الشركة}</strong> بمسمى (<strong>{المسمى_الوظيفي}</strong>) اعتباراً من تاريخ اليوم <strong>{تاريخ_اليوم}</strong> بعد انتهاء إجازتي الدورية المعتمدة.
+</p>
+
+<div style="padding: 10px; background-color: #faf5ff; border: 1px solid #e9d5ff; border-radius: 8px; margin: 15px 0;">
+  <p style="margin: 2px 0;">المسمى الوظيفي: <strong>{المسمى_الوظيفي}</strong> | الإدارة: <strong>{القسم}</strong></p>
+  <p style="margin: 2px 0; color: #047857; font-weight: bold;">حالة العودة: في الموعد المحدد دون تأخير</p>
+</div>
+
+<p>ويرجى اعتماد استئناف دوامي وإخطار قسم الأجور لتحديث سجلات الإجازات والرصيد المتبقي.</p>
+`,
+
+  warning: `
+<div style="text-align: center; margin: 15px 0;">
+  <h1 style="font-size: 20px; font-weight: 900; color: #991b1b; border-bottom: 2px solid #991b1b; display: inline-block; padding-bottom: 6px;">
+    كتاب إنذار إداري ولفت نظر رسمي
+  </h1>
+</div>
+
+<div style="padding: 10px; background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; margin: 10px 0;">
+  <strong>إلى {السيد_السيدة}/</strong> {اسم_الموظف} | <strong>المسمى:</strong> {المسمى_الوظيفي} | <strong>المدني:</strong> {الرقم_المدني}
+</div>
+
+<p>توجه إليكم إدارة الموارد البشرية في <strong>{اسم_الشركة}</strong> هذا الإنذار الإداري نظراً للآتي:</p>
+
+<div style="padding: 12px; background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; font-weight: bold; margin: 12px 0;">
+  تكرار التأخر عن مواعيد العمل الرسمية دون إذن مسبق وعدم الالتزام بجدول البصمة المعتمد بالمنشأة.
+</div>
+
+<p>
+  وحيث أن هذا التصرف يخالف لائحة تنظيم العمل والجزاءات وأحكام قانون العمل الكويتي رقم 6 لسنة 2010 (المادة 35)، فإننا نوجه إليكم هذا الإنذار الرسمي مع مطالبتكم بالتلافي التام والالتزام بأنظمة العمل، تجنباً لتطبيق العقوبات القانونية الأشد.
+</p>
+`,
+
+  non_renewal: `
+<div style="text-align: center; margin: 15px 0;">
+  <h1 style="font-size: 20px; font-weight: 900; border-bottom: 2px solid #0f172a; display: inline-block; padding-bottom: 6px;">
+    إشعار رسمي بعدم الرغبة في تجديد عقد العمل
+  </h1>
+</div>
+
+<p><strong>إلى {السيد_السيدة}/</strong> {اسم_الموظف} | <strong>الرقم المدني:</strong> {الرقم_المدني}</p>
+<p>تحية طيبة وبعد ،،،</p>
+
+<p>
+  نود إحاطتكم علماً بأن إدارة <strong>{اسم_الشركة}</strong> لا ترغب في تجديد عقد العمل المبرم معكم والمقرر انتهاؤه بتاريخ <strong>{نهاية_العقد}</strong>.
+</p>
+
+<p>
+  ويعتبر هذا الخطاب إخطاراً رسمياً مسبقاً قبل الميعاد القانوني المحدد في العقد وقانون العمل، ويرجى منكم التكرم بمراجعة إدارة الموارد البشرية لاستكمال إجراءات تسليم العهد وإجراء المخالصة النهائية واستلام مستحقاتكم القانونية كاملة.
+</p>
+`,
+
+  eos_settlement: `
+<div style="text-align: center; margin: 10px 0;">
+  <h1 style="font-size: 20px; font-weight: 900; border-bottom: 2px solid #0f172a; display: inline-block; padding-bottom: 4px;">
+    سند مخالصة نهائية وبراءة ذمة شاملة
+  </h1>
+  <div style="font-size: 11px; color: #475569; font-weight: bold; margin-top: 2px;">
+    (وفقاً لأحكام المواد 51 و 53 و 70 من قانون العمل الكويتي رقم 6 لسنة 2010)
+  </div>
+</div>
+
+<div style="padding: 8px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 12px; margin: 8px 0;">
+  <strong>اسم العامل:</strong> {اسم_الموظف} | <strong>المدني:</strong> {الرقم_المدني} | <strong>الجنسية:</strong> {الجنسية} | <strong>الراتب:</strong> {الراتب_الشامل}
+</div>
+
+<table style="width: 100%; border-collapse: collapse; margin: 12px 0; border: 1px solid #cbd5e1; font-size: 12px;">
+  <thead>
+    <tr style="background-color: #f1f5f9;">
+      <th style="border: 1px solid #cbd5e1; padding: 6px; text-align: right;">بيان البند المستحق</th>
+      <th style="border: 1px solid #cbd5e1; padding: 6px; text-align: right;">المدة / التفصيل</th>
+      <th style="border: 1px solid #cbd5e1; padding: 6px; text-align: right;">المبلغ المستحق</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="border: 1px solid #cbd5e1; padding: 6px;">مكافأة نهاية الخدمة (مادة 51)</td>
+      <td style="border: 1px solid #cbd5e1; padding: 6px;">{سنوات_الخدمة}</td>
+      <td style="border: 1px solid #cbd5e1; padding: 6px; font-weight: bold;">{مكافأة_نهاية_الخدمة}</td>
+    </tr>
+    <tr style="background-color: #faf5ff; font-weight: bold;">
+      <td style="border: 1px solid #cbd5e1; padding: 6px; color: #714B67;" colspan="2">صافي المبلغ المصروف للموظف</td>
+      <td style="border: 1px solid #cbd5e1; padding: 6px; color: #714B67; font-size: 14px;">{مكافأة_نهاية_الخدمة}</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>فقط وقدره:</strong> ({تفقيت_نهاية_الخدمة}).</p>
+
+<p style="font-size: 12px;">
+  <strong>إقرار وبراءة ذمة:</strong> أقر أنا الموقع أدناه بأنني قد استلمت كافة مستحقاتي العمالية والمالية ونهاية الخدمة المبينة أعلاه، وسلّمت كافة ما بعهدتي، وأبرئ ذمة <strong>{اسم_الشركة}</strong> براءة تامة وشاملة ونهائية لا رجعة فيها.
+</p>
+`,
+
+  experience_cert: `
+<div style="text-align: center; margin: 15px 0;">
+  <h1 style="font-size: 20px; font-weight: 900; border-bottom: 2px solid #0f172a; display: inline-block; padding-bottom: 6px;">
+    شهادة خدمة وخبرة مهنية
+  </h1>
+  <div style="font-size: 12px; color: #475569; font-weight: bold; margin-top: 4px;">
+    (صادرة طبقاً للمادة 47 من قانون العمل الكويتي في القطاع الأهلي رقم 6 لسنة 2010)
+  </div>
+</div>
+
+<p>
+  تشهد إدارة <strong>{اسم_الشركة}</strong> بأن {السيد_السيدة}/ <strong>{اسم_الموظف}</strong>، حامل البطاقة المدنية رقم (<strong>{الرقم_المدني}</strong>)، وجنسيته (<strong>{الجنسية}</strong>)، قد عمل لدينا بالمنشأة خلال الفترة من <strong>{تاريخ_المباشرة}</strong> وحتى <strong>{نهاية_العقد}</strong> بوظيفة (<strong>{المسمى_الوظيفي}</strong>) في إدارة ({القسم}).
+</p>
+
+<p>
+  وطوال فترة عمله، كان مثالاً للموظف الملتزم والمثابر، وتميز بحسن السيرة والسلوك والحرص على أداء واجباته المهنية بأعلى درجات الكفاءة والإخلاص.
+</p>
+
+<p>
+  وقد أعطيت {له_لها} هذه الشهادة بناءً على طلبه عند انتهاء خدمته دون أي رسوم، مع خالص تمنياتنا له بدوام التوفيق والنجاح.
+</p>
+`
+};
 
 export const OdooTemplatesApp: React.FC = () => {
   const { activeCompany } = useCompany();
   const { employees } = useOdooHierarchy();
 
-  const [selectedTemplate, setSelectedTemplate] = useState<
-    'contract_kuwait' | 'pam_contract' | 'salary_cert' | 'to_whom' | 'clearance' | 'warning' | 'eos_settlement'
-  >('contract_kuwait');
+  const [activeCategory, setActiveCategory] = useState<TemplateCategory>('ALL');
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateId>('salary_cert_ar');
   const [selectedEmpId, setSelectedEmpId] = useState<string>('');
   const [showPamModal, setShowPamModal] = useState(false);
-  
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [useLetterhead, setUseLetterhead] = useState<boolean>(true); // true = print company header, false = for pre-printed letterhead
+  const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('split');
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
+
+  // Editable Form & Context State
   const [empName, setEmpName] = useState('');
   const [civilId, setCivilId] = useState('');
   const [jobTitle, setJobTitle] = useState('');
-  const [salary, setSalary] = useState('0.000');
+  const [department, setDepartment] = useState('الإدارة العامة');
+  const [nationality, setNationality] = useState('كويتي');
+  const [gender, setGender] = useState<'male' | 'female'>('male');
+  const [bankName, setBankName] = useState('بيت التمويل الكويتي (KFH)');
+  const [iban, setIban] = useState('');
   const [basicSalary, setBasicSalary] = useState('0.000');
   const [housingAllowance, setHousingAllowance] = useState('0.000');
   const [transportAllowance, setTransportAllowance] = useState('0.000');
-  const [medicalAllowance, setMedicalAllowance] = useState('0.000');
+  const [totalSalary, setTotalSalary] = useState('0.000');
   const [joinDate, setJoinDate] = useState(new Date().toISOString().slice(0, 10));
   const [endDate, setEndDate] = useState(
     new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().slice(0, 10)
   );
-  const [probationDays, setProbationDays] = useState('100');
-  const [weeklyHours, setWeeklyHours] = useState('48');
-  const [nationality, setNationality] = useState('كويتي');
-  const [serviceYears, setServiceYears] = useState('0');
+  const [serviceYears, setServiceYears] = useState('3');
   const [eosAmount, setEosAmount] = useState('0.000');
 
-  const companyDisplayName = activeCompany?.nameAr || activeCompany?.name || 'الشركة للمقاولات والتجارة العامة';
+  // Active Template HTML Content (loaded in the rich editor)
+  const [editorContent, setEditorContent] = useState<string>(DEFAULT_TEMPLATE_BODIES.salary_cert_ar);
+
+  const previewSheetRef = useRef<HTMLDivElement>(null);
+
+  // Dynamic Reference & Dates
+  const todayFormattedAr = new Date().toLocaleDateString('ar-KW', { year: 'numeric', month: 'long', day: 'numeric' });
+  const referenceNumber = `HR-DOC-${new Date().getFullYear()}-${civilId ? civilId.slice(-6) : '001234'}`;
+
+  const companyDisplayName = activeCompany?.nameAr || activeCompany?.name || 'مجموعة المنارة للخدمات المتكاملة ذ.م.م';
+  const companyCommercialReg = activeCompany?.commercialRegNo || (activeCompany as any)?.commercialRegister || '148291';
+  const companyPaci = (activeCompany as any)?.paciNumber || '20491823';
+
+  // Load template body when template changes
+  useEffect(() => {
+    if (DEFAULT_TEMPLATE_BODIES[selectedTemplate]) {
+      setEditorContent(DEFAULT_TEMPLATE_BODIES[selectedTemplate]);
+    }
+  }, [selectedTemplate]);
 
   // Auto-fill when employee is selected
   useEffect(() => {
     if (selectedEmpId) {
       const emp = employees.find(e => e.id === selectedEmpId);
       if (emp) {
-        setEmpName(emp.name);
-        setCivilId(emp.civilId);
-        setJobTitle(emp.jobTitle);
-        const bSal = emp.basicSalary || 0;
-        const hAll = emp.housingAllowance || 0;
-        const tAll = emp.transportAllowance || 0;
-        const mAll = emp.medicalAllowance || 0;
-        const totalSalary = bSal + hAll + tAll + mAll;
+        setEmpName(emp.name || '');
+        setCivilId(emp.civilId || '');
+        setJobTitle(emp.jobTitle || 'موظف');
+        setDepartment(emp.department || 'الإدارة العامة');
         
+        const anyEmp = emp as any;
+        setNationality(anyEmp.nationality || (emp.isKuwaiti ? 'كويتي' : 'غير كويتي'));
+        setBankName(emp.bankName || 'بيت التمويل الكويتي (KFH)');
+        setIban(emp.iban || 'KW82CBKU0000000000001234567890');
+
+        // Detect or set gender
+        if (anyEmp.gender) {
+          setGender(anyEmp.gender === 'female' ? 'female' : 'male');
+        } else {
+          // Heuristic for female Arabic names
+          const n = emp.name || '';
+          const isLikelyFemale = n.includes('فاطمة') || n.includes('مريم') || n.includes('نورة') || n.includes('سارة') || n.includes('دلال') || n.includes('شيخة') || n.includes('هدى') || n.includes('منى') || n.includes('أمل') || n.includes('ريم');
+          setGender(isLikelyFemale ? 'female' : 'male');
+        }
+
+        const bSal = Number(emp.basicSalary) || 0;
+        const hAll = Number(emp.housingAllowance) || 0;
+        const tAll = Number(emp.transportAllowance) || 0;
+        const tot = bSal + hAll + tAll;
+
         setBasicSalary(bSal.toFixed(3));
         setHousingAllowance(hAll.toFixed(3));
         setTransportAllowance(tAll.toFixed(3));
-        setMedicalAllowance(mAll.toFixed(3));
-        setSalary(totalSalary.toFixed(3));
-        
-        const anyEmp = emp as any;
+        setTotalSalary(tot.toFixed(3));
+
         if (anyEmp.hireDate || anyEmp.joinDate) {
           setJoinDate(anyEmp.hireDate || anyEmp.joinDate);
         }
-        if (anyEmp.nationality) {
-          setNationality(anyEmp.nationality);
-        }
-        
-        setServiceYears('3.5');
-        setEosAmount((totalSalary * 3.5 * 0.5).toFixed(3));
+
+        // Calculate approximate service years
+        const jDate = new Date(anyEmp.hireDate || anyEmp.joinDate || '2023-01-01');
+        const diffYears = Math.max(0.5, parseFloat(((Date.now() - jDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25)).toFixed(1)));
+        setServiceYears(diffYears.toString());
+
+        const eosCalc = (tot * (diffYears <= 5 ? diffYears * 0.5 : (2.5 + (diffYears - 5) * 1))).toFixed(3);
+        setEosAmount(eosCalc);
       }
     } else if (employees.length > 0 && !selectedEmpId) {
-      // Auto select first employee
       setSelectedEmpId(employees[0].id);
     }
   }, [selectedEmpId, employees]);
 
-  // Selected employee object
-  const currentEmployeeObj = employees.find(e => e.id === selectedEmpId) || {
-    id: selectedEmpId || 'EMP-001',
-    name: empName || 'الموظف',
-    nameAr: empName || 'الموظف',
-    nameEn: 'Employee',
-    civilId: civilId || '290010112345',
-    jobTitle: jobTitle || 'موظف',
-    basicSalary: parseFloat(basicSalary) || 0,
-    housingAllowance: parseFloat(housingAllowance) || 0,
-    transportAllowance: parseFloat(transportAllowance) || 0,
-    medicalAllowance: parseFloat(medicalAllowance) || 0,
-    startDate: joinDate,
-    endDate: endDate
-  };
+  // Generate QR Code dynamically for the document
+  useEffect(() => {
+    async function makeQr() {
+      const qrPayload = JSON.stringify({
+        docRef: referenceNumber,
+        company: companyDisplayName,
+        employee: empName,
+        civilId: civilId,
+        date: new Date().toISOString().slice(0, 10),
+        status: 'VERIFIED_OFFICIAL'
+      });
+      try {
+        const url = await QRCode.toDataURL(qrPayload, {
+          width: 130,
+          margin: 1,
+          color: {
+            dark: '#1e293b',
+            light: '#ffffff'
+          }
+        });
+        setQrCodeDataUrl(url);
+      } catch (err) {
+        console.error('QR code generation failed', err);
+      }
+    }
+    makeQr();
+  }, [referenceNumber, companyDisplayName, empName, civilId]);
 
-  // Download Document as Text / Document file
-  const handleDownloadDocument = () => {
-    let docTitle = '';
-    let bodyText = '';
-    if (selectedTemplate === 'contract_kuwait') {
-      docTitle = `عقد_عمل_كويتي_${empName}`;
-      bodyText = `==========================================================\nدولة الكويت - عقد عمل في القطاع الأهلي\n(وفقاً لأحكام قانون العمل الكويتي رقم 6 لسنة 2010)\n==========================================================\n\nالطرف الأول (صاحب العمل): ${companyDisplayName}\nالطرف الثاني (العامل): ${empName} (الرقم المدني: ${civilId})\nالجنسية: ${nationality} | المسمى الوظيفي: ${jobTitle}\n\n1. مدة العقد: يبدأ من تاريخ ${joinDate} وحتى ${endDate}\n2. الراتب الشامل: ${salary} د.ك شهرياً (أساسي: ${basicSalary} د.ك + سكن: ${housingAllowance} د.ك + انتقال: ${transportAllowance} د.ك)\n3. فترة التجربة: ${probationDays} يوماً وفق المادة 24 من القانون\n4. ساعات العمل: ${weeklyHours} ساعة أسبوعياً\n5. الإجازة السنوية: 30 يوماً مدفوعة الأجر سنوياً\n6. مكافأة نهاية الخدمة: وفق أحكام المادة 51 من قانون العمل الكويتي\n\nتوقيع الطرف الأول: .....................    توقيع الطرف الثاني: .....................`;
-    } else if (selectedTemplate === 'pam_contract') {
-      docTitle = `عقد_القوى_العاملة_PAM2_${empName}`;
-      bodyText = `عقد العمل الموحد - نموذج رقم (2) الهيئة العامة للقوى العاملة (دولة الكويت)\nالمنشأة: ${companyDisplayName}\nالموظف: ${empName} - المدني: ${civilId} - المهنة: ${jobTitle}\nالراتب: ${salary} د.ك`;
-    } else if (selectedTemplate === 'salary_cert') {
-      docTitle = `شهادة_تفصيل_راتب_${empName}`;
-      bodyText = `==========================================================\n${companyDisplayName}\nالتاريخ: ${new Date().toLocaleDateString('ar-KW')}\nالمرجع: HR-SAL-CERT-${civilId}\n==========================================================\n\nشهادة تفصيل راتب واستمرارية تحويل\n\nتشهد إدارة ${companyDisplayName} بأن السيد/ ${empName}، حامل البطاقة المدنية رقم (${civilId})، يعمل لدينا بمهنة (${jobTitle}).\nويتقاضى راتباً شهرياً إجمالياً قدره (${salary} د.ك) فقط لا غير، ويحول راتبه بانتظام عبر نظام حماية الأجور (WPS).\n\nوقد أُعطيت له هذه الشهادة بناءً على طلبه دون أدنى مسؤولية مالية أو قانونية على المنشأة تجاه الغير.\n\nالختم الرسمي للمنشأة            مدير الموارد البشرية والشؤون الإدارية`;
-    } else if (selectedTemplate === 'to_whom') {
-      docTitle = `شهادة_لمن_يهمه_الأمر_${empName}`;
-      bodyText = `==========================================================\n${companyDisplayName}\nالتاريخ: ${new Date().toLocaleDateString('ar-KW')}\nالمرجع: HR-TO-WHOM-${civilId}\n==========================================================\n\nشهادة لمن يهمه الأمر\n\nتفيد إدارة المنشأة بأن الموظف/ ${empName}، الرقم المدني: ${civilId}، على رأس عمله ويمارس مهامه الوظيفية كـ ${jobTitle} حتى تاريخه.\nوقد أُعطيت له هذه الشهادة لتقديمها إلى الجهات الرسمية المختصة بناءً على طلبه دون أدنى مسؤولية على المنشأة.\n\nالختم الرسمي للمنشأة            مدير الموارد البشرية والشؤون الإدارية`;
-    } else if (selectedTemplate === 'clearance') {
-      docTitle = `إبراء_ذمة_ومخالصة_${empName}`;
-      bodyText = `==========================================================\n${companyDisplayName}\nالتاريخ: ${new Date().toLocaleDateString('ar-KW')}\nالمرجع: HR-CLEAR-${civilId}\n==========================================================\n\nكتاب إبراء ذمة ومخالصة نهائية وبراءة طرف\n\nتعلن إدارة ${companyDisplayName} بموجب هذا المستند براءة طرف السيد/ ${empName}، المدني: ${civilId}، والذي كان يشغل منصب ${jobTitle}.\nونقر بأن المذكور أعلاه قد سلّم كافة العهد والممتلكات الخاصة بالمنشأة، وليس له أو عليه أي مستحقات أو مطالبات مالية أو عينية أو إدارية مستقبلاً، وتعتبر ذمته مبرأة براءة تامة ونهائية.\n\nالختم الرسمي للمنشأة            مدير الموارد البشرية والشؤون الإدارية`;
-    } else if (selectedTemplate === 'warning') {
-      docTitle = `إنذار_إداري_${empName}`;
-      bodyText = `==========================================================\n${companyDisplayName}\nالتاريخ: ${new Date().toLocaleDateString('ar-KW')}\nالمرجع: HR-WARN-${civilId}\n==========================================================\n\nكتاب إنذار إداري ولفت نظر رسمي\n\nإلى السيد/ ${empName}، المسمى الوظيفي: ${jobTitle}، المدني: ${civilId}.\nتوجه إليكم إدارة الموارد البشرية هذا الإنذار الإداري بسبب عدم الالتزام التام بساعات العمل المقررة وقوانين الحضور والانصراف المعتمدة بالمنشأة وفقاً لقانون العمل الأهلي الكويتي رقم 6 لسنة 2010.\nلذا يرجى تلافي هذه الملاحظات والالتزام التام لتفادي اتخاذ الإجراءات القانونية اللاحقة المنصوص عليها باللوائح الداخلية.\n\nالختم الرسمي للمنشأة            مدير الموارد البشرية والشؤون الإدارية`;
-    } else {
-      docTitle = `مستند_تصفية_نهاية_الخدمة_${empName}`;
-      bodyText = `==========================================================\n${companyDisplayName}\nالتاريخ: ${new Date().toLocaleDateString('ar-KW')}\nالمرجع: HR-EOS-${civilId}\n==========================================================\n\nسند تصفية مستحقات نهاية الخدمة (وفق المادتين 51 و 53)\n\nالاسم: ${empName}\nالرقم المدني: ${civilId}\nالوظيفة: ${jobTitle}\nالراتب الشامل: ${salary} د.ك\nمدة الخدمة: ${serviceYears} سنوات (تاريخ الالتحاق: ${joinDate})\nصافي مكافأة نهاية الخدمة المستحقة: ${eosAmount} د.ك\n\nأقر أنا الموقع أدناه باستلامي لكافة مستحقاتي العمالية ونهاية الخدمة المذكورة أعلاه نقداً أو بحوالة بنكية، وليس لي أي حق في المطالبة بأي مبالغ أخرى.\n\nتوقيع الموظف: ...........................           مدير الموارد البشرية: ...........................`;
+  // Compile editor HTML content by replacing all {placeholders} with live context
+  const compiledHtml = useMemo(() => {
+    let output = editorContent || '';
+    const isFemale = gender === 'female';
+
+    const salaryNumber = parseFloat(totalSalary) || 0;
+    const salaryTafqeetAr = tafqeet(salaryNumber);
+    const eosNumber = parseFloat(eosAmount) || 0;
+    const eosTafqeetAr = tafqeet(eosNumber);
+
+    const replacements: Record<string, string> = {
+      '{اسم_الموظف}': empName || '—',
+      '{الرقم_المدني}': civilId || '—',
+      '{المسمى_الوظيفي}': jobTitle || '—',
+      '{القسم}': department || '—',
+      '{الجنسية}': nationality || '—',
+      '{تاريخ_المباشرة}': joinDate || '—',
+      '{نهاية_العقد}': endDate || '—',
+
+      // Gender Sensitive logic
+      '{السيد_السيدة}': isFemale ? 'السيدة' : 'السيد',
+      '{المذكور_المذكورة}': isFemale ? 'المذكورة' : 'المذكور',
+      '{يعمل_تعمل}': isFemale ? 'تعمل' : 'يعمل',
+      '{بصفته_بصفتها}': isFemale ? 'بصفتها' : 'بصفته',
+      '{مكفولها_مكفولتها}': isFemale ? 'مكفولتها وموظفتها' : 'مكفولها وموظفها',
+      '{العامل_العاملة}': isFemale ? 'الطرف الثاني (العاملة)' : 'الطرف الثاني (العامل)',
+      '{له_لها}': isFemale ? 'لها' : 'له',
+
+      // Financials
+      '{الراتب_الأساسي}': `${basicSalary} د.ك`,
+      '{بدل_السكن}': `${housingAllowance} د.ك`,
+      '{بدل_الانتقال}': `${transportAllowance} د.ك`,
+      '{الراتب_الشامل}': `${totalSalary} د.ك`,
+      '{تفقيت_الراتب}': `${salaryTafqeetAr} لا غير`,
+      '{اسم_البنك}': bankName || 'البنك المعتمد',
+      '{الآيبان}': iban || '—',
+      '{سنوات_الخدمة}': `${serviceYears} سنوات`,
+      '{مكافأة_نهاية_الخدمة}': `${eosAmount} د.ك`,
+      '{تفقيت_نهاية_الخدمة}': `${eosTafqeetAr} لا غير`,
+
+      // Company
+      '{اسم_الشركة}': companyDisplayName || '—',
+      '{السجل_التجاري}': companyCommercialReg || '—',
+      '{الرقم_الآلي}': companyPaci || '—',
+      '{تاريخ_اليوم}': todayFormattedAr || '—',
+      '{الرقم_المرجعي}': referenceNumber || '—'
+    };
+
+    for (const [tag, val] of Object.entries(replacements)) {
+      output = output.split(tag).join(val);
     }
 
-    downloadTextFile(bodyText, `${docTitle}.txt`);
-    toast.success('تم تنزيل نص النموذج بنجاح');
+    // Strip smart-tag wrappers if any
+    output = output.replace(/<span class="smart-tag[^>]*>(.*?)<\/span>/g, '$1');
+
+    return output;
+  }, [
+    editorContent, 
+    gender, 
+    empName, 
+    civilId, 
+    jobTitle, 
+    department, 
+    nationality, 
+    joinDate, 
+    endDate, 
+    basicSalary, 
+    housingAllowance, 
+    transportAllowance, 
+    totalSalary, 
+    bankName, 
+    iban, 
+    serviceYears, 
+    eosAmount, 
+    companyDisplayName, 
+    companyCommercialReg, 
+    companyPaci, 
+    todayFormattedAr, 
+    referenceNumber
+  ]);
+
+  const activeTemplateDef = TEMPLATES_LIST.find(t => t.id === selectedTemplate) || TEMPLATES_LIST[0];
+
+  // Actions
+  const handlePrint = () => {
+    safePrintAction(`${activeTemplateDef.title} - ${empName}`);
   };
 
+  const handleExportPdf = async () => {
+    if (!previewSheetRef.current) return;
+    setIsExportingPdf(true);
+    try {
+      const fileName = `${activeTemplateDef.title}_${empName}_${civilId}`;
+      const success = await exportElementToPdf(previewSheetRef.current, fileName);
+      if (success) {
+        toast.success('تم تصدير ملف PDF بنجاح فائق الدقة!');
+      } else {
+        toast.error('حدث خطأ أثناء تصدير PDF، يرجى المحاولة عبر زر الطباعة.');
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('فشل تصدير PDF');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
+  const handleExportWord = () => {
+    if (!previewSheetRef.current) return;
+    const content = previewSheetRef.current.innerHTML;
+    const docTitle = `${activeTemplateDef.title}_${empName}`;
+    const wordHtml = `
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' 
+            xmlns:w='urn:schemas-microsoft-com:office:word' 
+            xmlns='http://www.w3.org/TR/REC-html40'>
+      <head>
+        <meta charset='utf-8'>
+        <title>${docTitle}</title>
+        <style>
+          body { font-family: 'Cairo', Arial, sans-serif; direction: rtl; text-align: right; }
+          table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+          th, td { border: 1px solid #cbd5e1; padding: 8px 12px; font-size: 11pt; }
+        </style>
+      </head>
+      <body>
+        ${content}
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob(['\ufeff', wordHtml], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${docTitle}.doc`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success('تم تنزيل المستند بصيغة Word (.doc) بنجاح');
+  };
+
+  const handleArchiveDocument = () => {
+    if (!selectedEmpId) {
+      toast.error('يرجى تحديد الموظف أولاً لأرشفة المستند في ملفه.');
+      return;
+    }
+
+    const currentDocs = getPersistentData<DocumentItem[]>(MANARA_STORAGE_KEYS.DOCUMENTS, []);
+    
+    const newDoc: DocumentItem = {
+      id: `doc-${Date.now()}`,
+      companyId: activeCompany?.id || 'comp-super-admin',
+      employeeId: selectedEmpId,
+      title: `${activeTemplateDef.title} - ${empName}`,
+      category: activeTemplateDef.category === 'CONTRACTS' ? 'WORK_CONTRACT' : 'OTHER',
+      documentType: activeTemplateDef.category === 'CONTRACTS' ? 'CONTRACT' : 'OTHER',
+      documentNumber: referenceNumber,
+      fileUrl: '',
+      fileName: `${activeTemplateDef.title}_${empName}.pdf`,
+      fileSize: '195 KB',
+      uploadDate: new Date().toISOString().slice(0, 10),
+      issueDate: new Date().toISOString().slice(0, 10),
+      expiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().slice(0, 10),
+      status: 'active',
+      tags: ['صادر رسمي', activeTemplateDef.title, 'موارد بشرية', referenceNumber]
+    };
+
+    const updated = [newDoc, ...currentDocs];
+    setPersistentData(MANARA_STORAGE_KEYS.DOCUMENTS, updated);
+    toast.success(`تم حفظ وأرشفة المستند بنجاح في ملف الموظف (${empName}) برقم إشاري: ${referenceNumber}`);
+  };
+
+  const handleResetTemplate = () => {
+    if (DEFAULT_TEMPLATE_BODIES[selectedTemplate]) {
+      setEditorContent(DEFAULT_TEMPLATE_BODIES[selectedTemplate]);
+      toast.success('تمت إعادة ضبط نص القالب إلى الصياغة القانونية الأصلية');
+    }
+  };
+
+  const filteredTemplates = TEMPLATES_LIST.filter(t => {
+    if (activeCategory === 'ALL') return true;
+    return t.category === activeCategory;
+  });
+
   return (
-    <div className="space-y-6 font-sans dir-rtl text-right text-slate-800 animate-fade-in" dir="rtl">
-      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 print:hidden">
+    <div className="space-y-5 font-sans dir-rtl text-right text-slate-800 animate-fade-in" dir="rtl">
+      
+      {/* 1. Header Toolbar (Odoo 18 Studio Suite) */}
+      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 print:hidden">
+        
+        {/* Left: Branding & Meta */}
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-[#714B67]/10 text-[#714B67] rounded-xl">
-            <FileText className="w-6 h-6" />
+          <div className="p-3 bg-[#714B67]/10 text-[#714B67] rounded-2xl">
+            <FileText className="w-7 h-7" />
           </div>
           <div>
-            <h1 className="text-xl font-black text-slate-900">النماذج والخطابات وعقود العمل (Templates & Contracts)</h1>
-            <p className="text-xs text-slate-500 font-medium">المنشأة: <strong className="text-[#714B67]">{companyDisplayName}</strong> | توليد وطباعة فورية لعقود العمل والشهادات الرسمية</p>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-black text-slate-900">استوديو النماذج والخطابات وعقود العمل الذكي</h1>
+              <span className="bg-purple-100 text-[#714B67] text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                Odoo 18 Document Studio
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+              المنشأة: <strong className="text-[#714B67]">{companyDisplayName}</strong> | تحرير وتفقيت وضبط لغوي وأرشفة فورية
+            </p>
           </div>
         </div>
-        
-        <div className="flex items-center gap-2">
-          {selectedTemplate === 'pam_contract' ? (
-            <button 
-              onClick={() => setShowPamModal(true)} 
-              className="bg-[#714B67] text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer transition hover:bg-[#5a3a52] shadow-sm"
+
+        {/* Right: Workspace & Action Controls */}
+        <div className="flex flex-wrap items-center gap-2">
+          
+          {/* Workspace Views Switcher */}
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+            <button
+              onClick={() => setWorkspaceView('split')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
+                workspaceView === 'split' ? 'bg-white text-[#714B67] shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+              title="تقسيم الشاشة: تحرير على اليمين ومعاينة حية على اليسار"
             >
-              <span>📄</span> فتح وتوليد نموذج PAM 2 PDF
+              <Columns2 size={13} />
+              <span>تقسيم الشاشة</span>
+            </button>
+            <button
+              onClick={() => setWorkspaceView('editor')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
+                workspaceView === 'editor' ? 'bg-white text-[#714B67] shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+              title="محرر الورقة الكامل"
+            >
+              <Edit3 size={13} />
+              <span>المحرر فقط</span>
+            </button>
+            <button
+              onClick={() => setWorkspaceView('preview')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
+                workspaceView === 'preview' ? 'bg-white text-[#714B67] shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+              title="معاينة الورقة النهائية والطباعة"
+            >
+              <Eye size={13} />
+              <span>المعاينة فقط</span>
+            </button>
+          </div>
+
+          {/* Letterhead toggle */}
+          <button
+            onClick={() => setUseLetterhead(!useLetterhead)}
+            className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition border cursor-pointer ${
+              useLetterhead 
+                ? 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200' 
+                : 'bg-amber-50 border-amber-300 text-amber-900 font-black'
+            }`}
+            title="تبديل بين طباعة ترويسة المنشأة الرقمية أو استخدام ورق الشركة المطبوع مسبقاً"
+          >
+            <span>{useLetterhead ? '📄 ورق أبيض (مع الترويسة)' : '🖨️ ورق مسبق (هامش 48mm)'}</span>
+          </button>
+
+          {/* Reset Template */}
+          <button
+            onClick={handleResetTemplate}
+            className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition cursor-pointer"
+            title="إعادة ضبط نص القالب للأصل"
+          >
+            <RotateCcw size={15} />
+          </button>
+
+          {activeTemplateDef.isPamModal ? (
+            <button
+              onClick={() => setShowPamModal(true)}
+              className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition shadow-sm cursor-pointer"
+            >
+              <span>🏛️</span> فتح مولد عقد PAM 2
             </button>
           ) : (
             <>
-              <button 
-                onClick={handleDownloadDocument} 
-                className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer transition"
+              {/* Word (.doc) */}
+              <button
+                onClick={handleExportWord}
+                className="bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+                title="تنزيل كملف Word"
               >
-                <Download size={15} /> تنزيل المستند (.txt)
+                <Download size={13} /> Word
               </button>
-              <button 
-                onClick={() => safePrintAction(selectedTemplate === 'contract_kuwait' ? `عقد عمل - ${empName}` : 'النموذج الرسمي A4')} 
-                className="bg-[#714B67] text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer transition hover:bg-[#714B67]/95 shadow-sm"
+
+              {/* PDF */}
+              <button
+                onClick={handleExportPdf}
+                disabled={isExportingPdf}
+                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+                title="تصدير ملف PDF مباشر عالي الدقة"
               >
-                <Printer size={15} /> طباعة النموذج A4
+                {isExportingPdf ? <RefreshCw size={13} className="animate-spin" /> : <FileCheck2 size={13} />}
+                <span>{isExportingPdf ? 'جاري التصدير...' : 'PDF'}</span>
+              </button>
+
+              {/* Archive */}
+              <button
+                onClick={handleArchiveDocument}
+                className="bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+                title="حفظ وأرشفة الوثيقة في أرشيف مستندات الموظف"
+              >
+                <FolderArchive size={13} /> أرشفة
+              </button>
+
+              {/* Print A4 */}
+              <button
+                onClick={handlePrint}
+                className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-sm cursor-pointer"
+              >
+                <Printer size={14} /> طباعة A4
               </button>
             </>
           )}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* اختيار النموذج وتعديل البيانات */}
-        <div className="lg:col-span-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-5 text-xs print:hidden">
-          
-          <div>
-            <h3 className="font-bold text-slate-900 border-b pb-2 mb-3">1. اختيار النموذج أو العقد</h3>
-            <div className="space-y-2">
-              {[
-                { id: 'contract_kuwait', label: '📜 عقد عمل كويتي رسمي (قانون 6/2010)', highlight: true },
-                { id: 'pam_contract', label: '🏛️ عقد القوى العاملة (نموذج 2 PAM)', highlight: true },
-                { id: 'salary_cert', label: 'شهادة راتب واستمرارية تحويل' },
-                { id: 'to_whom', label: 'شهادة لمن يهمه الأمر (إثبات عمل)' },
-                { id: 'clearance', label: 'إبراء ذمة ومخالصة نهائية' },
-                { id: 'warning', label: 'كتاب لفت نظر / إنذار إداري' },
-                { id: 'eos_settlement', label: 'تصفية نهاية الخدمة والمستحقات' }
-              ].map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => setSelectedTemplate(t.id as any)}
-                  className={`w-full text-right p-3 rounded-xl font-bold border transition cursor-pointer flex items-center justify-between ${
-                    selectedTemplate === t.id 
-                      ? 'bg-[#714B67]/10 border-[#714B67] text-[#714B67]' 
-                      : (t as any).highlight 
-                        ? 'border-purple-200 bg-purple-50/50 hover:bg-purple-50 text-purple-950' 
-                        : 'border-slate-200 hover:bg-slate-50'
-                  }`}
-                >
-                  <span>{t.label}</span>
-                  {selectedTemplate === t.id && <CheckCircle2 size={16} />}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <h3 className="font-bold text-slate-900 border-b pb-2 mb-3 pt-2">2. تحديد الموظف (جلب آلي)</h3>
-            <div className="relative">
-              <Users className="absolute right-3 top-2.5 text-slate-400" size={16} />
-              <select
-                value={selectedEmpId}
-                onChange={(e) => setSelectedEmpId(e.target.value)}
-                className="w-full p-2.5 pr-10 border border-slate-300 rounded-xl outline-none focus:border-[#714B67] font-bold text-slate-700 bg-slate-50 cursor-pointer appearance-none"
-              >
-                <option value="">-- اختر موظف من السجل --</option>
-                {employees.map(emp => (
-                  <option key={emp.id} value={emp.id}>{emp.name} ({emp.civilId || emp.id})</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="space-y-3 pt-2">
-            <div>
-              <label className="block font-bold mb-1 text-slate-600">اسم الموظف</label>
-              <input type="text" value={empName} onChange={(e) => setEmpName(e.target.value)} className="w-full p-2 border border-slate-200 rounded-lg font-bold outline-none focus:border-[#714B67]" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block font-bold mb-1 text-slate-600">الرقم المدني</label>
-                <input type="text" value={civilId} onChange={(e) => setCivilId(e.target.value)} className="w-full p-2 border border-slate-200 rounded-lg font-mono outline-none focus:border-[#714B67]" />
-              </div>
-              <div>
-                <label className="block font-bold mb-1 text-slate-600">الراتب الشامل (د.ك)</label>
-                <input type="text" value={salary} onChange={(e) => setSalary(e.target.value)} className="w-full p-2 border border-slate-200 rounded-lg font-mono font-bold outline-none focus:border-[#714B67]" />
-              </div>
-            </div>
-            <div>
-              <label className="block font-bold mb-1 text-slate-600">المسمى الوظيفي</label>
-              <input type="text" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} className="w-full p-2 border border-slate-200 rounded-lg outline-none focus:border-[#714B67]" />
-            </div>
-
-            {selectedTemplate === 'contract_kuwait' && (
-              <div className="space-y-3 p-3 bg-purple-50/70 rounded-xl border border-purple-200 mt-2">
-                <div className="font-bold text-[#714B67] mb-1">تفاصيل العقد الكويتي</div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block font-bold mb-1 text-slate-600">بداية العقد</label>
-                    <input type="date" value={joinDate} onChange={(e) => setJoinDate(e.target.value)} className="w-full p-1.5 border border-slate-200 rounded bg-white font-mono" />
-                  </div>
-                  <div>
-                    <label className="block font-bold mb-1 text-slate-600">نهاية العقد</label>
-                    <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full p-1.5 border border-slate-200 rounded bg-white font-mono" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block font-bold mb-1 text-slate-600">فترة التجربة (يوم)</label>
-                    <input type="number" value={probationDays} onChange={(e) => setProbationDays(e.target.value)} className="w-full p-1.5 border border-slate-200 rounded bg-white font-mono" />
-                  </div>
-                  <div>
-                    <label className="block font-bold mb-1 text-slate-600">ساعات أسبوعية</label>
-                    <input type="number" value={weeklyHours} onChange={(e) => setWeeklyHours(e.target.value)} className="w-full p-1.5 border border-slate-200 rounded bg-white font-mono" />
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            {selectedTemplate === 'eos_settlement' && (
-              <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200 mt-2">
-                <div>
-                  <label className="block font-bold mb-1 text-slate-600">سنوات الخدمة</label>
-                  <input type="text" value={serviceYears} onChange={(e) => setServiceYears(e.target.value)} className="w-full p-2 border border-slate-200 rounded-lg font-mono outline-none focus:border-[#714B67]" />
-                </div>
-                <div>
-                  <label className="block font-bold mb-1 text-emerald-700">المستحق (د.ك)</label>
-                  <input type="text" value={eosAmount} onChange={(e) => setEosAmount(e.target.value)} className="w-full p-2 border border-slate-200 rounded-lg font-mono font-black text-emerald-700 outline-none focus:border-[#714B67]" />
-                </div>
-              </div>
-            )}
-          </div>
+      {/* 2. Employee Quick Auto-Fill & Gender Adjustment Bar */}
+      <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3 text-xs print:hidden">
+        
+        {/* Employee Selector */}
+        <div className="flex items-center gap-2 flex-1 min-w-[280px]">
+          <span className="font-bold text-slate-700 flex items-center gap-1 whitespace-nowrap">
+            <Users size={14} className="text-[#714B67]" /> الموظف المستهدف:
+          </span>
+          <select
+            value={selectedEmpId}
+            onChange={(e) => setSelectedEmpId(e.target.value)}
+            className="flex-1 p-2 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-900 outline-none focus:border-[#714B67] transition cursor-pointer"
+          >
+            <option value="">-- اختر الموظف لملء البيانات تلقائياً --</option>
+            {employees.map(emp => (
+              <option key={emp.id} value={emp.id}>
+                {emp.name} ({emp.civilId || emp.id}) - {emp.jobTitle}
+              </option>
+            ))}
+          </select>
         </div>
 
-        {/* المعاينة الحية للخطاب A4 */}
-        <div className="lg:col-span-8 bg-white p-8 md:p-10 rounded-2xl border border-slate-200 shadow-md min-h-[650px] flex flex-col justify-between text-slate-900 print:border-0 print:shadow-none print:p-0">
-          <div>
-            <div className="flex justify-between items-center border-b-2 border-[#714B67] pb-6 mb-8 print:pb-4 print:mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-14 h-14 bg-slate-100 rounded-xl border-2 border-[#714B67] flex items-center justify-center font-black text-[#714B67] text-xl">
-                  {companyDisplayName.charAt(0)}
-                </div>
-                <div>
-                  <h2 className="text-xl font-black text-[#714B67] leading-tight">{companyDisplayName}</h2>
-                  <span className="text-[11px] text-slate-500 font-mono font-semibold">دولة الكويت - القطاع الأهلي | إدارة الموارد البشرية والشؤون القانونية</span>
-                </div>
-              </div>
-              <div className="text-left font-mono text-xs text-slate-500 space-y-1">
-                <div>التاريخ: {new Date().toLocaleDateString('en-GB')}</div>
-                <div>المرجع: HR-{new Date().getFullYear()}-{civilId ? civilId.slice(-4) : '0091'}</div>
-              </div>
-            </div>
+        {/* Gender Auto-Tuning Pill */}
+        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 p-1 rounded-xl">
+          <span className="text-[11px] font-bold text-slate-600 px-1">الضبط اللغوي:</span>
+          <button
+            onClick={() => setGender('male')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+              gender === 'male' ? 'bg-[#714B67] text-white shadow-2xs' : 'text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            ذكر (تذكير)
+          </button>
+          <button
+            onClick={() => setGender('female')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+              gender === 'female' ? 'bg-[#714B67] text-white shadow-2xs' : 'text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            أنثى (تأنيث)
+          </button>
+        </div>
 
-            <div className="px-2 print:px-0">
-              {/* عقد العمل الكويتي الرسمي الشامل */}
-              {selectedTemplate === 'contract_kuwait' && (
-                <div className="space-y-5 text-xs md:text-sm leading-7 font-normal">
-                  <div className="text-center mb-6">
-                    <div className="text-lg font-black text-slate-900 border-b-2 border-slate-900 inline-block pb-1">
-                      عقد عمل في القطاع الأهلي (محدد المدة)
-                    </div>
-                    <div className="text-xs text-slate-500 mt-1">وفقاً لأحكام قانون العمل الكويتي رقم 6 لسنة 2010 والقرارات الوزارية المنفذة له</div>
-                  </div>
-
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
-                    <div><strong>الطرف الأول (صاحب العمل):</strong> {companyDisplayName} ويمثلها في التوقيع المدير المفوض.</div>
-                    <div><strong>الطرف الثاني (العامل):</strong> السيد/ة <strong>{empName}</strong> - الجنسية: <strong>{nationality}</strong> - الرقم المدني: <strong><span className="font-mono">{civilId}</span></strong>.</div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div>
-                      <strong className="text-[#714B67]">البند الأول (المهنة والمهام):</strong> يلتزم الطرف الثاني بالعمل لدى الطرف الأول بمهنة (<strong>{jobTitle}</strong>) وتحت إشرافه وإدارته وتنفيذ كافة التعليمات المشروعة الصادرة إليه.
-                    </div>
-
-                    <div>
-                      <strong className="text-[#714B67]">البند الثاني (مدة العقد والتجربة):</strong> تسري مدة هذا العقد اعتباراً من تاريخ <strong>{joinDate}</strong> وحتى تاريخ <strong>{endDate}</strong>، وتخضع فترة العمل الأولى لفترة تجربة مدتها (<strong>{probationDays} يوماً</strong>) وفق أحكام المادة (24) من قانون العمل.
-                    </div>
-
-                    <div>
-                      <strong className="text-[#714B67]">البند الثالث (الأجر والبدلات):</strong> يتقاضى الطرف الثاني أجراً شهرياً إجمالياً شاملاً قدره (<strong><span className="font-mono font-bold">{salary}</span> د.ك</strong>) فقط لا غير، يتم تحويله شهرياً عبر نظام حماية الأجور (WPS) للبنوك الكويتية.
-                    </div>
-
-                    <div>
-                      <strong className="text-[#714B67]">البند الرابع (ساعات العمل والراحة):</strong> ساعات العمل الفعلية هي (<strong>{weeklyHours} ساعة أسبوعياً</strong>) كحد أقصى مع يوم راحة أسبوعية مدفوعة الأجر وفقاً للمادتين (64 و 65) من القانون.
-                    </div>
-
-                    <div>
-                      <strong className="text-[#714B67]">البند الخامس (الإجازات السنوية ومكافأة نهاية الخدمة):</strong> يستحق العامل إجازة سنوية مدفوعة الأجر مدتها 30 يوماً بعد مضي 9 أشهر من العمل، كما يستحق مكافأة نهاية الخدمة المنصوص عليها بالمادتين (51 و 53) عند انتهاء العلاقة العمالية.
-                    </div>
-
-                    <div>
-                      <strong className="text-[#714B67]">البند السادس (الاختصاص القضائي):</strong> تختص المحكمة الكلية (دائرة العمل) بدولة الكويت بالفصل في أي نزاع قد ينشأ حول تفسير أو تطبيق بنود هذا العقد.
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* نموذج عقد القوى العاملة PAM 2 */}
-              {selectedTemplate === 'pam_contract' && (
-                <div className="space-y-6 text-sm leading-8 font-medium">
-                  <div className="text-center font-black text-xl text-[#714B67] mb-6 border-b inline-block mx-auto border-[#714B67] pb-1">
-                    عقد العمل الموحد - نموذج رقم (2) الهيئة العامة للقوى العاملة (PAM)
-                  </div>
-                  
-                  <div className="p-6 bg-purple-50 border border-purple-200 rounded-2xl space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-purple-900">النموذج الكويتي الرسمي الصادر عن الهيئة العامة للقوى العاملة</span>
-                      <span className="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-0.5 rounded-full font-bold">PDF المعتمد 100%</span>
-                    </div>
-
-                    <p className="text-xs text-slate-700 leading-6">
-                      نموذج (2) عقد عمل الأهلي الموحد ثنائي اللغة (عربي / إنجليزي) الصادر طبقاً لاشتراطات دولة الكويت لتصاريح العمل والإقامات، متضمناً طباعة البيانات بدقة متناهية على النموذج الحكومي الرسمي.
-                    </p>
-
-                    <div className="grid grid-cols-2 gap-3 text-xs bg-white p-3 rounded-xl border border-purple-100">
-                      <div><strong>المنشأة:</strong> {companyDisplayName}</div>
-                      <div><strong>الموظف:</strong> {empName}</div>
-                      <div><strong>الرقم المدني:</strong> {civilId}</div>
-                      <div><strong>المهنة:</strong> {jobTitle}</div>
-                    </div>
-
-                    <div className="pt-2">
-                      <button
-                        type="button"
-                        onClick={() => setShowPamModal(true)}
-                        className="w-full bg-[#714B67] hover:bg-[#593951] text-white py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-md cursor-pointer transition"
-                      >
-                        <ExternalLink size={16} />
-                        <span>فتح وتوليد وطباعة نموذج (2) القوى العاملة (PAM 2 PDF) للموظف</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {selectedTemplate === 'salary_cert' && (
-                <div className="space-y-6 text-sm leading-8 font-medium">
-                  <div className="text-center font-black text-xl text-slate-900 mb-8 border-b inline-block mx-auto border-slate-900 pb-1">شهادة تفصيل راتب واستمرارية تحويل</div>
-                  <p className="text-justify text-base">
-                    تشهد إدارة <strong>{companyDisplayName}</strong> بأن السيد/ة <strong>{empName}</strong>، ويحمل البطاقة المدنية رقم (<strong><span className="font-mono">{civilId}</span></strong>)، يعمل لدينا وتحت كفالتنا بمهنة (<strong>{jobTitle}</strong>).
-                  </p>
-                  <p className="text-justify text-base">
-                    ويتقاضى راتباً شهرياً إجمالياً قدره (<strong><span className="font-mono">{salary}</span> د.ك</strong>) فقط لا غير، ويتم تحويل راتبه بانتظام إلى حسابه البنكي عبر نظام حماية الأجور (WPS) المعتمد في دولة الكويت.
-                  </p>
-                  <p className="text-justify text-base text-slate-600 mt-8">
-                    وقد أُعطيت له هذه الشهادة بناءً على طلبه لتقديمها لمن يهمه الأمر، وذلك دون أدنى مسؤولية مالية أو قانونية على المنشأة تجاه الغير.
-                  </p>
-                </div>
-              )}
-
-              {selectedTemplate === 'to_whom' && (
-                <div className="space-y-6 text-sm leading-8 font-medium">
-                  <div className="text-center font-black text-xl text-slate-900 mb-8 border-b inline-block mx-auto border-slate-900 pb-1">شهادة لمن يهمه الأمر</div>
-                  <p className="text-justify text-base">
-                    تفيد إدارة المنشأة بأن الموظف/ <strong>{empName}</strong>، ويحمل الرقم المدني: <strong><span className="font-mono">{civilId}</span></strong>، لا يزال على رأس عمله ويمارس مهامه الوظيفية كـ (<strong>{jobTitle}</strong>) حتى تاريخ إصدار هذا الكتاب.
-                  </p>
-                  <p className="text-justify text-base text-slate-600 mt-8">
-                    وقد أُعطيت له هذه الشهادة لتقديمها إلى الجهات الرسمية المختصة بناءً على طلبه، وذلك دون أدنى مسؤولية إدارية أو قانونية على المنشأة.
-                  </p>
-                </div>
-              )}
-
-              {selectedTemplate === 'clearance' && (
-                <div className="space-y-6 text-sm leading-8 font-medium">
-                  <div className="text-center font-black text-xl text-slate-900 mb-8 border-b inline-block mx-auto border-slate-900 pb-1">كتاب إبراء ذمة ومخالصة نهائية (براءة طرف)</div>
-                  <p className="text-justify text-base">
-                    تعلن إدارة <strong>{companyDisplayName}</strong> بموجب هذا المستند براءة طرف السيد/ <strong>{empName}</strong>، الرقم المدني: <strong><span className="font-mono">{civilId}</span></strong>، والذي كان يشغل منصب (<strong>{jobTitle}</strong>).
-                  </p>
-                  <p className="text-justify text-base">
-                    ونقر نحن الإدارة بأن المذكور أعلاه قد سلّم كافة العهد العينية والممتلكات الخاصة بالمنشأة، وليس له أو عليه أي مستحقات أو مطالبات مالية أو عينية أو إدارية مستقبلاً.
-                  </p>
-                  <p className="text-justify text-base font-bold text-slate-800">
-                    وبناءً عليه، تعتبر ذمته مبرأة براءة تامة ونهائية تجاه الشركة، ويسقط حقه وحق الشركة في أي مطالبات قانونية لاحقة بهذا الشأن.
-                  </p>
-                </div>
-              )}
-
-              {selectedTemplate === 'warning' && (
-                <div className="space-y-6 text-sm leading-8 font-medium">
-                  <div className="text-center font-black text-xl text-rose-800 mb-8 border-b inline-block mx-auto border-rose-800 pb-1">كتاب إنذار إداري (لفت نظر رسمي)</div>
-                  
-                  <div className="flex gap-4 p-4 border border-rose-200 bg-rose-50 rounded-xl mb-6 font-bold text-rose-900">
-                    <AlertTriangle className="text-rose-600 shrink-0" />
-                    <div>
-                      <div>إلى السيد/ <strong>{empName}</strong></div>
-                      <div className="text-xs font-mono mt-1 opacity-80">المدني: {civilId} | الوظيفة: {jobTitle}</div>
-                    </div>
-                  </div>
-
-                  <p className="text-justify text-base">
-                    توجه إليكم إدارة الموارد البشرية هذا الإنذار الإداري بسبب عدم الالتزام التام بالقوانين واللوائح الداخلية المعتمدة بالمنشأة، وذلك استناداً لأحكام قانون العمل الأهلي الكويتي رقم 6 لسنة 2010.
-                  </p>
-                  <p className="text-justify text-base text-rose-700 font-bold">
-                    لذا، يرجى تلافي هذه الملاحظات فوراً والالتزام التام بواجباتكم الوظيفية.
-                  </p>
-                  <p className="text-justify text-base text-slate-600">
-                    نود التنويه بأنه في حال تكرار المخالفة، ستضطر الإدارة لاتخاذ الإجراءات القانونية والإدارية اللاحقة المنصوص عليها في لائحة الجزاءات.
-                  </p>
-                </div>
-              )}
-
-              {selectedTemplate === 'eos_settlement' && (
-                <div className="space-y-6 text-sm leading-8 font-medium">
-                  <div className="text-center font-black text-xl text-emerald-800 mb-8 border-b inline-block mx-auto border-emerald-800 pb-1">سند مخالصة وتصفية مستحقات نهاية الخدمة</div>
-                  <p className="text-justify text-base">
-                    تم إعداد هذه المخالصة المالية النهائية للسيد/ <strong>{empName}</strong>، ويحمل الرقم المدني <strong><span className="font-mono">{civilId}</span></strong>، المسمى الوظيفي: <strong>{jobTitle}</strong>.
-                  </p>
-                  
-                  <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 my-6">
-                    <div className="flex justify-between items-center text-base">
-                      <span className="text-slate-600">الراتب الشامل الأخير المعتمد:</span> 
-                      <strong className="font-mono text-lg">{salary} د.ك</strong>
-                    </div>
-                    <div className="flex justify-between items-center text-base">
-                      <span className="text-slate-600">مدة الخدمة الفعلية المحتسبة:</span> 
-                      <strong className="font-mono text-lg">{serviceYears} سنوات</strong>
-                    </div>
-                    <div className="flex justify-between items-center border-t-2 border-slate-200 pt-4 mt-2 text-emerald-800 font-black text-lg">
-                      <span>صافي مكافأة نهاية الخدمة (وفق المادتين 51 و 53):</span> 
-                      <span className="font-mono text-xl bg-emerald-100 px-3 py-1 rounded-lg">{eosAmount} د.ك</span>
-                    </div>
-                  </div>
-
-                  <p className="text-justify text-base text-slate-600">
-                    يقر الطرف الثاني (الموظف) باستلامه كافة مستحقاته العمالية ونهاية الخدمة المبينة أعلاه، وتعتبر ذمة المنشأة مبرأة تماماً من أي مطالبات مالية أو عمالية من تاريخه.
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="flex justify-between items-end border-t-2 border-slate-100 pt-8 mt-12 text-sm px-4 print:px-0">
-            <div className="text-center w-48">
-              <span className="block font-bold text-slate-500 mb-6">الطرف الأول (المنشأة)</span>
-              <div className="w-24 h-24 border-[3px] border-dashed border-[#714B67]/30 rounded-full mx-auto flex items-center justify-center text-xs text-[#714B67] font-black transform -rotate-12 opacity-80 text-center leading-tight">
-                {companyDisplayName.split(' ')[0]}<br/>الختم الرسمي
-              </div>
-            </div>
-            
-            {(selectedTemplate === 'eos_settlement' || selectedTemplate === 'contract_kuwait') && (
-              <div className="text-center w-48">
-                <span className="block font-bold text-slate-500 mb-12">الطرف الثاني (توقيع الموظف)</span>
-                <div className="border-b-2 border-slate-400 border-dashed w-full mx-auto"></div>
-                <div className="mt-2 font-bold text-slate-700 text-xs">{empName}</div>
-              </div>
-            )}
-
-            <div className="text-center w-48">
-              <span className="block font-bold text-slate-500 mb-12">إدارة الموارد البشرية</span>
-              <div className="border-b-2 border-slate-400 border-dashed w-full mx-auto"></div>
-              <div className="mt-2 font-black text-[#714B67] text-xs">المدير العام / المفوض</div>
-            </div>
-          </div>
+        {/* Meta badge */}
+        <div className="font-mono text-[11px] text-slate-500 bg-slate-100 px-3 py-1.5 rounded-xl">
+          المرجع: <strong className="text-slate-800">{referenceNumber}</strong>
         </div>
       </div>
 
-      {/* PAM Contract Modal */}
-      {showPamModal && currentEmployeeObj && (
+      {/* 3. Main Workspace Area */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* Left Sidebar: Templates Navigation (3 Cols on Desktop, hidden in full preview) */}
+        <div className={`lg:col-span-3 space-y-4 print:hidden ${workspaceView === 'preview' ? 'hidden' : ''}`}>
+          
+          {/* Category Navigation Pills */}
+          <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
+            <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl mb-2">
+              {[
+                { id: 'ALL', label: 'الكل (13)' },
+                { id: 'CONTRACTS', label: 'عقود العمل' },
+                { id: 'BANKING', label: 'الشهادات' },
+                { id: 'ADMIN', label: 'إداري' }
+              ].map(cat => (
+                <button
+                  key={cat.id}
+                  onClick={() => setActiveCategory(cat.id as TemplateCategory)}
+                  className={`flex-1 py-1.5 px-1 rounded-lg text-[11px] font-bold transition cursor-pointer ${
+                    activeCategory === cat.id
+                      ? 'bg-white text-[#714B67] shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Template List Cards */}
+            <div className="space-y-1.5 max-h-[500px] overflow-y-auto pr-1">
+              {filteredTemplates.map(t => {
+                const isSelected = selectedTemplate === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => setSelectedTemplate(t.id)}
+                    className={`w-full text-right p-2.5 rounded-xl border transition cursor-pointer flex items-start gap-2 ${
+                      isSelected
+                        ? 'bg-[#714B67]/10 border-[#714B67] shadow-2xs'
+                        : 'border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                    }`}
+                  >
+                    <span className="text-lg mt-0.5">{t.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className={`text-xs font-black truncate ${isSelected ? 'text-[#714B67]' : 'text-slate-800'}`}>
+                          {t.title}
+                        </span>
+                        {isSelected && <CheckCircle2 size={13} className="text-[#714B67] shrink-0" />}
+                      </div>
+                      <p className="text-[10px] text-slate-500 line-clamp-1 mt-0.5">
+                        {t.subtitle}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Quick Context Summary Box */}
+          <div className="bg-purple-50/60 p-3.5 rounded-2xl border border-purple-200 text-xs space-y-1.5">
+            <div className="font-bold text-[#714B67] flex items-center gap-1">
+              <Sparkles size={13} /> ملخص المتغيرات الحية:
+            </div>
+            <div className="text-[11px] text-slate-600 space-y-0.5 font-medium">
+              <div>الموظف: <strong>{empName || '—'}</strong></div>
+              <div>المدني: <strong className="font-mono">{civilId || '—'}</strong></div>
+              <div>الراتب الشامل: <strong className="font-mono text-[#714B67]">{totalSalary} د.ك</strong></div>
+              <div>الصياغة اللغوية: <strong>{gender === 'female' ? 'مؤنث (السيدة/تعمل)' : 'مذكر (السيد/يعمل)'}</strong></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Center / Right: Interactive Split-Screen or Full View (9 or 12 Cols) */}
+        <div className={workspaceView === 'preview' ? 'lg:col-span-12' : 'lg:col-span-9'}>
+          
+          <div className={`grid gap-6 ${workspaceView === 'split' ? 'grid-cols-1 xl:grid-cols-2' : 'grid-cols-1'}`}>
+            
+            {/* 1. Rich Document Editor (Visible in 'split' or 'editor' mode) */}
+            {(workspaceView === 'split' || workspaceView === 'editor') && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                    <Edit3 size={14} className="text-[#714B67]" /> محرر صياغة الوثيقة التفاعلي (Rich WYSIWYG):
+                  </span>
+                  <span className="text-[11px] font-bold text-slate-400">
+                    عدل النص أو أدرج الحقول الذكية بنقرة واحدة
+                  </span>
+                </div>
+
+                <OdooRichDocumentEditor
+                  value={editorContent}
+                  onChange={setEditorContent}
+                  employeeGender={gender}
+                  useLetterhead={useLetterhead}
+                  minHeight={workspaceView === 'split' ? '650px' : '750px'}
+                />
+              </div>
+            )}
+
+            {/* 2. Live A4 Printable Preview Sheet (Visible in 'split' or 'preview' mode) */}
+            {(workspaceView === 'split' || workspaceView === 'preview') && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                    <Eye size={14} className="text-emerald-700" /> المعاينة الحية المباشرة لورقة A4 (Live Preview):
+                  </span>
+                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                    مخرجات الطباعة الحقيقية
+                  </span>
+                </div>
+
+                {/* Printable Canvas Wrapper */}
+                <div className="bg-slate-200/70 p-4 sm:p-6 rounded-2xl border border-slate-300 flex justify-center overflow-x-auto print:p-0 print:bg-white print:border-none">
+                  <div
+                    ref={previewSheetRef}
+                    id="live-printable-a4"
+                    className="bg-white text-slate-900 shadow-xl print:shadow-none w-full max-w-[210mm] min-h-[297mm] p-8 md:p-12 relative flex flex-col justify-between"
+                    style={{
+                      fontFamily: "'Cairo', 'Segoe UI', Tahoma, sans-serif",
+                      lineHeight: 1.85,
+                      paddingTop: useLetterhead ? '40px' : '48mm'
+                    }}
+                  >
+
+                    {/* Official Company Header (Rendered only if useLetterhead is true) */}
+                    {useLetterhead ? (
+                      <div className="border-b-2 border-[#714B67] pb-5 mb-6">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3.5">
+                            <div className="w-14 h-14 bg-slate-50 border-2 border-[#714B67] rounded-2xl flex items-center justify-center font-black text-[#714B67] text-2xl shadow-2xs">
+                              {companyDisplayName.charAt(0)}
+                            </div>
+                            <div>
+                              <h2 className="text-xl font-black text-[#714B67] leading-tight">
+                                {companyDisplayName}
+                              </h2>
+                              <p className="text-[11px] font-bold text-slate-500 font-mono mt-0.5">
+                                دولة الكويت | سجل تجاري: {companyCommercialReg} | الرقم الآلي: {companyPaci}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="text-left font-mono text-[11px] text-slate-600 space-y-1">
+                            <div><strong className="text-slate-800">التاريخ:</strong> {todayFormattedAr}</div>
+                            <div><strong className="text-slate-800">الرقم المرجعي:</strong> {referenceNumber}</div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center font-mono text-[10px] text-slate-300 pb-4 border-b border-dashed border-slate-200 mb-6 print:hidden">
+                        --- منطقة الترويسة المسبقة للورق الرسمي (Pre-printed Letterhead 48mm) ---
+                      </div>
+                    )}
+
+                    {/* Live Compiled Document Body */}
+                    <div 
+                      className="flex-1 text-sm md:text-[14px] leading-relaxed text-slate-900"
+                      dangerouslySetInnerHTML={{ __html: compiledHtml }}
+                    />
+
+                    {/* Signatures & Official Stamp & QR Footer */}
+                    <div className="border-t-2 border-slate-200 pt-6 mt-8 space-y-4">
+                      <div className="grid grid-cols-3 items-end text-xs md:text-sm">
+                        
+                        {/* Authorized Signatory */}
+                        <div className="text-right space-y-1">
+                          <div className="font-black text-slate-800">المفوض بالتوقيع:</div>
+                          <div className="text-slate-500 text-xs font-semibold">إدارة الموارد البشرية والشؤون القانونية</div>
+                          <div className="pt-8 font-bold text-slate-400">التوقيع: ............................</div>
+                        </div>
+
+                        {/* Stamp */}
+                        <div className="text-center flex flex-col items-center justify-center">
+                          <div className="w-24 h-24 rounded-full border-2 border-dashed border-[#714B67]/40 flex flex-col items-center justify-center p-2 text-center text-[10px] text-[#714B67] font-bold rotate-[-6deg]">
+                            <span>ختم المنشأة الرسمي</span>
+                            <span className="text-[8px] font-mono mt-0.5">{companyCommercialReg}</span>
+                          </div>
+                        </div>
+
+                        {/* Second Party Signature or QR Code */}
+                        <div className="text-left flex flex-col items-end space-y-1">
+                          {selectedTemplate.startsWith('contract') || selectedTemplate === 'eos_settlement' ? (
+                            <div className="text-right w-full space-y-1">
+                              <div className="font-black text-slate-800">
+                                {gender === 'female' ? 'توقيع الطرف الثاني (العاملة):' : 'توقيع الطرف الثاني (العامل):'}
+                              </div>
+                              <div className="text-slate-500 text-xs font-semibold">{empName}</div>
+                              <div className="pt-8 font-bold text-slate-400">التوقيع: ............................</div>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center">
+                              {qrCodeDataUrl ? (
+                                <img 
+                                  src={qrCodeDataUrl} 
+                                  alt="رمز التحقق الرقمي" 
+                                  className="w-20 h-20 border border-slate-200 rounded-lg p-0.5 bg-white"
+                                />
+                              ) : (
+                                <div className="w-20 h-20 bg-slate-100 rounded border border-slate-200" />
+                              )}
+                              <span className="text-[9px] font-mono text-slate-400 mt-1">التحقق الرقمي المعتمد</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Footer Bottom Line */}
+                      <div className="text-center font-mono text-[10px] text-slate-400 pt-3 border-t border-slate-100 flex items-center justify-between">
+                        <span>{companyDisplayName} - دولة الكويت</span>
+                        <span>الرقم المرجعي: {referenceNumber}</span>
+                        <span>وثيقة رسمية صادرة ومؤرشفة إلكترونياً</span>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+            )}
+
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* PAM Modal Integration */}
+      {showPamModal && (
         <OdooPamContractModal
           isOpen={showPamModal}
           onClose={() => setShowPamModal(false)}
-          employee={currentEmployeeObj}
+          employee={employees.find(e => e.id === selectedEmpId) || { name: empName, civilId, jobTitle }}
           company={activeCompany}
         />
       )}
+
     </div>
   );
 };

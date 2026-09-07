@@ -582,7 +582,7 @@ export interface CustodyItem {
   expiryDate?: string; // موعد الانتهاء للسيارات أو الضمان
   valueKwd: number; // KWD
   condition: 'EXCELLENT' | 'GOOD' | 'NEEDS_REPAIR' | 'DAMAGED';
-  status: 'ASSIGNED' | 'RETURNED' | 'DAMAGED' | 'PENDING';
+  status: 'ASSIGNED' | 'RETURNED' | 'DAMAGED' | 'PENDING' | 'MAINTENANCE';
   notes?: string;
 }
 
@@ -861,6 +861,36 @@ export interface SystemIntegrationsConfig {
   geminiApiKey?: string;
   geminiModel?: string;
   updatedAt?: string;
+}
+
+// -------------------------------------------------------------------------
+// Odoo Onboarding Models (hr.onboarding.plan / hr.onboarding.task)
+// -------------------------------------------------------------------------
+export interface OnboardingTask {
+  id: string;
+  title: string;
+  category: 'legal' | 'custody' | 'it' | 'training' | 'medical';
+  assignedToRole: string;
+  completed: boolean;
+  completedAt?: string;
+  notes?: string;
+}
+
+export interface OnboardingPlan {
+  id: string;
+  employeeId?: string;
+  employeeName: string;
+  jobTitle: string;
+  department: string;
+  civilId: string;
+  expectedStartDate: string;
+  templateType: 'standard_admin' | 'medical_specialist' | 'executive' | 'technical';
+  status: 'draft_transient' | 'active' | 'completed';
+  progressPercentage: number;
+  tasks: OnboardingTask[];
+  custodyItems: string[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 // -------------------------------------------------------------------------

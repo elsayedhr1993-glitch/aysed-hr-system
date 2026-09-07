@@ -21,7 +21,6 @@ import { AuditLogsApp } from '../apps/AuditLogsApp';
 import { CustodyLoansApp } from '../apps/CustodyLoansApp';
 import { AutomationApp } from '../apps/AutomationApp';
 import { AICopilotApp } from '../apps/AICopilotApp';
-import { ShiftsApp } from '../apps/ShiftsApp';
 import { CommencementApp } from '../apps/CommencementApp';
 import { ReportsApp } from '../apps/ReportsApp';
 import { ExclusiveInnovationsSuite } from '../apps/ExclusiveInnovationsSuite';
@@ -613,19 +612,6 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
           employees={scopedEmployees}
           contracts={scopedContracts}
           leaves={scopedLeaves}
-        />);
-
-    case 'SHIFTS':
-      return (
-        <ShiftsApp
-          shifts={shifts}
-          employeeShifts={employeeShifts}
-          employees={scopedEmployees}
-          activeCompany={activeCompany}
-          onSaveShift={handleSaveShift}
-          onDeleteShift={handleDeleteShift}
-          onAssignShift={handleAssignShift}
-          onRemoveAssignment={handleRemoveAssignment}
         />);
 
     case 'COMMENCEMENT':

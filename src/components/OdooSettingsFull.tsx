@@ -23,11 +23,13 @@ import {
   Eye,
   EyeOff,
   ExternalLink,
-  CheckCircle
+  CheckCircle,
+  Fingerprint
 } from 'lucide-react';
 import { useSystemSettings, SystemSettings } from '../context/SystemSettingsContext';
 import { useCompany } from '../context/CompanyContext';
 import { toast } from 'react-hot-toast';
+import { BiometricDevicesModal } from './attendance/BiometricDevicesModal';
 
 interface OdooSettingsFullProps {
   onNavigateToDeveloperTools?: () => void;
@@ -40,6 +42,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({ onNavigateTo
   const [activeSection, setActiveSection] = useState<string>('company');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
+  const [isBiometricModalOpen, setIsBiometricModalOpen] = useState<boolean>(false);
 
   // Local state for editing form
   const [formData, setFormData] = useState<SystemSettings>(settings);
@@ -737,13 +740,27 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({ onNavigateTo
                 </div>
 
                 {/* ADMS Cloud Push Configuration Box */}
-                <div className="mt-3 p-3.5 bg-white rounded-xl border border-indigo-100 shadow-2xs space-y-2">
-                  <div className="text-[11px] font-bold text-indigo-900 flex items-center gap-1.5">
-                    🌐 إعدادات الاتصال السحابي المباشر (ADMS / Push Server URL):
+                <div className="mt-3 p-3.5 bg-white rounded-xl border border-indigo-100 shadow-2xs space-y-3">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                    <div>
+                      <div className="text-[11px] font-bold text-indigo-900 flex items-center gap-1.5">
+                        🌐 إعدادات الاتصال السحابي المباشر (ADMS / Push Server URL):
+                      </div>
+                      <p className="text-[10px] text-slate-600 leading-relaxed mt-0.5">
+                        قم بإدخال الرابط التالي في إعدادات جهاز البصمة (ADMS / Cloud Server Settings) في فروعك الخارجية:
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsBiometricModalOpen(true)}
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 bg-purple-700 hover:bg-purple-800 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 shrink-0"
+                    >
+                      <Fingerprint size={14} />
+                      <span>فتح مركز أجهزة البصمة المتقدم</span>
+                    </button>
                   </div>
-                  <p className="text-[10px] text-slate-600 leading-relaxed">
-                    قم بإدخال الرابط التالي في إعدادات جهاز البصمة (ADMS / Cloud Server Settings) في فروعك الخارجية، وسيقوم النظام باستقبال الحركات وتسكينها تلقائياً مع عزل الشركات:
-                  </p>
+
                   <div className="flex items-center gap-2">
                     <input
                       type="text"
@@ -1104,6 +1121,12 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({ onNavigateTo
 
         </div>
       </div>
+
+      {/* 📡 Biometric Devices Modal */}
+      <BiometricDevicesModal
+        isOpen={isBiometricModalOpen}
+        onClose={() => setIsBiometricModalOpen(false)}
+      />
     </div>
   );
 };

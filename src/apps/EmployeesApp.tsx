@@ -5,6 +5,9 @@ import OdooEmployeeFormModal from '../components/OdooEmployeeFormModal';
 import { OdooEmployeeDetailView } from '../components/employees/OdooEmployeeDetailView';
 import OdooContractsApp from "../components/OdooContractsApp";
 import OdooPamContractModal from '../components/OdooPamContractModal';
+import { CommencementApp } from './CommencementApp';
+import { OnboardingTrackerApp } from '../components/employees/OnboardingTrackerApp';
+import { OnboardingWizardModal } from '../components/employees/OnboardingWizardModal';
 import { useCompany } from '../context/CompanyContext';
 import { TenantDatabaseService } from '../services/tenantDataService';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
@@ -172,7 +175,8 @@ export function EmployeesApp(props?: any) {
   const { activeCompany, activeCompanyId } = useCompany();
   const currentCompanyId = activeCompanyId || activeCompany?.id || 'comp-super-admin';
 
-  const [activeTab, setActiveTab] = useState<'directory' | 'contracts' | 'commencement'>('directory');
+  const [activeTab, setActiveTab] = useState<'directory' | 'contracts' | 'commencement' | 'onboarding'>('directory');
+  const [showFullCommencementApp, setShowFullCommencementApp] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -197,7 +201,18 @@ export function EmployeesApp(props?: any) {
   const [employeeSubModal, setEmployeeSubModal] = useState<'none' | 'contracts' | 'attendance' | 'leave' | 'assets' | 'payslips' | 'documents'>('none');
   const [showPamContractModal, setShowPamContractModal] = useState(false);
   const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
+  const [showDevToolsMenu, setShowDevToolsMenu] = useState(false);
+  const [showOnboardingWizardModal, setShowOnboardingWizardModal] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+
+  useEffect(() => {
+    if (props?.initialTab) {
+      setActiveTab(props.initialTab);
+    }
+    if (props?.initialShowAdd) {
+      setShowAddEmployeeModal(true);
+    }
+  }, [props?.initialTab, props?.initialShowAdd, props?.triggerKey]);
 
   const handlePerformFullReset = async () => {
     setIsResetting(true);
@@ -337,6 +352,16 @@ export function EmployeesApp(props?: any) {
   // 1. حالة الموظفين معتمدة حصراً على قاعدة البيانات السحابية (Supabase / Firestore)
   const [employees, setEmployees] = useState<any[]>([]);
 
+  useEffect(() => {
+    if (props?.selectedEmployeeId && employees.length > 0) {
+      const target = employees.find((e: any) => String(e.id) === String(props.selectedEmployeeId));
+      if (target) {
+        setSelectedEmployee(target);
+        setShowEmployeeModal(true);
+      }
+    }
+  }, [props?.selectedEmployeeId, employees]);
+
   // 2. مزامنة قاعدة البيانات الحية للمؤسسة أو الشركة النشطة (Single Source of Truth)
   useEffect(() => {
     let isMounted = true;
@@ -472,48 +497,65 @@ export function EmployeesApp(props?: any) {
     setShowEmployeeModal(false);
   };
 
-  // إنشاء موظف جديد كصفحة كاملة نظيفة
+  // فتح معالج تسجيل موظف جديد عبر خطة التهيئة والتعيين
   const handleCreateNewEmployee = () => {
-    const nextSeq = employees.length + 1;
-    const defaultDept = selectedDept !== 'الكل' ? selectedDept : 'الموارد البشرية';
-    
-    // Auto-detect if medical staff based on department to set a relevant default job title
-    const isMedicalDept = ['الأطباء', 'التمريض'].includes(defaultDept);
-    const defaultJobTitle = defaultDept === 'الأطباء' ? 'طبيب أخصائي' : 
-                            defaultDept === 'التمريض' ? 'ممرض عام' : 'موظف إداري';
+    setShowOnboardingWizardModal(true);
+  };
 
-    const newEmp = {
-      id: `EMP-2026-${String(nextSeq).padStart(3, '0')}`,
-      nameAr: '',
-      nameEn: '',
-      fullNameAr: '',
-      fullNameEn: '',
-      civilId: '',
-      civil_id_number: '',
-      civilIdExpiry: '',
-      jobTitle: defaultJobTitle,
-      dept: defaultDept,
-      companyId: currentCompanyId,
-      basicSalary: 350,
-      housingAllowance: 50,
-      transportAllowance: 25,
-      medicalAllowance: 25,
-      allowances: 0,
-      hireDate: '2026-01-01',
-      contractStartDate: '2026-01-01',
-      contractEndDate: '2027-01-01',
-      contractType: 'محدد المدة',
-      contractStatus: 'ساري',
-      status: 'active',
-      mohLicense: '',
-      phone: '',
-      email: '',
-      nationality: 'كويتي',
-      avatarColor: 'bg-[#714B67]',
-      pifssStatus: 'subscribed',
-      isNewRecord: true
-    };
-    setSelectedEmployee(newEmp);
+  // تأكيد معالج التهيئة وإنشاء الموظف والخطة تلقائياً
+  const handleConfirmOnboardingPlan = async (plan: any) => {
+    setShowOnboardingWizardModal(false);
+
+    // البحث إذا كان الموظف مسجل سابقاً أو جديد
+    const existingEmp = employees.find(e => 
+      (plan.employeeId && e.id === plan.employeeId) || 
+      (e.civilId && plan.civilId && e.civilId === plan.civilId && plan.civilId !== 'غير محدد')
+    );
+
+    if (!existingEmp) {
+      const nextSeq = employees.length + 1;
+      const newEmp = {
+        id: `EMP-2026-${String(nextSeq).padStart(3, '0')}`,
+        nameAr: plan.employeeName || 'موظف جديد',
+        fullNameAr: plan.employeeName || 'موظف جديد',
+        jobTitle: plan.jobTitle || 'موظف',
+        dept: plan.department || 'العموم',
+        department: plan.department || 'العموم',
+        civilId: plan.civilId !== 'غير محدد' ? plan.civilId : '',
+        civil_id_number: plan.civilId !== 'غير محدد' ? plan.civilId : '',
+        hireDate: plan.expectedStartDate || new Date().toISOString().slice(0, 10),
+        status: 'على رأس العمل',
+        companyId: currentCompanyId,
+        basicSalary: plan.department === 'الأطباء' ? 1200 : 700,
+        allowances: 150,
+        nationality: 'كويتي',
+        avatarColor: 'bg-purple-900',
+        mohLicense: plan.department === 'الأطباء' ? 'MOH-DOC-TEMP' : '',
+        pifssStatus: 'subscribed'
+      };
+
+      await TenantDatabaseService.saveEmployee(newEmp as any, currentCompanyId);
+
+      setEmployees(prev => {
+        const nextList = [newEmp, ...prev];
+        if (currentCompanyId) {
+          localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(nextList));
+        }
+        return nextList;
+      });
+    }
+
+    // حفظ خطة التهيئة والتعيين في الذاكرة
+    try {
+      const savedPlans = localStorage.getItem('odoo_onboarding_plans_v1');
+      let currentPlans = savedPlans ? JSON.parse(savedPlans) : [];
+      const updatedPlans = [plan, ...currentPlans.filter((p: any) => p.id !== plan.id)];
+      localStorage.setItem('odoo_onboarding_plans_v1', JSON.stringify(updatedPlans));
+    } catch (e) {
+      console.error('Error saving onboarding plan:', e);
+    }
+
+    toast.success(`تم تسجيل الموظف (${plan.employeeName}) وتفعيل خطة التهيئة والتعيين بنجاح!`);
   };
 
   const handleSaveEmployee = async (updatedEmp: any) => {
@@ -908,39 +950,40 @@ export function EmployeesApp(props?: any) {
   return (
     <div className="flex-1 flex flex-col bg-slate-100 overflow-y-auto w-full p-4 font-sans select-none text-slate-800" dir="rtl">
       
-      {/* 1. الترويسة الرئيسية مع شريط التبويبات الفرعية */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm mb-4">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4 mb-3">
+      {/* 1. الترويسة المدمجة والأنيقة مع التبويبات الرئيسية */}
+      <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-xs mb-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 bg-rose-500 rounded-xl flex items-center justify-center text-white text-xl shadow-sm">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 bg-purple-900 rounded-lg flex items-center justify-center text-white text-lg shadow-xs">
               👥
             </div>
             <div>
-              <h1 className="text-base font-bold text-slate-800">
-                دليل وبطاقات الموظفين وعقود العمل (Odoo 18 Enterprise)
+              <h1 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <span>دليل وشؤون الموظفين</span>
+                <span className="text-[10px] bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded font-normal">
+                  {activeCompany?.nameAr || activeCompany?.name || 'المنشأة النشطة'}
+                </span>
               </h1>
-              <p className="text-xs text-slate-500">
-                المنشأة: {activeCompany?.nameAr || activeCompany?.name || 'المنشأة النشطة'} | قانون العمل الكويتي رقم 6 لسنة 2010 وتراخيص وزارة الصحة
-              </p>
+              <p className="text-[11px] text-slate-400">قانون العمل الكويتي رقم 6 لسنة 2010 وتراخيص وزارة الصحة (MOH)</p>
             </div>
           </div>
 
-          {/* شريط التبويبات الأربعة المتطابق */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 gap-1">
+          {/* شريط التبويبات الرئيسية مع زر التسجيل المباشر */}
+          <div className="flex flex-wrap items-center bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 gap-1">
             <button
               onClick={() => setActiveTab('directory')}
-              className={`px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
-                activeTab === 'directory' ? 'bg-white text-purple-900 shadow-sm border border-slate-200' : 'hover:bg-slate-200/60'
+              className={`px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 ${
+                activeTab === 'directory' ? 'bg-white text-purple-900 shadow-xs border border-slate-200' : 'hover:bg-slate-200/60'
               }`}
             >
-              <span>📇</span> دليل وبطاقات الموظفين
+              <span>📇</span> دليل الموظفين
             </button>
 
             <button
               onClick={() => setActiveTab('contracts')}
-              className={`px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
-                activeTab === 'contracts' ? 'bg-white text-purple-900 shadow-sm border border-slate-200' : 'hover:bg-slate-200/60'
+              className={`px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 ${
+                activeTab === 'contracts' ? 'bg-white text-purple-900 shadow-xs border border-slate-200' : 'hover:bg-slate-200/60'
               }`}
             >
               <span>📝</span> العقود والرواتب
@@ -948,133 +991,167 @@ export function EmployeesApp(props?: any) {
 
             <button
               onClick={() => setActiveTab('commencement')}
-              className={`px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
-                activeTab === 'commencement' ? 'bg-white text-purple-900 shadow-sm border border-slate-200' : 'hover:bg-slate-200/60'
+              className={`px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 ${
+                activeTab === 'commencement' ? 'bg-white text-purple-900 shadow-xs border border-slate-200' : 'hover:bg-slate-200/60'
               }`}
             >
               <span>🏥</span> مباشرة العمل
             </button>
+
+            <button
+              onClick={() => setActiveTab('onboarding')}
+              className={`px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 ${
+                activeTab === 'onboarding' ? 'bg-white text-purple-900 shadow-xs border border-slate-200' : 'hover:bg-slate-200/60'
+              }`}
+            >
+              <span>🚀</span> خطة التهيئة والتعيين
+            </button>
+
+            <div className="h-4 w-px bg-slate-300 my-auto mx-0.5 hidden sm:block"></div>
+
+            <button 
+              onClick={handleCreateNewEmployee}
+              className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-1 shadow-xs cursor-pointer active:scale-95 border border-[#5a3a52]"
+              title="سجل موظف جديد ممروراً بخطة التهيئة والتعيين"
+            >
+              <span>+</span>
+              <span>تسجيل موظف جديد</span>
+            </button>
           </div>
         </div>
 
-        {/* 2. شريط الأزرار الفعالة */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+        {/* 2. شريط الأدوات والعمليات الأساسية */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-3 mt-3 border-t border-slate-100">
           <div className="flex items-center gap-2 min-w-max">
-            {activeTab === 'directory' && (
-              <>
-                <button 
-                  onClick={handleCreateNewEmployee}
-                  className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
-                >
-                  <span>+</span>
-                  <span>تسجيل موظف جديد (hr.employee)</span>
-                </button>
-                <button 
-                  onClick={() => {
-                    const mockEmployees = [
-                      {
-                        id: `EMP-${Math.floor(1000 + Math.random() * 9000)}`,
-                        nameAr: 'د. أحمد خالد المنصور',
-                        fullNameAr: 'د. أحمد خالد المنصور',
-                        civilId: '290121501234',
-                        jobTitle: 'استشاري جراحة عامة',
-                        dept: 'الأطباء',
-                        department: 'الأطباء',
-                        basicSalary: 1200,
-                        allowances: 150,
-                        nationality: 'كويتي',
-                        hireDate: '2024-01-15',
-                        status: 'active',
-                        mohLicense: 'MOH-DOC-9821',
-                        companyId: currentCompanyId
-                      },
-                      {
-                        id: `EMP-${Math.floor(1000 + Math.random() * 9000)}`,
-                        nameAr: 'سارة عبد الله العتيبي',
-                        fullNameAr: 'سارة عبد الله العتيبي',
-                        civilId: '293041205678',
-                        jobTitle: 'رئيسة هيئة التمريض',
-                        dept: 'التمريض',
-                        department: 'التمريض',
-                        basicSalary: 850,
-                        allowances: 100,
-                        nationality: 'كويتي',
-                        hireDate: '2023-05-10',
-                        status: 'active',
-                        mohLicense: 'MOH-NUR-4412',
-                        companyId: currentCompanyId
-                      },
-                      {
-                        id: `EMP-${Math.floor(1000 + Math.random() * 9000)}`,
-                        nameAr: 'محمد فوزي الصباح',
-                        fullNameAr: 'محمد فوزي الصباح',
-                        civilId: '288090209988',
-                        jobTitle: 'أخصائي أشعة وتشخيص طبي',
-                        dept: 'الفنيين',
-                        department: 'الفنيين',
-                        basicSalary: 650,
-                        allowances: 80,
-                        nationality: 'مصري',
-                        hireDate: '2025-02-01',
-                        status: 'active',
-                        mohLicense: 'MOH-TEC-1190',
-                        companyId: currentCompanyId
-                      }
-                    ];
-                    
-                    const updatedList = [...mockEmployees, ...employees];
-                    setEmployees(updatedList);
-                    if (currentCompanyId) {
-                      localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(updatedList));
-                      TenantDatabaseService.saveEmployee(mockEmployees[0], currentCompanyId);
-                      TenantDatabaseService.saveEmployee(mockEmployees[1], currentCompanyId);
-                      TenantDatabaseService.saveEmployee(mockEmployees[2], currentCompanyId);
-                    }
-                    toast.success('تم توليد 3 موظفين تجريبيين (طبيب، تمريض، فني) بنجاح وإضافتهم للجدول والقسم فوراً!');
-                  }}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
-                >
-                  <span>⚡</span>
-                  <span>توليد موظفين تجريبيين</span>
-                </button>
-              </>
-            )}
-
             <button 
               onClick={() => handleTriggerPrint(activeTab === 'directory' ? 'سجل الموظفين الشامل' : activeTab === 'contracts' ? 'سجل عقود العمل' : 'إقرارات مباشرة العمل', { nameAr: activeCompany?.nameAr || activeCompany?.name || 'تقرير المنشأة' })}
-              className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5"
+              className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
             >
-              <span>🖨️</span> طباعة الصفحة
+              <span>🖨️</span> طباعة
             </button>
 
             <button 
               onClick={exportToExcel}
-              className="bg-white border border-slate-300 hover:bg-slate-50 text-emerald-700 border-emerald-300 hover:bg-emerald-50 px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5"
+              className="bg-white border border-slate-200 hover:bg-emerald-50 text-emerald-800 border-emerald-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
             >
               <span>📊</span> تصدير Excel
             </button>
 
-            <button 
-              onClick={() => setShowResetConfirmModal(true)}
-              className="bg-rose-50 border border-rose-300 hover:bg-rose-100 text-rose-700 px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
-              title="تصفير ومسح كافة الموظفين والعقود"
-            >
-              <Trash2 size={14} className="text-rose-600" />
-              <span>تصفير وحذف الكل</span>
-            </button>
+            {/* قائمة الأدوات التجريبية الخفيفة */}
+            {activeTab === 'directory' && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowDevToolsMenu(!showDevToolsMenu)}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                  title="أدوات الاختبار والتوليد"
+                >
+                  <span>⚙️</span>
+                  <span>أدوات للنظام</span>
+                  <span className="text-[9px]">▼</span>
+                </button>
+
+                {showDevToolsMenu && (
+                  <div className="absolute right-0 mt-1 w-56 bg-white border border-slate-200 rounded-xl shadow-lg z-50 p-1 space-y-1 animate-in fade-in duration-150">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowDevToolsMenu(false);
+                        const mockEmployees = [
+                          {
+                            id: `EMP-${Math.floor(1000 + Math.random() * 9000)}`,
+                            nameAr: 'د. أحمد خالد المنصور',
+                            fullNameAr: 'د. أحمد خالد المنصور',
+                            civilId: '290121501234',
+                            jobTitle: 'استشاري جراحة عامة',
+                            dept: 'الأطباء',
+                            department: 'الأطباء',
+                            basicSalary: 1200,
+                            allowances: 150,
+                            nationality: 'كويتي',
+                            hireDate: '2024-01-15',
+                            status: 'active',
+                            mohLicense: 'MOH-DOC-9821',
+                            companyId: currentCompanyId
+                          },
+                          {
+                            id: `EMP-${Math.floor(1000 + Math.random() * 9000)}`,
+                            nameAr: 'سارة عبد الله العتيبي',
+                            fullNameAr: 'سارة عبد الله العتيبي',
+                            civilId: '293041205678',
+                            jobTitle: 'رئيسة هيئة التمريض',
+                            dept: 'التمريض',
+                            department: 'التمريض',
+                            basicSalary: 850,
+                            allowances: 100,
+                            nationality: 'كويتي',
+                            hireDate: '2023-05-10',
+                            status: 'active',
+                            mohLicense: 'MOH-NUR-4412',
+                            companyId: currentCompanyId
+                          },
+                          {
+                            id: `EMP-${Math.floor(1000 + Math.random() * 9000)}`,
+                            nameAr: 'محمد فوزي الصباح',
+                            fullNameAr: 'محمد فوزي الصباح',
+                            civilId: '288090209988',
+                            jobTitle: 'أخصائي أشعة وتشخيص طبي',
+                            dept: 'الفنيين',
+                            department: 'الفنيين',
+                            basicSalary: 650,
+                            allowances: 80,
+                            nationality: 'مصري',
+                            hireDate: '2025-02-01',
+                            status: 'active',
+                            mohLicense: 'MOH-TEC-1190',
+                            companyId: currentCompanyId
+                          }
+                        ];
+                        
+                        const updatedList = [...mockEmployees, ...employees];
+                        setEmployees(updatedList);
+                        if (currentCompanyId) {
+                          localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(updatedList));
+                          TenantDatabaseService.saveEmployee(mockEmployees[0] as any, currentCompanyId);
+                          TenantDatabaseService.saveEmployee(mockEmployees[1] as any, currentCompanyId);
+                          TenantDatabaseService.saveEmployee(mockEmployees[2] as any, currentCompanyId);
+                        }
+                        toast.success('تم توليد 3 موظفين تجريبيين بنجاح!');
+                      }}
+                      className="w-full text-right px-3 py-1.5 hover:bg-slate-100 rounded-lg text-xs font-medium text-slate-700 flex items-center gap-2 cursor-pointer"
+                    >
+                      <span>⚡</span> توليد موظفين تجريبيين
+                    </button>
+
+                    <div className="border-t border-slate-100 my-1"></div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowDevToolsMenu(false);
+                        setShowResetConfirmModal(true);
+                      }}
+                      className="w-full text-right px-3 py-1.5 hover:bg-rose-50 rounded-lg text-xs font-medium text-rose-700 flex items-center gap-2 cursor-pointer"
+                    >
+                      <Trash2 size={13} className="text-rose-600" /> تصفير وحذف الكل
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {activeTab === 'directory' && (
             <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
               <button 
                 onClick={() => setViewMode('cards')}
-                className={`px-3 py-1.5 rounded-md font-bold transition ${viewMode === 'cards' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                className={`px-3 py-1 rounded-md font-bold transition ${viewMode === 'cards' ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}
               >
                 بطاقات ▦
               </button>
               <button 
                 onClick={() => setViewMode('list')}
-                className={`px-3 py-1.5 rounded-md font-bold transition ${viewMode === 'list' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                className={`px-3 py-1 rounded-md font-bold transition ${viewMode === 'list' ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}
               >
                 قائمة ☰
               </button>
@@ -1083,134 +1160,115 @@ export function EmployeesApp(props?: any) {
         </div>
 
         {activeTab === 'directory' && (
-          <div className="mt-4 pt-3 border-t border-slate-100 space-y-3">
-            {/* 1. Odoo Enterprise KPI & Alert Cards Bar */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          <div className="mt-3 pt-3 border-t border-slate-100 space-y-2.5">
+            {/* 1. شريط الإحصائيات المدمجة والمختصرة */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
               
               {/* Card 1: Active Employees */}
               <div
                 onClick={() => setKpiFilter('all')}
-                className={`bg-white p-4 rounded-2xl border transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-md flex items-center justify-between group ${
+                className={`bg-white px-3 py-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between group ${
                   kpiFilter === 'all'
-                    ? 'border-[#714B67] ring-2 ring-[#714B67]/20 bg-gradient-to-br from-white to-purple-50/30'
+                    ? 'border-[#714B67] ring-2 ring-[#714B67]/20 bg-purple-50/20'
                     : 'border-slate-200 hover:border-slate-300'
                 }`}
               >
-                <div className="space-y-1">
-                  <span className="text-[11px] font-bold text-slate-500 block">إجمالي القوة العاملة (Active)</span>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-black text-slate-900 font-mono">{activeEmployeesCount}</span>
-                    <span className="text-[10px] text-slate-400 font-bold">موظف مفعّل</span>
+                <div className="flex items-center gap-2.5">
+                  <div className={`p-2 rounded-lg transition-transform ${
+                    kpiFilter === 'all' ? 'bg-[#714B67] text-white' : 'bg-slate-100 text-slate-600 group-hover:bg-purple-100 group-hover:text-[#714B67]'
+                  }`}>
+                    <Users className="w-4 h-4" />
                   </div>
-                  <span className="text-[10px] text-slate-400 block">جميع الموظفين على رأس عملهم</span>
+                  <div>
+                    <span className="text-[11px] font-bold text-slate-500 block leading-tight">القوة العاملة</span>
+                    <span className="text-xs text-slate-400">على رأس العمل</span>
+                  </div>
                 </div>
-                <div className={`p-3 rounded-2xl transition-transform group-hover:scale-110 ${
-                  kpiFilter === 'all' ? 'bg-[#714B67] text-white shadow-xs' : 'bg-slate-100 text-slate-600 group-hover:bg-purple-50 group-hover:text-[#714B67]'
-                }`}>
-                  <Users className="w-5 h-5" />
-                </div>
+                <span className="text-lg font-black text-slate-900 font-mono">{activeEmployeesCount}</span>
               </div>
 
               {/* Card 2: Residencies Expiring Soon */}
               <div
                 onClick={() => setKpiFilter(prev => prev === 'residency_expiring' ? 'all' : 'residency_expiring')}
-                className={`bg-white p-4 rounded-2xl border transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-md flex items-center justify-between group ${
+                className={`bg-white px-3 py-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between group ${
                   kpiFilter === 'residency_expiring'
-                    ? 'border-amber-500 ring-2 ring-amber-500/30 bg-gradient-to-br from-white to-amber-50/50 scale-[1.01]'
+                    ? 'border-amber-500 ring-2 ring-amber-500/20 bg-amber-50/20'
                     : 'border-slate-200 hover:border-amber-300'
                 }`}
               >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-bold text-slate-700 block">إقامات تنتهي قريباً</span>
-                    {residencyExpiringCount > 0 && (
-                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-                    )}
+                <div className="flex items-center gap-2.5">
+                  <div className={`p-2 rounded-lg transition-transform ${
+                    kpiFilter === 'residency_expiring' ? 'bg-amber-500 text-white' : 'bg-amber-50 text-amber-600'
+                  }`}>
+                    <Clock className="w-4 h-4" />
                   </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-black text-amber-600 font-mono">{residencyExpiringCount}</span>
-                    <span className="text-[10px] text-amber-700/80 font-bold">خلال 60 يوماً</span>
+                  <div>
+                    <span className="text-[11px] font-bold text-slate-700 block leading-tight">إقامات تنتهي</span>
+                    <span className="text-[10px] text-amber-700 font-semibold">خلال 60 يوماً</span>
                   </div>
-                  <span className="text-[10px] text-slate-400 block">لتفادي غرامات ومخالفات الشؤون</span>
                 </div>
-                <div className={`p-3 rounded-2xl transition-transform group-hover:scale-110 ${
-                  kpiFilter === 'residency_expiring' ? 'bg-amber-500 text-white shadow-xs' : 'bg-amber-50 text-amber-600 group-hover:bg-amber-100'
-                }`}>
-                  <Clock className="w-5 h-5" />
-                </div>
+                <span className="text-lg font-black text-amber-600 font-mono">{residencyExpiringCount}</span>
               </div>
 
               {/* Card 3: MOH Medical Licenses Expiring Soon */}
               <div
                 onClick={() => setKpiFilter(prev => prev === 'moh_expiring' ? 'all' : 'moh_expiring')}
-                className={`bg-white p-4 rounded-2xl border transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-md flex items-center justify-between group ${
+                className={`bg-white px-3 py-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between group ${
                   kpiFilter === 'moh_expiring'
-                    ? 'border-indigo-500 ring-2 ring-indigo-500/30 bg-gradient-to-br from-white to-indigo-50/50 scale-[1.01]'
+                    ? 'border-indigo-500 ring-2 ring-indigo-500/20 bg-indigo-50/20'
                     : 'border-slate-200 hover:border-indigo-300'
                 }`}
               >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-bold text-slate-700 block">تراخيص MOH تنتهي قريباً</span>
-                    {mohExpiringCount > 0 && (
-                      <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
-                    )}
+                <div className="flex items-center gap-2.5">
+                  <div className={`p-2 rounded-lg transition-transform ${
+                    kpiFilter === 'moh_expiring' ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-600'
+                  }`}>
+                    <Stethoscope className="w-4 h-4" />
                   </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-black text-indigo-600 font-mono">{mohExpiringCount}</span>
-                    <span className="text-[10px] text-indigo-700/80 font-bold">ترخيص طبي</span>
+                  <div>
+                    <span className="text-[11px] font-bold text-slate-700 block leading-tight">تراخيص MOH</span>
+                    <span className="text-[10px] text-indigo-700 font-semibold">تنتهي قريباً</span>
                   </div>
-                  <span className="text-[10px] text-slate-400 block">مزاولة المهنة كادر الأطباء والتمريض</span>
                 </div>
-                <div className={`p-3 rounded-2xl transition-transform group-hover:scale-110 ${
-                  kpiFilter === 'moh_expiring' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100'
-                }`}>
-                  <Stethoscope className="w-5 h-5" />
-                </div>
+                <span className="text-lg font-black text-indigo-600 font-mono">{mohExpiringCount}</span>
               </div>
 
               {/* Card 4: Expired Residencies & Documents */}
               <div
                 onClick={() => setKpiFilter(prev => prev === 'expired' ? 'all' : 'expired')}
-                className={`bg-white p-4 rounded-2xl border transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-md flex items-center justify-between group ${
+                className={`bg-white px-3 py-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between group ${
                   kpiFilter === 'expired'
-                    ? 'border-rose-500 ring-2 ring-rose-500/30 bg-gradient-to-br from-white to-rose-50/50 scale-[1.01]'
+                    ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
                     : 'border-slate-200 hover:border-rose-300'
                 }`}
               >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-bold text-slate-700 block">إقامات / مستندات منتهية</span>
-                    {expiredDocsCount > 0 && (
-                      <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping"></span>
-                    )}
+                <div className="flex items-center gap-2.5">
+                  <div className={`p-2 rounded-lg transition-transform ${
+                    kpiFilter === 'expired' ? 'bg-rose-600 text-white' : 'bg-rose-50 text-rose-600'
+                  }`}>
+                    <AlertTriangle className="w-4 h-4" />
                   </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-black text-rose-600 font-mono">{expiredDocsCount}</span>
-                    <span className="text-[10px] text-rose-700/80 font-bold">حالة حرجة</span>
+                  <div>
+                    <span className="text-[11px] font-bold text-slate-700 block leading-tight">منتهية الصلاحية</span>
+                    <span className="text-[10px] text-rose-700 font-semibold">تستوجب التجديد</span>
                   </div>
-                  <span className="text-[10px] text-slate-400 block">تجاوزت تاريخ الصلاحية الفعلي</span>
                 </div>
-                <div className={`p-3 rounded-2xl transition-transform group-hover:scale-110 ${
-                  kpiFilter === 'expired' ? 'bg-rose-600 text-white shadow-xs' : 'bg-rose-50 text-rose-600 group-hover:bg-rose-100'
-                }`}>
-                  <AlertTriangle className="w-5 h-5" />
-                </div>
+                <span className="text-lg font-black text-rose-600 font-mono">{expiredDocsCount}</span>
               </div>
 
             </div>
 
             {/* Active Quick Filter Notice Banner */}
             {kpiFilter !== 'all' && (
-              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-2 animate-fadeIn text-xs">
+              <div className="bg-slate-50 p-2 rounded-lg border border-slate-200 flex flex-wrap items-center justify-between gap-2 animate-fadeIn text-xs">
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-slate-500">التصفية النشطة:</span>
-                  <span className={`px-2.5 py-0.5 rounded-lg font-bold border flex items-center gap-1.5 ${
+                  <span className={`px-2 py-0.5 rounded-md font-bold border flex items-center gap-1.5 ${
                     kpiFilter === 'residency_expiring' ? 'bg-amber-100 text-amber-900 border-amber-300' :
                     kpiFilter === 'moh_expiring' ? 'bg-indigo-100 text-indigo-900 border-indigo-300' :
                     'bg-rose-100 text-rose-900 border-rose-300'
                   }`}>
-                    <span className="w-2 h-2 rounded-full bg-current animate-pulse"></span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></span>
                     <span>
                       {kpiFilter === 'residency_expiring' && 'عرض الموظفين: إقامات تنتهي قريباً (خلال 60 يوماً)'}
                       {kpiFilter === 'moh_expiring' && 'عرض الموظفين: تراخيص MOH تنتهي قريباً'}
@@ -1224,10 +1282,10 @@ export function EmployeesApp(props?: any) {
                 <button
                   type="button"
                   onClick={() => setKpiFilter('all')}
-                  className="font-bold text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 transition flex items-center gap-1 cursor-pointer"
+                  className="font-bold text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 px-2 py-0.5 rounded border border-slate-200 transition flex items-center gap-1 cursor-pointer text-[11px]"
                 >
-                  <X size={13} />
-                  <span>إلغاء الفلتر واظهار الكل</span>
+                  <X size={12} />
+                  <span>إلغاء الفلتر</span>
                 </button>
               </div>
             )}
@@ -1286,55 +1344,70 @@ export function EmployeesApp(props?: any) {
                     <div 
                       key={emp.id} 
                       onClick={() => openEmployeeModal(emp)}
-                      className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition cursor-pointer relative flex flex-col justify-between group"
+                      className="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs hover:shadow-md transition cursor-pointer relative flex flex-col justify-between group hover:border-purple-300"
                     >
                       <div>
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                            <div className={`w-11 h-11 rounded-xl ${emp.avatarColor} text-white flex items-center justify-center font-bold text-sm shadow-sm`}>
-                              {emp.nameAr.slice(0, 2)}
-                            </div>
-                            <div>
-                              <h3 className="font-bold text-slate-800 text-xs group-hover:text-purple-900 transition">{emp.nameAr}</h3>
-                              <p className="text-[11px] text-slate-500">{emp.jobTitle}</p>
-                              <div className="flex flex-wrap items-center gap-1 mt-1">
-                                <span className="inline-block bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[10px] font-semibold">
-                                  {emp.dept}
-                                </span>
-                                <span className="inline-block bg-purple-100 text-purple-900 border border-purple-200 px-2 py-0.5 rounded text-[10px] font-mono font-bold">
-                                  🏢 companyId: {emp.companyId || (emp as any).company_id}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                          <span className="text-[10px] bg-purple-50 text-purple-700 px-2 py-0.5 rounded font-mono font-bold">
+                        {/* ترويسة الكرت: المعرف وحالة العمل */}
+                        <div className="flex items-center justify-between mb-3 text-[10px]">
+                          <span className="bg-purple-50 text-purple-800 border border-purple-200 px-2 py-0.5 rounded font-mono font-bold">
                             {emp.id}
+                          </span>
+                          <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded font-bold flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <span>{emp.status || 'على رأس العمل'}</span>
                           </span>
                         </div>
 
-                        <div className="space-y-1 text-[11px] text-slate-500 border-t border-slate-100 pt-3 font-mono">
-                          <div className="flex items-center justify-between">
-                            <span>📞 {emp.phone}</span>
-                            <span className="text-emerald-700 font-bold">{emp.mohLicense}</span>
+                        {/* معلومات الموظف الأساسية */}
+                        <div className="flex items-start gap-3 mb-3">
+                          <div className={`w-11 h-11 rounded-xl ${emp.avatarColor || 'bg-purple-900'} text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0`}>
+                            {emp.nameAr ? emp.nameAr.slice(0, 2) : 'مو'}
                           </div>
+                          <div className="min-w-0 flex-1">
+                            <h3 className="font-bold text-slate-900 text-xs truncate group-hover:text-purple-900 transition">{emp.nameAr}</h3>
+                            <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5">{emp.jobTitle || 'موظف'}</p>
+                            <div className="flex items-center gap-1 mt-1">
+                              <span className="inline-block bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[10px] font-semibold">
+                                🏢 {emp.dept || emp.department || 'عام'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* التفاصيل الرقمية والمعاملات */}
+                        <div className="space-y-1.5 text-[11px] text-slate-600 border-t border-slate-100 pt-2.5 font-mono">
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-500">📞 {emp.phone || 'غير محدد'}</span>
+                            <span className="text-slate-700 font-semibold">🪪 مدني: {emp.civilId || emp.civil_id_number || '-'}</span>
+                          </div>
+                          {emp.mohLicense && (
+                            <div className="flex items-center justify-between text-[10px] text-purple-900 font-bold bg-purple-50/60 p-1 rounded border border-purple-100">
+                              <span>🩺 ترخيص MOH:</span>
+                              <span>{emp.mohLicense}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
 
-                      <div className="border-t border-slate-100 mt-4 pt-3 flex items-center justify-between">
-                        <span className="font-mono font-bold text-slate-800 text-xs">
-                          {(emp.basicSalary + emp.allowances).toFixed(3)} د.ك
-                        </span>
+                      {/* الذيل: الراتب والإجراءات */}
+                      <div className="border-t border-slate-100 mt-3 pt-2.5 flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-sans">الراتب الشامل</span>
+                          <span className="font-mono font-bold text-slate-900 text-xs dir-ltr inline-block">
+                            {((emp.basicSalary || 0) + (emp.allowances || 0)).toFixed(3)} د.ك
+                          </span>
+                        </div>
                         <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => openEmployeeModal(emp)}
-                            className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-900 rounded font-bold transition text-[10px] flex items-center gap-1"
+                            className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-900 rounded-md font-bold transition text-[10px] flex items-center gap-1 border border-purple-200 cursor-pointer"
                             title="تعديل وعرض الملف"
                           >
                             ✏️ تعديل
                           </button>
                           <button
                             onClick={(e) => handleDeleteEmployee(emp.id, emp.nameAr, e)}
-                            className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded font-bold transition text-[10px] flex items-center gap-1"
+                            className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-md font-bold transition text-[10px] flex items-center gap-1 border border-rose-200 cursor-pointer"
                             title="حذف الموظف"
                           >
                             🗑️ حذف
@@ -1345,37 +1418,32 @@ export function EmployeesApp(props?: any) {
                   ))}
                 </div>
               ) : (
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-4">
+                <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden mb-4">
                   <table className="w-full text-right text-xs">
                     <thead className="bg-slate-50 text-slate-700 border-b border-slate-200 font-bold">
                       <tr>
-                        <th className="p-3.5">المعرف</th>
-                        <th className="p-3.5">اسم الموظف</th>
-                        <th className="p-3.5">الرقم المدني</th>
-                        <th className="p-3.5">المسمى الوظيفي والقسم</th>
-                        <th className="p-3.5">ترخيص وزارة الصحة</th>
-                        <th className="p-3.5">الراتب الشامل</th>
-                        <th className="p-3.5 text-center">الإجراء والتحكم</th>
+                        <th className="p-3">المعرف</th>
+                        <th className="p-3">اسم الموظف</th>
+                        <th className="p-3">الرقم المدني</th>
+                        <th className="p-3">المسمى الوظيفي والقسم</th>
+                        <th className="p-3">ترخيص وزارة الصحة</th>
+                        <th className="p-3">الراتب الشامل</th>
+                        <th className="p-3 text-center">الإجراء والتحكم</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {filteredEmployees.map((emp) => (
                         <tr key={emp.id} className="hover:bg-slate-50 transition cursor-pointer" onClick={() => openEmployeeModal(emp)}>
-                          <td className="p-3.5 font-mono text-purple-900 font-bold">{emp.id}</td>
-                          <td className="p-3.5 font-bold text-slate-800">{emp.nameAr}</td>
-                          <td className="p-3.5 font-mono text-slate-600">{emp.civilId}</td>
-                          <td className="p-3.5 text-slate-700">
+                          <td className="p-3 font-mono text-purple-900 font-bold">{emp.id}</td>
+                          <td className="p-3 font-bold text-slate-800">{emp.nameAr}</td>
+                          <td className="p-3 font-mono text-slate-600">{emp.civilId}</td>
+                          <td className="p-3 text-slate-700">
                             <div>{emp.jobTitle}</div>
-                            <div className="flex items-center gap-1 mt-0.5">
-                              <span className="text-[10px] text-slate-400">{emp.dept}</span>
-                              <span className="text-[10px] bg-purple-50 text-purple-800 border border-purple-200 px-1.5 py-0.2 rounded font-mono font-bold">
-                                🏢 {emp.companyId || (emp as any).company_id}
-                              </span>
-                            </div>
+                            <div className="text-[10px] text-slate-400 mt-0.5">{emp.dept || emp.department}</div>
                           </td>
-                          <td className="p-3.5 font-mono text-purple-800 font-bold">{emp.mohLicense}</td>
-                          <td className="p-3.5 font-mono font-bold text-emerald-700">{(emp.basicSalary + emp.allowances).toFixed(3)} د.ك</td>
-                          <td className="p-3.5 text-center">
+                          <td className="p-3 font-mono text-purple-800 font-bold">{emp.mohLicense || '-'}</td>
+                          <td className="p-3 font-mono font-bold text-emerald-700">{((emp.basicSalary || 0) + (emp.allowances || 0)).toFixed(3)} د.ك</td>
+                          <td className="p-3 text-center">
                             <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                               <button
                                 onClick={() => openEmployeeModal(emp)}
@@ -1413,67 +1481,208 @@ export function EmployeesApp(props?: any) {
 
       {/* 3.3 إقرارات مباشرة العمل */}
       {activeTab === 'commencement' && (
-        <div className="space-y-4">
-          <div className="bg-gradient-to-r from-emerald-900 to-teal-900 text-white rounded-xl p-4 shadow-sm flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-bold">إقرارات مباشرة العمل (Employment Commencement)</h2>
-              <p className="text-[11px] text-emerald-200 mt-0.5">إدارة إقرارات مباشرة العمل الرسمية وجداول الدوام بدولة الكويت</p>
+        showFullCommencementApp ? (
+          <div className="space-y-4 animate-in fade-in duration-300">
+            {/* Back to Gateway Header */}
+            <div className="flex items-center justify-between bg-slate-100 p-3.5 rounded-xl border border-slate-200">
+              <div className="flex items-center gap-2">
+                <span className="text-base">📋</span>
+                <span className="text-xs font-black text-slate-700">وضع الإدخال النشط: إدارة ومعالجة إقرارات المباشرة</span>
+              </div>
+              <button
+                onClick={() => setShowFullCommencementApp(false)}
+                className="bg-[#107c41] hover:bg-[#0b6232] text-white px-4 py-1.5 rounded-lg text-xs font-black transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+              >
+                <span>العودة لملخص وإحصائيات المباشرة ↩</span>
+              </button>
             </div>
-            <button
-              onClick={handleCreateCommencement}
-              className="bg-white text-emerald-900 hover:bg-emerald-50 px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm"
-            >
-              + إصدار إقرار مباشرة
-            </button>
-          </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-4">
-            <table className="w-full text-right text-xs">
-              <thead className="bg-slate-50 text-slate-700 border-b border-slate-200 font-bold">
-                <tr>
-                  <th className="p-3.5">رقم الإقرار</th>
-                  <th className="p-3.5">اسم الموظف والرقم المدني</th>
-                  <th className="p-3.5">تاريخ المباشرة الفعلي</th>
-                  <th className="p-3.5">القسم المشرف</th>
-                  <th className="p-3.5 text-center">الإجراء والطباعة</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {commencements.map((com) => (
-                  <tr key={com.id} className="hover:bg-slate-50 transition cursor-pointer" onClick={() => openCommencementModal(com)}>
-                    <td className="p-3.5 font-mono text-emerald-800 font-bold">{com.id}</td>
-                    <td className="p-3.5 font-bold text-slate-800">
-                      <div>{com.employeeName}</div>
-                      <div className="text-[10px] text-slate-400 font-mono">{com.civilId}</div>
-                    </td>
-                    <td className="p-3.5 font-mono text-slate-700">{com.commencementDate}</td>
-                    <td className="p-3.5 text-slate-700">{com.supervisingDept}</td>
-                    <td className="p-3.5 text-center flex items-center justify-center gap-1.5">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); openCommencementModal(com); }}
-                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded font-bold transition text-[11px]"
-                      >
-                        فتح النموذج 👁️
-                      </button>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); handleTriggerPrint('إقرار مباشرة العمل الرسمي', com); }}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded font-bold transition text-[11px]"
-                      >
-                        طباعة A4 🖨️
-                      </button>
-                      <button
-                        onClick={(e) => handleDeleteCommencement(com.id, e)}
-                        className="px-2 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded font-bold transition text-[11px]"
-                        title="حذف الإقرار"
-                      >
-                        🗑️
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <CommencementApp
+              employees={employees}
+              contracts={contracts}
+              shifts={[]}
+              commencements={commencements}
+              activeCompany={activeCompany as any}
+              filterTab="all"
+              onSaveCommencement={(updatedComm) => {
+                const exists = commencements.some(c => c.id === updatedComm.id);
+                let updatedList;
+                if (exists) {
+                  updatedList = commencements.map(c => c.id === updatedComm.id ? updatedComm : c);
+                } else {
+                  updatedList = [updatedComm, ...commencements];
+                }
+                setCommencements(updatedList);
+                localStorage.setItem(`odoo_commencements_v1_${currentCompanyId}`, JSON.stringify(updatedList));
+                toast.success('تم حفظ إقرار مباشرة العمل بنجاح');
+              }}
+              onDeleteCommencement={(id) => {
+                const updatedList = commencements.filter(c => c.id !== id);
+                setCommencements(updatedList);
+                localStorage.setItem(`odoo_commencements_v1_${currentCompanyId}`, JSON.stringify(updatedList));
+                toast.success('تم حذف إقرار مباشرة العمل بنجاح');
+              }}
+              onUpdateEmployeeStatus={(empId, newStatus) => {
+                const empIndex = employees.findIndex((e: any) => e.id === empId);
+                if (empIndex > -1) {
+                  const updatedEmp = { ...employees[empIndex], status: newStatus };
+                  if (props?.onSaveEmployee) {
+                    props.onSaveEmployee(updatedEmp);
+                  } else {
+                    const employeesKey = `odoo_employees_v1_${currentCompanyId}`;
+                    const currentEmployees = JSON.parse(localStorage.getItem(employeesKey) || '[]');
+                    const updatedLocal = currentEmployees.map((e: any) => e.id === empId ? { ...e, status: newStatus } : e);
+                    localStorage.setItem(employeesKey, JSON.stringify(updatedLocal));
+                    window.dispatchEvent(new Event('manara_employees_updated'));
+                  }
+                  toast.success(`تم تحديث حالة الموظف لـ ${newStatus === 'ACTIVE' ? 'نشط' : 'غير نشط'}`);
+                }
+              }}
+              onNavigateToApp={(app) => {
+                if (app === 'EMPLOYEES') {
+                  setShowFullCommencementApp(false);
+                }
+              }}
+            />
           </div>
+        ) : (
+          <div className="space-y-4 animate-in fade-in duration-300">
+            {/* Header Card */}
+            <div className="bg-gradient-to-r from-emerald-900 via-teal-900 to-emerald-950 text-white rounded-xl p-5 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🏥</span>
+                  <h2 className="text-sm font-bold">بوابة مباشرة العمل وجداول الدوام الرسمية</h2>
+                </div>
+                <p className="text-[11px] text-emerald-200 mt-1 max-w-2xl leading-relaxed">
+                  إدارة إقرارات المباشرة للموظفين وتسكينهم على جداول العمل الأسبوعية (48 ساعة عمل / 6 أيام) أو فترات الشفتات المخصصة وفقاً لقانون العمل الكويتي واللوائح المعتمدة.
+                </p>
+              </div>
+              
+              <button
+                onClick={() => {
+                  setShowFullCommencementApp(true);
+                  toast.success('تم فتح شاشة إدارة المباشرة والدوام بنجاح! 🚀');
+                }}
+                className="bg-white text-emerald-900 hover:bg-emerald-50 px-4 py-2 rounded-xl text-xs font-black transition shadow-sm shrink-0 flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>فتح واجهة إدارة المباشرة والدوام الكاملة</span>
+                <ExternalLink size={13} />
+              </button>
+            </div>
+
+            {/* Odoo Style Stats Row */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-3xs">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-slate-500">على رأس العمل</span>
+                  <span className="p-1 rounded-lg bg-emerald-50 text-emerald-600 text-xs">✓ نشط</span>
+                </div>
+                <div className="text-2xl font-black text-slate-800 font-mono">
+                  {visibleEmployees.filter(e => e.status?.toUpperCase() === 'ACTIVE' || e.status?.toLowerCase() === 'active').length}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">موظفين باشروا عملهم رسمياً وبصمتهم مفعلة</p>
+              </div>
+
+              <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-3xs">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-slate-500">في انتظار المباشرة</span>
+                  <span className="p-1 rounded-lg bg-amber-50 text-amber-600 text-xs">⚠️ معلق</span>
+                </div>
+                <div className="text-2xl font-black text-slate-800 font-mono">
+                  {visibleEmployees.filter(e => e.status?.toUpperCase() !== 'ACTIVE' && e.status?.toLowerCase() !== 'active' && !e.isDeleted).length}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">موظفين مسجلين لم يتم تفعيل إقرار المباشرة لهم بعد</p>
+              </div>
+
+              <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-3xs">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-slate-500">جداول الدوام المعتمدة</span>
+                  <span className="p-1 rounded-lg bg-blue-50 text-blue-600 text-xs">📅 Odoo Calendar</span>
+                </div>
+                <div className="text-2xl font-black text-slate-800 font-mono">6 جاهزة</div>
+                <p className="text-[10px] text-slate-400 mt-1">جداول عمل قياسية، شفتات، ودوام مرن مجهزة للتسكين</p>
+              </div>
+            </div>
+
+            {/* Core Guide Block (Odoo standard process layout) */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-3xs p-6">
+              <h3 className="text-xs font-black text-slate-800 border-b border-slate-100 pb-3 mb-4 flex items-center gap-2">
+                <span>🛠️</span> دورة حياة التعيين والمباشرة المتكاملة في نظام المنارة
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative">
+                {/* Step 1 */}
+                <div className="space-y-2 relative">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-slate-100 border border-slate-300 text-slate-700 text-xs font-black flex items-center justify-center">1</span>
+                    <h4 className="text-xs font-black text-slate-700">توقيع العقد (Contract Signed)</h4>
+                  </div>
+                  <p className="text-[11px] text-slate-500 leading-relaxed pr-8">
+                    يتم توقيع العقد وتحديد باقة الأجور (Basic & Allowances) في تطبيق <strong>العقود والرواتب</strong>. تظل حالة الموظف "معلقة" في النظام مؤقتاً حتى إثبات الحضور.
+                  </p>
+                </div>
+
+                {/* Step 2 */}
+                <div className="space-y-2 relative">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-black flex items-center justify-center">2</span>
+                    <h4 className="text-xs font-black text-slate-700">تفعيل مباشرة العمل الرسمية</h4>
+                  </div>
+                  <p className="text-[11px] text-slate-500 leading-relaxed pr-8">
+                    بمجرد حضور الموظف، يتم فتح تطبيق <strong>مباشرة العمل</strong> واختيار تاريخ المباشرة الفعلي، ثم ربطه بجدول دوام رسمي وشفت وبصمة معتمدة.
+                  </p>
+                </div>
+
+                {/* Step 3 */}
+                <div className="space-y-2 relative">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-purple-100 border border-purple-300 text-purple-800 text-xs font-black flex items-center justify-center">3</span>
+                    <h4 className="text-xs font-black text-slate-700">المزامنة مع الرواتب وبوابة الذكاء</h4>
+                  </div>
+                  <p className="text-[11px] text-slate-500 leading-relaxed pr-8">
+                    فور تفعيل المباشرة، تتغير حالة الموظف لـ <strong>ACTIVE</strong> تلقائياً، ويبدأ استحقاق الراتب، وتدفق ساعات العمل والبصمة الذكية إلى مسيرات الرواتب WPS.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-8 pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-start gap-2.5 text-xs text-slate-500 max-w-xl">
+                  <span className="text-base leading-none mt-0.5">💡</span>
+                  <p className="leading-relaxed text-[11px]">
+                    <strong>تنظيم حوكمة الموارد البشرية:</strong> إلغاء إدخال بيانات المباشرة اليدوية في دليل الموظفين يمنع بنسبة 100% حدوث تباين أو تضارب في تواريخ المباشرة الفعلية التي تبنى عليها عقود التأمينات الاجتماعية وقانون العمل بدولة الكويت.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setShowFullCommencementApp(true);
+                    toast.success('تم الانتقال بنجاح! 🚀');
+                  }}
+                  className="w-full sm:w-auto bg-[#107c41] hover:bg-[#0b6232] text-white px-5 py-2.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                >
+                  <span>الذهاب لتطبيق مباشرة العمل الآن</span>
+                  <ExternalLink size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      )}
+
+      {/* 3.4 خطط التهيئة والتعيين (Onboarding Plans & Form Wizard) */}
+      {activeTab === 'onboarding' && (
+        <div className="animate-in fade-in duration-300">
+          <OnboardingTrackerApp 
+            existingEmployees={employees} 
+            onEmployeeCreated={(newEmp) => {
+              setEmployees(prev => {
+                const exists = prev.some(e => e.id === newEmp.id || (e.civilId && e.civilId === newEmp.civilId));
+                if (exists) return prev;
+                return [newEmp, ...prev];
+              });
+            }}
+          />
         </div>
       )}
 
@@ -1964,6 +2173,14 @@ export function EmployeesApp(props?: any) {
           </div>
         </div>
       )}
+
+      {/* معالج تسجيل الموظف وخطة التهيئة والتعيين الموحد */}
+      <OnboardingWizardModal
+        isOpen={showOnboardingWizardModal}
+        onClose={() => setShowOnboardingWizardModal(false)}
+        onConfirmLaunch={handleConfirmOnboardingPlan}
+        existingEmployees={employees}
+      />
 
     </div>
   );

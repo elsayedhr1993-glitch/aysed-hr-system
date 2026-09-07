@@ -6,6 +6,7 @@ import {
   Clock, 
   Calendar, 
   Briefcase, 
+  Package,
   FolderKanban, 
   BarChart3, 
   Sparkles, 
@@ -59,7 +60,7 @@ export const OdooAppSwitcher: React.FC<OdooAppSwitcherProps> = ({ onSelectApp, o
     { id: 'attendance', label: 'الإجازات والغياب', icon: CalendarDays, color: 'bg-teal-600' },
     { id: 'payroll', label: 'الرواتب و WPS', icon: CreditCard, color: 'bg-emerald-600' },
     // الصف الثاني وما يليه
-    { id: 'custody', label: 'العمليات والعهد', icon: Briefcase, color: 'bg-amber-700' },
+    { id: 'custody', label: 'العهد والممتلكات', icon: Package, color: 'bg-orange-600' },
     { id: 'docs', label: 'أرشيف المستندات', icon: FolderKanban, color: 'bg-amber-600' },
     { id: 'templates', label: 'النماذج والخطابات', icon: FileCode2, color: 'bg-cyan-700' },
     { id: 'holidays', label: 'العطلات الرسمية', icon: Sparkles, color: 'bg-purple-600' },

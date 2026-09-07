@@ -2,7 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Users, UserPlus, FileSignature, Calendar, Clock, 
   Banknote, Scale, FolderKanban, Zap, Building2, Sparkles, Scan,
-  Briefcase, FileText, ShieldCheck, Bell, AlertTriangle, TrendingUp, Activity, PieChart as PieIcon, ArrowUpRight, BarChart3, MessageSquare
+  Briefcase, FileText, ShieldCheck, Bell, AlertTriangle, TrendingUp, Activity, 
+  PieChart as PieIcon, ArrowUpRight, BarChart3, MessageSquare, Search, Filter,
+  CheckCircle2, Layers, Award, Landmark, LayoutGrid
 } from 'lucide-react';
 import { ActiveApp, Company } from '../types';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from 'recharts';
@@ -32,10 +34,19 @@ interface OdooAppLauncherProps {
   };
 }
 
-export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({ onSelectApp, currentUserEmail = '', currentUserRole = '', activeCompany, stats }) => {
+export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({ 
+  onSelectApp, 
+  currentUserEmail = '', 
+  currentUserRole = '', 
+  activeCompany, 
+  stats 
+}) => {
   const isSuperAdmin = currentUserRole === 'SUPER_ADMIN' || currentUserEmail.toLowerCase() === 'admin@aysed.com'.toLowerCase() || currentUserEmail.toLowerCase() === 'elsayedhr1993@gmail.com'.toLowerCase();
   const companyDisplayName = activeCompany?.nameAr || activeCompany?.nameEn || 'Aysed HR S 2026';
   const currentCompanyId = activeCompany?.id || 'comp-super-admin';
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<'ALL' | 'HR_PAYROLL' | 'ATTENDANCE_TIME' | 'DOCS_OPERATIONS'>('ALL');
 
   // استخراج الموظفين الحقيقيين للشركة من الذاكرة المحلية
   const [realEmployees, setRealEmployees] = useState<any[]>(() => {
@@ -66,7 +77,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({ onSelectApp, c
   }, [currentCompanyId]);
 
   // حساب توزيع الرواتب الفعلي طبقاً للعقود المسجلة
-  const payrollDeptData = React.useMemo(() => {
+  const payrollDeptData = useMemo(() => {
     if (!realEmployees || realEmployees.length === 0) {
       return [{ name: 'لا توجد رواتب مسجلة', value: 0, color: '#94a3b8' }];
     }
@@ -95,8 +106,20 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({ onSelectApp, c
     }));
   }, [realEmployees]);
 
+  // حساب إجمالي الرواتب الشهرية
+  const calculatedTotalPayroll = useMemo(() => {
+    if (!realEmployees || realEmployees.length === 0) return 0;
+    return realEmployees.reduce((sum, emp) => {
+      const basic = Number(emp.basicSalary || emp.salary || 0);
+      const housing = Number(emp.housingAllowance || 0);
+      const transport = Number(emp.transportAllowance || 0);
+      const nature = Number(emp.natureOfWorkAllowance || 0);
+      return sum + basic + housing + transport + nature;
+    }, 0);
+  }, [realEmployees]);
+
   // حساب طلبات الإجازات الحقيقية
-  const leavesStatusData = React.useMemo(() => {
+  const leavesStatusData = useMemo(() => {
     const counts: Record<string, number> = {
       'سنوية': 0,
       'مرضية': 0,
@@ -124,208 +147,408 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({ onSelectApp, c
     { day: 'الخميس', حضور: 100, غياب: 0 },
   ];
 
-  const apps = [
+  // القائمة الكاملة للتطبيقات (16 تطبيقاً)
+  const allApps = [
     {
       id: 'EMPLOYEES' as ActiveApp,
-      titleAr: 'الموظفون',
+      titleAr: 'شؤون الموظفين',
       titleEn: 'Employees',
       icon: Users,
-      bgColor: 'bg-emerald-50 text-emerald-600 border-emerald-200',
-      iconBg: 'bg-emerald-600 text-white',
+      category: 'HR_PAYROLL',
+      gradient: 'from-emerald-500 to-teal-700 text-white',
+      badgeBg: 'bg-emerald-500',
       badge: `${stats.employeesCount}`,
-      description: 'السجلات، المباشرة، وقوالب المستندات',
+      description: 'السجلات الشخصية، المباشرة، والشهادات الرسمية',
     },
     {
       id: 'RECRUITMENT' as ActiveApp,
-      titleAr: 'التوظيف',
+      titleAr: 'التوظيف والمقابلات',
       titleEn: 'Recruitment',
       icon: UserPlus,
-      bgColor: 'bg-indigo-50 text-indigo-600 border-indigo-200',
-      iconBg: 'bg-indigo-600 text-white',
+      category: 'HR_PAYROLL',
+      gradient: 'from-indigo-500 to-purple-700 text-white',
+      badgeBg: 'bg-indigo-500',
       badge: `${stats.candidatesCount}`,
-      description: 'المقابلات والسير الذاتية',
+      description: 'إدارة طلبات التوظيف والمقابلات والسير الذاتية',
     },
     {
       id: 'CONTRACTS' as ActiveApp,
       titleAr: 'عقود العمل',
       titleEn: 'Contracts',
       icon: FileSignature,
-      bgColor: 'bg-teal-50 text-teal-600 border-teal-200',
-      iconBg: 'bg-teal-600 text-white',
+      category: 'HR_PAYROLL',
+      gradient: 'from-teal-500 to-cyan-700 text-white',
+      badgeBg: 'bg-teal-600',
       badge: `${stats.contractsCount}`,
-      description: 'العقود والبدلات',
+      description: 'سريان العقود، باقات الأجور، والبدلات القانونية',
     },
     {
       id: 'LEAVES' as ActiveApp,
-      titleAr: 'الإجازات',
+      titleAr: 'الإجازات والغياب',
       titleEn: 'Time Off',
       icon: Calendar,
-      bgColor: 'bg-amber-50 text-amber-600 border-amber-200',
-      iconBg: 'bg-amber-600 text-white',
+      category: 'ATTENDANCE_TIME',
+      gradient: 'from-amber-500 to-orange-600 text-white',
+      badgeBg: 'bg-amber-500',
       badge: `${stats.leavesPendingCount}`,
-      description: 'استحقاق 2.5 يوم شهرياً',
+      description: 'أرصدة الإجازات، المادة 70، والطلبات بانتظار الاعتماد',
     },
     {
       id: 'HOLIDAYS' as ActiveApp,
-      titleAr: 'العطلات',
+      titleAr: 'العطلات الرسمية',
       titleEn: 'Holidays',
       icon: Calendar,
-      bgColor: 'bg-rose-50 text-rose-600 border-rose-200',
-      iconBg: 'bg-rose-600 text-white',
+      category: 'ATTENDANCE_TIME',
+      gradient: 'from-rose-500 to-pink-700 text-white',
+      badgeBg: 'bg-rose-500',
       badge: '13',
-      description: 'العطلات الرسمية',
-    },
-    {
-      id: 'SHIFTS' as ActiveApp,
-      titleAr: 'جدولة الشفتات',
-      titleEn: 'Shifts',
-      icon: Calendar,
-      bgColor: 'bg-cyan-50 text-cyan-600 border-cyan-200',
-      iconBg: 'bg-cyan-600 text-white',
-      badge: `${stats.shiftsCount || 0}`,
-      description: 'إدارة الورديات',
+      description: 'العطلات والأعياد الرسمية بالكويت والتعويضات',
     },
     {
       id: 'ATTENDANCE' as ActiveApp,
-      titleAr: 'الحضور والدوام والاستئذان',
+      titleAr: 'الحضور والدوام',
       titleEn: 'Attendance',
       icon: Clock,
-      bgColor: 'bg-blue-50 text-blue-600 border-blue-200',
-      iconBg: 'bg-blue-600 text-white',
-      badge: 'بصمة',
-      description: 'البصمة، الحركات اليومية، والاستئذان',
+      category: 'ATTENDANCE_TIME',
+      gradient: 'from-blue-600 to-indigo-800 text-white',
+      badgeBg: 'bg-blue-600',
+      badge: 'بصمة ZK',
+      description: 'البصمة البيومترية، التأخير، والاستئذان اليومي',
     },
     {
       id: 'PAYROLL' as ActiveApp,
-      titleAr: 'الرواتب ونهاية الخدمة',
+      titleAr: 'الرواتب وحماية الأجور',
       titleEn: 'Payroll & EOS',
       icon: Banknote,
-      bgColor: 'bg-purple-50 text-purple-600 border-purple-200',
-      iconBg: 'bg-[#714B67] text-white',
+      category: 'HR_PAYROLL',
+      gradient: 'from-[#714B67] to-[#4A2E44] text-white',
+      badgeBg: 'bg-[#714B67]',
       badge: 'WPS',
-      description: 'كشوف الأجور وحاسبة مكافأة المادة 51',
+      description: 'كشوف أجور البنوك وحاسبة مكافأة نهاية الخدمة (مادة 51)',
     },
     {
       id: 'REPORTS' as ActiveApp,
       titleAr: 'التقارير والتحليلات',
       titleEn: 'Reports & Pivot',
       icon: BarChart3,
-      bgColor: 'bg-violet-50 text-violet-700 border-violet-200',
-      iconBg: 'bg-violet-600 text-white',
-      badge: 'Pivot & Graph',
-      description: 'الجدول المحوري والرسوم البيانية',
+      category: 'DOCS_OPERATIONS',
+      gradient: 'from-violet-600 to-purple-900 text-white',
+      badgeBg: 'bg-violet-600',
+      badge: 'Pivot',
+      description: 'الجدول المحوري والرسوم البيانية والتحليلات',
     },
     {
       id: 'DOCUMENTS' as ActiveApp,
-      titleAr: 'المستندات وOCR',
+      titleAr: 'أرشيف المستندات',
       titleEn: 'Documents',
       icon: FolderKanban,
-      bgColor: 'bg-sky-50 text-sky-600 border-sky-200',
-      iconBg: 'bg-sky-600 text-white',
+      category: 'DOCS_OPERATIONS',
+      gradient: 'from-sky-500 to-blue-700 text-white',
+      badgeBg: 'bg-sky-600',
       badge: `${stats.documentsCount}`,
-      description: 'الأرشيف، الهويات، والرفع السريع',
+      description: 'الأرشيف الإلكتروني، الهويات، وتنبيهات الانتهاء',
     },
     {
       id: 'SCANNER_APP' as ActiveApp,
       titleAr: 'الماسح الضوئي الذكي',
       titleEn: 'Document Scanner',
       icon: Scan,
-      bgColor: 'bg-teal-50 text-teal-700 border-teal-200',
-      iconBg: 'bg-teal-600 text-white',
+      category: 'DOCS_OPERATIONS',
+      gradient: 'from-teal-600 to-emerald-800 text-white',
+      badgeBg: 'bg-teal-600',
       badge: 'OCR',
-      description: 'مسح المستندات، استخراج البيانات، والأرشفة الفورية',
+      description: 'مسح الوثائق، استخراج البيانات، والأرشفة الفورية',
     },
     {
       id: 'CUSTODY_LOANS' as ActiveApp,
-      titleAr: 'العهد والسلف',
+      titleAr: 'العهد والممتلكات',
       titleEn: 'Custody',
       icon: Briefcase,
-      bgColor: 'bg-stone-100 text-stone-700 border-stone-200',
-      iconBg: 'bg-stone-700 text-white',
+      category: 'DOCS_OPERATIONS',
+      gradient: 'from-slate-600 to-zinc-800 text-white',
+      badgeBg: 'bg-slate-700',
       badge: `${stats.custodiesCount || 0}`,
-      description: 'العهد والسلف والأقساط',
+      description: 'إدارة العهد العينية والسلف المالية والأقساط',
     },
     {
       id: 'AUDIT_LOGS' as ActiveApp,
       titleAr: 'سجل الرقابة',
       titleEn: 'Audit Logs',
       icon: ShieldCheck,
-      bgColor: 'bg-slate-100 text-slate-700 border-slate-300',
-      iconBg: 'bg-slate-700 text-white',
+      category: 'DOCS_OPERATIONS',
+      gradient: 'from-zinc-700 to-slate-900 text-white',
+      badgeBg: 'bg-zinc-800',
       badge: `${stats.auditLogsCount || 0}`,
-      description: 'تتبع العمليات',
-    },
-    {
-      id: 'SETTINGS' as ActiveApp,
-      titleAr: isSuperAdmin ? 'الإعدادات العامة والشركات والربط' : 'بيانات المنشأة والإعدادات',
-      titleEn: isSuperAdmin ? 'Settings & Integrations' : 'Company Profile & Settings',
-      icon: Building2,
-      bgColor: 'bg-zinc-100 text-zinc-700 border-zinc-300',
-      iconBg: 'bg-zinc-700 text-white',
-      badge: isSuperAdmin ? 'واتساب وأتمتة' : 'ملف المنشأة',
-      description: isSuperAdmin ? 'إدارة الشركات، الاشتراكات، الأتمتة والواتساب' : 'بيانات المنشأة، السجل التجاري، والواتساب',
-    },
-    {
-      id: 'SECURITY_GUARDS' as ActiveApp,
-      titleAr: 'الأمن والورديات',
-      titleEn: 'Security & Patrols',
-      icon: ShieldCheck,
-      bgColor: 'bg-purple-50 text-[#714B67] border-purple-200',
-      iconBg: 'bg-[#714B67] text-white',
-      badge: 'دورية',
-      description: 'متابعة نوبات الحراسة، المواقع والالتزام البيومتري اللحظي',
+      description: 'تتبع العمليات وحركات المستخدمين وتأمين البيانات',
     },
     {
       id: 'DOCUMENT_TEMPLATES' as ActiveApp,
       titleAr: 'قوالب ونماذج المستندات',
       titleEn: 'Document Templates',
       icon: FileText,
-      bgColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-      iconBg: 'bg-emerald-600 text-white',
-      badge: 'مراسلات',
+      category: 'DOCS_OPERATIONS',
+      gradient: 'from-emerald-600 to-teal-800 text-white',
+      badgeBg: 'bg-emerald-600',
+      badge: 'نماذج',
       description: 'توليد وطباعة شهادات الراتب والكتب الرسمية آلياً',
     },
   ];
 
+  // وضع العرض المدمج للشاشة (One-Screen Fit)
+  const [isCompact, setIsCompact] = useState<boolean>(() => {
+    const saved = localStorage.getItem('odoo_launcher_compact_mode');
+    return saved !== null ? saved === 'true' : true;
+  });
+
+  const toggleCompact = () => {
+    setIsCompact(prev => {
+      const next = !prev;
+      localStorage.setItem('odoo_launcher_compact_mode', String(next));
+      return next;
+    });
+  };
+
+  // تصفية التطبيقات طبقاً للبحث والتصنيف
+  const filteredApps = useMemo(() => {
+    return allApps.filter(app => {
+      // 1. صلاحيات الموظف العادي
+      if (currentUserRole === 'EMPLOYEE' && !['ATTENDANCE', 'LEAVES', 'DOCUMENTS'].includes(app.id)) {
+        return false;
+      }
+      // 2. فلتر التصنيف
+      if (selectedCategory !== 'ALL' && app.category !== selectedCategory) {
+        return false;
+      }
+      // 3. البحث النصي
+      if (searchQuery.trim() !== '') {
+        const query = searchQuery.toLowerCase();
+        return app.titleAr.toLowerCase().includes(query) || 
+               app.titleEn.toLowerCase().includes(query) || 
+               app.description.toLowerCase().includes(query);
+      }
+      return true;
+    });
+  }, [allApps, currentUserRole, selectedCategory, searchQuery]);
+
   return (
-    <div className="dashboard-container w-full h-full bg-transparent flex flex-col items-center relative z-10 space-y-3" dir="rtl">
+    <div className="dashboard-container w-full h-full bg-transparent flex flex-col items-center relative z-10 space-y-2.5 sm:space-y-3.5 pb-6" dir="rtl">
       
-      {/* 🧩 Odoo Enterprise App Switcher Grid */}
-      <div className="w-full max-w-5xl mx-auto py-8 lg:py-16">
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-x-4 gap-y-10 justify-items-center">
-          {apps.filter((app) => {
-            if (currentUserRole === 'EMPLOYEE') {
-              return ['ATTENDANCE', 'LEAVES', 'DOCUMENTS'].includes(app.id);
-            }
-            return true;
-          }).map((app) => {
-            const IconComponent = app.icon;
-            return (
+      {/* 🔍 Search & Interactive Header */}
+      <div className="w-full max-w-5xl mx-auto space-y-2 pt-1">
+        
+        {/* Search Field & Density Switcher */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 group">
+            <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-[#714B67] transition-colors">
+              <Search className="w-4 h-4" />
+            </div>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="بحث فوري في التطبيقات الـ 16 (شؤون الموظفين، الرواتب، الإجازات، العقود...)"
+              className="w-full pr-10 pl-20 py-2 bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-xl text-xs sm:text-sm font-bold text-slate-800 placeholder-slate-400 shadow-2xs focus:border-[#714B67] focus:bg-white focus:outline-none transition-all"
+            />
+            {searchQuery && (
               <button
-                key={app.id}
-                onClick={() => onSelectApp(app.id)}
-                className="flex flex-col items-center group cursor-pointer focus:outline-none w-[90px] sm:w-[100px]"
+                onClick={() => setSearchQuery('')}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-0.5 rounded-lg font-bold transition cursor-pointer"
               >
-                <div className={`relative w-[76px] h-[76px] sm:w-[86px] sm:h-[86px] rounded-2xl flex items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.05)] group-hover:shadow-[0_8px_20px_rgba(0,0,0,0.12)] transition-all duration-300 transform group-hover:-translate-y-1 ${app.iconBg} bg-gradient-to-br from-white/10 to-black/10 ring-1 ring-black/5`}>
-                  <IconComponent className="w-9 h-9 sm:w-10 sm:h-10 text-white drop-shadow-sm" strokeWidth={1.5} />
-                  {app.badge && app.badge !== '0' && (
-                    <span className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full border-2 border-[#f8fafc] shadow-sm">
-                      {app.badge}
-                    </span>
-                  )}
-                </div>
-                <h3 className="mt-3 font-semibold text-slate-700 group-hover:text-slate-900 text-xs sm:text-[13px] text-center leading-tight tracking-wide">
-                  {app.titleAr}
-                </h3>
+                مسح
               </button>
-            );
-          })}
+            )}
+            {!searchQuery && (
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-1 text-[9px] font-mono font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                Ctrl+K
+              </div>
+            )}
+          </div>
+
+          {/* زر تبديل كثافة العرض (Compact / Standard Mode) */}
+          <button
+            onClick={toggleCompact}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer border shrink-0 ${
+              isCompact 
+                ? 'bg-purple-50 text-[#714B67] border-purple-200 hover:bg-purple-100 shadow-2xs' 
+                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+            }`}
+            title="التبديل بين العرض المدمج المتسع للشاشة بالكامل والعرض القياسي"
+          >
+            <LayoutGrid size={14} className={isCompact ? 'text-[#714B67]' : 'text-slate-500'} />
+            <span className="hidden md:inline">{isCompact ? 'عرض مدمج (شاشة كاملة)' : 'عرض قياسي'}</span>
+          </button>
         </div>
+
+        {/* Category Filters */}
+        <div className="flex flex-wrap items-center justify-center gap-1.5">
+          <button
+            onClick={() => setSelectedCategory('ALL')}
+            className={`px-3 py-1 rounded-lg text-xs font-black transition-all cursor-pointer ${
+              selectedCategory === 'ALL'
+                ? 'bg-[#714B67] text-white shadow-2xs'
+                : 'bg-white/80 hover:bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
+            }`}
+          >
+            🌐 جميع التطبيقات ({allApps.length})
+          </button>
+
+          <button
+            onClick={() => setSelectedCategory('HR_PAYROLL')}
+            className={`px-3 py-1 rounded-lg text-xs font-black transition-all cursor-pointer ${
+              selectedCategory === 'HR_PAYROLL'
+                ? 'bg-emerald-700 text-white shadow-2xs'
+                : 'bg-white/80 hover:bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
+            }`}
+          >
+            👥 الموارد والرواتب
+          </button>
+
+          <button
+            onClick={() => setSelectedCategory('ATTENDANCE_TIME')}
+            className={`px-3 py-1 rounded-lg text-xs font-black transition-all cursor-pointer ${
+              selectedCategory === 'ATTENDANCE_TIME'
+                ? 'bg-blue-700 text-white shadow-2xs'
+                : 'bg-white/80 hover:bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
+            }`}
+          >
+            ⏰ الحضور والدوام
+          </button>
+
+          <button
+            onClick={() => setSelectedCategory('DOCS_OPERATIONS')}
+            className={`px-3 py-1 rounded-lg text-xs font-black transition-all cursor-pointer ${
+              selectedCategory === 'DOCS_OPERATIONS'
+                ? 'bg-purple-800 text-white shadow-2xs'
+                : 'bg-white/80 hover:bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
+            }`}
+          >
+            📁 الوثائق والتشغيل
+          </button>
+        </div>
+
+      </div>
+
+      {/* 📊 Executive Live KPI Bar - مدمج ومرن */}
+      <div className="w-full max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-2 px-1">
+        
+        {/* Metric 1 */}
+        <div className="bg-white/90 backdrop-blur-md border border-slate-200/90 rounded-xl p-2 sm:p-2.5 flex items-center justify-between shadow-2xs">
+          <div>
+            <div className="text-[10px] font-bold text-slate-500">القوة العاملة النشطة</div>
+            <div className="text-sm sm:text-base font-black text-slate-900 font-mono mt-0.5 leading-none">
+              {stats.employeesCount} <span className="text-[10px] font-bold text-slate-500">موظف</span>
+            </div>
+          </div>
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center font-bold shrink-0">
+            <Users size={15} />
+          </div>
+        </div>
+
+        {/* Metric 2 */}
+        <div className="bg-white/90 backdrop-blur-md border border-slate-200/90 rounded-xl p-2 sm:p-2.5 flex items-center justify-between shadow-2xs">
+          <div>
+            <div className="text-[10px] font-bold text-slate-500">مسير الرواتب (WPS)</div>
+            <div className="text-sm sm:text-base font-black text-slate-900 font-mono mt-0.5 leading-none">
+              {calculatedTotalPayroll.toLocaleString('ar-KW')} <span className="text-[10px] font-bold text-slate-500">د.ك</span>
+            </div>
+          </div>
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-purple-50 text-[#714B67] border border-purple-200 flex items-center justify-center font-bold shrink-0">
+            <Banknote size={15} />
+          </div>
+        </div>
+
+        {/* Metric 3 */}
+        <div className="bg-white/90 backdrop-blur-md border border-slate-200/90 rounded-xl p-2 sm:p-2.5 flex items-center justify-between shadow-2xs">
+          <div>
+            <div className="text-[10px] font-bold text-slate-500">الإجازات بانتظار الاعتماد</div>
+            <div className="text-sm sm:text-base font-black text-amber-700 font-mono mt-0.5 leading-none">
+              {stats.leavesPendingCount} <span className="text-[10px] font-bold text-amber-600">طلب</span>
+            </div>
+          </div>
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center font-bold shrink-0">
+            <Calendar size={15} />
+          </div>
+        </div>
+
+        {/* Metric 4 */}
+        <div className="bg-white/90 backdrop-blur-md border border-slate-200/90 rounded-xl p-2 sm:p-2.5 flex items-center justify-between shadow-2xs">
+          <div>
+            <div className="text-[10px] font-bold text-slate-500">سلامة المستندات والامتثال</div>
+            <div className="text-sm sm:text-base font-black text-blue-700 font-mono mt-0.5 leading-none">
+              98.5% <span className="text-[10px] font-bold text-emerald-600">ساري</span>
+            </div>
+          </div>
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center font-bold shrink-0">
+            <CheckCircle2 size={15} />
+          </div>
+        </div>
+
+      </div>
+
+      {/* 🧩 Odoo Enterprise App Grid - شبكة التطبيقات الـ 16 */}
+      <div className="w-full max-w-5xl mx-auto py-1">
+        {filteredApps.length === 0 ? (
+          <div className="text-center py-10 bg-white/70 rounded-2xl border border-dashed border-slate-300">
+            <p className="text-slate-500 font-bold text-sm">لا توجد تطبيقات تطابق كلمة البحث "{searchQuery}"</p>
+            <button 
+              onClick={() => { setSearchQuery(''); setSelectedCategory('ALL'); }}
+              className="mt-3 text-xs font-bold text-[#714B67] underline cursor-pointer"
+            >
+              إعادة عرض جميع التطبيقات
+            </button>
+          </div>
+        ) : (
+          <div 
+            className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 ${
+              isCompact ? 'gap-2 sm:gap-2.5' : 'gap-3 sm:gap-4'
+            } justify-items-stretch`}
+          >
+            {filteredApps.map((app) => {
+              const IconComponent = app.icon;
+              return (
+                <button
+                  key={app.id}
+                  onClick={() => onSelectApp(app.id)}
+                  className={`bg-white/95 hover:bg-white border border-slate-200/90 hover:border-purple-300 hover:-translate-y-0.5 active:scale-[0.98] rounded-xl transition-all duration-150 cursor-pointer shadow-2xs hover:shadow-sm text-right group relative overflow-hidden ${
+                    isCompact 
+                      ? 'p-2 sm:p-2.5 flex items-center gap-2.5' 
+                      : 'p-3.5 flex items-start gap-3.5'
+                  }`}
+                >
+                  {/* Glowing Icon Container */}
+                  <div className={`relative ${
+                    isCompact ? 'w-9 h-9 sm:w-10 sm:h-10' : 'w-12 h-12'
+                  } rounded-lg flex items-center justify-center shrink-0 bg-gradient-to-br ${app.gradient} shadow-2xs group-hover:scale-105 transition-transform duration-200`}>
+                    <IconComponent className={`${isCompact ? 'w-4.5 h-4.5 sm:w-5 sm:h-5' : 'w-6 h-6'} text-white drop-shadow-xs`} strokeWidth={1.8} />
+                    {app.badge && app.badge !== '0' && (
+                      <span className={`absolute -top-1 -right-1 ${app.badgeBg} text-white text-[8px] font-black px-1.5 py-0.2 rounded-full border border-white shadow-2xs`}>
+                        {app.badge}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* App Text Info */}
+                  <div className="space-y-0.5 min-w-0 flex-1">
+                    <h3 className={`font-black text-slate-900 group-hover:text-[#714B67] leading-tight transition-colors truncate ${
+                      isCompact ? 'text-xs sm:text-[13px]' : 'text-sm'
+                    }`}>
+                      {app.titleAr}
+                    </h3>
+                    <p className={`text-[10px] sm:text-[11px] text-slate-500 font-medium leading-snug ${
+                      isCompact ? 'truncate' : 'line-clamp-2 leading-relaxed'
+                    }`}>
+                      {app.description}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* 📊 Odoo-Style Compact Charts Section */}
-
-      <div className="w-full max-w-7xl space-y-2 pt-2 border-t border-slate-200">
+      <div className="w-full max-w-5xl space-y-2 pt-4 border-t border-slate-200">
         <div className="flex items-center justify-between px-1">
           <div>
             <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
@@ -339,7 +562,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({ onSelectApp, c
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
           
           {/* Chart 1 */}
-          <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs flex flex-col justify-between max-h-[210px]">
+          <div className="bg-white/90 p-3 rounded-2xl border border-slate-200 shadow-2xs flex flex-col justify-between max-h-[210px]">
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-bold text-slate-800">معدل الحضور الأسبوعي</span>
               <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
@@ -359,7 +582,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({ onSelectApp, c
           </div>
 
           {/* Chart 2 */}
-          <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs flex flex-col justify-between max-h-[210px]">
+          <div className="bg-white/90 p-3 rounded-2xl border border-slate-200 shadow-2xs flex flex-col justify-between max-h-[210px]">
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-bold text-slate-800">توزيع الرواتب (د.ك)</span>
               <span className="text-[9px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
@@ -379,7 +602,8 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({ onSelectApp, c
                     dataKey="value"
                   >
                     {payrollDeptData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />))}
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
                   </Pie>
                   <Tooltip contentStyle={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '6px', color: '#0f172a', fontSize: '10px' }} />
                 </PieChart>
@@ -388,7 +612,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({ onSelectApp, c
           </div>
 
           {/* Chart 3 */}
-          <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs flex flex-col justify-between max-h-[210px]">
+          <div className="bg-white/90 p-3 rounded-2xl border border-slate-200 shadow-2xs flex flex-col justify-between max-h-[210px]">
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-bold text-slate-800">طلبات الإجازات النشطة</span>
               <span className="text-[9px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
@@ -411,14 +635,16 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({ onSelectApp, c
       </div>
 
       {/* Footer Info */}
-      <div className="text-slate-500 text-[10px] text-center flex items-center justify-center gap-3 border-t border-slate-200 pt-2 max-w-7xl w-full font-medium">
+      <div className="text-slate-500 text-[10px] text-center flex items-center justify-center gap-3 border-t border-slate-200 pt-3 max-w-5xl w-full font-medium">
         <span>عملة النظام: <strong className="font-mono text-slate-800">KWD (0.000)</strong></span>
         <span>•</span>
         <span>قانون العمل الكويتي: <strong className="text-slate-800">رقم 6 لسنة 2010</strong></span>
         <span>•</span>
-        <span>بيئة العمل: <strong className="text-emerald-700">Dafthra ERP Active</strong></span>
+        <span>بيئة العمل: <strong className="text-emerald-700">Odoo 18 Enterprise Active</strong></span>
       </div>
 
-    </div>);
+    </div>
+  );
 };
 
+export default OdooAppLauncher;

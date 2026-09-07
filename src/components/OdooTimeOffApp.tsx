@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Calendar, 
   CalendarDays, 
@@ -26,7 +26,14 @@ import {
   Trash2,
   RefreshCw,
   Info,
-  FileSpreadsheet
+  FileSpreadsheet,
+  AlertTriangle,
+  RotateCcw,
+  CheckCheck,
+  ShieldCheck,
+  Ban,
+  ChevronRight,
+  Filter
 } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
 import { useOdooHierarchy } from '../context/OdooHierarchyContext';
@@ -34,8 +41,14 @@ import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { exportToExcel } from '../utils/exportUtils';
 import { toast } from 'react-hot-toast';
 import { LeaveSettlementCalculator } from './LeaveSettlementCalculator';
-import { calculate2026AccruedDays, getCarriedOverBalance, getGlobalCompensatoryDays } from '../utils/kuwaitLaw';
+import { calculate2026AccruedDays, getCarriedOverBalance, getGlobalCompensatoryDays, calculateActualLeaveDays } from '../utils/kuwaitLaw';
 import { computeFifoLeaveAllocations, buildEmployeeBaselineAllocations } from '../services/leaveService';
+
+// Time Off Sub-components
+import { PrintableLeaveFormModal } from './timeoff/PrintableLeaveFormModal';
+import { ReturnToWorkModal } from './timeoff/ReturnToWorkModal';
+import { LeaveRejectionModal } from './timeoff/LeaveRejectionModal';
+import { AbsenceTimelineView } from './timeoff/AbsenceTimelineView';
 
 export interface LeaveRequest {
   id: string;
@@ -48,12 +61,21 @@ export interface LeaveRequest {
   endDate: string;
   daysCount: number;
   reason: string;
-  status: 'draft' | 'pending' | 'approved' | 'rejected';
+  status: 'draft' | 'pending' | 'pending_manager' | 'pending_hr' | 'approved' | 'rejected' | 'returned';
   appliedDate: string;
   replacementEmployee?: string;
   basicSalary: number;
   totalSalary: number;
   settlementDone?: boolean;
+  managerApprovedBy?: string;
+  managerApprovedAt?: string;
+  hrApprovedBy?: string;
+  hrApprovedAt?: string;
+  rejectionReason?: string;
+  returnedToWorkDate?: string;
+  returnedToWorkNotes?: string;
+  advanceSalarySettled?: boolean;
+  advanceSalaryAmount?: number;
 }
 
 export interface LeaveAllocation {
@@ -73,13 +95,98 @@ const leaveTypeLabels: Record<string, { label: string; color: string; maxDaysRul
   sick: { label: 'إجازة مرضية (تقرير طبي)', color: 'bg-rose-100 text-rose-800 border-rose-300', maxDaysRule: '15 يوم بأجر كامل، 10 بنصف أجر' },
   hajj: { label: 'إجازة حج (21 يوم)', color: 'bg-amber-100 text-amber-800 border-amber-300', maxDaysRule: 'مادة 76 - خدمة لا تقل عن سنتين' },
   bereavement: { label: 'إجازة عزاء (حداد)', color: 'bg-slate-100 text-slate-800 border-slate-300', maxDaysRule: 'مادة 77 - 3 أيام للدرجة الأولى' },
-  maternity: { label: 'إجازة وضع وأمومة', color: 'bg-purple-100 text-purple-800 border-purple-300', maxDaysRule: 'مادة 24 - 70 يوماً بأجر كامل' },
+  maternity: { label: 'إجازة وضع وأمومة', color: 'bg-pink-100 text-pink-800 border-pink-300', maxDaysRule: 'مادة 24 - 70 يوماً بأجر كامل' },
   emergency: { label: 'إجازة طارئة', color: 'bg-orange-100 text-orange-800 border-orange-300', maxDaysRule: 'تخصم من الرصيد السنوي' },
   unpaid: { label: 'إجازة بدون راتب', color: 'bg-gray-100 text-gray-700 border-gray-300', maxDaysRule: 'بموافقة صاحب العمل' },
 };
 
 const STORAGE_KEY_ALLOCATIONS = 'odoo_leave_allocations_v2';
 const STORAGE_KEY_REQUESTS = 'odoo_leave_requests_v2';
+
+const DEFAULT_SAMPLE_REQUESTS: LeaveRequest[] = [
+  {
+    id: 'LV-2026-001',
+    employeeId: 'EMP-001',
+    employeeName: 'د. خالد عبد الرحمن العتيبي',
+    civilId: '288110501234',
+    department: 'الكادر الطبي - الجراحة',
+    leaveType: 'annual',
+    startDate: '2026-09-10',
+    endDate: '2026-09-24',
+    daysCount: 13,
+    reason: 'إجازة سنوية اعتيادية مع السفر للخارج',
+    status: 'approved',
+    appliedDate: '2026-08-25',
+    replacementEmployee: 'د. أحمد المحمود',
+    basicSalary: 1400,
+    totalSalary: 2100,
+    settlementDone: true,
+    managerApprovedBy: 'د. فيصل المطيري (رئيس الهيئة الطبية)',
+    managerApprovedAt: '2026-08-26',
+    hrApprovedBy: 'أ. جاسم الشمري (مدير الموارد البشرية)',
+    hrApprovedAt: '2026-08-27',
+  },
+  {
+    id: 'LV-2026-002',
+    employeeId: 'EMP-002',
+    employeeName: 'مريم أحمد الكندري',
+    civilId: '293041205678',
+    department: 'الشؤون المالية والمحاسبة',
+    leaveType: 'maternity',
+    startDate: '2026-08-01',
+    endDate: '2026-10-09',
+    daysCount: 70,
+    reason: 'إجازة وضع وأمومة مدفوعة الأجر (مادة 24 قانون العمل)',
+    status: 'approved',
+    appliedDate: '2026-07-20',
+    replacementEmployee: 'سارة عبد الله الفهد',
+    basicSalary: 650,
+    totalSalary: 950,
+    settlementDone: false,
+    managerApprovedBy: 'أ. فهد الهاجري (المدير المالي)',
+    managerApprovedAt: '2026-07-22',
+    hrApprovedBy: 'أ. جاسم الشمري (مدير الموارد البشرية)',
+    hrApprovedAt: '2026-07-23',
+  },
+  {
+    id: 'LV-2026-003',
+    employeeId: 'EMP-003',
+    employeeName: 'جاسم محمد الشمري',
+    civilId: '285072304321',
+    department: 'الموارد البشرية والإدارية',
+    leaveType: 'annual',
+    startDate: '2026-10-01',
+    endDate: '2026-10-15',
+    daysCount: 12,
+    reason: 'إجازة سنوية دورية',
+    status: 'pending_hr',
+    appliedDate: '2026-09-02',
+    replacementEmployee: 'ناصر فهد الدوسري',
+    basicSalary: 900,
+    totalSalary: 1350,
+    settlementDone: false,
+    managerApprovedBy: 'أ. جاسم الشمري (مدير الإدارة)',
+    managerApprovedAt: '2026-09-03',
+  },
+  {
+    id: 'LV-2026-004',
+    employeeId: 'EMP-004',
+    employeeName: 'ناصر فهد الدوسري',
+    civilId: '290091809876',
+    department: 'الموارد البشرية والإدارية',
+    leaveType: 'emergency',
+    startDate: '2026-09-15',
+    endDate: '2026-09-16',
+    daysCount: 2,
+    reason: 'ظرف عائلي طارئ',
+    status: 'pending_manager',
+    appliedDate: '2026-09-06',
+    replacementEmployee: 'جاسم محمد الشمري',
+    basicSalary: 550,
+    totalSalary: 800,
+    settlementDone: false,
+  }
+];
 
 export const OdooTimeOffApp: React.FC = () => {
   const { activeCompany } = useCompany();
@@ -89,11 +196,14 @@ export const OdooTimeOffApp: React.FC = () => {
   const [requests, setRequests] = useState<LeaveRequest[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_REQUESTS);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
     } catch (e) {
       console.error('Error loading leave requests from storage', e);
     }
-    return [];
+    return DEFAULT_SAMPLE_REQUESTS;
   });
 
   const [allocations, setAllocations] = useState<LeaveAllocation[]>(() => {
@@ -123,19 +233,24 @@ export const OdooTimeOffApp: React.FC = () => {
     }
   }, [allocations]);
 
-  // Unified Employees List for dropdowns
+  // Unified Employees List
   const companyEmployees = (employees && employees.length > 0) ? employees : [];
 
-  // Filters & Tabs
+  // Main navigation tabs: requests, timeline, allocations, finance
+  const [activeMainTab, setActiveMainTab] = useState<'requests' | 'timeline' | 'allocations' | 'finance'>('requests');
+  const [financeSubTab, setFinanceSubTab] = useState<'advance_salary' | 'encashment_calculator'>('advance_salary');
+
+  // Filters & Search for Requests
   const [selectedFilter, setSelectedFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeMainTab, setActiveMainTab] = useState<'requests' | 'allocations' | 'encashment'>('requests');
-  const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'gantt'>('list');
 
   // Modal Control States
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [showAllocationModal, setShowAllocationModal] = useState(false);
   const [selectedSettlementReq, setSelectedSettlementReq] = useState<LeaveRequest | null>(null);
+  const [selectedPrintReq, setSelectedPrintReq] = useState<LeaveRequest | null>(null);
+  const [selectedReturnReq, setSelectedReturnReq] = useState<LeaveRequest | null>(null);
+  const [rejectionModalState, setRejectionModalState] = useState<{ req: LeaveRequest; stageLabel: string } | null>(null);
 
   // Helper to dynamically calculate employee leave balance linked to their Contract & Fiscal Year
   const getEmployeeContractBalance = (empId: string) => {
@@ -144,7 +259,6 @@ export const OdooTimeOffApp: React.FC = () => {
     const contractStartStr = empAny?.joinDate || empAny?.contractStartDate || empAny?.date_start || empAny?.startDate || '2026-01-01';
     const contractEndStr = empAny?.contractEndDate || empAny?.date_end || '2027-12-31';
 
-    // Use unified FIFO engine for exact accuracy (matching LeavesApp & Kuwait Law)
     const mappedAllocations = allocations.map(a => ({
       ...a,
       numberOfDays: a.days,
@@ -196,14 +310,39 @@ export const OdooTimeOffApp: React.FC = () => {
     civilId: companyEmployees[0]?.civilId || '',
     department: companyEmployees[0]?.department || '',
     leaveType: 'annual' as LeaveRequest['leaveType'],
-    startDate: '2026-09-01',
-    endDate: '2026-09-15',
+    startDate: '2026-09-10',
+    endDate: '2026-09-24',
     reason: '',
     replacementEmployee: '',
     basicSalary: companyEmployees[0]?.basicSalary || 0,
     totalSalary: (companyEmployees[0] as any)?.totalSalary || (companyEmployees[0] as any)?.salary || 0,
-    excludeHolidays: false
+    excludeHolidays: true
   });
+
+  // Calculate live days breakdown with Kuwait law public holidays & weekend deduction
+  const requestDurationBreakdown = useMemo(() => {
+    return calculateActualLeaveDays(newRequest.startDate, newRequest.endDate);
+  }, [newRequest.startDate, newRequest.endDate]);
+
+  // Check overlaps for new request
+  const newRequestOverlaps = useMemo(() => {
+    if (!newRequest.startDate || !newRequest.endDate) return { teamOverlaps: [], replacementOverlap: false };
+
+    const teamOverlaps = requests.filter(r => 
+      (r.status === 'approved' || r.status === 'pending_manager' || r.status === 'pending_hr') &&
+      r.employeeId !== newRequest.employeeId &&
+      r.department && r.department === newRequest.department &&
+      r.startDate <= newRequest.endDate && r.endDate >= newRequest.startDate
+    );
+
+    const replacementOverlap = requests.some(r =>
+      (r.status === 'approved' || r.status === 'pending_manager' || r.status === 'pending_hr') &&
+      (r.employeeName === newRequest.replacementEmployee || r.employeeId === newRequest.replacementEmployee) &&
+      r.startDate <= newRequest.endDate && r.endDate >= newRequest.startDate
+    );
+
+    return { teamOverlaps, replacementOverlap };
+  }, [requests, newRequest]);
 
   // Form Inputs - Time Off Allocation (Odoo 18 Enterprise Form Fields)
   const [newAllocation, setNewAllocation] = useState({
@@ -215,69 +354,43 @@ export const OdooTimeOffApp: React.FC = () => {
     notes: ''
   });
 
-  // When selected employee changes in Allocation form
   const handleAllocationEmployeeChange = (empId: string) => {
     const selected = companyEmployees.find(e => e.id === empId);
     if (selected) {
-      setNewAllocation(prev => ({
-        ...prev,
+      setNewAllocation({
+        ...newAllocation,
         employeeId: selected.id,
-        employeeName: selected.name
-      }));
+        employeeName: selected.name || (selected as any).fullNameAr || ''
+      });
     }
   };
 
-  // When selected employee changes in Request form
-  const handleRequestEmployeeChange = (empId: string) => {
+  const handleEmployeeChange = (empId: string) => {
     const selected = companyEmployees.find(e => e.id === empId);
     if (selected) {
-      setNewRequest(prev => ({
-        ...prev,
+      setNewRequest({
+        ...newRequest,
         employeeId: selected.id,
-        employeeName: selected.name,
-        civilId: selected.civilId || prev.civilId,
-        department: selected.department || prev.department
-      }));
+        employeeName: selected.name || (selected as any).fullNameAr || '',
+        civilId: selected.civilId || '',
+        department: selected.department || '',
+        basicSalary: selected.basicSalary || 0,
+        totalSalary: (selected as any).totalSalary || (selected as any).salary || 0
+      });
     }
   };
 
-  // Calculate Difference in Days (Smart Calculation)
-  const calculateDays = (start: string, end: string, excludeHolidays: boolean) => {
-    if (!start || !end) return 0;
-    const d1 = new Date(start);
-    const d2 = new Date(end);
-    let diffTime = d2.getTime() - d1.getTime();
-    let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    
-    if (diffDays <= 0) return 0;
-
-    // Smart logic: if exclude holidays is checked, subtract weekends (Friday/Saturday)
-    if (excludeHolidays) {
-      let actualDays = 0;
-      let currentDate = new Date(d1);
-      while (currentDate <= d2) {
-        const dayOfWeek = currentDate.getDay(); // 0 = Sunday, 5 = Friday, 6 = Saturday
-        if (dayOfWeek !== 5 && dayOfWeek !== 6) {
-          actualDays++;
-        }
-        currentDate.setDate(currentDate.getDate() + 1);
-      }
-      return actualDays;
-    }
-
-    return diffDays;
-  };
-
-  // Handlers
+  // Handlers for Request Creation
   const handleCreateRequest = (e: React.FormEvent) => {
     e.preventDefault();
-    const count = calculateDays(newRequest.startDate, newRequest.endDate, newRequest.excludeHolidays);
+    const count = newRequest.excludeHolidays ? requestDurationBreakdown.actualDays : requestDurationBreakdown.totalDays;
+
     if (count <= 0) {
-      toast.error('يرجى اختيار تاريخ نهاية صحيح بعد تاريخ البداية.');
+      toast.error('يرجى اختيار تواريخ صحيحة بحيث تتضمن أيام عمل محتسبة.');
       return;
     }
 
-    // Check available balance for Annual Leave linked to Contract & Fiscal Year
+    // Check available balance for Annual Leave
     if (newRequest.leaveType === 'annual') {
       const empId = newRequest.employeeId || companyEmployees[0]?.id || '';
       const { available } = getEmployeeContractBalance(empId);
@@ -287,9 +400,7 @@ export const OdooTimeOffApp: React.FC = () => {
         const confirmOverride = window.confirm(
           `الرصيد غير كافٍ!\nرصيد الموظف المتاح وفق استحقاق العقد هو ${available.toFixed(2)} يوم فقط، بينما المطلوب ${count} أيام.\n\nهل ترغب بالسماح بتجاوز الرصيد بمقدار (${excess.toFixed(2)} يوم) على أن يتم إدراج الأيام الزائدة كأيام غير مدفوعة تُخصم من مدة الخدمة عند النهاية؟`
         );
-        if (!confirmOverride) {
-          return;
-        }
+        if (!confirmOverride) return;
       }
     }
 
@@ -304,7 +415,7 @@ export const OdooTimeOffApp: React.FC = () => {
       endDate: newRequest.endDate,
       daysCount: count,
       reason: newRequest.reason || 'إجازة اعتيادية',
-      status: 'pending',
+      status: 'pending_manager', // Starts at step 1 (Direct Manager Approval)
       appliedDate: new Date().toISOString().split('T')[0],
       replacementEmployee: newRequest.replacementEmployee,
       basicSalary: newRequest.basicSalary,
@@ -314,7 +425,7 @@ export const OdooTimeOffApp: React.FC = () => {
 
     setRequests([created, ...requests]);
     setShowApplyModal(false);
-    toast.success('تم تقديم طلب الإجازة بنجاح، بانتظار اعتماد المدير.');
+    toast.success('تم تقديم طلب الإجازة بنجاح، بانتظار موافقة المدير المباشر (المرحلة الأولى).');
   };
 
   // Handle Odoo 18 Allocation Creation & Balance Re-computation
@@ -363,12 +474,31 @@ export const OdooTimeOffApp: React.FC = () => {
     }
   };
 
-  const updateStatus = (id: string, status: 'approved' | 'rejected') => {
+  // 2-Step Approval Workflow:
+  // Step 1: Manager approves -> status becomes pending_hr
+  const handleManagerApprove = (id: string) => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    setRequests(requests.map(req => {
+      if (req.id === id) {
+        return {
+          ...req,
+          status: 'pending_hr',
+          managerApprovedBy: 'مدير القسم المباشر',
+          managerApprovedAt: todayStr
+        };
+      }
+      return req;
+    }));
+    toast.success('تمت موافقة المدير المباشر بنجاح، وأحيل الطلب إلى إدارة الموارد البشرية للاعتماد النهائي.');
+  };
+
+  // Step 2: HR approves -> status becomes approved
+  const handleHrApprove = (id: string) => {
     const targetReq = requests.find(r => r.id === id);
     if (!targetReq) return;
 
-    // Balance check on approval
-    if (status === 'approved' && targetReq.leaveType === 'annual') {
+    // Balance check
+    if (targetReq.leaveType === 'annual') {
       const current = leaveAccruals?.[targetReq.employeeId];
       const carried = current?.carriedFrom2025 || 0;
       const earned = current?.earned2026 || 0;
@@ -380,25 +510,64 @@ export const OdooTimeOffApp: React.FC = () => {
         const confirmOverride = window.confirm(
           `تنبيه تجاوز الرصيد!\n\nالرصيد المتاح للموظف (${available.toFixed(2)} يوم) أقل من الإجازة المطلوبة (${targetReq.daysCount}).\n\nهل أنت متأكد من اعتماد الإجازة والموافقة على تجاوز الرصيد بمقدار (${excess.toFixed(2)} يوم)؟ سيتم خصم هذه الأيام الزائدة تلقائياً من أيام خدمة الموظف.`
         );
-        if (!confirmOverride) {
-          return; // Block the approval if user cancels
-        }
+        if (!confirmOverride) return;
       }
     }
 
-    setRequests(requests.map(req => req.id === id ? { ...req, status } : req));
-    
-    // Sync with leaveAccrual state if approved
-    if (status === 'approved' && targetReq.employeeId && updateLeaveAccrual) {
+    const todayStr = new Date().toISOString().split('T')[0];
+    setRequests(requests.map(req => {
+      if (req.id === id) {
+        return {
+          ...req,
+          status: 'approved',
+          hrApprovedBy: 'إدارة الموارد البشرية والشؤون القانونية',
+          hrApprovedAt: todayStr
+        };
+      }
+      return req;
+    }));
+
+    // Update context
+    if (targetReq.employeeId && updateLeaveAccrual) {
       const current = leaveAccruals?.[targetReq.employeeId];
       const carried = current?.carriedFrom2025 || 0;
       const earned = current?.earned2026 || 0;
       const prevConsumed = current?.consumedDays || 0;
-      const newConsumed = prevConsumed + targetReq.daysCount;
-      updateLeaveAccrual(targetReq.employeeId, carried, earned, newConsumed);
+      updateLeaveAccrual(targetReq.employeeId, carried, earned, prevConsumed + targetReq.daysCount);
     }
 
-    toast.success(`تم ${status === 'approved' ? 'اعتماد' : 'رفض'} طلب الإجازة وتحديث سجل الرصيد وأيام الخدمة.`);
+    toast.success('تم الاعتماد النهائي للإجازة وتحديث رصيد الموظف وسجلاته الرسمية.');
+  };
+
+  // Rejection with reason modal confirm
+  const handleConfirmRejection = (requestId: string, reason: string) => {
+    setRequests(requests.map(r => r.id === requestId ? { ...r, status: 'rejected', rejectionReason: reason } : r));
+    setRejectionModalState(null);
+    toast.success('تم تسجيل قرار الرفض وتوثيق الأسباب في سجل الطلب.');
+  };
+
+  // Return to work confirm
+  const handleConfirmReturnToWork = (requestId: string, returnDate: string, notes: string, diffDays: number) => {
+    setRequests(requests.map(r => {
+      if (r.id === requestId) {
+        return {
+          ...r,
+          status: 'returned',
+          returnedToWorkDate: returnDate,
+          returnedToWorkNotes: notes
+        };
+      }
+      return r;
+    }));
+
+    setSelectedReturnReq(null);
+    if (diffDays > 0) {
+      toast.success(`تم تسجيل مباشرة العمل مع رصد تأخير (+${diffDays} يوم) تم إخطار قسم الرواتب بها.`);
+    } else if (diffDays < 0) {
+      toast.success(`تم تسجيل مباشرة العمل مبكراً قبل الموعد بـ (${Math.abs(diffDays)} يوم).`);
+    } else {
+      toast.success('تم تسجيل مباشرة العمل في الموعد المحدد بنجاح.');
+    }
   };
 
   const handleRunMonthlyAccrual = () => {
@@ -410,13 +579,24 @@ export const OdooTimeOffApp: React.FC = () => {
 
   const markSettlementPaid = (id: string) => {
     setRequests(requests.map(req => req.id === id ? { ...req, settlementDone: true } : req));
-    toast.success('تم اعتماد التسوية المسبقة، وتم تحويل المستحقات لمسير الرواتب بنجاح.');
+    toast.success('تم اعتماد التسوية المسبقة، وتم ترحيل المستحقات لمسير الرواتب بنجاح.');
     setSelectedSettlementReq(null);
   };
 
+  // Filter requests
   const filteredRequests = requests.filter(req => {
-    const matchesFilter = selectedFilter === 'all' || req.status === selectedFilter;
-    const matchesSearch = req.employeeName.includes(searchQuery) || req.id.includes(searchQuery) || req.reason.includes(searchQuery);
+    const isPending = req.status === 'pending' || req.status === 'pending_manager' || req.status === 'pending_hr';
+    const matchesFilter = 
+      selectedFilter === 'all' || 
+      req.status === selectedFilter ||
+      (selectedFilter === 'pending' && isPending);
+
+    const matchesSearch = 
+      req.employeeName.includes(searchQuery) || 
+      req.id.includes(searchQuery) || 
+      req.reason.includes(searchQuery) ||
+      (req.department && req.department.includes(searchQuery));
+
     return matchesFilter && matchesSearch;
   });
 
@@ -428,10 +608,15 @@ export const OdooTimeOffApp: React.FC = () => {
     .filter(a => a.employeeId === selectedEmpForAlloc?.id || a.employeeName === selectedEmpForAlloc?.name)
     .reduce((acc, a) => acc + a.days, 0);
 
+  // Stats calculation
+  const pendingRequestsCount = requests.filter(r => r.status === 'pending' || r.status === 'pending_manager' || r.status === 'pending_hr').length;
+  const todayStr = new Date().toISOString().split('T')[0];
+  const activeLeavesTodayCount = requests.filter(r => r.status === 'approved' && r.startDate <= todayStr && r.endDate >= todayStr).length;
+
   return (
     <div className="space-y-6 font-sans dir-rtl text-right text-slate-800" dir="rtl">
       
-      {/* Top Header with Odoo 18 Actions */}
+      {/* Top Header with Clean Enterprise Actions */}
       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-[#714B67]/10 text-[#714B67] rounded-xl">
@@ -439,14 +624,18 @@ export const OdooTimeOffApp: React.FC = () => {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-black text-slate-900">نظام إدارة الإجازات (Time Off)</h1>
-              <span className="bg-[#714B67]/10 text-[#714B67] text-[10px] font-bold px-2 py-0.5 rounded-full">Odoo 18 Enterprise</span>
+              <h1 className="text-xl font-black text-slate-900">نظام إدارة الإجازات والغياب (Time Off)</h1>
+              <span className="bg-[#714B67]/10 text-[#714B67] text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                Odoo 18 Enterprise
+              </span>
             </div>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
-              المنشأة: <strong className="text-[#714B67]">{activeCompany?.nameAr || 'الشركة الرئيسية'}</strong> | قانون العمل الكويتي (مادة 70 و 71)
+              المنشأة: <strong className="text-[#714B67]">{activeCompany?.nameAr || 'الشركة الرئيسية'}</strong> | قانون العمل الكويتي رقم 6 لسنة 2010
             </p>
           </div>
         </div>
+
+        {/* Top Actions: Streamlined without duplicate buttons */}
         <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
           <button
             type="button"
@@ -461,7 +650,7 @@ export const OdooTimeOffApp: React.FC = () => {
                 'من تاريخ': r.startDate,
                 'إلى تاريخ': r.endDate,
                 'عدد الأيام': r.daysCount,
-                'الحالة': r.status === 'approved' ? 'معتمدة' : r.status === 'pending' ? 'قيد المراجعة' : 'مرفوضة',
+                'الحالة': r.status === 'approved' ? 'معتمدة' : r.status === 'returned' ? 'تمت مباشرة العمل' : r.status.includes('pending') ? 'قيد المراجعة' : 'مرفوضة',
                 'الموظف البديل': r.replacementEmployee || 'غير محدد',
                 'السبب': r.reason
               }));
@@ -473,6 +662,7 @@ export const OdooTimeOffApp: React.FC = () => {
             <FileSpreadsheet size={15} className="text-emerald-600" />
             <span>تصدير Excel</span>
           </button>
+
           <button
             type="button"
             onClick={() => safePrintAction('سجل الإجازات الرسمية')}
@@ -480,23 +670,18 @@ export const OdooTimeOffApp: React.FC = () => {
             title="طباعة سجل الإجازات"
           >
             <Printer size={15} />
-            <span>طباعة</span>
+            <span>طباعة السجل</span>
           </button>
+
           <button
             type="button"
             onClick={handleRunMonthlyAccrual}
             className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-3.5 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
             title="تشغيل إضافة الاستحقاق الشهري التلقائي (+2.5 يوم لجميع الموظفين النشطين يوم 30)"
           >
-            <RefreshCw size={14} className="text-emerald-600 animate-spin-hover" /> استحقاق الشهر (+2.5 يوم)
+            <RefreshCw size={14} className="text-emerald-600" /> استحقاق الشهر (+2.5 يوم)
           </button>
-          <button
-            type="button"
-            onClick={() => setShowAllocationModal(true)}
-            className="bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-2xs cursor-pointer"
-          >
-            <Layers size={15} className="text-purple-700" /> تخصيص رصيد مرحّل (Allocation)
-          </button>
+
           <button
             type="button"
             onClick={() => setShowApplyModal(true)}
@@ -507,10 +692,11 @@ export const OdooTimeOffApp: React.FC = () => {
         </div>
       </div>
 
-      {/* Metric Cards - Odoo Balance Cards */}
+      {/* Metric Cards - Live Odoo Balances */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs fade-slide-up">
+        {/* Card 1: Annual Legal Quota */}
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
           <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-1">
             <span>الرصيد السنوي الأساسي</span>
             <Calendar className="w-4 h-4 text-emerald-600" />
@@ -521,10 +707,10 @@ export const OdooTimeOffApp: React.FC = () => {
           </div>
         </div>
 
-        {/* Trigger Allocation Modal from Balance Card */}
+        {/* Card 2: Carried Over Balances */}
         <div 
-          className="bg-white p-4 rounded-xl border border-purple-200 shadow-2xs cursor-pointer hover:border-purple-400 hover:shadow-md transition group relative overflow-hidden fade-slide-up" 
-          onClick={() => setShowAllocationModal(true)}
+          className="bg-white p-4 rounded-xl border border-purple-200 shadow-2xs cursor-pointer hover:border-purple-400 hover:shadow-md transition group" 
+          onClick={() => { setActiveMainTab('allocations'); setShowAllocationModal(true); }}
           title="انقر لفتح نافذة تخصيص وترحيل الرصيد"
         >
           <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-1">
@@ -533,218 +719,294 @@ export const OdooTimeOffApp: React.FC = () => {
           </div>
           <div className="text-2xl font-black text-purple-700">+{totalCarriedDays.toFixed(1)} <span className="text-xs font-normal text-slate-500">أيام معتمدة</span></div>
           <div className="text-[10px] text-purple-700 mt-1 flex items-center gap-1 font-bold group-hover:underline">
-            <PlusCircle size={12} /> اضغط لتخصيص أو ترحيل رصيد جديد
+            <PlusCircle size={12} /> تخصيص رصيد مرحّل جديد
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs fade-slide-up">
+        {/* Card 3: Pending Approvals */}
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
           <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-1">
             <span>طلبات قيد المراجعة والاعتماد</span>
             <Clock className="w-4 h-4 text-amber-500" />
           </div>
           <div className="text-2xl font-black text-amber-600">
-            {requests.filter(r => r.status === 'pending').length} <span className="text-xs font-normal text-slate-500">طلب معلق</span>
+            {pendingRequestsCount} <span className="text-xs font-normal text-slate-500">طلب معلق</span>
           </div>
           <div className="text-[10px] text-slate-500 mt-1">تتطلب اعتماد المدير / الموارد البشرية</div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs fade-slide-up">
+        {/* Card 4: Active Leaves Today */}
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
           <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-1">
-            <span>الإجازات المستهلكة المعتمدة</span>
+            <span>الموظفون في إجازة اليوم</span>
             <CheckCircle2 className="w-4 h-4 text-blue-600" />
           </div>
           <div className="text-2xl font-black text-blue-600">
-            {requests.filter(r => r.status === 'approved').reduce((acc, curr) => acc + curr.daysCount, 0)} <span className="text-xs font-normal text-slate-500">يوم مستهلك</span>
+            {activeLeavesTodayCount} <span className="text-xs font-normal text-slate-500">موظف مجاز</span>
           </div>
-          <div className="text-[10px] text-slate-500 mt-1">تشمل الإجازات المصروفة والتسويات</div>
+          <div className="text-[10px] text-slate-500 mt-1">تغطية الأقسام مستقرة ومؤمنة</div>
         </div>
 
       </div>
 
-      {/* Main Mode Tabs Switcher & View Modes */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold gap-1 w-fit overflow-x-auto">
-          <button
-            type="button"
-            onClick={() => setActiveMainTab('requests')}
-            className={`px-4 py-2 rounded-lg transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-              activeMainTab === 'requests' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <CalendarDays size={14} /> طلبات الإجازات والتسويات ({requests.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveMainTab('allocations')}
-            className={`px-4 py-2 rounded-lg transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-              activeMainTab === 'allocations' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Layers size={14} /> الأرصدة الافتتاحية ({allocations.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveMainTab('encashment')}
-            className={`px-4 py-2 rounded-lg transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-              activeMainTab === 'encashment' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <DollarSign size={14} /> تصفية الإجازات (Encashment)
-          </button>
-        </div>
+      {/* Main Four Navigation Tabs */}
+      <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold gap-1 w-full overflow-x-auto">
+        <button
+          type="button"
+          onClick={() => setActiveMainTab('requests')}
+          className={`px-4 py-2.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+            activeMainTab === 'requests' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <CalendarDays size={15} /> طلبات الإجازات والاعتمادات ({requests.length})
+        </button>
 
-        {activeMainTab === 'requests' && (
-          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold gap-1">
-            <button
-              onClick={() => setViewMode('list')}
-              className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1 cursor-pointer ${viewMode === 'list' ? 'bg-white shadow-xs text-[#714B67]' : 'text-slate-600'}`}
-            >
-              <List size={14} /> القائمة
-            </button>
-            <button
-              onClick={() => setViewMode('calendar')}
-              className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1 cursor-pointer ${viewMode === 'calendar' ? 'bg-white shadow-xs text-[#714B67]' : 'text-slate-600'}`}
-            >
-              <Calendar size={14} /> التقويم
-            </button>
-            <button
-              onClick={() => setViewMode('gantt')}
-              className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1 cursor-pointer ${viewMode === 'gantt' ? 'bg-white shadow-xs text-[#714B67]' : 'text-slate-600'}`}
-            >
-              <BarChart size={14} /> مخطط جانت (تداخل)
-            </button>
-          </div>
-        )}
+        <button
+          type="button"
+          onClick={() => setActiveMainTab('timeline')}
+          className={`px-4 py-2.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+            activeMainTab === 'timeline' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <BarChart size={15} /> مخطط تداخل الغيابات وتغطية الأقسام (Timeline)
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveMainTab('allocations')}
+          className={`px-4 py-2.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+            activeMainTab === 'allocations' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <Layers size={15} /> الأرصدة الافتتاحية والمرحّلة ({allocations.length})
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveMainTab('finance')}
+          className={`px-4 py-2.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+            activeMainTab === 'finance' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <DollarSign size={15} /> المركز المالي لتسويات وبدل الإجازات (Settlements)
+        </button>
       </div>
 
-      {/* TAB 1: REQUESTS & SETTLEMENTS */}
+      {/* ======================================================== */}
+      {/* TAB 1: REQUESTS & 2-STEP APPROVALS LIST */}
+      {/* ======================================================== */}
       {activeMainTab === 'requests' && (
-        <>
-          {viewMode === 'list' && (
-            <>
-              {/* Controls Bar */}
-              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-1 md:pb-0">
-                  {[
-                    { id: 'all', label: 'جميع الطلبات' },
-                    { id: 'pending', label: 'قيد الاعتماد' },
-                    { id: 'approved', label: 'المعتمدة' },
-                    { id: 'rejected', label: 'المرفوضة' }
-                  ].map((tab) => (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => setSelectedFilter(tab.id)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
-                        selectedFilter === tab.id
-                          ? 'bg-[#714B67] text-white shadow-2xs'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-                <div className="relative w-full md:w-72">
-                  <Search className="w-4 h-4 text-slate-400 absolute right-3 top-2.5" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="بحث بالاسم أو القسم أو الرقم..."
-                    className="w-full pr-9 pl-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:border-[#714B67] outline-none transition"
-                  />
-                </div>
-              </div>
+        <div className="space-y-4">
+          
+          {/* Filters Bar */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0">
+              {[
+                { id: 'all', label: 'جميع الطلبات' },
+                { id: 'pending', label: 'قيد الاعتماد' },
+                { id: 'approved', label: 'المعتمدة' },
+                { id: 'returned', label: 'تمت المباشرة' },
+                { id: 'rejected', label: 'المرفوضة' }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setSelectedFilter(tab.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                    selectedFilter === tab.id
+                      ? 'bg-[#714B67] text-white shadow-2xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
 
-              {/* Requests Table */}
-              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-right text-xs">
-                    <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
-                      <tr>
-                        <th className="p-3.5">الرقم</th>
-                        <th className="p-3.5">الموظف</th>
-                        <th className="p-3.5">نوع الإجازة</th>
-                        <th className="p-3.5">الفترة الزمنية</th>
-                        <th className="p-3.5">المدة</th>
-                        <th className="p-3.5">الموظف البديل</th>
-                        <th className="p-3.5">الحالة</th>
-                        <th className="p-3.5 text-center">إجراءات الاعتماد / تسوية الراتب</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {filteredRequests.map((req) => {
-                        const leaveConfig = leaveTypeLabels[req.leaveType] || leaveTypeLabels.annual;
-                        return (
-                          <tr key={req.id} className="hover:bg-slate-50/70 transition">
-                            <td className="p-3.5 font-mono font-bold text-slate-500">{req.id}</td>
-                            <td className="p-3.5">
-                              <div className="font-bold text-slate-900">{req.employeeName}</div>
-                              <div className="text-[10px] text-slate-400">{req.department}</div>
-                            </td>
-                            <td className="p-3.5">
-                              <span className={`inline-block px-2.5 py-1 rounded-md text-[11px] font-bold border ${leaveConfig.color}`}>
-                                {leaveConfig.label}
-                              </span>
-                              {req.leaveType === 'sick' && (
-                                <div className="text-[10px] text-blue-600 mt-1 flex items-center gap-1">
-                                  <FileText size={10}/> مرفق تقرير طبي
-                                </div>
-                              )}
-                            </td>
-                            <td className="p-3.5 font-mono">
-                              <div className="font-bold text-slate-800">{req.startDate}</div>
-                              <div className="text-[11px] text-slate-400">إلى {req.endDate}</div>
-                            </td>
-                            <td className="p-3.5">
-                              <span className="font-black text-slate-900 text-sm">{req.daysCount}</span> <span className="text-slate-500">يوم</span>
-                            </td>
-                            <td className="p-3.5 text-slate-600 font-medium">
-                              {req.replacementEmployee || '---'}
-                            </td>
-                            <td className="p-3.5">
-                              {req.status === 'approved' && (
-                                <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full text-[11px] font-bold">
-                                  <CheckCircle2 size={12} /> معتمدة
-                                </span>
-                              )}
-                              {req.status === 'pending' && (
-                                <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full text-[11px] font-bold">
-                                  <Clock size={12} /> قيد المراجعة
-                                </span>
-                              )}
-                              {req.status === 'rejected' && (
-                                <span className="inline-flex items-center gap-1 bg-rose-100 text-rose-800 px-2.5 py-1 rounded-full text-[11px] font-bold">
-                                  <XCircle size={12} /> مرفوضة
-                                </span>
-                              )}
-                            </td>
-                            <td className="p-3.5">
-                              <div className="flex items-center justify-center gap-1.5">
-                                {req.status === 'pending' && (
-                                  <>
-                                    <button
-                                      onClick={() => updateStatus(req.id, 'approved')}
-                                      className="px-2.5 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
-                                      title="اعتماد الطلب وخصم الرصيد"
-                                    >
-                                      <Check size={12} /> اعتماد
-                                    </button>
-                                    <button
-                                      onClick={() => updateStatus(req.id, 'rejected')}
-                                      className="px-2.5 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-800 rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
-                                      title="رفض الطلب"
-                                    >
-                                      <X size={12} /> رفض
-                                    </button>
-                                  </>
-                                )}
-                                {req.status === 'approved' && req.leaveType === 'annual' && (
+            <div className="relative w-full md:w-72">
+              <Search className="w-4 h-4 text-slate-400 absolute right-3 top-2.5" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="بحث بالاسم أو القسم أو الرقم..."
+                className="w-full pr-9 pl-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:border-[#714B67] outline-none transition"
+              />
+            </div>
+          </div>
+
+          {/* Requests Table */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-right text-xs">
+                <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                  <tr>
+                    <th className="p-3.5">الرقم</th>
+                    <th className="p-3.5">الموظف والقسم</th>
+                    <th className="p-3.5">نوع الإجازة</th>
+                    <th className="p-3.5">الفترة الزمنية</th>
+                    <th className="p-3.5">المدة الفعلية</th>
+                    <th className="p-3.5">الموظف البديل</th>
+                    <th className="p-3.5">حالة الاعتماد</th>
+                    <th className="p-3.5 text-center">الإجراءات والاعتماد</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredRequests.map((req) => {
+                    const leaveConfig = leaveTypeLabels[req.leaveType] || leaveTypeLabels.annual;
+                    const isPendingManager = req.status === 'pending_manager' || req.status === 'pending';
+                    const isPendingHr = req.status === 'pending_hr';
+
+                    return (
+                      <tr key={req.id} className="hover:bg-slate-50/70 transition">
+                        
+                        {/* ID */}
+                        <td className="p-3.5 font-mono font-bold text-slate-500">{req.id}</td>
+                        
+                        {/* Employee & Dept */}
+                        <td className="p-3.5">
+                          <div className="font-bold text-slate-900">{req.employeeName}</div>
+                          <div className="text-[10px] text-slate-400">{req.department || 'الإدارة العامة'}</div>
+                        </td>
+
+                        {/* Leave Type */}
+                        <td className="p-3.5">
+                          <span className={`inline-block px-2.5 py-1 rounded-md text-[11px] font-bold border ${leaveConfig.color}`}>
+                            {leaveConfig.label}
+                          </span>
+                          {req.leaveType === 'sick' && (
+                            <div className="text-[10px] text-blue-600 mt-1 flex items-center gap-1 font-semibold">
+                              <FileText size={11} /> تقرير طبي مرفق
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Dates */}
+                        <td className="p-3.5 font-mono">
+                          <div className="font-bold text-slate-800">{req.startDate}</div>
+                          <div className="text-[11px] text-slate-400">إلى {req.endDate}</div>
+                        </td>
+
+                        {/* Days */}
+                        <td className="p-3.5">
+                          <span className="font-black text-slate-900 text-sm">{req.daysCount}</span> <span className="text-slate-500">يوم</span>
+                        </td>
+
+                        {/* Replacement */}
+                        <td className="p-3.5 text-slate-600 font-medium">
+                          {req.replacementEmployee ? (
+                            <div className="flex items-center gap-1">
+                              <UserCheck size={13} className="text-emerald-600" />
+                              <span>{req.replacementEmployee}</span>
+                            </div>
+                          ) : (
+                            <span className="text-slate-400">بدون بديل</span>
+                          )}
+                        </td>
+
+                        {/* Status Badge */}
+                        <td className="p-3.5">
+                          {isPendingManager && (
+                            <div className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full text-[10px] font-bold border border-amber-300">
+                              <Clock size={12} />
+                              <span>1. بانتظار موافقة المدير</span>
+                            </div>
+                          )}
+
+                          {isPendingHr && (
+                            <div className="inline-flex items-center gap-1 bg-purple-100 text-purple-900 px-2.5 py-1 rounded-full text-[10px] font-bold border border-purple-300">
+                              <ShieldCheck size={12} />
+                              <span>2. بانتظار اعتماد الموارد البشرية</span>
+                            </div>
+                          )}
+
+                          {req.status === 'approved' && (
+                            <div className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full text-[10px] font-bold border border-emerald-300">
+                              <CheckCircle2 size={12} />
+                              <span>معتمدة نهائياً</span>
+                            </div>
+                          )}
+
+                          {req.status === 'returned' && (
+                            <div className="inline-flex items-center gap-1 bg-cyan-100 text-cyan-900 px-2.5 py-1 rounded-full text-[10px] font-bold border border-cyan-300">
+                              <CheckCheck size={12} />
+                              <span>تمت المباشرة ({req.returnedToWorkDate || 'الموعد'})</span>
+                            </div>
+                          )}
+
+                          {req.status === 'rejected' && (
+                            <div className="inline-flex items-center gap-1 bg-rose-100 text-rose-800 px-2.5 py-1 rounded-full text-[10px] font-bold border border-rose-300" title={req.rejectionReason || 'مرفوضة إدارياً'}>
+                              <XCircle size={12} />
+                              <span>مرفوضة</span>
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Action Buttons: 2-step approval & official actions */}
+                        <td className="p-3.5">
+                          <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                            
+                            {/* Step 1: Direct Manager Approves */}
+                            {isPendingManager && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleManagerApprove(req.id)}
+                                  className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer shadow-2xs"
+                                  title="الموافقة المبدئية وإحالة الطلب للموارد البشرية"
+                                >
+                                  <Check size={12} /> موافقة المدير
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setRejectionModalState({ req, stageLabel: 'موافقة المدير المباشر' })}
+                                  className="px-2 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
+                                  title="رفض الطلب مع توثيق السبب"
+                                >
+                                  <X size={12} /> رفض
+                                </button>
+                              </>
+                            )}
+
+                            {/* Step 2: HR Final Approves */}
+                            {isPendingHr && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleHrApprove(req.id)}
+                                  className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer shadow-2xs"
+                                  title="الاعتماد النهائي من الموارد البشرية وتحديث الرصيد"
+                                >
+                                  <ShieldCheck size={12} /> اعتماد نهائي (HR)
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setRejectionModalState({ req, stageLabel: 'اعتماد الموارد البشرية' })}
+                                  className="px-2 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
+                                  title="رفض الطلب مع توثيق السبب"
+                                >
+                                  <X size={12} /> رفض
+                                </button>
+                              </>
+                            )}
+
+                            {/* Approved State Actions */}
+                            {req.status === 'approved' && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedPrintReq(req)}
+                                  className="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
+                                  title="طباعة نموذج إجازة رسمي A4 ثنائي اللغة"
+                                >
+                                  <Printer size={12} /> استمارة A4
+                                </button>
+
+                                {req.leaveType === 'annual' && (
                                   <button
                                     type="button"
                                     onClick={() => setSelectedSettlementReq(req)}
-                                    className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition flex items-center gap-1 shadow-2xs cursor-pointer ${
+                                    className={`px-2 py-1.5 rounded-lg text-[10px] font-bold transition flex items-center gap-1 shadow-2xs cursor-pointer ${
                                       req.settlementDone
                                         ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                         : 'bg-[#714B67] hover:bg-[#5a3a52] text-white'
@@ -752,74 +1014,91 @@ export const OdooTimeOffApp: React.FC = () => {
                                     title="صرف راتب الإجازة مقدماً وفق المادة 71 من قانون العمل الكويتي"
                                   >
                                     <Plane size={12} />
-                                    <span>{req.settlementDone ? 'تمت التسوية' : 'تسوية مسبقة للراتب قبل السفر'}</span>
+                                    <span>{req.settlementDone ? 'تمت التسوية' : 'تسوية راتب مسبقة'}</span>
                                   </button>
                                 )}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                      {filteredRequests.length === 0 && (
-                        <tr>
-                          <td colSpan={8} className="p-8 text-center text-slate-400 font-bold text-sm">
-                            لا توجد طلبات تطابق الفلتر الحالي.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </>
-          )}
 
-          {/* Calendar / Gantt Views */}
-          {(viewMode === 'calendar' || viewMode === 'gantt') && (
-            <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center min-h-[400px]">
-              <CalendarDays size={48} className="text-slate-300 mb-4" />
-              <h2 className="text-lg font-bold text-slate-700">طريقة العرض '{viewMode === 'calendar' ? 'التقويم' : 'مخطط جانت'}'</h2>
-              <p className="text-slate-500 text-sm mt-2 max-w-md text-center">
-                تُعرض هنا الإجازات على شكل خط زمني لمعرفة التداخلات في الكادر الطبي والموظفين بناءً على تواريخ البدء والانتهاء للموظفين المعتمدة طلباتهم.
-              </p>
-              
-              <div className="mt-8 w-full max-w-3xl space-y-3">
-                {filteredRequests.filter(r => r.status === 'approved' || r.status === 'pending').slice(0,4).map(req => (
-                  <div key={req.id} className="relative w-full bg-slate-50 border rounded-lg p-3 flex items-center">
-                    <div className="w-1/4 truncate pr-2 font-bold text-xs text-slate-700">{req.employeeName}</div>
-                    <div className="w-3/4 relative h-6 bg-slate-200 rounded-full overflow-hidden">
-                      <div className={`absolute top-0 bottom-0 right-10 left-20 rounded-full ${req.status === 'approved' ? 'bg-emerald-400' : 'bg-amber-400'} opacity-80 flex items-center px-3 text-[10px] text-white font-bold overflow-hidden whitespace-nowrap`}>
-                        {req.startDate} إلى {req.endDate} ({req.daysCount} أيام)
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedReturnReq(req)}
+                                  className="px-2 py-1.5 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
+                                  title="تسجيل إشعار مباشرة العمل بعد انتهاء الإجازة"
+                                >
+                                  <RotateCcw size={12} /> مباشرة العمل
+                                </button>
+                              </>
+                            )}
+
+                            {/* Returned State */}
+                            {req.status === 'returned' && (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedPrintReq(req)}
+                                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
+                                title="طباعة الاستمارة الرسمية متضمنة إشعار العودة"
+                              >
+                                <Printer size={12} /> الاستمارة الرسمية
+                              </button>
+                            )}
+
+                            {/* Rejected State */}
+                            {req.status === 'rejected' && req.rejectionReason && (
+                              <span className="text-[10px] text-rose-600 italic truncate max-w-[150px]" title={req.rejectionReason}>
+                                السبب: {req.rejectionReason}
+                              </span>
+                            )}
+
+                          </div>
+                        </td>
+
+                      </tr>
+                    );
+                  })}
+                  {filteredRequests.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="p-8 text-center text-slate-400 font-bold text-sm">
+                        لا توجد طلبات إجازة تطابق البحث أو الفلتر المحدد.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
-          )}
-        </>
+          </div>
+
+        </div>
       )}
 
-      {/* TAB 2: ALLOCATIONS (Odoo 18 Time Off Allocations View) */}
+      {/* ======================================================== */}
+      {/* TAB 2: INTERACTIVE ABSENCE TIMELINE & TEAM COVERAGE */}
+      {/* ======================================================== */}
+      {activeMainTab === 'timeline' && (
+        <div className="animate-in fade-in duration-300">
+          <AbsenceTimelineView
+            requests={requests}
+            totalEmployeesCount={companyEmployees.length}
+            onSelectRequest={(req) => setSelectedPrintReq(req)}
+          />
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* TAB 3: ALLOCATIONS & OPENING BALANCES */}
+      {/* ======================================================== */}
       {activeMainTab === 'allocations' && (
-        <div className="space-y-4">
-          {/* Allocations Toolbar */}
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-purple-50 text-purple-700 rounded-lg">
-                <Layers size={18} />
-              </div>
-              <div>
-                <h3 className="font-bold text-sm text-slate-900">سجل الأرصدة المرحلة والافتتاحية (Allocations History)</h3>
-                <p className="text-[11px] text-slate-500">إجمالي الأرصدة المرحلة المسجلة: <strong className="text-purple-700">+{totalCarriedDays.toFixed(1)} يوم</strong></p>
-              </div>
+        <div className="space-y-4 animate-in fade-in duration-300">
+          
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">سجل الأرصدة الافتتاحية والمرحّلة (Leave Allocations)</h2>
+              <p className="text-xs text-slate-500">إدارة أرصدة الإجازات السنوية المرحلة من السنوات السابقة وفق Odoo 18</p>
             </div>
             <button
               type="button"
               onClick={() => setShowAllocationModal(true)}
-              className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+              className="px-4 py-2 bg-[#714B67] hover:bg-[#5a3a52] text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
             >
-              <PlusCircle size={14} /> إضافة وتخصيص رصيد مرحّل جديد
+              <PlusCircle size={15} /> إضافة رصيد مرحّل جديد
             </button>
           </div>
 
@@ -827,158 +1106,252 @@ export const OdooTimeOffApp: React.FC = () => {
             <table className="w-full text-right text-xs">
               <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                 <tr>
-                  <th className="p-3.5">رقم السجل</th>
-                  <th className="p-3.5">الموظف المستفيد</th>
-                  <th className="p-3.5">نوع الإجازة</th>
-                  <th className="p-3.5">سنة الاستحقاق المرحل منها</th>
-                  <th className="p-3.5">عدد الأيام الممنوحة</th>
+                  <th className="p-3.5">رقم السند</th>
+                  <th className="p-3.5">اسم الموظف</th>
+                  <th className="p-3.5">السنة المالية</th>
+                  <th className="p-3.5">الأيام الممنوحة</th>
                   <th className="p-3.5">تاريخ التخصيص</th>
-                  <th className="p-3.5">ملاحظات وسبب التخصيص</th>
-                  <th className="p-3.5">الحالة</th>
+                  <th className="p-3.5">البيان والسبب</th>
+                  <th className="p-3.5">المعتمد</th>
                   <th className="p-3.5 text-center">إجراءات</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {allocations.map((a) => (
-                  <tr key={a.id} className="hover:bg-slate-50/70 transition">
-                    <td className="p-3.5 font-mono font-bold text-slate-500">{a.id}</td>
-                    <td className="p-3.5">
-                      <div className="font-bold text-slate-900">{a.employeeName}</div>
-                      {a.employeeId && <div className="text-[10px] font-mono text-slate-400">{a.employeeId}</div>}
-                    </td>
-                    <td className="p-3.5">
-                      <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded text-[11px] font-bold">
-                        إجازة سنوية
-                      </span>
-                    </td>
-                    <td className="p-3.5 font-mono font-bold text-purple-700">{a.fromYear}</td>
-                    <td className="p-3.5 font-mono font-black text-emerald-700 text-sm">+{a.days.toFixed(1)} يوم</td>
-                    <td className="p-3.5 font-mono text-slate-600">{a.allocationDate}</td>
-                    <td className="p-3.5 text-slate-600 max-w-xs truncate" title={a.notes}>{a.notes}</td>
-                    <td className="p-3.5">
-                      <span className="bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1">
-                        <CheckCircle2 size={10} /> معتمد ومضاف
-                      </span>
-                    </td>
+                {allocations.map((alloc) => (
+                  <tr key={alloc.id} className="hover:bg-slate-50/70 transition">
+                    <td className="p-3.5 font-mono font-bold text-slate-500">{alloc.id}</td>
+                    <td className="p-3.5 font-bold text-slate-900">{alloc.employeeName}</td>
+                    <td className="p-3.5 font-mono text-purple-900 font-bold">{alloc.fromYear}</td>
+                    <td className="p-3.5 font-mono font-black text-emerald-700 text-sm">+{alloc.days} يوم</td>
+                    <td className="p-3.5 font-mono text-slate-500">{alloc.allocationDate}</td>
+                    <td className="p-3.5 text-slate-600">{alloc.notes}</td>
+                    <td className="p-3.5 text-slate-500">{alloc.allocatedBy || 'الموارد البشرية'}</td>
                     <td className="p-3.5 text-center">
                       <button
                         type="button"
-                        onClick={() => handleDeleteAllocation(a.id, a.employeeName, a.days)}
-                        className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                        onClick={() => handleDeleteAllocation(alloc.id, alloc.employeeName, alloc.days)}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
                         title="حذف سطر التخصيص"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={15} />
                       </button>
                     </td>
                   </tr>
                 ))}
                 {allocations.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="p-8 text-center text-slate-400 font-bold text-sm">
-                      لا توجد أرصدة مرحّلة مسجلة حتى الآن. اضغط على "إضافة وتخصيص رصيد مرحّل جديد" للبدء.
+                    <td colSpan={8} className="p-8 text-center text-slate-400 font-bold">
+                      لا توجد أرصدة مرحّلة مسجلة حالياً. اضغط على "إضافة رصيد مرحّل جديد" لتسجيل رصيد افتتاحي.
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
+
         </div>
       )}
 
-      {/* TAB 3: LEAVE SETTLEMENT CALCULATOR */}
-      {activeMainTab === 'encashment' && (
-        <div className="animate-in fade-in duration-300">
-          <LeaveSettlementCalculator employees={companyEmployees as any} />
-        </div>
-      )}
+      {/* ======================================================== */}
+      {/* TAB 4: UNIFIED FINANCIAL SETTLEMENTS & ENCASHMENT */}
+      {/* ======================================================== */}
+      {activeMainTab === 'finance' && (
+        <div className="space-y-4 animate-in fade-in duration-300">
+          
+          {/* Sub Tab Switcher */}
+          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold gap-1 w-fit">
+            <button
+              type="button"
+              onClick={() => setFinanceSubTab('advance_salary')}
+              className={`px-4 py-2 rounded-lg transition flex items-center gap-1.5 cursor-pointer ${
+                financeSubTab === 'advance_salary' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Plane size={14} /> صرف راتب الإجازة مقدماً (المادة 71 قبل السفر)
+            </button>
+            <button
+              type="button"
+              onClick={() => setFinanceSubTab('encashment_calculator')}
+              className={`px-4 py-2 rounded-lg transition flex items-center gap-1.5 cursor-pointer ${
+                financeSubTab === 'encashment_calculator' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Calculator size={14} /> تصفية وبيع رصيد الإجازات (Encashment Calculator)
+            </button>
+          </div>
 
-      {/* --- MODAL 1: SMART APPLY FOR NEW LEAVE --- */}
-      {showApplyModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-2xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200">
-            <div className="flex items-center justify-between border-b pb-3 mb-4">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <CalendarDays className="text-[#714B67]" size={20} />
-                تقديم طلب إجازة ذكي (New Leave Request)
-              </h3>
-              <button type="button" onClick={() => setShowApplyModal(false)} className="text-slate-400 hover:text-slate-600 font-bold cursor-pointer">
-                <X size={18} />
-              </button>
-            </div>
-            
-            <form onSubmit={handleCreateRequest} className="space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
+          {/* Sub-tab 1: Advance Salary Settlements */}
+          {financeSubTab === 'advance_salary' && (
+            <div className="space-y-4">
+              <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-950 flex items-start gap-2.5">
+                <Info size={16} className="text-amber-700 shrink-0 mt-0.5" />
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">اسم الموظف *</label>
-                  <select
-                    value={newRequest.employeeId}
-                    onChange={(e) => handleRequestEmployeeChange(e.target.value)}
-                    className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:border-[#714B67] bg-white font-bold"
-                  >
-                    {companyEmployees.map(emp => (
-                      <option key={emp.id} value={emp.id}>
-                        {emp.name} ({emp.id})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">القسم / الإدارة</label>
-                  <input
-                    type="text"
-                    value={newRequest.department}
-                    readOnly
-                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none text-slate-600"
-                  />
+                  <strong className="block font-bold mb-0.5">سندات صرف راتب الإجازة السنوية مقدماً (تنفيذاً للمادة 71 من قانون العمل الكويتي):</strong>
+                  <span>
+                    يحق للعامل استلام أجره عن فترة الإجازة السنوية مقدماً قبل السفر مضافاً إليه بدل تذاكر السفر السنوية إن وجدت، ويتم ترحيل المبلغ آلياً لبرنامج الرواتب ليُدرج في ملف البنوك (WPS).
+                  </span>
                 </div>
               </div>
 
+              {/* Table of Approved Annual Leaves eligible for advance pay */}
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <table className="w-full text-right text-xs">
+                  <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                    <tr>
+                      <th className="p-3.5">الموظف</th>
+                      <th className="p-3.5">الرقم المدني</th>
+                      <th className="p-3.5">فترة الإجازة</th>
+                      <th className="p-3.5">الراتب الشامل</th>
+                      <th className="p-3.5">أجر الإجازة المقدم (د.ك)</th>
+                      <th className="p-3.5">بدل التذاكر</th>
+                      <th className="p-3.5">صافي المستحق (WPS)</th>
+                      <th className="p-3.5 text-center">حالة الصرف والإجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {requests.filter(r => r.status === 'approved' && r.leaveType === 'annual').map((req) => {
+                      const advanceSalary = (req.daysCount / 30) * req.totalSalary;
+                      const ticketAllowance = 120.000;
+                      const totalPayable = advanceSalary + ticketAllowance;
+
+                      return (
+                        <tr key={req.id} className="hover:bg-slate-50/70 transition">
+                          <td className="p-3.5">
+                            <div className="font-bold text-slate-900">{req.employeeName}</div>
+                            <div className="text-[10px] text-slate-400">{req.department}</div>
+                          </td>
+                          <td className="p-3.5 font-mono">{req.civilId}</td>
+                          <td className="p-3.5 font-mono">
+                            <div>{req.startDate}</div>
+                            <div className="text-[10px] text-slate-400 font-bold">{req.daysCount} يوم عمل</div>
+                          </td>
+                          <td className="p-3.5 font-mono font-bold text-slate-800">{req.totalSalary.toFixed(3)} د.ك</td>
+                          <td className="p-3.5 font-mono font-bold text-purple-900">{advanceSalary.toFixed(3)} د.ك</td>
+                          <td className="p-3.5 font-mono text-slate-600">{ticketAllowance.toFixed(3)} د.ك</td>
+                          <td className="p-3.5 font-mono font-black text-emerald-700 text-sm">{totalPayable.toFixed(3)} د.ك</td>
+                          <td className="p-3.5 text-center">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedSettlementReq(req)}
+                              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition flex items-center gap-1 mx-auto cursor-pointer ${
+                                req.settlementDone
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : 'bg-[#714B67] hover:bg-[#5a3a52] text-white shadow-2xs'
+                              }`}
+                            >
+                              <Plane size={12} />
+                              <span>{req.settlementDone ? 'سند معتمد (عرض/طباعة)' : 'إصدار سند صرف مسبق'}</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {requests.filter(r => r.status === 'approved' && r.leaveType === 'annual').length === 0 && (
+                      <tr>
+                        <td colSpan={8} className="p-8 text-center text-slate-400 font-bold">
+                          لا توجد إجازات سنوية معتمدة جاهزة للصرف المسبق حالياً.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Sub-tab 2: Comprehensive Encashment Calculator */}
+          {financeSubTab === 'encashment_calculator' && (
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+              <LeaveSettlementCalculator employees={companyEmployees as any} />
+            </div>
+          )}
+
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL 1: NEW LEAVE REQUEST MODAL (With Kuwait Law Holiday Auto-Exclusion & Overlap Alert) */}
+      {/* ======================================================== */}
+      {showApplyModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-2xs flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border text-xs my-8 space-y-4">
+            
+            <div className="flex justify-between items-center border-b pb-3">
+              <div className="flex items-center gap-2">
+                <Calendar className="text-[#714B67]" size={20} />
+                <div>
+                  <h3 className="font-bold text-sm text-slate-900">تقديم طلب إجازة رسمي جديد</h3>
+                  <p className="text-[10px] text-slate-400">نظام Odoo 18 مع استبعاد العطلات الكويتية آلياً وفحص التعارضات</p>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setShowApplyModal(false)} 
+                className="text-slate-400 hover:text-slate-600 font-bold cursor-pointer p-1"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateRequest} className="space-y-3.5">
+              
+              {/* Employee Selection */}
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">اسم الموظف *</label>
+                <select
+                  required
+                  value={newRequest.employeeId}
+                  onChange={(e) => handleEmployeeChange(e.target.value)}
+                  className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:border-[#714B67] bg-white font-bold text-slate-800"
+                >
+                  {companyEmployees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.name} ({emp.id}) - {emp.jobTitle || 'موظف'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Leave Type */}
               <div>
                 <label className="block font-bold text-slate-700 mb-1">نوع الإجازة *</label>
                 <select
                   value={newRequest.leaveType}
                   onChange={(e) => setNewRequest({ ...newRequest, leaveType: e.target.value as any })}
-                  className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:border-[#714B67] font-semibold text-slate-900"
+                  className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:border-[#714B67] bg-white font-bold"
                 >
-                  <option value="annual">إجازة سنوية اعتيادية (30 يوم/سنة - مادة 70)</option>
-                  <option value="sick">إجازة مرضية (مدفوعة / نصف أجر - تقرير طبي)</option>
-                  <option value="emergency">إجازة طارئة (تخصم من السنوية)</option>
-                  <option value="hajj">إجازة أداء فريضة الحج (21 يوم - مادة 76)</option>
-                  <option value="maternity">إجازة وضع وأمومة (70 يوم - مادة 24)</option>
-                  <option value="bereavement">إجازة عزاء وحداد (3 أيام - مادة 77)</option>
-                  <option value="unpaid">إجازة بدون راتب</option>
+                  <option value="annual">إجازة سنوية اعتيادية (Annual Leave - مادة 70)</option>
+                  <option value="sick">إجازة مرضية (Sick Leave - مادة 69)</option>
+                  <option value="emergency">إجازة طارئة (Emergency Leave)</option>
+                  <option value="hajj">إجازة حج (Hajj Leave - مادة 76)</option>
+                  <option value="maternity">إجازة وضع وأمومة (Maternity Leave - مادة 24)</option>
+                  <option value="bereavement">إجازة عزاء (Bereavement Leave - مادة 77)</option>
+                  <option value="unpaid">إجازة بدون راتب (Unpaid Leave)</option>
                 </select>
+
+                {/* Annual Balance Preview Bar */}
                 {newRequest.leaveType === 'annual' && (() => {
-                  const empId = newRequest.employeeId;
-                  const balanceData = getEmployeeContractBalance(empId);
+                  const balanceData = getEmployeeContractBalance(newRequest.employeeId);
                   return (
-                    <div className="p-3.5 bg-gradient-to-br from-emerald-50 to-teal-50/70 border border-emerald-200/80 rounded-xl mt-2.5 shadow-2xs space-y-2 fade-slide-up">
-                      <div className="flex items-center justify-between border-b border-emerald-200/60 pb-2">
-                        <span className="text-emerald-900 font-bold flex items-center gap-1.5 text-xs">
-                          <Calendar size={14} className="text-emerald-700" />
-                          <span>{balanceData.fiscalYearLabel}</span>
-                        </span>
-                        <span className="text-[10px] bg-emerald-100 text-emerald-800 font-mono font-bold px-2 py-0.5 rounded-full border border-emerald-300/60">
-                          سريان العقد: {balanceData.contractStartStr}
+                    <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl mt-2 space-y-1.5 text-[11px]">
+                      <div className="flex items-center justify-between border-b border-emerald-200/60 pb-1.5 font-bold text-emerald-950">
+                        <span>رصيد العقد المتاح ({balanceData.fiscalYearLabel}):</span>
+                        <span className="font-mono text-emerald-800 font-black text-xs">
+                          {balanceData.available.toFixed(1)} يوم متاح
                         </span>
                       </div>
-                      
-                      <div className="grid grid-cols-4 gap-1 text-center pt-0.5">
-                        <div className="bg-white/80 p-1.5 rounded-lg border border-emerald-100">
-                          <span className="text-[10px] text-slate-500 block">المرحل/المخصص</span>
-                          <span className="font-mono font-bold text-emerald-800 text-xs">+{balanceData.carried.toFixed(1)}</span>
+                      <div className="grid grid-cols-3 gap-2 text-center pt-1 font-mono text-[10px]">
+                        <div className="bg-white/90 p-1 rounded border border-emerald-100">
+                          <span className="text-slate-400 block text-[9px]">المرحل:</span>
+                          <span className="font-bold text-emerald-800">+{balanceData.carried.toFixed(1)}</span>
                         </div>
-                        <div className="bg-white/80 p-1.5 rounded-lg border border-emerald-100">
-                          <span className="text-[10px] text-slate-500 block">المكتسب بالعقد</span>
-                          <span className="font-mono font-bold text-emerald-800 text-xs">+{balanceData.earned.toFixed(1)}</span>
+                        <div className="bg-white/90 p-1 rounded border border-emerald-100">
+                          <span className="text-slate-400 block text-[9px]">المكتسب 2026:</span>
+                          <span className="font-bold text-emerald-800">+{balanceData.earned.toFixed(1)}</span>
                         </div>
-                        <div className="bg-white/80 p-1.5 rounded-lg border border-emerald-100">
-                          <span className="text-[10px] text-slate-500 block">المستهلك</span>
-                          <span className="font-mono font-bold text-rose-700 text-xs">-{balanceData.consumed.toFixed(1)}</span>
-                        </div>
-                        <div className="bg-emerald-600 text-white p-1.5 rounded-lg shadow-xs">
-                          <span className="text-[10px] text-emerald-100 block font-bold">الصافي المتاح</span>
-                          <span className="font-mono font-black text-xs">{balanceData.available.toFixed(2)} يوم</span>
+                        <div className="bg-white/90 p-1 rounded border border-emerald-100">
+                          <span className="text-slate-400 block text-[9px]">المستهلك:</span>
+                          <span className="font-bold text-rose-700">-{balanceData.consumed.toFixed(1)}</span>
                         </div>
                       </div>
                     </div>
@@ -986,150 +1359,152 @@ export const OdooTimeOffApp: React.FC = () => {
                 })()}
               </div>
 
-              {/* Medical Certificate Upload if Sick Leave */}
+              {/* Medical upload if sick */}
               {newRequest.leaveType === 'sick' && (
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-3">
-                  <Upload className="text-blue-600 mt-1" size={20} />
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-2.5">
+                  <Upload className="text-blue-600 mt-0.5" size={18} />
                   <div className="flex-1">
-                    <label className="block font-bold text-blue-900 mb-1">المرفقات والتقارير الطبية (Medical Certificate)</label>
-                    <p className="text-[10px] text-blue-700 mb-2">يرجى رفع نسخة من التقرير الطبي المعتمد من وزارة الصحة أو المستشفى لتبرير الإجازة المرضية.</p>
-                    <input type="file" className="block w-full text-xs text-slate-500 file:mr-4 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 transition cursor-pointer" />
+                    <label className="block font-bold text-blue-900 mb-0.5">المرفقات والتقارير الطبية (Medical Certificate)</label>
+                    <p className="text-[10px] text-blue-700 mb-1.5">يرجى رفع نسخة من التقرير الطبي المعتمد من وزارة الصحة لتبرير الإجازة المرضية.</p>
+                    <input type="file" className="block w-full text-[10px] text-slate-500 file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-[10px] file:font-semibold file:bg-blue-600 file:text-white cursor-pointer" />
                   </div>
                 </div>
               )}
 
+              {/* Dates */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">تاريخ البدء *</label>
+                  <input
+                    type="date"
+                    required
+                    value={newRequest.startDate}
+                    onChange={(e) => setNewRequest({ ...newRequest, startDate: e.target.value })}
+                    className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-[#714B67] font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">تاريخ الانتهاء *</label>
+                  <input
+                    type="date"
+                    required
+                    value={newRequest.endDate}
+                    onChange={(e) => setNewRequest({ ...newRequest, endDate: e.target.value })}
+                    className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-[#714B67] font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Smart Kuwait Holidays Auto-Exclusion toggle & Live Breakdown */}
               <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border">
+                  <input 
+                    type="checkbox" 
+                    id="excludeHolidays" 
+                    checked={newRequest.excludeHolidays}
+                    onChange={(e) => setNewRequest({...newRequest, excludeHolidays: e.target.checked})}
+                    className="w-4 h-4 text-[#714B67] rounded focus:ring-[#714B67] cursor-pointer"
+                  />
+                  <label htmlFor="excludeHolidays" className="font-bold text-slate-700 cursor-pointer text-[11px]">
+                    استبعاد العطلات الرسمية لدولة الكويت وعطلات نهاية الأسبوع آلياً (Kuwait Labor Law Smart Engine)
+                  </label>
+                </div>
+
+                {/* Duration Breakdown Badge */}
+                <div className="p-2.5 bg-purple-50/70 border border-purple-200 rounded-xl text-xs space-y-1">
+                  <div className="flex items-center justify-between font-bold text-purple-950">
+                    <span>المدة الفعلية المعتمدة المستقطعة من الرصيد:</span>
+                    <span className="font-mono text-purple-900 font-black text-sm">
+                      {newRequest.excludeHolidays ? requestDurationBreakdown.actualDays : requestDurationBreakdown.totalDays} يوم عمل
+                    </span>
+                  </div>
+                  {newRequest.excludeHolidays && (
+                    <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono pt-1 border-t border-purple-200/60">
+                      <span>إجمالي أيام الفترة: {requestDurationBreakdown.totalDays} يوم</span>
+                      <span className="text-emerald-700 font-bold">
+                        مستبعد: {requestDurationBreakdown.deductedWeekends} جمعة + {requestDurationBreakdown.deductedHolidays} عطلات رسمية للدولة
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Overlap & Conflict Warnings */}
+              {newRequestOverlaps.teamOverlaps.length > 0 && (
+                <div className="p-2.5 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-900 flex items-start gap-2 animate-fade-in">
+                  <AlertTriangle size={15} className="text-amber-600 shrink-0 mt-0.5" />
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1">تاريخ البدء (2026 - 2027) *</label>
-                    <input
-                      type="date"
-                      min="2020-01-01"
-                      max="2027-12-31"
-                      required
-                      value={newRequest.startDate}
-                      onChange={(e) => setNewRequest({ ...newRequest, startDate: e.target.value })}
-                      className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:border-[#714B67] font-mono bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">تاريخ الانتهاء (2026 - 2027) *</label>
-                    <input
-                      type="date"
-                      min="2020-01-01"
-                      max="2027-12-31"
-                      required
-                      value={newRequest.endDate}
-                      onChange={(e) => setNewRequest({ ...newRequest, endDate: e.target.value })}
-                      className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:border-[#714B67] font-mono bg-white"
-                    />
+                    <strong className="block">تنبيه تداخل بالقسم ({newRequest.department}):</strong>
+                    <span className="text-[11px]">
+                      يوجد {newRequestOverlaps.teamOverlaps.length} موظف من نفس القسم في إجازة متزامنة: ({newRequestOverlaps.teamOverlaps.map(x => x.employeeName).join('، ')}).
+                    </span>
                   </div>
                 </div>
+              )}
 
-                {/* Quick Date Presets for 2026 and 2027 */}
-                <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                  <span className="text-[10px] text-slate-500 font-bold">فترات سريعة:</span>
-                  <button
-                    type="button"
-                    onClick={() => setNewRequest({ ...newRequest, startDate: '2026-09-01', endDate: '2026-09-15' })}
-                    className="px-2 py-0.5 bg-slate-100 hover:bg-[#714B67] hover:text-white rounded text-[10px] font-bold text-slate-700 transition cursor-pointer"
-                  >
-                    📅 سبتمبر 2026 (15 يوم)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNewRequest({ ...newRequest, startDate: '2026-10-01', endDate: '2026-10-30' })}
-                    className="px-2 py-0.5 bg-slate-100 hover:bg-[#714B67] hover:text-white rounded text-[10px] font-bold text-slate-700 transition cursor-pointer"
-                  >
-                    📅 أكتوبر 2026 (30 يوم)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNewRequest({ ...newRequest, startDate: '2026-12-15', endDate: '2026-12-31' })}
-                    className="px-2 py-0.5 bg-slate-100 hover:bg-[#714B67] hover:text-white rounded text-[10px] font-bold text-slate-700 transition cursor-pointer"
-                  >
-                    📅 نهاية 2026
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNewRequest({ ...newRequest, startDate: '2027-01-10', endDate: '2027-01-25' })}
-                    className="px-2 py-0.5 bg-purple-100 text-purple-900 hover:bg-purple-800 hover:text-white rounded text-[10px] font-bold transition cursor-pointer"
-                  >
-                    📅 يناير 2027
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNewRequest({ ...newRequest, startDate: '2027-06-01', endDate: '2027-06-30' })}
-                    className="px-2 py-0.5 bg-purple-100 text-purple-900 hover:bg-purple-800 hover:text-white rounded text-[10px] font-bold transition cursor-pointer"
-                  >
-                    📅 صيف 2027
-                  </button>
+              {newRequestOverlaps.replacementOverlap && (
+                <div className="p-2.5 bg-rose-50 border border-rose-300 rounded-xl text-xs text-rose-900 flex items-start gap-2 animate-fade-in">
+                  <AlertCircle size={15} className="text-rose-600 shrink-0 mt-0.5" />
+                  <span>تنبيه الموظف البديل: الزميل ({newRequest.replacementEmployee}) لديه إجازة مسجلة في نفس الفترة! يرجى اختيار بديل آخر.</span>
                 </div>
-              </div>
+              )}
 
-              <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border">
-                <input 
-                  type="checkbox" 
-                  id="excludeHolidays" 
-                  checked={newRequest.excludeHolidays}
-                  onChange={(e) => setNewRequest({...newRequest, excludeHolidays: e.target.checked})}
-                  className="w-4 h-4 text-[#714B67] rounded focus:ring-[#714B67] cursor-pointer"
-                />
-                <label htmlFor="excludeHolidays" className="font-bold text-slate-700 cursor-pointer">
-                  استبعاد العطلات الرسمية وعطلات نهاية الأسبوع (Smart Calculation)
-                </label>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 border rounded-xl">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">المدة الفعلية المحتسبة</label>
-                  <div className="text-xl font-black text-emerald-700 font-mono">
-                    {calculateDays(newRequest.startDate, newRequest.endDate, newRequest.excludeHolidays)} <span className="text-xs text-slate-500 font-normal">أيام</span>
-                  </div>
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">الموظف البديل لتغطية المهام (Covering Staff)</label>
-                  <select
-                    value={newRequest.replacementEmployee}
-                    onChange={(e) => setNewRequest({ ...newRequest, replacementEmployee: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-[#714B67]"
-                  >
-                    <option value="">بدون موظف بديل</option>
-                    {companyEmployees.filter(e => e.id !== newRequest.employeeId).map(emp => (
-                      <option key={emp.id} value={emp.name}>{emp.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
+              {/* Replacement Staff */}
               <div>
-                <label className="block font-bold text-slate-700 mb-1">السبب / ملاحظات</label>
+                <label className="block font-bold text-slate-700 mb-1">الموظف البديل لتغطية المهام (Covering Staff)</label>
+                <select
+                  value={newRequest.replacementEmployee}
+                  onChange={(e) => setNewRequest({ ...newRequest, replacementEmployee: e.target.value })}
+                  className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-[#714B67]"
+                >
+                  <option value="">بدون موظف بديل (أو تكليف مباشر من المدير)</option>
+                  {companyEmployees.filter(e => e.id !== newRequest.employeeId).map(emp => (
+                    <option key={emp.id} value={emp.name}>{emp.name} ({emp.department || 'موظف'})</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Reason */}
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">السبب / الملاحظات</label>
                 <input
                   type="text"
                   value={newRequest.reason}
                   onChange={(e) => setNewRequest({ ...newRequest, reason: e.target.value })}
                   placeholder="سبب طلب الإجازة..."
-                  className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:border-[#714B67]"
+                  className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-[#714B67]"
                 />
               </div>
 
+              {/* Actions */}
               <div className="flex justify-end gap-2 pt-3 border-t">
-                <button type="button" onClick={() => setShowApplyModal(false)} className="px-4 py-2 bg-slate-100 rounded-lg font-bold cursor-pointer transition hover:bg-slate-200 text-slate-700">إلغاء</button>
-                <button type="submit" className="px-5 py-2 bg-[#714B67] text-white rounded-lg font-bold cursor-pointer hover:bg-[#5a3a52] transition shadow-sm flex items-center gap-1.5">
-                  <CheckCircle2 size={16} /> تقديم وحفظ الطلب
+                <button 
+                  type="button" 
+                  onClick={() => setShowApplyModal(false)} 
+                  className="px-4 py-2 bg-slate-100 rounded-lg font-bold hover:bg-slate-200 text-slate-700 cursor-pointer"
+                >
+                  إلغاء
+                </button>
+                <button 
+                  type="submit" 
+                  className="px-5 py-2 bg-[#714B67] text-white rounded-lg font-bold hover:bg-[#5a3a52] transition shadow-sm flex items-center gap-1.5 cursor-pointer"
+                >
+                  <CheckCircle2 size={15} /> تقديم وحفظ الطلب
                 </button>
               </div>
+
             </form>
           </div>
         </div>
       )}
 
-      {/* --- MODAL 2: TIME OFF ALLOCATION MODAL (ODOO 18 ENTERPRISE STYLE) --- */}
+      {/* ======================================================== */}
+      {/* MODAL 2: TIME OFF ALLOCATION MODAL (Odoo 18 Enterprise) */}
+      {/* ======================================================== */}
       {showAllocationModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-2xs flex items-center justify-center p-4 z-50 overflow-y-auto animate-fade-in">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 text-xs my-8">
             
-            {/* Modal Header */}
             <div className="flex items-center justify-between border-b pb-3 mb-4">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 bg-[#714B67] text-white rounded-xl shadow-xs">
@@ -1140,7 +1515,7 @@ export const OdooTimeOffApp: React.FC = () => {
                     تخصيص رصيد إجازات مرحّل (Time Off Allocation)
                   </h3>
                   <p className="text-[11px] text-slate-500">
-                    نموذج تخصيص الرصيد الافتتاحي والمرحل وفق نظام Odoo 18
+                    تخصيص الرصيد الافتتاحي والمرحل وفق نظام Odoo 18
                   </p>
                 </div>
               </div>
@@ -1153,10 +1528,8 @@ export const OdooTimeOffApp: React.FC = () => {
               </button>
             </div>
 
-            {/* Modal Form */}
             <form onSubmit={handleCreateAllocation} className="space-y-4">
               
-              {/* Field 1: Employee ID & Name (Dropdown) */}
               <div>
                 <label className="block font-bold text-slate-700 mb-1 flex items-center gap-1">
                   <User size={13} className="text-[#714B67]" />
@@ -1166,7 +1539,7 @@ export const OdooTimeOffApp: React.FC = () => {
                   required
                   value={newAllocation.employeeId}
                   onChange={(e) => handleAllocationEmployeeChange(e.target.value)}
-                  className="w-full p-2.5 bg-white border border-slate-300 rounded-xl outline-none focus:border-[#714B67] focus:ring-1 focus:ring-[#714B67] font-bold text-slate-800 shadow-2xs"
+                  className="w-full p-2.5 bg-white border border-slate-300 rounded-xl outline-none focus:border-[#714B67] font-bold text-slate-800"
                 >
                   {companyEmployees.map((emp) => (
                     <option key={emp.id} value={emp.id}>
@@ -1176,7 +1549,6 @@ export const OdooTimeOffApp: React.FC = () => {
                 </select>
               </div>
 
-              {/* Field 2 & 3: Days count & Accrual Year */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">
@@ -1190,12 +1562,11 @@ export const OdooTimeOffApp: React.FC = () => {
                     required
                     value={newAllocation.days}
                     onChange={(e) => setNewAllocation({ ...newAllocation, days: e.target.value })}
-                    className="w-full p-2.5 border border-slate-300 rounded-xl outline-none font-mono font-black text-emerald-700 focus:border-[#714B67] focus:ring-1 focus:ring-[#714B67] text-sm"
+                    className="w-full p-2.5 border border-slate-300 rounded-xl outline-none font-mono font-black text-emerald-700 focus:border-[#714B67] text-sm"
                     placeholder="12.5"
                   />
-                  {/* Quick Select Badges */}
                   <div className="flex items-center gap-1.5 mt-1.5">
-                    <span className="text-[10px] text-slate-400 font-bold">خيارات سريعة:</span>
+                    <span className="text-[10px] text-slate-400 font-bold">خيارات:</span>
                     {[5, 10, 12.5, 15, 30].map(val => (
                       <button
                         key={val}
@@ -1203,7 +1574,7 @@ export const OdooTimeOffApp: React.FC = () => {
                         onClick={() => setNewAllocation({ ...newAllocation, days: String(val) })}
                         className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold transition cursor-pointer ${
                           parseFloat(newAllocation.days) === val 
-                            ? 'bg-purple-700 text-white' 
+                            ? 'bg-[#714B67] text-white' 
                             : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                         }`}
                       >
@@ -1221,31 +1592,16 @@ export const OdooTimeOffApp: React.FC = () => {
                     required
                     value={newAllocation.fromYear}
                     onChange={(e) => setNewAllocation({ ...newAllocation, fromYear: e.target.value })}
-                    className="w-full p-2.5 bg-white border border-slate-300 rounded-xl outline-none font-mono font-bold focus:border-[#714B67] focus:ring-1 focus:ring-[#714B67]"
+                    className="w-full p-2.5 bg-white border border-slate-300 rounded-xl outline-none font-mono font-bold focus:border-[#714B67]"
                   >
-                    <option value="2027">2027 (استحقاق السنة المالية 2027)</option>
-                    <option value="2026">2026 (استحقاق السنة المالية 2026)</option>
+                    <option value="2027">2027 (استحقاق 2027)</option>
+                    <option value="2026">2026 (استحقاق 2026)</option>
                     <option value="2025">2025 (رصيد مرحل من 2025)</option>
                     <option value="2024">2024</option>
-                    <option value="2023">2023</option>
                   </select>
-                  <span className="text-[10px] text-slate-400 block mt-1">تحديد السنة التي استُحق عنها الرصيد المرحل</span>
                 </div>
               </div>
 
-              {/* Field 4: Leave Type */}
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">نوع الرصيد المخصص (Leave Type)</label>
-                <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
-                    <span className="font-bold text-slate-800">إجازة سنوية اعتيادية (Annual Leave - مادة 70)</span>
-                  </div>
-                  <span className="text-[10px] text-slate-500 font-mono">30 يوم/سنة</span>
-                </div>
-              </div>
-
-              {/* Field 5: Notes & Documentation */}
               <div>
                 <label className="block font-bold text-slate-700 mb-1">
                   سبب التخصيص والتوثيق الإداري (notes) *
@@ -1256,11 +1612,11 @@ export const OdooTimeOffApp: React.FC = () => {
                   value={newAllocation.notes}
                   onChange={(e) => setNewAllocation({ ...newAllocation, notes: e.target.value })}
                   placeholder="سبب ترحيل وإضافة الرصيد..."
-                  className="w-full p-2.5 border border-slate-300 rounded-xl outline-none focus:border-[#714B67] focus:ring-1 focus:ring-[#714B67] text-xs"
+                  className="w-full p-2.5 border border-slate-300 rounded-xl outline-none focus:border-[#714B67] text-xs"
                 />
               </div>
 
-              {/* Live Preview Summary Card */}
+              {/* Live Preview Card */}
               <div className="p-3 bg-purple-50/70 border border-purple-200 rounded-xl text-[11px] space-y-1.5">
                 <div className="flex items-center justify-between font-bold text-purple-950">
                   <span className="flex items-center gap-1">
@@ -1285,7 +1641,6 @@ export const OdooTimeOffApp: React.FC = () => {
                 </div>
               </div>
 
-              {/* Action Buttons */}
               <div className="flex justify-between items-center pt-3 border-t">
                 <span className="text-[10px] text-slate-400 flex items-center gap-1">
                   <Info size={12} /> يحفظ في قاعدة البيانات والذاكرة المحلية
@@ -1312,7 +1667,9 @@ export const OdooTimeOffApp: React.FC = () => {
         </div>
       )}
 
-      {/* --- MODAL 3: LEAVE SETTLEMENT & ADVANCE SALARY (KUWAIT LAW ART 71) --- */}
+      {/* ======================================================== */}
+      {/* MODAL 3: LEAVE ADVANCE SALARY SETTLEMENT (KUWAIT LAW ART 71) */}
+      {/* ======================================================== */}
       {selectedSettlementReq && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-2xs flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border text-xs my-8">
@@ -1320,8 +1677,8 @@ export const OdooTimeOffApp: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Plane className="text-[#714B67]" size={20} />
                 <div>
-                  <h3 className="font-bold text-sm text-slate-900">سند تسوية مسبقة للراتب قبل السفر (Leave Settlement)</h3>
-                  <p className="text-[10px] text-slate-400">صرف مستحقات إجازة مقدمة (تنفيذاً للمادة 71 من قانون العمل الكويتي رقم 6 لسنة 2010)</p>
+                  <h3 className="font-bold text-sm text-slate-900">سند صرف راتب إجازة مقدماً قبل السفر (Leave Settlement)</h3>
+                  <p className="text-[10px] text-slate-400">تنفيذاً للمادة 71 من قانون العمل الكويتي رقم 6 لسنة 2010</p>
                 </div>
               </div>
               <button type="button" onClick={() => setSelectedSettlementReq(null)} className="text-slate-400 hover:text-slate-600 font-bold cursor-pointer transition">
@@ -1389,7 +1746,7 @@ export const OdooTimeOffApp: React.FC = () => {
               <div className="flex justify-between items-center pt-4 border-t">
                 <button
                   type="button"
-                  onClick={() => safePrintAction('طباعة التقرير')}
+                  onClick={() => safePrintAction('سند_تسوية_راتب_مسبقة')}
                   className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold flex items-center gap-1.5 transition cursor-pointer border border-slate-300"
                 >
                   <Printer size={14} /> طباعة السند (A4)
@@ -1415,9 +1772,45 @@ export const OdooTimeOffApp: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* ======================================================== */}
+      {/* MODAL 4: PRINTABLE OFFICIAL LEAVE APPLICATION FORM (A4) */}
+      {/* ======================================================== */}
+      {selectedPrintReq && (
+        <PrintableLeaveFormModal
+          request={selectedPrintReq}
+          onClose={() => setSelectedPrintReq(null)}
+          activeCompanyName={activeCompany?.nameAr || 'المنشأة المركزية المتكاملة'}
+          pamFileNumber={activeCompany?.wsiCode || '12345678'}
+          civilIdCompany={activeCompany?.civilIdCompany || '123456789012'}
+        />
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL 5: RETURN TO WORK VERIFICATION MODAL */}
+      {/* ======================================================== */}
+      {selectedReturnReq && (
+        <ReturnToWorkModal
+          request={selectedReturnReq}
+          onClose={() => setSelectedReturnReq(null)}
+          onConfirmReturn={handleConfirmReturnToWork}
+        />
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL 6: LEAVE REJECTION REASON MODAL */}
+      {/* ======================================================== */}
+      {rejectionModalState && (
+        <LeaveRejectionModal
+          request={rejectionModalState.req}
+          stageLabel={rejectionModalState.stageLabel}
+          onClose={() => setRejectionModalState(null)}
+          onConfirmReject={handleConfirmRejection}
+        />
+      )}
+
     </div>
   );
 };
 
 export default OdooTimeOffApp;
-

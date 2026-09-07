@@ -4,6 +4,7 @@ import { Payslip, Employee, Company, Contract, LoanAdvance, AttendanceRecord, Ac
 import { printDocument } from '../utils/printUtils';
 import { formatKWD, tafqitKWD } from '../utils/kuwaitLaw';
 import { validateContractIntegrity, validatePayslipIntegrity } from '../services/globalIntegrityService';
+import { OdooPayrollApp } from '../components/OdooPayrollApp';
 import { 
   Banknote, Download, FileSpreadsheet, CheckCircle2, ShieldCheck, Printer, 
   Edit, Plus, Search, Sparkles, Building2, User, FileText, ArrowLeft, 
@@ -41,11 +42,11 @@ export const PayrollApp: React.FC<PayrollAppProps> = ({
   onNavigateToApp,
   onOpenNotificationModal,
 }) => {
-  // Navigation & View Sub-Tabs: 'MONTHLY' | 'STRUCTURE' | 'PIFSS' | 'WPS'
-  const [activeSubTab, setActiveSubTab] = useState<'MONTHLY' | 'STRUCTURE' | 'WPS'>(() => {
+  // Navigation & View Sub-Tabs: 'MONTHLY' | 'STRUCTURE' | 'WPS' | 'ODOO_SUITE'
+  const [activeSubTab, setActiveSubTab] = useState<'MONTHLY' | 'STRUCTURE' | 'WPS' | 'ODOO_SUITE'>(() => {
     if (filterTab === 'STRUCTURE') return 'STRUCTURE';
-    
-    if (filterTab === 'WSI') return 'WPS';
+    if (filterTab === 'WSI' || filterTab === 'WPS') return 'WPS';
+    if (filterTab === 'ODOO') return 'ODOO_SUITE';
     return 'MONTHLY';
   });
 
@@ -325,9 +326,28 @@ export const PayrollApp: React.FC<PayrollAppProps> = ({
             <Landmark className="w-4 h-4" />
             <span>ملف تحويل البنوك وحماية الأجور (WPS)</span>
           </button>
+
+          <button
+            onClick={() => setActiveSubTab('ODOO_SUITE')}
+            className={`px-4 py-2 rounded-lg font-bold transition flex items-center gap-2 shrink-0 cursor-pointer ${
+              activeSubTab === 'ODOO_SUITE'
+                ? 'bg-[#714B67] text-white shadow-sm ring-2 ring-purple-300'
+                : 'bg-purple-50 text-[#714B67] hover:bg-purple-100 border border-purple-200'
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <span>نظام Odoo 18 المطور (WPS & درع التدقيق & السلف والتسويات)</span>
+          </button>
         </div>
       </div>
 
+      {/* SUB-TAB 4: ODOO ADVANCED PAYROLL & WPS SUITE */}
+      {activeSubTab === 'ODOO_SUITE' ? (
+        <div className="mt-2">
+          <OdooPayrollApp />
+        </div>
+      ) : (
+        <>
       {/* KPI Financial Overview Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow transition">
@@ -650,6 +670,8 @@ export const PayrollApp: React.FC<PayrollAppProps> = ({
             </div>
           </div>
         </div>)}
+        </>
+      )}
 
       {/* MODAL 1: EDIT SALARY STRUCTURE */}
       {editingStructureEmp && (

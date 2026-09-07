@@ -39,12 +39,15 @@ import {
 
 // استيراد التطبيقات الكاملة الـ 11
 import EmployeesApp from './apps/EmployeesApp';
+import OdooAppLauncher from './components/OdooAppLauncher';
+import { TopEnterpriseActionBar } from './components/header/TopEnterpriseActionBar';
+import { GlobalSpotlightSearchModal } from './components/header/GlobalSpotlightSearchModal';
+import { KuwaitHrQuickCalculatorModal } from './components/modals/KuwaitHrQuickCalculatorModal';
 import { OdooAttendanceApp } from './components/OdooAttendanceApp';
-import { OdooPlanningApp } from './components/OdooPlanningApp';
 import { OdooTimeOffApp } from './components/OdooTimeOffApp';
 import { OdooPayrollApp } from './components/OdooPayrollApp';
 import { OdooOperationsApp } from './components/OdooOperationsApp';
-import { OdooCompanyDocsApp } from './components/OdooCompanyDocsApp';
+import { DocumentsApp } from './apps/DocumentsApp';
 import { OdooTemplatesApp } from './components/OdooTemplatesApp';
 import { OdooPublicHolidaysApp } from './components/OdooPublicHolidaysApp';
 import { OdooReportsApp } from './components/OdooReportsApp';
@@ -52,17 +55,22 @@ import { OdooSettingsFull } from './components/OdooSettingsFull';
 import { SettingsApp } from './apps/SettingsApp';
 import { ScannerApp } from './apps/ScannerApp';
 import { OdooMohMedicalHubApp } from './apps/OdooMohMedicalHubApp';
-import { OdooPamWorkforceApp } from './apps/OdooPamWorkforceApp';
 import { SuperAdminDashboard } from './pages/SuperAdminDashboard';
 import { OdooDebugMenu } from './components/OdooDebugMenu';
 import OdooLoginPage from './components/OdooLoginPage';
 import { TenantDatabaseService } from './services/tenantDataService';
+import { AuditLogsApp } from './apps/AuditLogsApp';
+import { RecruitmentApp } from './apps/RecruitmentApp';
+import { OdooContractsApp } from './components/OdooContractsApp';
+import { Candidate } from './types';
+import { MANARA_STORAGE_KEYS, getPersistentData, setPersistentData } from './utils/persistentStorage';
 
 type AppId = 
   | 'switcher' 
   | 'employees' 
+  | 'recruitment'
+  | 'contracts'
   | 'attendance' 
-  | 'shifts' 
   | 'leaves' 
   | 'payroll' 
   | 'custody' 
@@ -74,7 +82,8 @@ type AppId =
   | 'settings_dev'
   | 'saas_admin'
   | 'scanner'
-  | 'moh';
+  | 'moh'
+  | 'audit';
 
 function MainAppLayout() {
   const { 
@@ -89,7 +98,7 @@ function MainAppLayout() {
     deleteCompany
   } = useTenant();
 
-  const { startImpersonation, exitImpersonation: exitCompanyImpersonation } = useCompany();
+  const { isImpersonating, startImpersonation, exitImpersonation: exitCompanyImpersonation } = useCompany();
 
   const { employees, addEmployee, updateEmployee } = useOdooHierarchy();
 
@@ -119,6 +128,143 @@ function MainAppLayout() {
   const [activeApp, setActiveApp] = useState<AppId>('switcher');
   const [searchQuery, setSearchQuery] = useState('');
   const [documents, setDocuments] = useState<any[]>([]);
+
+  // إدارة المرشحين وبيانات التوظيف الذكية (Recruitment & ATS)
+  const defaultCandidates: Candidate[] = [
+    {
+      id: 'cand-1',
+      companyId: activeCompany?.id || '',
+      fullName: 'جاسم محمد الشمري',
+      email: 'jassim.shammary@example.com',
+      phone: '+965 99887766',
+      appliedPosition: 'محاسب مالي أول (Senior Accountant)',
+      department: 'الإدارة المالية والمحاسبة',
+      expectedSalary: 850,
+      stage: 'QUALIFIED',
+      rating: 5,
+      degree: 'بكالوريوس محاسبة - جامعة الكويت',
+      certificates: ['شهادة SOCPA المعتمدة', 'معايير المحاسبة الدولية IFRS'],
+      tags: ['محاسبة', 'WPS', 'خبرة 6 سنوات'],
+      notes: 'مرشح ذو خبرة سابقة في البنوك الكويتية وحماية الأجور WPS، اجتاز المقابلة الفنية بامتياز.',
+    },
+    {
+      id: 'cand-2',
+      companyId: activeCompany?.id || '',
+      fullName: 'مريم أحمد الكندري',
+      email: 'maryam.kandari@example.com',
+      phone: '+965 97654321',
+      appliedPosition: 'أخصائي شؤون موظفين وعلاقات عمل',
+      department: 'الموارد البشرية والإدارة',
+      expectedSalary: 750,
+      stage: 'INTERVIEW',
+      rating: 4,
+      degree: 'بكالوريوس إدارة أعمال وموارد بشرية',
+      certificates: ['دبلوم قانون العمل الكويتي', 'إدارة المواهب والتوظيف'],
+      tags: ['موارد بشرية', 'شؤون موظفين', 'قوى عاملة PAM'],
+      notes: 'معرفة ممتازة ببوابة أسهل وقوانين الإقامة والعمل بالقطاع الأهلي مادة 18.',
+    },
+    {
+      id: 'cand-3',
+      companyId: activeCompany?.id || '',
+      fullName: 'د. خالد عبد الرحمن العتيبي',
+      email: 'dr.khaled.otaibi@example.com',
+      phone: '+965 98112233',
+      appliedPosition: 'طبيب عام (General Practitioner)',
+      department: 'الخدمات الطبية والرعاية',
+      expectedSalary: 1400,
+      stage: 'CONTRACT',
+      rating: 5,
+      degree: 'بكالوريوس طب وجراحة (MBBS)',
+      certificates: ['ترخيص مزاولة المهنة MOH ساري', 'شهادة الإنعاش القلبي المتقدم ACLS'],
+      tags: ['كادر طبي', 'ترخيص MOH', 'طبيب'],
+      notes: 'تم فحص أوراقه واعتمادها من وزارة الصحة، بانتظار توقيع العقد النهائي ومباشرة العمل.',
+    },
+    {
+      id: 'cand-4',
+      companyId: activeCompany?.id || '',
+      fullName: 'ناصر فهد الدوسري',
+      email: 'nasser.dousari@example.com',
+      phone: '+965 94455667',
+      appliedPosition: 'مسؤول نظم وشبكات وتكنولوجيا معلومات',
+      department: 'تقنية المعلومات والتحول الرقمي',
+      expectedSalary: 900,
+      stage: 'INITIAL',
+      rating: 4,
+      degree: 'بكالوريوس هندسة حاسوب ونظم',
+      certificates: ['CCNA Cisco', 'Microsoft Azure Administrator'],
+      tags: ['IT', 'شبكات', 'أمن معلومات'],
+      notes: 'سيرة ذاتية قوية وخبرة ممتازة في البنية التحتية والخوادم.',
+    },
+    {
+      id: 'cand-5',
+      companyId: activeCompany?.id || '',
+      fullName: 'إيمان طارق الفضلي',
+      email: 'eman.fadhli@example.com',
+      phone: '+965 92345678',
+      appliedPosition: 'سكرتيرة تنفيذية ومنسقة إدارية',
+      department: 'الإدارة العامة ومكتب المدير',
+      expectedSalary: 650,
+      stage: 'HIRED',
+      rating: 5,
+      degree: 'دبلوم سكرتارية وإدارة مكتبية حديثة',
+      certificates: ['شهادة ICDL الدولية', 'الكتابة السريعة والأرشفة الإلكترونية'],
+      tags: ['سكرتارية', 'أرشفة', 'تم التعيين'],
+      notes: 'تم قبولها وتعيينها رسمياً، وانضمت لفريق المنشأة بنجاح.',
+    }
+  ];
+
+  const [candidates, setCandidates] = useState<Candidate[]>(() => {
+    return getPersistentData<Candidate[]>(MANARA_STORAGE_KEYS.CANDIDATES, defaultCandidates);
+  });
+
+  const handleSaveCandidate = (cand: Candidate) => {
+    setCandidates(prev => {
+      const existingIndex = prev.findIndex(c => c.id === cand.id);
+      let updated: Candidate[];
+      if (existingIndex >= 0) {
+        updated = [...prev];
+        updated[existingIndex] = cand;
+      } else {
+        updated = [cand, ...prev];
+      }
+      setPersistentData(MANARA_STORAGE_KEYS.CANDIDATES, updated);
+      return updated;
+    });
+    toast.success('تم حفظ وتحديث بيانات المرشح بنجاح');
+  };
+
+  const handleConvertCandidateToEmployee = (cand: Candidate) => {
+    const newEmpId = `emp-${Date.now()}`;
+    addEmployee({
+      id: newEmpId,
+      name: cand.fullName,
+      fullNameAr: cand.fullName,
+      fullNameEn: '',
+      civilId: '',
+      passportNo: '',
+      passportExpiry: '',
+      residencyExpiry: '',
+      jobTitle: cand.appliedPosition,
+      department: cand.department || 'الموارد البشرية والإدارة',
+      basicSalary: cand.expectedSalary || 600,
+      housingAllowance: 100,
+      transportAllowance: 50,
+      medicalAllowance: 0,
+      status: 'ACTIVE',
+      joinDate: new Date().toISOString().split('T')[0],
+      nationality: 'كويتي',
+      companyId: activeCompany?.id || '',
+      phone: cand.phone,
+      email: cand.email,
+    } as any);
+
+    handleSaveCandidate({
+      ...cand,
+      stage: 'HIRED'
+    });
+
+    toast.success(`🎉 مبارك! تم تحويل المرشح (${cand.fullName}) إلى موظف في المنظومة وإضافته لشؤون الموظفين`);
+  };
 
   // Load documents when activeCompany?.id changes (Cloud-First Single Source of Truth)
   useEffect(() => {
@@ -313,6 +459,61 @@ function MainAppLayout() {
   // الوقت والتاريخ المباشر لدولة الكويت
   const [kuwaitTime, setKuwaitTime] = useState('');
 
+  // Spotlight Search & Quick HR Calculator modal states
+  const [showSpotlight, setShowSpotlight] = useState(false);
+  const [showCalculator, setShowCalculator] = useState(false);
+  const [employeeAppProps, setEmployeeAppProps] = useState<any>({});
+
+  // Global Keyboard Shortcut: Ctrl + K or Cmd + K
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setShowSpotlight(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const handleQuickAction = (action: string) => {
+    switch (action) {
+      case 'new_employee':
+        setEmployeeAppProps({ initialTab: 'directory', initialShowAdd: true, triggerKey: Date.now() });
+        setActiveApp('employees');
+        break;
+      case 'new_contract':
+        setActiveApp('contracts');
+        break;
+      case 'new_leave':
+        setActiveApp('leaves');
+        break;
+      case 'new_letter':
+        setActiveApp('letters');
+        break;
+      case 'attendance_movement':
+        setActiveApp('attendance');
+        break;
+      case 'scanner':
+        setActiveApp('scanner');
+        break;
+      case 'calculator':
+        setShowCalculator(true);
+        break;
+      default:
+        break;
+    }
+  };
+
+  const handleSpotlightSelectEmployee = (emp: any) => {
+    setEmployeeAppProps({
+      initialTab: 'directory',
+      selectedEmployeeId: emp.id,
+      triggerKey: Date.now()
+    });
+    setActiveApp('employees');
+  };
+
   useEffect(() => {
     const updateKuwaitTime = () => {
       const now = new Date();
@@ -341,7 +542,6 @@ function MainAppLayout() {
   const appsList = [
     { id: 'employees', name: 'شؤون الموظفين', subtitle: 'Employees Directory', icon: Users, color: 'bg-rose-500' },
     { id: 'attendance', name: 'الحضور والانصراف', subtitle: 'Time & Attendance', icon: Clock, color: 'bg-indigo-600' },
-    { id: 'shifts', name: 'جداول الشفتات', subtitle: 'Shifts & Rosters', icon: Calendar, color: 'bg-amber-600' },
     { id: 'leaves', name: 'إجازات والغياب', subtitle: 'Time Off & Leaves', icon: Palmtree, color: 'bg-emerald-600' },
     { id: 'payroll', name: 'الرواتب وحماية الأجور', subtitle: 'Payroll & WPS', icon: CreditCard, color: 'bg-green-600' },
     { id: 'custody', name: 'العهد والممتلكات', subtitle: 'Assets & Custodies', icon: Package, color: 'bg-orange-500' },
@@ -349,10 +549,9 @@ function MainAppLayout() {
     { id: 'scanner', name: 'الماسح الضوئي الذكي', subtitle: 'Document Scanner OCR', icon: Scan, color: 'bg-teal-600' },
     { id: 'letters', name: 'النماذج والخطابات', subtitle: 'Templates & Letters', icon: FileText, color: 'bg-sky-600' },
     { id: 'holidays', name: 'العطلات الرسمية', subtitle: 'Public Holidays', icon: Sparkles, color: 'bg-purple-600' },
-    { id: 'reports', name: 'لوحة القيادة والتقارير', subtitle: 'Executive Dashboard', icon: BarChart3, color: 'bg-blue-600' },
+    { id: 'reports', name: 'التقارير والتحليلات', subtitle: 'Reports, Pivot & Executive Dashboard', icon: BarChart3, color: 'bg-blue-600' },
     { id: 'moh', name: 'تراخيص وزارة الصحة', subtitle: 'MOH Medical Hub', icon: Stethoscope, color: 'bg-teal-700' },
-    { id: 'pam', name: 'الهيئة العامة للقوى العاملة', subtitle: 'PAM Workforce Hub', icon: Users, color: 'bg-blue-700' },
-    { id: 'settings', name: isSuperAdmin ? 'الإعدادات والمشتركين' : 'بيانات المنشأة والإعدادات', subtitle: isSuperAdmin ? 'Settings & SaaS Tenants' : 'Company Profile & Settings', icon: Sliders, color: 'bg-slate-700' },
+    { id: 'audit', name: 'سجل الرقابة وتتبع العمليات', subtitle: 'Audit Logs & Diagnostics', icon: ShieldAlert, color: 'bg-zinc-800' },
   ];
 
   const filteredApps = appsList.filter(app => 
@@ -364,8 +563,9 @@ function MainAppLayout() {
     switch (activeApp) {
       case 'switcher': return 'التطبيقات الرئيسية (App Launcher)';
       case 'employees': return 'شؤون الموظفين (Employees Directory)';
+      case 'recruitment': return 'التوظيف والمقابلات الذكية (Recruitment & ATS)';
+      case 'contracts': return 'عقود العمل والبدلات الرسمية (Odoo Contracts & PAM)';
       case 'attendance': return 'الحضور والانصراف (Time & Attendance)';
-      case 'shifts': return 'جداول الشفتات (Shifts & Rosters)';
       case 'leaves': return 'الإجازات والغياب (Time Off & Leaves)';
       case 'payroll': return 'الرواتب وحماية الأجور (Payroll & WPS)';
       case 'custody': return 'العهد والممتلكات (Assets & Custodies)';
@@ -373,8 +573,9 @@ function MainAppLayout() {
       case 'scanner': return 'الماسح الضوئي الذكي (Odoo Document Scanner)';
       case 'letters': return 'النماذج والخطابات (Templates & Letters)';
       case 'holidays': return 'العطلات الرسمية (Public Holidays)';
-      case 'reports': return 'لوحة القيادة والتقارير (Executive Dashboard)';
+      case 'reports': return 'التقارير والتحليلات (Reports & Analytics)';
       case 'moh': return 'إدارة التراخيص الطبية والكادر الصحي (MOH Medical Hub)';
+      case 'audit': return 'سجل الرقابة وتتبع العمليات (Audit Logs & Diagnostic Center)';
       case 'settings': return isSuperAdmin ? 'الإعدادات والمشتركين (Settings & SaaS Tenants)' : 'بيانات المنشأة والإعدادات (Company Profile & Settings)';
       case 'settings_dev': return 'أدوات المطور ومحاكي البيانات (Developer Tools)';
       default: return 'نظام Aysed S HR 2026';
@@ -400,208 +601,81 @@ function MainAppLayout() {
       <Toaster position="top-center" containerStyle={{ zIndex: 99999 }} reverseOrder={false} />
 
       {/* شريط تنبيه الدخول كمسؤول (Strict Impersonation Banner) */}
-      {impersonatingCompanyId && (
-        <div className="h-9 bg-amber-400 text-slate-950 text-xs px-4 font-bold flex items-center justify-between shrink-0 shadow-md border-b border-amber-500 z-50 animate-in slide-in-from-top duration-200">
+      {(impersonatingCompanyId || isImpersonating) && activeApp !== 'saas_admin' && (
+        <div className="h-10 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-400 text-slate-950 text-xs px-4 font-bold flex items-center justify-between shrink-0 shadow-md border-b border-amber-500 z-50 animate-in slide-in-from-top duration-200">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-slate-950 animate-ping inline-block" />
-            <span className="bg-slate-950 text-amber-300 text-[10px] px-2 py-0.5 rounded font-black tracking-wider uppercase">
-              وضع الدخول كمسؤول (Impersonation Mode)
+            <span className="bg-slate-950 text-amber-300 text-[10px] px-2.5 py-0.5 rounded font-black tracking-wider uppercase">
+              👑 وضع المعاينة الفورية كمسؤول (Impersonation Mode)
             </span>
             <span className="text-slate-950 font-bold">
-              أنت تتصفح وتدير شركة: <strong className="underline decoration-2 font-black">{activeCompany?.nameAr || 'الشركة المشتركة'}</strong>
+              أنت تتصفح وتدير شركة: <strong className="underline decoration-2 font-black text-slate-950">{activeCompany?.nameAr || (activeCompany as any)?.name || 'الشركة المشتركة'}</strong>
             </span>
-            <span className="bg-slate-950/15 text-slate-950 text-[11px] px-2 py-0.5 rounded font-mono font-bold">
+            <span className="bg-slate-950/15 text-slate-950 text-[11px] px-2.5 py-0.5 rounded font-mono font-bold">
               ملف الشؤون: {activeCompany?.pamFileNumber || '---'}
             </span>
           </div>
 
-          <button 
-            onClick={() => {
-              exitImpersonation();
-              exitCompanyImpersonation();
-              toast.success('تم إنهاء وضع المحاكاة والعودة للوحة السوبر أدمن المركزية');
-            }} 
-            className="bg-slate-950 hover:bg-black text-amber-300 hover:text-white px-3 py-1 rounded-md text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
-          >
-            <LogOut size={12} />
-            <span>إنهاء المعاينة والعودة للسوبر أدمن ✕</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              type="button"
+              onClick={() => setActiveApp('saas_admin')}
+              className="bg-slate-900/80 hover:bg-slate-950 text-white px-3 py-1 rounded-md text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+            >
+              <span>لوحة الإدارة المركزية ⚙️</span>
+            </button>
+            <button 
+              type="button"
+              onClick={() => {
+                exitImpersonation();
+                exitCompanyImpersonation();
+                setActiveApp('saas_admin');
+                toast.success('تم إنهاء وضع المعاينة والعودة للوحة السوبر أدمن المركزية');
+              }} 
+              className="bg-slate-950 hover:bg-black text-amber-300 hover:text-white px-3 py-1 rounded-md text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+            >
+              <LogOut size={12} />
+              <span>إنهاء المعاينة والعودة للسوبر أدمن ✕</span>
+            </button>
+          </div>
         </div>
       )}
 
-            {/* الشريط العلوي النحيف الموحد (Odoo Enterprise Navbar) */}
-      <header className="h-12 bg-[#714B67] text-white flex items-center justify-between px-4 z-30 select-none shadow-sm shrink-0">
-        <div className="flex items-center gap-3">
-          {activeApp !== 'switcher' && (
-            <button 
-              onClick={() => setActiveApp('switcher')} 
-              className="flex items-center gap-1 bg-white/20 hover:bg-white/30 text-white px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer"
-              title="العودة للرئيسية"
-            >
-              <ArrowRight size={14} />
-              <span>الرئيسية</span>
-            </button>
-          )}
+      {/* الشريط العلوي المطور الشامل (Top Enterprise Action Bar) */}
+      <TopEnterpriseActionBar
+        activeApp={activeApp}
+        setActiveApp={setActiveApp}
+        getActiveAppTitle={getActiveAppTitle}
+        kuwaitTime={kuwaitTime}
+        user={user}
+        userAvatar={userAvatar}
+        setUserAvatar={setUserAvatar}
+        isSuperAdmin={isSuperAdmin}
+        activeCompany={activeCompany}
+        companies={companies}
+        impersonatingCompanyId={impersonatingCompanyId}
+        onSelectCompany={(companyId) => {
+          const comp = companies.find(c => c.id === companyId);
+          if (comp) {
+            impersonateCompany(comp.id);
+            startImpersonation(comp);
+            toast.success(`تم الانتقال إلى منشأة: ${comp.nameAr}`);
+          }
+        }}
+        onAddNewCompany={() => setShowAddModal(true)}
+        employees={employees}
+        documents={documents}
+        onQuickAction={handleQuickAction}
+        onOpenSpotlight={() => setShowSpotlight(true)}
+        onOpenCalculator={() => setShowCalculator(true)}
+        showUserMenu={showUserMenu}
+        setShowUserMenu={setShowUserMenu}
+        setShowAvatarModal={setShowAvatarModal}
+        setDebugMode={setDebugMode}
+        debugMode={debugMode}
+        logout={logout}
+      />
 
-          <button 
-            onClick={() => setActiveApp('switcher')} 
-            className={`p-1.5 hover:bg-white/20 rounded-md transition text-lg font-bold flex items-center justify-center cursor-pointer ${
-              activeApp === 'switcher' ? 'bg-white/25 shadow-inner' : ''
-            }`}
-            title="العودة لشبكة التطبيقات الرئيسية"
-          >
-            <span className="leading-none text-xl">▦</span>
-          </button>
-
-          <button 
-            onClick={() => setActiveApp('scanner')} 
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer shadow-xs ${
-              activeApp === 'scanner' ? 'bg-teal-700 text-white ring-2 ring-white/50' : 'bg-teal-600 hover:bg-teal-700 text-white'
-            }`}
-            title="الماسح الضوئي الذكي (Odoo Document Scanner)"
-          >
-            <Scan size={14} />
-            <span>الماسح الضوئي</span>
-          </button>
-          
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-white truncate max-w-xs md:max-w-md">
-              {activeApp === 'switcher' ? 'Aysed HR S 2026' : getActiveAppTitle()}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {/* توقيت الكويت */}
-          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 text-[12px] font-mono text-white/90">
-            <Clock size={14} className="text-white/70" />
-            <span>{kuwaitTime}</span>
-          </div>
-
-          {/* User Profile Dropdown */}
-          <div className="relative">
-            <button 
-              onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center gap-2 hover:bg-white/10 px-2 py-1 rounded-lg transition cursor-pointer"
-            >
-              <div className="relative">
-                <img 
-                  src={userAvatar} 
-                  alt="Admin Avatar" 
-                  className="w-8 h-8 rounded-full object-cover border-2 border-white/80 shadow-xs"
-                />
-                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-[#714B67]" title="متصل الآن"></span>
-              </div>
-              <div className="text-right hidden md:block">
-                <span className="block text-xs font-bold text-white truncate max-w-[100px]">
-                  {isSuperAdmin ? 'السيد (Admin)' : 'حساب المالك'}
-                </span>
-                <span className="block text-[10px] text-white/80 truncate max-w-[100px]">{activeCompany ? activeCompany.nameAr : 'النظام المركزي'}</span>
-              </div>
-            </button>
-
-            {showUserMenu && (
-              <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden py-1 z-50 animate-in fade-in slide-in-from-top-2 duration-200 text-slate-800 dir-rtl">
-                <div className="px-4 py-3.5 border-b border-slate-100 bg-gradient-to-br from-purple-50 to-slate-50 flex items-center gap-3">
-                  <img 
-                    src={userAvatar} 
-                    alt="User Avatar" 
-                    className="w-12 h-12 rounded-full object-cover border-2 border-[#714B67] shadow-sm shrink-0"
-                  />
-                  <div className="overflow-hidden">
-                    <p className="text-xs font-bold text-slate-900 truncate">
-                      {isSuperAdmin ? 'السيد (المدير العام)' : 'حساب المالك'}
-                    </p>
-                    <p className="text-[11px] text-slate-500 truncate">{user?.email || 'elsayedhr1993@gmail.com'}</p>
-                    <span className="inline-block mt-1 text-[9px] bg-purple-100 text-[#714B67] font-bold px-2 py-0.5 rounded-full">
-                      {activeCompany ? activeCompany.nameAr : 'Super Admin'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="p-1">
-                  <button 
-                    onClick={() => {
-                      setNewAvatarUrl(userAvatar);
-                      setShowAvatarModal(true);
-                      setShowUserMenu(false);
-                    }}
-                    className="w-full text-right px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-[#714B67] transition flex items-center gap-2.5 cursor-pointer rounded-xl"
-                  >
-                    <UserCircle size={15} className="text-[#714B67]" /> تعديل الصورة الشخصية
-                  </button>
-                </div>
-
-                <div className="h-px bg-slate-100 my-1"></div>
-                
-                {isSuperAdmin && (
-                  <>
-                    <button 
-                      onClick={() => { setActiveApp('settings'); setShowUserMenu(false); }}
-                      className="w-full text-right px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-[#714B67] transition flex items-center gap-2.5 cursor-pointer rounded-xl"
-                    >
-                      <Layers size={15} className="text-[#714B67]" /> بوابة المشتركين (SaaS)
-                    </button>
-                    <button 
-                      onClick={() => { setActiveApp('saas_admin'); setShowUserMenu(false); }}
-                      className="w-full text-right px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-[#714B67] transition flex items-center gap-2.5 cursor-pointer rounded-xl"
-                    >
-                      <Shield size={15} className="text-[#714B67]" /> لوحة التحكم المركزية
-                    </button>
-                    <div className="h-px bg-slate-100 my-1"></div>
-                  </>
-                )}
-
-                <button 
-                  onClick={() => { setDebugMode(!debugMode); setShowUserMenu(false); }}
-                  className="w-full text-right px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-[#714B67] transition flex items-center gap-2.5 cursor-pointer rounded-xl"
-                >
-                  <Settings size={15} className="text-slate-500" /> 
-                  <span>وضع المطور التقني</span>
-                  {debugMode && <span className="mr-auto w-2 h-2 rounded-full bg-emerald-500"></span>}
-                </button>
-
-                <button 
-                  onClick={() => { setActiveApp('settings_dev'); setShowUserMenu(false); }}
-                  className="w-full text-right px-4 py-2.5 text-xs font-bold text-indigo-700 bg-indigo-50/70 hover:bg-indigo-100 transition flex items-center gap-2.5 cursor-pointer rounded-xl"
-                >
-                  <Sparkles size={15} className="text-indigo-600 animate-pulse" /> 
-                  <span className="font-extrabold">أدوات المطور ومحاكي البيانات</span>
-                </button>
-
-                <button 
-                  onClick={async () => {
-                    setShowUserMenu(false);
-                    const toastId = toast.loading('جارِ تصفير قاعدة البيانات ومسح كافة الموظفين...');
-                    try {
-                      const { TenantDatabaseService } = await import('./services/tenantDataService');
-                      await TenantDatabaseService.wipeEntireSystem();
-                      toast.success('تم التصفير بنجاح! جاري التحديث...', { id: toastId });
-                      setTimeout(() => window.location.reload(), 500);
-                    } catch (err) {
-                      toast.error('حدث خطأ أثناء التصفير', { id: toastId });
-                      setTimeout(() => window.location.reload(), 500);
-                    }
-                  }}
-                  className="w-full text-right px-4 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-50 transition flex items-center gap-2.5 cursor-pointer rounded-xl"
-                >
-                  <Trash2 size={15} className="text-rose-600" /> 
-                  <span>تصفير شامل ومسح كافة الموظفين</span>
-                </button>
-
-                <div className="h-px bg-slate-100 my-1"></div>
-                
-                <button 
-                  onClick={() => { logout(); setShowUserMenu(false); }}
-                  className="w-full text-right px-4 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50 transition flex items-center gap-2.5 cursor-pointer rounded-xl"
-                >
-                  <LogOut size={15} className="text-rose-500" /> تسجيل الخروج
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
 
       {debugMode && <OdooDebugMenu />}
       {/* حاوية العرض الصارمة المانعة للتداخل (Strict Single-View Canvas) */}
@@ -609,57 +683,120 @@ function MainAppLayout() {
         
         {/* الحالة 1: شاشة مبدل التطبيقات والأيقونات فقط (Odoo App Launcher) */}
         {activeApp === 'switcher' && (
-          <div className="flex-1 bg-gradient-to-br from-[#f8fafc] via-[#f1f5f9] to-[#e2e8f0] flex flex-col items-center overflow-y-auto w-full relative">
-            
-            {/* شريط البحث المباشر */}
-            <div className="w-full max-w-md my-4 relative">
-              <input 
-                type="text" 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="بحث فوري في التطبيقات الـ 11..." 
-                className="w-full px-5 py-3 rounded-full bg-white border border-slate-200 text-slate-800 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-[#714B67]/50 text-center shadow-sm transition-shadow hover:shadow-md"
-                autoFocus
-              />
-              <Search className="absolute left-4 top-3.5 text-gray-400" size={18} />
-            </div>
-
-            {/* شبكة الأيقونات الـ 11 المتناسقة (Odoo Enterprise Design) */}
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-x-6 gap-y-10 max-w-5xl mx-auto px-4 mt-8 justify-items-center">
-              {filteredApps.map((app) => {
-                const IconComponent = app.icon;
-                return (
-                  <button 
-                    key={app.id} 
-                    onClick={() => {
-                      setActiveApp(app.id as AppId);
-                      setSearchQuery('');
-                    }}
-                    className="flex flex-col items-center cursor-pointer group focus:outline-none w-[90px] sm:w-[100px]"
-                  >
-                    <div className={`relative w-[76px] h-[76px] sm:w-[86px] sm:h-[86px] ${app.color} rounded-2xl flex items-center justify-center shadow-md shadow-black/5 group-hover:shadow-xl transition-all duration-300 transform group-hover:-translate-y-1 bg-gradient-to-br from-white/10 to-black/10 ring-1 ring-black/5`}>
-                      <IconComponent className="w-9 h-9 sm:w-10 sm:h-10 text-white drop-shadow-sm" strokeWidth={1.5} />
-                    </div>
-                    <h3 className="mt-3 font-semibold text-slate-700 group-hover:text-slate-900 text-xs sm:text-[13px] text-center leading-tight tracking-wide">
-                      {app.name}
-                    </h3>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* بطاقة معلومات النظام في الأسفل */}
-            <div className="mt-auto pt-8 text-center text-slate-500 text-xs">
-              <p>نظام Aysed S HR 2026 • متوافق 100% مع قانون العمل الكويتي في القطاع الأهلي رقم 6 لسنة 2010</p>
-              <p className="mt-1 font-mono text-[11px] text-slate-600">Strict Multi-Tenant SaaS Isolation Engine</p>
-            </div>
+          <div className="flex-1 overflow-y-auto w-full bg-gradient-to-br from-[#f8fafc] via-[#f1f5f9] to-[#e2e8f0] p-2 sm:p-3 md:p-4">
+            <OdooAppLauncher
+              onSelectApp={(selectedApp) => {
+                switch (selectedApp) {
+                  case 'EMPLOYEES':
+                    setActiveApp('employees');
+                    break;
+                  case 'RECRUITMENT':
+                    setActiveApp('recruitment');
+                    break;
+                  case 'CONTRACTS':
+                    setActiveApp('contracts');
+                    break;
+                  case 'ATTENDANCE':
+                    setActiveApp('attendance');
+                    break;
+                  case 'LEAVES':
+                    setActiveApp('leaves');
+                    break;
+                  case 'PAYROLL':
+                  case 'EOS':
+                    setActiveApp('payroll');
+                    break;
+                  case 'CUSTODY_LOANS':
+                    setActiveApp('custody');
+                    break;
+                  case 'DOCUMENTS':
+                    setActiveApp('archive');
+                    break;
+                  case 'SCANNER_APP':
+                    setActiveApp('scanner');
+                    break;
+                  case 'DOCUMENT_TEMPLATES':
+                    setActiveApp('letters');
+                    break;
+                  case 'HOLIDAYS':
+                    setActiveApp('holidays');
+                    break;
+                  case 'REPORTS':
+                    setActiveApp('reports');
+                    break;
+                  case 'AUDIT_LOGS':
+                    setActiveApp('audit');
+                    break;
+                  case 'SETTINGS':
+                  case 'COMPANIES':
+                    setActiveApp('settings');
+                    break;
+                  case 'SAAS_ADMIN':
+                    setActiveApp('saas_admin');
+                    break;
+                  default:
+                    setActiveApp('switcher');
+                    break;
+                }
+              }}
+              currentUserEmail={user?.email || ''}
+              currentUserRole={isSuperAdmin ? 'SUPER_ADMIN' : 'COMPANY_ADMIN'}
+              activeCompany={activeCompany}
+              stats={{
+                employeesCount: employees?.length || 0,
+                candidatesCount: candidates?.length || 5,
+                contractsCount: employees?.length || 0,
+                leavesPendingCount: 2,
+                documentsCount: documents?.length || 0,
+                automationsCount: 12,
+                custodiesCount: 8,
+                templatesCount: 15,
+                auditLogsCount: 142,
+                shiftsCount: 4,
+                totalSalariesThisMonth: 18500,
+                onLeaveToday: 1,
+                absenceRate: 1.2,
+                lateArrivalsCount: 0,
+                saturdayAbsencesCount: 0
+              }}
+            />
           </div>
         )}
 
-        {/* الحالة 2: الموظفون (Employees Directory & Contracts) */}
+        {/* الحالة 2: الموظفون (Employees Directory) */}
         {activeApp === 'employees' && (
           <main className="flex-1 bg-slate-50 overflow-y-auto w-full">
-            <EmployeesApp />
+            <EmployeesApp {...employeeAppProps} />
+          </main>
+        )}
+
+        {/* تطبيق التوظيف والمقابلات الذكية المستقل (Recruitment & ATS) */}
+        {activeApp === 'recruitment' && (
+          <main className="flex-1 bg-slate-50 overflow-y-auto w-full p-2 sm:p-4">
+            <RecruitmentApp
+              candidates={candidates}
+              activeCompany={activeCompany || {
+                id: 'comp-main',
+                nameAr: 'المنشأة المركزية',
+                nameEn: 'Central Company',
+                pamFileNumber: '12345678',
+                civilId: '123456789012',
+                commercialLicense: '98765/2023',
+                status: 'ACTIVE',
+                subscriptionPlan: 'ENTERPRISE',
+                usersCount: 1,
+                employeesCount: employees.length
+              } as any}
+              onSaveCandidate={handleSaveCandidate}
+              onConvertCandidateToEmployee={handleConvertCandidateToEmployee}
+            />
+          </main>
+        )}
+
+        {/* تطبيق عقود العمل والبدلات وقانون العمل المستقل (Odoo Contracts & PAM) */}
+        {activeApp === 'contracts' && (
+          <main className="flex-1 bg-slate-50 overflow-y-auto w-full p-2 sm:p-4">
+            <OdooContractsApp />
           </main>
         )}
 
@@ -667,13 +804,6 @@ function MainAppLayout() {
         {activeApp === 'attendance' && (
           <main className="flex-1 bg-slate-50 overflow-y-auto w-full p-4">
             <OdooAttendanceApp />
-          </main>
-        )}
-
-        {/* الحالة 4: تخطيط الشفتات (Shifts) */}
-        {activeApp === 'shifts' && (
-          <main className="flex-1 bg-slate-50 overflow-y-auto w-full p-4">
-            <OdooPlanningApp />
           </main>
         )}
 
@@ -701,7 +831,16 @@ function MainAppLayout() {
         {/* الحالة 8: أرشيف المستندات (Documents) */}
         {activeApp === 'archive' && (
           <main className="flex-1 bg-slate-50 overflow-y-auto w-full p-4">
-            <OdooCompanyDocsApp />
+            <DocumentsApp
+              documents={documents}
+              employees={employees as any}
+              activeCompany={activeCompany}
+              filterTab=""
+              onSaveDocument={handleSaveDocument}
+              onDeleteDocument={handleDeleteDocument}
+              onAutoAddEmpFromOCR={handleAutoAddEmpFromOCR}
+              onNavigateToApp={(app) => setActiveApp(app)}
+            />
           </main>
         )}
 
@@ -748,301 +887,60 @@ function MainAppLayout() {
           </main>
         )}
 
-        {/* تطبيق الهيئة العامة للقوى العاملة (PAM Workforce Hub) */}
-        {activeApp === 'pam' && (
+        {/* تطبيق سجل الرقابة وتتبع العمليات (Audit Logs & Diagnostic Center) */}
+        {activeApp === 'audit' && (
           <main className="flex-1 bg-slate-50 overflow-y-auto w-full">
-            <OdooPamWorkforceApp />
+            <AuditLogsApp
+              activeCompany={activeCompany}
+              employees={employees}
+              contracts={[]}
+              leaves={[]}
+              attendance={[]}
+              payslips={[]}
+              generatedDocs={documents}
+              documentTemplates={[]}
+              onAddEmployee={addEmployee}
+            />
           </main>
         )}
 
-        {/* الحالة 12: شاشة لوحة تحكم السوبر أدمن وإدارة المشتركين (SaaS Settings) */}
+        {/* الحالة 12: شاشة إعدادات المنشأة والنظام */}
         {activeApp === 'settings' && (
-          <div className="flex-1 flex flex-col bg-slate-50 overflow-hidden w-full relative">
-            
-            {isSuperAdmin && (
-              <div className="bg-slate-100 border-b border-slate-200/80 px-4 md:px-6 py-3 shrink-0 z-30 shadow-xs">
-                <div className="max-w-6xl mx-auto flex bg-slate-200/70 p-1 rounded-xl w-fit gap-1 border border-slate-300/50">
-                  <button 
-                    type="button"
-                    onClick={() => setSuperAdminSettingsTab('tenants')}
-                    className={`px-5 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
-                      superAdminSettingsTab === 'tenants' 
-                        ? 'bg-[#714B67] text-white shadow-md font-black' 
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-300/40'
-                    }`}
-                  >
-                    <Building2 size={14} />
-                    <span>إدارة المشتركين والشركات (SaaS Tenants)</span>
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => setSuperAdminSettingsTab('settings')}
-                    className={`px-5 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 cursor-pointer ${
-                      superAdminSettingsTab === 'settings' 
-                        ? 'bg-[#714B67] text-white shadow-md font-black' 
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-300/40'
-                    }`}
-                  >
-                    <Sliders size={14} />
-                    <span>إعدادات تهيئة الشركة النشطة</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <main className="flex-1 bg-slate-50 overflow-y-auto w-full relative">
-
-            {isSuperAdmin ? (
-              superAdminSettingsTab === 'tenants' ? (
-                <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
-                  {/* ترويسة إدارة المشتركين */}
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                    <div>
-                      <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                        <Building2 className="text-[#714B67]" size={24} />
-                        بوابة السوبر أدمن وإدارة الشركات المشتركة (Tenants Portal)
-                      </h1>
-                      <p className="text-xs text-slate-500 mt-1">
-                        إدارة التراخيص السحابية، كلمات المرور، والدخول الفوري كمسؤول (Impersonation)
-                      </p>
-                    </div>
-
-                    <button 
-                      onClick={() => setShowAddModal(true)}
-                      className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition shadow-sm cursor-pointer"
-                    >
-                      <Plus size={16} />
-                      <span>+ إضافة شركة ومشترك جديد</span>
-                    </button>
-                  </div>
-
-                  {/* جدول المشتركين الكامل */}
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-700">قائمة الشركات المشتركة المرخصة ({companies.length})</span>
-                      <span className="text-[11px] bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full font-bold">
-                        العزل السحابي الصارم نشط 🛡️
-                      </span>
-                    </div>
-
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-right text-xs">
-                        <thead className="bg-slate-100/70 text-slate-700 border-b border-slate-200 font-bold">
-                          <tr>
-                            <th className="p-3.5">اسم المنشأة / الشركة</th>
-                            <th className="p-3.5">اسم المستخدم</th>
-                            <th className="p-3.5">كلمة المرور المؤقتة</th>
-                            <th className="p-3.5">ملف الشؤون (PAM)</th>
-                            <th className="p-3.5">الهاتف</th>
-                            <th className="p-3.5">تاريخ الإنشاء</th>
-                            <th className="p-3.5 text-center">الإجراءات والتحكم</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {companies.map((comp) => {
-                            const isCurrentActive = impersonatingCompanyId === comp.id;
-                            return (
-                              <tr key={comp.id} className={`hover:bg-slate-50 transition ${isCurrentActive ? 'bg-amber-50/80 font-medium' : ''}`}>
-                                <td className="p-3.5 font-bold text-slate-800 flex items-center gap-2">
-                                  <div className="w-7 h-7 rounded-lg bg-purple-100 text-[#714B67] flex items-center justify-center font-bold text-xs shrink-0">
-                                    {comp.nameAr.charAt(0)}
-                                  </div>
-                                  <div>
-                                    <div>{comp.nameAr}</div>
-                                    <div className="text-[10px] text-slate-400 font-normal">{comp.nameEn}</div>
-                                  </div>
-                                </td>
-                                <td className="p-3.5 font-mono text-slate-700 font-semibold">{comp.adminUsername}</td>
-                                <td className="p-3.5">
-                                  <input 
-                                    type="text" 
-                                    defaultValue={comp.adminPassword} 
-                                    onBlur={(e) => {
-                                      updateCompanyPassword(comp.id, e.target.value);
-                                      toast.success(`تم تحديث كلمة المرور لـ ${comp.nameAr}`);
-                                    }}
-                                    className="border border-slate-300 rounded-lg px-2.5 py-1 text-xs w-36 focus:outline-none focus:border-[#714B67] font-mono bg-slate-50"
-                                  />
-                                </td>
-                                <td className="p-3.5 text-slate-600 font-mono">{comp.pamFileNumber || '---'}</td>
-                                <td className="p-3.5 text-slate-600 font-mono">{comp.contactPhone || '---'}</td>
-                                <td className="p-3.5 text-slate-500 font-mono">{comp.createdAt}</td>
-                                <td className="p-3.5">
-                                  <div className="flex items-center justify-center gap-2">
-                                    <button 
-                                      onClick={() => {
-                                        impersonateCompany(comp.id);
-                                        startImpersonation(comp);
-                                        toast.success(`أنت الآن تتصفح بيانات شركة ${comp.nameAr}`);
-                                      }}
-                                      className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition flex items-center gap-1.5 shadow-sm border border-transparent cursor-pointer ${
-                                        isCurrentActive 
-                                          ? 'bg-amber-500 text-slate-950 font-black' 
-                                          : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                                      }`}
-                                    >
-                                      <span>{isCurrentActive ? '✓ الجلسة نشطة' : 'دخول كمسؤول'}</span>
-                                    </button>
-                                    <button 
-                                      onClick={async () => {
-                                        if (confirm(`هل أنت متأكد من حذف شركة (${comp.nameAr}) نهائياً؟`)) {
-                                          const deletePromise = deleteCompany(comp.id);
-                                          toast.promise(deletePromise, {
-                                            loading: 'جاري حذف الشركة...',
-                                            success: `تم حذف الشركة بنجاح`,
-                                            error: (err) => `فشل حذف الشركة: ${err.message}`
-                                          });
-                                        }
-                                      }}
-                                      className="bg-rose-50 text-rose-600 hover:bg-rose-100 p-1.5 rounded-lg border border-rose-200 transition cursor-pointer"
-                                      title="حذف المشترك"
-                                    >
-                                      <Trash2 size={14} />
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <OdooSettingsFull onNavigateToDeveloperTools={() => setActiveApp('settings_dev')} />
-              )
-            ) : (
-              <OdooSettingsFull onNavigateToDeveloperTools={() => setActiveApp('settings_dev')} />
-            )}
-
-            {/* Modal إضافة مشترك جديد */}
-            {showAddModal && (
-              <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 border border-slate-200 animate-in fade-in zoom-in duration-150">
-                  <div className="flex justify-between items-center pb-3 mb-4 border-b border-slate-100">
-                    <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                      <Building2 className="text-[#714B67]" size={20} />
-                      إضافة منشأة ومشترك جديد
-                    </h3>
-                    <button 
-                      onClick={() => setShowAddModal(false)}
-                      className="text-slate-400 hover:text-slate-700 text-lg p-1"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  
-                  <div className="space-y-3.5 text-xs text-right">
-                    <div>
-                      <label className="block font-bold text-slate-700 mb-1">اسم المنشأة / المركز الطبي *</label>
-                      <input 
-                        type="text" 
-                        value={newCompName}
-                        onChange={(e) => setNewCompName(e.target.value)}
-                        placeholder="مثال: مركز العاصمة الطبي التخصصي" 
-                        className="w-full border border-slate-300 rounded-xl p-2.5 focus:outline-none focus:border-[#714B67]"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block font-bold text-slate-700 mb-1">اسم مستخدم المسؤول (Admin Username) *</label>
-                      <input 
-                        type="text" 
-                        value={newUsername}
-                        onChange={(e) => setNewUsername(e.target.value)}
-                        placeholder="مثال: admin_capital" 
-                        className="w-full border border-slate-300 rounded-xl p-2.5 focus:outline-none focus:border-[#714B67] font-mono"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block font-bold text-slate-700 mb-1">كلمة المرور الافتراضية *</label>
-                      <input 
-                        type="text" 
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="e.g. Capital2026@" 
-                        className="w-full border border-slate-300 rounded-xl p-2.5 focus:outline-none focus:border-[#714B67] font-mono"
-                        required
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block font-bold text-slate-700 mb-1">ملف الشؤون (PAM)</label>
-                        <input 
-                          type="text" 
-                          value={newPamNumber}
-                          onChange={(e) => setNewPamNumber(e.target.value)}
-                          placeholder="PAM-10293" 
-                          className="w-full border border-slate-300 rounded-xl p-2.5 focus:outline-none focus:border-[#714B67] font-mono"
-                        />
-                      </div>
-                      <div>
-                        <label className="block font-bold text-slate-700 mb-1">هاتف التواصل</label>
-                        <input 
-                          type="text" 
-                          value={newPhone}
-                          onChange={(e) => setNewPhone(e.target.value)}
-                          placeholder="96590000000" 
-                          className="w-full border border-slate-300 rounded-xl p-2.5 focus:outline-none focus:border-[#714B67] font-mono"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-slate-100">
-                    <button 
-                      onClick={() => setShowAddModal(false)}
-                      className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition"
-                    >
-                      إلغاء
-                    </button>
-                    <button 
-                      onClick={() => {
-                        if (!newCompName.trim() || !newUsername.trim() || !newPassword.trim()) {
-                          toast.error('يرجى تعبئة الحقول الإلزامية');
-                          return;
-                        }
-                        addCompany({
-                          nameAr: newCompName,
-                          nameEn: newCompName,
-                          adminUsername: newUsername,
-                          adminPassword: newPassword,
-                          contactPhone: newPhone || '96590000000',
-                          pamFileNumber: newPamNumber || 'PAM-000',
-                          commercialReg: 'CR-1000',
-                          mohLicense: 'MOH-000',
-                          iban: 'KW0000000000000000000000',
-                          bankName: 'بنك الكويت الوطني'
-                        });
-                        toast.success(`تم إنشاء وتفعيل شركة (${newCompName}) بنجاح`);
-                        setShowAddModal(false);
-                        setNewCompName('');
-                        setNewUsername('');
-                        setNewPassword('');
-                        setNewPamNumber('');
-                        setNewPhone('');
-                      }}
-                      className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-5 py-2.5 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
-                    >
-                      إنشاء وتفعيل المنشأة
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+          <main className="flex-1 bg-slate-50 overflow-y-auto w-full relative">
+            <OdooSettingsFull onNavigateToDeveloperTools={() => setActiveApp('settings_dev')} />
           </main>
-        </div>
-      )}
+        )}
 
         {/* الحالة 13: السوبر أدمن */}
         {activeApp === 'saas_admin' && (
           <main className="flex-1 overflow-y-auto w-full">
-            <SuperAdminDashboard />
+            <SuperAdminDashboard 
+              currentUserEmail={user?.email || 'elsayedhr1993@gmail.com'}
+              onLogout={logout}
+              onSwitchToApps={() => setActiveApp('switcher')}
+              onSwitchToWorkspace={() => setActiveApp('employees')}
+              onImpersonateCompany={(companyName) => {
+                const targetComp = companies.find(c => c.nameAr === companyName || c.nameEn === companyName || c.id === companyName) || {
+                  id: `comp_${Date.now()}`,
+                  nameAr: companyName,
+                  nameEn: companyName,
+                  name: companyName,
+                  crNumber: '301122',
+                  pifssNumber: 'KUW-554433',
+                  commercialRegNo: '301122',
+                  civilIdCompany: '203344',
+                  bankName: 'بيت التمويل الكويتي (KFH)',
+                  iban: 'KW12KFH000000000000301122',
+                  wsiCode: 'WSI-TENANT',
+                  currency: 'KWD',
+                  status: 'active'
+                };
+                impersonateCompany(targetComp.id);
+                startImpersonation(targetComp);
+                setActiveApp('switcher');
+                toast.success(`تم التبديل بنجاح! أنت الآن تتصفح وتدير شركة: ${targetComp.nameAr || companyName}`);
+              }}
+            />
           </main>
         )}
 
@@ -1052,8 +950,8 @@ function MainAppLayout() {
             <SettingsApp
               companies={companies || []}
               activeCompany={activeCompany}
-              onSaveCompany={(c) => addCompany(c)}
-              onAddCompany={(c) => addCompany(c)}
+              onSaveCompany={(c) => addCompany(c as any)}
+              onAddCompany={(c) => addCompany(c as any)}
               onDeleteCompany={(id) => deleteCompany(id)}
               onSelectCompany={(c) => impersonateCompany(c.id)}
               bgTheme="FOREST_VIDEO"
@@ -1154,6 +1052,27 @@ function MainAppLayout() {
           </div>
         </div>
       )}
+      {/* Global Spotlight Search Modal (Ctrl + K) */}
+      <GlobalSpotlightSearchModal
+        isOpen={showSpotlight}
+        onClose={() => setShowSpotlight(false)}
+        employees={employees}
+        onSelectEmployee={handleSpotlightSelectEmployee}
+        onNavigateToApp={(appId) => {
+          setShowSpotlight(false);
+          setActiveApp(appId as any);
+        }}
+        onTriggerAction={(action) => {
+          setShowSpotlight(false);
+          handleQuickAction(action);
+        }}
+      />
+
+      {/* Kuwait HR Quick Calculator Modal */}
+      <KuwaitHrQuickCalculatorModal
+        isOpen={showCalculator}
+        onClose={() => setShowCalculator(false)}
+      />
     </div>
   );
 }

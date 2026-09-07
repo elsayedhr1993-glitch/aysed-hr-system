@@ -13,7 +13,9 @@ export interface Company {
   name?: string;
   commercialRegNo?: string;
   civilIdCompany?: string;
+  civilId?: string;
   bankName?: string;
+  accountNumber?: string;
   iban?: string;
   wsiCode?: string;
   currency?: string;

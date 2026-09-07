@@ -250,6 +250,116 @@ app.get("/api/supabase/status", async (req, res) => {
   }
 });
 
+// =========================================================================
+// 📡 BIOMETRIC DEVICES INTEGRATION ENDPOINTS (ZKTeco ADMS, PyZK, Hikvision)
+// =========================================================================
+
+// In-memory buffer for recent biometric device punches
+const biometricLiveBuffer: Array<{
+  id: string;
+  pin: string;
+  timestamp: string;
+  status: string;
+  source: string;
+  companyId?: string;
+  receivedAt: string;
+}> = [];
+
+// 1. ZKTeco ADMS Handshake (GET /iclock/cdata)
+app.get("/iclock/cdata", (req, res) => {
+  const sn = req.query.SN || "UNKNOWN";
+  console.log(`[Biometric ADMS Handshake] Device SN: ${sn}`);
+  // ZKTeco standard response format
+  res.send("GET OPTION FROM: " + sn + "\nATTLOGStamp=None\nOPERLOGStamp=None\nATTPHOTOStamp=None\nErrorDelay=30\nDelay=10\nTransTimes=00:00;14:00\nTransInterval=1\nTransFlag=1111000000\nRealtime=1\nEncrypt=0");
+});
+
+// 2. ZKTeco ADMS Real-time Data Push (POST /iclock/cdata)
+app.post("/iclock/cdata", express.text({ type: "*/*" }), (req, res) => {
+  try {
+    const rawData = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+    const sn = (req.query.SN as string) || "ZKTeco-ADMS";
+    console.log(`[Biometric ADMS Push] Incoming log from ${sn}:`, rawData.substring(0, 100));
+
+    // Parse standard ZK tab-separated lines
+    const lines = rawData.split(/\r?\n/);
+    lines.forEach(line => {
+      const parts = line.trim().split(/\t|\s{2,}/);
+      if (parts.length >= 2) {
+        const pin = parts[0].replace(/[^0-9a-zA-Z]/g, '');
+        const timeStr = parts[1];
+        if (pin && timeStr) {
+          biometricLiveBuffer.unshift({
+            id: `adms-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            pin,
+            timestamp: timeStr,
+            status: parts[2] || '0',
+            source: `ZKTeco (${sn})`,
+            receivedAt: new Date().toISOString()
+          });
+        }
+      }
+    });
+
+    if (biometricLiveBuffer.length > 200) {
+      biometricLiveBuffer.length = 200;
+    }
+
+    // ZKTeco expects "OK" or "OK: count"
+    res.send("OK");
+  } catch (err: any) {
+    console.error("[Biometric ADMS Push Error]", err);
+    res.send("OK");
+  }
+});
+
+// 3. Local Sync Agent / Webhook Endpoint (POST /api/biometrics/sync)
+app.post("/api/biometrics/sync", express.json(), (req, res) => {
+  try {
+    const { companyId, logs } = req.body;
+    if (Array.isArray(logs)) {
+      logs.forEach((log: any) => {
+        biometricLiveBuffer.unshift({
+          id: `agent-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          pin: String(log.pin || log.user_id || ''),
+          timestamp: log.timestamp || new Date().toISOString(),
+          status: String(log.status || '0'),
+          source: 'Local Agent (PyZK)',
+          companyId,
+          receivedAt: new Date().toISOString()
+        });
+      });
+      if (biometricLiveBuffer.length > 200) {
+        biometricLiveBuffer.length = 200;
+      }
+    }
+
+    return res.json({
+      status: "ok",
+      received: Array.isArray(logs) ? logs.length : 0,
+      message: `تم استلام ${Array.isArray(logs) ? logs.length : 0} سجل بصمة بنجاح في المنظومة السحابية`,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err: any) {
+    return res.status(500).json({ status: "error", error: err.message });
+  }
+});
+
+// 4. Biometric Hub Health & Live Buffer Query
+app.get("/api/biometrics/health", (req, res) => {
+  res.json({
+    status: "online",
+    service: "Aysed Biometrics Cloud Gateway",
+    bufferedLogsCount: biometricLiveBuffer.length,
+    recentPunches: biometricLiveBuffer.slice(0, 20),
+    endpoints: {
+      admsPush: "/iclock/cdata",
+      agentSync: "/api/biometrics/sync",
+      webhookPush: "/api/biometrics/push"
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Comprehensive Environment & Cloud Services Health Check Endpoint
 app.get("/api/system/env-health", async (req, res) => {
   try {

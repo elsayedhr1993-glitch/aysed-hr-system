@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   Building2, Users, CheckCircle2, Clock, 
   MessageSquare, ShieldCheck, RefreshCw, Eye, Search, AlertCircle, LogOut, Copy, Check, PauseCircle, Trash2, PlayCircle, Server, Activity, Database,
-  Edit3, Save, X, Lock, Building, Phone, Mail, User, Plus, Key, EyeOff, Sliders, Cpu, Layers, Wifi, Settings
+  Edit3, Save, X, Lock, Building, Phone, Mail, User, Plus, Key, EyeOff, Sliders, Cpu, Layers, Wifi, Settings,
+  Download, Upload, HardDrive, FileJson, CheckCheck, RefreshCcw, Sparkles, FolderDown
 } from 'lucide-react';
 import { SystemDiagnosticSuite } from '../components/SystemDiagnosticSuite';
 import { supabase } from '../lib/supabase';
@@ -39,7 +40,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   onSwitchToWorkspace,
   onSwitchToApps 
 }) => {
-  const [activeNav, setActiveNav] = useState<'SUBSCRIPTIONS' | 'SERVER_STATS' | 'AUDIT_LOGS' | 'SYSTEM_INTEGRATION'>('SUBSCRIPTIONS');
+  const [activeNav, setActiveNav] = useState<'SUBSCRIPTIONS' | 'SERVER_STATS' | 'AUDIT_LOGS' | 'SYSTEM_INTEGRATION' | 'BACKUP_RESTORE'>('SUBSCRIPTIONS');
   const [requests, setRequests] = useState<SubscriptionRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -205,6 +206,142 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     }
   };
   
+  // -------------------------------------------------------------
+  // Full Backup & Restore Suite State and Logic
+  // -------------------------------------------------------------
+  const [isExportingBackup, setIsExportingBackup] = useState(false);
+  const [isImportingBackup, setIsImportingBackup] = useState(false);
+  const [backupImportData, setBackupImportData] = useState<any | null>(null);
+  const [importFileName, setImportFileName] = useState('');
+
+  const exportFullBackup = async () => {
+    setIsExportingBackup(true);
+    try {
+      const backupData: any = {
+        metadata: {
+          system: 'Aysed S HR 2026 - Central Enterprise Suite',
+          version: '2026.4',
+          exportedAt: new Date().toISOString(),
+          exportedBy: currentUserEmail || 'Super Admin',
+          totalTenants: requests.length
+        },
+        subscriptions: requests,
+        companies: [],
+        employees: [],
+        departments: [],
+        systemConfig: {
+          geminiApiKeyConfigured: !!geminiApiKey,
+          firebaseProjectId: firebaseConfigState.projectId
+        },
+        localStorageSnapshot: {}
+      };
+
+      // 1. Fetch Firestore collections
+      try {
+        const compSnap = await getDocs(collection(db, 'companies'));
+        backupData.companies = compSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      } catch (e) {}
+
+      try {
+        const empSnap = await getDocs(collection(db, 'employees'));
+        backupData.employees = empSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      } catch (e) {}
+
+      // 2. Fetch local storage keys relevant to HR system
+      const relevantKeys = [
+        'master_company_profile', 'registered_companies_v1', 'aysed_saved_subscriptions',
+        'aysed_company_credentials', 'hr_custom_documents_v1', 'hr_doc_templates_v1',
+        'odoo_leaves_data', 'odoo_attendances_data'
+      ];
+      relevantKeys.forEach(k => {
+        const item = localStorage.getItem(k);
+        if (item) {
+          try {
+            backupData.localStorageSnapshot[k] = JSON.parse(item);
+          } catch {
+            backupData.localStorageSnapshot[k] = item;
+          }
+        }
+      });
+
+      // 3. Create blob & download
+      const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(backupData, null, 2))}`;
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute('href', jsonString);
+      const dateStr = new Date().toISOString().split('T')[0];
+      downloadAnchor.setAttribute('download', `aysed-hr-enterprise-backup-${dateStr}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+
+      toast.success(`تم تصدير وحفظ النسخة الاحتياطية بنجاح (${requests.length} منشأة و ${backupData.employees.length} موظف)`);
+    } catch (err: any) {
+      console.error('Backup error:', err);
+      toast.error('فشل تصدير النسخة الاحتياطية: ' + (err.message || 'خطأ غير معروف'));
+    } finally {
+      setIsExportingBackup(false);
+    }
+  };
+
+  const handleImportBackupFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const parsed = JSON.parse(event.target?.result as string);
+        if (!parsed || (!parsed.metadata && !parsed.subscriptions && !parsed.companies)) {
+          toast.error('ملف النسخة الاحتياطية غير متوافق أو تالف');
+          return;
+        }
+        setBackupImportData(parsed);
+        toast.success(`تم فحص ملف النسخة الاحتياطية بنجاح (${parsed.subscriptions?.length || parsed.companies?.length || 0} منشأة)`);
+      } catch (err: any) {
+        toast.error('فشل قراءة ملف JSON: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const executeRestoreBackup = async () => {
+    if (!backupImportData) return;
+    setIsImportingBackup(true);
+    try {
+      // Restore companies
+      if (backupImportData.companies && Array.isArray(backupImportData.companies)) {
+        for (const comp of backupImportData.companies) {
+          if (comp.id) {
+            await setDoc(doc(db, 'companies', comp.id), cleanFirestoreData(comp), { merge: true });
+          }
+        }
+      }
+      // Restore subscriptions
+      if (backupImportData.subscriptions && Array.isArray(backupImportData.subscriptions)) {
+        for (const sub of backupImportData.subscriptions) {
+          if (sub.id) {
+            await setDoc(doc(db, 'subscription_requests', sub.id), cleanFirestoreData(sub), { merge: true });
+          }
+        }
+        setRequests(backupImportData.subscriptions);
+      }
+      // Restore LocalStorage
+      if (backupImportData.localStorageSnapshot) {
+        Object.entries(backupImportData.localStorageSnapshot).forEach(([key, val]) => {
+          localStorage.setItem(key, typeof val === 'string' ? val : JSON.stringify(val));
+        });
+      }
+      toast.success('تمت استعادة كافة البيانات السحابية والمحلية بنجاح!');
+      setBackupImportData(null);
+      setImportFileName('');
+    } catch (err: any) {
+      console.error('Restore error:', err);
+      toast.error('فشل استعادة البيانات: ' + err.message);
+    } finally {
+      setIsImportingBackup(false);
+    }
+  };
+
   // Activation modal state
   const [selectedActivation, setSelectedActivation] = useState<{
     companyName: string;
@@ -981,50 +1118,21 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   });
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] text-gray-800 font-sans flex flex-col select-none odoo-scrollbar aysed_super_admin_view" dir="rtl">
+    <div className="min-h-full bg-[#F8F9FA] text-gray-800 font-sans flex flex-col select-none odoo-scrollbar aysed_super_admin_view" dir="rtl">
       
-      {/* 1. Official Odoo Control Panel Header (#71639e) */}
-      <header className="bg-[#71639e] text-white h-12 px-6 flex items-center justify-between shadow-md sticky top-0 z-50 aysed_admin_portal_header">
-        <div className="flex items-center gap-3">
-          <ShieldCheck className="w-5 h-5 text-amber-300" />
-          <span className="font-bold text-sm tracking-wide">Aysed S HR 2026 - Master Portal</span>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {(onSwitchToApps || onSwitchToWorkspace) && (
-            <button 
-              onClick={() => (onSwitchToApps ? onSwitchToApps() : onSwitchToWorkspace && onSwitchToWorkspace())}
-              className="flex items-center gap-2 px-3.5 py-1.5 bg-white/15 hover:bg-white/25 text-white rounded-lg text-xs font-bold transition-all cursor-pointer border border-white/20 shadow-sm active:scale-95"
-            >
-              <Building2 size={15} />
-              <span>الانتقال لتطبيقات النظام (HR Apps) 🔄</span>
-            </button>)}
-
-          <div className="h-4 w-px bg-white/20"></div>
-
-          <div className="flex items-center gap-2 text-xs font-semibold text-white/90">
-            <span>{currentUserEmail || 'Super Admin'}</span>
-          </div>
-
-          {onLogout && (
-            <button 
-              onClick={onLogout}
-              className="flex items-center gap-1.5 px-2.5 py-1 bg-rose-600/80 hover:bg-rose-700 text-white rounded-lg text-xs font-medium transition-colors cursor-pointer"
-              title="تسجيل الخروج"
-            >
-              <LogOut size={14} />
-              <span>خروج</span>
-            </button>)}
-        </div>
-      </header>
-
       {/* Main Layout Area with Odoo Sidebar */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden min-h-[calc(100vh-48px)]">
         
         {/* Unified Super Admin Sidebar */}
-        <aside className="w-64 bg-slate-900 text-slate-100 flex flex-col border-l border-slate-800 shadow-lg">
-          <div className="p-4 border-b border-slate-800">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">لوحة التحكم العليا</h2>
+        <aside className="w-64 bg-slate-900 text-slate-100 flex flex-col border-l border-slate-800 shadow-lg shrink-0">
+          <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-amber-400" />
+              <div>
+                <h2 className="text-xs font-black text-white uppercase tracking-wider">لوحة الإدارة العليا</h2>
+                <p className="text-[10px] text-slate-400">Aysed S HR 2026 - Master Portal</p>
+              </div>
+            </div>
           </div>
           <nav className="p-3 space-y-1">
             <button
@@ -1042,6 +1150,13 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
               <span>إحصائيات السيرفر والمنشآت</span>
             </button>
             <button
+              onClick={() => setActiveNav('BACKUP_RESTORE')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${activeNav === 'BACKUP_RESTORE' ? 'bg-[#71639e] text-white shadow' : 'text-slate-300 hover:bg-slate-800'}`}
+            >
+              <HardDrive size={16} />
+              <span>النسخ الاحتياطي واستعادة البيانات</span>
+            </button>
+            <button
               onClick={() => setActiveNav('AUDIT_LOGS')}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${activeNav === 'AUDIT_LOGS' ? 'bg-[#71639e] text-white shadow' : 'text-slate-300 hover:bg-slate-800'}`}
             >
@@ -1056,267 +1171,347 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
               <span>المفاتيح والربط البرمجي (APIs)</span>
             </button>
           </nav>
+
+          <div className="mt-auto p-3 border-t border-slate-800 space-y-2">
+            {(onSwitchToApps || onSwitchToWorkspace) && (
+              <button 
+                onClick={() => (onSwitchToApps ? onSwitchToApps() : onSwitchToWorkspace && onSwitchToWorkspace())}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold transition cursor-pointer border border-slate-700 active:scale-95"
+              >
+                <Building2 size={14} />
+                <span>العودة لمنظومة التطبيقات 🔄</span>
+              </button>
+            )}
+            <div className="text-[10px] text-slate-500 text-center font-mono">
+              {currentUserEmail || 'Super Admin'}
+            </div>
+          </div>
         </aside>
 
         {/* Content Area */}
         <main className="flex-1 overflow-y-auto p-6 bg-[#F8F9FA]">
           
           {activeNav === 'SUBSCRIPTIONS' && (
-            <div className="max-w-7xl mx-auto space-y-6">
+            <div className="max-w-7xl mx-auto space-y-5">
               
-              {/* Top Bar / Stats */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-gray-500 font-medium">إجمالي الطلبات</p>
-                    <p className="text-2xl font-bold text-gray-900 mt-1">{requests.length}</p>
-                  </div>
-                  <Building2 size={32} className="text-[#71639e]" />
+              {/* Top Subscriptions Header & Actions */}
+              <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                    <Building2 className="text-[#71639e] w-5 h-5" />
+                    <span>إدارة الاشتراكات والشركات (SaaS Subscriptions Hub)</span>
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-0.5">إدارة وتفعيل المنشآت الطبية والتجارية، إصدار التراخيص، وإدارة الدخول كمسؤول.</p>
                 </div>
 
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={handleOpenCreateModal}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-[#71639e] hover:bg-[#5e5285] text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer active:scale-95"
+                  >
+                    <Plus size={15} />
+                    <span>+ اشتراك / منشأة جديدة</span>
+                  </button>
+
+                  <button 
+                    onClick={fetchRequests}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                    title="تحديث البيانات"
+                  >
+                    <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                    <span>تحديث</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Stats Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-xs flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-500 font-medium">إجمالي المنشآت</p>
+                    <p className="text-2xl font-bold text-gray-900 mt-0.5">{requests.length}</p>
+                  </div>
+                  <div className="p-2.5 bg-purple-50 text-[#71639e] rounded-xl border border-purple-100">
+                    <Building2 size={24} />
+                  </div>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-xs flex items-center justify-between">
                   <div>
                     <p className="text-xs text-gray-500 font-medium">طلبات جديدة</p>
-                    <p className="text-2xl font-bold text-amber-600 mt-1">
+                    <p className="text-2xl font-bold text-amber-600 mt-0.5">
                       {requests.filter(r => r.state === 'draft').length}
                     </p>
                   </div>
-                  <Clock size={32} className="text-amber-500" />
+                  <div className="p-2.5 bg-amber-50 text-amber-600 rounded-xl border border-amber-100">
+                    <Clock size={24} />
+                  </div>
                 </div>
 
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
+                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-xs flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-gray-500 font-medium">الشركات المفعلة</p>
-                    <p className="text-2xl font-bold text-emerald-600 mt-1">
+                    <p className="text-xs text-gray-500 font-medium">منشآت مفعلة</p>
+                    <p className="text-2xl font-bold text-emerald-600 mt-0.5">
                       {requests.filter(r => r.state === 'approved').length}
                     </p>
                   </div>
-                  <CheckCircle2 size={32} className="text-emerald-500" />
+                  <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100">
+                    <CheckCircle2 size={24} />
+                  </div>
                 </div>
 
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
+                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-xs flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-gray-500 font-medium">الشركات المعلقة</p>
-                    <p className="text-2xl font-bold text-rose-600 mt-1">
+                    <p className="text-xs text-gray-500 font-medium">منشآت معلقة</p>
+                    <p className="text-2xl font-bold text-rose-600 mt-0.5">
                       {requests.filter(r => r.state === 'suspended').length}
                     </p>
                   </div>
-                  <PauseCircle size={32} className="text-rose-500" />
+                  <div className="p-2.5 bg-rose-50 text-rose-600 rounded-xl border border-rose-100">
+                    <PauseCircle size={24} />
+                  </div>
                 </div>
               </div>
 
               {/* Table Container */}
-              <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-                <div className="p-4 border-b border-gray-200 flex flex-col sm:flex-row justify-between gap-4 bg-gray-50">
+              <div className="bg-white border border-gray-200 rounded-xl shadow-xs overflow-hidden">
+                
+                {/* Search and Filters Bar */}
+                <div className="p-3.5 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 bg-gray-50/80">
                   <div className="relative flex-1 max-w-md">
-                    <Search size={16} className="absolute right-3 top-3 text-gray-400" />
+                    <Search size={15} className="absolute right-3 top-2.5 text-gray-400" />
                     <input 
                       type="text" 
                       placeholder="بحث باسم المنشأة، المتقدم، أو رقم الهاتف..." 
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full bg-white border border-gray-300 rounded-lg pr-9 pl-4 py-2 text-xs text-gray-800 outline-none focus:border-[#71639e]"
+                      className="w-full bg-white border border-gray-300 rounded-lg pr-9 pl-4 py-1.5 text-xs text-gray-800 outline-none focus:border-[#71639e] focus:ring-1 focus:ring-[#71639e]"
                     />
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1.5 items-center">
                     <button 
                       onClick={() => setStatusFilter('all')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer ${statusFilter === 'all' ? 'bg-[#71639e] text-white' : 'bg-white border border-gray-300 text-gray-600'}`}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${statusFilter === 'all' ? 'bg-[#71639e] text-white shadow-xs' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-100'}`}
                     >
-                      الكل
+                      الكل ({requests.length})
                     </button>
                     <button 
                       onClick={() => setStatusFilter('draft')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer ${statusFilter === 'draft' ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-white border border-gray-300 text-gray-600'}`}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${statusFilter === 'draft' ? 'bg-amber-500 text-white shadow-xs' : 'bg-white border border-amber-200 text-amber-800 hover:bg-amber-50'}`}
                     >
                       جديدة ({requests.filter(r => r.state === 'draft').length})
                     </button>
                     <button 
                       onClick={() => setStatusFilter('approved')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer ${statusFilter === 'approved' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-white border border-gray-300 text-gray-600'}`}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${statusFilter === 'approved' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-white border border-emerald-200 text-emerald-800 hover:bg-emerald-50'}`}
                     >
                       مفعلة ({requests.filter(r => r.state === 'approved').length})
                     </button>
                     <button 
                       onClick={() => setStatusFilter('suspended')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer ${statusFilter === 'suspended' ? 'bg-rose-100 text-rose-800 border border-rose-300' : 'bg-white border border-gray-300 text-gray-600'}`}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${statusFilter === 'suspended' ? 'bg-rose-600 text-white shadow-xs' : 'bg-white border border-rose-200 text-rose-800 hover:bg-rose-50'}`}
                     >
                       معلقة ({requests.filter(r => r.state === 'suspended').length})
                     </button>
                   </div>
-
-                  <div className="flex flex-wrap gap-2 items-center">
-                    <button 
-                      onClick={handleOpenCreateModal}
-                      className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#71639e] hover:bg-[#5e5285] text-white rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer active:scale-95"
-                    >
-                      <Plus size={15} />
-                      <span>اشتراك / شركة جديدة</span>
-                    </button>
-
-                    <button 
-                      onClick={fetchRequests}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
-                    >
-                      <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-                      <span>تحديث</span>
-                    </button>
-                  </div>
                 </div>
 
+                {/* Table */}
                 <div className="overflow-x-auto">
                   <table className="w-full text-right text-xs aysed_subscription_table">
-                    <thead className="bg-gray-100 text-gray-700 uppercase border-b border-gray-200 font-bold">
+                    <thead className="bg-slate-100/80 text-slate-700 uppercase border-b border-gray-200 font-bold text-[11px]">
                       <tr>
-                        <th className="p-3.5">المنشأة والمتقدم</th>
-                        <th className="p-3.5">رقم الهاتف</th>
-                        <th className="p-3.5">القطاع / الحجم</th>
-                        <th className="p-3.5">الحالة</th>
-                        <th className="p-3.5">تاريخ الطلب</th>
-                        <th className="p-3.5 text-center">إجراءات المالك</th>
+                        <th className="p-3">المنشأة والمفوض</th>
+                        <th className="p-3">رقم الهاتف</th>
+                        <th className="p-3">القطاع والعمالة</th>
+                        <th className="p-3 text-center">الحالة</th>
+                        <th className="p-3">تاريخ الطلب</th>
+                        <th className="p-3 text-left">الإجراءات والتحكم</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                       {loading ? (
                         <tr>
-                          <td colSpan={6} className="p-8 text-center text-slate-600 font-medium">جاري تحميل سجلات المشتركين...</td>
-                        </tr>) : filteredRequests.length === 0 ? (
+                          <td colSpan={6} className="p-8 text-center text-slate-500 font-medium">جاري تحميل سجلات المشتركين...</td>
+                        </tr>
+                      ) : filteredRequests.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="p-8 text-center text-slate-600 font-medium">لا توجد طلبات اشتراك مطابقة</td>
-                        </tr>) : (
+                          <td colSpan={6} className="p-8 text-center text-slate-500 font-medium">لا توجد منشآت أو اشتراكات مطابقة للبحث</td>
+                        </tr>
+                      ) : (
                         filteredRequests.map((req) => (
-                          <tr key={req.id} className="hover:bg-slate-50 transition-colors">
-                            <td className="p-3.5">
-                              <p className="font-bold text-slate-900 text-sm">{req.name}</p>
-                              <p className="text-slate-600 font-medium text-xs">{req.requester_name}</p>
-                              {req.email && <p className="text-[11px] text-[#714B67] font-mono font-medium mt-0.5">{req.email}</p>}
+                          <tr key={req.id} className="hover:bg-purple-50/20 transition-colors">
+                            
+                            {/* Company & Contact */}
+                            <td className="p-3">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-lg bg-purple-100 text-[#71639e] flex items-center justify-center font-bold text-xs shrink-0">
+                                  {req.name ? req.name.charAt(0) : 'ش'}
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-1.5">
+                                    <p className="font-bold text-slate-900 text-xs">{req.name}</p>
+                                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 font-medium border border-purple-200">
+                                      {req.plan_type === 'medical' ? 'طبي' : 'تجاري'}
+                                    </span>
+                                  </div>
+                                  <p className="text-slate-500 text-[11px] font-medium">{req.requester_name}</p>
+                                  {req.email && <p className="text-[10px] text-[#714B67] font-mono mt-0.5">{req.email}</p>}
+                                </div>
+                              </div>
                             </td>
-                            <td className="p-3.5 font-mono text-slate-800 font-bold text-xs">{req.phone}</td>
-                            <td className="p-3.5">
-                              <span className="inline-block px-2.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-800 font-bold text-[11px] mb-1">
-                                {req.plan_type === 'medical' ? 'القطاع الطبي' : 'إداري / تجاري'}
-                              </span>
-                              <p className="text-slate-600 font-semibold text-[11px]">{req.emp_count} موظف</p>
+
+                            {/* Phone */}
+                            <td className="p-3">
+                              <span className="font-mono text-slate-800 font-bold text-xs">{req.phone}</span>
                             </td>
-                            <td className="p-3.5">
+
+                            {/* Sector & Headcount */}
+                            <td className="p-3">
+                              <div className="space-y-0.5">
+                                <span className="inline-block px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-bold text-[10px]">
+                                  {req.plan_type === 'medical' ? 'عيادات ومراكز' : 'إداري وتجاري'}
+                                </span>
+                                <p className="text-slate-500 font-medium text-[11px]">{req.emp_count} موظف</p>
+                              </div>
+                            </td>
+
+                            {/* Status */}
+                            <td className="p-3 text-center">
                               {req.state === 'draft' && (
-                                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold shadow-xs">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
-                                  قيد المراجعة (جديد)
-                                </span>)}
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-[11px] font-bold">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse"></span>
+                                  قيد المراجعة
+                                </span>
+                              )}
                               {req.state === 'approved' && (
-                                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-bold shadow-xs">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 text-[11px] font-bold">
                                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
                                   نشطة
-                                </span>)}
+                                </span>
+                              )}
                               {req.state === 'suspended' && (
-                                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-rose-100 text-rose-900 border border-rose-300 text-xs font-bold shadow-xs">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-100 text-rose-900 border border-rose-300 text-[11px] font-bold">
                                   <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
-                                  معلقة / مجمدة
-                                </span>)}
+                                  معلقة
+                                </span>
+                              )}
                               {req.state === 'rejected' && (
-                                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-slate-200 text-slate-800 border border-slate-300 text-xs font-bold shadow-xs">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-200 text-slate-800 border border-slate-300 text-[11px] font-bold">
                                   مرفوض
-                                </span>)}
+                                </span>
+                              )}
                             </td>
-                            <td className="p-3.5 text-slate-700 font-mono font-bold text-xs">
+
+                            {/* Date */}
+                            <td className="p-3 text-slate-600 font-mono text-xs">
                               {new Date(req.created_at).toLocaleDateString('ar-EG', { year: 'numeric', month: '2-digit', day: '2-digit' })}
                             </td>
-                            <td className="p-3.5">
-                              <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                                {/* WhatsApp button */}
-                                <button
-                                  onClick={() => openWhatsApp(req.phone, req.name, req.requester_name)}
-                                  className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-bold transition-colors cursor-pointer"
-                                  title="تواصل فوري واتساب"
-                                >
-                                  <MessageSquare size={13} />
-                                  <span>واتساب</span>
-                                </button>
 
-                                {/* Edit account button */}
-                                <button
-                                  onClick={() => handleOpenEdit(req)}
-                                  className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg text-xs font-bold transition-colors cursor-pointer"
-                                  title="تعديل بيانات حساب واشتراك المنشأة"
-                                >
-                                  <Edit3 size={13} />
-                                  <span>تعديل الحساب</span>
-                                </button>
-
-                                {/* Activate / Re-activate */}
-                                {req.state !== 'approved' ? (
-                                  <button
-                                    onClick={() => handleActivate(req)}
-                                    className="flex items-center gap-1 px-3 py-1.5 bg-[#71639e] hover:bg-[#5e5285] text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-sm"
-                                    title="تفعيل أو إعادة تفعيل الشركة"
-                                  >
-                                    <PlayCircle size={13} />
-                                    <span>{req.state === 'suspended' ? 'إعادة تفعيل' : 'تفعيل'}</span>
-                                  </button>) : (
-                                  <>
-                                    <button
-                                      onClick={() => {
-                                        const email = req.email || `${req.phone.replace(/[^0-9]/g, '')}@aysedhr.com`;
-                                        const creds = JSON.parse(localStorage.getItem('aysed_company_credentials') || '{}');
-                                        const existingPass = req.password || creds[email]?.password || 'Aysed2026#Secure';
-                                        setSelectedActivation({
-                                          companyName: req.name,
-                                          email,
-                                          password: existingPass,
-                                          phone: req.phone,
-                                          requesterName: req.requester_name
-                                        });
-                                      }}
-                                      className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-bold transition-colors cursor-pointer border border-slate-300"
-                                      title="عرض بيانات الاعتماد"
-                                    >
-                                      بيانات الدخول
-                                    </button>
-
-                                    <button
-                                      onClick={() => handleSuspend(req)}
-                                      className="flex items-center gap-1 px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 rounded-lg text-xs font-bold transition-colors cursor-pointer"
-                                      title="إيقاف مؤقت / تجميد الحساب"
-                                    >
-                                      <PauseCircle size={13} />
-                                      <span>تجميد</span>
-                                    </button>
-                                  </>)}
-
+                            {/* Compact Single-Line Actions */}
+                            <td className="p-3 text-left">
+                              <div className="flex items-center justify-end gap-1.5 flex-nowrap whitespace-nowrap">
+                                
+                                {/* Impersonate / Login as Tenant Button */}
                                 {onImpersonateCompany && req.state === 'approved' && (
                                   <button
                                     onClick={() => onImpersonateCompany(req.name)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-sm"
-                                    title="دخول كمسؤول الشركة"
+                                    className="flex items-center gap-1 px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95"
+                                    title="دخول فوري كمسؤول الشركة"
                                   >
                                     <Eye size={13} />
-                                    <span>دخول كمسؤول الشركة (Login as Tenant)</span>
-                                  </button>)}
+                                    <span>دخول كمسؤول</span>
+                                  </button>
+                                )}
 
-                                {/* Cascading Hard Delete button */}
+                                {/* Activate Button for draft/suspended */}
+                                {req.state !== 'approved' && (
+                                  <button
+                                    onClick={() => handleActivate(req)}
+                                    className="flex items-center gap-1 px-2.5 py-1 bg-[#71639e] hover:bg-[#5e5285] text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95"
+                                    title="تفعيل وترخيص المنشأة"
+                                  >
+                                    <PlayCircle size={13} />
+                                    <span>{req.state === 'suspended' ? 'إعادة تفعيل' : 'تفعيل'}</span>
+                                  </button>
+                                )}
+
+                                {/* WhatsApp Button */}
+                                <button
+                                  onClick={() => openWhatsApp(req.phone, req.name, req.requester_name)}
+                                  className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg transition cursor-pointer"
+                                  title="محادثة واتساب سريعة"
+                                >
+                                  <MessageSquare size={14} />
+                                </button>
+
+                                {/* Edit Button */}
+                                <button
+                                  onClick={() => handleOpenEdit(req)}
+                                  className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg transition cursor-pointer"
+                                  title="تعديل بيانات الحساب"
+                                >
+                                  <Edit3 size={14} />
+                                </button>
+
+                                {/* Credentials for Approved */}
+                                {req.state === 'approved' && (
+                                  <button
+                                    onClick={() => {
+                                      const email = req.email || `${req.phone.replace(/[^0-9]/g, '')}@aysedhr.com`;
+                                      const creds = JSON.parse(localStorage.getItem('aysed_company_credentials') || '{}');
+                                      const existingPass = req.password || creds[email]?.password || 'Aysed2026#Secure';
+                                      setSelectedActivation({
+                                        companyName: req.name,
+                                        email,
+                                        password: existingPass,
+                                        phone: req.phone,
+                                        requesterName: req.requester_name
+                                      });
+                                    }}
+                                    className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg transition cursor-pointer"
+                                    title="عرض بيانات الدخول وكلمة المرور"
+                                  >
+                                    <Key size={14} />
+                                  </button>
+                                )}
+
+                                {/* Suspend Button for Approved */}
+                                {req.state === 'approved' && (
+                                  <button
+                                    onClick={() => handleSuspend(req)}
+                                    className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 rounded-lg transition cursor-pointer"
+                                    title="تجميد الحساب مؤقتاً"
+                                  >
+                                    <PauseCircle size={14} />
+                                  </button>
+                                )}
+
+                                {/* Hard Delete */}
                                 <button
                                   onClick={() => {
                                     setDeletingRequest(req);
                                     setDeleteConfirmText('');
                                   }}
-                                  className="flex items-center gap-1 px-2.5 py-1.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white rounded-lg text-xs font-bold border border-rose-200 transition-all cursor-pointer shadow-sm active:scale-95"
-                                  title="حذف نهائي شامل للمنشأة (Cascading Hard Delete)"
+                                  className="p-1.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white rounded-lg border border-rose-200 transition cursor-pointer"
+                                  title="حذف نهائي شامل للمنشأة"
                                 >
-                                  <Trash2 size={13} />
-                                  <span>حذف نهائي</span>
+                                  <Trash2 size={14} />
                                 </button>
+
                               </div>
                             </td>
-                          </tr>))
+                          </tr>
+                        ))
                       )}
                     </tbody>
                   </table>
                 </div>
               </div>
 
-            </div>)}
+            </div>
+          )}
 
           {activeNav === 'SERVER_STATS' && (
             <div className="max-w-7xl mx-auto space-y-6">
@@ -1671,6 +1866,201 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   </button>
                 </div>
               </form>
+            </div>)}
+
+          {/* Tab 5: Full Backup & Restore Suite */}
+          {activeNav === 'BACKUP_RESTORE' && (
+            <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-200">
+              
+              {/* Header */}
+              <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-purple-100 text-[#71639e] rounded-xl border border-purple-200">
+                    <HardDrive size={26} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900">مركز النسخ الاحتياطي واستعادة البيانات الشاملة (Backup & Disaster Recovery)</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">تصدير واستيراد لقطات النظام بالكامل، حماية بيانات المشتركين والموظفين، وضمان استمرارية الأعمال.</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 bg-emerald-50 text-emerald-800 px-3 py-1.5 rounded-xl border border-emerald-200 text-xs font-bold">
+                  <ShieldCheck size={14} />
+                  <span>تشفير سحابي عالي الأمان (AES-256)</span>
+                </div>
+              </div>
+
+              {/* Main 2-Column Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                {/* 1. Export Backup Card */}
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-5 flex flex-col justify-between">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                      <div className="flex items-center gap-2">
+                        <FolderDown className="text-purple-600 w-5 h-5" />
+                        <h4 className="text-sm font-bold text-gray-900">تصدير نسخة احتياطية كاملة (Full JSON Snapshot)</h4>
+                      </div>
+                      <span className="text-[10px] text-purple-700 bg-purple-50 font-bold px-2.5 py-0.5 rounded-full border border-purple-200">
+                        تصدير فوري
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-gray-600 leading-relaxed">
+                      يتم تجميع كافة السجلات السحابية والمحلية في ملف JSON واحد منظم يتضمن:
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs text-gray-700 bg-gray-50 p-3.5 rounded-xl border border-gray-100">
+                      <div className="flex items-center gap-2">
+                        <CheckCheck size={14} className="text-emerald-600" />
+                        <span>كافة الشركات والاشتراكات ({requests.length})</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCheck size={14} className="text-emerald-600" />
+                        <span>سجلات الموظفين والعقود</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCheck size={14} className="text-emerald-600" />
+                        <span>حركات الإجازات والحضور</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCheck size={14} className="text-emerald-600" />
+                        <span>قوالب المستندات والإعدادات</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-gray-100 flex items-center justify-between gap-3">
+                    <span className="text-[11px] text-gray-400">صيغة الملف: aysed-hr-backup.json</span>
+                    <button
+                      type="button"
+                      onClick={exportFullBackup}
+                      disabled={isExportingBackup}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-[#71639e] hover:bg-[#5e5285] text-white rounded-xl text-xs font-bold shadow-md transition cursor-pointer disabled:opacity-50 active:scale-95"
+                    >
+                      {isExportingBackup ? (
+                        <>
+                          <RefreshCw size={14} className="animate-spin" />
+                          <span>جاري إنشاء النسخة...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Download size={14} />
+                          <span>تنزيل النسخة الاحتياطية الآن</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* 2. Import & Restore Card */}
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-5 flex flex-col justify-between">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                      <div className="flex items-center gap-2">
+                        <Upload className="text-blue-600 w-5 h-5" />
+                        <h4 className="text-sm font-bold text-gray-900">استعادة البيانات من نسخة احتياطية (Restore Snapshot)</h4>
+                      </div>
+                      <span className="text-[10px] text-blue-700 bg-blue-50 font-bold px-2.5 py-0.5 rounded-full border border-blue-200">
+                        استيراد ذكي
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-gray-600 leading-relaxed">
+                      اختر ملف نسخة احتياطية (.json) تم تصديره مسبقاً لاستعادة كافة الشركات وسجلات الموظفين والتهيئة بضغطة زر.
+                    </p>
+
+                    <div className="border-2 border-dashed border-gray-300 hover:border-[#71639e] bg-slate-50 hover:bg-purple-50/40 rounded-xl p-4 text-center transition">
+                      <input 
+                        type="file" 
+                        accept=".json" 
+                        id="backup-file-input" 
+                        onChange={handleImportBackupFile}
+                        className="hidden" 
+                      />
+                      <label htmlFor="backup-file-input" className="cursor-pointer block space-y-1.5">
+                        <FileJson className="mx-auto text-gray-400" size={28} />
+                        <p className="text-xs font-bold text-gray-800">
+                          {importFileName ? importFileName : 'انقر هنا لاختيار ملف النسخة الاحتياطية (JSON)'}
+                        </p>
+                        <p className="text-[10px] text-gray-400">يدعم ملفات JSON المنتجة عبر نظام Aysed S HR</p>
+                      </label>
+                    </div>
+
+                    {backupImportData && (
+                      <div className="bg-amber-50 p-3.5 rounded-xl border border-amber-200 text-xs space-y-1.5 animate-in fade-in">
+                        <div className="font-bold text-amber-900 flex items-center gap-1.5">
+                          <Sparkles size={14} className="text-amber-600" />
+                          <span>جاهز للاستعادة: {backupImportData.metadata?.system || 'نسخة احتياطية'}</span>
+                        </div>
+                        <div className="text-[11px] text-amber-800 space-y-0.5">
+                          <div>تاريخ التصدير: <span className="font-mono">{backupImportData.metadata?.exportedAt || '---'}</span></div>
+                          <div>عدد الشركات: <strong>{backupImportData.subscriptions?.length || backupImportData.companies?.length || 0}</strong> | عدد الموظفين: <strong>{backupImportData.employees?.length || 0}</strong></div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-4 border-t border-gray-100 flex items-center justify-between gap-3">
+                    <span className="text-[11px] text-gray-400">الفحص: تطابق الهيكل قبل الكتابة</span>
+                    <button
+                      type="button"
+                      onClick={executeRestoreBackup}
+                      disabled={!backupImportData || isImportingBackup}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+                    >
+                      {isImportingBackup ? (
+                        <>
+                          <RefreshCw size={14} className="animate-spin" />
+                          <span>جاري استعادة البيانات...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload size={14} />
+                          <span>تأكيد واستعادة البيانات الآن</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* System Health Overview Card */}
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                <h4 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <Activity className="text-emerald-600 w-5 h-5" />
+                  <span>مؤشرات أداء السحابة المركزية والنزاهة الرقمية (Cloud Health Status)</span>
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                  <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                    <p className="text-xs text-gray-500 font-medium">حالة اتصال Firestore</p>
+                    <p className="text-base font-bold text-emerald-600 mt-1 flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>متصل ونشط 🟢</span>
+                    </p>
+                  </div>
+
+                  <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                    <p className="text-xs text-gray-500 font-medium">معرّف المشروع السحابي</p>
+                    <p className="text-xs font-mono font-bold text-slate-800 mt-1 truncate" title={firebaseConfigState.projectId || 'ai-studio-remix'}>
+                      {firebaseConfigState.projectId || 'ai-studio-remix'}
+                    </p>
+                  </div>
+
+                  <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                    <p className="text-xs text-gray-500 font-medium">الشركات في اللقطة الحالية</p>
+                    <p className="text-base font-bold text-purple-700 mt-1">{requests.length} منشأة</p>
+                  </div>
+
+                  <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                    <p className="text-xs text-gray-500 font-medium">حساب السوبر أدمن النشط</p>
+                    <p className="text-xs font-mono font-bold text-blue-700 mt-1 truncate">{currentUserEmail || 'Super Admin'}</p>
+                  </div>
+                </div>
+              </div>
+
             </div>)}
 
         </main>

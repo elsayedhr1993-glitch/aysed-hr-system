@@ -16,6 +16,8 @@ export interface EmployeeContract {
   transportAllowance: number;
   medicalAllowance?: number;
   isKuwaiti: boolean;
+  nationality?: string;
+  joinDate?: string;
   bankName: string;
   iban: string;
   contractStatus: 'running' | 'expired' | 'draft';

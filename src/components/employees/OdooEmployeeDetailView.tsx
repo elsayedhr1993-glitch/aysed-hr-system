@@ -22,6 +22,8 @@ import {
 } from 'lucide-react';
 import { triggerContractRunningLeaveAllocation } from '../../utils/contractLeaveTrigger';
 import { TabDocumentScanner } from '../TabDocumentScanner';
+import { getCarriedOverBalance, calculate2026AccruedDays, getGlobalCompensatoryDays } from '../../utils/kuwaitLaw';
+import { buildEmployeeBaselineAllocations, computeFifoLeaveAllocations } from '../../services/leaveService';
 
 interface Props {
   employee: any;
@@ -43,7 +45,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
   activeCompany
 }) => {
   const [employee, setEmployee] = useState<any>({ ...initialEmployee });
-  const [activeTab, setActiveTab] = useState<'work' | 'private' | 'hr'>('work');
+  const [activeTab, setActiveTab] = useState<'work' | 'private' | 'documents' | 'hr'>('work');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
@@ -57,6 +59,52 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
 
   // Daily wage according to Kuwait Labor Law (26 work days)
   const dailyWage = totalSalary > 0 ? (totalSalary / 26) : 0;
+
+  // Dynamic Time Off Balance Calculation using the core Leave Engine and kuwaitLaw
+  const getDynamicBalance = () => {
+    try {
+      if (typeof window === 'undefined') return 30;
+
+      // 1. Fetch live requests and allocations from standard localStorage keys
+      const rawRequests = localStorage.getItem('odoo_leave_requests_v2');
+      const rawAllocations = localStorage.getItem('odoo_leave_allocations_v2');
+
+      const requestsList = rawRequests ? JSON.parse(rawRequests) : [];
+      const allocationsList = rawAllocations ? JSON.parse(rawAllocations) : [];
+
+      // 2. Map and parse allocations to match HrLeaveAllocation structure
+      const mappedAllocations = allocationsList.map((a: any) => ({
+        ...a,
+        numberOfDays: a.days,
+        allocationType: 'regular',
+        state: 'validate',
+        name: a.notes,
+        dateFrom: a.allocationDate
+      }));
+
+      // 3. Use the core engine to build baseline allocations including 2025 carried over and 2026 accrued
+      const empAllocs = buildEmployeeBaselineAllocations(employee as any, mappedAllocations as any);
+      const fifoResult = computeFifoLeaveAllocations(employee as any, empAllocs, requestsList as any);
+
+      const totalOpening = fifoResult.allocations.filter(a => a.allocationType === 'regular').reduce((s, a) => s + (a.numberOfDays || 0), 0);
+      const totalAccrued = fifoResult.allocations.filter(a => a.allocationType === 'accrual' && !a.name?.includes('تعويضي') && !a.name?.includes('بديل') && !a.name?.includes('عطلة')).reduce((s, a) => s + (a.numberOfDays || 0), 0);
+      const totalCompensatory = getGlobalCompensatoryDays(employee as any);
+
+      const carried = totalOpening;
+      const earned = totalAccrued + totalCompensatory;
+      const consumed = fifoResult.totalConsumed;
+      const available = Math.max(0, (carried + earned) - consumed);
+
+      return available;
+    } catch (err) {
+      console.error('Failed to compute dynamic balance in detail view:', err);
+      // Fallback to simpler lookup
+      const carriedVal = getCarriedOverBalance(employee);
+      return Math.max(0, carriedVal + 30);
+    }
+  };
+
+  const calculatedBalance = getDynamicBalance();
 
   // Contract status
   const contractStatus = employee.contractStatus || employee.status || 'ساري';
@@ -227,12 +275,13 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
                   placeholder="اسم الموظف بالعربية"
                   className="text-xl font-black text-slate-900 border border-transparent hover:border-slate-300 focus:border-[#714B67] rounded-lg px-2 py-0.5 focus:bg-purple-50/40 focus:outline-none transition"
                 />
-                <span className={`text-xs px-2.5 py-1 rounded-full font-bold border ${
+                <span className={`text-xs px-2.5 py-1 rounded-full font-bold border flex items-center gap-1.5 ${
                   isContractRunning 
                     ? 'bg-emerald-100 text-emerald-900 border-emerald-300' 
                     : 'bg-amber-100 text-amber-900 border-amber-300'
                 }`}>
-                  {contractStatus}
+                  <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
+                  <span>{isContractRunning ? 'على رأس العمل' : contractStatus}</span>
                 </span>
               </div>
 
@@ -247,37 +296,40 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
                 <span className="text-slate-300">|</span>
                 <span className="text-slate-900 font-bold">{employee.jobTitle || 'المسمى الوظيفي'}</span>
                 <span className="text-slate-300">|</span>
-                <span className="text-slate-700">{employee.dept || 'القسم العام'}</span>
+                <span className="text-slate-700">{employee.dept || employee.department || 'القسم العام'}</span>
                 <span className="text-slate-300">|</span>
-                <span className="font-mono text-purple-900 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
-                  🏢 {employee.companyId || activeCompany?.id || 'comp-super-admin'}
+                <span className="font-bold text-purple-900 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                  🏢 {activeCompany?.nameAr || activeCompany?.name || 'إدارة النظام المركزية'}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Odoo Smart Buttons (العقود - الإجازات - نموذج PAM 2) */}
+          {/* Odoo Smart Buttons (العقود - الإجازات - الهوية الذكية - المباشرة) */}
           <div className="flex flex-wrap items-center gap-2.5">
             
             {/* Smart Button 1: العقود (Contracts) */}
             <div 
-              onClick={() => setActiveTab('work')}
-              className="bg-purple-50/70 hover:bg-purple-100/80 border border-purple-300 rounded-xl p-2.5 min-w-[135px] flex items-center gap-3 transition cursor-pointer shadow-2xs group"
-              title="سجل عقد العمل والراتب"
+              onClick={() => {
+                setActiveTab('hr');
+                import('react-hot-toast').then(m => m.toast.success('تم الانتقال لبيانات العقد. يرجى تعديل باقة الأجور الكاملة من تطبيق العقود والرواتب الرئيسي.'));
+              }}
+              className="bg-purple-50/70 hover:bg-purple-100/80 border border-purple-300 rounded-xl p-2.5 min-w-[130px] flex items-center gap-2.5 transition cursor-pointer shadow-2xs group"
+              title="انقر للانتقال لبيانات العقد والتعيين"
             >
               <div className="w-9 h-9 rounded-lg bg-[#714B67] text-white flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
                 <FileText size={18} />
               </div>
               <div className="text-right">
                 <div className="text-[10px] text-purple-900 font-bold">عقد العمل</div>
-                <div className="text-sm font-black text-slate-900 font-mono">1 ساري</div>
+                <div className="text-xs font-black text-slate-900 font-mono">1 نشط</div>
               </div>
             </div>
 
             {/* Smart Button 2: رصيد الإجازات (Time Off) */}
             <div 
               onClick={() => onTriggerPrint(`كشف رصيد إجازات الموظف - ${employee.nameAr || employee.id}`, employee)}
-              className="bg-emerald-50/70 hover:bg-emerald-100/80 border border-emerald-300 rounded-xl p-2.5 min-w-[135px] flex items-center gap-3 transition cursor-pointer shadow-2xs group"
+              className="bg-emerald-50/70 hover:bg-emerald-100/80 border border-emerald-300 rounded-xl p-2.5 min-w-[130px] flex items-center gap-2.5 transition cursor-pointer shadow-2xs group"
               title="انقر لطباعة كشف رصيد الإجازات السنوية المعتمد والمستحق فوراً"
             >
               <div className="w-9 h-9 rounded-lg bg-emerald-700 text-white flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
@@ -285,37 +337,36 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
               </div>
               <div className="text-right">
                 <div className="text-[10px] text-emerald-900 font-bold">رصيد الإجازات</div>
-                <div className="text-sm font-black text-slate-900 font-mono">30 يوم</div>
+                <div className="text-xs font-black text-slate-900 font-mono">{calculatedBalance} يوم</div>
               </div>
             </div>
 
-            {/* Smart Button 3: نموذج القوى العاملة (PAM 2) */}
-            <button
-              type="button"
-              onClick={onOpenPamModal}
-              className="bg-amber-50/70 hover:bg-amber-100/80 border border-amber-300 rounded-xl p-2.5 min-w-[155px] flex items-center gap-3 transition cursor-pointer shadow-2xs group text-right"
-              title="إصدار وطباعة عقد العمل ونموذج إذن العمل الرسمي PAM 2"
+            {/* Smart Button 3: الهوية الذكية (ID Card) */}
+            <div 
+              onClick={() => onTriggerPrint(`بطاقة هوية الموظف - ${employee.nameAr || employee.id}`, { ...employee, type: 'ID_CARD' })}
+              className="bg-blue-50/70 hover:bg-blue-100/80 border border-blue-300 rounded-xl p-2.5 min-w-[130px] flex items-center gap-2.5 transition cursor-pointer shadow-2xs group"
+              title="طباعة واستخراج بطاقة هوية الموظف والـ QR Code"
             >
-              <div className="w-9 h-9 rounded-lg bg-amber-600 text-white flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
-                <ShieldCheck size={18} />
+              <div className="w-9 h-9 rounded-lg bg-blue-700 text-white flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                <CreditCard size={18} />
               </div>
-              <div>
-                <div className="text-[10px] text-amber-900 font-bold">نموذج PAM 2</div>
-                <div className="text-xs font-black text-slate-900">إذن العمل الرسمي</div>
+              <div className="text-right">
+                <div className="text-[10px] text-blue-900 font-bold">الهوية والبطاقة</div>
+                <div className="text-xs font-black text-slate-900">طباعة QR 🪪</div>
               </div>
-            </button>
+            </div>
 
           </div>
 
         </div>
 
-        {/* Notebook Tabs Bar (معلومات العمل - البيانات الشخصية - إعدادات HR) */}
-        <div className="border-b border-slate-300 flex items-center gap-2">
+        {/* Notebook Tabs Bar (معلومات العمل - البيانات الشخصية - المستندات - إعدادات HR) */}
+        <div className="border-b border-slate-300 flex items-center gap-2 overflow-x-auto">
           
           <button
             type="button"
             onClick={() => setActiveTab('work')}
-            className={`px-5 py-3 text-xs font-black border-b-2 transition flex items-center gap-2 cursor-pointer ${
+            className={`px-4 py-3 text-xs font-black border-b-2 transition flex items-center gap-2 shrink-0 cursor-pointer ${
               activeTab === 'work'
                 ? 'border-[#714B67] text-[#714B67] bg-purple-50/40 rounded-t-lg'
                 : 'border-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-50'
@@ -328,7 +379,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
           <button
             type="button"
             onClick={() => setActiveTab('private')}
-            className={`px-5 py-3 text-xs font-black border-b-2 transition flex items-center gap-2 cursor-pointer ${
+            className={`px-4 py-3 text-xs font-black border-b-2 transition flex items-center gap-2 shrink-0 cursor-pointer ${
               activeTab === 'private'
                 ? 'border-[#714B67] text-[#714B67] bg-purple-50/40 rounded-t-lg'
                 : 'border-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-50'
@@ -340,8 +391,21 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
 
           <button
             type="button"
+            onClick={() => setActiveTab('documents')}
+            className={`px-4 py-3 text-xs font-black border-b-2 transition flex items-center gap-2 shrink-0 cursor-pointer ${
+              activeTab === 'documents'
+                ? 'border-[#714B67] text-[#714B67] bg-purple-50/40 rounded-t-lg'
+                : 'border-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-50'
+            }`}
+          >
+            <FileSpreadsheet size={16} />
+            <span>المستندات والتراخيص الكويتية (Documents & Compliance)</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab('hr')}
-            className={`px-5 py-3 text-xs font-black border-b-2 transition flex items-center gap-2 cursor-pointer ${
+            className={`px-4 py-3 text-xs font-black border-b-2 transition flex items-center gap-2 shrink-0 cursor-pointer ${
               activeTab === 'hr'
                 ? 'border-[#714B67] text-[#714B67] bg-purple-50/40 rounded-t-lg'
                 : 'border-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-50'
@@ -481,47 +545,58 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div>
-                  <label className="block text-slate-900 font-bold mb-1">الراتب الأساسي (Basic)</label>
+                  <label className="block text-slate-600 font-bold mb-1">الراتب الأساسي (Basic)</label>
                   <input
                     type="number"
                     step="0.001"
+                    readOnly={true}
                     value={employee.basicSalary || employee.salary || 0}
-                    onChange={(e) => handleFieldChange('basicSalary', e.target.value)}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono font-bold text-slate-900 bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    className="w-full border border-slate-200 rounded-xl p-2.5 font-mono font-bold text-slate-500 bg-slate-100 cursor-not-allowed focus:outline-none"
+                    title="تُقرأ هذه القيمة تلقائياً من عقد العمل النشط"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-900 font-bold mb-1">بدل السكن (Housing)</label>
+                  <label className="block text-slate-600 font-bold mb-1">بدل السكن (Housing)</label>
                   <input
                     type="number"
                     step="0.001"
+                    readOnly={true}
                     value={employee.housingAllowance || 0}
-                    onChange={(e) => handleFieldChange('housingAllowance', e.target.value)}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono font-bold text-slate-900 bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    className="w-full border border-slate-200 rounded-xl p-2.5 font-mono font-bold text-slate-500 bg-slate-100 cursor-not-allowed focus:outline-none"
+                    title="تُقرأ هذه القيمة تلقائياً من عقد العمل النشط"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-900 font-bold mb-1">بدل الانتقال (Transport)</label>
+                  <label className="block text-slate-600 font-bold mb-1">بدل الانتقال (Transport)</label>
                   <input
                     type="number"
                     step="0.001"
+                    readOnly={true}
                     value={employee.transportAllowance || 0}
-                    onChange={(e) => handleFieldChange('transportAllowance', e.target.value)}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono font-bold text-slate-900 bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    className="w-full border border-slate-200 rounded-xl p-2.5 font-mono font-bold text-slate-500 bg-slate-100 cursor-not-allowed focus:outline-none"
+                    title="تُقرأ هذه القيمة تلقائياً من عقد العمل النشط"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-900 font-bold mb-1">بدلات أخرى وطبيعة عمل</label>
+                  <label className="block text-slate-600 font-bold mb-1">بدلات أخرى وطبيعة عمل</label>
                   <input
                     type="number"
                     step="0.001"
+                    readOnly={true}
                     value={employee.allowances || employee.otherAllowance || 0}
-                    onChange={(e) => handleFieldChange('allowances', e.target.value)}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono font-bold text-slate-900 bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    className="w-full border border-slate-200 rounded-xl p-2.5 font-mono font-bold text-slate-500 bg-slate-100 cursor-not-allowed focus:outline-none"
+                    title="تُقرأ هذه القيمة تلقائياً من عقد العمل النشط"
                   />
+                </div>
+
+                <div className="col-span-full bg-amber-50 border border-amber-200 rounded-xl p-3.5 flex items-start gap-2.5 text-amber-900 text-xs font-bold leading-relaxed">
+                  <span className="text-base">💡</span>
+                  <span>
+                    <strong>حماية الأجور والامتثال لـ WPS:</strong> حقول الراتب والبدلات هي حقول محمية (قراءة فقط) تُسحب بشكل آلي وتطبيقي دائم من تفاصيل العقد النشط (Active Contract) في نظام العقود، وذلك لضمان تطابق البيانات تماماً ومنع أي ثغرات أو غرامات من هيئة القوى العاملة.
+                  </span>
                 </div>
               </div>
             </div>
@@ -694,6 +769,128 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
           </div>
         )}
 
+        {/* Tab 3: المستندات والتراخيص الكويتية (Documents & Compliance) */}
+        {activeTab === 'documents' && (
+          <div className="space-y-6 text-xs animate-fade-in">
+            
+            {/* 1. ملخص حالات صلاحية المستندات والتراخيص */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              
+              {/* بطاقة 1: البطاقة المدنية */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-col justify-between space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-800">🪪 البطاقة المدنية</span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
+                    employee.civilIdExpiry ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-amber-100 text-amber-800 border border-amber-300'
+                  }`}>
+                    {employee.civilIdExpiry ? 'مسجلة' : 'تستوجب التحديث'}
+                  </span>
+                </div>
+                <div className="text-[11px] font-mono font-semibold text-slate-600">
+                  {employee.civilId || employee.civil_id_number || 'غير مدخلة'}
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  الانتهاء: <span className="font-mono text-slate-700 font-bold">{employee.civilIdExpiry || 'غير محدد'}</span>
+                </div>
+              </div>
+
+              {/* بطاقة 2: جواز السفر */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-col justify-between space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-800">✈️ جواز السفر</span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
+                    employee.passportExpiry ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-slate-100 text-slate-600 border border-slate-300'
+                  }`}>
+                    {employee.passportExpiry ? 'ساري' : 'غير مدخل'}
+                  </span>
+                </div>
+                <div className="text-[11px] font-mono font-semibold text-slate-600">
+                  {employee.passportNo || 'غير مدخل'}
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  الانتهاء: <span className="font-mono text-slate-700 font-bold">{employee.passportExpiry || 'غير محدد'}</span>
+                </div>
+              </div>
+
+              {/* بطاقة 3: إذن العمل (PAM) */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-col justify-between space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-800">📜 إذن العمل (PAM)</span>
+                  <span className="bg-purple-100 text-purple-900 border border-purple-300 text-[10px] px-2 py-0.5 rounded font-bold">
+                    معتمد
+                  </span>
+                </div>
+                <div className="text-[11px] font-mono font-semibold text-slate-600">
+                  {employee.workPermitNo || `PAM-${employee.id}`}
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  نهاية العقد: <span className="font-mono text-slate-700 font-bold">{employee.contractEndDate || '2027-01-01'}</span>
+                </div>
+              </div>
+
+              {/* بطاقة 4: ترخيص وزارة الصحة (MOH) */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-col justify-between space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-800">🩺 ترخيص MOH</span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
+                    isMedicalStaff ? 'bg-purple-100 text-purple-900 border border-purple-300' : 'bg-slate-100 text-slate-500'
+                  }`}>
+                    {isMedicalStaff ? 'كادر طبي' : 'غير مطلوب'}
+                  </span>
+                </div>
+                <div className="text-[11px] font-mono font-semibold text-slate-600">
+                  {employee.mohLicense || 'غير منشأ'}
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  الانتهاء: <span className="font-mono text-slate-700 font-bold">{employee.mohLicenseExpiry || 'غير محدد'}</span>
+                </div>
+              </div>
+
+            </div>
+
+            {/* 2. أدوات الماسح الضوئي الذكي (OCR Scanners) */}
+            <div className="bg-purple-50/40 border border-purple-200 rounded-2xl p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-black text-slate-900 text-xs flex items-center gap-2">
+                    <span>📷 الماسح الضوئي الذكي ومستخرج الوثائق الكويتي (OCR System)</span>
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">ارفع وثائق الموظف لاستخراج البيانات وتثبيتها تلقائياً في السجل</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <TabDocumentScanner 
+                  tabType="CIVIL_ID" 
+                  title="مسح واستخراج البطاقة المدنية الكويتية" 
+                  onDataExtracted={(data) => handleOcrResult(data, 'civil_id')} 
+                />
+                
+                <TabDocumentScanner 
+                  tabType="PASSPORT" 
+                  title="مسح واستخراج جواز السفر" 
+                  onDataExtracted={(data) => handleOcrResult(data, 'passport')} 
+                />
+
+                <TabDocumentScanner 
+                  tabType="WORK_PERMIT" 
+                  title="مسح واستخراج إذن العمل (PAM)" 
+                  onDataExtracted={(data) => handleOcrResult(data, 'work_permit')} 
+                />
+
+                {isMedicalStaff && (
+                  <TabDocumentScanner 
+                    tabType="MEDICAL_LICENSE" 
+                    title="مسح واستخراج ترخيص مزاولة المهنة (MOH)" 
+                    onDataExtracted={(data) => handleOcrResult(data, 'medical_license')} 
+                  />
+                )}
+              </div>
+            </div>
+
+          </div>
+        )}
+
         {/* Tab 3: إعدادات HR (HR Settings) */}
         {activeTab === 'hr' && (
           <div className="space-y-6 text-xs animate-fade-in">
@@ -765,23 +962,46 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
               </div>
 
               <div>
-                <label className="block text-slate-900 font-bold mb-1.5">تاريخ بداية العقد الحالي (YYYY-MM-DD)</label>
+                <label className="block text-slate-600 font-bold mb-1.5">الرصيد المرحّل من 2025 (Carried-Over Balance)</label>
                 <input
-                  type="date"
-                  value={employee.contractStartDate ? employee.contractStartDate.slice(0, 10) : ''}
-                  onChange={(e) => handleFieldChange('contractStartDate', e.target.value)}
-                  className="w-full border border-slate-300 rounded-xl p-2.5 font-mono font-bold text-slate-900 bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  readOnly={true}
+                  value={employee.carriedOverLeave2025 ?? employee.carriedOverBalance ?? employee.openingBalance ?? 0}
+                  className="w-full border border-slate-200 rounded-xl p-2.5 font-mono font-bold text-slate-500 bg-slate-100 cursor-not-allowed focus:outline-none"
+                  placeholder="0.0"
+                  title="تُدار وتُخصّص هذه الأرصدة تلقائياً عبر نظام الإجازات والغياب"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-900 font-bold mb-1.5">تاريخ نهاية العقد الحالي (YYYY-MM-DD)</label>
+                <label className="block text-slate-600 font-bold mb-1.5">تاريخ بداية العقد الحالي (YYYY-MM-DD)</label>
                 <input
                   type="date"
-                  value={employee.contractEndDate ? employee.contractEndDate.slice(0, 10) : '2027-01-01'}
-                  onChange={(e) => handleFieldChange('contractEndDate', e.target.value)}
-                  className="w-full border border-slate-300 rounded-xl p-2.5 font-mono font-bold text-slate-900 bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                  readOnly={true}
+                  value={employee.contractStartDate ? employee.contractStartDate.slice(0, 10) : ''}
+                  className="w-full border border-slate-200 rounded-xl p-2.5 font-mono font-bold text-slate-500 bg-slate-100 cursor-not-allowed focus:outline-none"
+                  title="يُسحب تلقائياً من عقد العمل النشط للموظف"
                 />
+              </div>
+
+              <div>
+                <label className="block text-slate-600 font-bold mb-1.5">تاريخ نهاية العقد الحالي (YYYY-MM-DD)</label>
+                <input
+                  type="date"
+                  readOnly={true}
+                  value={employee.contractEndDate ? employee.contractEndDate.slice(0, 10) : '2027-01-01'}
+                  className="w-full border border-slate-200 rounded-xl p-2.5 font-mono font-bold text-slate-500 bg-slate-100 cursor-not-allowed focus:outline-none"
+                  title="يُسحب تلقائياً من عقد العمل النشط للموظف"
+                />
+              </div>
+
+              <div className="col-span-full bg-emerald-50/55 border border-emerald-200 rounded-xl p-3.5 flex items-start gap-2.5 text-emerald-900 text-xs font-bold leading-relaxed">
+                <span className="text-base">✈️</span>
+                <span>
+                  <strong>إدارة أرصدة الإجازات وتواريخ التعاقد:</strong> رصيد الموظف المرحّل يتم تتبعه واحتسابه ديناميكياً بناءً على طلبات الإجازات والتخصيصات (Allocations) المعتمدة في تطبيق <strong>"الإجازات والغياب"</strong>. كما أن تواريخ سريان ونهاية العقد تُستورد تلقائياً من تطبيق <strong>"العقود والرواتب"</strong> لضمان حوكمة البيانات.
+                </span>
               </div>
 
               <div className="md:col-span-3">
