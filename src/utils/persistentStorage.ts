@@ -254,7 +254,7 @@ export function purgeLegacyMockData(): void {
       }
     }
 
-    // 5. Cleanse Attendance, Leaves, Payslips, Custodies, Loans, Warnings
+    // 5. Cleanse Attendance, Leaves, Payslips, Custodies, Loans, Warnings, Candidates, Documents
     const arrayKeys = [
       MANARA_STORAGE_KEYS.ATTENDANCE,
       MANARA_STORAGE_KEYS.LEAVES,
@@ -263,6 +263,9 @@ export function purgeLegacyMockData(): void {
       MANARA_STORAGE_KEYS.LOANS,
       MANARA_STORAGE_KEYS.WARNINGS,
       MANARA_STORAGE_KEYS.DOCUMENTS,
+      MANARA_STORAGE_KEYS.CANDIDATES,
+      MANARA_STORAGE_KEYS.SHIFTS,
+      MANARA_STORAGE_KEYS.EMPLOYEE_SHIFTS,
     ];
     arrayKeys.forEach(k => {
       const raw = localStorage.getItem(k);
