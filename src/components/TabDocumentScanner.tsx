@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { parseKuwaitCivilCardOCR } from '../services/ocrService';
+import { processAnyDocument } from '../utils/ocrService';
 import toast from 'react-hot-toast';
 
 interface TabDocumentScannerProps {
@@ -24,45 +24,59 @@ export const TabDocumentScanner: React.FC<TabDocumentScannerProps> = ({
     setStatus(null);
 
     try {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const base64String = reader.result as string;
-        try {
-          let docTypeContext = '';
-          switch (tabType) {
-            case 'CIVIL_ID': docTypeContext = 'بطاقة مدنية كويتية'; break;
-            case 'PASSPORT': docTypeContext = 'جواز سفر'; break;
-            case 'WORK_PERMIT': docTypeContext = 'إذن عمل الشؤون الكويت (PAM)'; break;
-            case 'MEDICAL_LICENSE': docTypeContext = 'ترخيص مزاولة مهنة طبية (وزارة الصحة)'; break;
-            default: docTypeContext = title;
-          }
+      let docTypeContext = '';
+      switch (tabType) {
+        case 'CIVIL_ID': docTypeContext = 'CIVIL_ID'; break;
+        case 'PASSPORT': docTypeContext = 'PASSPORT'; break;
+        case 'WORK_PERMIT': docTypeContext = 'PAM_WORK_PERMIT'; break;
+        case 'MEDICAL_LICENSE': docTypeContext = 'MEDICAL_LICENSE'; break;
+        default: docTypeContext = 'OTHER';
+      }
+      
+      const extractedData = await processAnyDocument(file, undefined, docTypeContext);
+      
+      if (extractedData && Object.keys(extractedData).length > 0) {
+        // Map ScannedData properties to match the expected structure
+        const mappedData = {
+          civil_id: extractedData.civilId,
+          civilId: extractedData.civilId,
+          full_name: extractedData.fullNameAr || extractedData.fullName,
+          fullNameAr: extractedData.fullNameAr || extractedData.fullName,
+          nameAr: extractedData.fullNameAr || extractedData.fullName,
+          nationality: extractedData.nationality,
+          gender: extractedData.gender,
+          birth_date: extractedData.birthDate || extractedData.dob,
+          birthDate: extractedData.birthDate || extractedData.dob,
+          expiry_date: extractedData.expiryDate,
+          civil_id_expiry: extractedData.expiryDate,
+          passport_no: extractedData.passportNo,
+          passportNo: extractedData.passportNo,
+          passport_expiry: extractedData.passportExpiryDate || extractedData.expiryDate,
+          name_en: extractedData.fullNameEn,
+          fullNameEn: extractedData.fullNameEn,
+          license_no: extractedData.mohLicenseNo,
+          medical_license_no: extractedData.mohLicenseNo,
+          license_expiry: extractedData.mohLicenseExpiryDate || extractedData.expiryDate,
+          license_title: extractedData.jobTitle || extractedData.profession,
+          work_permit_no: extractedData.paciBuildingRef || extractedData.civilId, // Or map to proper field if added
+          pam_start: extractedData.issueDate,
+          pam_end: extractedData.expiryDate,
+          salary: extractedData.contractSalary
+        };
 
-          const extractedData = await parseKuwaitCivilCardOCR(base64String, docTypeContext);
-          
-          if (extractedData && Object.keys(extractedData).length > 0) {
-            onDataExtracted(extractedData);
-            setStatus({ type: 'success', msg: 'تم استخراج البيانات وملء الحقول بنجاح' });
-            toast.success('تم قراءة المستند واستخراج البيانات بنجاح.');
-          } else {
-            setStatus({ type: 'error', msg: 'تعذر القراءة، يرجى التدقيق' });
-            toast.error('لم يتم العثور على بيانات واضحة في المستند.');
-          }
-        } catch (apiErr: any) {
-          setStatus({ type: 'error', msg: apiErr.message || 'خطأ أثناء استخراج البيانات' });
-          toast.error(apiErr.message || 'حدث خطأ أثناء الاتصال بخدمة الماسح الضوئي.');
-        } finally {
-          setLoading(false);
-        }
-      };
-      reader.readAsDataURL(file);
-    } catch (err: any) {
-      setStatus({ type: 'error', msg: 'فشل قراءة الملف' });
+        onDataExtracted(mappedData);
+        setStatus({ type: 'success', msg: 'تم استخراج البيانات وملء الحقول بنجاح' });
+        toast.success('تم قراءة المستند واستخراج البيانات بنجاح.');
+      } else {
+        setStatus({ type: 'error', msg: 'تعذر القراءة، يرجى التدقيق' });
+        toast.error('لم يتم العثور على بيانات واضحة في المستند.');
+      }
+    } catch (apiErr: any) {
+      setStatus({ type: 'error', msg: apiErr.message || 'خطأ أثناء استخراج البيانات' });
+      toast.error(apiErr.message || 'حدث خطأ أثناء الاتصال بخدمة الماسح الضوئي.');
+    } finally {
       setLoading(false);
-    }
-    
-    // Reset file input
-    if (e.target) {
-      e.target.value = '';
+      if (e.target) e.target.value = '';
     }
   };
 
