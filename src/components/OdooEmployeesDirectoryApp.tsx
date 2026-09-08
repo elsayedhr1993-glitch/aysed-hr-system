@@ -1141,7 +1141,7 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
                   <Calendar className="w-4 h-4" />
                 </div>
                 <div className="text-[11px] leading-tight">
-                  <div className="font-mono font-bold text-slate-800">{selectedEmployee.leaveBalance} يوماً</div>
+                  <div className="font-mono font-bold text-slate-800">{(selectedEmployee as any).leaveBalance ?? (selectedEmployee as any).remaining_leaves ?? (selectedEmployee as any).carriedOverLeave2025 ?? 30} يوماً</div>
                   <div className="text-slate-400 text-[10px]">رصيد الإجازات</div>
                 </div>
               </button>

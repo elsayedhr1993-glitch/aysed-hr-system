@@ -103,90 +103,7 @@ const leaveTypeLabels: Record<string, { label: string; color: string; maxDaysRul
 const STORAGE_KEY_ALLOCATIONS = 'odoo_leave_allocations_v2';
 const STORAGE_KEY_REQUESTS = 'odoo_leave_requests_v2';
 
-const DEFAULT_SAMPLE_REQUESTS: LeaveRequest[] = [
-  {
-    id: 'LV-2026-001',
-    employeeId: 'EMP-001',
-    employeeName: 'د. خالد عبد الرحمن العتيبي',
-    civilId: '288110501234',
-    department: 'الكادر الطبي - الجراحة',
-    leaveType: 'annual',
-    startDate: '2026-09-10',
-    endDate: '2026-09-24',
-    daysCount: 13,
-    reason: 'إجازة سنوية اعتيادية مع السفر للخارج',
-    status: 'approved',
-    appliedDate: '2026-08-25',
-    replacementEmployee: 'د. أحمد المحمود',
-    basicSalary: 1400,
-    totalSalary: 2100,
-    settlementDone: true,
-    managerApprovedBy: 'د. فيصل المطيري (رئيس الهيئة الطبية)',
-    managerApprovedAt: '2026-08-26',
-    hrApprovedBy: 'أ. جاسم الشمري (مدير الموارد البشرية)',
-    hrApprovedAt: '2026-08-27',
-  },
-  {
-    id: 'LV-2026-002',
-    employeeId: 'EMP-002',
-    employeeName: 'مريم أحمد الكندري',
-    civilId: '293041205678',
-    department: 'الشؤون المالية والمحاسبة',
-    leaveType: 'maternity',
-    startDate: '2026-08-01',
-    endDate: '2026-10-09',
-    daysCount: 70,
-    reason: 'إجازة وضع وأمومة مدفوعة الأجر (مادة 24 قانون العمل)',
-    status: 'approved',
-    appliedDate: '2026-07-20',
-    replacementEmployee: 'سارة عبد الله الفهد',
-    basicSalary: 650,
-    totalSalary: 950,
-    settlementDone: false,
-    managerApprovedBy: 'أ. فهد الهاجري (المدير المالي)',
-    managerApprovedAt: '2026-07-22',
-    hrApprovedBy: 'أ. جاسم الشمري (مدير الموارد البشرية)',
-    hrApprovedAt: '2026-07-23',
-  },
-  {
-    id: 'LV-2026-003',
-    employeeId: 'EMP-003',
-    employeeName: 'جاسم محمد الشمري',
-    civilId: '285072304321',
-    department: 'الموارد البشرية والإدارية',
-    leaveType: 'annual',
-    startDate: '2026-10-01',
-    endDate: '2026-10-15',
-    daysCount: 12,
-    reason: 'إجازة سنوية دورية',
-    status: 'pending_hr',
-    appliedDate: '2026-09-02',
-    replacementEmployee: 'ناصر فهد الدوسري',
-    basicSalary: 900,
-    totalSalary: 1350,
-    settlementDone: false,
-    managerApprovedBy: 'أ. جاسم الشمري (مدير الإدارة)',
-    managerApprovedAt: '2026-09-03',
-  },
-  {
-    id: 'LV-2026-004',
-    employeeId: 'EMP-004',
-    employeeName: 'ناصر فهد الدوسري',
-    civilId: '290091809876',
-    department: 'الموارد البشرية والإدارية',
-    leaveType: 'emergency',
-    startDate: '2026-09-15',
-    endDate: '2026-09-16',
-    daysCount: 2,
-    reason: 'ظرف عائلي طارئ',
-    status: 'pending_manager',
-    appliedDate: '2026-09-06',
-    replacementEmployee: 'جاسم محمد الشمري',
-    basicSalary: 550,
-    totalSalary: 800,
-    settlementDone: false,
-  }
-];
+const DEFAULT_SAMPLE_REQUESTS: LeaveRequest[] = [];
 
 export const OdooTimeOffApp: React.FC = () => {
   const { activeCompany } = useCompany();
@@ -196,15 +113,40 @@ export const OdooTimeOffApp: React.FC = () => {
   const [requests, setRequests] = useState<LeaveRequest[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_REQUESTS);
-      if (saved) {
+      if (saved !== null) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch (e) {
       console.error('Error loading leave requests from storage', e);
     }
-    return DEFAULT_SAMPLE_REQUESTS;
+    return [];
   });
+
+  const handleDeleteRequest = (id: string, empName: string) => {
+    if (window.confirm(`هل أنت متأكد من حذف طلب الإجازة للموظف (${empName}) نهائياً؟`)) {
+      const updated = requests.filter(r => r.id !== id);
+      setRequests(updated);
+      try {
+        localStorage.setItem(STORAGE_KEY_REQUESTS, JSON.stringify(updated));
+      } catch (e) {
+        console.error('Failed to update storage on delete', e);
+      }
+      toast.success('تم حذف طلب الإجازة بنجاح.');
+    }
+  };
+
+  const handleClearAllSampleData = () => {
+    if (window.confirm('هل أنت متأكد من مسح جميع طلبات وسجلات الإجازات الحالية؟')) {
+      setRequests([]);
+      try {
+        localStorage.setItem(STORAGE_KEY_REQUESTS, JSON.stringify([]));
+      } catch (e) {
+        console.error('Failed to clear requests storage', e);
+      }
+      toast.success('تم مسح كافة طلبات الإجازات بنجاح.');
+    }
+  };
 
   const [allocations, setAllocations] = useState<LeaveAllocation[]>(() => {
     try {
@@ -673,6 +615,18 @@ export const OdooTimeOffApp: React.FC = () => {
             <span>طباعة السجل</span>
           </button>
 
+          {requests.length > 0 && (
+            <button
+              type="button"
+              onClick={handleClearAllSampleData}
+              className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+              title="حذف جميع الطلبات الحالية"
+            >
+              <Trash2 size={14} className="text-rose-600" />
+              <span>حذف كل الطلبات</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={handleRunMonthlyAccrual}
@@ -1047,6 +1001,16 @@ export const OdooTimeOffApp: React.FC = () => {
                                 السبب: {req.rejectionReason}
                               </span>
                             )}
+
+                            {/* Delete Request Button */}
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteRequest(req.id, req.employeeName)}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer shrink-0"
+                              title="حذف طلب الإجازة نهائياً"
+                            >
+                              <Trash2 size={14} />
+                            </button>
 
                           </div>
                         </td>

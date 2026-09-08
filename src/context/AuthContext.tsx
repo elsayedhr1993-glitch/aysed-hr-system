@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
-import { auth, db } from '../lib/firebase';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { onAuthStateChanged, signOut, setPersistence, browserSessionPersistence, User as FirebaseUser } from 'firebase/auth';
+import { auth, db, isTenantPurged } from '../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import toast from 'react-hot-toast';
 
 export interface User {
   id: string;
@@ -25,15 +26,26 @@ export interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Inactivity timeout: 15 minutes (900,000 ms)
+const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000;
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const [isDebugMode, setIsDebugMode] = useState<boolean>(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get('debug') === '1' || localStorage.getItem('aysed_debug') === 'true' || localStorage.getItem('odoo_debug_mode') === 'true';
   });
+
+  // Enforce session-only persistence (Firebase Auth Session Firewall)
+  useEffect(() => {
+    setPersistence(auth, browserSessionPersistence).catch((err) => {
+      console.warn('Could not set browserSessionPersistence:', err);
+    });
+  }, []);
 
   useEffect(() => {
     if (isDebugMode) {
@@ -45,22 +57,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [isDebugMode]);
 
+  // Auth Firewall State Listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       try {
         if (firebaseUser) {
+          const userEmail = (firebaseUser.email || '').toLowerCase();
+
+          // 1. Firewall check for purged/blacklisted tenant
+          if (isTenantPurged(userEmail)) {
+            await signOut(auth);
+            setUser(null);
+            setToken(null);
+            toast.error('تم حظر الوصول: الحساب معطل أو ملغى بجدار حماية المنظومة.');
+            setIsLoading(false);
+            return;
+          }
+
           // Fetch user role and company info from Firestore if needed
-          const isSuper = ['admin@aysed.com', 'elsayedhr1993@gmail.com', 'admin@aysed-hr.com'].includes(firebaseUser.email?.toLowerCase() || '');
+          const isSuper = ['admin@aysed.com', 'elsayedhr1993@gmail.com', 'admin@aysed-hr.com'].includes(userEmail);
           let role = isSuper ? 'SUPER_ADMIN' : 'COMPANY_ADMIN';
           let name = isSuper ? 'مدير النظام (Super Admin)' : 'مسؤول الشركة';
           let companyId = undefined;
           let photoURL = firebaseUser.photoURL || localStorage.getItem('aysed_user_avatar') || '';
 
-          // Attempt to fetch profile
+          // Attempt to fetch profile & check account status
           try {
             const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
             if (userDoc.exists()) {
               const data = userDoc.data();
+              // Check if account is suspended or blocked
+              if (data.status === 'blocked' || data.status === 'disabled' || data.suspended === true) {
+                await signOut(auth);
+                setUser(null);
+                setToken(null);
+                toast.error('تم إيقاف حسابك من قبل إدارة النظام.');
+                setIsLoading(false);
+                return;
+              }
               role = data.role || role;
               name = data.name || name;
               companyId = data.companyId;
@@ -156,21 +190,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, []);
 
+  // Inactivity Firewall Monitor (Auto-logout on idle)
+  useEffect(() => {
+    if (!user) {
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+      return;
+    }
+
+    const resetInactivityTimer = () => {
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+      inactivityTimerRef.current = setTimeout(() => {
+        toast.error('تم إنهاء الجلسة وإغلاق الحساب تلقائياً بسبب عدم النشاط (الجدار الناري).', { duration: 6000 });
+        logout();
+      }, INACTIVITY_TIMEOUT_MS);
+    };
+
+    // Events to monitor activity
+    const activityEvents = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
+    activityEvents.forEach(evt => window.addEventListener(evt, resetInactivityTimer));
+    resetInactivityTimer();
+
+    return () => {
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+      activityEvents.forEach(evt => window.removeEventListener(evt, resetInactivityTimer));
+    };
+  }, [user]);
+
   const login = (newToken: string, userData: User) => {
-    // This is a placeholder since Firebase handles real login via signInWithEmailAndPassword in OdooLoginPage
     setToken(newToken);
     setUser(userData);
   };
 
   const logout = async () => {
     try {
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
       await signOut(auth);
       setUser(null);
       setToken(null);
       localStorage.removeItem('aysed_debug');
       localStorage.removeItem('odoo_debug_mode');
+      localStorage.removeItem('activeCompanyId');
+      localStorage.removeItem('odoo_active_company_id');
+      toast.success('تم تسجيل الخروج وتأمين الجلسة بنجاح.');
     } catch (err) {
       console.error("Logout error", err);
+      setUser(null);
+      setToken(null);
     }
   };
 

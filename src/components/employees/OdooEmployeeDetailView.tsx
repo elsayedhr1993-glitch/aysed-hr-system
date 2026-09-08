@@ -139,10 +139,14 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
 
       // 1. Fetch live requests and allocations from standard localStorage keys
       const rawRequests = localStorage.getItem('odoo_leave_requests_v2');
+      const rawManaraLeaves = localStorage.getItem('manara_leaves_data');
       const rawAllocations = localStorage.getItem('odoo_leave_allocations_v2');
 
       const requestsList = rawRequests ? JSON.parse(rawRequests) : [];
+      const manaraList = rawManaraLeaves ? JSON.parse(rawManaraLeaves) : [];
       const allocationsList = rawAllocations ? JSON.parse(rawAllocations) : [];
+
+      const combinedRequests = [...requestsList, ...manaraList];
 
       // 2. Map and parse allocations to match HrLeaveAllocation structure
       const mappedAllocations = allocationsList.map((a: any) => ({
@@ -156,7 +160,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
 
       // 3. Use the core engine to build baseline allocations including 2025 carried over and 2026 accrued
       const empAllocs = buildEmployeeBaselineAllocations(employee as any, mappedAllocations as any);
-      const fifoResult = computeFifoLeaveAllocations(employee as any, empAllocs, requestsList as any);
+      const fifoResult = computeFifoLeaveAllocations(employee as any, empAllocs, combinedRequests as any);
 
       const totalOpening = fifoResult.allocations.filter(a => a.allocationType === 'regular').reduce((s, a) => s + (a.numberOfDays || 0), 0);
       const totalAccrued = fifoResult.allocations.filter(a => a.allocationType === 'accrual' && !a.name?.includes('تعويضي') && !a.name?.includes('بديل') && !a.name?.includes('عطلة')).reduce((s, a) => s + (a.numberOfDays || 0), 0);
@@ -719,6 +723,17 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
                 isEditMode={isEditMode}
                 options={[{ value: "subscribed", label: "مشترك كويتي - خاضع للتأمينات (مكافأة = 0 د.ك)" }, { value: "exempt", label: "غير كويتي - خاضع لمكافأة نهاية الخدمة (المادة 51)" }]}
               />
+
+              <div className="bg-emerald-50/60 p-3 rounded-xl border border-emerald-200">
+                <label className="block text-emerald-900 font-bold mb-1">صافي رصيد الإجازات المتاح (Available Leave Balance)</label>
+                <input
+                  type="text"
+                  readOnly={true}
+                  value={`${calculatedBalance} يوم`}
+                  className="w-full border border-emerald-300 rounded-lg p-2 font-mono font-black text-emerald-800 bg-white cursor-not-allowed focus:outline-none"
+                  title="الرصيد المتاح المحسوب تلقائياً بالربط مع نظام الإجازات وقانون العمل الكويتي"
+                />
+              </div>
 
               <div className="bg-slate-50/50 p-3 rounded-xl border border-slate-200/80">
                 <label className="block text-slate-600 font-bold mb-1">الرصيد المرحّل من 2025 (Carried-Over Balance)</label>

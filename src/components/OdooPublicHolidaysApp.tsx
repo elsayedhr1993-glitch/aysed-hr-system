@@ -170,39 +170,7 @@ const kuwaitOfficialHolidaysList: PublicHoliday[] = [
   }
 ];
 
-const DEFAULT_SAMPLE_DUTIES: HolidayDutyAssignment[] = [
-  {
-    id: 'DUTY-2026-01',
-    employeeId: 'EMP-001',
-    employeeName: 'د. خالد عبد الرحمن العتيبي',
-    civilId: '288110501234',
-    jobTitle: 'استشاري جراحة عامة',
-    department: 'الكادر الطبي - الجراحة',
-    holidayName: 'العيد الوطني ويوم التحرير (25 - 26 فبراير)',
-    dutyDate: '2026-02-25',
-    basicSalary: 1400,
-    totalSalary: 2100,
-    compensationType: 'double_pay',
-    calculatedAmount: 161.538,
-    status: 'settled',
-    settledAt: '2026-02-28'
-  },
-  {
-    id: 'DUTY-2026-02',
-    employeeId: 'EMP-002',
-    employeeName: 'مريم أحمد الكندري',
-    civilId: '293041205678',
-    jobTitle: 'محاسب أول',
-    department: 'الشؤون المالية والمحاسبة',
-    holidayName: 'رأس السنة الميلادية 2026',
-    dutyDate: '2026-01-01',
-    basicSalary: 650,
-    totalSalary: 950,
-    compensationType: 'comp_day_off',
-    calculatedAmount: 0,
-    status: 'approved'
-  }
-];
+const DEFAULT_SAMPLE_DUTIES: HolidayDutyAssignment[] = [];
 
 export const OdooPublicHolidaysApp: React.FC = () => {
   const { activeCompany } = useCompany();
@@ -227,7 +195,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
     } catch (e) {
       console.error('Error loading holiday duties', e);
     }
-    return DEFAULT_SAMPLE_DUTIES;
+    return [];
   });
 
   useEffect(() => {

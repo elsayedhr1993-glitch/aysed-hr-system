@@ -47,101 +47,10 @@ export const OdooOperationsApp: React.FC = () => {
     return employees.filter(e => !activeCompany?.id || e.companyId === activeCompany.id);
   }, [employees, activeCompany]);
 
-  // Seed sample initial custodies if empty
+  // Default custodies
   const defaultCustodies: CustodyItem[] = useMemo(() => {
-    const emp1 = companyEmployees[0]?.id || 'emp-1';
-    const emp2 = companyEmployees[1]?.id || companyEmployees[0]?.id || 'emp-2';
-    const emp3 = companyEmployees[2]?.id || companyEmployees[0]?.id || 'emp-3';
-    const cId = activeCompany?.id || '';
-
-    return [
-      {
-        id: 'cust-101',
-        companyId: cId,
-        employeeId: emp1,
-        itemCode: 'CST-4091',
-        itemName: 'لابتوب Dell Latitude 5540 Core i7 (16GB RAM / 512GB SSD)',
-        itemCategory: 'ELECTRONICS',
-        serialNumber: 'DL-992341A-KW',
-        handoverDate: '2025-01-15',
-        valueKwd: 420.000,
-        condition: 'EXCELLENT',
-        status: 'ASSIGNED',
-        notes: 'تم تسليم الجهاز مع الشاحن الأصلي وحقيبة لابتوب مقاومة للصدمات.'
-      },
-      {
-        id: 'cust-102',
-        companyId: cId,
-        employeeId: emp2,
-        itemCode: 'CST-4092',
-        itemName: 'سيارة تويوتا كامري 2024 (لوحة رقم 14-8890 أبيض)',
-        itemCategory: 'VEHICLE',
-        serialNumber: 'VIN-JT2BF22K9812903',
-        handoverDate: '2024-11-01',
-        expiryDate: '2026-11-01',
-        valueKwd: 6850.000,
-        condition: 'GOOD',
-        status: 'ASSIGNED',
-        notes: 'مخصصة للمهندس الميداني ومندوب الشؤون الحكومية. شاملة التأمين الذهبي والفحص الفني.'
-      },
-      {
-        id: 'cust-103',
-        companyId: cId,
-        employeeId: emp3,
-        itemCode: 'CST-4093',
-        itemName: 'هاتف ذكي iPhone 15 Pro (256GB) + شريحة زين أعمال 5G',
-        itemCategory: 'SIM_PHONE',
-        serialNumber: 'IMEI-3589012398124',
-        handoverDate: '2025-02-01',
-        valueKwd: 390.000,
-        condition: 'EXCELLENT',
-        status: 'ASSIGNED',
-        notes: 'شريحة اتصال مفوترة مخصصة للتواصل مع العملاء والجهات الرسمية.'
-      },
-      {
-        id: 'cust-104',
-        companyId: cId,
-        employeeId: emp1,
-        itemCode: 'CST-4094',
-        itemName: 'بطاقة وقود ومشتريات بترول K-Net مسبقة الدفع',
-        itemCategory: 'FINANCIAL_CARD',
-        serialNumber: 'PETRO-CARD-9921',
-        handoverDate: '2025-01-20',
-        valueKwd: 150.000,
-        condition: 'EXCELLENT',
-        status: 'ASSIGNED',
-        notes: 'مخصصة للتزود بالوقود أثناء الزيارات الرسمية للمشاريع.'
-      },
-      {
-        id: 'cust-105',
-        companyId: cId,
-        employeeId: '',
-        itemCode: 'CST-4095',
-        itemName: 'طابعة ليزر متعددة المهام HP LaserJet Pro MFP 4103',
-        itemCategory: 'ELECTRONICS',
-        serialNumber: 'HP-CNB28190X',
-        handoverDate: '2024-08-10',
-        valueKwd: 210.000,
-        condition: 'EXCELLENT',
-        status: 'RETURNED',
-        notes: 'مستردة في مستودع المنشأة وجاهزة للتسليم لأي قسم يحتاجها.'
-      },
-      {
-        id: 'cust-106',
-        companyId: cId,
-        employeeId: '',
-        itemCode: 'CST-4096',
-        itemName: 'جهاز فحص وقياس إلكتروني محمول (Precision Multi-Tester)',
-        itemCategory: 'TOOLS',
-        serialNumber: 'FLK-8842-TEST',
-        handoverDate: '2024-05-12',
-        valueKwd: 340.000,
-        condition: 'NEEDS_REPAIR',
-        status: 'MAINTENANCE',
-        notes: 'في قسم الصيانة للمعايرة وإصلاح شاشة العرض.'
-      }
-    ];
-  }, [companyEmployees, activeCompany]);
+    return [];
+  }, []);
 
   // Persistent State
   const [custodies, setCustodies] = useState<CustodyItem[]>(() => {

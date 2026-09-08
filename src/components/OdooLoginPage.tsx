@@ -37,23 +37,11 @@ export const OdooLoginPage: React.FC = () => {
     if (roleType === 'SUPER_ADMIN') {
       setEmail('elsayedhr1993@gmail.com');
       setPassword('Admin2026!');
-      login('local-token-super-' + Date.now(), {
-        id: 'super_admin_1',
-        name: 'السوبر أدمن العام (Super Admin)',
-        email: 'elsayedhr1993@gmail.com',
-        role: 'SUPER_ADMIN'
-      });
     } else {
       setEmail('hr.manager@company.com');
       setPassword('Admin2026!');
-      login('local-token-hr-' + Date.now(), {
-        id: 'hr_manager_1',
-        name: 'مدير الموارد البشرية',
-        email: 'hr.manager@company.com',
-        role: 'COMPANY_ADMIN',
-        companyId: 'comp-main'
-      });
     }
+    setErrorMsg('');
   };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {

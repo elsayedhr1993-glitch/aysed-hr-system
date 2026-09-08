@@ -50,10 +50,23 @@ export const safePrintA4Document = (htmlContent: string) => {
 };
 
 const generateLeavePrintHtml = (printData: any, companyName: string, companyNameEn: string) => {
-  const leavesList = getPersistentData<any[]>('manara_leaves_data', []);
-  const empLeaves = leavesList.filter(l => l.employeeId === printData.id && l.leaveType === 'ANNUAL' && (l.status === 'APPROVED' || l.status === 'VALIDATED'));
+  const manaraLeaves = getPersistentData<any[]>('manara_leaves_data', []);
+  const odooRequests = getPersistentData<any[]>('odoo_leave_requests_v2', []);
+  const combinedList = [...manaraLeaves, ...odooRequests];
+
+  const empLeaves = combinedList.filter(l => {
+    const matchEmp = l.employeeId === printData.id || 
+                     (printData.civilId && l.civilId && l.civilId === printData.civilId) ||
+                     (printData.civil_id_number && l.civilId && l.civilId === printData.civil_id_number);
+    if (!matchEmp) return false;
+
+    const normType = String(l.leaveType || '').toUpperCase();
+    const normStatus = String(l.status || '').toUpperCase();
+    const isApproved = normStatus === 'APPROVED' || normStatus === 'VALIDATED';
+    return normType === 'ANNUAL' && isApproved;
+  });
   
-  const totalTaken = empLeaves.reduce((sum, l) => sum + (Number(l.totalDays) || 0), 0);
+  const totalTaken = empLeaves.reduce((sum, l) => sum + (Number(l.totalDays || l.daysCount) || 0), 0);
   const carriedOver = getCarriedOverBalance(printData);
   const accrued2026 = get_aysed_official_balance(printData);
   const compensatory = getGlobalCompensatoryDays(printData);
@@ -1960,10 +1973,23 @@ export function EmployeesApp(props?: any) {
                 (() => {
                   const isLeaveReport = printTitle.includes('كشف رصيد إجازات');
                   if (isLeaveReport) {
-                    const leavesList = getPersistentData<any[]>('manara_leaves_data', []);
-                    const empLeaves = leavesList.filter(l => l.employeeId === printData.id && l.leaveType === 'ANNUAL' && (l.status === 'APPROVED' || l.status === 'VALIDATED'));
+                    const manaraLeaves = getPersistentData<any[]>('manara_leaves_data', []);
+                    const odooRequests = getPersistentData<any[]>('odoo_leave_requests_v2', []);
+                    const combinedList = [...manaraLeaves, ...odooRequests];
+
+                    const empLeaves = combinedList.filter(l => {
+                      const matchEmp = l.employeeId === printData.id || 
+                                       (printData.civilId && l.civilId && l.civilId === printData.civilId) ||
+                                       (printData.civil_id_number && l.civilId && l.civilId === printData.civil_id_number);
+                      if (!matchEmp) return false;
+
+                      const normType = String(l.leaveType || '').toUpperCase();
+                      const normStatus = String(l.status || '').toUpperCase();
+                      const isApproved = normStatus === 'APPROVED' || normStatus === 'VALIDATED';
+                      return normType === 'ANNUAL' && isApproved;
+                    });
                     
-                    const totalTaken = empLeaves.reduce((sum, l) => sum + (Number(l.totalDays) || 0), 0);
+                    const totalTaken = empLeaves.reduce((sum, l) => sum + (Number(l.totalDays || l.daysCount) || 0), 0);
                     const carriedOver = getCarriedOverBalance(printData);
                     const accrued2026 = get_aysed_official_balance(printData);
                     const compensatory = getGlobalCompensatoryDays(printData);

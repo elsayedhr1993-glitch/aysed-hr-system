@@ -144,9 +144,27 @@ export function computeFifoLeaveAllocations(
 
   // Filter approved leaves that consume annual leave balance (chronological order)
   const approvedDeductibleLeaves = leaves
-    .filter(l => !l.isHistorical && (l.employeeId === employee.id || l.employeeId === employee.employeeCode) && (l.status === 'APPROVED' || (l.status as string) === 'VALIDATED') && 
-      (l.leaveType === 'ANNUAL' || l.leaveType === 'COMPENSATORY' || ((l.leaveType === 'BEREAVEMENT' || l.leaveType === 'COMPASSIONATE') && l.isSplitBereavement))
-    )
+    .filter(l => {
+      if (l.isHistorical) return false;
+      const lAny = l as any;
+      const empAny = employee as any;
+      
+      const matchEmp = l.employeeId === employee.id || 
+                       l.employeeId === employee.employeeCode || 
+                       (empAny.civilId && lAny.civilId && lAny.civilId === empAny.civilId) ||
+                       (empAny.civil_id_number && lAny.civilId && lAny.civilId === empAny.civil_id_number);
+      if (!matchEmp) return false;
+
+      const normStatus = String(l.status || '').toUpperCase();
+      const isApproved = normStatus === 'APPROVED' || normStatus === 'VALIDATED';
+      if (!isApproved) return false;
+
+      const normType = String(l.leaveType || '').toUpperCase();
+      const isDeductibleType = normType === 'ANNUAL' || 
+                               normType === 'COMPENSATORY' || 
+                               ((normType === 'BEREAVEMENT' || normType === 'COMPASSIONATE') && l.isSplitBereavement);
+      return isDeductibleType;
+    })
     .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
 
   const breakdown: FifoAllocationResult['breakdown'] = [];
