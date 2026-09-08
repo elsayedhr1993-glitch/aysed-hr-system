@@ -531,13 +531,51 @@ export function EmployeesApp(props?: any) {
         nationality: 'كويتي',
         avatarColor: 'bg-purple-900',
         mohLicense: plan.department === 'الأطباء' ? 'MOH-DOC-TEMP' : '',
-        pifssStatus: 'subscribed'
+        pifssStatus: 'subscribed',
+        legalChecklist: plan.legalChecklist || {
+          civilIdScan: true,
+          passportScan: true,
+          pamWorkPermit: true,
+          mohLicense: plan.department === 'الأطباء',
+          medicalFitness: true,
+          signedContract: true
+        },
+        requiredDocuments: plan.requiredDocuments || ['civilIdScan', 'passportScan', 'pamWorkPermit', 'signedContract', 'medicalFitness'],
+        onboardingPlanId: plan.id,
+        custodyItems: plan.custodyItems || [],
+        documentFiles: {}
       };
 
       await TenantDatabaseService.saveEmployee(newEmp as any, currentCompanyId);
 
       setEmployees(prev => {
         const nextList = [newEmp, ...prev];
+        if (currentCompanyId) {
+          localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(nextList));
+        }
+        return nextList;
+      });
+    } else {
+      // إذا كان الموظف مسجلاً بالفعل، نقوم بتحديث قائمة وثائقه وخطة تهيئته
+      const updatedExisting = {
+        ...existingEmp,
+        legalChecklist: plan.legalChecklist || existingEmp.legalChecklist || {
+          civilIdScan: true,
+          passportScan: true,
+          pamWorkPermit: true,
+          mohLicense: (existingEmp.dept || existingEmp.department) === 'الأطباء',
+          medicalFitness: true,
+          signedContract: true
+        },
+        requiredDocuments: plan.requiredDocuments || existingEmp.requiredDocuments || ['civilIdScan', 'passportScan', 'pamWorkPermit', 'signedContract', 'medicalFitness'],
+        onboardingPlanId: plan.id,
+        custodyItems: plan.custodyItems || existingEmp.custodyItems || []
+      };
+
+      await TenantDatabaseService.saveEmployee(updatedExisting as any, currentCompanyId);
+
+      setEmployees(prev => {
+        const nextList = prev.map(e => e.id === updatedExisting.id ? updatedExisting : e);
         if (currentCompanyId) {
           localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(nextList));
         }
@@ -948,7 +986,7 @@ export function EmployeesApp(props?: any) {
 
 
   return (
-    <div className="flex-1 flex flex-col bg-slate-100 overflow-y-auto w-full p-4 font-sans select-none text-slate-800" dir="rtl">
+    <div className="flex-1 flex flex-col w-full font-sans select-none text-slate-800" dir="rtl">
       
       {/* 1. الترويسة المدمجة والأنيقة مع التبويبات الرئيسية */}
       <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-xs mb-3">

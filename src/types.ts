@@ -889,6 +889,8 @@ export interface OnboardingPlan {
   progressPercentage: number;
   tasks: OnboardingTask[];
   custodyItems: string[];
+  legalChecklist?: Record<string, boolean>;
+  requiredDocuments?: string[];
   createdAt: string;
   updatedAt: string;
 }

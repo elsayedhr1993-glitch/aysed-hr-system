@@ -96,10 +96,12 @@ interface EmployeeModalProps {
 export default function OdooEmployeeFormModal({ isOpen, onClose, onSave, existingEmployees = [], activeCompanyId }: EmployeeModalProps) {
   const [activeTab, setActiveTab] = useState<'work' | 'private' | 'hr' | 'resume' | 'warnings'>('work');
   const [showPamContractModal, setShowPamContractModal] = useState(false);
+  const [isScanningOcr, setIsScanningOcr] = useState(false);
 
   // البيانات العامة
   const [nameAr, setNameAr] = useState('');
   const [nameEn, setNameEn] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [selectedDeptAr, setSelectedDeptAr] = useState(DEPARTMENTS[0].ar);
   const [selectedJob, setSelectedJob] = useState(JOB_POSITIONS[DEPARTMENTS[0].ar][0]);
   const [workEmail, setWorkEmail] = useState('');
@@ -211,6 +213,44 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave, existin
     }
   };
 
+  const processOcrFile = async (e: React.ChangeEvent<HTMLInputElement>, docType: string = 'civil_id') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsScanningOcr(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+        const base64Data = evt.target?.result as string;
+        try {
+          const res = await fetch('/api/ocr-scan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              imageBase64: base64Data,
+              mimeType: file.type,
+              docType: docType
+            })
+          });
+          const data = await res.json();
+          if (data.error) throw new Error(data.error);
+          handleOcrResult(data, docType);
+          alert('تم قراءة البيانات وتعبئة الحقول بنجاح بواسطة الذكاء الاصطناعي');
+        } catch (error: any) {
+          alert('فشل التعرف الضوئي: ' + error.message);
+        } finally {
+          setIsScanningOcr(false);
+          // reset input
+          e.target.value = '';
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error(error);
+      setIsScanningOcr(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   const handleDeptChange = (deptAr: string) => {
@@ -286,6 +326,7 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave, existin
       allowances: 150,
       workPermitNo,
       pamEndDate,
+      avatarUrl,
       avatarColor: 'bg-emerald-600',
       chatter: [
         { id: 1, user: 'مدير الموارد البشرية', date: new Date().toISOString().split('T')[0], text: 'تم إنشاء بطاقة الموظف الرسمية في النظام بنجاح وتعيينه على القسم والمسمى الوظيفي المعتمد.' }
@@ -319,57 +360,142 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave, existin
           
           {/* 2. Top Sheet */}
           <div className="flex flex-col md:flex-row gap-6 items-start pb-4 border-b border-slate-100">
-            <div className="w-20 h-20 bg-slate-100 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:border-purple-600 transition cursor-pointer shrink-0">
-              <span className="text-2xl">📷</span>
-              <span className="text-[10px] mt-1 font-semibold">الصورة Photo</span>
+            <div className="flex flex-col items-center gap-2 shrink-0">
+              <div className="w-20 h-20 bg-slate-100 border-2 border-slate-300 rounded-xl flex items-center justify-center text-slate-400 overflow-hidden shadow-xs relative group">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="Preview" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-2xl">📷</span>
+                )}
+                <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-bold transition cursor-pointer">
+                  تغيير الصورة
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (uploadEvt) => {
+                          setAvatarUrl(uploadEvt.target?.result as string);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+              <div className="flex items-center gap-1">
+                <label className="cursor-pointer px-2.5 py-1 bg-[#714B67] text-white rounded text-[10px] font-bold hover:bg-[#5a3a52] transition">
+                  ارفاق صورة
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (uploadEvt) => {
+                          setAvatarUrl(uploadEvt.target?.result as string);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </label>
+                {avatarUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setAvatarUrl('')}
+                    className="px-1.5 py-1 bg-rose-100 text-rose-700 rounded text-[10px] font-bold hover:bg-rose-200 transition cursor-pointer"
+                  >
+                    حذف
+                  </button>
+                )}
+              </div>
             </div>
 
-            <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">الاسم الكامل (بالعربي) <span className="text-rose-500">*</span></label>
-                <input 
-                  type="text" 
-                  value={nameAr} 
-                  onChange={(e) => setNameAr(e.target.value)} 
-                  placeholder="الاسم الرباعي الكامل للموظف"
-                  className="w-full text-xs font-bold bg-white border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-purple-600 focus:outline-none"
-                  required
-                />
+            <div className="flex-1 w-full flex flex-col gap-3">
+              {/* AI Auto Fill Banner */}
+              <div className="w-full bg-gradient-to-l from-purple-50 to-indigo-50 border border-purple-100 rounded-lg p-3 flex items-center justify-between shadow-sm">
+                <div className="flex items-center gap-2 text-purple-800">
+                  <span className="text-xl">✨</span>
+                  <div>
+                    <h4 className="font-bold text-[11px]">التعبئة الآلية بالذكاء الاصطناعي (AI OCR)</h4>
+                    <p className="text-[9px] text-purple-600">ارفع صورة البطاقة المدنية أو الجواز لتعبئة الحقول فوراً</p>
+                  </div>
+                </div>
+                <label className={`cursor-pointer px-4 py-2 bg-[#714B67] text-white rounded-lg text-xs font-bold hover:bg-[#5a3a52] transition shadow-md flex items-center gap-2 ${isScanningOcr ? 'opacity-70 pointer-events-none' : ''}`}>
+                  {isScanningOcr ? (
+                    <>
+                      <span className="animate-spin text-sm">⏳</span>
+                      جاري التحليل...
+                    </>
+                  ) : (
+                    <>
+                      <span>📷</span>
+                      مسح المستند
+                    </>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => processOcrFile(e, 'civil_id')}
+                    disabled={isScanningOcr}
+                  />
+                </label>
               </div>
 
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">Full Name (English)</label>
-                <input 
-                  type="text" 
-                  value={nameEn} 
-                  onChange={(e) => setNameEn(e.target.value)} 
-                  placeholder="e.g. Dr. Ahmed Al-Kandari"
-                  className="w-full text-xs bg-white border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-purple-600 focus:outline-none font-sans"
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="block text-slate-700 font-bold mb-1">الرقم المدني الكويتي (Civil ID) <span className="text-rose-500">*</span></label>
-                <div className="relative">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">الاسم الكامل (بالعربي) <span className="text-rose-500">*</span></label>
                   <input 
                     type="text" 
-                    value={civilId} 
-                    onChange={(e) => setCivilId(e.target.value)} 
-                    placeholder="290010112345"
-                    maxLength={12}
-                    className={`w-full bg-white border rounded-lg p-2 focus:ring-2 focus:outline-none font-mono font-bold text-slate-800 ${
-                      civilId.length > 0 && !validateKuwaitCivilId(civilId)
-                        ? 'border-rose-400 focus:ring-rose-500'
-                        : 'border-slate-300 focus:ring-purple-600'
-                    }`}
+                    value={nameAr} 
+                    onChange={(e) => setNameAr(e.target.value)} 
+                    placeholder="الاسم الرباعي الكامل للموظف"
+                    className="w-full text-xs font-bold bg-white border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-purple-600 focus:outline-none"
                     required
                   />
-                  {civilId.length > 0 && !validateKuwaitCivilId(civilId) && (
-                    <span className="absolute left-2 top-2.5 text-[10px] text-rose-500 font-bold">غير صالح (Invalid)</span>
-                  )}
-                  {civilId.length === 12 && validateKuwaitCivilId(civilId) && (
-                    <span className="absolute left-2 top-2.5 text-[10px] text-emerald-600 font-bold">صالح ✓</span>
-                  )}
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">Full Name (English)</label>
+                  <input 
+                    type="text" 
+                    value={nameEn} 
+                    onChange={(e) => setNameEn(e.target.value)} 
+                    placeholder="e.g. Dr. Ahmed Al-Kandari"
+                    className="w-full text-xs bg-white border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-purple-600 focus:outline-none font-sans"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-slate-700 font-bold mb-1">الرقم المدني الكويتي (Civil ID) <span className="text-rose-500">*</span></label>
+                  <div className="relative">
+                    <input 
+                      type="text" 
+                      value={civilId} 
+                      onChange={(e) => setCivilId(e.target.value)} 
+                      placeholder="290010112345"
+                      maxLength={12}
+                      className={`w-full bg-white border rounded-lg p-2 focus:ring-2 focus:outline-none font-mono font-bold text-slate-800 ${
+                        civilId.length > 0 && !validateKuwaitCivilId(civilId)
+                          ? 'border-rose-400 focus:ring-rose-500'
+                          : 'border-slate-300 focus:ring-purple-600'
+                      }`}
+                      required
+                    />
+                    {civilId.length > 0 && !validateKuwaitCivilId(civilId) && (
+                      <span className="absolute left-2 top-2.5 text-[10px] text-rose-500 font-bold">غير صالح (Invalid)</span>
+                    )}
+                    {civilId.length === 12 && validateKuwaitCivilId(civilId) && (
+                      <span className="absolute left-2 top-2.5 text-[10px] text-emerald-600 font-bold">صالح ✓</span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

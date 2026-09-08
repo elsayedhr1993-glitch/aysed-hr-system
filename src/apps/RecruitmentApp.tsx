@@ -313,7 +313,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
   };
 
   return (
-    <div className="p-6 bg-transparent min-h-[calc(100vh-3rem)] text-xs">
+    <div className="space-y-6 text-xs text-slate-800 font-sans" dir="rtl">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-200">
         <div>

@@ -4,7 +4,7 @@ import {
   Settings, Sparkles, Trash2, LogOut, ChevronDown, 
   Building2, Plus, Calculator, Bell, Search, CheckCircle2, 
   AlertTriangle, Maximize2, Minimize2, FileText, Users, 
-  Calendar, Check, ArrowUpRight, X, Briefcase
+  Calendar, Check, ArrowUpRight, X, Briefcase, Scale, BarChart3
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -27,6 +27,10 @@ interface TopEnterpriseActionBarProps {
   onQuickAction: (action: string, payload?: any) => void;
   onOpenSpotlight: () => void;
   onOpenCalculator: () => void;
+  onOpenCopilot?: () => void;
+  onOpenSentinel?: () => void;
+  onOpenLegalBot?: () => void;
+  onOpenAnalystBot?: () => void;
   showUserMenu: boolean;
   setShowUserMenu: (show: boolean) => void;
   setShowAvatarModal: (show: boolean) => void;
@@ -53,6 +57,10 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
   onQuickAction,
   onOpenSpotlight,
   onOpenCalculator,
+  onOpenCopilot,
+  onOpenSentinel,
+  onOpenLegalBot,
+  onOpenAnalystBot,
   showUserMenu,
   setShowUserMenu,
   setShowAvatarModal,
@@ -425,10 +433,50 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
         {/* 🧮 حاسبة قانون العمل ونهاية الخدمة السريعة */}
         <button
           onClick={onOpenCalculator}
-          className="w-8 h-8 rounded-lg bg-white/15 hover:bg-white/25 border border-white/15 flex items-center justify-center transition cursor-pointer text-white shrink-0"
+          className="w-8 h-8 rounded-lg bg-white/15 hover:bg-white/25 border border-white/15 flex items-center justify-center transition cursor-pointer text-white shrink-0 hidden sm:flex"
           title="حاسبة قانون العمل الكويتي ومكافأة نهاية الخدمة السريعة"
         >
           <Calculator size={15} />
+        </button>
+
+        {/* 🛡️ الحارس الذكي للامتثال */}
+        <button
+          onClick={onOpenSentinel}
+          className="w-8 h-8 rounded-lg bg-white/15 hover:bg-white/25 border border-white/15 flex items-center justify-center transition cursor-pointer text-white shrink-0 relative"
+          title="الحارس الذكي للامتثال الرقابي (Compliance Sentinel)"
+        >
+          <Shield size={15} className="text-amber-400" />
+          <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-300 border border-[#714B67]"></span>
+          </span>
+        </button>
+
+        {/* ⚖️ المستشار القانوني وقارئ العقود */}
+        <button
+          onClick={onOpenLegalBot}
+          className="w-8 h-8 rounded-lg bg-white/15 hover:bg-white/25 border border-white/15 flex items-center justify-center transition cursor-pointer text-white shrink-0 group relative"
+          title="المستشار القانوني وقارئ العقود (Legal & Document OCR Bot)"
+        >
+          <Scale size={15} className="text-blue-300 group-hover:scale-110 transition-transform" />
+        </button>
+
+        {/* 📊 محلل البيانات واستراتيجي الرواتب */}
+        <button
+          onClick={onOpenAnalystBot}
+          className="w-8 h-8 rounded-lg bg-white/15 hover:bg-white/25 border border-white/15 flex items-center justify-center transition cursor-pointer text-white shrink-0 group relative"
+          title="محلل البيانات واستراتيجي الرواتب (Data & Payroll Analyst Bot)"
+        >
+          <BarChart3 size={15} className="text-emerald-300 group-hover:scale-110 transition-transform" />
+        </button>
+
+        {/* ✨ المساعد الذكي */}
+        <button
+          onClick={onOpenCopilot}
+          className="w-8 h-8 rounded-lg bg-white/15 hover:bg-white/25 border border-white/15 flex items-center justify-center transition cursor-pointer text-white shrink-0 group"
+          title="مساعد الذكاء الاصطناعي (AI Copilot)"
+        >
+          <Sparkles size={15} className="text-amber-300 group-hover:animate-pulse" />
         </button>
 
         {/* ⚙️ زر إعدادات المنظومة وبيانات المنشأة */}
@@ -574,7 +622,14 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
           </button>
 
           {showUserMenu && (
-            <div className="absolute top-full left-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden py-1 z-50 animate-in fade-in slide-in-from-top-2 duration-150 text-slate-800 dir-rtl">
+            <>
+              {/* Backdrop overlay for click outside */}
+              <div 
+                className="fixed inset-0 z-40 bg-black/10 backdrop-blur-[0.5px]"
+                onClick={() => setShowUserMenu(false)}
+              ></div>
+
+              <div className="absolute top-full right-0 sm:right-auto sm:left-0 mt-2 w-80 max-h-[85vh] overflow-y-auto bg-white rounded-2xl shadow-2xl border border-slate-200 py-1 z-[150] animate-in fade-in slide-in-from-top-2 duration-150 text-slate-800 dir-rtl">
               {/* بطاقة معلومات الحساب */}
               <div className="px-4 py-3.5 border-b border-slate-100 bg-gradient-to-br from-purple-50/80 via-slate-50 to-white flex items-center gap-3">
                 <div className="relative shrink-0">
@@ -701,7 +756,8 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                 </button>
               </div>
             </div>
-          )}
+          </>
+        )}
         </div>
 
       </div>

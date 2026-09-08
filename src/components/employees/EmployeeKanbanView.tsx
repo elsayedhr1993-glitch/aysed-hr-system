@@ -32,8 +32,12 @@ export const EmployeeKanbanView: React.FC<EmployeeKanbanViewProps> = ({
             <div className="space-y-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-start gap-3 overflow-hidden">
-                  <div className={`w-12 h-12 rounded-2xl ${emp.avatarBg || 'bg-[#714B67]'} text-white font-bold flex items-center justify-center text-sm shadow-xs shrink-0`}>
-                    {emp.name.slice(0, 2)}
+                  <div className={`w-12 h-12 rounded-2xl ${emp.avatarBg || 'bg-[#714B67]'} text-white font-bold flex items-center justify-center text-sm shadow-xs shrink-0 overflow-hidden`}>
+                    {(emp as any).avatarUrl ? (
+                      <img src={(emp as any).avatarUrl} alt={emp.name} className="w-full h-full object-cover" />
+                    ) : (
+                      emp.name.slice(0, 2)
+                    )}
                   </div>
                   <div className="overflow-hidden">
                     <h3 className="font-bold text-xs text-slate-900 group-hover:text-[#714B67] transition truncate">

@@ -218,7 +218,7 @@ export const OdooMohMedicalHubApp: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 bg-slate-50 flex flex-col h-full overflow-hidden" dir="rtl">
+    <div className="space-y-6 font-sans text-slate-800" dir="rtl">
       {/* Header Bar */}
       <div className="bg-white border-b border-slate-200 px-8 py-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xs">
         <div>

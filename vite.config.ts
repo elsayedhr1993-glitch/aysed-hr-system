@@ -19,9 +19,11 @@ export default defineConfig(() => {
       rollupOptions: {
         output: {
           manualChunks: {
-            'vendor-react': ['react', 'react-dom'],
+            'vendor-react': ['react', 'react-dom', 'react-hot-toast'],
             'vendor-icons': ['lucide-react'],
             'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+            'vendor-pdf': ['pdf-lib', 'pdfjs-dist'],
+            'vendor-data': ['xlsx', 'papaparse', 'recharts']
           }
         }
       }

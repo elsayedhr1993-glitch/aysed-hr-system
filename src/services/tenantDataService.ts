@@ -1029,3 +1029,36 @@ export const TenantDatabaseService = {
   }
 };
 
+export async function addDirectEmployeeViaAi(tenantId: string, empData: any): Promise<Employee> {
+  const companyId = tenantId || 'company_1';
+  const newEmp: Employee = {
+    id: 'emp_' + Date.now(),
+    companyId: companyId,
+    employeeCode: 'EMP-' + Math.floor(1000 + Math.random() * 9000),
+    fullNameAr: empData.nameAr || 'موظف جديد',
+    fullNameEn: empData.nameEn || empData.nameAr || 'New Employee',
+    civilId: empData.civilId || '290' + Math.floor(100000000 + Math.random() * 900000000),
+    civilIdExpiry: '2028-12-31',
+    passportNo: 'P' + Math.floor(10000000 + Math.random() * 90000000),
+    passportExpiry: '2030-12-31',
+    nationality: empData.nationality || 'كويتي',
+    isKuwaiti: (empData.nationality || '').includes('كويتي'),
+    residencyType: 'مادة 18 - قطاع أهلي',
+    gender: 'MALE',
+    dob: '1990-01-01',
+    department: empData.department || 'الإدارة العامة',
+    jobTitle: empData.jobTitle || empData.job || 'موظف',
+    email: empData.email || 'employee' + Math.floor(100 + Math.random() * 900) + '@company.com',
+    phone: empData.phone || '96590000000',
+    joinDate: new Date().toISOString().split('T')[0],
+    status: 'ACTIVE',
+    bankName: 'بيت التمويل الكويتي (KFH)',
+    iban: 'KW12KFH000000000000112233',
+    tags: ['الذكاء الاصطناعي'],
+    notes: `مضاف عبر AI Copilot (الراتب: ${empData.basicSalary || empData.salary || 850} د.ك)`
+  };
+  await TenantDatabaseService.saveEmployee(newEmp, companyId);
+  console.log('✅ [TenantDataService] Employee added directly via AI:', newEmp);
+  return newEmp;
+}
+

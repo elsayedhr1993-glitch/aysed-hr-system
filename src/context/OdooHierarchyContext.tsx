@@ -203,33 +203,35 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
   // بيانات العقود المركزية
   const [employees, setEmployees] = useState<EmployeeContract[]>([]);
 
-  // مزامنة الموظفين حياً من قاعدة البيانات للشركة النشطة
+  // مزامنة الموظفين حياً من قاعدة البيانات للشركة النشطة (Real-time Sync)
   useEffect(() => {
-    let isMounted = true;
+    if (!currentCompanyId) return;
     setEmployees([]); // Clear immediately on company change to prevent cross-company bleed
-    async function syncEmployeesFromDb() {
-      if (!currentCompanyId) return;
-      try {
-        const dbEmps = await TenantDatabaseService.getEmployeesByTenant(currentCompanyId);
-        if (isMounted) {
-          if (dbEmps && dbEmps.length > 0) {
-            const mapped: EmployeeContract[] = dbEmps.map(emp => {
-              const civilExpiry = emp.civilIdExpiry || (emp as any).civilIdExpiryDate || (emp as any).civil_id_expiry || (emp as any).raw_payload?.civilIdExpiry || (emp as any).raw_payload?.civilIdExpiryDate || (emp as any).raw_payload?.civil_id_expiry || '';
+
+    import('firebase/firestore').then(({ collection, query, where, onSnapshot }) => {
+      import('../lib/firebase').then(({ db }) => {
+        const q = query(collection(db, 'employees'), where('companyId', '==', currentCompanyId));
+        
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+          if (!snapshot.empty) {
+            const mapped: EmployeeContract[] = snapshot.docs.map(docSnap => {
+              const emp = { ...docSnap.data(), id: docSnap.id } as any;
+              const civilExpiry = emp.civilIdExpiry || emp.civilIdExpiryDate || emp.civil_id_expiry || emp.raw_payload?.civilIdExpiry || emp.raw_payload?.civilIdExpiryDate || emp.raw_payload?.civil_id_expiry || '';
               return {
                 ...emp,
                 id: emp.id,
                 companyId: emp.companyId || currentCompanyId,
-                name: emp.fullNameAr || (emp as any).nameAr || (emp as any).name || 'موظف',
+                name: emp.fullNameAr || emp.nameAr || emp.name || 'موظف',
                 civilId: emp.civilId || '',
                 civilIdExpiry: civilExpiry,
                 civilIdExpiryDate: civilExpiry,
                 civil_id_expiry: civilExpiry,
                 jobTitle: emp.jobTitle || 'موظف',
-                department: emp.department || (emp as any).dept || 'العموم',
-                basicSalary: (emp as any).basicSalary || (emp as any).contractSalary || 1000,
-                housingAllowance: (emp as any).housingAllowance || 0,
-                transportAllowance: (emp as any).transportAllowance || 0,
-                medicalAllowance: (emp as any).medicalAllowance || 0,
+                department: emp.department || emp.dept || 'العموم',
+                basicSalary: emp.basicSalary || emp.contractSalary || 1000,
+                housingAllowance: emp.housingAllowance || 0,
+                transportAllowance: emp.transportAllowance || 0,
+                medicalAllowance: emp.medicalAllowance || 0,
                 isKuwaiti: Boolean(emp.isKuwaiti),
                 bankName: emp.bankName || 'بيت التمويل الكويتي (KFH)',
                 iban: emp.iban || '',
@@ -240,13 +242,13 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
           } else {
             setEmployees([]);
           }
-        }
-      } catch (e) {
-        console.error('Error syncing employees in OdooHierarchyProvider:', e);
-      }
-    }
-    syncEmployeesFromDb();
-    return () => { isMounted = false; };
+        }, (error) => {
+          console.error('Error in realtime employee sync:', error);
+        });
+
+        return () => unsubscribe();
+      });
+    });
   }, [currentCompanyId]);
 
   // حركات البصمة

@@ -4,7 +4,8 @@ import {
   Printer, Building2, CreditCard, Users, ExternalLink, X, Info
 } from 'lucide-react';
 import { tafqitKuwaiti } from '../../utils/tafqit';
-import { generateKuwaitWpsFiles, exportToExcel } from '../../utils/exportUtils';
+import { exportToExcel } from '../../utils/exportUtils';
+import toast from 'react-hot-toast';
 
 export interface WpsAuditItem {
   id: string;
@@ -15,6 +16,7 @@ export interface WpsAuditItem {
   bankName: string;
   iban: string;
   basicSalary: number;
+  allowances?: number;
   contractSalary?: number; // MOSAL Registered Salary
   netSalary: number;
   totalDeductions: number;
@@ -95,15 +97,37 @@ export const WpsAuditShieldModal: React.FC<WpsAuditShieldModalProps> = ({
   const totalNetInWords = tafqitKuwaiti(totalNetSalary);
 
   const handleDownloadSIF = () => {
-    generateKuwaitWpsFiles(
-      payslips as any,
-      period,
-      {
-        crNumber: companyInfo.crNumber,
-        nameEn: companyInfo.nameEn,
-        nameAr: companyInfo.nameAr,
-      }
-    );
+    // Generate SIF file natively using our robust generator
+    import('../../utils/wpsSifGenerator').then(({ generateWpsSifFile, downloadSifFile }) => {
+      const formattedRecords = payslips.map(p => ({
+        employee: {
+          id: p.employeeId,
+          name: p.employeeName,
+          civilId: p.civilId,
+          bankName: p.bankName,
+          iban: p.iban,
+        },
+        calculation: {
+          basicSalary: p.basicSalary || 0,
+          allowances: p.allowances || 0,
+          absenceDeduction: 0,
+          delayDeduction: 0,
+          socialSecurityDeduction: p.totalDeductions || 0,
+          netSalary: p.netSalary || 0
+        }
+      })) as any;
+
+      const content = generateWpsSifFile(
+        'companyId', 
+        companyInfo.nameEn || 'Company', 
+        companyInfo.crNumber || '000000', 
+        period, 
+        formattedRecords
+      );
+      
+      downloadSifFile(content, `WPS_SIF_${period.replace('-', '')}_KW.csv`);
+      toast.success('تم إنشاء وتحميل ملف الرواتب بصيغة SIF بنجاح للمصرف.');
+    });
   };
 
   const handleExportAuditExcel = () => {

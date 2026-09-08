@@ -64,6 +64,10 @@ import { RecruitmentApp } from './apps/RecruitmentApp';
 import { OdooContractsApp } from './components/OdooContractsApp';
 import { Candidate } from './types';
 import { MANARA_STORAGE_KEYS, getPersistentData, setPersistentData } from './utils/persistentStorage';
+import { AysedAICopilot } from './components/AysedAICopilot';
+import { ComplianceSmartSentinelModal } from './components/ComplianceSmartSentinelModal';
+import { LegalDocumentBotModal } from './components/LegalDocumentBotModal';
+import { DataPayrollAnalystBotModal } from './components/DataPayrollAnalystBotModal';
 
 type AppId = 
   | 'switcher' 
@@ -128,6 +132,13 @@ function MainAppLayout() {
   const [activeApp, setActiveApp] = useState<AppId>('switcher');
   const [searchQuery, setSearchQuery] = useState('');
   const [documents, setDocuments] = useState<any[]>([]);
+  const [isCopilotOpen, setIsCopilotOpen] = useState(false);
+  const [isSentinelOpen, setIsSentinelOpen] = useState(false);
+  const [isLegalBotOpen, setIsLegalBotOpen] = useState(false);
+  const [isAnalystBotOpen, setIsAnalystBotOpen] = useState(false);
+  const [contracts, setContracts] = useState<any[]>(() => {
+    return getPersistentData<any[]>(MANARA_STORAGE_KEYS.CONTRACTS, []);
+  });
 
   // إدارة المرشحين وبيانات التوظيف الذكية (Recruitment & ATS)
   const defaultCandidates: Candidate[] = [];
@@ -587,6 +598,10 @@ function MainAppLayout() {
         onQuickAction={handleQuickAction}
         onOpenSpotlight={() => setShowSpotlight(true)}
         onOpenCalculator={() => setShowCalculator(true)}
+        onOpenCopilot={() => setIsCopilotOpen(true)}
+        onOpenSentinel={() => setIsSentinelOpen(true)}
+        onOpenLegalBot={() => setIsLegalBotOpen(true)}
+        onOpenAnalystBot={() => setIsAnalystBotOpen(true)}
         showUserMenu={showUserMenu}
         setShowUserMenu={setShowUserMenu}
         setShowAvatarModal={setShowAvatarModal}
@@ -598,7 +613,7 @@ function MainAppLayout() {
 
       {debugMode && <OdooDebugMenu />}
       {/* حاوية العرض الصارمة المانعة للتداخل (Strict Single-View Canvas) */}
-      <div className="flex-1 flex overflow-hidden w-full relative">
+      <div className="flex-1 flex overflow-hidden w-full relative bg-slate-100">
         
         {/* الحالة 1: شاشة مبدل التطبيقات والأيقونات فقط (Odoo App Launcher) */}
         {activeApp === 'switcher' && (
@@ -684,148 +699,176 @@ function MainAppLayout() {
 
         {/* الحالة 2: الموظفون (Employees Directory) */}
         {activeApp === 'employees' && (
-          <main className="flex-1 bg-slate-50 overflow-y-auto w-full">
-            <EmployeesApp {...employeeAppProps} />
+          <main className="flex-1 overflow-y-auto w-full">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+              <EmployeesApp {...employeeAppProps} />
+            </div>
           </main>
         )}
 
         {/* تطبيق التوظيف والمقابلات الذكية المستقل (Recruitment & ATS) */}
         {activeApp === 'recruitment' && (
-          <main className="flex-1 bg-slate-50 overflow-y-auto w-full p-2 sm:p-4">
-            <RecruitmentApp
-              candidates={candidates}
-              activeCompany={activeCompany || {
-                id: 'comp-main',
-                nameAr: 'المنشأة المركزية',
-                nameEn: 'Central Company',
-                pamFileNumber: '12345678',
-                civilId: '123456789012',
-                commercialLicense: '98765/2023',
-                status: 'ACTIVE',
-                subscriptionPlan: 'ENTERPRISE',
-                usersCount: 1,
-                employeesCount: employees.length
-              } as any}
-              onSaveCandidate={handleSaveCandidate}
-              onConvertCandidateToEmployee={handleConvertCandidateToEmployee}
-            />
+          <main className="flex-1 overflow-y-auto w-full">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+              <RecruitmentApp
+                candidates={candidates}
+                activeCompany={activeCompany || {
+                  id: 'comp-main',
+                  nameAr: 'المنشأة المركزية',
+                  nameEn: 'Central Company',
+                  pamFileNumber: '12345678',
+                  civilId: '123456789012',
+                  commercialLicense: '98765/2023',
+                  status: 'ACTIVE',
+                  subscriptionPlan: 'ENTERPRISE',
+                  usersCount: 1,
+                  employeesCount: employees.length
+                } as any}
+                onSaveCandidate={handleSaveCandidate}
+                onConvertCandidateToEmployee={handleConvertCandidateToEmployee}
+              />
+            </div>
           </main>
         )}
 
         {/* تطبيق عقود العمل والبدلات وقانون العمل المستقل (Odoo Contracts & PAM) */}
         {activeApp === 'contracts' && (
-          <main className="flex-1 bg-slate-50 overflow-y-auto w-full p-2 sm:p-4">
-            <OdooContractsApp />
+          <main className="flex-1 overflow-y-auto w-full">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+              <OdooContractsApp />
+            </div>
           </main>
         )}
 
         {/* الحالة 3: الحضور والبصمة (Attendance) */}
         {activeApp === 'attendance' && (
-          <main className="flex-1 bg-slate-50 overflow-y-auto w-full p-4">
-            <OdooAttendanceApp />
+          <main className="flex-1 overflow-y-auto w-full">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+              <OdooAttendanceApp />
+            </div>
           </main>
         )}
 
         {/* الحالة 5: الإجازات والغياب (Leaves) */}
         {activeApp === 'leaves' && (
-          <main className="flex-1 bg-slate-50 overflow-y-auto w-full p-4">
-            <OdooTimeOffApp />
+          <main className="flex-1 overflow-y-auto w-full">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+              <OdooTimeOffApp />
+            </div>
           </main>
         )}
 
         {/* الحالة 6: الرواتب و WPS (Payroll) */}
         {activeApp === 'payroll' && (
-          <main className="flex-1 bg-slate-50 overflow-y-auto w-full p-4">
-            <OdooPayrollApp />
+          <main className="flex-1 overflow-y-auto w-full">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+              <OdooPayrollApp />
+            </div>
           </main>
         )}
 
         {/* الحالة 7: المعدات والعهد (Equipments & Custody) */}
         {activeApp === 'custody' && (
-          <main className="flex-1 bg-slate-50 overflow-y-auto w-full p-4">
-            <OdooOperationsApp />
+          <main className="flex-1 overflow-y-auto w-full">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+              <OdooOperationsApp />
+            </div>
           </main>
         )}
 
         {/* الحالة 8: أرشيف المستندات (Documents) */}
         {activeApp === 'archive' && (
-          <main className="flex-1 bg-slate-50 overflow-y-auto w-full p-4">
-            <DocumentsApp
-              documents={documents}
-              employees={employees as any}
-              activeCompany={activeCompany}
-              filterTab=""
-              onSaveDocument={handleSaveDocument}
-              onDeleteDocument={handleDeleteDocument}
-              onAutoAddEmpFromOCR={handleAutoAddEmpFromOCR}
-              onNavigateToApp={(app) => setActiveApp(app)}
-            />
+          <main className="flex-1 overflow-y-auto w-full">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+              <DocumentsApp
+                documents={documents}
+                employees={employees as any}
+                activeCompany={activeCompany}
+                filterTab=""
+                onSaveDocument={handleSaveDocument}
+                onDeleteDocument={handleDeleteDocument}
+                onAutoAddEmpFromOCR={handleAutoAddEmpFromOCR}
+                onNavigateToApp={(app) => setActiveApp(app)}
+              />
+            </div>
           </main>
         )}
 
         {/* الحالة المحورية: الماسح الضوئي الذكي (Scanner App) */}
         {activeApp === 'scanner' && (
-          <main className="flex-1 bg-slate-50 overflow-y-auto w-full p-4">
-            <ScannerApp
-              documents={documents}
-              employees={employees as any}
-              activeCompany={activeCompany}
-              onSaveDocument={handleSaveDocument}
-              onDeleteDocument={handleDeleteDocument}
-              onAutoAddEmpFromOCR={handleAutoAddEmpFromOCR}
-              onNavigateToApp={(app) => setActiveApp(app)}
-            />
+          <main className="flex-1 overflow-y-auto w-full">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+              <ScannerApp
+                documents={documents}
+                employees={employees as any}
+                activeCompany={activeCompany}
+                onSaveDocument={handleSaveDocument}
+                onDeleteDocument={handleDeleteDocument}
+                onAutoAddEmpFromOCR={handleAutoAddEmpFromOCR}
+                onNavigateToApp={(app) => setActiveApp(app)}
+              />
+            </div>
           </main>
         )}
 
         {/* الحالة 9: النماذج والخطابات الرسمية (Templates) */}
         {activeApp === 'letters' && (
-          <main className="flex-1 bg-slate-50 overflow-y-auto w-full p-4">
-            <OdooTemplatesApp />
+          <main className="flex-1 overflow-y-auto w-full">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+              <OdooTemplatesApp />
+            </div>
           </main>
         )}
 
         {/* الحالة 10: العطلات الرسمية (Kuwait Holidays) */}
         {activeApp === 'holidays' && (
-          <main className="flex-1 bg-slate-50 overflow-y-auto w-full p-4">
-            <OdooPublicHolidaysApp />
+          <main className="flex-1 overflow-y-auto w-full">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+              <OdooPublicHolidaysApp />
+            </div>
           </main>
         )}
 
         {/* الحالة 11: لوحة القيادة والتقارير (Reports Dashboard) */}
         {activeApp === 'reports' && (
-          <main className="flex-1 bg-slate-50 overflow-y-auto w-full p-4">
-            <OdooReportsApp />
+          <main className="flex-1 overflow-y-auto w-full">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+              <OdooReportsApp />
+            </div>
           </main>
         )}
 
         {/* الحالة الطبية: تراخيص وزارة الصحة والكادر الطبي (MOH Medical Hub) */}
         {activeApp === 'moh' && (
-          <main className="flex-1 bg-slate-50 overflow-y-auto w-full">
-            <OdooMohMedicalHubApp />
+          <main className="flex-1 overflow-y-auto w-full">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+              <OdooMohMedicalHubApp />
+            </div>
           </main>
         )}
 
         {/* تطبيق سجل الرقابة وتتبع العمليات (Audit Logs & Diagnostic Center) */}
         {activeApp === 'audit' && (
-          <main className="flex-1 bg-slate-50 overflow-y-auto w-full">
-            <AuditLogsApp
-              activeCompany={activeCompany}
-              employees={employees}
-              contracts={[]}
-              leaves={[]}
-              attendance={[]}
-              payslips={[]}
-              generatedDocs={documents}
-              documentTemplates={[]}
-              onAddEmployee={addEmployee}
-            />
+          <main className="flex-1 overflow-y-auto w-full">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+              <AuditLogsApp
+                activeCompany={activeCompany}
+                employees={employees}
+                contracts={[]}
+                leaves={[]}
+                attendance={[]}
+                payslips={[]}
+                generatedDocs={documents}
+                documentTemplates={[]}
+                onAddEmployee={addEmployee}
+              />
+            </div>
           </main>
         )}
 
         {/* الحالة 12: شاشة إعدادات المنشأة والنظام */}
         {activeApp === 'settings' && (
-          <main className="flex-1 bg-slate-50 overflow-y-auto w-full relative">
+          <main className="flex-1 overflow-y-auto w-full relative">
             <OdooSettingsFull onNavigateToDeveloperTools={() => setActiveApp('settings_dev')} />
           </main>
         )}
@@ -833,55 +876,59 @@ function MainAppLayout() {
         {/* الحالة 13: السوبر أدمن */}
         {activeApp === 'saas_admin' && (
           <main className="flex-1 overflow-y-auto w-full">
-            <SuperAdminDashboard 
-              currentUserEmail={user?.email || 'elsayedhr1993@gmail.com'}
-              onLogout={logout}
-              onSwitchToApps={() => setActiveApp('switcher')}
-              onSwitchToWorkspace={() => setActiveApp('employees')}
-              onImpersonateCompany={(companyName) => {
-                const targetComp = companies.find(c => c.nameAr === companyName || c.nameEn === companyName || c.id === companyName) || {
-                  id: `comp_${Date.now()}`,
-                  nameAr: companyName,
-                  nameEn: companyName,
-                  name: companyName,
-                  crNumber: '301122',
-                  pifssNumber: 'KUW-554433',
-                  commercialRegNo: '301122',
-                  civilIdCompany: '203344',
-                  bankName: 'بيت التمويل الكويتي (KFH)',
-                  iban: 'KW12KFH000000000000301122',
-                  wsiCode: 'WSI-TENANT',
-                  currency: 'KWD',
-                  status: 'active'
-                };
-                impersonateCompany(targetComp.id);
-                startImpersonation(targetComp);
-                setActiveApp('switcher');
-                toast.success(`تم التبديل بنجاح! أنت الآن تتصفح وتدير شركة: ${targetComp.nameAr || companyName}`);
-              }}
-            />
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+              <SuperAdminDashboard 
+                currentUserEmail={user?.email || 'elsayedhr1993@gmail.com'}
+                onLogout={logout}
+                onSwitchToApps={() => setActiveApp('switcher')}
+                onSwitchToWorkspace={() => setActiveApp('employees')}
+                onImpersonateCompany={(companyName) => {
+                  const targetComp = companies.find(c => c.nameAr === companyName || c.nameEn === companyName || c.id === companyName) || {
+                    id: `comp_${Date.now()}`,
+                    nameAr: companyName,
+                    nameEn: companyName,
+                    name: companyName,
+                    crNumber: '301122',
+                    pifssNumber: 'KUW-554433',
+                    commercialRegNo: '301122',
+                    civilIdCompany: '203344',
+                    bankName: 'بيت التمويل الكويتي (KFH)',
+                    iban: 'KW12KFH000000000000301122',
+                    wsiCode: 'WSI-TENANT',
+                    currency: 'KWD',
+                    status: 'active'
+                  };
+                  impersonateCompany(targetComp.id);
+                  startImpersonation(targetComp);
+                  setActiveApp('switcher');
+                  toast.success(`تم التبديل بنجاح! أنت الآن تتصفح وتدير شركة: ${targetComp.nameAr || companyName}`);
+                }}
+              />
+            </div>
           </main>
         )}
 
         {/* الحالة 14: أدوات المطور ومحاكي البيانات */}
         {activeApp === 'settings_dev' && (
           <main className="flex-1 overflow-y-auto w-full">
-            <SettingsApp
-              companies={companies || []}
-              activeCompany={activeCompany}
-              onSaveCompany={(c) => addCompany(c as any)}
-              onAddCompany={(c) => addCompany(c as any)}
-              onDeleteCompany={(id) => deleteCompany(id)}
-              onSelectCompany={(c) => impersonateCompany(c.id)}
-              bgTheme="FOREST_VIDEO"
-              setBgTheme={() => {}}
-              motionEnabled={true}
-              setMotionEnabled={() => {}}
-              initialSubTab="DEVELOPER_TOOLS"
-              currentUserEmail={user?.email || ''}
-              currentUserRole={isSuperAdmin ? 'SUPER_ADMIN' : 'COMPANY_ADMIN'}
-              onNavigateHome={() => setActiveApp('switcher')}
-            />
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+              <SettingsApp
+                companies={companies || []}
+                activeCompany={activeCompany}
+                onSaveCompany={(c) => addCompany(c as any)}
+                onAddCompany={(c) => addCompany(c as any)}
+                onDeleteCompany={(id) => deleteCompany(id)}
+                onSelectCompany={(c) => impersonateCompany(c.id)}
+                bgTheme="FOREST_VIDEO"
+                setBgTheme={() => {}}
+                motionEnabled={true}
+                setMotionEnabled={() => {}}
+                initialSubTab="DEVELOPER_TOOLS"
+                currentUserEmail={user?.email || ''}
+                currentUserRole={isSuperAdmin ? 'SUPER_ADMIN' : 'COMPANY_ADMIN'}
+                onNavigateHome={() => setActiveApp('switcher')}
+              />
+            </div>
           </main>
         )}
       </div>
@@ -991,6 +1038,49 @@ function MainAppLayout() {
       <KuwaitHrQuickCalculatorModal
         isOpen={showCalculator}
         onClose={() => setShowCalculator(false)}
+      />
+
+      {/* Aysed HR AI Copilot Side Drawer */}
+      <AysedAICopilot
+        isOpen={isCopilotOpen}
+        onClose={() => setIsCopilotOpen(false)}
+        employees={employees as any}
+        contracts={contracts}
+        onQuickAction={(actionType, payload) => {
+          if (actionType === 'navigate' && payload) {
+            setActiveApp(payload as any);
+          } else if (actionType === 'new_employee') {
+            setShowAddModal(true);
+          } else if (actionType === 'calculator') {
+            setShowCalculator(true);
+          } else if (actionType === 'employees') {
+            setActiveApp('employees');
+          }
+          setIsCopilotOpen(false);
+        }}
+      />
+
+      {/* Compliance Smart Sentinel Modal */}
+      <ComplianceSmartSentinelModal
+        isOpen={isSentinelOpen}
+        onClose={() => setIsSentinelOpen(false)}
+        employees={employees as any}
+        contracts={contracts}
+        attendance={[]}
+        leaves={[]}
+      />
+
+      {/* Legal & Document OCR Bot Modal */}
+      <LegalDocumentBotModal
+        isOpen={isLegalBotOpen}
+        onClose={() => setIsLegalBotOpen(false)}
+      />
+
+      {/* Data & Payroll Analyst Bot Modal */}
+      <DataPayrollAnalystBotModal
+        isOpen={isAnalystBotOpen}
+        onClose={() => setIsAnalystBotOpen(false)}
+        employees={employees as any}
       />
     </div>
   );

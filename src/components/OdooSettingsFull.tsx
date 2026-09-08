@@ -24,7 +24,9 @@ import {
   EyeOff,
   ExternalLink,
   CheckCircle,
-  Fingerprint
+  Fingerprint,
+  ShieldAlert,
+  Trash2
 } from 'lucide-react';
 import { useSystemSettings, SystemSettings } from '../context/SystemSettingsContext';
 import { useCompany } from '../context/CompanyContext';
@@ -1116,10 +1118,79 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({ onNavigateTo
                   نشط 100%
                 </span>
               </div>
+
+              {/* Danger Zone: System Wipe & Clean Slate */}
+              <div className="p-5 bg-rose-50 rounded-xl border border-rose-200 space-y-4">
+                <div className="flex items-center gap-2.5 text-rose-800">
+                  <div className="p-2 bg-rose-100 rounded-lg">
+                    <ShieldAlert size={18} />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold">منطقة الخطر: تصفير النظام التجريبي والاستعداد للتشغيل الرسمي</h3>
+                    <p className="text-[11px] text-rose-600">حذف كافة البيانات التجريبية والوهمية (الموظفين، العقود، البصمات، الرواتب، الإجازات) لنقل النظام إلى بيئة تشغيل رسمية نظيفة فارغة تماماً.</p>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const confirmed = window.confirm('تحذير رسمي قاطع: هل أنت متأكد تماماً من رغبتك في حذف كافة البيانات التجريبية وتصفير النظام بالكامل للبدء بنسخة نظيفة ورسمية؟');
+                      if (confirmed) {
+                        try {
+                          if (typeof window !== 'undefined' && window.localStorage) {
+                            const allKeys = Object.keys(localStorage);
+                            allKeys.forEach(k => {
+                              if (
+                                k.includes('manara_') || 
+                                k.includes('odoo_') || 
+                                k.includes('employee') || 
+                                k.includes('attendance') || 
+                                k.includes('contract') || 
+                                k.includes('leave') || 
+                                k.includes('payslip') || 
+                                k.includes('document') ||
+                                k.includes('candidate') ||
+                                k.includes('company') ||
+                                k.includes('tenant') ||
+                                k.includes('loan') ||
+                                k.includes('custody') ||
+                                k.includes('shift') ||
+                                k.includes('payroll') ||
+                                k.includes('audit')
+                              ) {
+                                localStorage.removeItem(k);
+                              }
+                            });
+                            localStorage.setItem('manara_employees_data', JSON.stringify([]));
+                            localStorage.setItem('manara_contracts_data', JSON.stringify([]));
+                            localStorage.setItem('manara_attendance_data', JSON.stringify([]));
+                            localStorage.setItem('manara_leaves_data', JSON.stringify([]));
+                            localStorage.setItem('manara_payslips_data', JSON.stringify([]));
+                            localStorage.setItem('manara_documents_data', JSON.stringify([]));
+                            localStorage.setItem('manara_candidates_data', JSON.stringify([]));
+                          }
+                          alert('تم تصفير النظام وإخلاؤه بالكامل من البيانات التجريبية بنجاح!');
+                          window.location.reload();
+                        } catch (err) {
+                          console.error('Wipe error:', err);
+                          alert('حدث خطأ أثناء التصفير، يرجى إعادة المحاولة.');
+                        }
+                      }
+                    }}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-md transition cursor-pointer"
+                  >
+                    <Trash2 size={16} />
+                    <span>تصفير النظام بالكامل والبدء بنسخة رسمية نظيفة</span>
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
         </div>
+
       </div>
 
       {/* 📡 Biometric Devices Modal */}

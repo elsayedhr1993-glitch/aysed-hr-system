@@ -115,8 +115,12 @@ export const EmployeeListView: React.FC<EmployeeListViewProps> = ({
                       onClick={() => onSelectEmployee(emp)}
                     >
                       <div className="flex items-center gap-2.5">
-                        <div className={`w-8 h-8 rounded-xl ${emp.avatarBg || 'bg-[#714B67]'} text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-2xs`}>
-                          {emp.name.slice(0, 2)}
+                        <div className={`w-8 h-8 rounded-xl ${emp.avatarBg || 'bg-[#714B67]'} text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-2xs overflow-hidden`}>
+                          {(emp as any).avatarUrl ? (
+                            <img src={(emp as any).avatarUrl} alt={emp.name} className="w-full h-full object-cover" />
+                          ) : (
+                            emp.name.slice(0, 2)
+                          )}
                         </div>
                         <div>
                           <div className="font-bold text-slate-900 group-hover:text-[#714B67] transition">

@@ -388,7 +388,13 @@ export const OdooTopBar: React.FC<OdooTopBarProps> = ({
             </button>
 
             {showUserMenu && (
-              <div className="absolute left-0 mt-1.5 w-60 bg-white rounded-xl shadow-2xl text-slate-800 text-xs py-2 z-50 border border-slate-200 animate-in fade-in zoom-in-95 dir-rtl text-right">
+              <>
+                <div 
+                  className="fixed inset-0 z-40 bg-black/10 backdrop-blur-[0.5px]"
+                  onClick={() => setShowUserMenu(false)}
+                ></div>
+
+                <div className="absolute left-0 mt-1.5 w-64 max-h-[85vh] overflow-y-auto bg-white rounded-xl shadow-2xl text-slate-800 text-xs py-2 z-[150] border border-slate-200 animate-in fade-in zoom-in-95 dir-rtl text-right">
                 <div className="px-3 py-2 border-b border-slate-100 bg-slate-50/80 rounded-t-xl">
                   <div className="flex items-center gap-2">
                     <div className="w-7 h-7 rounded-full bg-[#261928] text-white font-bold flex items-center justify-center text-xs shadow">
@@ -453,6 +459,7 @@ export const OdooTopBar: React.FC<OdooTopBarProps> = ({
                   </button>
                 </div>
               </div>
+              </>
             )}
           </div>
 

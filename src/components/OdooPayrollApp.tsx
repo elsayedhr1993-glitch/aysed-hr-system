@@ -9,7 +9,7 @@ import {
 import { useCompany } from '../context/CompanyContext';
 import { useSystemSettings } from '../context/SystemSettingsContext';
 import { useOdooHierarchy } from '../context/OdooHierarchyContext';
-import { exportToExcel, generateKuwaitWpsFiles } from '../utils/exportUtils';
+import { exportToExcel } from '../utils/exportUtils';
 import { OfficialPayslipPrintModal, PayslipPrintData } from './payroll/OfficialPayslipPrintModal';
 import { WpsAuditShieldModal, WpsAuditItem } from './payroll/WpsAuditShieldModal';
 import { FinalSettlementModal } from './payroll/FinalSettlementModal';

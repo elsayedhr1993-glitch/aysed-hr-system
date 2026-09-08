@@ -195,6 +195,8 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
       progressPercentage: initialProgress,
       tasks,
       custodyItems: custodySelection,
+      legalChecklist: { ...legalChecklist },
+      requiredDocuments: Object.entries(legalChecklist).filter(([_, v]) => v).map(([k]) => k),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };

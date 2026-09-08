@@ -188,7 +188,7 @@ export const AuditLogsApp: React.FC<AuditLogsAppProps> = ({
   };
 
   return (
-    <div className="p-4 sm:p-6 bg-transparent min-h-[calc(100vh-3rem)] space-y-5">
+    <div className="space-y-5 font-sans text-slate-800" dir="rtl">
       {/* Header & Sub-Tab Bar */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>

@@ -318,7 +318,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-80px)] bg-slate-100 rounded-xl overflow-hidden shadow-xs border border-slate-200" dir="rtl">
+    <div className="flex flex-col min-h-[calc(100vh-10rem)] bg-white rounded-xl overflow-hidden shadow-xs border border-slate-200" dir="rtl">
       
       {/* 1. Header Toolbar */}
       <div className="bg-white border-b border-slate-200 px-6 py-3 flex flex-wrap items-center justify-between gap-4 shrink-0">

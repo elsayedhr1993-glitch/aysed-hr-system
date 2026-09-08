@@ -1892,6 +1892,35 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
               {/* Main 2-Column Grid */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                {/* Database Migration Card */}
+                <div className="lg:col-span-2 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl shadow-sm p-6">
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 bg-amber-100 text-amber-700 rounded-xl border border-amber-300">
+                      <Database size={24} />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="text-sm font-black text-amber-900 mb-1">المرحلة 1: ترحيل البيانات إلى السحابة (Firestore Migration)</h4>
+                      <p className="text-xs text-amber-800 mb-4 max-w-3xl leading-relaxed">
+                        تقوم هذه الأداة بترحيل كافة بيانات الذاكرة المؤقتة (Local Storage) من الشركات، الموظفين، الحضور، الإجازات، والرواتب إلى قاعدة بيانات Firestore السحابية بشكل نهائي وربطها بالمزامنة اللحظية (Real-time Sync).
+                      </p>
+                      <button
+                        onClick={async () => {
+                          const { migrateLocalStorageToFirestore } = await import('../utils/firebaseMigration');
+                          toast.promise(migrateLocalStorageToFirestore('comp-super-admin'), {
+                            loading: 'جاري ترحيل البيانات إلى Firestore...',
+                            success: 'تم ترحيل البيانات بنجاح! قاعدة البيانات السحابية تعمل الآن.',
+                            error: 'حدث خطأ أثناء الترحيل'
+                          });
+                        }}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-md transition cursor-pointer"
+                      >
+                        <RefreshCw size={14} />
+                        <span>بدء الترحيل إلى Firestore الآن</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
                 
                 {/* 1. Export Backup Card */}
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-5 flex flex-col justify-between">
