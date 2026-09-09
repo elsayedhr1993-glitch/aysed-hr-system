@@ -94,7 +94,7 @@ interface EmployeeModalProps {
 }
 
 export default function OdooEmployeeFormModal({ isOpen, onClose, onSave, existingEmployees = [], activeCompanyId }: EmployeeModalProps) {
-  const [activeTab, setActiveTab] = useState<'work' | 'private' | 'hr' | 'resume' | 'warnings'>('work');
+  const [activeTab, setActiveTab] = useState<'work' | 'private' | 'hr' | 'contract' | 'commencement' | 'resume' | 'warnings'>('work');
   const [showPamContractModal, setShowPamContractModal] = useState(false);
   const [isScanningOcr, setIsScanningOcr] = useState(false);
 
@@ -109,6 +109,28 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave, existin
   const [manager, setManager] = useState('');
   const [workLocation, setWorkLocation] = useState('الفرع الرئيسي');
   const [hireDate, setHireDate] = useState('');
+
+  // عقد العمل والتفاصيل المالية (Employment Contract)
+  const [contractType, setContractType] = useState('محدد المدة (Fixed Term)');
+  const [contractStartDate, setContractStartDate] = useState('');
+  const [contractEndDate, setContractEndDate] = useState('');
+  const [probationDays, setProbationDays] = useState(100);
+  const [housingAllowance, setHousingAllowance] = useState('100');
+  const [transportAllowance, setTransportAllowance] = useState('50');
+  const [otherAllowances, setOtherAllowances] = useState('0');
+
+  // إقرار المباشرة والجاهزية (Job Commencement & Onboarding)
+  const [commencementDate, setCommencementDate] = useState('');
+  const [directSupervisor, setDirectSupervisor] = useState('');
+  const [branchLocation, setBranchLocation] = useState('الفرع الرئيسي');
+  const [isCommenced, setIsCommenced] = useState(true);
+  const [custodyItems, setCustodyItems] = useState<string[]>([
+    'لاب توب محمول / جهاز كمبيوتر',
+    'بريد إلكتروني رسمي (@company.com)',
+    'بطاقة وبصمة بوابات المبنى'
+  ]);
+  const [leaveAccrualActivated, setLeaveAccrualActivated] = useState(true);
+  const [commencementNotes, setCommencementNotes] = useState('تم استلام العهد والجاهزية ومباشرة العمل بفرع المنشأة');
 
   // البيانات الشخصية والإقامة
   const [civilId, setCivilId] = useState('');
@@ -321,11 +343,26 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave, existin
       relatedUser,
       pinCode,
       status: 'على رأس العمل',
-      hireDate: hireDate || pamStartDate || new Date().toISOString().slice(0, 10),
+      hireDate: hireDate || pamStartDate || commencementDate || new Date().toISOString().slice(0, 10),
       basicSalary: Number(basicSalary) || 850,
-      allowances: 150,
+      housingAllowance: Number(housingAllowance) || 100,
+      transportAllowance: Number(transportAllowance) || 50,
+      otherAllowances: Number(otherAllowances) || 0,
+      allowances: (Number(housingAllowance) || 100) + (Number(transportAllowance) || 50) + (Number(otherAllowances) || 0),
+      totalSalary: (Number(basicSalary) || 850) + (Number(housingAllowance) || 100) + (Number(transportAllowance) || 50) + (Number(otherAllowances) || 0),
       workPermitNo,
       pamEndDate,
+      contractType,
+      contractStartDate: contractStartDate || hireDate || new Date().toISOString().slice(0, 10),
+      contractEndDate: contractEndDate || '',
+      probationDays: Number(probationDays) || 100,
+      commencementDate: commencementDate || hireDate || new Date().toISOString().slice(0, 10),
+      directSupervisor: directSupervisor || manager || 'مدير القسم',
+      branchLocation,
+      isCommenced,
+      custodyItems,
+      leaveAccrualActivated,
+      commencementNotes,
       avatarUrl,
       avatarColor: 'bg-emerald-600',
       chatter: [
@@ -516,6 +553,28 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave, existin
             </button>
             <button
               type="button"
+              onClick={() => setActiveTab('contract')}
+              className={`pb-2 px-4 font-bold transition border-b-2 ${
+                activeTab === 'contract' 
+                  ? 'border-purple-800 text-purple-950 font-black' 
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              📄 عقد العمل الأخير (Employment Contract)
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('commencement')}
+              className={`pb-2 px-4 font-bold transition border-b-2 ${
+                activeTab === 'commencement' 
+                  ? 'border-purple-800 text-purple-950 font-black' 
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              🚀 إقرار المباشرة والجاهزية (Job Commencement)
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTab('private')}
               className={`pb-2 px-4 font-bold transition border-b-2 ${
                 activeTab === 'private'
@@ -636,6 +695,227 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave, existin
                   onChange={(e) => setWorkLocation(e.target.value)} 
                   className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-purple-600 focus:outline-none"
                 />
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: Contract Details */}
+          {activeTab === 'contract' && (
+            <div className="space-y-4">
+              <div className="bg-purple-50 p-3.5 rounded-xl border border-purple-200 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">📄</span>
+                  <div>
+                    <h4 className="font-bold text-purple-950 text-xs">عقد العمل الأهلي والبدلات (Employment Contract & Allowances)</h4>
+                    <p className="text-[10px] text-purple-700">تحديد نوع العقد، فترة التجربة (المادة 32 من قانون العمل الكويتي)، والراتب الشامل</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPamContractModal(true)}
+                  className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <span>👁️ معاينة مسودة العقد الأهلي (PAM)</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">نوع العقد (Contract Type) *</label>
+                  <select 
+                    value={contractType} 
+                    onChange={(e) => setContractType(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-bold text-slate-800 focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                  >
+                    <option value="محدد المدة (Fixed Term)">محدد المدة (Fixed Term - e.g., 3 Years)</option>
+                    <option value="غير محدد المدة (Indefinite Term)">غير محدد المدة (Indefinite Term)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">فترة التجربة بالأيام (Probation Period)</label>
+                  <div className="relative">
+                    <input 
+                      type="number" 
+                      max={100}
+                      min={0}
+                      value={probationDays} 
+                      onChange={(e) => setProbationDays(Number(e.target.value))} 
+                      className="w-full bg-white border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                    />
+                    <span className="absolute left-3 top-2 text-[10px] text-slate-400 font-bold">يوم عمل (حسب المادة 32)</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">تاريخ بداية العقد (Start Date)</label>
+                  <input 
+                    type="date" 
+                    value={contractStartDate || hireDate} 
+                    onChange={(e) => setContractStartDate(e.target.value)} 
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">تاريخ نهاية العقد (End Date - إن وجد)</label>
+                  <input 
+                    type="date" 
+                    value={contractEndDate} 
+                    onChange={(e) => setContractEndDate(e.target.value)} 
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800"
+                  />
+                </div>
+              </div>
+
+              {/* Salary Breakdown Box */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                <h5 className="font-bold text-slate-900 border-b border-slate-200 pb-2 flex items-center justify-between">
+                  <span>💰 هيكل الأجر والبدلات المعتمد (Salary & Allowances Breakdown)</span>
+                  <span className="text-purple-900 font-mono text-sm font-black">
+                    إجمالي الراتب الشامل: {((Number(basicSalary) || 0) + (Number(housingAllowance) || 0) + (Number(transportAllowance) || 0) + (Number(otherAllowances) || 0)).toLocaleString()} د.ك
+                  </span>
+                </h5>
+
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">الراتب الأساسي (KWD)</label>
+                    <input 
+                      type="number" 
+                      value={basicSalary} 
+                      onChange={(e) => setBasicSalary(e.target.value)} 
+                      placeholder="850"
+                      className="w-full bg-white border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-900 focus:ring-2 focus:ring-purple-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">بدل السكن (KWD)</label>
+                    <input 
+                      type="number" 
+                      value={housingAllowance} 
+                      onChange={(e) => setHousingAllowance(e.target.value)} 
+                      placeholder="100"
+                      className="w-full bg-white border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-900 focus:ring-2 focus:ring-purple-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">بدل النقل (KWD)</label>
+                    <input 
+                      type="number" 
+                      value={transportAllowance} 
+                      onChange={(e) => setTransportAllowance(e.target.value)} 
+                      placeholder="50"
+                      className="w-full bg-white border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-900 focus:ring-2 focus:ring-purple-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-600 font-semibold mb-1">بدلات أخرى (KWD)</label>
+                    <input 
+                      type="number" 
+                      value={otherAllowances} 
+                      onChange={(e) => setOtherAllowances(e.target.value)} 
+                      placeholder="0"
+                      className="w-full bg-white border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-900 focus:ring-2 focus:ring-purple-600"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: Job Commencement & Onboarding */}
+          {activeTab === 'commencement' && (
+            <div className="space-y-4">
+              <div className="bg-emerald-50 p-3.5 rounded-xl border border-emerald-200 flex items-center gap-3">
+                <span className="text-2xl">🚀</span>
+                <div>
+                  <h4 className="font-bold text-emerald-950 text-xs">إقرار مباشرة العمل واستلام العهد (Job Commencement & Onboarding)</h4>
+                  <p className="text-[10px] text-emerald-700">توثيق تاريخ المباشرة الفعلية، تسليم العهد والمستندات، وتفعيل حساب الرصيد التلقائي للإجازات</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">تاريخ المباشرة الفعلية بالفرع *</label>
+                  <input 
+                    type="date" 
+                    value={commencementDate || hireDate || new Date().toISOString().slice(0, 10)} 
+                    onChange={(e) => setCommencementDate(e.target.value)} 
+                    className="w-full bg-white border border-emerald-300 rounded-lg p-2 font-mono font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">المشرف المباشر / مدير الفرع</label>
+                  <input 
+                    type="text" 
+                    value={directSupervisor || manager} 
+                    onChange={(e) => setDirectSupervisor(e.target.value)} 
+                    placeholder="مثال: د. محمد العتيبي - المدير الطبي"
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-semibold text-slate-900"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-slate-700 font-bold mb-2">تسليم العهد والتجهيزات الرقمية (Equipments Custody)</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    {[
+                      'لاب توب محمول / جهاز كمبيوتر',
+                      'بريد إلكتروني رسمي (@company.com)',
+                      'بطاقة وبصمة بوابات المبنى',
+                      'شريحة هاتف برقم رسمي (Corporate SIM)',
+                      'زي رسمي / سكراب طبي ومعدات وقاية',
+                      'تصريح مواقف السيارات والتأمين الصحي'
+                    ].map((item, idx) => {
+                      const isChecked = custodyItems.includes(item);
+                      return (
+                        <label key={idx} className={`p-2 rounded-lg border flex items-center gap-2 cursor-pointer transition text-xs font-semibold ${
+                          isChecked ? 'bg-emerald-100/60 border-emerald-300 text-emerald-950 font-bold' : 'bg-white border-slate-200 text-slate-600'
+                        }`}>
+                          <input 
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) setCustodyItems([...custodyItems, item]);
+                              else setCustodyItems(custodyItems.filter(i => i !== item));
+                            }}
+                            className="w-4 h-4 rounded text-emerald-600"
+                          />
+                          <span>{item}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="md:col-span-2 bg-purple-50/60 p-3.5 rounded-xl border border-purple-200 space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input 
+                      type="checkbox"
+                      checked={leaveAccrualActivated}
+                      onChange={(e) => setLeaveAccrualActivated(e.target.checked)}
+                      className="w-4 h-4 rounded text-[#714B67]"
+                    />
+                    <span className="font-bold text-slate-900 text-xs">تفعيل حاسبة الرصيد التلقائي للإجازات السنوية فور اعتماد المباشرة (2.5 يوم/شهر)</span>
+                  </label>
+                  <p className="text-[10px] text-purple-800 pr-6">
+                    يقوم النظام آلياً ببدء احتساب رصيد الإجازات المكتسب رسمياً بمعدل 30 يوم سنوياً بدءاً من تاريخ المباشرة المحدد أعلاه.
+                  </p>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-slate-700 font-bold mb-1">ملاحظات وشروط إقرار استلام العمل</label>
+                  <textarea 
+                    rows={2}
+                    value={commencementNotes} 
+                    onChange={(e) => setCommencementNotes(e.target.value)} 
+                    placeholder="ملاحظات المباشرة..."
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs"
+                  />
+                </div>
               </div>
             </div>
           )}

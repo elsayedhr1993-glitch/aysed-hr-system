@@ -1034,19 +1034,21 @@ export function EmployeesApp(props?: any) {
             <button
               onClick={() => setActiveTab('contracts')}
               className={`px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 ${
-                activeTab === 'contracts' ? 'bg-white text-purple-900 shadow-xs border border-slate-200' : 'hover:bg-slate-200/60'
+                activeTab === 'contracts' ? 'bg-white text-purple-900 shadow-xs border border-slate-200 font-bold' : 'hover:bg-slate-200/60'
               }`}
+              title="الاطلاع على جميع عقود العمل المفعلة والجاهزة وطباعتها"
             >
-              <span>📝</span> العقود والرواتب
+              <span>📝</span> سجل العقود والرواتب
             </button>
 
             <button
               onClick={() => setActiveTab('commencement')}
               className={`px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 ${
-                activeTab === 'commencement' ? 'bg-white text-purple-900 shadow-xs border border-slate-200' : 'hover:bg-slate-200/60'
+                activeTab === 'commencement' ? 'bg-white text-purple-900 shadow-xs border border-slate-200 font-bold' : 'hover:bg-slate-200/60'
               }`}
+              title="الاطلاع على جميع إقرارات المباشرة واستلام العهد وطباعتها"
             >
-              <span>🏥</span> مباشرة العمل
+              <span>🏥</span> سجل إقرارات المباشرة والعهد
             </button>
 
             <button
@@ -2244,6 +2246,22 @@ export function EmployeesApp(props?: any) {
         onClose={() => setShowOnboardingWizardModal(false)}
         onConfirmLaunch={handleConfirmOnboardingPlan}
         existingEmployees={employees}
+      />
+
+      {/* نموذج إضافة وتعديل الموظف المباشر (Odoo Employee Form Modal) */}
+      <OdooEmployeeFormModal
+        isOpen={showAddEmployeeModal || showEmployeeModal}
+        onClose={() => {
+          setShowAddEmployeeModal(false);
+          setShowEmployeeModal(false);
+        }}
+        onSave={(newEmp) => {
+          handleSaveEmployee(newEmp);
+          setShowAddEmployeeModal(false);
+          setShowEmployeeModal(false);
+        }}
+        existingEmployees={employees}
+        activeCompanyId={currentCompanyId}
       />
 
     </div>

@@ -48,6 +48,7 @@ import { computeFifoLeaveAllocations, buildEmployeeBaselineAllocations } from '.
 import { PrintableLeaveFormModal } from './timeoff/PrintableLeaveFormModal';
 import { ReturnToWorkModal } from './timeoff/ReturnToWorkModal';
 import { LeaveRejectionModal } from './timeoff/LeaveRejectionModal';
+import { LeavePolicyWizardModal, getLeaveMasterPolicy, LeavePolicyData } from './leaves/LeavePolicyWizardModal';
 import { AbsenceTimelineView } from './timeoff/AbsenceTimelineView';
 
 export interface LeaveRequest {
@@ -189,6 +190,17 @@ export const OdooTimeOffApp: React.FC = () => {
   // Modal Control States
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [showAllocationModal, setShowAllocationModal] = useState(false);
+  const [showPolicyWizardModal, setShowPolicyWizardModal] = useState(false);
+  const [leavePolicy, setLeavePolicy] = useState<LeavePolicyData>(() => getLeaveMasterPolicy());
+
+  useEffect(() => {
+    const handlePolicyUpdated = () => {
+      setLeavePolicy(getLeaveMasterPolicy());
+    };
+    window.addEventListener('timeoff_policy_updated', handlePolicyUpdated);
+    return () => window.removeEventListener('timeoff_policy_updated', handlePolicyUpdated);
+  }, []);
+
   const [selectedSettlementReq, setSelectedSettlementReq] = useState<LeaveRequest | null>(null);
   const [selectedPrintReq, setSelectedPrintReq] = useState<LeaveRequest | null>(null);
   const [selectedReturnReq, setSelectedReturnReq] = useState<LeaveRequest | null>(null);
@@ -629,11 +641,21 @@ export const OdooTimeOffApp: React.FC = () => {
 
           <button
             type="button"
+            onClick={() => setShowPolicyWizardModal(true)}
+            className="bg-purple-900 hover:bg-purple-950 text-white border border-purple-800 px-3.5 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+            title="تثبيت وتهيئة لائحة الإجازات الرسمية (Leave Policy Wizard)"
+          >
+            <ShieldCheck size={15} className="text-amber-300" />
+            <span>لائحة وقواعد الإجازات</span>
+          </button>
+
+          <button
+            type="button"
             onClick={handleRunMonthlyAccrual}
             className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-3.5 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
-            title="تشغيل إضافة الاستحقاق الشهري التلقائي (+2.5 يوم لجميع الموظفين النشطين يوم 30)"
+            title={`تشغيل إضافة الاستحقاق الشهري التلقائي (+${leavePolicy.monthlyAccrualRate} يوم لجميع الموظفين النشطين يوم 30)`}
           >
-            <RefreshCw size={14} className="text-emerald-600" /> استحقاق الشهر (+2.5 يوم)
+            <RefreshCw size={14} className="text-emerald-600" /> استحقاق الشهر (+{leavePolicy.monthlyAccrualRate} يوم)
           </button>
 
           <button
@@ -650,14 +672,23 @@ export const OdooTimeOffApp: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
         {/* Card 1: Annual Legal Quota */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+        <div 
+          className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs hover:border-emerald-300 transition cursor-pointer group"
+          onClick={() => setShowPolicyWizardModal(true)}
+          title="انقر لتعديل لائحة وقواعد الإجازات"
+        >
           <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-1">
-            <span>الرصيد السنوي الأساسي</span>
-            <Calendar className="w-4 h-4 text-emerald-600" />
+            <span>الرصيد السنوي اللائحي</span>
+            <Calendar className="w-4 h-4 text-emerald-600 group-hover:scale-110 transition-transform" />
           </div>
-          <div className="text-2xl font-black text-slate-900">30.0 <span className="text-xs font-normal text-slate-500">يوم / سنة</span></div>
-          <div className="text-[10px] text-emerald-700 mt-1 font-semibold flex items-center gap-1">
-            <CheckCircle2 size={12} /> +2.5 يوم يضاف شهرياً آلياً (مادة 70)
+          <div className="text-2xl font-black text-slate-900">
+            {leavePolicy.annualDays.toFixed(1)} <span className="text-xs font-normal text-slate-500">يوم / سنة</span>
+          </div>
+          <div className="text-[10px] text-emerald-700 mt-1 font-bold flex items-center justify-between">
+            <span className="flex items-center gap-1">
+              <CheckCircle2 size={12} /> +{leavePolicy.monthlyAccrualRate} يوم/شهرياً (مادة 70)
+            </span>
+            <span className="text-purple-700 underline">تعديل اللائحة</span>
           </div>
         </div>
 
@@ -1772,6 +1803,14 @@ export const OdooTimeOffApp: React.FC = () => {
           onConfirmReject={handleConfirmRejection}
         />
       )}
+
+      {/* ======================================================== */}
+      {/* MODAL 7: LEAVE POLICY INITIALIZATION WIZARD */}
+      {/* ======================================================== */}
+      <LeavePolicyWizardModal
+        isOpen={showPolicyWizardModal}
+        onClose={() => setShowPolicyWizardModal(false)}
+      />
 
     </div>
   );

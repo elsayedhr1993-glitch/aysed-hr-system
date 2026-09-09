@@ -4,9 +4,10 @@ import {
   Settings, Sparkles, Trash2, LogOut, ChevronDown, 
   Building2, Plus, Calculator, Bell, Search, CheckCircle2, 
   AlertTriangle, Maximize2, Minimize2, FileText, Users, 
-  Calendar, Check, ArrowUpRight, X, Briefcase, Scale, BarChart3
+  Calendar, Check, ArrowUpRight, X, Briefcase, Scale, BarChart3, Award
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { getFacilityMasterData, FacilityLicenseData } from '../facility/FacilityLicensingWizardModal';
 
 interface TopEnterpriseActionBarProps {
   activeApp: string;
@@ -31,6 +32,7 @@ interface TopEnterpriseActionBarProps {
   onOpenSentinel?: () => void;
   onOpenLegalBot?: () => void;
   onOpenAnalystBot?: () => void;
+  onOpenFacilityWizard?: () => void;
   showUserMenu: boolean;
   setShowUserMenu: (show: boolean) => void;
   setShowAvatarModal: (show: boolean) => void;
@@ -61,6 +63,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
   onOpenSentinel,
   onOpenLegalBot,
   onOpenAnalystBot,
+  onOpenFacilityWizard,
   showUserMenu,
   setShowUserMenu,
   setShowAvatarModal,
@@ -72,6 +75,40 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
   const [showQuickActionsMenu, setShowQuickActionsMenu] = useState(false);
   const [showAlertsMenu, setShowAlertsMenu] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [facilityData, setFacilityData] = useState<FacilityLicenseData>(() => getFacilityMasterData());
+
+  useEffect(() => {
+    const handleFacilityUpdated = () => {
+      setFacilityData(getFacilityMasterData());
+    };
+    window.addEventListener('facility_data_updated', handleFacilityUpdated);
+    return () => window.removeEventListener('facility_data_updated', handleFacilityUpdated);
+  }, []);
+
+  const facilityExpiryStatus = useMemo(() => {
+    const now = new Date();
+    const expiries = [
+      { label: 'ترخيص الصحة MOH', date: facilityData.mohExpiryDate },
+      { label: 'ترخيص الإطفاء KFF', date: facilityData.kffExpiryDate },
+      { label: 'ترخيص البلدية', date: facilityData.baladiyaExpiryDate }
+    ].filter(item => Boolean(item.date));
+
+    let minDays = 999;
+    let nearestLabel = '';
+
+    expiries.forEach(exp => {
+      const d = new Date(exp.date);
+      if (!isNaN(d.getTime())) {
+        const diffDays = Math.ceil((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffDays < minDays) {
+          minDays = diffDays;
+          nearestLabel = exp.label;
+        }
+      }
+    });
+
+    return { minDays, nearestLabel };
+  }, [facilityData]);
 
   const companyMenuRef = useRef<HTMLDivElement>(null);
   const quickActionsMenuRef = useRef<HTMLDivElement>(null);
@@ -415,6 +452,20 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                 <button
                   onClick={() => {
                     setShowQuickActionsMenu(false);
+                    if (onOpenFacilityWizard) onOpenFacilityWizard();
+                  }}
+                  className="w-full text-right px-3 py-2 text-xs font-bold text-[#714B67] hover:bg-purple-50 rounded-xl transition flex items-center gap-2.5 cursor-pointer bg-purple-50/50 border border-purple-100"
+                >
+                  <Award size={16} className="text-[#714B67]" />
+                  <div>
+                    <span className="block font-bold">تثبيت وتهيئة تراخيص المنشأة</span>
+                    <span className="block text-[10px] text-purple-600 font-normal">تثبيت السجل التجاري، MOH، الإطفاء والبلدية</span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowQuickActionsMenu(false);
                     onQuickAction('scanner');
                   }}
                   className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-purple-50 hover:text-[#714B67] rounded-xl transition flex items-center gap-2.5 cursor-pointer"
@@ -429,6 +480,27 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
             </div>
           )}
         </div>
+
+        {/* 🏢 شارة تراخيص المنشأة والعد التنازلي (Facility License Countdown Badge) */}
+        <button
+          onClick={() => {
+            if (onOpenFacilityWizard) onOpenFacilityWizard();
+          }}
+          className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-black transition cursor-pointer border shadow-xs shrink-0 ${
+            facilityExpiryStatus.minDays <= 30
+              ? 'bg-rose-600 hover:bg-rose-700 text-white border-rose-400 animate-pulse'
+              : facilityExpiryStatus.minDays <= 90
+              ? 'bg-amber-600 hover:bg-amber-700 text-white border-amber-400'
+              : 'bg-emerald-800/80 hover:bg-emerald-800 text-emerald-100 border-emerald-600/60'
+          }`}
+          title="معالج ورادار تراخيص المنشأة (Facility Licensing Countdown)"
+        >
+          <Award size={14} className="text-amber-300 shrink-0" />
+          <span className="hidden lg:inline text-[11px]">تراخيص المنشأة:</span>
+          <span className="font-mono text-[11px] font-black">
+            {facilityExpiryStatus.minDays < 999 ? `${facilityExpiryStatus.minDays} يوم` : 'سارية'}
+          </span>
+        </button>
 
         {/* 🧮 حاسبة قانون العمل ونهاية الخدمة السريعة */}
         <button
@@ -446,10 +518,6 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
           title="الحارس الذكي للامتثال الرقابي (Compliance Sentinel)"
         >
           <Shield size={15} className="text-amber-400" />
-          <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-300 border border-[#714B67]"></span>
-          </span>
         </button>
 
         {/* ⚖️ المستشار القانوني وقارئ العقود */}
@@ -500,11 +568,6 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
             title="مركز الإشعارات والتنبيهات الذكية"
           >
             <Bell size={15} />
-            {totalAlertsCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center border-2 border-[#714B67] animate-pulse">
-                {totalAlertsCount}
-              </span>
-            )}
           </button>
 
           {showAlertsMenu && (

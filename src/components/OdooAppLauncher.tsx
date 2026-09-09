@@ -76,6 +76,19 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
     } catch (e) {}
   }, [currentCompanyId]);
 
+  // حساب طلبات الإجازات بانتظار الاعتماد الحقيقية
+  const pendingLeavesCount = useMemo(() => {
+    return realLeaves.filter(req => req.status === 'pending' || req.status === 'WAITING' || req.status === 'DRAFT' || req.status === 'قيد الانتظار').length;
+  }, [realLeaves]);
+
+  // حساب نسبة الامتثال وسلامة المستندات ديناميكياً
+  const compliancePercentage = useMemo(() => {
+    if (!realEmployees || realEmployees.length === 0) return 100;
+    const today = new Date().toISOString().slice(0, 10);
+    const validEmps = realEmployees.filter(e => (!e.civilIdExpiry || e.civilIdExpiry >= today) && (!e.passportExpiry || e.passportExpiry >= today)).length;
+    return Math.round((validEmps / realEmployees.length) * 100);
+  }, [realEmployees]);
+
   // حساب توزيع الرواتب الفعلي طبقاً للعقود المسجلة
   const payrollDeptData = useMemo(() => {
     if (!realEmployees || realEmployees.length === 0) {
@@ -462,7 +475,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
           <div>
             <div className="text-[10px] font-bold text-slate-500">الإجازات بانتظار الاعتماد</div>
             <div className="text-sm sm:text-base font-black text-amber-700 font-mono mt-0.5 leading-none">
-              {stats.leavesPendingCount} <span className="text-[10px] font-bold text-amber-600">طلب</span>
+              {pendingLeavesCount} <span className="text-[10px] font-bold text-amber-600">طلب</span>
             </div>
           </div>
           <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center font-bold shrink-0">
@@ -475,7 +488,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
           <div>
             <div className="text-[10px] font-bold text-slate-500">سلامة المستندات والامتثال</div>
             <div className="text-sm sm:text-base font-black text-blue-700 font-mono mt-0.5 leading-none">
-              98.5% <span className="text-[10px] font-bold text-emerald-600">ساري</span>
+              {compliancePercentage}% <span className="text-[10px] font-bold text-emerald-600">ساري</span>
             </div>
           </div>
           <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center font-bold shrink-0">
@@ -520,11 +533,6 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
                     isCompact ? 'w-9 h-9 sm:w-10 sm:h-10' : 'w-12 h-12'
                   } rounded-lg flex items-center justify-center shrink-0 bg-gradient-to-br ${app.gradient} shadow-2xs group-hover:scale-105 transition-transform duration-200`}>
                     <IconComponent className={`${isCompact ? 'w-4.5 h-4.5 sm:w-5 sm:h-5' : 'w-6 h-6'} text-white drop-shadow-xs`} strokeWidth={1.8} />
-                    {app.badge && app.badge !== '0' && (
-                      <span className={`absolute -top-1 -right-1 ${app.badgeBg} text-white text-[8px] font-black px-1.5 py-0.2 rounded-full border border-white shadow-2xs`}>
-                        {app.badge}
-                      </span>
-                    )}
                   </div>
 
                   {/* App Text Info */}

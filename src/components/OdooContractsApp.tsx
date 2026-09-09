@@ -411,15 +411,6 @@ export const OdooContractsApp: React.FC = () => {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={handleOpenCreateContract}
-            className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm cursor-pointer"
-          >
-            <Plus size={15} />
-            <span>+ تحرير / إنشاء عقد جديد</span>
-          </button>
-
-          <button
-            type="button"
             onClick={() => {
               const exportData = filteredContracts.map((c, idx) => ({
                 'م': idx + 1,

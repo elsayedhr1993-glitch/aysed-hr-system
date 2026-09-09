@@ -68,6 +68,7 @@ import { AysedAICopilot } from './components/AysedAICopilot';
 import { ComplianceSmartSentinelModal } from './components/ComplianceSmartSentinelModal';
 import { LegalDocumentBotModal } from './components/LegalDocumentBotModal';
 import { DataPayrollAnalystBotModal } from './components/DataPayrollAnalystBotModal';
+import { FacilityLicensingWizardModal } from './components/facility/FacilityLicensingWizardModal';
 
 type AppId = 
   | 'switcher' 
@@ -136,6 +137,7 @@ function MainAppLayout() {
   const [isSentinelOpen, setIsSentinelOpen] = useState(false);
   const [isLegalBotOpen, setIsLegalBotOpen] = useState(false);
   const [isAnalystBotOpen, setIsAnalystBotOpen] = useState(false);
+  const [isFacilityWizardOpen, setIsFacilityWizardOpen] = useState(false);
   const [contracts, setContracts] = useState<any[]>(() => {
     return getPersistentData<any[]>(MANARA_STORAGE_KEYS.CONTRACTS, []);
   });
@@ -602,6 +604,7 @@ function MainAppLayout() {
         onOpenSentinel={() => setIsSentinelOpen(true)}
         onOpenLegalBot={() => setIsLegalBotOpen(true)}
         onOpenAnalystBot={() => setIsAnalystBotOpen(true)}
+        onOpenFacilityWizard={() => setIsFacilityWizardOpen(true)}
         showUserMenu={showUserMenu}
         setShowUserMenu={setShowUserMenu}
         setShowAvatarModal={setShowAvatarModal}
@@ -678,18 +681,41 @@ function MainAppLayout() {
               activeCompany={activeCompany}
               stats={{
                 employeesCount: employees?.length || 0,
-                candidatesCount: candidates?.length || 5,
-                contractsCount: employees?.length || 0,
-                leavesPendingCount: 2,
+                candidatesCount: candidates?.length || 0,
+                contractsCount: contracts?.length || employees?.length || 0,
+                leavesPendingCount: (() => {
+                  try {
+                    const raw = localStorage.getItem('odoo_leave_requests_v2');
+                    if (raw) {
+                      const parsed = JSON.parse(raw);
+                      if (Array.isArray(parsed)) {
+                        return parsed.filter((r: any) => r.status === 'pending' || r.status === 'WAITING' || r.status === 'DRAFT' || r.status === 'قيد الانتظار').length;
+                      }
+                    }
+                  } catch (e) {}
+                  return 0;
+                })(),
                 documentsCount: documents?.length || 0,
-                automationsCount: 12,
-                custodiesCount: 8,
-                templatesCount: 15,
-                auditLogsCount: 142,
-                shiftsCount: 4,
-                totalSalariesThisMonth: 18500,
-                onLeaveToday: 1,
-                absenceRate: 1.2,
+                automationsCount: 0,
+                custodiesCount: 0,
+                templatesCount: 0,
+                auditLogsCount: 0,
+                shiftsCount: shifts?.length || 0,
+                totalSalariesThisMonth: employees?.reduce((acc: number, e: any) => acc + (Number(e.basicSalary || e.salary || 0) + Number(e.housingAllowance || 0) + Number(e.transportAllowance || 0) + Number(e.natureOfWorkAllowance || 0)), 0) || 0,
+                onLeaveToday: (() => {
+                  try {
+                    const raw = localStorage.getItem('odoo_leave_requests_v2');
+                    if (raw) {
+                      const parsed = JSON.parse(raw);
+                      if (Array.isArray(parsed)) {
+                        const today = new Date().toISOString().slice(0, 10);
+                        return parsed.filter((r: any) => (r.status === 'approved' || r.status === 'APPROVED') && r.startDate <= today && r.endDate >= today).length;
+                      }
+                    }
+                  } catch (e) {}
+                  return 0;
+                })(),
+                absenceRate: 0,
                 lateArrivalsCount: 0,
                 saturdayAbsencesCount: 0
               }}
@@ -1081,6 +1107,12 @@ function MainAppLayout() {
         isOpen={isAnalystBotOpen}
         onClose={() => setIsAnalystBotOpen(false)}
         employees={employees as any}
+      />
+
+      {/* Facility Licensing Onboarding Wizard Modal */}
+      <FacilityLicensingWizardModal
+        isOpen={isFacilityWizardOpen}
+        onClose={() => setIsFacilityWizardOpen(false)}
       />
     </div>
   );

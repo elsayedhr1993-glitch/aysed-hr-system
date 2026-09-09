@@ -106,7 +106,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
   });
 
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'work' | 'private' | 'documents' | 'hr'>('work');
+  const [activeTab, setActiveTab] = useState<'work' | 'contract' | 'commencement' | 'private' | 'documents' | 'hr'>('work');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
@@ -605,6 +605,32 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
 
           <button
             type="button"
+            onClick={() => setActiveTab('contract')}
+            className={`px-4 py-3 text-xs font-black border-b-2 transition flex items-center gap-2 shrink-0 cursor-pointer ${
+              activeTab === 'contract'
+                ? 'border-[#714B67] text-[#714B67] bg-purple-50/40 rounded-t-lg'
+                : 'border-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-50'
+            }`}
+          >
+            <span>📄</span>
+            <span>عقد العمل والبدلات (Contract & Salary)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('commencement')}
+            className={`px-4 py-3 text-xs font-black border-b-2 transition flex items-center gap-2 shrink-0 cursor-pointer ${
+              activeTab === 'commencement'
+                ? 'border-[#714B67] text-[#714B67] bg-purple-50/40 rounded-t-lg'
+                : 'border-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-50'
+            }`}
+          >
+            <span>🚀</span>
+            <span>إقرار المباشرة والجاهزية (Job Commencement)</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab('private')}
             className={`px-4 py-3 text-xs font-black border-b-2 transition flex items-center gap-2 shrink-0 cursor-pointer ${
               activeTab === 'private'
@@ -651,6 +677,243 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
             isEditMode={isEditMode}
             handleFieldChange={handleFieldChange}
           />
+        )}
+
+        {/* Tab 2: عقد العمل والأجر الشامل (Contract & Wages) */}
+        {activeTab === 'contract' && (
+          <div className="space-y-4 text-xs animate-fade-in">
+            <div className="bg-purple-50 p-3.5 rounded-xl border border-purple-200 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">📄</span>
+                <div>
+                  <h4 className="font-bold text-purple-950 text-xs">عقد العمل الأهلي والهيكل المالي (Employment Contract & Wages)</h4>
+                  <p className="text-[10px] text-purple-700">توثيق بنود العقد الأهلي، فترات التجربة (المادة 32)، والبدلات المعتمدة</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={onOpenPamModal}
+                className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+              >
+                <span>👁️ معاينة العقد الأهلي الصادر من (PAM)</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-4 rounded-xl border border-slate-200">
+              <div>
+                <label className="block text-slate-500 font-bold mb-1">نوع العقد الأهلي</label>
+                {isEditMode ? (
+                  <select
+                    value={employee.contractType || 'محدد المدة (Fixed Term)'}
+                    onChange={(e) => handleFieldChange('contractType', e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-bold"
+                  >
+                    <option value="محدد المدة (Fixed Term)">محدد المدة (Fixed Term)</option>
+                    <option value="غير محدد المدة (Indefinite Term)">غير محدد المدة (Indefinite Term)</option>
+                  </select>
+                ) : (
+                  <div className="p-2 bg-slate-50 rounded-lg font-bold text-slate-900 border border-slate-200">
+                    {employee.contractType || 'محدد المدة (Fixed Term)'}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-slate-500 font-bold mb-1">فترة التجربة (Probation Period)</label>
+                {isEditMode ? (
+                  <input
+                    type="number"
+                    value={employee.probationDays || 100}
+                    onChange={(e) => handleFieldChange('probationDays', e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-mono font-bold"
+                  />
+                ) : (
+                  <div className="p-2 bg-slate-50 rounded-lg font-mono font-bold text-slate-900 border border-slate-200">
+                    {employee.probationDays || 100} يوم عمل (المادة 32)
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-slate-500 font-bold mb-1">تاريخ بداية العقد</label>
+                {isEditMode ? (
+                  <input
+                    type="date"
+                    value={employee.contractStartDate || employee.hireDate || ''}
+                    onChange={(e) => handleFieldChange('contractStartDate', e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-mono font-bold"
+                  />
+                ) : (
+                  <div className="p-2 bg-slate-50 rounded-lg font-mono font-bold text-slate-900 border border-slate-200">
+                    {employee.contractStartDate || employee.hireDate || 'غير محدد'}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-slate-500 font-bold mb-1">تاريخ نهاية العقد</label>
+                {isEditMode ? (
+                  <input
+                    type="date"
+                    value={employee.contractEndDate || ''}
+                    onChange={(e) => handleFieldChange('contractEndDate', e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-mono font-bold"
+                  />
+                ) : (
+                  <div className="p-2 bg-slate-50 rounded-lg font-mono font-bold text-slate-900 border border-slate-200">
+                    {employee.contractEndDate || 'عقد مفتوح / غير محدد'}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Financial Details Box */}
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+              <h5 className="font-bold text-slate-900 border-b border-slate-200 pb-2 flex items-center justify-between">
+                <span>💰 الراتب والبدلات الشهرية</span>
+                <span className="font-mono text-purple-900 font-black text-sm">
+                  الأجر الشامل: {((Number(employee.basicSalary) || 850) + (Number(employee.housingAllowance) || 100) + (Number(employee.transportAllowance) || 50) + (Number(employee.otherAllowances) || 0)).toLocaleString()} د.ك
+                </span>
+              </h5>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                  <span className="text-slate-400 block text-[10px]">الراتب الأساسي</span>
+                  <strong className="font-mono text-slate-900 font-bold text-sm">{employee.basicSalary || 850} د.ك</strong>
+                </div>
+                <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                  <span className="text-slate-400 block text-[10px]">بدل السكن</span>
+                  <strong className="font-mono text-slate-900 font-bold text-sm">{employee.housingAllowance || 100} د.ك</strong>
+                </div>
+                <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                  <span className="text-slate-400 block text-[10px]">بدل النقل</span>
+                  <strong className="font-mono text-slate-900 font-bold text-sm">{employee.transportAllowance || 50} د.ك</strong>
+                </div>
+                <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                  <span className="text-slate-400 block text-[10px]">بدلات أخرى</span>
+                  <strong className="font-mono text-slate-900 font-bold text-sm">{employee.otherAllowances || 0} د.ك</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 3: إقرار المباشرة والجاهزية (Job Commencement) */}
+        {activeTab === 'commencement' && (
+          <div className="space-y-4 text-xs animate-fade-in">
+            <div className="bg-emerald-50 p-3.5 rounded-xl border border-emerald-200 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">🚀</span>
+                <div>
+                  <h4 className="font-bold text-emerald-950 text-xs">إقرار المباشرة الفعلية واستلام العهد (Job Commencement)</h4>
+                  <p className="text-[10px] text-emerald-700">توثيق تاريخ المباشرة بالفرع واستلام تجهيزات العمل الرسمية</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const printWindow = window.open('', '_blank');
+                  if (printWindow) {
+                    printWindow.document.write(`
+                      <html dir="rtl" lang="ar">
+                        <head>
+                          <title>إقرار مباشرة عمل - ${employee.nameAr || employee.name}</title>
+                          <style>
+                            body { font-family: system-ui, sans-serif; padding: 40px; color: #1e293b; line-height: 1.6; }
+                            .header { text-align: center; border-bottom: 2px solid #714B67; padding-bottom: 20px; margin-bottom: 30px; }
+                            .title { font-size: 22px; font-weight: bold; color: #714B67; margin-bottom: 5px; }
+                            .subtitle { font-size: 14px; color: #64748b; }
+                            .box { border: 1px solid #cbd5e1; padding: 15px; rounded: 8px; background: #f8fafc; margin-bottom: 20px; }
+                            table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+                            th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: right; font-size: 13px; }
+                            th { background: #f1f5f9; font-weight: bold; }
+                            .signatures { margin-top: 50px; display: flex; justify-content: space-between; }
+                            .sig-box { text-align: center; width: 45%; border-top: 1px border #94a3b8; padding-top: 10px; }
+                          </style>
+                        </head>
+                        <body>
+                          <div class="header">
+                            <div class="title">شركة المنار كلينك الطبية</div>
+                            <div class="subtitle">نموذج وإقرار مباشرة عمل موظف رسمي (Job Commencement Form)</div>
+                          </div>
+
+                          <div class="box">
+                            <strong>بيانات الموظف والمباشرة:</strong>
+                            <table>
+                              <tr><th>اسم الموظف</th><td>${employee.nameAr || employee.name}</td><th>الرقم المدني</th><td>${employee.civilId || '-'}</td></tr>
+                              <tr><th>المسمى الوظيفي</th><td>${employee.jobTitle || '-'}</td><th>القسم / الإدارة</th><td>${employee.department || '-'}</td></tr>
+                              <tr><th>تاريخ المباشرة الفعلية</th><td>${employee.commencementDate || employee.hireDate || '-'}</td><th>المشرف المباشر</th><td>${employee.directSupervisor || employee.manager || '-'}</td></tr>
+                            </table>
+                          </div>
+
+                          <div class="box">
+                            <strong>إقرار استلام العهد والتجهيزات:</strong>
+                            <p style="font-size: 12px; margin-top: 8px;">يقر الموظف المذكور أعلاه بأنه استلم كافة العهد والتجهيزات المبينة أدناه بحالة جيدة وتعهد بالمحافظة عليها:</p>
+                            <ul>
+                              ${(employee.custodyItems || ['لاب توب محمول / جهاز كمبيوتر', 'بريد إلكتروني رسمي (@company.com)', 'بطاقة وبصمة بوابات المبنى']).map((c: string) => `<li>${c}</li>`).join('')}
+                            </ul>
+                          </div>
+
+                          <div class="signatures">
+                            <div class="sig-box">
+                              <strong>توقيع الموظف المباشر</strong><br/><br/><br/>
+                              <span>التاريخ: ${employee.commencementDate || employee.hireDate || ''}</span>
+                            </div>
+                            <div class="sig-box">
+                              <strong>اعتماد مدير الموارد البشرية</strong><br/><br/><br/>
+                              <span>شركة المنار كلينك الطبية</span>
+                            </div>
+                          </div>
+                          <script>window.print();</script>
+                        </body>
+                      </html>
+                    `);
+                    printWindow.document.close();
+                  }
+                }}
+                className="bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+              >
+                <span>🖨️ طباعة إقرار المباشرة</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-4 rounded-xl border border-slate-200">
+              <div>
+                <label className="block text-slate-500 font-bold mb-1">تاريخ المباشرة الفعلية</label>
+                <div className="p-2 bg-slate-50 rounded-lg font-mono font-bold text-slate-900 border border-slate-200">
+                  {employee.commencementDate || employee.hireDate || new Date().toISOString().slice(0, 10)}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-500 font-bold mb-1">المشرف المباشر</label>
+                <div className="p-2 bg-slate-50 rounded-lg font-bold text-slate-900 border border-slate-200">
+                  {employee.directSupervisor || employee.manager || 'مدير القسم'}
+                </div>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-slate-500 font-bold mb-2">العهد والتجهيزات الرسمية المسلمة</label>
+                <div className="flex flex-wrap gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  {(employee.custodyItems || [
+                    'لاب توب محمول / جهاز كمبيوتر',
+                    'بريد إلكتروني رسمي (@company.com)',
+                    'بطاقة وبصمة بوابات المبنى'
+                  ]).map((item: string, idx: number) => (
+                    <span key={idx} className="bg-white border border-slate-300 px-3 py-1 rounded-lg font-bold text-slate-800 flex items-center gap-1">
+                      <span className="text-emerald-600">✓</span>
+                      <span>{item}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="md:col-span-2 bg-emerald-50/60 p-3 rounded-xl border border-emerald-200">
+                <span className="font-bold text-emerald-950 block">
+                  ✓ رصيد الإجازات السنوية: احتساب تلقائي نزل في النظام بمعدل (2.5 يوم/شهر) بدءاً من المباشرة
+                </span>
+              </div>
+            </div>
+          </div>
         )}
         {activeTab === 'private' && (
           <EmployeePrivateTab

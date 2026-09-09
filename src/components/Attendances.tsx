@@ -45,6 +45,7 @@ import { MonthlyAttendanceSummary } from './attendance/MonthlyAttendanceSummary'
 import { OfficialAttendancePrintModal } from './attendance/OfficialAttendancePrintModal';
 import { DynamicQrKioskModal } from './DynamicQrKioskModal';
 import { BiometricDevicesModal } from './attendance/BiometricDevicesModal';
+import { AttendanceSetupWizardModal, getAttendanceMasterPolicy, AttendancePolicyData } from './attendance/AttendanceSetupWizardModal';
 
 export interface AttendanceItem {
   id: string;
@@ -106,6 +107,18 @@ export const Attendances: React.FC = () => {
 
   // Biometric Devices Integration Hub State
   const [isBiometricModalOpen, setIsBiometricModalOpen] = useState(false);
+
+  // Attendance Setup Policy Wizard State
+  const [isSetupWizardOpen, setIsSetupWizardOpen] = useState(false);
+  const [attendancePolicy, setAttendancePolicy] = useState<AttendancePolicyData>(() => getAttendanceMasterPolicy());
+
+  useEffect(() => {
+    const handlePolicyUpdated = () => {
+      setAttendancePolicy(getAttendanceMasterPolicy());
+    };
+    window.addEventListener('attendance_policy_updated', handlePolicyUpdated);
+    return () => window.removeEventListener('attendance_policy_updated', handlePolicyUpdated);
+  }, []);
 
   // Official Print Modal State
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
@@ -847,6 +860,17 @@ export const Attendances: React.FC = () => {
         {/* Lower Tier: Action Buttons with clean spacing and wrapping */}
         <div className="flex flex-wrap items-center justify-between gap-2.5">
           <div className="flex flex-wrap items-center gap-2">
+            {/* Attendance Policy Setup Wizard Button */}
+            <button
+              type="button"
+              onClick={() => setIsSetupWizardOpen(true)}
+              className="bg-blue-900 hover:bg-blue-950 text-white border border-blue-800 px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs shrink-0"
+              title="تثبيت وتهيئة لائحة وساعات الدوام والانضباط (Attendance Setup Wizard)"
+            >
+              <Clock size={15} className="text-amber-300" />
+              <span>لائحة وساعات الدوام</span>
+            </button>
+
             {/* 📡 Biometric Devices & Cloud Sync Hub */}
             <button
               type="button"
@@ -1623,6 +1647,12 @@ export const Attendances: React.FC = () => {
         isOpen={isBiometricModalOpen}
         onClose={() => setIsBiometricModalOpen(false)}
         onImportPunches={handleImportFromBiometricHub}
+      />
+
+      {/* ⚙️ Attendance Setup Policy Wizard Modal */}
+      <AttendanceSetupWizardModal
+        isOpen={isSetupWizardOpen}
+        onClose={() => setIsSetupWizardOpen(false)}
       />
 
     </div>

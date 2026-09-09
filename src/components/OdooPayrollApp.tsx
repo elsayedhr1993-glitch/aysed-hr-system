@@ -4,16 +4,19 @@ import {
   Clock, Calculator, Building2, Printer, Search, Eye, ArrowRight,
   ShieldCheck, DollarSign, Plus, Filter, FileText, User, Calendar, 
   AlertTriangle, RotateCcw, Check, Send, Building, Hash, Landmark, 
-  ArrowUpRight, Trash2, X, RefreshCw, Layers
+  ArrowUpRight, Trash2, X, RefreshCw, Layers, Sliders, Scale
 } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
 import { useSystemSettings } from '../context/SystemSettingsContext';
 import { useOdooHierarchy } from '../context/OdooHierarchyContext';
 import { exportToExcel } from '../utils/exportUtils';
 import { OfficialPayslipPrintModal, PayslipPrintData } from './payroll/OfficialPayslipPrintModal';
+import { isKuwaitiEmployee } from '../utils/kuwaitLaw';
 import { WpsAuditShieldModal, WpsAuditItem } from './payroll/WpsAuditShieldModal';
 import { FinalSettlementModal } from './payroll/FinalSettlementModal';
 import { PifssInsuranceReportModal } from './payroll/PifssInsuranceReportModal';
+import { PayrollStructureWizardModal } from './payroll/PayrollStructureWizardModal';
+import { EosSetupWizardModal } from './payroll/EosSetupWizardModal';
 
 export interface PayslipItem {
   id: string;
@@ -79,6 +82,8 @@ export const OdooPayrollApp: React.FC = () => {
   const [showWpsAuditModal, setShowWpsAuditModal] = useState(false);
   const [showFinalSettlementModal, setShowFinalSettlementModal] = useState(false);
   const [showPifssModal, setShowPifssModal] = useState(false);
+  const [showPayrollWizard, setShowPayrollWizard] = useState(false);
+  const [showEosWizard, setShowEosWizard] = useState(false);
 
   // Local Storage & State Management
   const storageKey = `odoo_payroll_payslips_${activeCompany?.id || 'default'}`;
@@ -136,7 +141,7 @@ export const OdooPayrollApp: React.FC = () => {
       const delayDeduction = Math.round((delayMinutes * minRate) * 1000) / 1000;
       const loanDeduction = empLoan ? Math.min(empLoan.monthlyInstallment, empLoan.remainingAmount) : 0;
       
-      const isKuwaiti = emp.nationality?.includes('كويت') || emp.civilId?.startsWith('1') || emp.civilId?.startsWith('2');
+      const isKuwaiti = isKuwaitiEmployee(emp);
       const pifssDeduction = isKuwaiti ? Math.round(((emp.basicSalary || 600) * 0.105) * 1000) / 1000 : 0;
 
       const grossSalary = totalBase + overtimeAmount;
@@ -277,7 +282,7 @@ export const OdooPayrollApp: React.FC = () => {
     if (!emp) return;
 
     const att = attendance[empId] || { delayMinutes: 0, unpaidAbsenceDays: 0, overtimeHours: 0 };
-    const isKuwaiti = emp.nationality?.includes('كويت') || emp.civilId?.startsWith('1') || emp.civilId?.startsWith('2');
+    const isKuwaiti = isKuwaitiEmployee(emp);
     const pifss = isKuwaiti ? ((emp.basicSalary || 600) * 0.105).toFixed(3) : '0';
 
     setNewForm({
@@ -454,7 +459,7 @@ export const OdooPayrollApp: React.FC = () => {
   // PIFSS employee dataset
   const pifssData = useMemo(() => {
     return employees
-      .filter(emp => emp.nationality?.includes('كويت') || emp.civilId?.startsWith('1') || emp.civilId?.startsWith('2'))
+      .filter(emp => isKuwaitiEmployee(emp))
       .map(emp => {
         const comprehensive = (emp.basicSalary || 600) + (emp.housingAllowance || 0);
         const insured = Math.min(3000, comprehensive); // Capped at 3000 KWD
@@ -592,6 +597,14 @@ export const OdooPayrollApp: React.FC = () => {
           ) : activeSubTab === 'payslips' ? (
             <>
               <button
+                onClick={() => setShowPayrollWizard(true)}
+                className="bg-purple-900 hover:bg-purple-950 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer border border-purple-800"
+                title="تثبيت هيكل الأجور ومسير البنك وتأمينات PIFSS"
+              >
+                <Sliders size={15} className="text-amber-300" /> هيكل الأجور ومسير WPS
+              </button>
+
+              <button
                 onClick={() => setShowNewPayslipModal(true)}
                 className="bg-[#714B67] hover:bg-[#583950] text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
               >
@@ -628,7 +641,14 @@ export const OdooPayrollApp: React.FC = () => {
               <Plus size={15} /> + تسجيل سلفة جديدة
             </button>
           ) : (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setShowEosWizard(true)}
+                className="bg-emerald-900 hover:bg-emerald-950 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer border border-emerald-800"
+                title="تثبيت لائحة ومحرك مكافأة نهاية الخدمة (المادتين 51 و 53)"
+              >
+                <Scale size={15} className="text-amber-300" /> لائحة نهاية الخدمة والتسويات
+              </button>
               <button
                 onClick={() => setShowFinalSettlementModal(true)}
                 className="bg-[#714B67] hover:bg-[#583950] text-white px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
@@ -1474,9 +1494,9 @@ export const OdooPayrollApp: React.FC = () => {
       {showOfficialPayslipModal && payslipToPrint && (
         <OfficialPayslipPrintModal
           payslip={payslipToPrint}
-          companyName={activeCompany?.nameAr || 'شركة الأفق للتجارة العامة والمقاولات ذ.م.م'}
-          companyNameEn={activeCompany?.nameEn || 'Al-Ufuq General Trading & Contracting W.L.L.'}
-          crNumber={activeCompany?.crNumber || activeCompany?.commercialRegNo || '104829'}
+          companyName={activeCompany?.nameAr && !activeCompany.nameAr.includes('Super Admin') ? activeCompany.nameAr : 'شركة المنار كلينك'}
+          companyNameEn={activeCompany?.nameEn && !activeCompany.nameEn.includes('Super Admin') ? activeCompany.nameEn : 'Al Manar Clinic W.L.L.'}
+          crNumber={activeCompany?.crNumber || activeCompany?.commercialRegNo || '301122'}
           onClose={() => {
             setShowOfficialPayslipModal(false);
             setPayslipToPrint(null);
@@ -1537,6 +1557,17 @@ export const OdooPayrollApp: React.FC = () => {
         />
       )}
 
+      {/* --- MODAL 5: PAYROLL STRUCTURE WIZARD --- */}
+      <PayrollStructureWizardModal
+        isOpen={showPayrollWizard}
+        onClose={() => setShowPayrollWizard(false)}
+      />
+
+      {/* --- MODAL 6: EOS SETUP WIZARD --- */}
+      <EosSetupWizardModal
+        isOpen={showEosWizard}
+        onClose={() => setShowEosWizard(false)}
+      />
     </div>
   );
 };

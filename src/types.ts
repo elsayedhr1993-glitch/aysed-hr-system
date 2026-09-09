@@ -891,6 +891,27 @@ export interface OnboardingPlan {
   custodyItems: string[];
   legalChecklist?: Record<string, boolean>;
   requiredDocuments?: string[];
+  contractDetails?: {
+    contractType?: string;
+    startDate?: string;
+    endDate?: string;
+    probationDays?: number;
+    basicSalary?: number;
+    housingAllowance?: number;
+    transportAllowance?: number;
+    otherAllowances?: number;
+    totalSalary?: number;
+  };
+  commencementDetails?: {
+    actualJoiningDate?: string;
+    directSupervisor?: string;
+    branchLocation?: string;
+    isCommenced?: boolean;
+    commencedAt?: string;
+    custodyDelivered?: string[];
+    leaveAccrualActivated?: boolean;
+    notes?: string;
+  };
   createdAt: string;
   updatedAt: string;
 }

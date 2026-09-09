@@ -42,9 +42,9 @@ interface OfficialPayslipPrintModalProps {
 
 export const OfficialPayslipPrintModal: React.FC<OfficialPayslipPrintModalProps> = ({
   payslip,
-  companyName = 'شركة الأفق للتجارة العامة والمقاولات ذ.م.م',
-  companyNameEn = 'Al-Ufuq General Trading & Contracting W.L.L.',
-  crNumber = '104829',
+  companyName = 'شركة المنار كلينك',
+  companyNameEn = 'Al Manar Clinic W.L.L.',
+  crNumber = '301122',
   companyLogo,
   onClose,
 }) => {

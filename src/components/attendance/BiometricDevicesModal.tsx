@@ -54,7 +54,63 @@ export interface BiometricDevice {
   totalLogsCount?: number;
   location?: string;
   enabled: boolean;
+  // Multi-Company Scoping & Affiliation
+  company_id?: string;
+  facility_id?: string;
+  facility_name?: string;
 }
+
+export const isAlmanarClinic = (company?: any): boolean => {
+  if (!company) return false;
+  const id = String(company.id || '').toLowerCase();
+  const nameAr = String(company.nameAr || '');
+  const name = String(company.name || '');
+  const nameEn = String(company.nameEn || '').toLowerCase();
+  return id === 'comp-almanar' || id.includes('almanar') || nameAr.includes('المنار') || name.includes('المنار') || nameEn.includes('almanar');
+};
+
+const getDefaultAlmanarDevices = (): BiometricDevice[] => [
+  {
+    id: 'dev-001',
+    name: 'ماكينة الدوام الرئيسية (U350)',
+    branch: 'الفرع الرئيسي - المنار كلينك',
+    brand: 'ZKTeco',
+    model: 'ZKTeco U350',
+    ipAddress: '192.168.0.7',
+    port: 4370,
+    commKey: '0',
+    serialNumber: 'ZK-U350-KW01',
+    protocol: 'LOCAL_IP',
+    status: 'online',
+    lastSyncTime: new Date(Date.now() - 1000 * 60 * 12).toLocaleTimeString('ar-KW', { hour: '2-digit', minute: '2-digit' }),
+    totalLogsCount: 142,
+    location: 'الفرع الرئيسي - بوابة الموظفين (المنار كلينك)',
+    enabled: true,
+    company_id: 'comp-almanar',
+    facility_id: 'facility-almanar-clinic',
+    facility_name: 'المنار كلينك'
+  },
+  {
+    id: 'dev-002',
+    name: 'بصمة الوجه - قسم العيادات',
+    branch: 'فرع العيادات التخصصية - المنار كلينك',
+    brand: 'Hikvision',
+    model: 'DS-K1T671MF (Face ID)',
+    ipAddress: '192.168.2.115',
+    port: 8000,
+    commKey: 'Admin@123',
+    serialNumber: 'HK-F77810294',
+    protocol: 'LOCAL_IP',
+    status: 'online',
+    lastSyncTime: new Date(Date.now() - 1000 * 60 * 35).toLocaleTimeString('ar-KW', { hour: '2-digit', minute: '2-digit' }),
+    totalLogsCount: 88,
+    location: 'الدور الثاني - ممر الأطباء والتمريض',
+    enabled: true,
+    company_id: 'comp-almanar',
+    facility_id: 'facility-almanar-clinic',
+    facility_name: 'المنار كلينك'
+  }
+];
 
 interface BiometricDevicesModalProps {
   isOpen: boolean;
@@ -70,6 +126,7 @@ export const BiometricDevicesModal: React.FC<BiometricDevicesModalProps> = ({
   const { activeCompany } = useCompany();
   const { employees, recordAttendanceTimes } = useOdooHierarchy();
   const activeCompId = activeCompany?.id || 'default_comp';
+  const isTargetAlmanar = isAlmanarClinic(activeCompany);
 
   // Tabs
   const [activeTab, setActiveTab] = useState<'devices' | 'adms' | 'local_agent' | 'file_parser' | 'pin_mapping' | 'live_logs'>('devices');
@@ -79,51 +136,51 @@ export const BiometricDevicesModal: React.FC<BiometricDevicesModalProps> = ({
   const pinMappingKey = `aysed_biometric_pin_map_${activeCompId}`;
   const logsHistoryKey = `aysed_biometric_synced_logs_${activeCompId}`;
 
-  // State: Devices List
-  const [devices, setDevices] = useState<BiometricDevice[]>(() => {
+  // Helper to load scoped devices strictly adhering to company boundaries
+  const getScopedDevices = (targetCompId: string, isAlmanar: boolean): BiometricDevice[] => {
+    const key = `aysed_biometric_devices_${targetCompId}`;
     try {
-      const saved = localStorage.getItem(devicesStorageKey);
-      if (saved) return JSON.parse(saved);
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        const parsed: BiometricDevice[] = JSON.parse(saved);
+        const filtered = parsed.filter(d => {
+          const isAlmanarMachine = d.ipAddress === '192.168.0.7' || d.company_id === 'comp-almanar' || d.facility_id === 'facility-almanar-clinic';
+          if (isAlmanarMachine) return isAlmanar;
+          return !d.company_id || d.company_id === targetCompId;
+        });
+
+        if (isAlmanar) {
+          const hasMachine = filtered.some(d => d.ipAddress === '192.168.0.7');
+          if (!hasMachine) {
+            filtered.unshift(getDefaultAlmanarDevices()[0]);
+          } else {
+            filtered.forEach(d => {
+              if (d.ipAddress === '192.168.0.7') {
+                d.company_id = 'comp-almanar';
+                d.facility_id = 'facility-almanar-clinic';
+                d.facility_name = 'المنار كلينك';
+              }
+            });
+          }
+        }
+        return filtered;
+      }
     } catch (e) {
       console.error(e);
     }
-    return [
-      {
-        id: 'dev-001',
-        name: 'بصمة الاستقبال والمدخل الرئيسي',
-        branch: 'الفرع الرئيسي',
-        brand: 'ZKTeco',
-        model: 'iClock 680 / SilkID',
-        ipAddress: '192.168.1.201',
-        port: 4370,
-        commKey: '0',
-        serialNumber: 'ZK-CK8923019',
-        protocol: 'ADMS_CLOUD',
-        status: 'online',
-        lastSyncTime: new Date(Date.now() - 1000 * 60 * 12).toLocaleTimeString('ar-KW', { hour: '2-digit', minute: '2-digit' }),
-        totalLogsCount: 142,
-        location: 'المدخل الأرضي - بوابة الموظفين',
-        enabled: true
-      },
-      {
-        id: 'dev-002',
-        name: 'بصمة الوجه - قسم العيادات',
-        branch: 'فرع العيادات التخصصية',
-        brand: 'Hikvision',
-        model: 'DS-K1T671MF (Face ID)',
-        ipAddress: '192.168.2.115',
-        port: 8000,
-        commKey: 'Admin@123',
-        serialNumber: 'HK-F77810294',
-        protocol: 'LOCAL_IP',
-        status: 'online',
-        lastSyncTime: new Date(Date.now() - 1000 * 60 * 35).toLocaleTimeString('ar-KW', { hour: '2-digit', minute: '2-digit' }),
-        totalLogsCount: 88,
-        location: 'الدور الثاني - ممر الأطباء والتمريض',
-        enabled: true
-      }
-    ];
-  });
+    return isAlmanar ? getDefaultAlmanarDevices() : [];
+  };
+
+  // State: Devices List
+  const [devices, setDevices] = useState<BiometricDevice[]>(() => 
+    getScopedDevices(activeCompId, isTargetAlmanar)
+  );
+
+  // Sync devices when active company changes or modal opens
+  useEffect(() => {
+    if (!isOpen) return;
+    setDevices(getScopedDevices(activeCompId, isTargetAlmanar));
+  }, [activeCompId, isTargetAlmanar, isOpen]);
 
   // Save devices
   useEffect(() => {
@@ -233,10 +290,12 @@ export const BiometricDevicesModal: React.FC<BiometricDevicesModalProps> = ({
       return;
     }
 
+    const isAlmanarTarget = isTargetAlmanar || editingDevice.ipAddress === '192.168.0.7';
+
     const deviceToSave: BiometricDevice = {
       id: editingDevice.id || `dev-${Date.now()}`,
       name: editingDevice.name,
-      branch: editingDevice.branch || activeCompany?.nameAr || 'الفرع الرئيسي',
+      branch: editingDevice.branch || (isAlmanarTarget ? 'الفرع الرئيسي - المنار كلينك' : `${activeCompany?.nameAr || 'الفرع الرئيسي'}`),
       brand: editingDevice.brand || 'ZKTeco',
       model: editingDevice.model || 'iClock / Standalone',
       ipAddress: editingDevice.ipAddress,
@@ -248,7 +307,10 @@ export const BiometricDevicesModal: React.FC<BiometricDevicesModalProps> = ({
       lastSyncTime: 'الآن',
       totalLogsCount: editingDevice.totalLogsCount || 0,
       location: editingDevice.location || '',
-      enabled: editingDevice.enabled !== false
+      enabled: editingDevice.enabled !== false,
+      company_id: isAlmanarTarget ? 'comp-almanar' : activeCompId,
+      facility_id: isAlmanarTarget ? 'facility-almanar-clinic' : `facility-${activeCompId}`,
+      facility_name: isAlmanarTarget ? 'المنار كلينك' : (activeCompany?.nameAr || activeCompany?.name || 'المنشأة الحالية')
     };
 
     setDevices(prev => {
@@ -259,7 +321,7 @@ export const BiometricDevicesModal: React.FC<BiometricDevicesModalProps> = ({
       return [...prev, deviceToSave];
     });
 
-    toast.success('تم حفظ جهاز البصمة بنجاح');
+    toast.success('تم حفظ جهاز البصمة بنجاح ضمن نطاق المنشأة المحددة');
     setIsDeviceModalOpen(false);
     setEditingDevice(null);
   };
@@ -289,19 +351,22 @@ export const BiometricDevicesModal: React.FC<BiometricDevicesModalProps> = ({
       const nowTime = new Date().toLocaleTimeString('ar-KW', { hour: '2-digit', minute: '2-digit' });
       setDevices(prev => prev.map(d => ({ ...d, lastSyncTime: nowTime, status: 'online' })));
 
-      // Generate a few simulated new logs
+      // Generate a few simulated new logs scoped to current facility
       const sampleEmp = employees[Math.floor(Math.random() * employees.length)] || { id: 'emp-1', name: 'موظف تجريبي', department: 'الإدارة' };
       const newLog = {
         id: `log-${Date.now()}`,
         pin: pinMappings[sampleEmp.id] || '101',
         empName: sampleEmp.name,
         dept: sampleEmp.department || 'عام',
-        deviceName: devices[0]?.name || 'بصمة الاستقبال',
+        deviceName: devices[0]?.name || (isTargetAlmanar ? 'ماكينة الدوام الرئيسية (U350)' : 'بصمة الاستقبال'),
         time: nowTime,
         date: new Date().toISOString().split('T')[0],
         type: 'حضور (Check-In)',
         verifyType: 'بصمة إصبع (Fingerprint)',
-        status: 'on_time'
+        status: 'on_time',
+        company_id: isTargetAlmanar ? 'comp-almanar' : activeCompId,
+        facility_id: isTargetAlmanar ? 'facility-almanar-clinic' : `facility-${activeCompId}`,
+        facility_name: isTargetAlmanar ? 'المنار كلينك' : (activeCompany?.nameAr || activeCompany?.name || 'المنشأة الحالية')
       };
 
       setLiveLogs(prev => [newLog, ...prev.slice(0, 19)]);
@@ -587,9 +652,21 @@ while True:
                   {devices.filter(d => d.status === 'online').length} متصل
                 </span>
               </div>
-              <p className="text-xs text-purple-200/80 mt-0.5">
-                ربط أجهزة ZKTeco و Hikvision السحابية، الاستيراد الذكي، والمزامنة اللحظية مع مسير الرواتب.
-              </p>
+              <div className="flex flex-wrap items-center gap-2 mt-1">
+                <span className="px-2 py-0.5 rounded-md bg-white/10 text-white border border-white/20 text-[11px] font-bold flex items-center gap-1">
+                  <Building2 size={12} className="text-amber-300" />
+                  <span>المنشأة الحالية: {activeCompany?.nameAr || activeCompany?.name || 'المنار كلينك'}</span>
+                </span>
+                {isTargetAlmanar ? (
+                  <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">
+                    ماكينة U350 (192.168.0.7) مقيدة للمنار كلينك
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold">
+                    عزل مؤسسي: ماكينة المنار كلينك (192.168.0.7) معزولة ولا تظهر هنا
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -682,11 +759,43 @@ while True:
           {activeTab === 'devices' && (
             <div className="space-y-5">
               
+              {/* Multi-Company Scoping Informative Banner */}
+              {!isTargetAlmanar ? (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-950 flex items-start gap-3 shadow-2xs">
+                  <ShieldCheck size={20} className="text-amber-700 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold block text-sm">نظام العزل المؤسسي متعدد الشركات (Multi-Company Scoping Active):</span>
+                    <p className="text-amber-800 mt-1 leading-relaxed">
+                      أنت تتصفح حالياً نطاق منشأة <strong>"{activeCompany?.nameAr || activeCompany?.name || 'شركة أخرى'}"</strong>. 
+                      ماكينة البصمة الرئيسية (IP: 192.168.0.7 / ZKTeco U350) مربوطة ومحصورة حصرياً بمنشأة <strong>"المنار كلينك"</strong> (facility_id: facility-almanar-clinic / company_id: comp-almanar)، وهي معزولة تماماً ولا تظهر هنا لحماية بيانات الحضور والانصراف واستقلالية الفروع.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-300 rounded-xl p-3 text-xs text-emerald-950 flex items-center justify-between gap-3 shadow-2xs">
+                  <div className="flex items-center gap-2.5">
+                    <Building2 size={18} className="text-emerald-700 shrink-0" />
+                    <div>
+                      <span className="font-bold">أجهزة منشأة المنار كلينك (Al-Manar Clinic Hardware):</span>
+                      <span className="text-emerald-800 text-[11px] block">
+                        ماكينة الدوام الرئيسية (IP: 192.168.0.7 / Port: 4370) معينة حصرياً لهذه المنشأة ومربوطة بمسيرات الرواتب.
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 font-mono text-[10px] shrink-0">
+                    <span className="bg-white px-2 py-0.5 rounded border border-emerald-200 text-emerald-900 font-bold">facility-almanar-clinic</span>
+                    <span className="bg-white px-2 py-0.5 rounded border border-emerald-200 text-emerald-900 font-bold">comp-almanar</span>
+                  </div>
+                </div>
+              )}
+
               {/* Top Action Bar */}
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
                 <div>
                   <h3 className="text-sm font-bold text-slate-900">أجهزة تسجيل الحضور والبصمة المرتبطة بالمنظومة</h3>
-                  <p className="text-xs text-slate-500">يمكنك ربط عدة أجهزة عبر الفروع المختلفة والمزامنة في قاعدة بيانات واحدة.</p>
+                  <p className="text-xs text-slate-500">
+                    الأجهزة المعروضة خاصة بمنشأة [{activeCompany?.nameAr || activeCompany?.name || 'المنار كلينك'}] ومعزولة عن الشركات الأخرى.
+                  </p>
                 </div>
 
                 <button
@@ -745,8 +854,27 @@ while True:
                         </div>
                       </div>
 
+                      {/* Multi-Company Affiliation Metadata Row */}
+                      <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 my-2.5 text-xs flex flex-wrap items-center justify-between gap-1.5">
+                        <div className="flex items-center gap-1.5 text-slate-700">
+                          <Building2 size={12} className="text-emerald-700 shrink-0" />
+                          <span className="text-[11px] font-bold">التبعية الحصرية:</span>
+                          <span className="text-slate-900 font-semibold text-[11px]">
+                            {dev.facility_name || (dev.company_id === 'comp-almanar' || dev.ipAddress === '192.168.0.7' ? 'المنار كلينك' : activeCompany?.nameAr || 'المنشأة')}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 font-mono text-[9px]">
+                          <span className="bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded border border-emerald-200">
+                            facility_id: {dev.facility_id || (dev.company_id === 'comp-almanar' || dev.ipAddress === '192.168.0.7' ? 'facility-almanar-clinic' : `facility-${activeCompId}`)}
+                          </span>
+                          <span className="bg-slate-200/80 text-slate-800 font-bold px-1.5 py-0.5 rounded">
+                            company_id: {dev.company_id || (dev.facility_id === 'facility-almanar-clinic' || dev.ipAddress === '192.168.0.7' ? 'comp-almanar' : activeCompId)}
+                          </span>
+                        </div>
+                      </div>
+
                       {/* Device Specs */}
-                      <div className="grid grid-cols-2 gap-2 my-3 text-xs">
+                      <div className="grid grid-cols-2 gap-2 my-2 text-xs">
                         <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
                           <p className="text-[10px] text-slate-400 font-medium">عنوان الشبكة (IP / Port)</p>
                           <p className="font-mono font-bold text-slate-800 mt-0.5">{dev.ipAddress}:{dev.port}</p>
@@ -1132,14 +1260,21 @@ while True:
           {/* TAB 6: LIVE LOGS */}
           {activeTab === 'live_logs' && (
             <div className="space-y-4">
-              <div className="bg-white p-3.5 rounded-xl border border-slate-200 flex items-center justify-between">
+              <div className="bg-white p-3.5 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div>
-                  <h4 className="text-sm font-bold text-slate-900">سجل تدفق حركات البصمات اللحظية (Real-Time Punch Stream)</h4>
-                  <p className="text-xs text-slate-500">يعرض آخر الحركات الواردة من أجهزة البصمة السحابية لحظة بلحظة.</p>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-sm font-bold text-slate-900">سجل تدفق حركات البصمات اللحظية (Real-Time Punch Stream)</h4>
+                    <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded">
+                      منشأة: {activeCompany?.nameAr || activeCompany?.name || 'المنار كلينك'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    يعرض الحركات الواردة من أجهزة البصمة المربوطة حصرياً بهذه المنشأة وفق معايير العزل المؤسسي.
+                  </p>
                 </div>
                 <button
                   onClick={handleSyncAllDevices}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
                 >
                   <RefreshCw size={12} className={isSyncingAll ? 'animate-spin' : ''} />
                   <span>تحديث السجل</span>
@@ -1154,12 +1289,19 @@ while True:
                       <th className="p-3">الموظف</th>
                       <th className="p-3">رقم البصمة</th>
                       <th className="p-3">الجهاز والموقع</th>
+                      <th className="p-3">التبعية المؤسسية</th>
                       <th className="p-3">نوع الحركة</th>
                       <th className="p-3">طريقة التحقق</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {liveLogs.map((log) => (
+                    {liveLogs
+                      .filter(log => {
+                        const isAlmanarLog = log.deviceName?.includes('U350') || log.facility_id === 'facility-almanar-clinic' || log.company_id === 'comp-almanar';
+                        if (isAlmanarLog) return isTargetAlmanar;
+                        return !log.company_id || log.company_id === activeCompId;
+                      })
+                      .map((log) => (
                       <tr key={log.id} className="hover:bg-slate-50">
                         <td className="p-3 font-mono text-slate-700">
                           <span className="font-bold">{log.time}</span> <span className="text-slate-400 text-[10px]">({log.date})</span>
@@ -1167,6 +1309,14 @@ while True:
                         <td className="p-3 font-bold text-slate-900">{log.empName}</td>
                         <td className="p-3 font-mono font-bold text-purple-700">{log.pin}</td>
                         <td className="p-3 text-slate-600">{log.deviceName}</td>
+                        <td className="p-3 text-slate-600">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-bold text-slate-800 text-[11px]">{log.facility_name || (isTargetAlmanar ? 'المنار كلينك' : activeCompany?.nameAr)}</span>
+                            <span className="font-mono text-[9px] text-emerald-800">
+                              {log.facility_id || (isTargetAlmanar ? 'facility-almanar-clinic' : `facility-${activeCompId}`)}
+                            </span>
+                          </div>
+                        </td>
                         <td className="p-3 font-bold text-emerald-700">{log.type}</td>
                         <td className="p-3 text-slate-600">{log.verifyType}</td>
                       </tr>

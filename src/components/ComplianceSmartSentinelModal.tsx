@@ -31,8 +31,8 @@ export const ComplianceSmartSentinelModal: React.FC<ComplianceSmartSentinelModal
 
   // فحص حقيقي للامتثال استناداً إلى البيانات
   const activeEmployees = employees.filter(e => e.status !== 'TERMINATED' && e.status !== 'RESIGNED');
-  const totalEmployees = employees.length || 1;
-  const totalActive = activeEmployees.length || 1;
+  const totalEmployees = employees.length;
+  const totalActive = activeEmployees.length;
   
   // فحص الإقامات المنتهية أو القريبة من الانتهاء (افتراضية أو حقيقية)
   const expiringResidencies = activeEmployees.filter(e => {
@@ -56,13 +56,13 @@ export const ComplianceSmartSentinelModal: React.FC<ComplianceSmartSentinelModal
 
   // --- Kuwaitization Quota ---
   const kuwaitiCount = activeEmployees.filter(e => e.isKuwaiti || e.nationality?.includes('كويت')).length;
-  const kuwaitiRatio = (kuwaitiCount / totalActive) * 100;
+  const kuwaitiRatio = totalActive > 0 ? (kuwaitiCount / totalActive) * 100 : 100;
   const requiredRatio = 5; // نسبة التكويت المستهدفة كمثال
-  const isQuotaMet = kuwaitiRatio >= requiredRatio;
+  const isQuotaMet = totalActive === 0 || kuwaitiRatio >= requiredRatio;
 
   // حساب مؤشر الامتثال الكلي (Compliance Score)
   const issuesCount = expiringResidencies.length + unverifiedContracts.length + wpsIssuesCount + (isQuotaMet ? 0 : 1);
-  const complianceScore = Math.max(0, Math.min(100, 100 - (issuesCount * 5)));
+  const complianceScore = totalEmployees === 0 ? 100 : Math.max(0, Math.min(100, 100 - (issuesCount * 5)));
 
   const handleRunFullScan = () => {
     setIsScanning(true);

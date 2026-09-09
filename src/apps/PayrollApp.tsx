@@ -5,10 +5,12 @@ import { printDocument } from '../utils/printUtils';
 import { formatKWD, tafqitKWD } from '../utils/kuwaitLaw';
 import { validateContractIntegrity, validatePayslipIntegrity } from '../services/globalIntegrityService';
 import { OdooPayrollApp } from '../components/OdooPayrollApp';
+import { PayrollStructureWizardModal } from '../components/payroll/PayrollStructureWizardModal';
+import { EosSetupWizardModal } from '../components/payroll/EosSetupWizardModal';
 import { 
   Banknote, Download, FileSpreadsheet, CheckCircle2, ShieldCheck, Printer, 
   Edit, Plus, Search, Sparkles, Building2, User, FileText, ArrowLeft, 
-  Layers, Calculator, AlertCircle, X, Check, FileCheck, Landmark, MessageSquare, Send, Smartphone, ShieldAlert
+  Layers, Calculator, AlertCircle, X, Check, FileCheck, Landmark, MessageSquare, Send, Smartphone, ShieldAlert, Sliders, Scale
 } from 'lucide-react';
 
 interface PayrollAppProps {
@@ -52,6 +54,8 @@ export const PayrollApp: React.FC<PayrollAppProps> = ({
 
   const [selectedMonth, setSelectedMonth] = useState('2026-08');
   const [localSearch, setLocalSearch] = useState('');
+  const [isPayrollWizardOpen, setIsPayrollWizardOpen] = useState(false);
+  const [isEosWizardOpen, setIsEosWizardOpen] = useState(false);
   
   // Modal States
   const [selectedPayslipForPrint, setSelectedPayslipForPrint] = useState<Payslip | null>(null);
@@ -253,6 +257,24 @@ export const PayrollApp: React.FC<PayrollAppProps> = ({
                 className="bg-transparent font-mono font-bold text-slate-900 outline-none text-xs"
               />
             </div>
+
+            <button
+              onClick={() => setIsPayrollWizardOpen(true)}
+              className="bg-purple-900 hover:bg-purple-950 text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow transition flex items-center gap-1.5 cursor-pointer border border-purple-800"
+              title="تثبيت هيكل الأجور ومسير البنك وتأمينات PIFSS"
+            >
+              <Sliders className="w-4 h-4 text-amber-300" />
+              <span>هيكل الأجور ومسير WPS</span>
+            </button>
+
+            <button
+              onClick={() => setIsEosWizardOpen(true)}
+              className="bg-emerald-900 hover:bg-emerald-950 text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow transition flex items-center gap-1.5 cursor-pointer border border-emerald-800"
+              title="تثبيت لائحة ومحرك مكافأة نهاية الخدمة (المادتين 51 و 53)"
+            >
+              <Scale className="w-4 h-4 text-amber-300" />
+              <span>لائحة نهاية الخدمة والتسويات</span>
+            </button>
 
             <button
               onClick={() => onGenerateMonthlyPayslips(selectedMonth)}
@@ -973,5 +995,18 @@ export const PayrollApp: React.FC<PayrollAppProps> = ({
             })()}
           </div>
         </div>)}
-    </div>);
+
+      {/* ⚙️ Payroll Structure Setup Wizard Modal */}
+      <PayrollStructureWizardModal
+        isOpen={isPayrollWizardOpen}
+        onClose={() => setIsPayrollWizardOpen(false)}
+      />
+
+      {/* ⚙️ EOS Policy Setup Wizard Modal */}
+      <EosSetupWizardModal
+        isOpen={isEosWizardOpen}
+        onClose={() => setIsEosWizardOpen(false)}
+      />
+    </div>
+  );
 };

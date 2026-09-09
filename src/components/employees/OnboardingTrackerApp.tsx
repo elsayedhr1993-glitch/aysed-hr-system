@@ -427,13 +427,140 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
             {/* Custody summary */}
             {selectedPlan.custodyItems && selectedPlan.custodyItems.length > 0 && (
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
-                <span className="font-bold text-slate-700 block text-[11px]">العهد والتجهيزات المرتبطة:</span>
+                <span className="font-bold text-slate-700 block text-[11px]">العهد والتجهيزات المسلمة:</span>
                 <div className="flex flex-wrap gap-1">
                   {selectedPlan.custodyItems.map((item, idx) => (
                     <span key={idx} className="bg-white border border-slate-200 px-2 py-0.5 rounded text-[10px] text-slate-700 font-medium">
                       📦 {item}
                     </span>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Contract Details Card */}
+            {selectedPlan.contractDetails && (
+              <div className="p-3.5 bg-purple-50/70 rounded-xl border border-purple-200 space-y-2">
+                <div className="flex items-center justify-between border-b border-purple-200/80 pb-2">
+                  <span className="font-bold text-purple-950 flex items-center gap-1.5">
+                    📄 عقد العمل والأجر الشامل (Contract & Salary)
+                  </span>
+                  <span className="font-mono font-black text-purple-900 bg-white px-2 py-0.5 rounded border border-purple-200">
+                    {(selectedPlan.contractDetails.totalSalary || 1000).toLocaleString()} د.ك / شهرياً
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-[11px] text-purple-900">
+                  <div>
+                    <span className="text-purple-600 block">نوع العقد:</span>
+                    <strong className="font-semibold">{selectedPlan.contractDetails.contractType}</strong>
+                  </div>
+                  <div>
+                    <span className="text-purple-600 block">فترة التجربة:</span>
+                    <strong className="font-mono font-bold">{selectedPlan.contractDetails.probationDays} يوم عمل (المادة 32)</strong>
+                  </div>
+                  <div>
+                    <span className="text-purple-600 block">تفاصيل الراتب:</span>
+                    <span>أساسي ({selectedPlan.contractDetails.basicSalary}) + سكن ({selectedPlan.contractDetails.housingAllowance}) + نقل ({selectedPlan.contractDetails.transportAllowance})</span>
+                  </div>
+                  <div>
+                    <span className="text-purple-600 block">تاريخ بداية العقد:</span>
+                    <strong className="font-mono">{selectedPlan.contractDetails.startDate}</strong>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Job Commencement Card & Action */}
+            {selectedPlan.commencementDetails && (
+              <div className="p-3.5 bg-emerald-50/80 rounded-xl border border-emerald-200 space-y-2.5">
+                <div className="flex items-center justify-between border-b border-emerald-200 pb-2">
+                  <span className="font-bold text-emerald-950 flex items-center gap-1.5">
+                    🚀 إقرار المباشرة الفعلية بالفرع (Job Commencement)
+                  </span>
+                  <span className="bg-emerald-600 text-white font-bold px-2 py-0.5 rounded text-[10px]">
+                    مباشر رسمياً ✓
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-[11px] text-emerald-900">
+                  <div>
+                    <span className="text-emerald-700 block">تاريخ المباشرة الفعلية:</span>
+                    <strong className="font-mono font-bold text-emerald-950">{selectedPlan.commencementDetails.actualJoiningDate}</strong>
+                  </div>
+                  <div>
+                    <span className="text-emerald-700 block">المشرف المباشر:</span>
+                    <strong className="font-semibold">{selectedPlan.commencementDetails.directSupervisor}</strong>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-emerald-200 flex items-center justify-between">
+                  <span className="text-[10px] text-emerald-800 font-medium">
+                    {selectedPlan.commencementDetails.leaveAccrualActivated ? '✓ تفعيل احتساب رصيد الإجازات السنوية آلياً (2.5 يوم/شهر)' : 'لم يفعل رصيد الإجازات'}
+                  </span>
+                  <button
+                    onClick={() => {
+                      const printWindow = window.open('', '_blank');
+                      if (printWindow) {
+                        printWindow.document.write(`
+                          <html dir="rtl" lang="ar">
+                            <head>
+                              <title>إقرار مباشرة عمل - ${selectedPlan.employeeName}</title>
+                              <style>
+                                body { font-family: system-ui, sans-serif; padding: 40px; color: #1e293b; line-height: 1.6; }
+                                .header { text-align: center; border-bottom: 2px solid #714B67; padding-bottom: 20px; margin-bottom: 30px; }
+                                .title { font-size: 22px; font-weight: bold; color: #714B67; margin-bottom: 5px; }
+                                .subtitle { font-size: 14px; color: #64748b; }
+                                .box { border: 1px solid #cbd5e1; padding: 15px; rounded: 8px; background: #f8fafc; margin-bottom: 20px; }
+                                table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+                                th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: right; font-size: 13px; }
+                                th { background: #f1f5f9; font-weight: bold; }
+                                .signatures { margin-top: 50px; display: flex; justify-content: space-between; }
+                                .sig-box { text-align: center; width: 45%; border-top: 1px border #94a3b8; padding-top: 10px; }
+                              </style>
+                            </head>
+                            <body>
+                              <div class="header">
+                                <div class="title">شركة المنار كلينك الطبية</div>
+                                <div class="subtitle">نموذج وإقرار مباشرة عمل موظف جديد (Job Commencement Form)</div>
+                              </div>
+
+                              <div class="box">
+                                <strong>بيانات الموظف والمباشرة:</strong>
+                                <table>
+                                  <tr><th>اسم الموظف</th><td>${selectedPlan.employeeName}</td><th>الرقم المدني</th><td>${selectedPlan.civilId || '-'}</td></tr>
+                                  <tr><th>المسمى الوظيفي</th><td>${selectedPlan.jobTitle}</td><th>القسم / الإدارة</th><td>${selectedPlan.department}</td></tr>
+                                  <tr><th>تاريخ المباشرة الفعلية</th><td>${selectedPlan.commencementDetails?.actualJoiningDate}</td><th>المشرف المباشر</th><td>${selectedPlan.commencementDetails?.directSupervisor}</td></tr>
+                                </table>
+                              </div>
+
+                              <div class="box">
+                                <strong>إقرار استلام العهد والتجهيزات:</strong>
+                                <p style="font-size: 12px; margin-top: 8px;">يقر الموظف المذكور أعلاه بأنه استلم كافة العهد والتجهيزات المبينة أدناه بحالة جيدة وتعهد بالمحافظة عليها:</p>
+                                <ul>
+                                  ${(selectedPlan.custodyItems || []).map((c: string) => `<li>${c}</li>`).join('')}
+                                </ul>
+                              </div>
+
+                              <div class="signatures">
+                                <div class="sig-box">
+                                  <strong>توقيع الموظف المباشر</strong><br/><br/><br/>
+                                  <span>التاريخ: ${selectedPlan.commencementDetails?.actualJoiningDate}</span>
+                                </div>
+                                <div class="sig-box">
+                                  <strong>اعتماد مدير الموارد البشرية</strong><br/><br/><br/>
+                                  <span>شركة المنار كلينك الطبية</span>
+                                </div>
+                              </div>
+                              <script>window.print();</script>
+                            </body>
+                          </html>
+                        `);
+                        printWindow.document.close();
+                      }
+                    }}
+                    className="bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1 rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>🖨️ طباعة إقرار المباشرة</span>
+                  </button>
                 </div>
               </div>
             )}

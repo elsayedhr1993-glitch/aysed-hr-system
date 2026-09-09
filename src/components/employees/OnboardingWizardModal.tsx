@@ -50,6 +50,24 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
     'standard_admin' | 'medical_specialist' | 'executive' | 'technical'
   >('medical_specialist');
 
+  // Contract Details State
+  const [contractType, setContractType] = useState<string>('محدد المدة (Fixed Term)');
+  const [probationDays, setProbationDays] = useState<number>(100);
+  const [basicSalary, setBasicSalary] = useState<number>(850);
+  const [housingAllowance, setHousingAllowance] = useState<number>(100);
+  const [transportAllowance, setTransportAllowance] = useState<number>(50);
+  const [otherAllowances, setOtherAllowances] = useState<number>(0);
+
+  // Commencement Details State
+  const [actualJoiningDate, setActualJoiningDate] = useState<string>(
+    new Date().toISOString().split('T')[0]
+  );
+  const [directSupervisor, setDirectSupervisor] = useState<string>('مدير القسم الطبي');
+  const [branchLocation, setBranchLocation] = useState<string>('الفرع الرئيسي');
+  const [isCommenced, setIsCommenced] = useState<boolean>(true);
+  const [leaveAccrualActivated, setLeaveAccrualActivated] = useState<boolean>(true);
+  const [commencementNotes, setCommencementNotes] = useState<string>('تم استلام العهد والأنظمة وتوثيق المباشرة الرسمية بالفرع');
+
   // Step 2 Checklist state
   const [legalChecklist, setLegalChecklist] = useState({
     civilIdScan: true,
@@ -197,6 +215,26 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
       custodyItems: custodySelection,
       legalChecklist: { ...legalChecklist },
       requiredDocuments: Object.entries(legalChecklist).filter(([_, v]) => v).map(([k]) => k),
+      contractDetails: {
+        contractType,
+        startDate: expectedStartDate,
+        probationDays,
+        basicSalary,
+        housingAllowance,
+        transportAllowance,
+        otherAllowances,
+        totalSalary: basicSalary + housingAllowance + transportAllowance + otherAllowances
+      },
+      commencementDetails: {
+        actualJoiningDate,
+        directSupervisor,
+        branchLocation,
+        isCommenced,
+        commencedAt: new Date().toISOString(),
+        custodyDelivered: custodySelection,
+        leaveAccrualActivated,
+        notes: commencementNotes
+      },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -236,54 +274,67 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
         </div>
 
         {/* Step Indicator Bar */}
-        <div className="bg-slate-50 border-b border-slate-200 p-3">
-          <div className="grid grid-cols-4 gap-2 text-center text-xs font-bold">
-            <div className={`p-2 rounded-xl flex items-center justify-center gap-1.5 transition ${
+        <div className="bg-slate-50 border-b border-slate-200 p-2.5">
+          <div className="grid grid-cols-5 gap-1.5 text-center text-xs font-bold">
+            <div className={`p-1.5 rounded-lg flex items-center justify-center gap-1 transition ${
               currentStep === 1 
                 ? 'bg-[#714B67] text-white shadow-xs' 
                 : currentStep > 1 
                 ? 'bg-emerald-100 text-emerald-800' 
                 : 'bg-slate-100 text-slate-400'
             }`}>
-              <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px]">
-                {currentStep > 1 ? <CheckCircle2 size={12} className="text-emerald-700" /> : '1'}
+              <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[9px]">
+                {currentStep > 1 ? <CheckCircle2 size={11} className="text-emerald-700" /> : '1'}
               </span>
-              <span className="hidden sm:inline">1. البيانات الأساسية</span>
+              <span className="text-[10px] truncate">1. الأساسية</span>
             </div>
 
-            <div className={`p-2 rounded-xl flex items-center justify-center gap-1.5 transition ${
+            <div className={`p-1.5 rounded-lg flex items-center justify-center gap-1 transition ${
               currentStep === 2 
                 ? 'bg-[#714B67] text-white shadow-xs' 
                 : currentStep > 2 
                 ? 'bg-emerald-100 text-emerald-800' 
                 : 'bg-slate-100 text-slate-400'
             }`}>
-              <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px]">
-                {currentStep > 2 ? <CheckCircle2 size={12} className="text-emerald-700" /> : '2'}
+              <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[9px]">
+                {currentStep > 2 ? <CheckCircle2 size={11} className="text-emerald-700" /> : '2'}
               </span>
-              <span className="hidden sm:inline">2. اشتراطات التعيين</span>
+              <span className="text-[10px] truncate">2. عقد العمل والراتب</span>
             </div>
 
-            <div className={`p-2 rounded-xl flex items-center justify-center gap-1.5 transition ${
+            <div className={`p-1.5 rounded-lg flex items-center justify-center gap-1 transition ${
               currentStep === 3 
                 ? 'bg-[#714B67] text-white shadow-xs' 
                 : currentStep > 3 
                 ? 'bg-emerald-100 text-emerald-800' 
                 : 'bg-slate-100 text-slate-400'
             }`}>
-              <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px]">
-                {currentStep > 3 ? <CheckCircle2 size={12} className="text-emerald-700" /> : '3'}
+              <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[9px]">
+                {currentStep > 3 ? <CheckCircle2 size={11} className="text-emerald-700" /> : '3'}
               </span>
-              <span className="hidden sm:inline">3. العهد والتجهيزات</span>
+              <span className="text-[10px] truncate">3. الشروط والمستندات</span>
             </div>
 
-            <div className={`p-2 rounded-xl flex items-center justify-center gap-1.5 transition ${
+            <div className={`p-1.5 rounded-lg flex items-center justify-center gap-1 transition ${
               currentStep === 4 
+                ? 'bg-[#714B67] text-white shadow-xs' 
+                : currentStep > 4 
+                ? 'bg-emerald-100 text-emerald-800' 
+                : 'bg-slate-100 text-slate-400'
+            }`}>
+              <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[9px]">
+                {currentStep > 4 ? <CheckCircle2 size={11} className="text-emerald-700" /> : '4'}
+              </span>
+              <span className="text-[10px] truncate">4. العهد وإقرار المباشرة</span>
+            </div>
+
+            <div className={`p-1.5 rounded-lg flex items-center justify-center gap-1 transition ${
+              currentStep === 5 
                 ? 'bg-[#714B67] text-white shadow-xs' 
                 : 'bg-slate-100 text-slate-400'
             }`}>
-              <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px]">4</span>
-              <span className="hidden sm:inline">4. المراجعة والاعتماد</span>
+              <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[9px]">5</span>
+              <span className="text-[10px] truncate">5. الاعتماد والإنشاء</span>
             </div>
           </div>
         </div>
@@ -297,7 +348,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
               <div className="bg-purple-50 p-3 rounded-xl border border-purple-200 flex items-center gap-2 text-purple-900">
                 <UserPlus size={18} className="text-[#714B67]" />
                 <div>
-                  <strong className="block text-sm">تحديد الموظف ونوذج خطة التهيئة (Onboarding Template)</strong>
+                  <strong className="block text-sm">تحديد الموظف ونموذج خطة التهيئة (Onboarding Template)</strong>
                   <span className="text-[11px] text-purple-700">حدد هل التعيين لموظف مسجل حالياً أو موظف مرشح جديد</span>
                 </div>
               </div>
@@ -379,7 +430,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                   />
                 </div>
 
-                <div>
+                <div className="md:col-span-2">
                   <label className="block text-slate-700 font-bold mb-1">نموذج الخطة القائم (Plan Template)</label>
                   <select
                     value={templateType}
@@ -391,6 +442,93 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                     <option value="technical">💻 خطة تعيين كادر فني وتقني</option>
                     <option value="executive">👑 خطة تعيين قيادي / مدير قسم</option>
                   </select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 2: Employment Contract & Salary Breakdown */}
+          {currentStep === 2 && (
+            <div className="space-y-4 animate-fadeIn">
+              <div className="bg-purple-50 p-3.5 rounded-xl border border-purple-200 flex items-center justify-between text-purple-900">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">📄</span>
+                  <div>
+                    <strong className="block text-sm">عقد العمل والتفاصيل المالية (Employment Contract & Salary)</strong>
+                    <span className="text-[11px] text-purple-700">تحديد نوع العقد الأهلي، فترة التجربة، وهيكل الراتب والبدلات الشاملة</span>
+                  </div>
+                </div>
+                <div className="bg-purple-900 text-white px-3 py-1 rounded-xl text-xs font-mono font-bold">
+                  الإجمالي: {(basicSalary + housingAllowance + transportAllowance + otherAllowances).toLocaleString()} د.ك
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">نوع العقد الأهلي *</label>
+                  <select 
+                    value={contractType}
+                    onChange={(e) => setContractType(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-bold text-slate-900 focus:ring-2 focus:ring-purple-600"
+                  >
+                    <option value="محدد المدة (Fixed Term)">محدد المدة (Fixed Term - 3 سنوات)</option>
+                    <option value="غير محدد المدة (Indefinite Term)">غير محدد المدة (Indefinite Term)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">فترة التجربة بالأيام (المادة 32)</label>
+                  <input 
+                    type="number"
+                    max={100}
+                    value={probationDays}
+                    onChange={(e) => setProbationDays(Number(e.target.value))}
+                    className="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-mono font-bold text-slate-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">الراتب الأساسي (KWD)</label>
+                  <input 
+                    type="number"
+                    value={basicSalary}
+                    onChange={(e) => setBasicSalary(Number(e.target.value))}
+                    placeholder="850"
+                    className="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-mono font-bold text-slate-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">بدل السكن (KWD)</label>
+                  <input 
+                    type="number"
+                    value={housingAllowance}
+                    onChange={(e) => setHousingAllowance(Number(e.target.value))}
+                    placeholder="100"
+                    className="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-mono font-bold text-slate-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">بدل النقل (KWD)</label>
+                  <input 
+                    type="number"
+                    value={transportAllowance}
+                    onChange={(e) => setTransportAllowance(Number(e.target.value))}
+                    placeholder="50"
+                    className="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-mono font-bold text-slate-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">بدلات أخرى (KWD)</label>
+                  <input 
+                    type="number"
+                    value={otherAllowances}
+                    onChange={(e) => setOtherAllowances(Number(e.target.value))}
+                    placeholder="0"
+                    className="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-mono font-bold text-slate-900"
+                  />
                 </div>
               </div>
             </div>
@@ -536,11 +674,48 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                   );
                 })}
               </div>
+
+              {/* Commencement Details */}
+              <div className="bg-emerald-50/80 p-3.5 rounded-xl border border-emerald-200 space-y-3 mt-3">
+                <h5 className="font-bold text-emerald-950 text-xs flex items-center justify-between">
+                  <span>🚀 توثيق إقرار المباشرة الفعلية (Job Commencement)</span>
+                </h5>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-emerald-900 font-semibold mb-0.5 text-[11px]">تاريخ المباشرة الفعلية بالفرع</label>
+                    <input 
+                      type="date"
+                      value={actualJoiningDate}
+                      onChange={(e) => setActualJoiningDate(e.target.value)}
+                      className="w-full bg-white border border-emerald-300 rounded-lg p-2 font-mono font-bold text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-emerald-900 font-semibold mb-0.5 text-[11px]">المشرف المباشر</label>
+                    <input 
+                      type="text"
+                      value={directSupervisor}
+                      onChange={(e) => setDirectSupervisor(e.target.value)}
+                      placeholder="مدير القسم الطبي"
+                      className="w-full bg-white border border-emerald-300 rounded-lg p-2 font-bold text-xs"
+                    />
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer pt-1">
+                  <input 
+                    type="checkbox"
+                    checked={leaveAccrualActivated}
+                    onChange={(e) => setLeaveAccrualActivated(e.target.checked)}
+                    className="w-4 h-4 rounded text-emerald-600"
+                  />
+                  <span className="font-bold text-emerald-950 text-[11px]">تفعيل حساب رصيد الإجازات السنوية التلقائي (2.5 يوم/شهر) بدءاً من تاريخ المباشرة</span>
+                </label>
+              </div>
             </div>
           )}
 
-          {/* STEP 4: Review & Confirm (Transient Confirmation) */}
-          {currentStep === 4 && (
+          {/* STEP 5: Review & Confirm (Transient Confirmation) */}
+          {currentStep === 5 && (
             <div className="space-y-4 animate-fadeIn">
               
               {/* Transient Model Warning Banner */}
@@ -566,14 +741,18 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
                   <div>
-                    <span className="text-slate-400 block">تاريخ المباشرة المتوقع:</span>
-                    <strong className="font-mono text-slate-800">{expectedStartDate}</strong>
+                    <span className="text-slate-400 block">نوع العقد:</span>
+                    <strong className="text-slate-800 font-bold">{contractType}</strong>
                   </div>
                   <div>
-                    <span className="text-slate-400 block">الرقم المدني:</span>
-                    <strong className="font-mono text-slate-800">{civilId || 'غير مدخل'}</strong>
+                    <span className="text-slate-400 block">الأجر الشامل:</span>
+                    <strong className="font-mono text-purple-950 font-black">{(basicSalary + housingAllowance + transportAllowance + otherAllowances).toLocaleString()} د.ك</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">المباشرة الفعلية:</span>
+                    <strong className="font-mono text-emerald-800 font-bold">{actualJoiningDate || expectedStartDate}</strong>
                   </div>
                 </div>
 
@@ -613,7 +792,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
             </button>
           )}
 
-          {currentStep < 4 ? (
+          {currentStep < 5 ? (
             <button
               onClick={() => {
                 if (currentStep === 1 && !employeeName.trim()) {

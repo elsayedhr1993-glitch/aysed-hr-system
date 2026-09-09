@@ -472,14 +472,14 @@ export const ReportsApp: React.FC<ReportsAppProps> = ({
       const empContract = companyContracts.find(c => c.employeeId === emp.id && (c.status === 'RUNNING' || (c.status as string) === 'ACTIVE')) || null;
       const serverBalance = calculateServerFifoBalance(emp, [], companyLeaves, empContract);
 
-      const opening = serverBalance.carriedOverDays;
-      const accrued = serverBalance.accruedAnnualDays;
-      const compensatory = serverBalance.holidayCompensationDays;
-      const totalAvailable = serverBalance.totalAvailableDays;
-      const totalTakenDays = serverBalance.usedLeaveDays;
-      const paidConsumed = Math.min(totalAvailable, totalTakenDays);
-      const remaining = serverBalance.remainingBalanceDays;
-      const excessUnpaid = serverBalance.unpaidExcessDays;
+      const opening = Number(serverBalance.carriedOverDays.toFixed(1));
+      const accrued = Number(serverBalance.accruedAnnualDays.toFixed(1));
+      const compensatory = Number(serverBalance.holidayCompensationDays.toFixed(1));
+      const totalAvailable = Number(serverBalance.totalAvailableDays.toFixed(1));
+      const totalTakenDays = Number(serverBalance.usedLeaveDays.toFixed(1));
+      const paidConsumed = Number(Math.min(totalAvailable, totalTakenDays).toFixed(1));
+      const remaining = Number(serverBalance.remainingBalanceDays.toFixed(1));
+      const excessUnpaid = Number(serverBalance.unpaidExcessDays.toFixed(1));
 
       const leaveStatus = remaining >= 15 ? 'رصيد كافٍ' : remaining > 0 ? 'رصيد منخفض' : 'رصيد مصفّر وتجاوز (إجازة بدون راتب)';
 
@@ -1011,15 +1011,15 @@ export const ReportsApp: React.FC<ReportsAppProps> = ({
           { key: 'residencyType', label: 'نوع الإقامة' },
           { key: 'department', label: 'القسم' },
           { key: 'jobTitle', label: 'المسمى الوظيفي' },
-          { key: 'carriedOver', label: 'الافتتاحي (مرحل)', align: 'center' },
-          { key: 'accruedDays', label: 'مكتسب 2026', align: 'center' },
-          { key: 'totalDays', label: 'المستهلك', align: 'center' },
+          { key: 'carriedOver', label: 'الافتتاحي (مرحل)', align: 'center', render: (row) => `${Number(row.carriedOver || 0).toFixed(1)} يوم` },
+          { key: 'accruedDays', label: 'مكتسب 2026', align: 'center', render: (row) => `${Number(row.accruedDays || 0).toFixed(1)} يوم` },
+          { key: 'totalDays', label: 'المستهلك', align: 'center', render: (row) => `${Number(row.totalDays || 0).toFixed(1)} يوم` },
           { key: 'remainingDays', label: 'الرصيد المتبقي', align: 'center', render: (row) => (
             <span className={`font-mono font-bold px-2 py-0.5 rounded text-xs ${
               row.remainingDays >= 15 ? 'bg-emerald-100 text-emerald-800' :
               row.remainingDays > 0 ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'
             }`}>
-              {row.remainingDays} يوم
+              {Number(row.remainingDays || 0).toFixed(1)} يوم
             </span>)},
           { key: 'leaveStatus', label: 'حالة الرصيد', align: 'center', render: (row) => (
             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${

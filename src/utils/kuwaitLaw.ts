@@ -510,7 +510,7 @@ export function calculateLeaveAccrual2026Details(joinDateStr?: string, asOfDate:
  *     return months * 2.5
  */
 export function get_aysed_official_balance(
-  employeeOrHireDate?: string | Date | { date_start?: string; joinDate?: string; startDate?: string } | null,
+  employeeOrHireDate?: string | Date | { date_start?: string; joinDate?: string; startDate?: string; hireDate?: string; joiningDate?: string; hire_date?: string; [key: string]: any } | null,
   asOfDate: Date = new Date()
 ): number {
   // 1. التواريخ المرجعية
@@ -527,7 +527,12 @@ export function get_aysed_official_balance(
     } else if (employeeOrHireDate instanceof Date) {
       if (!isNaN(employeeOrHireDate.getTime())) hire_date = new Date(employeeOrHireDate.getFullYear(), employeeOrHireDate.getMonth(), employeeOrHireDate.getDate());
     } else if (typeof employeeOrHireDate === 'object') {
-      const dStr = employeeOrHireDate.date_start || employeeOrHireDate.joinDate || employeeOrHireDate.startDate;
+      const dStr = employeeOrHireDate.date_start || 
+                   employeeOrHireDate.joinDate || 
+                   employeeOrHireDate.hireDate || 
+                   employeeOrHireDate.startDate || 
+                   employeeOrHireDate.joiningDate || 
+                   employeeOrHireDate.hire_date;
       if (dStr) {
         const p = new Date(dStr);
         if (!isNaN(p.getTime())) hire_date = new Date(p.getFullYear(), p.getMonth(), p.getDate());
@@ -678,14 +683,21 @@ export function getCarriedOverBalance(emp: any): number {
   // 2. Check localStorage allocations table for any regular opening allocation
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
-      const rawAllocs = window.localStorage.getItem('manara_leave_allocations_data');
-      if (rawAllocs) {
-        const parsed = JSON.parse(rawAllocs);
-        if (Array.isArray(parsed)) {
-          const empRegular = parsed.filter((a: any) => a.employeeId === emp.id && a.allocationType === 'regular');
-          if (empRegular.length > 0) {
-            const sum = empRegular.reduce((s: number, a: any) => s + (Number(a.numberOfDays) || 0), 0);
-            if (sum > 0) return sum;
+      const keys = ['odoo_leave_allocations_v2', 'manara_leave_allocations_data', 'manara_leave_allocations'];
+      for (const key of keys) {
+        const rawAllocs = window.localStorage.getItem(key);
+        if (rawAllocs) {
+          const parsed = JSON.parse(rawAllocs);
+          if (Array.isArray(parsed)) {
+            const empRegular = parsed.filter((a: any) => 
+              (a.employeeId === emp.id || a.employeeId === emp.employeeCode || (emp.civilId && a.civilId === emp.civilId) || (emp.civil_id_number && a.civilId === emp.civil_id_number)) &&
+              (a.allocationType === 'regular' || a.allocationType === 'annual' || a.type === 'regular' || !a.allocationType || a.leaveType === 'ANNUAL') &&
+              (a.state === 'validate' || a.state === 'approved' || a.status === 'APPROVED' || !a.state)
+            );
+            if (empRegular.length > 0) {
+              const sum = empRegular.reduce((s: number, a: any) => s + (Number(a.numberOfDays || a.daysCount || a.days) || 0), 0);
+              if (sum > 0) return sum;
+            }
           }
         }
       }
