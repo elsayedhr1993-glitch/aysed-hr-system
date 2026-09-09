@@ -307,18 +307,15 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
     },
   ];
 
-  // وضع العرض المدمج للشاشة (One-Screen Fit)
-  const [isCompact, setIsCompact] = useState<boolean>(() => {
-    const saved = localStorage.getItem('odoo_launcher_compact_mode');
-    return saved !== null ? saved === 'true' : true;
+  // وضع العرض: أيقونات Launchpad العصرية أو بطاقات تفصيلية
+  const [viewStyle, setViewStyle] = useState<'launchpad' | 'cards'>(() => {
+    const saved = localStorage.getItem('odoo_launcher_view_style');
+    return (saved === 'cards' || saved === 'launchpad') ? saved : 'launchpad';
   });
 
-  const toggleCompact = () => {
-    setIsCompact(prev => {
-      const next = !prev;
-      localStorage.setItem('odoo_launcher_compact_mode', String(next));
-      return next;
-    });
+  const setLauncherStyle = (style: 'launchpad' | 'cards') => {
+    setViewStyle(style);
+    localStorage.setItem('odoo_launcher_view_style', style);
   };
 
   // تصفية التطبيقات طبقاً للبحث والتصنيف
@@ -344,13 +341,13 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
   }, [allApps, currentUserRole, selectedCategory, searchQuery]);
 
   return (
-    <div className="dashboard-container w-full h-full bg-transparent flex flex-col items-center relative z-10 space-y-2.5 sm:space-y-3.5 pb-6" dir="rtl">
+    <div className="dashboard-container w-full h-full bg-transparent flex flex-col items-center relative z-10 space-y-4 pb-8 px-2 sm:px-4" dir="rtl">
       
-      {/* 🔍 Search & Interactive Header */}
-      <div className="w-full max-w-5xl mx-auto space-y-2 pt-1">
+      {/* 🔍 Top Search & View Mode Header */}
+      <div className="w-full max-w-[1700px] mx-auto space-y-2.5 pt-1">
         
-        {/* Search Field & Density Switcher */}
-        <div className="flex items-center gap-2">
+        {/* Search Field & View Style Switcher */}
+        <div className="flex items-center gap-2.5">
           <div className="relative flex-1 group">
             <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-[#714B67] transition-colors">
               <Search className="w-4 h-4" />
@@ -359,13 +356,13 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="بحث فوري في التطبيقات الـ 16 (شؤون الموظفين، الرواتب، الإجازات، العقود...)"
-              className="w-full pr-10 pl-20 py-2 bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-xl text-xs sm:text-sm font-bold text-slate-800 placeholder-slate-400 shadow-2xs focus:border-[#714B67] focus:bg-white focus:outline-none transition-all"
+              placeholder="بحث سريع في المنظومة (شؤون الموظفين، الرواتب، الإجازات، العقود، المستندات...)"
+              className="w-full pr-10 pl-20 py-2.5 bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-xl text-xs sm:text-sm font-bold text-slate-800 placeholder-slate-400 shadow-xs focus:border-[#714B67] focus:bg-white focus:outline-none transition-all"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-0.5 rounded-lg font-bold transition cursor-pointer"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-2.5 py-0.5 rounded-lg font-bold transition cursor-pointer"
               >
                 مسح
               </button>
@@ -377,29 +374,43 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
             )}
           </div>
 
-          {/* زر تبديل كثافة العرض (Compact / Standard Mode) */}
-          <button
-            onClick={toggleCompact}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer border shrink-0 ${
-              isCompact 
-                ? 'bg-purple-50 text-[#714B67] border-purple-200 hover:bg-purple-100 shadow-2xs' 
-                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-            }`}
-            title="التبديل بين العرض المدمج المتسع للشاشة بالكامل والعرض القياسي"
-          >
-            <LayoutGrid size={14} className={isCompact ? 'text-[#714B67]' : 'text-slate-500'} />
-            <span className="hidden md:inline">{isCompact ? 'عرض مدمج (شاشة كاملة)' : 'عرض قياسي'}</span>
-          </button>
+          {/* تبديل نمط العرض: Launchpad vs Bento Cards */}
+          <div className="flex items-center bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-xl p-1 shadow-xs shrink-0">
+            <button
+              onClick={() => setLauncherStyle('launchpad')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                viewStyle === 'launchpad'
+                  ? 'bg-[#714B67] text-white shadow-xs'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+              title="لوحة التطبيقات الذكية (أيقونات Launchpad الحديثة)"
+            >
+              <LayoutGrid size={14} />
+              <span className="hidden sm:inline">لوحة التطبيقات</span>
+            </button>
+            <button
+              onClick={() => setLauncherStyle('cards')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                viewStyle === 'cards'
+                  ? 'bg-[#714B67] text-white shadow-xs'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+              title="بطاقات تفصيلية مع إحصائيات لكل تطبيق"
+            >
+              <Layers size={14} />
+              <span className="hidden sm:inline">بطاقات تفصيلية</span>
+            </button>
+          </div>
         </div>
 
         {/* Category Filters */}
         <div className="flex flex-wrap items-center justify-center gap-1.5">
           <button
             onClick={() => setSelectedCategory('ALL')}
-            className={`px-3 py-1 rounded-lg text-xs font-black transition-all cursor-pointer ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
               selectedCategory === 'ALL'
-                ? 'bg-[#714B67] text-white shadow-2xs'
-                : 'bg-white/80 hover:bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
+                ? 'bg-[#714B67] text-white shadow-xs scale-102'
+                : 'bg-white/85 hover:bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
             }`}
           >
             🌐 جميع التطبيقات ({allApps.length})
@@ -407,10 +418,10 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
 
           <button
             onClick={() => setSelectedCategory('HR_PAYROLL')}
-            className={`px-3 py-1 rounded-lg text-xs font-black transition-all cursor-pointer ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
               selectedCategory === 'HR_PAYROLL'
-                ? 'bg-emerald-700 text-white shadow-2xs'
-                : 'bg-white/80 hover:bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
+                ? 'bg-emerald-700 text-white shadow-xs scale-102'
+                : 'bg-white/85 hover:bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
             }`}
           >
             👥 الموارد والرواتب
@@ -418,10 +429,10 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
 
           <button
             onClick={() => setSelectedCategory('ATTENDANCE_TIME')}
-            className={`px-3 py-1 rounded-lg text-xs font-black transition-all cursor-pointer ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
               selectedCategory === 'ATTENDANCE_TIME'
-                ? 'bg-blue-700 text-white shadow-2xs'
-                : 'bg-white/80 hover:bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
+                ? 'bg-blue-700 text-white shadow-xs scale-102'
+                : 'bg-white/85 hover:bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
             }`}
           >
             ⏰ الحضور والدوام
@@ -429,10 +440,10 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
 
           <button
             onClick={() => setSelectedCategory('DOCS_OPERATIONS')}
-            className={`px-3 py-1 rounded-lg text-xs font-black transition-all cursor-pointer ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
               selectedCategory === 'DOCS_OPERATIONS'
-                ? 'bg-purple-800 text-white shadow-2xs'
-                : 'bg-white/80 hover:bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
+                ? 'bg-purple-800 text-white shadow-xs scale-102'
+                : 'bg-white/85 hover:bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
             }`}
           >
             📁 الوثائق والتشغيل
@@ -442,66 +453,66 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
       </div>
 
       {/* 📊 Executive Live KPI Bar - مدمج ومرن */}
-      <div className="w-full max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-2 px-1">
+      <div className="w-full max-w-[1700px] mx-auto grid grid-cols-2 md:grid-cols-4 gap-2.5 px-1">
         
         {/* Metric 1 */}
-        <div className="bg-white/90 backdrop-blur-md border border-slate-200/90 rounded-xl p-2 sm:p-2.5 flex items-center justify-between shadow-2xs">
+        <div className="bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-xl p-2.5 sm:p-3 flex items-center justify-between shadow-xs hover:border-slate-300 transition">
           <div>
-            <div className="text-[10px] font-bold text-slate-500">القوة العاملة النشطة</div>
-            <div className="text-sm sm:text-base font-black text-slate-900 font-mono mt-0.5 leading-none">
-              {stats.employeesCount} <span className="text-[10px] font-bold text-slate-500">موظف</span>
+            <div className="text-[11px] font-bold text-slate-500">القوة العاملة النشطة</div>
+            <div className="text-base sm:text-lg font-black text-slate-900 font-mono mt-0.5 leading-none">
+              {stats.employeesCount} <span className="text-[11px] font-bold text-slate-500">موظف</span>
             </div>
           </div>
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center font-bold shrink-0">
-            <Users size={15} />
+          <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200/80 flex items-center justify-center font-bold shrink-0 shadow-2xs">
+            <Users size={17} />
           </div>
         </div>
 
         {/* Metric 2 */}
-        <div className="bg-white/90 backdrop-blur-md border border-slate-200/90 rounded-xl p-2 sm:p-2.5 flex items-center justify-between shadow-2xs">
+        <div className="bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-xl p-2.5 sm:p-3 flex items-center justify-between shadow-xs hover:border-slate-300 transition">
           <div>
-            <div className="text-[10px] font-bold text-slate-500">مسير الرواتب (WPS)</div>
-            <div className="text-sm sm:text-base font-black text-slate-900 font-mono mt-0.5 leading-none">
-              {calculatedTotalPayroll.toLocaleString('ar-KW')} <span className="text-[10px] font-bold text-slate-500">د.ك</span>
+            <div className="text-[11px] font-bold text-slate-500">مسير الرواتب (WPS)</div>
+            <div className="text-base sm:text-lg font-black text-slate-900 font-mono mt-0.5 leading-none">
+              {calculatedTotalPayroll.toLocaleString('ar-KW')} <span className="text-[11px] font-bold text-slate-500">د.ك</span>
             </div>
           </div>
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-purple-50 text-[#714B67] border border-purple-200 flex items-center justify-center font-bold shrink-0">
-            <Banknote size={15} />
+          <div className="w-9 h-9 rounded-xl bg-purple-50 text-[#714B67] border border-purple-200/80 flex items-center justify-center font-bold shrink-0 shadow-2xs">
+            <Banknote size={17} />
           </div>
         </div>
 
         {/* Metric 3 */}
-        <div className="bg-white/90 backdrop-blur-md border border-slate-200/90 rounded-xl p-2 sm:p-2.5 flex items-center justify-between shadow-2xs">
+        <div className="bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-xl p-2.5 sm:p-3 flex items-center justify-between shadow-xs hover:border-slate-300 transition">
           <div>
-            <div className="text-[10px] font-bold text-slate-500">الإجازات بانتظار الاعتماد</div>
-            <div className="text-sm sm:text-base font-black text-amber-700 font-mono mt-0.5 leading-none">
-              {pendingLeavesCount} <span className="text-[10px] font-bold text-amber-600">طلب</span>
+            <div className="text-[11px] font-bold text-slate-500">الإجازات بانتظار الاعتماد</div>
+            <div className="text-base sm:text-lg font-black text-amber-700 font-mono mt-0.5 leading-none">
+              {pendingLeavesCount} <span className="text-[11px] font-bold text-amber-600">طلب</span>
             </div>
           </div>
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center font-bold shrink-0">
-            <Calendar size={15} />
+          <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 border border-amber-200/80 flex items-center justify-center font-bold shrink-0 shadow-2xs">
+            <Calendar size={17} />
           </div>
         </div>
 
         {/* Metric 4 */}
-        <div className="bg-white/90 backdrop-blur-md border border-slate-200/90 rounded-xl p-2 sm:p-2.5 flex items-center justify-between shadow-2xs">
+        <div className="bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-xl p-2.5 sm:p-3 flex items-center justify-between shadow-xs hover:border-slate-300 transition">
           <div>
-            <div className="text-[10px] font-bold text-slate-500">سلامة المستندات والامتثال</div>
-            <div className="text-sm sm:text-base font-black text-blue-700 font-mono mt-0.5 leading-none">
-              {compliancePercentage}% <span className="text-[10px] font-bold text-emerald-600">ساري</span>
+            <div className="text-[11px] font-bold text-slate-500">سلامة المستندات والامتثال</div>
+            <div className="text-base sm:text-lg font-black text-blue-700 font-mono mt-0.5 leading-none">
+              {compliancePercentage}% <span className="text-[11px] font-bold text-emerald-600">ساري</span>
             </div>
           </div>
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center font-bold shrink-0">
-            <CheckCircle2 size={15} />
+          <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 border border-blue-200/80 flex items-center justify-center font-bold shrink-0 shadow-2xs">
+            <CheckCircle2 size={17} />
           </div>
         </div>
 
       </div>
 
-      {/* 🧩 Odoo Enterprise App Grid - شبكة التطبيقات الـ 16 */}
-      <div className="w-full max-w-5xl mx-auto py-1">
+      {/* 🧩 Odoo Enterprise App Launchpad - شبكة التطبيقات الـ 16 العصرية */}
+      <div className="w-full max-w-[1700px] mx-auto py-2">
         {filteredApps.length === 0 ? (
-          <div className="text-center py-10 bg-white/70 rounded-2xl border border-dashed border-slate-300">
+          <div className="text-center py-12 bg-white/80 rounded-2xl border border-dashed border-slate-300">
             <p className="text-slate-500 font-bold text-sm">لا توجد تطبيقات تطابق كلمة البحث "{searchQuery}"</p>
             <button 
               onClick={() => { setSearchQuery(''); setSelectedCategory('ALL'); }}
@@ -510,43 +521,82 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
               إعادة عرض جميع التطبيقات
             </button>
           </div>
-        ) : (
-          <div 
-            className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 ${
-              isCompact ? 'gap-2 sm:gap-2.5' : 'gap-3 sm:gap-4'
-            } justify-items-stretch`}
-          >
+        ) : viewStyle === 'launchpad' ? (
+          /* 🌟 1. النمط الحديث: Launchpad Squircle App Grid (Apple / Odoo 18 Style) */
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3 sm:gap-4 justify-items-stretch">
             {filteredApps.map((app) => {
               const IconComponent = app.icon;
               return (
                 <button
                   key={app.id}
                   onClick={() => onSelectApp(app.id)}
-                  className={`bg-white/95 hover:bg-white border border-slate-200/90 hover:border-purple-300 hover:-translate-y-0.5 active:scale-[0.98] rounded-xl transition-all duration-150 cursor-pointer shadow-2xs hover:shadow-sm text-right group relative overflow-hidden ${
-                    isCompact 
-                      ? 'p-2 sm:p-2.5 flex items-center gap-2.5' 
-                      : 'p-3.5 flex items-start gap-3.5'
-                  }`}
+                  className="group relative flex flex-col items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-white/90 hover:bg-white border border-slate-200/90 hover:border-purple-300 hover:shadow-lg hover:-translate-y-1 active:scale-95 transition-all duration-200 cursor-pointer text-center backdrop-blur-sm"
                 >
-                  {/* Glowing Icon Container */}
-                  <div className={`relative ${
-                    isCompact ? 'w-9 h-9 sm:w-10 sm:h-10' : 'w-12 h-12'
-                  } rounded-lg flex items-center justify-center shrink-0 bg-gradient-to-br ${app.gradient} shadow-2xs group-hover:scale-105 transition-transform duration-200`}>
-                    <IconComponent className={`${isCompact ? 'w-4.5 h-4.5 sm:w-5 sm:h-5' : 'w-6 h-6'} text-white drop-shadow-xs`} strokeWidth={1.8} />
+                  {/* Subtle Badge Tag */}
+                  {app.badge && (
+                    <span className="absolute top-2 left-2 text-[9px] font-black px-1.5 py-0.5 rounded-md bg-slate-100 group-hover:bg-purple-50 text-slate-600 group-hover:text-[#714B67] border border-slate-200/80 transition-colors">
+                      {app.badge}
+                    </span>
+                  )}
+
+                  {/* 💎 3D Squircle Icon Container */}
+                  <div className="relative mt-1 mb-2.5">
+                    <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-[20px] bg-gradient-to-br ${app.gradient} flex items-center justify-center shadow-md group-hover:shadow-xl group-hover:scale-110 transition-all duration-300 relative overflow-hidden ring-4 ring-white/60`}>
+                      {/* Glossy Glass Highlight Overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-b from-white/35 via-transparent to-black/10 pointer-events-none" />
+                      <IconComponent className="w-7 h-7 sm:w-8 sm:h-8 text-white drop-shadow-sm relative z-10" strokeWidth={1.9} />
+                    </div>
                   </div>
 
                   {/* App Text Info */}
-                  <div className="space-y-0.5 min-w-0 flex-1">
-                    <h3 className={`font-black text-slate-900 group-hover:text-[#714B67] leading-tight transition-colors truncate ${
-                      isCompact ? 'text-xs sm:text-[13px]' : 'text-sm'
-                    }`}>
+                  <div className="w-full space-y-0.5">
+                    <h3 className="font-extrabold text-xs sm:text-[13px] text-slate-800 group-hover:text-[#714B67] leading-tight transition-colors line-clamp-1">
                       {app.titleAr}
                     </h3>
-                    <p className={`text-[10px] sm:text-[11px] text-slate-500 font-medium leading-snug ${
-                      isCompact ? 'truncate' : 'line-clamp-2 leading-relaxed'
-                    }`}>
+                    <p className="text-[10px] text-slate-400 group-hover:text-slate-600 font-medium leading-tight line-clamp-1 transition-colors">
                       {app.description}
                     </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          /* 🗂️ 2. النمط الثاني: بطاقات الـ Bento SaaS التفصيلية */
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3.5">
+            {filteredApps.map((app) => {
+              const IconComponent = app.icon;
+              return (
+                <button
+                  key={app.id}
+                  onClick={() => onSelectApp(app.id)}
+                  className="group relative flex items-start gap-3.5 p-3.5 rounded-2xl bg-white/95 hover:bg-white border border-slate-200/90 hover:border-purple-300 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 cursor-pointer text-right shadow-2xs"
+                >
+                  {/* Icon */}
+                  <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${app.gradient} flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform duration-200 ring-2 ring-white`}>
+                    <IconComponent className="w-6 h-6 text-white drop-shadow-xs" strokeWidth={1.9} />
+                  </div>
+
+                  {/* Details */}
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <h3 className="font-extrabold text-xs sm:text-sm text-slate-900 group-hover:text-[#714B67] leading-tight truncate transition-colors">
+                        {app.titleAr}
+                      </h3>
+                      {app.badge && (
+                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
+                          {app.badge}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500 font-medium leading-snug line-clamp-2">
+                      {app.description}
+                    </p>
+                  </div>
+
+                  {/* Arrow Indicator */}
+                  <div className="self-center text-slate-300 group-hover:text-[#714B67] group-hover:-translate-x-0.5 transition-all">
+                    <ArrowUpRight size={16} />
                   </div>
                 </button>
               );
@@ -556,7 +606,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
       </div>
 
       {/* 📊 Odoo-Style Compact Charts Section */}
-      <div className="w-full max-w-5xl space-y-2 pt-4 border-t border-slate-200">
+      <div className="w-full max-w-[1700px] space-y-2 pt-4 border-t border-slate-200">
         <div className="flex items-center justify-between px-1">
           <div>
             <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
@@ -643,7 +693,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
       </div>
 
       {/* Footer Info */}
-      <div className="text-slate-500 text-[10px] text-center flex items-center justify-center gap-3 border-t border-slate-200 pt-3 max-w-5xl w-full font-medium">
+      <div className="text-slate-500 text-[10px] text-center flex items-center justify-center gap-3 border-t border-slate-200 pt-3 max-w-[1700px] w-full font-medium">
         <span>عملة النظام: <strong className="font-mono text-slate-800">KWD (0.000)</strong></span>
         <span>•</span>
         <span>قانون العمل الكويتي: <strong className="text-slate-800">رقم 6 لسنة 2010</strong></span>

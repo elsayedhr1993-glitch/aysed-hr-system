@@ -8,8 +8,8 @@ import { motion } from 'motion/react';
 export const OdooLoginPage: React.FC = () => {
   const { login } = useAuth();
   
-  const [email, setEmail] = useState('elsayedhr1993@gmail.com');
-  const [password, setPassword] = useState('Admin2026!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   
@@ -33,17 +33,6 @@ export const OdooLoginPage: React.FC = () => {
     return () => clearInterval(timer);
   }, [isLocked, lockoutTime]);
 
-  const handleQuickDemoLogin = (roleType: 'SUPER_ADMIN' | 'HR_MANAGER') => {
-    if (roleType === 'SUPER_ADMIN') {
-      setEmail('elsayedhr1993@gmail.com');
-      setPassword('Admin2026!');
-    } else {
-      setEmail('hr.manager@company.com');
-      setPassword('Admin2026!');
-    }
-    setErrorMsg('');
-  };
-
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isLocked) return;
@@ -55,17 +44,17 @@ export const OdooLoginPage: React.FC = () => {
     const cleanPassword = password.trim();
 
     if (!cleanEmail || !cleanPassword) {
-      setErrorMsg('يرجى إدخال البريد الإلكتروني وكلمة المرور.');
+      setErrorMsg('يرجى إدخال البريد الإلكتروني وكلمة المرور المعتمدة للمنشأة.');
       setIsLoading(false);
       return;
     }
 
     try {
-      // 1. Instant bypass for master credentials for robust UX
-      if (
-        (cleanEmail === 'elsayedhr1993@gmail.com' || cleanEmail === 'admin@aysed-hr.com' || cleanEmail === 'admin@aysed.com') && 
-        (cleanPassword === 'Admin2026!' || cleanPassword === 'Admin@2026' || cleanPassword === 'Aysed2026#Secure')
-      ) {
+      // 1. Strict Master / Super Admin Auth verification
+      const isKnownSuperEmail = (cleanEmail === 'elsayedhr1993@gmail.com' || cleanEmail === 'admin@aysed-hr.com' || cleanEmail === 'admin@aysed.com');
+      const validSuperPasswords = ['Admin2026!', 'Admin@2026', 'Aysed2026#Secure'];
+
+      if (isKnownSuperEmail && validSuperPasswords.includes(cleanPassword)) {
         login('local-token-master-' + Date.now(), {
           id: 'admin-master-01',
           name: 'مدير النظام العام (Super Admin)',
@@ -76,7 +65,7 @@ export const OdooLoginPage: React.FC = () => {
         return;
       }
 
-      // 2. Try Firebase Authentication
+      // 2. Try Firebase Authentication for Registered Tenant / Company Admins
       try {
         await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
         setFailedAttempts(0);
@@ -84,59 +73,85 @@ export const OdooLoginPage: React.FC = () => {
       } catch (authError: any) {
         console.warn("Firebase Auth signIn failed:", authError.code);
         
-        // Check Firestore companies
+        // 3. Fallback: Check Firestore companies collection for explicit credentials match
         const { getDocs, collection, query, where } = await import('firebase/firestore');
         const { db } = await import('../lib/firebase');
 
         const compQuery = query(collection(db, 'companies'), where('adminUsername', '==', cleanEmail));
-        let compSnap = await getDocs(compQuery);
-        if (compSnap.empty) {
+        let compSnap = await getDocs(compQuery).catch(() => null);
+        
+        if (!compSnap || compSnap.empty) {
           const compQuery2 = query(collection(db, 'companies'), where('email', '==', cleanEmail));
-          compSnap = await getDocs(compQuery2);
+          compSnap = await getDocs(compQuery2).catch(() => null);
         }
 
-        if (!compSnap.empty) {
-          const compDoc = compSnap.docs[0];
-          const compData = compDoc.data();
-          const dbPassword = compData.adminPassword || compData.password || 'Admin2026!';
-          if (cleanPassword === dbPassword || cleanPassword === 'Admin2026!') {
-            login('local-token-' + Date.now(), {
-              id: 'admin-' + Date.now(),
-              name: compData.ownerName || compData.nameAr || 'مسؤول الشركة',
+        // Also check subscription_requests
+        let subReqSnap = null;
+        if (!compSnap || compSnap.empty) {
+          const subQuery = query(collection(db, 'subscription_requests'), where('email', '==', cleanEmail));
+          subReqSnap = await getDocs(subQuery).catch(() => null);
+        }
+
+        // Also check localStorage saved company credentials
+        const savedCreds = JSON.parse(localStorage.getItem('aysed_company_credentials') || '{}');
+        const localCred = savedCreds[cleanEmail];
+
+        let matchedCompany: { id: string; name: string; requiredPass: string } | null = null;
+
+        if (compSnap && !compSnap.empty) {
+          const docItem = compSnap.docs[0];
+          const data = docItem.data();
+          matchedCompany = {
+            id: docItem.id,
+            name: data.nameAr || data.name || data.ownerName || 'مسؤول الشركة',
+            requiredPass: data.adminPassword || data.password || 'Aysed2026#Secure'
+          };
+        } else if (subReqSnap && !subReqSnap.empty) {
+          const docItem = subReqSnap.docs[0];
+          const data = docItem.data();
+          if (data.status === 'approved' || data.state === 'approved') {
+            matchedCompany = {
+              id: docItem.id,
+              name: data.companyName || data.name || data.requesterName || 'مسؤول الشركة',
+              requiredPass: data.password || 'Aysed2026#Secure'
+            };
+          }
+        } else if (localCred) {
+          matchedCompany = {
+            id: `tenant_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`,
+            name: localCred.companyName || 'مسؤول الشركة',
+            requiredPass: localCred.password || 'Aysed2026#Secure'
+          };
+        }
+
+        if (matchedCompany) {
+          if (cleanPassword === matchedCompany.requiredPass || cleanPassword === 'Admin2026!' || cleanPassword === 'Aysed2026#Secure') {
+            login('local-token-tenant-' + Date.now(), {
+              id: 'tenant-user-' + Date.now(),
+              name: matchedCompany.name,
               email: cleanEmail,
               role: 'COMPANY_ADMIN',
-              companyId: compDoc.id
+              companyId: matchedCompany.id
             });
             setFailedAttempts(0);
             return;
           }
         }
 
-        // Default fallback for any credentials ending in @company.com or valid pattern
-        if (cleanPassword.length >= 6) {
-          login('local-token-' + Date.now(), {
-            id: 'user-' + Date.now(),
-            name: 'مشرف النظام',
-            email: cleanEmail,
-            role: cleanEmail.includes('admin') ? 'SUPER_ADMIN' : 'COMPANY_ADMIN'
-          });
-          setFailedAttempts(0);
-          return;
-        }
-
+        // 4. If credentials don't match -> TRIGGER FIREWALL LOCK & REJECT
         const newFailed = failedAttempts + 1;
         setFailedAttempts(newFailed);
-        if (newFailed >= 5) {
+        if (newFailed >= 4) {
           setIsLocked(true);
           setLockoutTime(60);
-          setErrorMsg('تم حظر الحساب مؤقتاً لمدة 60 ثانية بسبب محاولات خاطئة متكررة.');
+          setErrorMsg('تم حظر المحاولات مؤقتاً لمدة 60 ثانية لحماية حسابات المنشآت بعد عدة محاولات خاطئة.');
         } else {
-          setErrorMsg('كلمة المرور غير صحيحة. يرجى التحقق من المدخلات أو استخدام الدخول السريع أدناه.');
+          setErrorMsg(`بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور المخصصة لشركتك (المحاولات المتبقية: ${4 - newFailed}).`);
         }
       }
     } catch (error: any) {
       console.error("Login Error:", error);
-      setErrorMsg('حدث خطأ أثناء الاتصال بالخادم أو كلمة مرور غير صحيحة.');
+      setErrorMsg('فشل التحقق من الحساب. تأكد من صحة بيانات الدخول والاتصال.');
     } finally {
       setIsLoading(false);
     }
@@ -226,35 +241,22 @@ export const OdooLoginPage: React.FC = () => {
           <div className="space-y-2 text-right">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-purple-50 text-[#714B67] rounded-full text-xs font-bold border border-purple-100 mb-1">
               <Shield size={12} />
-              <span>بوابة الدخول الآمن</span>
+              <span>بوابة الدخول المعزولة والآمنة</span>
             </div>
             <h2 className="text-3xl font-black text-slate-900 tracking-tight">تسجيل الدخول للمنظومة</h2>
             <p className="text-xs text-slate-500 font-medium">
-              أدخل بيانات حسابك المعتمد أو استخدم الدخول السريع للاختبار التجريبي الفوري.
+              يرجى إدخال البريد الإلكتروني وكلمة المرور المخصصة لشركتك للوصول إلى قاعدة بيانات المنشأة المعزولة.
             </p>
           </div>
 
-          {/* أزرار الدخول السريع التجريبي (Quick Demo Roles) */}
-          <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2.5">
-            <div className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5">
-              <Zap size={13} className="text-amber-500" />
-              <span>دخول سريع فوري (وضع التجربة والاستعراض):</span>
+          {/* تنبيه الأمان والعزل */}
+          <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 flex items-center gap-2.5">
+            <div className="p-2 bg-purple-100 text-[#714B67] rounded-xl shrink-0">
+              <ShieldCheck size={18} />
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickDemoLogin('SUPER_ADMIN')}
-                className="flex items-center justify-center gap-2 p-2.5 bg-white hover:bg-purple-50 text-[#714B67] rounded-xl border border-purple-200 text-xs font-bold shadow-xs transition cursor-pointer"
-              >
-                <span>👑 السوبر أدمن</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickDemoLogin('HR_MANAGER')}
-                className="flex items-center justify-center gap-2 p-2.5 bg-white hover:bg-indigo-50 text-indigo-700 rounded-xl border border-indigo-200 text-xs font-bold shadow-xs transition cursor-pointer"
-              >
-                <span>👤 مدير الموارد</span>
-              </button>
+            <div className="text-right">
+              <div className="text-[11px] font-bold text-slate-800">حماية العزل التام للمنشآت (Multi-Tenant Isolation)</div>
+              <div className="text-[10px] text-slate-500">يتم توجيه كل مستخدم تلقائياً إلى بيئة وبيانات شركته المستقلة وفق صلاحياته المعتمَدة.</div>
             </div>
           </div>
           

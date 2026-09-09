@@ -21,20 +21,28 @@ export const EditableField: React.FC<EditableFieldProps> = ({
   maxLength,
   className = ''
 }) => {
+  const hasValue = value !== undefined && value !== null && value !== '' && value !== 'غير محدد';
+
   return (
-    <div className={`bg-slate-50/50 p-3 rounded-xl border border-slate-200/80 ${className}`}>
-      <label className="block text-slate-500 font-bold mb-1">{label}</label>
+    <div className={`py-1.5 ${className}`}>
+      <label className="block text-xs font-semibold text-slate-500 mb-1 tracking-wide">{label}</label>
       {isEditMode ? (
         <input
           type={type}
           maxLength={maxLength}
           value={value || ''}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-900 bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
+          className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-bold text-slate-900 bg-white focus:ring-1 focus:ring-[#714B67] focus:outline-none text-sm transition"
           placeholder={placeholder}
         />
       ) : (
-        <div className="font-bold text-slate-900 text-sm">{value || 'غير محدد'}</div>
+        <div className="font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1 min-h-[26px] flex items-center">
+          {hasValue ? (
+            <span>{value}</span>
+          ) : (
+            <span className="text-slate-400 font-normal text-xs">—</span>
+          )}
+        </div>
       )}
     </div>
   );
@@ -48,14 +56,18 @@ export const EditableSelect: React.FC<{
   options: { value: string; label: string }[];
   className?: string;
 }> = ({ label, value, onChange, isEditMode, options, className = '' }) => {
+  const matchedOpt = options.find(o => o.value === value);
+  const displayLabel = matchedOpt?.label || value;
+  const hasValue = value !== undefined && value !== null && value !== '' && value !== 'غير محدد';
+
   return (
-    <div className={`bg-slate-50/50 p-3 rounded-xl border border-slate-200/80 ${className}`}>
-      <label className="block text-slate-500 font-bold mb-1">{label}</label>
+    <div className={`py-1.5 ${className}`}>
+      <label className="block text-xs font-semibold text-slate-500 mb-1 tracking-wide">{label}</label>
       {isEditMode ? (
         <select
           value={value || ''}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-900 bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
+          className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-bold text-slate-900 bg-white focus:ring-1 focus:ring-[#714B67] focus:outline-none text-sm transition cursor-pointer"
         >
           <option value="">-- اختر --</option>
           {options.map((opt) => (
@@ -63,8 +75,12 @@ export const EditableSelect: React.FC<{
           ))}
         </select>
       ) : (
-        <div className="font-bold text-slate-900 text-sm">
-          {options.find(o => o.value === value)?.label || value || 'غير محدد'}
+        <div className="font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1 min-h-[26px] flex items-center">
+          {hasValue ? (
+            <span>{displayLabel}</span>
+          ) : (
+            <span className="text-slate-400 font-normal text-xs">—</span>
+          )}
         </div>
       )}
     </div>

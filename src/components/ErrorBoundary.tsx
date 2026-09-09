@@ -20,12 +20,10 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   public componentDidMount() {
     window.addEventListener('error', (event) => {
-      console.error('[Global Window Error]:', event.error);
-      this.setState({ hasError: true, error: event.error || new Error(event.message) });
+      console.warn('[Global Window Warning caught gracefully]:', event.error || event.message);
     });
     window.addEventListener('unhandledrejection', (event) => {
       console.warn('[Unhandled Promise Rejection caught gracefully]:', event.reason);
-      // Do not trigger hasError for background promise rejections (network/offline/firestore sync)
       event.preventDefault();
     });
   }

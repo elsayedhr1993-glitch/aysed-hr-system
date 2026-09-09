@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { EmployeeWorkTab } from './tabs/EmployeeWorkTab';
 import { EmployeePrivateTab } from './tabs/EmployeePrivateTab';
 import { EmployeeDocumentsTab } from './tabs/EmployeeDocumentsTab';
+import { checkDocumentExpiry } from '../../utils/dateUtils';
 import { 
   Briefcase, 
   Building2, 
@@ -113,20 +114,36 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
   // تحديث بيانات الموظف عند تغير الـ initialEmployee
   useEffect(() => {
     if (initialEmployee) {
-      setEmployee((prev: any) => ({ ...initialEmployee, ...prev }));
+      setEmployee({ ...initialEmployee });
     }
-  }, [initialEmployee?.id]);
+  }, [initialEmployee]);
 
   // تحديد اسم المنشأة الفعلي التابع لها الموظف
-  const matchedCompany = companies.find(c => c.id === (employee.companyId || employee.company_id)) || activeCompany || contextActiveCompany;
-  const displayCompanyName = matchedCompany?.nameAr || matchedCompany?.name || 'المنار كلينك';
+  // فحص ما إذا كان هناك شركة تابعة مطابقة، أو استخدام الشركة النشطة إذا كانت ليست الإدارة المركزية
+  const resolvedActiveComp = activeCompany || contextActiveCompany;
+  let displayCompanyName = 'المنار كلينك';
+
+  if (employee.companyName || employee.company_name) {
+    displayCompanyName = employee.companyName || employee.company_name;
+  } else if (resolvedActiveComp && !resolvedActiveComp.nameAr?.includes('المركزية') && !resolvedActiveComp.name?.includes('Super Admin')) {
+    displayCompanyName = resolvedActiveComp.nameAr || resolvedActiveComp.name;
+  } else {
+    const matched = companies.find(c => c.id === (employee.companyId || employee.company_id));
+    if (matched && !matched.nameAr?.includes('المركزية')) {
+      displayCompanyName = matched.nameAr || matched.name || 'المنار كلينك';
+    } else if (employee.companyId?.includes('almanar') || employee.id?.includes('MANARA')) {
+      displayCompanyName = 'مجموعة عيادات المنار التخصصية (Manara Clinic)';
+    } else if (resolvedActiveComp) {
+      displayCompanyName = resolvedActiveComp.nameAr || resolvedActiveComp.name || 'المنار كلينك';
+    }
+  }
 
   // Quick calculations for wages
-  const basicSalary = parseFloat(employee.basicSalary || employee.salary || 0);
-  const housingAllowance = parseFloat(employee.housingAllowance || 0);
-  const transportAllowance = parseFloat(employee.transportAllowance || 0);
-  const medicalAllowance = parseFloat(employee.medicalAllowance || 0);
-  const otherAllowance = parseFloat(employee.allowances || employee.otherAllowance || 0);
+  const basicSalary = parseFloat(employee.basicSalary !== undefined ? employee.basicSalary : (employee.salary || 0)) || 0;
+  const housingAllowance = parseFloat(employee.housingAllowance || 0) || 0;
+  const transportAllowance = parseFloat(employee.transportAllowance || 0) || 0;
+  const medicalAllowance = parseFloat(employee.medicalAllowance || 0) || 0;
+  const otherAllowance = parseFloat(employee.otherAllowances !== undefined ? employee.otherAllowances : (employee.otherAllowance || employee.allowances || 0)) || 0;
   const totalSalary = basicSalary + housingAllowance + transportAllowance + medicalAllowance + otherAllowance;
 
   // Daily wage according to Kuwait Labor Law (26 work days)
@@ -317,15 +334,31 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
         });
       }
 
-      await onSave({
+      const bSal = parseFloat(employee.basicSalary !== undefined ? employee.basicSalary : (employee.salary || 0)) || 0;
+      const hAll = parseFloat(employee.housingAllowance || 0) || 0;
+      const tAll = parseFloat(employee.transportAllowance || 0) || 0;
+      const mAll = parseFloat(employee.medicalAllowance || 0) || 0;
+      const oAll = parseFloat(employee.otherAllowances !== undefined ? employee.otherAllowances : (employee.otherAllowance || employee.allowances || 0)) || 0;
+      const totAllowances = hAll + tAll + mAll + oAll;
+      const totSal = bSal + totAllowances;
+
+      const payloadToSave = {
         ...employee,
-        basicSalary,
-        housingAllowance,
-        transportAllowance,
-        medicalAllowance,
-        allowances: otherAllowance,
-        totalSalary
-      });
+        basicSalary: bSal,
+        contractSalary: bSal,
+        housingAllowance: hAll,
+        transportAllowance: tAll,
+        medicalAllowance: mAll,
+        otherAllowance: oAll,
+        otherAllowances: oAll,
+        allowances: totAllowances,
+        totalSalary: totSal,
+        salary: totSal
+      };
+
+      await onSave(payloadToSave);
+      setEmployee(payloadToSave);
+      setIsEditMode(false);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2500);
     } catch (err) {
@@ -336,27 +369,27 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
   };
 
   return (
-    <div className="space-y-4 animate-fade-in text-right font-sans text-slate-900" dir="rtl">
+    <div className="min-h-screen bg-slate-100/60 p-2 sm:p-4 md:p-6 space-y-4 text-right font-sans text-slate-900 w-full" dir="rtl">
       
       {/* Top Breadcrumbs & Control Bar */}
-      <div className="bg-white border border-slate-300 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+      <div className="w-full bg-white border border-slate-200/90 rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
         <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
           <button 
             type="button"
             onClick={onBack}
-            className="flex items-center gap-1.5 text-[#714B67] hover:text-[#5a3b52] hover:bg-purple-50 px-2.5 py-1.5 rounded-lg border border-[#714B67]/30 transition"
+            className="flex items-center gap-1.5 text-[#714B67] hover:text-[#5a3b52] hover:bg-purple-50 px-2.5 py-1.5 rounded-lg border border-[#714B67]/30 transition cursor-pointer"
           >
             <ArrowRight size={16} />
             <span>العودة لدليل الموظفين</span>
           </button>
-          <span className="text-slate-400">/</span>
-          <span className="text-slate-900 font-black">{employee.nameAr || employee.fullNameAr || 'ملف موظف جديد'}</span>
-          <span className="font-mono bg-purple-100 text-[#714B67] px-2 py-0.5 rounded text-xs font-bold">{employee.id}</span>
+          <span className="text-slate-300">/</span>
+          <span className="text-slate-900 font-black">{employee.nameAr || employee.fullNameAr || 'ملف موظف'}</span>
+          <span className="font-mono bg-purple-50 text-[#714B67] border border-purple-200 px-2 py-0.5 rounded text-xs font-bold">{employee.id}</span>
         </div>
 
         <div className="flex items-center gap-2">
           {saveSuccess && (
-            <span className="text-xs font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-3 py-1.5 rounded-lg flex items-center gap-1">
+            <span className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-300 px-3 py-1.5 rounded-lg flex items-center gap-1">
               <Check size={14} /> تم الحفظ بنجاح
             </span>
           )}
@@ -399,7 +432,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
           <button
             type="button"
             onClick={() => onTriggerPrint(`ملف الموظف الشامل - ${employee.nameAr || employee.id}`, employee)}
-            className="bg-white hover:bg-slate-100 text-slate-900 border border-slate-300 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+            className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
           >
             <Printer size={15} className="text-[#714B67]" />
             <span>طباعة الملف (A4)</span>
@@ -408,10 +441,10 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
           <button
             type="button"
             onClick={() => onTriggerPrint(`كشف رصيد إجازات الموظف - ${employee.nameAr || employee.id}`, employee)}
-            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
             title="طباعة كشف رصيد الإجازات المعتمد والمستحق للموظف"
           >
-            <Printer size={15} className="text-emerald-700 animate-pulse" />
+            <Printer size={15} className="text-emerald-700" />
             <span>طباعة كشف الإجازات</span>
           </button>
 
@@ -419,7 +452,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
             <button
               type="button"
               onClick={() => onDelete(employee.id, employee.nameAr)}
-              className="bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+              className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
               title="حذف الموظف"
             >
               <Trash2 size={15} />
@@ -429,187 +462,228 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Main Employee Card & Smart Buttons */}
-      <div className="bg-white border border-slate-300 rounded-2xl p-6 shadow-xs space-y-6">
+      {/* Odoo Official Document Sheet (White Paper on bg-slate-100) */}
+      <div className="bg-white border border-slate-200/90 rounded-2xl shadow-sm w-full p-5 sm:p-7 md:p-9 space-y-6">
         
-        {/* Profile Header Block */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 border-b border-slate-200 pb-6">
-          
-          <div className="flex items-start gap-4">
-            <div className={`w-16 h-16 rounded-2xl ${employee.avatarColor || 'bg-[#714B67]'} text-white flex items-center justify-center font-black text-2xl shadow-sm shrink-0 overflow-hidden relative`}>
-              {employee.avatarUrl ? (
-                <img src={employee.avatarUrl} alt="" className="w-full h-full object-cover" />
-              ) : (
-                (employee.nameAr || employee.fullNameAr || 'م').slice(0, 2)
-              )}
-            </div>
-
-            <div className="space-y-1.5">
-              {isEditMode && (
-                <div className="mb-2 flex items-center gap-2">
-                  <label className="cursor-pointer px-2.5 py-1 bg-[#714B67] text-white rounded text-xs font-bold hover:bg-[#5a3a52] transition flex items-center gap-1">
-                    <span>📷 ارفاق صورة شخصية</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (uploadEvt) => {
-                            handleFieldChange('avatarUrl', uploadEvt.target?.result as string);
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }}
-                    />
-                  </label>
-                  {employee.avatarUrl && (
-                    <button
-                      type="button"
-                      onClick={() => handleFieldChange('avatarUrl', '')}
-                      className="px-2 py-1 bg-rose-100 text-rose-700 rounded text-xs font-bold hover:bg-rose-200 transition"
-                    >
-                      حذف الصورة
-                    </button>
-                  )}
-                </div>
-              )}
-              <div className="flex flex-wrap items-center gap-2">
-                {isEditMode ? (
-                  <input
-                    type="text"
-                    value={employee.nameAr || ''}
-                    onChange={(e) => handleFieldChange('nameAr', e.target.value)}
-                    placeholder="اسم الموظف بالعربية"
-                    className="text-xl font-black text-slate-900 border border-purple-300 focus:border-[#714B67] rounded-lg px-2 py-0.5 bg-purple-50/40 focus:outline-none transition"
-                  />
-                ) : (
-                  <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
-                    <span>{employee.nameAr || employee.fullNameAr || 'اسم الموظف'}</span>
-                    <button 
-                      onClick={() => setIsEditMode(true)}
-                      className="text-slate-400 hover:text-purple-700 transition"
-                      title="انقر للتعديل السريع"
-                    >
-                      <Edit3 size={14} />
-                    </button>
-                  </h2>
-                )}
-
-                <span className={`text-xs px-2.5 py-1 rounded-full font-bold border flex items-center gap-1.5 ${
-                  isContractRunning 
-                    ? 'bg-emerald-100 text-emerald-900 border-emerald-300' 
-                    : 'bg-amber-100 text-amber-900 border-amber-300'
-                }`}>
-                  <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
-                  <span>{isContractRunning ? 'على رأس العمل' : contractStatus}</span>
-                </span>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-slate-800">
-                {isEditMode ? (
-                  <input
-                    type="text"
-                    value={employee.nameEn || ''}
-                    onChange={(e) => handleFieldChange('nameEn', e.target.value)}
-                    placeholder="English Name"
-                    className="font-semibold text-slate-700 border border-purple-300 rounded px-1.5 py-0.5 bg-purple-50/40 focus:outline-none"
-                  />
-                ) : (
-                  <span className="font-semibold text-slate-600 font-mono">{employee.nameEn || employee.fullNameEn || '-'}</span>
-                )}
-                <span className="text-slate-300">|</span>
-                <span className="text-slate-900 font-bold">{employee.jobTitle || 'المسمى الوظيفي'}</span>
-                <span className="text-slate-300">|</span>
-                <span className="text-slate-700">{employee.dept || employee.department || 'القسم العام'}</span>
-                <span className="text-slate-300">|</span>
-                <span className="font-bold text-purple-900 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
-                  🏢 {displayCompanyName}
-                </span>
-              </div>
-            </div>
+        {/* Top Header Row: Smart Stat Buttons in top-corner (RTL: top-left) */}
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
+          <div className="text-xs font-bold text-slate-400">
+            <span>بطاقة بيانات الموظف الرسمية</span>
           </div>
 
-          {/* Odoo Smart Buttons (العقود - الإجازات - الهوية الذكية - المباشرة) */}
-          <div className="flex flex-wrap items-center gap-2.5">
-            
-            {/* Smart Button 1: العقود (Contracts) */}
+          {/* Smart Stat Buttons in a single clean horizontal row */}
+          <div className="flex items-center gap-2.5">
+            {/* Smart Button 1: العقود */}
             <div 
               onClick={() => {
-                setActiveTab('hr');
-                import('react-hot-toast').then(m => m.toast.success('تم الانتقال لبيانات العقد. يرجى تعديل باقة الأجور الكاملة من تطبيق العقود والرواتب الرئيسي.'));
+                setActiveTab('contract');
+                import('react-hot-toast').then(m => m.toast.success('تم الانتقال لبيانات العقد والأجر'));
               }}
-              className="bg-purple-50/70 hover:bg-purple-100/80 border border-purple-300 rounded-xl p-2.5 min-w-[130px] flex items-center gap-2.5 transition cursor-pointer shadow-2xs group"
+              className="border border-slate-200 hover:border-[#714B67]/40 bg-white hover:bg-purple-50/30 px-3.5 py-1.5 rounded-xl flex items-center gap-2.5 transition cursor-pointer shadow-2xs group"
               title="انقر للانتقال لبيانات العقد والتعيين"
             >
-              <div className="w-9 h-9 rounded-lg bg-[#714B67] text-white flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
-                <FileText size={18} />
+              <div className="w-8 h-8 rounded-lg bg-purple-100 text-[#714B67] flex items-center justify-center shrink-0 group-hover:bg-[#714B67] group-hover:text-white transition">
+                <FileText size={16} />
               </div>
-              <div className="text-right">
-                <div className="text-[10px] text-purple-900 font-bold">عقد العمل</div>
+              <div className="text-right leading-tight">
+                <div className="text-[10px] text-slate-400 font-semibold">عقد العمل</div>
                 <div className="text-xs font-black text-slate-900 font-mono">1 نشط</div>
               </div>
             </div>
 
-            {/* Smart Button 2: رصيد الإجازات (Time Off) */}
+            {/* Smart Button 2: رصيد الإجازات */}
             <div 
               onClick={() => onTriggerPrint(`كشف رصيد إجازات الموظف - ${employee.nameAr || employee.id}`, employee)}
-              className="bg-emerald-50/70 hover:bg-emerald-100/80 border border-emerald-300 rounded-xl p-2.5 min-w-[130px] flex items-center gap-2.5 transition cursor-pointer shadow-2xs group"
-              title="انقر لطباعة كشف رصيد الإجازات السنوية المعتمد والمستحق فوراً"
+              className="border border-slate-200 hover:border-emerald-500/40 bg-white hover:bg-emerald-50/30 px-3.5 py-1.5 rounded-xl flex items-center gap-2.5 transition cursor-pointer shadow-2xs group"
+              title="انقر لطباعة كشف رصيد الإجازات السنوية المعتمد"
             >
-              <div className="w-9 h-9 rounded-lg bg-emerald-700 text-white flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
-                <Plane size={18} />
+              <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 group-hover:bg-emerald-700 group-hover:text-white transition">
+                <Plane size={16} />
               </div>
-              <div className="text-right">
-                <div className="text-[10px] text-emerald-900 font-bold">رصيد الإجازات</div>
+              <div className="text-right leading-tight">
+                <div className="text-[10px] text-slate-400 font-semibold">رصيد الإجازات</div>
                 <div className="text-xs font-black text-slate-900 font-mono">{calculatedBalance} يوم</div>
               </div>
             </div>
 
-            {/* Smart Button 3: الهوية الذكية (ID Card) */}
+            {/* Smart Button 3: الهوية الذكية */}
             <div 
               onClick={() => onTriggerPrint(`بطاقة هوية الموظف - ${employee.nameAr || employee.id}`, { ...employee, type: 'ID_CARD' })}
-              className="bg-blue-50/70 hover:bg-blue-100/80 border border-blue-300 rounded-xl p-2.5 min-w-[130px] flex items-center gap-2.5 transition cursor-pointer shadow-2xs group"
+              className="border border-slate-200 hover:border-blue-500/40 bg-white hover:bg-blue-50/30 px-3.5 py-1.5 rounded-xl flex items-center gap-2.5 transition cursor-pointer shadow-2xs group"
               title="طباعة واستخراج بطاقة هوية الموظف والـ QR Code"
             >
-              <div className="w-9 h-9 rounded-lg bg-blue-700 text-white flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
-                <CreditCard size={18} />
+              <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 group-hover:bg-blue-700 group-hover:text-white transition">
+                <CreditCard size={16} />
               </div>
-              <div className="text-right">
-                <div className="text-[10px] text-blue-900 font-bold">الهوية والبطاقة</div>
-                <div className="text-xs font-black text-slate-900">طباعة QR 🪪</div>
+              <div className="text-right leading-tight">
+                <div className="text-[10px] text-slate-400 font-semibold">الهوية والبطاقة</div>
+                <div className="text-xs font-black text-slate-900">طباعة QR</div>
               </div>
             </div>
-
           </div>
-
         </div>
 
-        {/* Notebook Tabs Bar (معلومات العمل - البيانات الشخصية - المستندات - إعدادات HR) */}
-        <div className="border-b border-slate-300 flex items-center gap-2 overflow-x-auto">
+        {/* Profile Header Block: Avatar + Name + Subtitle + Badge */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-5 pt-1">
+          <div className={`w-20 h-20 rounded-2xl ${employee.avatarColor || 'bg-[#714B67]'} text-white flex items-center justify-center font-black text-2xl shadow-xs shrink-0 overflow-hidden relative`}>
+            {employee.avatarUrl ? (
+              <img src={employee.avatarUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+              (employee.nameAr || employee.fullNameAr || 'م').slice(0, 2)
+            )}
+          </div>
+
+          <div className="space-y-1.5 flex-1">
+            {isEditMode && (
+              <div className="mb-2 flex items-center gap-2">
+                <label className="cursor-pointer px-2.5 py-1 bg-[#714B67] text-white rounded-lg text-xs font-bold hover:bg-[#5a3a52] transition flex items-center gap-1">
+                  <span>📷 تغيير الصورة الشخصية</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (uploadEvt) => {
+                          handleFieldChange('avatarUrl', uploadEvt.target?.result as string);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </label>
+                {employee.avatarUrl && (
+                  <button
+                    type="button"
+                    onClick={() => handleFieldChange('avatarUrl', '')}
+                    className="px-2 py-1 bg-rose-100 text-rose-700 rounded-lg text-xs font-bold hover:bg-rose-200 transition"
+                  >
+                    حذف الصورة
+                  </button>
+                )}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-3">
+              {isEditMode ? (
+                <input
+                  type="text"
+                  value={employee.nameAr || ''}
+                  onChange={(e) => handleFieldChange('nameAr', e.target.value)}
+                  placeholder="اسم الموظف بالعربية"
+                  className="text-2xl font-black text-slate-900 border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1 bg-white focus:outline-none transition"
+                />
+              ) : (
+                <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                  <span>{employee.nameAr || employee.fullNameAr || 'اسم الموظف'}</span>
+                  <button 
+                    onClick={() => setIsEditMode(true)}
+                    className="text-slate-300 hover:text-[#714B67] transition"
+                    title="تعديل"
+                  >
+                    <Edit3 size={16} />
+                  </button>
+                </h2>
+              )}
+
+              <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold border flex items-center gap-1.5 ${
+                isContractRunning 
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                  : 'bg-amber-50 text-amber-700 border-amber-200'
+              }`}>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+                <span>{isContractRunning ? 'على رأس العمل' : contractStatus}</span>
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2.5 text-xs text-slate-600 font-medium pt-0.5">
+              {isEditMode ? (
+                <input
+                  type="text"
+                  value={employee.nameEn || ''}
+                  onChange={(e) => handleFieldChange('nameEn', e.target.value)}
+                  placeholder="English Name"
+                  className="font-semibold text-slate-700 border border-slate-300 rounded px-2 py-0.5 bg-white focus:outline-none"
+                />
+              ) : (
+                <span className="font-semibold text-slate-500 font-mono">{employee.nameEn || employee.fullNameEn || '—'}</span>
+              )}
+              <span className="text-slate-300">•</span>
+              <span className="text-slate-800 font-bold">{employee.jobTitle || 'المسمى الوظيفي'}</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-slate-600">{employee.dept || employee.department || 'القسم العام'}</span>
+              <span className="text-slate-300">•</span>
+              <span className="font-semibold text-[#714B67]">
+                🏢 {displayCompanyName}
+              </span>
+            </div>
+
+            {/* شريط تحذير مباشر إذا كانت هناك وثيقة منتهية للموظف */}
+            {(() => {
+              const civilDate = employee.civilIdExpiry || employee.civilIdExpiryDate || employee.civil_id_expiry;
+              const civilStatus = checkDocumentExpiry(civilDate, 'البطاقة المدنية');
+              if (civilStatus.isExpired) {
+                return (
+                  <div className="mt-2.5 bg-rose-50 border border-rose-300 rounded-xl p-2.5 flex items-center justify-between text-xs text-rose-950 font-bold shadow-xs animate-in fade-in">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="text-rose-600 w-4 h-4 shrink-0 animate-bounce" />
+                      <span>⚠️ البطاقة المدنية لهذا الموظف {civilStatus.badgeText} بتاريخ ({civilDate}). يرجى تجديد البطاقة وتحديث الملف.</span>
+                    </div>
+                    <button 
+                      onClick={() => setActiveTab('documents')}
+                      className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-black transition cursor-pointer shrink-0"
+                    >
+                      تحديث الوثيقة 🪪
+                    </button>
+                  </div>
+                );
+              }
+              if (civilStatus.isExpiringSoon) {
+                return (
+                  <div className="mt-2.5 bg-amber-50 border border-amber-300 rounded-xl p-2.5 flex items-center justify-between text-xs text-amber-950 font-bold shadow-xs">
+                    <div className="flex items-center gap-2">
+                      <Clock className="text-amber-600 w-4 h-4 shrink-0" />
+                      <span>⏰ البطاقة المدنية {civilStatus.badgeText} بتاريخ ({civilDate}).</span>
+                    </div>
+                    <button 
+                      onClick={() => setActiveTab('documents')}
+                      className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[11px] font-black transition cursor-pointer shrink-0"
+                    >
+                      مراجعة الوثيقة
+                    </button>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+          </div>
+        </div>
+
+        {/* Clean Notebook Tabs Bar */}
+        <div className="border-b border-slate-200 flex items-center gap-2 overflow-x-auto pt-2">
           
           <button
             type="button"
             onClick={() => setActiveTab('work')}
-            className={`px-4 py-3 text-xs font-black border-b-2 transition flex items-center gap-2 shrink-0 cursor-pointer ${
+            className={`px-4 py-2.5 text-xs font-bold border-b-2 transition flex items-center gap-2 shrink-0 cursor-pointer ${
               activeTab === 'work'
-                ? 'border-[#714B67] text-[#714B67] bg-purple-50/40 rounded-t-lg'
-                : 'border-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-50'
+                ? 'border-[#714B67] text-[#714B67]'
+                : 'border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300'
             }`}
           >
-            <Briefcase size={16} />
+            <Briefcase size={15} />
             <span>معلومات العمل (Work Information)</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('contract')}
-            className={`px-4 py-3 text-xs font-black border-b-2 transition flex items-center gap-2 shrink-0 cursor-pointer ${
+            className={`px-4 py-2.5 text-xs font-bold border-b-2 transition flex items-center gap-2 shrink-0 cursor-pointer ${
               activeTab === 'contract'
-                ? 'border-[#714B67] text-[#714B67] bg-purple-50/40 rounded-t-lg'
-                : 'border-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-50'
+                ? 'border-[#714B67] text-[#714B67]'
+                : 'border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300'
             }`}
           >
             <span>📄</span>
@@ -619,10 +693,10 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
           <button
             type="button"
             onClick={() => setActiveTab('commencement')}
-            className={`px-4 py-3 text-xs font-black border-b-2 transition flex items-center gap-2 shrink-0 cursor-pointer ${
+            className={`px-4 py-2.5 text-xs font-bold border-b-2 transition flex items-center gap-2 shrink-0 cursor-pointer ${
               activeTab === 'commencement'
-                ? 'border-[#714B67] text-[#714B67] bg-purple-50/40 rounded-t-lg'
-                : 'border-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-50'
+                ? 'border-[#714B67] text-[#714B67]'
+                : 'border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300'
             }`}
           >
             <span>🚀</span>
@@ -632,39 +706,39 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
           <button
             type="button"
             onClick={() => setActiveTab('private')}
-            className={`px-4 py-3 text-xs font-black border-b-2 transition flex items-center gap-2 shrink-0 cursor-pointer ${
+            className={`px-4 py-2.5 text-xs font-bold border-b-2 transition flex items-center gap-2 shrink-0 cursor-pointer ${
               activeTab === 'private'
-                ? 'border-[#714B67] text-[#714B67] bg-purple-50/40 rounded-t-lg'
-                : 'border-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-50'
+                ? 'border-[#714B67] text-[#714B67]'
+                : 'border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300'
             }`}
           >
-            <UserCheck size={16} />
+            <UserCheck size={15} />
             <span>البيانات الشخصية (Private Information)</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('documents')}
-            className={`px-4 py-3 text-xs font-black border-b-2 transition flex items-center gap-2 shrink-0 cursor-pointer ${
+            className={`px-4 py-2.5 text-xs font-bold border-b-2 transition flex items-center gap-2 shrink-0 cursor-pointer ${
               activeTab === 'documents'
-                ? 'border-[#714B67] text-[#714B67] bg-purple-50/40 rounded-t-lg'
-                : 'border-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-50'
+                ? 'border-[#714B67] text-[#714B67]'
+                : 'border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300'
             }`}
           >
-            <FileSpreadsheet size={16} />
-            <span>المستندات والتراخيص الكويتية (Documents & Compliance)</span>
+            <FileSpreadsheet size={15} />
+            <span>المستندات والتراخيص الكويتية (Documents)</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('hr')}
-            className={`px-4 py-3 text-xs font-black border-b-2 transition flex items-center gap-2 shrink-0 cursor-pointer ${
+            className={`px-4 py-2.5 text-xs font-bold border-b-2 transition flex items-center gap-2 shrink-0 cursor-pointer ${
               activeTab === 'hr'
-                ? 'border-[#714B67] text-[#714B67] bg-purple-50/40 rounded-t-lg'
-                : 'border-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-50'
+                ? 'border-[#714B67] text-[#714B67]'
+                : 'border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300'
             }`}
           >
-            <Building2 size={16} />
+            <Building2 size={15} />
             <span>إعدادات الموارد البشرية (HR Settings)</span>
           </button>
 
@@ -681,116 +755,179 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
 
         {/* Tab 2: عقد العمل والأجر الشامل (Contract & Wages) */}
         {activeTab === 'contract' && (
-          <div className="space-y-4 text-xs animate-fade-in">
-            <div className="bg-purple-50 p-3.5 rounded-xl border border-purple-200 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">📄</span>
-                <div>
-                  <h4 className="font-bold text-purple-950 text-xs">عقد العمل الأهلي والهيكل المالي (Employment Contract & Wages)</h4>
-                  <p className="text-[10px] text-purple-700">توثيق بنود العقد الأهلي، فترات التجربة (المادة 32)، والبدلات المعتمدة</p>
-                </div>
+          <div className="space-y-8 animate-fade-in text-slate-900">
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200">
+              <div>
+                <h4 className="font-bold text-slate-900 text-sm">عقد العمل الأهلي والهيكل المالي (Employment Contract & Wages)</h4>
+                <p className="text-xs text-slate-500">توثيق بنود العقد الأهلي، فترات التجربة (المادة 32)، والبدلات المعتمدة</p>
               </div>
               <button
                 type="button"
                 onClick={onOpenPamModal}
-                className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                className="bg-[#714B67] hover:bg-[#5a3b52] text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
               >
                 <span>👁️ معاينة العقد الأهلي الصادر من (PAM)</span>
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-4 rounded-xl border border-slate-200">
-              <div>
-                <label className="block text-slate-500 font-bold mb-1">نوع العقد الأهلي</label>
-                {isEditMode ? (
-                  <select
-                    value={employee.contractType || 'محدد المدة (Fixed Term)'}
-                    onChange={(e) => handleFieldChange('contractType', e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-bold"
-                  >
-                    <option value="محدد المدة (Fixed Term)">محدد المدة (Fixed Term)</option>
-                    <option value="غير محدد المدة (Indefinite Term)">غير محدد المدة (Indefinite Term)</option>
-                  </select>
-                ) : (
-                  <div className="p-2 bg-slate-50 rounded-lg font-bold text-slate-900 border border-slate-200">
-                    {employee.contractType || 'محدد المدة (Fixed Term)'}
-                  </div>
-                )}
+            {/* 2-Columns Grid for Contract Details */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+              <div className="space-y-4">
+                <div className="border-b border-slate-200 pb-2 mb-4">
+                  <h5 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#714B67]"></span>
+                    <span>بنود وفترة العقد</span>
+                  </h5>
+                </div>
+
+                <div className="py-1.5">
+                  <label className="block text-xs font-semibold text-slate-500 mb-1">نوع العقد الأهلي</label>
+                  {isEditMode ? (
+                    <select
+                      value={employee.contractType || 'محدد المدة (Fixed Term)'}
+                      onChange={(e) => handleFieldChange('contractType', e.target.value)}
+                      className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-bold text-slate-900 bg-white focus:outline-none text-sm"
+                    >
+                      <option value="محدد المدة (Fixed Term)">محدد المدة (Fixed Term)</option>
+                      <option value="غير محدد المدة (Indefinite Term)">غير محدد المدة (Indefinite Term)</option>
+                    </select>
+                  ) : (
+                    <div className="font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">
+                      {employee.contractType || 'محدد المدة (Fixed Term)'}
+                    </div>
+                  )}
+                </div>
+
+                <div className="py-1.5">
+                  <label className="block text-xs font-semibold text-slate-500 mb-1">فترة التجربة (Probation Period)</label>
+                  {isEditMode ? (
+                    <input
+                      type="number"
+                      value={employee.probationDays || 100}
+                      onChange={(e) => handleFieldChange('probationDays', e.target.value)}
+                      className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-900 bg-white focus:outline-none text-sm"
+                    />
+                  ) : (
+                    <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">
+                      {employee.probationDays || 100} يوم عمل (المادة 32)
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div>
-                <label className="block text-slate-500 font-bold mb-1">فترة التجربة (Probation Period)</label>
-                {isEditMode ? (
-                  <input
-                    type="number"
-                    value={employee.probationDays || 100}
-                    onChange={(e) => handleFieldChange('probationDays', e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-mono font-bold"
-                  />
-                ) : (
-                  <div className="p-2 bg-slate-50 rounded-lg font-mono font-bold text-slate-900 border border-slate-200">
-                    {employee.probationDays || 100} يوم عمل (المادة 32)
-                  </div>
-                )}
-              </div>
+              <div className="space-y-4">
+                <div className="border-b border-slate-200 pb-2 mb-4">
+                  <h5 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-slate-400"></span>
+                    <span>سريان التواريخ</span>
+                  </h5>
+                </div>
 
-              <div>
-                <label className="block text-slate-500 font-bold mb-1">تاريخ بداية العقد</label>
-                {isEditMode ? (
-                  <input
-                    type="date"
-                    value={employee.contractStartDate || employee.hireDate || ''}
-                    onChange={(e) => handleFieldChange('contractStartDate', e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-mono font-bold"
-                  />
-                ) : (
-                  <div className="p-2 bg-slate-50 rounded-lg font-mono font-bold text-slate-900 border border-slate-200">
-                    {employee.contractStartDate || employee.hireDate || 'غير محدد'}
-                  </div>
-                )}
-              </div>
+                <div className="py-1.5">
+                  <label className="block text-xs font-semibold text-slate-500 mb-1">تاريخ بداية العقد</label>
+                  {isEditMode ? (
+                    <input
+                      type="date"
+                      value={employee.contractStartDate || employee.hireDate || ''}
+                      onChange={(e) => handleFieldChange('contractStartDate', e.target.value)}
+                      className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-900 bg-white focus:outline-none text-sm"
+                    />
+                  ) : (
+                    <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">
+                      {employee.contractStartDate || employee.hireDate || '—'}
+                    </div>
+                  )}
+                </div>
 
-              <div>
-                <label className="block text-slate-500 font-bold mb-1">تاريخ نهاية العقد</label>
-                {isEditMode ? (
-                  <input
-                    type="date"
-                    value={employee.contractEndDate || ''}
-                    onChange={(e) => handleFieldChange('contractEndDate', e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-mono font-bold"
-                  />
-                ) : (
-                  <div className="p-2 bg-slate-50 rounded-lg font-mono font-bold text-slate-900 border border-slate-200">
-                    {employee.contractEndDate || 'عقد مفتوح / غير محدد'}
-                  </div>
-                )}
+                <div className="py-1.5">
+                  <label className="block text-xs font-semibold text-slate-500 mb-1">تاريخ نهاية العقد</label>
+                  {isEditMode ? (
+                    <input
+                      type="date"
+                      value={employee.contractEndDate || ''}
+                      onChange={(e) => handleFieldChange('contractEndDate', e.target.value)}
+                      className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-900 bg-white focus:outline-none text-sm"
+                    />
+                  ) : (
+                    <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">
+                      {employee.contractEndDate || 'عقد مفتوح / غير محدد'}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Financial Details Box */}
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
-              <h5 className="font-bold text-slate-900 border-b border-slate-200 pb-2 flex items-center justify-between">
-                <span>💰 الراتب والبدلات الشهرية</span>
+            {/* Financial Details */}
+            <div className="pt-6 border-t border-slate-200 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-slate-200/80">
+                <span className="text-xs font-black text-slate-900">💰 حزمة الراتب والبدلات الشهرية</span>
                 <span className="font-mono text-purple-900 font-black text-sm">
-                  الأجر الشامل: {((Number(employee.basicSalary) || 850) + (Number(employee.housingAllowance) || 100) + (Number(employee.transportAllowance) || 50) + (Number(employee.otherAllowances) || 0)).toLocaleString()} د.ك
+                  الأجر الشامل: {totalSalary.toFixed(3)} د.ك
                 </span>
-              </h5>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                  <span className="text-slate-400 block text-[10px]">الراتب الأساسي</span>
-                  <strong className="font-mono text-slate-900 font-bold text-sm">{employee.basicSalary || 850} د.ك</strong>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-1">
+                <div className="py-1">
+                  <span className="text-slate-500 block text-xs font-semibold mb-1">الراتب الأساسي</span>
+                  {isEditMode ? (
+                    <input
+                      type="number"
+                      step="0.001"
+                      value={employee.basicSalary !== undefined ? employee.basicSalary : ''}
+                      onChange={(e) => handleFieldChange('basicSalary', e.target.value)}
+                      placeholder="0.000"
+                      className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-900 text-sm focus:outline-none"
+                    />
+                  ) : (
+                    <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">{(Number(employee.basicSalary) || 0).toFixed(3)} د.ك</div>
+                  )}
                 </div>
-                <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                  <span className="text-slate-400 block text-[10px]">بدل السكن</span>
-                  <strong className="font-mono text-slate-900 font-bold text-sm">{employee.housingAllowance || 100} د.ك</strong>
+                <div className="py-1">
+                  <span className="text-slate-500 block text-xs font-semibold mb-1">بدل السكن</span>
+                  {isEditMode ? (
+                    <input
+                      type="number"
+                      step="0.001"
+                      value={employee.housingAllowance !== undefined ? employee.housingAllowance : ''}
+                      onChange={(e) => handleFieldChange('housingAllowance', e.target.value)}
+                      placeholder="0.000"
+                      className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-900 text-sm focus:outline-none"
+                    />
+                  ) : (
+                    <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">{(Number(employee.housingAllowance) || 0).toFixed(3)} د.ك</div>
+                  )}
                 </div>
-                <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                  <span className="text-slate-400 block text-[10px]">بدل النقل</span>
-                  <strong className="font-mono text-slate-900 font-bold text-sm">{employee.transportAllowance || 50} د.ك</strong>
+                <div className="py-1">
+                  <span className="text-slate-500 block text-xs font-semibold mb-1">بدل الانتقال</span>
+                  {isEditMode ? (
+                    <input
+                      type="number"
+                      step="0.001"
+                      value={employee.transportAllowance !== undefined ? employee.transportAllowance : ''}
+                      onChange={(e) => handleFieldChange('transportAllowance', e.target.value)}
+                      placeholder="0.000"
+                      className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-900 text-sm focus:outline-none"
+                    />
+                  ) : (
+                    <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">{(Number(employee.transportAllowance) || 0).toFixed(3)} د.ك</div>
+                  )}
                 </div>
-                <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                  <span className="text-slate-400 block text-[10px]">بدلات أخرى</span>
-                  <strong className="font-mono text-slate-900 font-bold text-sm">{employee.otherAllowances || 0} د.ك</strong>
+                <div className="py-1">
+                  <span className="text-slate-500 block text-xs font-semibold mb-1">بدلات أخرى</span>
+                  {isEditMode ? (
+                    <input
+                      type="number"
+                      step="0.001"
+                      value={employee.otherAllowances !== undefined ? employee.otherAllowances : (employee.otherAllowance !== undefined ? employee.otherAllowance : '')}
+                      onChange={(e) => {
+                        handleFieldChange('otherAllowances', e.target.value);
+                        handleFieldChange('otherAllowance', e.target.value);
+                      }}
+                      placeholder="0.000"
+                      className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-900 text-sm focus:outline-none"
+                    />
+                  ) : (
+                    <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">{(Number(employee.otherAllowances !== undefined ? employee.otherAllowances : employee.otherAllowance) || 0).toFixed(3)} د.ك</div>
+                  )}
                 </div>
               </div>
             </div>
@@ -799,14 +936,11 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
 
         {/* Tab 3: إقرار المباشرة والجاهزية (Job Commencement) */}
         {activeTab === 'commencement' && (
-          <div className="space-y-4 text-xs animate-fade-in">
-            <div className="bg-emerald-50 p-3.5 rounded-xl border border-emerald-200 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">🚀</span>
-                <div>
-                  <h4 className="font-bold text-emerald-950 text-xs">إقرار المباشرة الفعلية واستلام العهد (Job Commencement)</h4>
-                  <p className="text-[10px] text-emerald-700">توثيق تاريخ المباشرة بالفرع واستلام تجهيزات العمل الرسمية</p>
-                </div>
+          <div className="space-y-8 animate-fade-in text-slate-900">
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200">
+              <div>
+                <h4 className="font-bold text-slate-900 text-sm">إقرار المباشرة الفعلية واستلام العهد (Job Commencement)</h4>
+                <p className="text-xs text-slate-500">توثيق تاريخ المباشرة بالفرع واستلام تجهيزات العمل الرسمية</p>
               </div>
               <button
                 type="button"
@@ -822,12 +956,12 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
                             .header { text-align: center; border-bottom: 2px solid #714B67; padding-bottom: 20px; margin-bottom: 30px; }
                             .title { font-size: 22px; font-weight: bold; color: #714B67; margin-bottom: 5px; }
                             .subtitle { font-size: 14px; color: #64748b; }
-                            .box { border: 1px solid #cbd5e1; padding: 15px; rounded: 8px; background: #f8fafc; margin-bottom: 20px; }
+                            .box { border: 1px solid #cbd5e1; padding: 15px; border-radius: 8px; background: #f8fafc; margin-bottom: 20px; }
                             table { width: 100%; border-collapse: collapse; margin-top: 15px; }
                             th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: right; font-size: 13px; }
                             th { background: #f1f5f9; font-weight: bold; }
                             .signatures { margin-top: 50px; display: flex; justify-content: space-between; }
-                            .sig-box { text-align: center; width: 45%; border-top: 1px border #94a3b8; padding-top: 10px; }
+                            .sig-box { text-align: center; width: 45%; border-top: 1px solid #94a3b8; padding-top: 10px; }
                           </style>
                         </head>
                         <body>
@@ -870,47 +1004,61 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
                     printWindow.document.close();
                   }
                 }}
-                className="bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                className="bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
               >
                 <span>🖨️ طباعة إقرار المباشرة</span>
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-4 rounded-xl border border-slate-200">
-              <div>
-                <label className="block text-slate-500 font-bold mb-1">تاريخ المباشرة الفعلية</label>
-                <div className="p-2 bg-slate-50 rounded-lg font-mono font-bold text-slate-900 border border-slate-200">
-                  {employee.commencementDate || employee.hireDate || new Date().toISOString().slice(0, 10)}
-                </div>
+            {/* 2-Columns Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+              <div className="py-1.5">
+                <label className="block text-xs font-semibold text-slate-500 mb-1">تاريخ المباشرة الفعلية</label>
+                {isEditMode ? (
+                  <input
+                    type="date"
+                    value={employee.commencementDate || employee.hireDate || ''}
+                    onChange={(e) => handleFieldChange('commencementDate', e.target.value)}
+                    className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-900 bg-white focus:outline-none text-sm"
+                  />
+                ) : (
+                  <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">
+                    {employee.commencementDate || employee.hireDate || '—'}
+                  </div>
+                )}
               </div>
 
-              <div>
-                <label className="block text-slate-500 font-bold mb-1">المشرف المباشر</label>
-                <div className="p-2 bg-slate-50 rounded-lg font-bold text-slate-900 border border-slate-200">
-                  {employee.directSupervisor || employee.manager || 'مدير القسم'}
-                </div>
+              <div className="py-1.5">
+                <label className="block text-xs font-semibold text-slate-500 mb-1">المشرف المباشر</label>
+                {isEditMode ? (
+                  <input
+                    type="text"
+                    value={employee.directSupervisor || employee.manager || ''}
+                    onChange={(e) => handleFieldChange('directSupervisor', e.target.value)}
+                    className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-bold text-slate-900 bg-white focus:outline-none text-sm"
+                  />
+                ) : (
+                  <div className="font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">
+                    {employee.directSupervisor || employee.manager || 'مدير القسم'}
+                  </div>
+                )}
               </div>
+            </div>
 
-              <div className="md:col-span-2">
-                <label className="block text-slate-500 font-bold mb-2">العهد والتجهيزات الرسمية المسلمة</label>
-                <div className="flex flex-wrap gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                  {(employee.custodyItems || [
-                    'لاب توب محمول / جهاز كمبيوتر',
-                    'بريد إلكتروني رسمي (@company.com)',
-                    'بطاقة وبصمة بوابات المبنى'
-                  ]).map((item: string, idx: number) => (
-                    <span key={idx} className="bg-white border border-slate-300 px-3 py-1 rounded-lg font-bold text-slate-800 flex items-center gap-1">
-                      <span className="text-emerald-600">✓</span>
-                      <span>{item}</span>
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <div className="md:col-span-2 bg-emerald-50/60 p-3 rounded-xl border border-emerald-200">
-                <span className="font-bold text-emerald-950 block">
-                  ✓ رصيد الإجازات السنوية: احتساب تلقائي نزل في النظام بمعدل (2.5 يوم/شهر) بدءاً من المباشرة
-                </span>
+            {/* Custody Items */}
+            <div className="pt-4 border-t border-slate-200">
+              <label className="block text-xs font-semibold text-slate-500 mb-2">العهد والتجهيزات الرسمية المسلمة للموظف</label>
+              <div className="flex flex-wrap gap-2 pt-1">
+                {(employee.custodyItems || [
+                  'لاب توب محمول / جهاز كمبيوتر',
+                  'بريد إلكتروني رسمي (@company.com)',
+                  'بطاقة وبصمة بوابات المبنى'
+                ]).map((item: string, idx: number) => (
+                  <span key={idx} className="bg-slate-50 border border-slate-200 px-3 py-1 rounded-lg text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <span className="text-emerald-600">✓</span>
+                    <span>{item}</span>
+                  </span>
+                ))}
               </div>
             </div>
           </div>
@@ -952,9 +1100,9 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
               />
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-2">
               
-                            <EditableSelect
+              <EditableSelect
                 label="نوع العقد (Contract Type)"
                 value={employee.contractType || 'محدد المدة'}
                 onChange={(val) => handleFieldChange('contractType', val)}
@@ -962,7 +1110,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
                 options={[{ value: "محدد المدة", label: "محدد المدة (Fixed-Term)" }, { value: "غير محدد المدة", label: "غير محدد المدة (Indefinite)" }, { value: "عقد تدريب / تأهيل", label: "عقد تدريب / تأهيل" }]}
               />
 
-                            <EditableSelect
+              <EditableSelect
                 label="حالة العقد في النظام (Status)"
                 value={employee.contractStatus || 'ساري'}
                 onChange={(val) => handleFieldChange('contractStatus', val)}
@@ -970,7 +1118,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
                 options={[{ value: "ساري", label: "ساري (Running / Active)" }, { value: "قيد التجديد", label: "قيد التجديد (To Renew)" }, { value: "فترة تجربة", label: "فترة تجربة (Probation)" }, { value: "منتهي", label: "منتهي (Expired)" }]}
               />
 
-                            <EditableField
+              <EditableField
                 label="رقم البصمة البيومترية (ZKTeco PIN)"
                 value={employee.pin || employee.badgeId || employee.id || ''}
                 onChange={(val) => handleFieldChange('pin', val)}
@@ -979,7 +1127,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
                 placeholder="101"
               />
 
-                            <EditableSelect
+              <EditableSelect
                 label="الخضوع للتأمينات الاجتماعية (PIFSS)"
                 value={employee.pifssStatus || ((employee.nationality || '').includes('كويت') ? 'subscribed' : 'exempt')}
                 onChange={(val) => handleFieldChange('pifssStatus', val)}
@@ -987,55 +1135,36 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
                 options={[{ value: "subscribed", label: "مشترك كويتي - خاضع للتأمينات (مكافأة = 0 د.ك)" }, { value: "exempt", label: "غير كويتي - خاضع لمكافأة نهاية الخدمة (المادة 51)" }]}
               />
 
-              <div className="bg-emerald-50/60 p-3 rounded-xl border border-emerald-200">
-                <label className="block text-emerald-900 font-bold mb-1">صافي رصيد الإجازات المتاح (Available Leave Balance)</label>
-                <input
-                  type="text"
-                  readOnly={true}
-                  value={`${calculatedBalance} يوم`}
-                  className="w-full border border-emerald-300 rounded-lg p-2 font-mono font-black text-emerald-800 bg-white cursor-not-allowed focus:outline-none"
-                  title="الرصيد المتاح المحسوب تلقائياً بالربط مع نظام الإجازات وقانون العمل الكويتي"
-                />
+              <div className="py-1.5">
+                <label className="block text-xs font-semibold text-emerald-800 mb-1">صافي رصيد الإجازات المتاح (Available Balance)</label>
+                <div className="font-mono font-black text-emerald-700 text-sm border-b border-emerald-300 pb-1">
+                  {calculatedBalance} يوم
+                </div>
               </div>
 
-              <div className="bg-slate-50/50 p-3 rounded-xl border border-slate-200/80">
-                <label className="block text-slate-600 font-bold mb-1">الرصيد المرحّل من 2025 (Carried-Over Balance)</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.5"
-                  readOnly={true}
-                  value={employee.carriedOverLeave2025 ?? employee.carriedOverBalance ?? employee.openingBalance ?? 0}
-                  className="w-full border border-slate-200 rounded-lg p-2 font-mono font-bold text-slate-500 bg-slate-100 cursor-not-allowed focus:outline-none"
-                  placeholder="0.0"
-                  title="تُدار وتُخصّص هذه الأرصدة تلقائياً عبر نظام الإجازات والغياب"
-                />
+              <div className="py-1.5">
+                <label className="block text-xs font-semibold text-slate-500 mb-1">الرصيد المرحّل من 2025</label>
+                <div className="font-mono font-bold text-slate-800 text-sm border-b border-slate-200/70 pb-1">
+                  {(employee.carriedOverLeave2025 ?? employee.carriedOverBalance ?? employee.openingBalance ?? 0)} يوم
+                </div>
               </div>
 
-              <div className="bg-slate-50/50 p-3 rounded-xl border border-slate-200/80">
-                <label className="block text-slate-600 font-bold mb-1">تاريخ بداية العقد الحالي (YYYY-MM-DD)</label>
-                <input
-                  type="date"
-                  readOnly={true}
-                  value={employee.contractStartDate ? employee.contractStartDate.slice(0, 10) : ''}
-                  className="w-full border border-slate-200 rounded-lg p-2 font-mono font-bold text-slate-500 bg-slate-100 cursor-not-allowed focus:outline-none"
-                  title="يُسحب تلقائياً من عقد العمل النشط للموظف"
-                />
+              <div className="py-1.5">
+                <label className="block text-xs font-semibold text-slate-500 mb-1">تاريخ بداية العقد الحالي</label>
+                <div className="font-mono font-bold text-slate-800 text-sm border-b border-slate-200/70 pb-1">
+                  {employee.contractStartDate ? employee.contractStartDate.slice(0, 10) : '—'}
+                </div>
               </div>
 
-              <div className="bg-slate-50/50 p-3 rounded-xl border border-slate-200/80">
-                <label className="block text-slate-600 font-bold mb-1">تاريخ نهاية العقد الحالي (YYYY-MM-DD)</label>
-                <input
-                  type="date"
-                  readOnly={true}
-                  value={employee.contractEndDate ? employee.contractEndDate.slice(0, 10) : '2027-01-01'}
-                  className="w-full border border-slate-200 rounded-lg p-2 font-mono font-bold text-slate-500 bg-slate-100 cursor-not-allowed focus:outline-none"
-                  title="يُسحب تلقائياً من عقد العمل النشط للموظف"
-                />
+              <div className="py-1.5">
+                <label className="block text-xs font-semibold text-slate-500 mb-1">تاريخ نهاية العقد الحالي</label>
+                <div className="font-mono font-bold text-slate-800 text-sm border-b border-slate-200/70 pb-1">
+                  {employee.contractEndDate ? employee.contractEndDate.slice(0, 10) : 'عقد غير محدد المدة'}
+                </div>
               </div>
 
-              <div className="col-span-full bg-emerald-50/55 border border-emerald-200 rounded-xl p-3.5 flex items-start gap-2.5 text-emerald-900 text-xs font-bold leading-relaxed">
-                <span className="text-base">✈️</span>
+              <div className="col-span-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex items-start gap-2.5 text-slate-700 text-xs font-medium leading-relaxed mt-2">
+                <span className="text-base text-[#714B67]">ℹ️</span>
                 <span>
                   <strong>إدارة أرصدة الإجازات وتواريخ التعاقد:</strong> رصيد الموظف المرحّل يتم تتبعه واحتسابه ديناميكياً بناءً على طلبات الإجازات والتخصيصات (Allocations) المعتمدة في تطبيق <strong>"الإجازات والغياب"</strong>. كما أن تواريخ سريان ونهاية العقد تُستورد تلقائياً من تطبيق <strong>"العقود والرواتب"</strong> لضمان حوكمة البيانات.
                 </span>

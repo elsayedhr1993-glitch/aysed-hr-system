@@ -20,7 +20,13 @@ export interface EmployeeContract {
   joinDate?: string;
   bankName: string;
   iban: string;
-  contractStatus: 'running' | 'expired' | 'draft';
+  contractStatus: 'running' | 'expired' | 'draft' | 'cancelled' | string;
+  status?: string;
+  commencementDate?: string;
+  resignationDate?: string;
+  terminationDate?: string;
+  eosReason?: string;
+  eosSettlementAmount?: number;
   
   // ترقية نموذج عقد العمل: نوع العقد والدوام والجداول المخصصة
   employmentType?: 'full_time' | 'part_time'; // دوام كامل (راتب شهري) أو دوام جزئي / استشاري زائر (أجر الساعة)
@@ -228,14 +234,24 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
                 civil_id_expiry: civilExpiry,
                 jobTitle: emp.jobTitle || 'موظف',
                 department: emp.department || emp.dept || 'العموم',
-                basicSalary: emp.basicSalary || emp.contractSalary || 1000,
-                housingAllowance: emp.housingAllowance || 0,
-                transportAllowance: emp.transportAllowance || 0,
-                medicalAllowance: emp.medicalAllowance || 0,
+                basicSalary: Number(emp.basicSalary !== undefined ? emp.basicSalary : (emp.contractSalary !== undefined ? emp.contractSalary : (emp.salary || 0))),
+                housingAllowance: Number(emp.housingAllowance || 0),
+                transportAllowance: Number(emp.transportAllowance || 0),
+                medicalAllowance: Number(emp.medicalAllowance || 0),
+                otherAllowance: Number(emp.otherAllowances !== undefined ? emp.otherAllowances : (emp.otherAllowance || 0)),
+                otherAllowances: Number(emp.otherAllowances !== undefined ? emp.otherAllowances : (emp.otherAllowance || 0)),
+                allowances: Number(emp.allowances || (Number(emp.housingAllowance || 0) + Number(emp.transportAllowance || 0) + Number(emp.medicalAllowance || 0) + Number(emp.otherAllowances || emp.otherAllowance || 0))),
+                totalSalary: Number(emp.totalSalary || (Number(emp.basicSalary || emp.contractSalary || emp.salary || 0) + Number(emp.allowances || (Number(emp.housingAllowance || 0) + Number(emp.transportAllowance || 0) + Number(emp.medicalAllowance || 0) + Number(emp.otherAllowances || emp.otherAllowance || 0))))),
                 isKuwaiti: Boolean(emp.isKuwaiti),
                 bankName: emp.bankName || 'بيت التمويل الكويتي (KFH)',
                 iban: emp.iban || '',
-                contractStatus: 'running'
+                contractStatus: emp.contractStatus || (['TERMINATED', 'RESIGNED', 'مستقيل', 'منتهي'].includes(emp.status) ? 'expired' : 'running'),
+                status: emp.status || 'ACTIVE',
+                commencementDate: emp.commencementDate || emp.joinDate || '',
+                terminationDate: emp.terminationDate || '',
+                resignationDate: emp.resignationDate || '',
+                eosReason: emp.eosReason || '',
+                eosSettlementAmount: emp.eosSettlementAmount || 0
               };
             });
             setEmployees(mapped);
@@ -272,7 +288,14 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // محرك الحساب الهرمي التلقائي (Compute Sheet)
   const computeAllPayslips = () => {
-    const results: PayslipComputation[] = employees.map(emp => {
+    // استبعاد الموظفين المنتهية خدمتهم أو عقودهم المنتهية من مسير الرواتب النشط
+    const activeEmployees = employees.filter(emp => {
+      const st = String(emp.status || '').toUpperCase();
+      const cst = String(emp.contractStatus || '').toLowerCase();
+      return !['TERMINATED', 'RESIGNED'].includes(st) && cst !== 'expired' && cst !== 'cancelled';
+    });
+
+    const results: PayslipComputation[] = activeEmployees.map(emp => {
       const att = attendance[emp.id] || { employeeId: emp.id, delayMinutes: 0, unpaidAbsenceDays: 0, overtimeHours: 0 };
       const empLoan = loans.find(l => l.employeeId === emp.id);
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { parseFlexibleDate, checkDocumentExpiry } from '../../utils/dateUtils';
 import { 
   Scan, ArrowRight, Clock, UserCircle, Layers, Shield, 
   Settings, Sparkles, Trash2, LogOut, ChevronDown, 
@@ -170,33 +171,39 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
     return () => document.removeEventListener('fullscreenchange', onFsChange);
   }, []);
 
-  // Compute Smart Alerts & Expiries (Civil IDs, Passports, Residencies within 45 days)
+  // Compute Smart Alerts & Expiries (Civil IDs, Passports, Residencies - All expired + within 45 days)
   const expiringAlerts = useMemo(() => {
-    const now = new Date();
     const alerts: any[] = [];
 
     employees.forEach(emp => {
-      const checkExpiry = (dateStr: string | undefined, label: string) => {
+      const checkExpiry = (dateStr: any, label: string) => {
         if (!dateStr) return;
-        const exp = new Date(dateStr);
-        if (isNaN(exp.getTime())) return;
-        const diffDays = Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-        if (diffDays <= 45 && diffDays >= -30) {
+        const status = checkDocumentExpiry(dateStr, label);
+        if (!status.hasDate) return;
+        
+        // التقاط الوثائق المنتهية دائماً أو التي تنتهي خلال 45 يوماً
+        if (status.isExpired || status.isExpiringSoon) {
           alerts.push({
             employeeId: emp.id,
             employeeName: emp.fullNameAr || emp.nameAr || emp.name || 'موظف',
             type: label,
-            date: dateStr,
-            daysRemaining: diffDays,
-            isExpired: diffDays < 0
+            date: status.rawDate,
+            daysRemaining: status.daysRemaining,
+            isExpired: status.isExpired,
+            badgeText: status.badgeText,
           });
         }
       };
 
-      checkExpiry(emp.civilIdExpiry || emp.civilIdExpiryDate, 'البطاقة المدنية');
-      checkExpiry(emp.passportExpiry || emp.passportExpiryDate, 'جواز السفر');
-      checkExpiry(emp.residencyExpiry || emp.residencyExpiryDate, 'الإقامة');
-      checkExpiry(emp.mohLicenseExpiry || emp.mohLicenseExpiryDate, 'ترخيص مزاولة المهنة (MOH)');
+      const civilExp = emp.civilIdExpiry || (emp as any).civilIdExpiryDate || (emp as any).civil_id_expiry || (emp as any).raw_payload?.civilIdExpiry || (emp as any).raw_payload?.civilIdExpiryDate;
+      const passExp = emp.passportExpiry || (emp as any).passportExpiryDate || (emp as any).raw_payload?.passportExpiry;
+      const resExp = emp.residencyExpiry || (emp as any).residencyExpiryDate || (emp as any).raw_payload?.residencyExpiry;
+      const mohExp = emp.mohLicenseExpiry || (emp as any).mohLicenseExpiryDate || (emp as any).raw_payload?.mohLicenseExpiry;
+
+      checkExpiry(civilExp, 'البطاقة المدنية');
+      checkExpiry(passExp, 'جواز السفر');
+      checkExpiry(resExp, 'الإقامة');
+      checkExpiry(mohExp, 'ترخيص مزاولة المهنة (MOH)');
     });
 
     return alerts.sort((a, b) => a.daysRemaining - b.daysRemaining);

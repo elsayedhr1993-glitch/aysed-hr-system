@@ -166,36 +166,110 @@ function MainAppLayout() {
   };
 
   const handleConvertCandidateToEmployee = (cand: Candidate) => {
-    const newEmpId = `emp-${Date.now()}`;
-    addEmployee({
+    const newEmpId = `EMP-${Date.now().toString().slice(-6)}`;
+    const compId = activeCompany?.id || 'comp-super-admin';
+    const compName = activeCompany?.nameAr || (activeCompany as any)?.name || 'المنار كلينك';
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    const newEmployeeRecord = {
       id: newEmpId,
       name: cand.fullName,
       fullNameAr: cand.fullName,
+      nameAr: cand.fullName,
       fullNameEn: '',
+      nameEn: '',
       civilId: '',
       passportNo: '',
       passportExpiry: '',
       residencyExpiry: '',
       jobTitle: cand.appliedPosition,
       department: cand.department || 'الموارد البشرية والإدارة',
+      dept: cand.department || 'الموارد البشرية والإدارة',
       basicSalary: cand.expectedSalary || 600,
       housingAllowance: 100,
       transportAllowance: 50,
       medicalAllowance: 0,
-      status: 'ACTIVE',
-      joinDate: new Date().toISOString().split('T')[0],
+      status: 'ONBOARDING',
+      contractStatus: 'draft',
+      joinDate: todayStr,
       nationality: 'كويتي',
-      companyId: activeCompany?.id || '',
+      companyId: compId,
       phone: cand.phone,
       email: cand.email,
-    } as any);
+      bankName: 'بيت التمويل الكويتي (KFH)',
+      iban: '',
+      notes: `تم التعيين والتحويل من بوابة التوظيف - مرحلة التهيئة والتعاقد الأولية`
+    };
+
+    addEmployee(newEmployeeRecord as any);
+
+    // إنشاء خطة تهيئة واستقبال تلقائية في مسار Onboarding
+    try {
+      const rawPlans = localStorage.getItem('odoo_onboarding_plans_v1');
+      const plansList = rawPlans ? JSON.parse(rawPlans) : [];
+      const newPlan = {
+        id: `ONB-${Date.now().toString().slice(-6)}`,
+        employeeId: newEmpId,
+        employeeName: cand.fullName,
+        jobTitle: cand.appliedPosition,
+        department: cand.department || 'العموم',
+        civilId: 'غير محدد',
+        expectedStartDate: todayStr,
+        templateType: (cand.department || '').includes('أطباء') ? 'medical_specialist' : 'general',
+        status: 'active',
+        progressPercentage: 20,
+        tasks: [
+          { id: 't1', title: 'استلام وتدقيق أوراق التعيين والبطاقة المدنية', category: 'legal', assignedToRole: 'الموارد البشرية', completed: false },
+          { id: 't2', title: 'إعداد وتوقيع عقد العمل الرسمي', category: 'legal', assignedToRole: 'مسؤول العقود', completed: false },
+          { id: 't3', title: 'تسجيل الموظف في البصمة وإصدار البريد الإلكتروني', category: 'it', assignedToRole: 'تقنية المعلومات', completed: false },
+          { id: 't4', title: 'توقيع واعتماد إقرار مباشرة العمل وتحديد الدوام', category: 'legal', assignedToRole: 'مدير الموارد البشرية', completed: false }
+        ],
+        custodyItems: ['بطاقة الهوية', 'بريد إلكتروني'],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      plansList.unshift(newPlan);
+      localStorage.setItem('odoo_onboarding_plans_v1', JSON.stringify(plansList));
+    } catch (e) {
+      console.error('Error auto-creating onboarding plan:', e);
+    }
+
+    // إنشاء سجل مباشرة عمل مبدئي قيد الانتظار (Draft Commencement)
+    try {
+      const commKey = `odoo_commencements_v1_${compId}`;
+      const existingComms = JSON.parse(localStorage.getItem(commKey) || '[]');
+      const newCommRecord = {
+        id: `COM-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`,
+        companyId: compId,
+        companyName: compName,
+        employeeId: newEmpId,
+        employeeName: cand.fullName,
+        civilId: 'غير محدد',
+        jobTitle: cand.appliedPosition,
+        department: cand.department || 'العموم',
+        commencementDate: todayStr,
+        reportingTime: '08:00',
+        workScheduleId: 'SCHEDULE-A',
+        workScheduleName: 'دوام صباحي كادر طبي (8:00 ص - 4:00 م)',
+        supervisorName: 'مدير الموارد البشرية',
+        readinessStatus: 'IN_PREPARATION',
+        isUnderProbation: true,
+        probationDaysTotal: 100,
+        status: 'DRAFT',
+        createdAt: new Date().toISOString()
+      };
+      existingComms.unshift(newCommRecord);
+      localStorage.setItem(commKey, JSON.stringify(existingComms));
+    } catch (e) {
+      console.error('Error auto-creating draft commencement:', e);
+    }
 
     handleSaveCandidate({
       ...cand,
       stage: 'HIRED'
     });
 
-    toast.success(`🎉 مبارك! تم تحويل المرشح (${cand.fullName}) إلى موظف في المنظومة وإضافته لشؤون الموظفين`);
+    toast.success(`🎉 تم نقل المرشح (${cand.fullName}) إلى مرحلة "التهيئة والتعاقد (Onboarding)". بانتظار توثيق وتأكيد مباشرة العمل.`);
   };
 
   // Load documents when activeCompany?.id changes (Cloud-First Single Source of Truth)
@@ -726,7 +800,7 @@ function MainAppLayout() {
         {/* الحالة 2: الموظفون (Employees Directory) */}
         {activeApp === 'employees' && (
           <main className="flex-1 overflow-y-auto w-full">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
               <EmployeesApp {...employeeAppProps} />
             </div>
           </main>
@@ -735,7 +809,7 @@ function MainAppLayout() {
         {/* تطبيق التوظيف والمقابلات الذكية المستقل (Recruitment & ATS) */}
         {activeApp === 'recruitment' && (
           <main className="flex-1 overflow-y-auto w-full">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
               <RecruitmentApp
                 candidates={candidates}
                 activeCompany={activeCompany || {
@@ -760,7 +834,7 @@ function MainAppLayout() {
         {/* تطبيق عقود العمل والبدلات وقانون العمل المستقل (Odoo Contracts & PAM) */}
         {activeApp === 'contracts' && (
           <main className="flex-1 overflow-y-auto w-full">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
               <OdooContractsApp />
             </div>
           </main>
@@ -769,7 +843,7 @@ function MainAppLayout() {
         {/* الحالة 3: الحضور والبصمة (Attendance) */}
         {activeApp === 'attendance' && (
           <main className="flex-1 overflow-y-auto w-full">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
               <OdooAttendanceApp />
             </div>
           </main>
@@ -778,7 +852,7 @@ function MainAppLayout() {
         {/* الحالة 5: الإجازات والغياب (Leaves) */}
         {activeApp === 'leaves' && (
           <main className="flex-1 overflow-y-auto w-full">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
               <OdooTimeOffApp />
             </div>
           </main>
@@ -787,7 +861,7 @@ function MainAppLayout() {
         {/* الحالة 6: الرواتب و WPS (Payroll) */}
         {activeApp === 'payroll' && (
           <main className="flex-1 overflow-y-auto w-full">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
               <OdooPayrollApp />
             </div>
           </main>
@@ -796,7 +870,7 @@ function MainAppLayout() {
         {/* الحالة 7: المعدات والعهد (Equipments & Custody) */}
         {activeApp === 'custody' && (
           <main className="flex-1 overflow-y-auto w-full">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
               <OdooOperationsApp />
             </div>
           </main>
@@ -805,7 +879,7 @@ function MainAppLayout() {
         {/* الحالة 8: أرشيف المستندات (Documents) */}
         {activeApp === 'archive' && (
           <main className="flex-1 overflow-y-auto w-full">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
               <DocumentsApp
                 documents={documents}
                 employees={employees as any}
@@ -823,7 +897,7 @@ function MainAppLayout() {
         {/* الحالة المحورية: الماسح الضوئي الذكي (Scanner App) */}
         {activeApp === 'scanner' && (
           <main className="flex-1 overflow-y-auto w-full">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
               <ScannerApp
                 documents={documents}
                 employees={employees as any}
@@ -840,7 +914,7 @@ function MainAppLayout() {
         {/* الحالة 9: النماذج والخطابات الرسمية (Templates) */}
         {activeApp === 'letters' && (
           <main className="flex-1 overflow-y-auto w-full">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
               <OdooTemplatesApp />
             </div>
           </main>
@@ -849,7 +923,7 @@ function MainAppLayout() {
         {/* الحالة 10: العطلات الرسمية (Kuwait Holidays) */}
         {activeApp === 'holidays' && (
           <main className="flex-1 overflow-y-auto w-full">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
               <OdooPublicHolidaysApp />
             </div>
           </main>
@@ -858,7 +932,7 @@ function MainAppLayout() {
         {/* الحالة 11: لوحة القيادة والتقارير (Reports Dashboard) */}
         {activeApp === 'reports' && (
           <main className="flex-1 overflow-y-auto w-full">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
               <OdooReportsApp />
             </div>
           </main>
@@ -867,7 +941,7 @@ function MainAppLayout() {
         {/* الحالة الطبية: تراخيص وزارة الصحة والكادر الطبي (MOH Medical Hub) */}
         {activeApp === 'moh' && (
           <main className="flex-1 overflow-y-auto w-full">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
               <OdooMohMedicalHubApp />
             </div>
           </main>
@@ -876,7 +950,7 @@ function MainAppLayout() {
         {/* تطبيق سجل الرقابة وتتبع العمليات (Audit Logs & Diagnostic Center) */}
         {activeApp === 'audit' && (
           <main className="flex-1 overflow-y-auto w-full">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
               <AuditLogsApp
                 activeCompany={activeCompany}
                 employees={employees}
@@ -902,7 +976,7 @@ function MainAppLayout() {
         {/* الحالة 13: السوبر أدمن */}
         {activeApp === 'saas_admin' && (
           <main className="flex-1 overflow-y-auto w-full">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
               <SuperAdminDashboard 
                 currentUserEmail={user?.email || 'elsayedhr1993@gmail.com'}
                 onLogout={logout}
@@ -937,7 +1011,7 @@ function MainAppLayout() {
         {/* الحالة 14: أدوات المطور ومحاكي البيانات */}
         {activeApp === 'settings_dev' && (
           <main className="flex-1 overflow-y-auto w-full">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
+            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
               <SettingsApp
                 companies={companies || []}
                 activeCompany={activeCompany}

@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { checkDocumentExpiry } from '../../../utils/dateUtils';
 import { Camera, FileText, CheckCircle2, Shield, Upload, X, ZoomIn, Search, FileSignature, Folder, FolderOpen, RefreshCw, ZoomOut, FolderArchive, Plus, CheckSquare, Square, FileCheck, Eye, Download, Trash2 } from 'lucide-react';
 import { TabDocumentScanner } from '../../TabDocumentScanner';
 import { EditableField } from '../../EditableField';
@@ -135,54 +136,82 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
               
               {/* البطاقة المدنية */}
-              {requiredChecklist.civilIdScan && (
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col justify-between space-y-1.5 shadow-xs">
+              {requiredChecklist.civilIdScan && (() => {
+                const civilDate = employee.civilIdExpiry || employee.civilIdExpiryDate || employee.civil_id_expiry;
+                const status = checkDocumentExpiry(civilDate, 'المدنية');
+                return (
+                <div className={`border rounded-xl p-3 flex flex-col justify-between space-y-1.5 shadow-xs transition ${
+                  status.isExpired 
+                    ? 'bg-rose-50/80 border-rose-300 ring-1 ring-rose-400' 
+                    : status.isExpiringSoon 
+                    ? 'bg-amber-50/80 border-amber-300' 
+                    : 'bg-slate-50 border-slate-200'
+                }`}>
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-slate-800 text-[11px]">🪪 البطاقة المدنية</span>
                     <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
-                      employee.documentFiles?.civilIdScan
+                      status.isExpired
+                        ? 'bg-rose-100 text-rose-800 border border-rose-300 animate-pulse'
+                        : employee.documentFiles?.civilIdScan
                         ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                         : employee.civilIdExpiry
                           ? 'bg-blue-100 text-blue-800 border border-blue-300'
                           : 'bg-amber-100 text-amber-800 border border-amber-300'
                     }`}>
-                      {employee.documentFiles?.civilIdScan ? 'مرفوع ✅' : employee.civilIdExpiry ? 'مسجل 📝' : 'بانتظار الرفع ⏳'}
+                      {status.isExpired ? status.badgeText : employee.documentFiles?.civilIdScan ? 'مرفوع ✅' : employee.civilIdExpiry ? 'مسجل 📝' : 'بانتظار الرفع ⏳'}
                     </span>
                   </div>
                   <div className="text-[11px] font-mono font-semibold text-slate-700 truncate">
                     {employee.civilId || employee.civil_id_number || 'غير مدخلة'}
                   </div>
-                  <div className="text-[10px] text-slate-400 flex justify-between">
+                  <div className="text-[10px] text-slate-400 flex justify-between items-center">
                     <span>الانتهاء:</span>
-                    <span className="font-mono text-slate-700 font-bold">{employee.civilIdExpiry || 'غير محدد'}</span>
+                    <span className={`font-mono font-bold ${status.isExpired ? 'text-rose-700 underline' : 'text-slate-700'}`}>
+                      {civilDate || 'غير محدد'}
+                    </span>
                   </div>
                 </div>
-              )}
+              );
+              })()}
 
               {/* جواز السفر */}
-              {requiredChecklist.passportScan && (
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col justify-between space-y-1.5 shadow-xs">
+              {requiredChecklist.passportScan && (() => {
+                const passDate = employee.passportExpiry || employee.passportExpiryDate;
+                const status = checkDocumentExpiry(passDate, 'جواز السفر');
+                return (
+                <div className={`border rounded-xl p-3 flex flex-col justify-between space-y-1.5 shadow-xs transition ${
+                  status.isExpired 
+                    ? 'bg-rose-50/80 border-rose-300 ring-1 ring-rose-400' 
+                    : status.isExpiringSoon 
+                    ? 'bg-amber-50/80 border-amber-300' 
+                    : 'bg-slate-50 border-slate-200'
+                }`}>
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-slate-800 text-[11px]">✈️ جواز السفر</span>
                     <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
-                      employee.documentFiles?.passportScan
+                      status.isExpired
+                        ? 'bg-rose-100 text-rose-800 border border-rose-300 animate-pulse'
+                        : employee.documentFiles?.passportScan
                         ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                         : employee.passportExpiry
                           ? 'bg-blue-100 text-blue-800 border border-blue-300'
                           : 'bg-amber-100 text-amber-800 border border-amber-300'
                     }`}>
-                      {employee.documentFiles?.passportScan ? 'مرفوع ✅' : employee.passportExpiry ? 'ساري 📝' : 'بانتظار الرفع ⏳'}
+                      {status.isExpired ? status.badgeText : employee.documentFiles?.passportScan ? 'مرفوع ✅' : employee.passportExpiry ? 'ساري 📝' : 'بانتظار الرفع ⏳'}
                     </span>
                   </div>
                   <div className="text-[11px] font-mono font-semibold text-slate-700 truncate">
                     {employee.passportNo || 'غير مدخل'}
                   </div>
-                  <div className="text-[10px] text-slate-400 flex justify-between">
+                  <div className="text-[10px] text-slate-400 flex justify-between items-center">
                     <span>الانتهاء:</span>
-                    <span className="font-mono text-slate-700 font-bold">{employee.passportExpiry || 'غير محدد'}</span>
+                    <span className={`font-mono font-bold ${status.isExpired ? 'text-rose-700 underline' : 'text-slate-700'}`}>
+                      {passDate || 'غير محدد'}
+                    </span>
                   </div>
                 </div>
-              )}
+              );
+              })()}
 
               {/* إذن العمل PAM */}
               {requiredChecklist.pamWorkPermit && (

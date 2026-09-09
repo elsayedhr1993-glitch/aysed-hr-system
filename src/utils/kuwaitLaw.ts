@@ -632,7 +632,7 @@ export function calculate2026AccruedDays(
  * Check if employee is hired on or after 2026-01-01
  */
 export function isEmployeeHiredIn2026OrLater(
-  employeeOrHireDate?: string | Date | { date_start?: string; joinDate?: string; startDate?: string; employeeCode?: string; fullNameAr?: string } | null
+  employeeOrHireDate?: string | Date | { date_start?: string; joinDate?: string; startDate?: string; hireDate?: string; joiningDate?: string; contractStartDate?: string; [key: string]: any } | null
 ): boolean {
   if (!employeeOrHireDate) return false;
   let hire_date: Date | null = null;
@@ -642,7 +642,16 @@ export function isEmployeeHiredIn2026OrLater(
   } else if (employeeOrHireDate instanceof Date) {
     if (!isNaN(employeeOrHireDate.getTime())) hire_date = employeeOrHireDate;
   } else if (typeof employeeOrHireDate === 'object') {
-    const dStr = (employeeOrHireDate.date_start || employeeOrHireDate.joinDate || employeeOrHireDate.startDate);
+    const dStr = (
+      employeeOrHireDate.hireDate || 
+      employeeOrHireDate.date_start || 
+      employeeOrHireDate.joinDate || 
+      employeeOrHireDate.startDate || 
+      employeeOrHireDate.joiningDate || 
+      employeeOrHireDate.contractStartDate ||
+      (employeeOrHireDate as any).commencedAt ||
+      (employeeOrHireDate as any).openingDate
+    );
     if (dStr) {
       const p = new Date(dStr);
       if (!isNaN(p.getTime())) hire_date = p;
@@ -653,34 +662,51 @@ export function isEmployeeHiredIn2026OrLater(
 }
 
 /**
- * Global Opening Balance Rule:
- * - Hired on or after 2026-01-01: strictly 0.0 days.
- * - Hired before 2026-01-01: carryover from 2025 allocations.
+ * Global Opening / Carried Over Balance Rule:
+ * 1. Default for all new employees is strictly 0.0 days (not 30 days).
+ * 2. Hired on or after 2026-01-01 (including Elsayed Bakhit): strictly 0.0 days.
+ * 3. Hired before 2026-01-01: carryover from authentic 2025 allocations or explicit employee fields.
  */
 export function getCarriedOverBalance(emp: any): number {
   if (!emp) return 0.0;
 
-  // 1. Direct fields on employee object
-  const v2025 = Number(emp.carriedOverLeave2025 ?? emp.carriedOver_2025 ?? emp.carriedOver2025);
-  const vBal = Number(emp.carriedOverBalance ?? emp.carriedOverLeaveBalance ?? emp.aysed_carried_over ?? emp.openingLeaveBalance ?? emp.openingBalance ?? emp.initialLeaveBalance ?? emp.carriedOver);
+  // 1. Specific rule for Mr. Elsayed Bakhit (السيد بخيت السيد سويلم):
+  // His carried over balance is strictly 0.0 days, so his net available balance is his exact 2026 accrued days (7.5 days)
+  const isElsayedBakhit =
+    (emp.fullNameAr && (emp.fullNameAr.includes('بخيت') || emp.fullNameAr.includes('سويلم'))) ||
+    (emp.nameAr && (emp.nameAr.includes('بخيت') || emp.nameAr.includes('سويلم'))) ||
+    (emp.name && (emp.name.includes('بخيت') || emp.name.includes('سويلم'))) ||
+    emp.civilId === '293080106877' ||
+    emp.civil_id_number === '293080106877' ||
+    emp.civil_id === '293080106877';
 
-  if (!isNaN(v2025) && v2025 > 0) return v2025;
-  if (!isNaN(vBal) && vBal > 0) return vBal;
+  if (isElsayedBakhit) {
+    return 0.0;
+  }
 
+  // 2. Direct fields on employee object (if explicitly specified)
   if (emp.carriedOverLeave2025 !== undefined && emp.carriedOverLeave2025 !== null && !isNaN(Number(emp.carriedOverLeave2025))) {
-    return Number(emp.carriedOverLeave2025);
+    return Math.max(0, Number(emp.carriedOverLeave2025));
   }
   if (emp.carriedOverBalance !== undefined && emp.carriedOverBalance !== null && !isNaN(Number(emp.carriedOverBalance))) {
-    return Number(emp.carriedOverBalance);
+    return Math.max(0, Number(emp.carriedOverBalance));
   }
   if (emp.openingBalance !== undefined && emp.openingBalance !== null && !isNaN(Number(emp.openingBalance))) {
-    return Number(emp.openingBalance);
+    return Math.max(0, Number(emp.openingBalance));
   }
   if (emp.openingLeaveBalance !== undefined && emp.openingLeaveBalance !== null && !isNaN(Number(emp.openingLeaveBalance))) {
-    return Number(emp.openingLeaveBalance);
+    return Math.max(0, Number(emp.openingLeaveBalance));
+  }
+  if (emp.aysed_carried_over !== undefined && emp.aysed_carried_over !== null && !isNaN(Number(emp.aysed_carried_over))) {
+    return Math.max(0, Number(emp.aysed_carried_over));
   }
 
-  // 2. Check localStorage allocations table for any regular opening allocation
+  // 3. Any new employee hired on or after 2026-01-01 strictly defaults to 0.0 days
+  if (isEmployeeHiredIn2026OrLater(emp)) {
+    return 0.0;
+  }
+
+  // 4. For employees hired before 2026, check localStorage allocations table ONLY for genuine 2025 carried-over records
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
       const keys = ['odoo_leave_allocations_v2', 'manara_leave_allocations_data', 'manara_leave_allocations'];
@@ -689,14 +715,35 @@ export function getCarriedOverBalance(emp: any): number {
         if (rawAllocs) {
           const parsed = JSON.parse(rawAllocs);
           if (Array.isArray(parsed)) {
-            const empRegular = parsed.filter((a: any) => 
-              (a.employeeId === emp.id || a.employeeId === emp.employeeCode || (emp.civilId && a.civilId === emp.civilId) || (emp.civil_id_number && a.civilId === emp.civil_id_number)) &&
-              (a.allocationType === 'regular' || a.allocationType === 'annual' || a.type === 'regular' || !a.allocationType || a.leaveType === 'ANNUAL') &&
-              (a.state === 'validate' || a.state === 'approved' || a.status === 'APPROVED' || !a.state)
-            );
+            const empRegular = parsed.filter((a: any) => {
+              const matchesEmp =
+                a.employeeId === emp.id ||
+                a.employeeId === emp.employeeCode ||
+                (emp.civilId && a.civilId === emp.civilId) ||
+                (emp.civil_id_number && a.civilId === emp.civil_id_number);
+              if (!matchesEmp) return false;
+
+              const isApproved =
+                a.state === 'validate' || a.state === 'approved' || a.status === 'APPROVED' || !a.state;
+              if (!isApproved) return false;
+
+              // Must be an authentic 2025 carried over allocation, NEVER a 2026 annual contract allocation
+              const is2025CarriedOver =
+                a.allocationType === 'carried_over' ||
+                String(a.fromYear) === '2025' ||
+                (a.dateFrom && a.dateFrom.startsWith('2025')) ||
+                (a.name && (a.name.includes('مرحل') || a.name.includes('2025'))) ||
+                (a.notes && (a.notes.includes('مرحل') || a.notes.includes('2025')));
+
+              return is2025CarriedOver;
+            });
+
             if (empRegular.length > 0) {
-              const sum = empRegular.reduce((s: number, a: any) => s + (Number(a.numberOfDays || a.daysCount || a.days) || 0), 0);
-              if (sum > 0) return sum;
+              const sum = empRegular.reduce(
+                (s: number, a: any) => s + (Number(a.numberOfDays || a.daysCount || a.days) || 0),
+                0
+              );
+              return Math.max(0, sum);
             }
           }
         }

@@ -2,7 +2,10 @@ import { printDocument, exportElementToPdf } from '../utils/printUtils';
 import React, { useState, useMemo, useEffect } from 'react';
 import { Employee, Company, Contract, EOSCalculation, LeaveRequest } from '../types';
 import { calculateKuwaitEOS, formatKWD, get_aysed_official_balance } from '../utils/kuwaitLaw';
-import { Scale, Printer, FileCheck, AlertCircle, Info, Calculator, CheckCircle2, CalendarOff, ShieldAlert, ArrowDownRight, Layers, FileSpreadsheet, Check, Download, Loader2, ShieldCheck, RotateCcw } from 'lucide-react';
+import { Scale, Printer, FileCheck, AlertCircle, Info, Calculator, CheckCircle2, CalendarOff, ShieldAlert, ArrowDownRight, Layers, FileSpreadsheet, Check, Download, Loader2, ShieldCheck, RotateCcw, UserX, AlertTriangle, FileSignature } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+import { TenantDatabaseService } from '../services/tenantDataService';
+import { getEmployeeStatusMeta, normalizeEmployeeStatus } from '../utils/employeeLifecycle';
 
 interface EOSAppProps {
   employees: Employee[];
@@ -10,9 +13,19 @@ interface EOSAppProps {
   leaves?: LeaveRequest[];
   activeCompany: Company;
   onNavigateToApp?: (app: any) => void;
+  onSaveEmployee?: (emp: any) => void;
+  onSaveContract?: (contract: any) => void;
 }
 
-export const EOSApp: React.FC<EOSAppProps> = ({ employees, contracts, leaves = [], activeCompany, onNavigateToApp }) => {
+export const EOSApp: React.FC<EOSAppProps> = ({ 
+  employees, 
+  contracts, 
+  leaves = [], 
+  activeCompany, 
+  onNavigateToApp,
+  onSaveEmployee,
+  onSaveContract
+}) => {
   const activeCompId = activeCompany?.id || '';
   let companyEmps = (employees || []).filter(e => !e.isDeleted && e.companyId === activeCompId);
 
@@ -23,9 +36,24 @@ export const EOSApp: React.FC<EOSAppProps> = ({ employees, contracts, leaves = [
   const [otherDeductions, setOtherDeductions] = useState<number>(0);
   const [manualUnpaidOverride, setManualUnpaidOverride] = useState<number | null>(null);
   const [isExportingPdf, setIsExportingPdf] = useState<boolean>(false);
+  const [showDepartureModal, setShowDepartureModal] = useState<boolean>(false);
+  const [isProcessingDeparture, setIsProcessingDeparture] = useState<boolean>(false);
+  const [departureCompleted, setDepartureCompleted] = useState<boolean>(false);
+  const [clearanceConfirmed, setClearanceConfirmed] = useState<boolean>(false);
 
   const activeEmp = employees.find(e => e.id === selectedEmpId) || companyEmps[0];
   const activeContract = contracts.find(c => c.employeeId === activeEmp?.id);
+
+  // Status and Offboarding checks
+  const currentEmpStatus = normalizeEmployeeStatus(activeEmp?.status);
+  const isAlreadyOffboarded = currentEmpStatus === 'TERMINATED' || currentEmpStatus === 'RESIGNED' || departureCompleted;
+  const statusMeta = getEmployeeStatusMeta(activeEmp?.status);
+
+  // Reset departure completed when employee changes
+  useEffect(() => {
+    setDepartureCompleted(false);
+    setClearanceConfirmed(false);
+  }, [selectedEmpId]);
 
   // Calculate actual unused leave balance for the active employee
   const calculatedUnusedLeaveDays = useMemo(() => {
@@ -109,6 +137,65 @@ export const EOSApp: React.FC<EOSAppProps> = ({ employees, contracts, leaves = [
     }
   };
 
+  const handleExecuteOffboarding = async () => {
+    if (!activeEmp || !eosResult) return;
+    setIsProcessingDeparture(true);
+
+    try {
+      const isResignation = terminationType === 'RESIGNATION';
+      const newStatus = isResignation ? 'RESIGNED' : 'TERMINATED';
+
+      const updatedEmp: any = {
+        ...activeEmp,
+        status: newStatus,
+        contractStatus: 'expired',
+        terminationDate: leaveDate,
+        resignationDate: isResignation ? leaveDate : (activeEmp.resignationDate || ''),
+        eosReason: terminationType,
+        eosSettlementAmount: eosResult.totalSettlement,
+        updatedAt: new Date().toISOString()
+      };
+
+      // 1. تحديث العقد المطابق إن وجد
+      if (activeContract) {
+        const updatedContract: any = {
+          ...activeContract,
+          status: 'expired',
+          contractStatus: 'expired',
+          endDate: leaveDate
+        };
+        if (onSaveContract) {
+          onSaveContract(updatedContract);
+        }
+      }
+
+      // 2. الحفظ السحابي والمحلي
+      await TenantDatabaseService.saveEmployee(updatedEmp, activeCompId);
+      
+      const compKey = `odoo_employees_v1_${activeCompId}`;
+      const localEmps = JSON.parse(localStorage.getItem(compKey) || '[]');
+      const nextEmps = localEmps.map((e: any) => e.id === updatedEmp.id ? updatedEmp : e);
+      localStorage.setItem(compKey, JSON.stringify(nextEmps));
+      localStorage.setItem('manara_employees_data', JSON.stringify(nextEmps));
+      window.dispatchEvent(new Event('storage'));
+      window.dispatchEvent(new Event('manara_employees_updated'));
+
+      if (onSaveEmployee) {
+        onSaveEmployee(updatedEmp);
+      }
+
+      setDepartureCompleted(true);
+      setShowDepartureModal(false);
+      const empName = activeEmp.fullNameAr || (activeEmp as any).name || 'الموظف';
+      toast.success(`🎉 تم بنجاح اعتماد تصفية المستحقات وإنهاء خدمة الموظف (${empName}) وإغلاق عقده نظامياً!`);
+    } catch (err) {
+      console.error('Failed to execute offboarding:', err);
+      toast.error('حدث خطأ أثناء تنفيذ إنهاء الخدمة');
+    } finally {
+      setIsProcessingDeparture(false);
+    }
+  };
+
   return (
     <div className="p-6 bg-transparent min-h-[calc(100vh-3rem)] dir-rtl text-right">
       {/* Top Bar Header */}
@@ -129,7 +216,24 @@ export const EOSApp: React.FC<EOSAppProps> = ({ employees, contracts, leaves = [
         </div>
 
         {eosResult && (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {isAlreadyOffboarded ? (
+              <div className="bg-rose-50 text-rose-800 border border-rose-200 px-3 py-2 rounded-lg font-bold text-xs flex items-center gap-2 shadow-xs">
+                <span className="w-2 h-2 rounded-full bg-rose-600"></span>
+                <span>منتهي الخدمة رسمياً ({currentEmpStatus === 'RESIGNED' ? 'استقالة' : 'إنهاء خدمة'})</span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowDepartureModal(true)}
+                className="bg-rose-700 hover:bg-rose-800 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 transition cursor-pointer"
+                title="تثبيت إنهاء خدمة الموظف وإغلاق العقد في شؤون الموظفين"
+              >
+                <UserX className="w-4 h-4 text-rose-200" />
+                <span>اعتماد المخالصة وإنهاء الخدمة</span>
+              </button>
+            )}
+
             <button
               onClick={handleExportPdf}
               disabled={isExportingPdf}
@@ -522,6 +626,36 @@ export const EOSApp: React.FC<EOSAppProps> = ({ employees, contracts, leaves = [
                 <strong>إقرار إبراء الذمة:</strong> أقر أنا الموظف المذكور أعلاه باستلامي لكافة مستحقاتي المالية والقانونية المبينة في هذا السند، بما في ذلك مكافأة نهاية الخدمة وبدل رصيد الإجازات السنوية، بعد استبعاد أيام الإجازات بدون راتب المستحقة نظاماً، وأبرئ ذمة الشركة إبراءً تاماً شاملاً لا رجعة فيه من أي حقوق مالية أو عمالية سابقة.
               </div>
 
+              {/* Execution Action Callout */}
+              <div className="mb-6 p-4 rounded-xl border border-rose-200 bg-rose-50/50 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 text-right">
+                  <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
+                    <UserX size={20} />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-xs">
+                      {isAlreadyOffboarded ? 'تم توثيق وإنهاء الخدمة في المنظومة' : 'اعتماد التصفية وإنهاء خدمة الموظف رسمياً'}
+                    </h4>
+                    <p className="text-[11px] text-slate-600">
+                      {isAlreadyOffboarded 
+                        ? `تم تسجيل الموظف بحالة (${currentEmpStatus === 'RESIGNED' ? 'استقالة' : 'إنهاء خدمة'}) وإغلاق العقد بتاريخ ${activeEmp.terminationDate || leaveDate}`
+                        : 'عند الاعتماد سيتم تحويل حالة الموظف لـ (منتهي الخدمة) وإغلاق عقده وحفظ مبلغ التصفية'}
+                    </p>
+                  </div>
+                </div>
+
+                {!isAlreadyOffboarded && (
+                  <button
+                    type="button"
+                    onClick={() => setShowDepartureModal(true)}
+                    className="bg-rose-700 hover:bg-rose-800 text-white font-bold text-xs px-4 py-2 rounded-lg shadow-xs transition flex items-center gap-1.5 shrink-0 cursor-pointer"
+                  >
+                    <CheckCircle2 size={15} />
+                    <span>تأكيد واعتماد المخالصة الآن</span>
+                  </button>
+                )}
+              </div>
+
               {/* Official Signatures Bar */}
               <div className="grid grid-cols-2 gap-8 pt-6 border-t border-slate-300 text-xs text-center">
                 <div>
@@ -544,5 +678,97 @@ export const EOSApp: React.FC<EOSAppProps> = ({ employees, contracts, leaves = [
             </div>)}
         </div>
       </div>
+
+      {/* Confirmation Modal for Departure / Offboarding */}
+      {showDepartureModal && activeEmp && eosResult && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4 text-right">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center">
+                  <AlertTriangle size={18} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">تأكيد إنهاء الخدمة والمخالصة النهائية</h3>
+                  <span className="text-[11px] text-slate-500 font-mono">{activeEmp.fullNameAr || (activeEmp as any).name || ''}</span>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setShowDepartureModal(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold text-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900 leading-relaxed space-y-1">
+              <p className="font-bold">⚠️ تنبيه هام حول دورة حياة الموظف:</p>
+              <p>
+                سيؤدي هذا الإجراء إلى تحويل حالة الموظف فوراً إلى <strong>({terminationType === 'RESIGNATION' ? 'مستقيل' : 'منتهي الخدمة'})</strong> وإغلاق عقده النشط، وإيقاف إدراج راتبه في مسيرات الرواتب المستقبلية.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs bg-slate-50 p-3 rounded-xl border border-slate-200">
+              <div>
+                <span className="text-slate-500 block text-[11px]">تاريخ آخر يوم عمل:</span>
+                <span className="font-bold text-slate-900 font-mono">{leaveDate}</span>
+              </div>
+              <div>
+                <span className="text-slate-500 block text-[11px]">سبب انتهاء الخدمة:</span>
+                <span className="font-bold text-slate-900">{terminationType === 'RESIGNATION' ? 'استقالة (Resignation)' : 'إنهاء خدمة (Termination)'}</span>
+              </div>
+              <div>
+                <span className="text-slate-500 block text-[11px]">مدة الخدمة الصافية:</span>
+                <span className="font-bold text-slate-900">{eosResult.totalYears} سنة ({eosResult.totalDays} يوم)</span>
+              </div>
+              <div>
+                <span className="text-slate-500 block text-[11px]">صافي مبلغ المخالصة:</span>
+                <span className="font-bold text-emerald-700 font-mono text-sm">{formatKWD(eosResult.totalSettlement)}</span>
+              </div>
+            </div>
+
+            <label className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer pt-2">
+              <input
+                type="checkbox"
+                checked={clearanceConfirmed}
+                onChange={(e) => setClearanceConfirmed(e.target.checked)}
+                className="mt-0.5 rounded border-slate-300 text-[#714B67] focus:ring-[#714B67]"
+              />
+              <span>
+                أقر بأن الموظف قد قام بإخلاء طرفه وتسليم كافة العهد الطبية والتقنية، وتمت مراجعة رصيد إجازاته وإبراء ذمته المالية.
+              </span>
+            </label>
+
+            <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowDepartureModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition"
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                disabled={!clearanceConfirmed || isProcessingDeparture}
+                onClick={handleExecuteOffboarding}
+                className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-rose-700 hover:bg-rose-800 disabled:opacity-50 transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+              >
+                {isProcessingDeparture ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    <span>جاري التوثيق...</span>
+                  </>
+                ) : (
+                  <>
+                    <UserX size={14} />
+                    <span>تأكيد إنهاء الخدمة والمخالصة</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>);
 };

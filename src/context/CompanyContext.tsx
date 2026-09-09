@@ -115,6 +115,62 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return null;
   });
 
+  // Automatically listen to auth session or active company changes in localStorage
+  useEffect(() => {
+    const syncFromStorage = () => {
+      try {
+        const authUserRaw = localStorage.getItem('aysed_auth_user');
+        const isImpersonatingFlag = localStorage.getItem('aysed_is_impersonating') === 'true';
+        const savedImpersonated = localStorage.getItem('aysed_impersonated_comp');
+
+        if (isImpersonatingFlag && savedImpersonated) {
+          const parsedComp = JSON.parse(savedImpersonated);
+          setIsImpersonating(true);
+          setImpersonatedCompany(parsedComp);
+          return;
+        }
+
+        if (authUserRaw) {
+          const authUser = JSON.parse(authUserRaw);
+          if (authUser && authUser.role !== 'SUPER_ADMIN' && (authUser.companyId || authUser.name)) {
+            // Tenant Company user logged in
+            const compName = authUser.name || 'شركة المنشأة المستقلة';
+            const compId = authUser.companyId || getDeterministicCompanyId(compName);
+            const tenantComp: Company = {
+              id: compId,
+              nameAr: compName,
+              nameEn: compName,
+              name: compName,
+              crNumber: '301122',
+              pifssNumber: 'KUW-554433',
+              commercialRegNo: '301122',
+              civilIdCompany: '203344',
+              bankName: 'بنك الكويت الوطني (NBK)',
+              iban: 'KW12NBOK000000000000301122',
+              wsiCode: 'WSI-TENANT',
+              currency: 'KWD',
+              status: 'active'
+            };
+            setIsImpersonating(true);
+            setImpersonatedCompany(tenantComp);
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('Error syncing company context from storage:', e);
+      }
+    };
+
+    syncFromStorage();
+    window.addEventListener('storage', syncFromStorage);
+    window.addEventListener('aysed_auth_changed', syncFromStorage);
+
+    return () => {
+      window.removeEventListener('storage', syncFromStorage);
+      window.removeEventListener('aysed_auth_changed', syncFromStorage);
+    };
+  }, []);
+
   // Active company: if impersonating, use impersonatedCompany, else use masterCompany
   const rawActive = isImpersonating && impersonatedCompany ? impersonatedCompany : masterCompany;
   const activeCompany = { ...rawActive, id: getDeterministicCompanyId(rawActive) };

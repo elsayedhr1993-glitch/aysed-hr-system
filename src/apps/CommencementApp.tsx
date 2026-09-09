@@ -361,6 +361,8 @@ export const CommencementApp: React.FC<CommencementAppProps> = ({
         ...emp,
         status: 'ACTIVE',
         joinDate: emp.joinDate || comm.actualJoiningDate,
+        commencementDate: comm.actualJoiningDate,
+        commencementStatus: 'COMPLETED',
         resourceCalendarId: comm.resourceCalendarId || 'cal-std-8h-6d',
         workingSchedule: comm.workingSchedule || 'الدوام الصباحي القياسي - 48 ساعة (08:00 - 16:00)',
         workHoursType: comm.workHoursType || 'STANDARD',
@@ -379,6 +381,7 @@ export const CommencementApp: React.FC<CommencementAppProps> = ({
     if (empContract && onSaveContract) {
       const updatedContract: Contract = {
         ...empContract,
+        status: 'RUNNING',
         startDate: empContract.startDate || comm.actualJoiningDate,
         contractType: comm.contractType,
         resourceCalendarId: comm.resourceCalendarId || 'cal-std-8h-6d',

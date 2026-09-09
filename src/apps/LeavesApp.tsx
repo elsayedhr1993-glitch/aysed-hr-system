@@ -1007,7 +1007,7 @@ export const LeavesApp: React.FC<LeavesAppProps> = ({  autoOpenNewLeaveForEmpId,
                     companyId: activeCompany?.id || '',
                     allocationType: 'regular',
                     leaveType: 'ANNUAL',
-                    numberOfDays: 30,
+                    numberOfDays: 0,
                     dateFrom: new Date().toISOString().split('T')[0],
                     name: 'تخصيص رصيد إجازة سنوية جديد',
                   });
@@ -1245,7 +1245,7 @@ export const LeavesApp: React.FC<LeavesAppProps> = ({  autoOpenNewLeaveForEmpId,
                                     companyId: emp.companyId || activeCompany?.id || '',
                                     allocationType: 'regular',
                                     leaveType: 'ANNUAL',
-                                    numberOfDays: currentOpening > 0 ? currentOpening : 15,
+                                    numberOfDays: currentOpening > 0 ? currentOpening : 0,
                                     dateFrom: '2025-12-31',
                                     name: 'رصيد إجازات مرحل من 2025 (Carried-Over Balance)',
                                     notes: 'رصيد مرحل معتمد من نهاية عام 2025',
@@ -1537,7 +1537,7 @@ export const LeavesApp: React.FC<LeavesAppProps> = ({  autoOpenNewLeaveForEmpId,
                         allocationType: 'regular',
                         name: 'رصيد إجازات مرحل من 2025 (Carried-Over Balance)',
                         dateFrom: '2025-12-31',
-                        numberOfDays: currentBal > 0 ? currentBal : (editingAllocation.numberOfDays || 15),
+                        numberOfDays: currentBal > 0 ? currentBal : (editingAllocation.numberOfDays || 0),
                         notes: 'رصيد مرحل معتمد من نهاية عام 2025'
                       });
                     }}
@@ -1630,7 +1630,7 @@ export const LeavesApp: React.FC<LeavesAppProps> = ({  autoOpenNewLeaveForEmpId,
                     setEditingAllocation({ 
                       ...editingAllocation, 
                       employeeId: empId,
-                      numberOfDays: editingAllocation.allocationType === 'regular' && openingDays > 0 ? openingDays : (editingAllocation.numberOfDays ?? 30)
+                      numberOfDays: editingAllocation.allocationType === 'regular' && openingDays > 0 ? openingDays : (editingAllocation.numberOfDays ?? 0)
                     });
                   }}
                   className="w-full border border-slate-300 rounded-xl p-2.5 text-xs font-bold text-slate-800 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#714B67] outline-none"
@@ -1679,7 +1679,7 @@ export const LeavesApp: React.FC<LeavesAppProps> = ({  autoOpenNewLeaveForEmpId,
                     step="0.5"
                     value={editingAllocation.numberOfDays ?? ''}
                     onChange={e => setEditingAllocation({ ...editingAllocation, numberOfDays: parseFloat(e.target.value) || 0 })}
-                    placeholder="30"
+                    placeholder="0"
                     className="w-full border border-slate-300 rounded-xl p-2.5 text-xs font-mono font-bold bg-slate-50"
                   />
                 </div>

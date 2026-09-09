@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
 import { getPersistentData, MANARA_STORAGE_KEYS } from '../utils/persistentStorage';
+import { checkDocumentExpiry } from '../utils/dateUtils';
 
 interface OdooMainDashboardProps {
   onNavigate: (tabId: string) => void;
@@ -80,13 +81,29 @@ export const OdooMainDashboard: React.FC<OdooMainDashboardProps> = ({ onNavigate
     return sum + basic + housing + transport;
   }, 0);
 
-  // Check for genuine document/residency expiry within 30 days
-  const expiringEmployee = companyEmployees.find(e => {
-    const expiry = e.residencyExpiry || e.civilIdExpiry;
-    if (!expiry) return false;
-    const diffDays = Math.ceil((new Date(expiry).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-    return diffDays >= 0 && diffDays <= 30;
-  });
+  // Check for genuine document/residency expiry (expired or within 45 days)
+  const expiringAlert = (() => {
+    for (const e of companyEmployees) {
+      const civilExp = e.civilIdExpiry || (e as any).civilIdExpiryDate || (e as any).civil_id_expiry;
+      const resExp = e.residencyExpiry || (e as any).residencyExpiryDate;
+      const civilStatus = checkDocumentExpiry(civilExp, 'البطاقة المدنية');
+      const resStatus = checkDocumentExpiry(resExp, 'الإقامة');
+      
+      if (civilStatus.isExpired) {
+        return { employee: e, label: 'البطاقة المدنية', status: civilStatus };
+      }
+      if (resStatus.isExpired) {
+        return { employee: e, label: 'الإقامة', status: resStatus };
+      }
+      if (civilStatus.isExpiringSoon) {
+        return { employee: e, label: 'البطاقة المدنية', status: civilStatus };
+      }
+      if (resStatus.isExpiringSoon) {
+        return { employee: e, label: 'الإقامة', status: resStatus };
+      }
+    }
+    return null;
+  })();
 
   // Odoo Enterprise Modules Config
   const apps = [
@@ -224,15 +241,25 @@ export const OdooMainDashboard: React.FC<OdooMainDashboardProps> = ({ onNavigate
       </div>
 
       {/* Dynamic Alerts Bar */}
-      {expiringEmployee ? (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 flex items-center justify-between text-xs text-amber-900 shadow-2xs">
+      {expiringAlert ? (
+        <div className={`border rounded-xl p-3.5 flex items-center justify-between text-xs shadow-2xs ${
+          expiringAlert.status.isExpired
+            ? 'bg-rose-50 border-rose-300 text-rose-950'
+            : 'bg-amber-50 border-amber-200 text-amber-900'
+        }`}>
           <div className="flex items-center gap-2 font-medium">
-            <AlertTriangle className="text-amber-600 w-4 h-4 flex-shrink-0" />
-            <span><strong>تنبيه إداري:</strong> إقامة/بطاقة الموظف ({expiringEmployee.name || expiringEmployee.nameAr}) توشك على الانتهاء بتاريخ ({expiringEmployee.residencyExpiry || expiringEmployee.civilIdExpiry}).</span>
+            <AlertTriangle className={`w-4 h-4 flex-shrink-0 ${expiringAlert.status.isExpired ? 'text-rose-600 animate-bounce' : 'text-amber-600'}`} />
+            <span>
+              <strong>{expiringAlert.status.isExpired ? 'تحذير انتهاء وثيقة:' : 'تنبيه إداري:'}</strong> {expiringAlert.label} للموظف ({expiringAlert.employee.nameAr || expiringAlert.employee.name || 'موظف'}) {expiringAlert.status.badgeText} بتاريخ ({expiringAlert.status.rawDate}).
+            </span>
           </div>
           <button 
             onClick={() => onNavigate('employees')}
-            className="text-xs font-bold text-[#714B67] hover:underline whitespace-nowrap mr-2"
+            className={`text-xs font-bold hover:underline whitespace-nowrap mr-2 px-2.5 py-1 rounded-lg border ${
+              expiringAlert.status.isExpired
+                ? 'bg-rose-600 text-white border-rose-700 shadow-xs'
+                : 'bg-amber-600 text-white border-amber-700'
+            }`}
           >
             مراجعة السجل
           </button>

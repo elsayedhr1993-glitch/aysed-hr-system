@@ -102,9 +102,27 @@ export interface Employee {
   joinDate: string;
   mohLicenseNo?: string; // ترخيص وزارة الصحة
   mohLicenseExpiry?: string;
-  status: 'ACTIVE' | 'ON_LEAVE' | 'TERMINATED' | 'RESIGNED';
+  status: 'ACTIVE' | 'ON_LEAVE' | 'TERMINATED' | 'RESIGNED' | 'ONBOARDING' | 'PROBATION' | 'NOTICE_PERIOD' | 'SUSPENDED' | string;
+  commencementDate?: string; // تاريخ مباشرة العمل الفعلية
+  commencementStatus?: 'PENDING' | 'COMPLETED' | string; // حالة مباشرة العمل
+  probationEndDate?: string;  // تاريخ انتهاء فترة التجربة (100 يوم - المادة 32)
+  resignationDate?: string;   // تاريخ تقديم أو قبول الاستقالة
+  terminationDate?: string;   // تاريخ إنهاء الخدمة / آخر يوم عمل
+  eosReason?: string;         // سبب ترك العمل المعتمد
+  eosSettlementAmount?: number; // إجمالي مبلغ مكافأة نهاية الخدمة والمخالصة
+  contractStatus?: 'running' | 'expired' | 'draft' | 'cancelled' | string;
   bankName: string;
   iban: string;
+  basicSalary?: number;
+  contractSalary?: number;
+  housingAllowance?: number;
+  transportAllowance?: number;
+  medicalAllowance?: number;
+  otherAllowance?: number;
+  otherAllowances?: number;
+  allowances?: number;
+  totalSalary?: number;
+  salary?: number;
   avatarUrl?: string;
   tags: string[];
   notes?: string;

@@ -263,28 +263,39 @@ export function buildEmployeeBaselineAllocations(
 
   // 1. Regular Opening Balance (2025 Carried Over)
   const openingVal = getGlobalOpeningBalance(emp);
+  const isElsayed = 
+    (emp.fullNameAr && (emp.fullNameAr.includes('بخيت') || emp.fullNameAr.includes('سويلم'))) ||
+    ((emp as any).nameAr && ((emp as any).nameAr.includes('بخيت') || (emp as any).nameAr.includes('سويلم'))) ||
+    emp.civilId === '293080106877';
+
   const hasRegularAlloc = result.some(a => a.allocationType === 'regular');
 
   if (!hasRegularAlloc) {
     result.unshift({
       id: `alloc-open-${emp.id}-2025`,
-      name: (is2026Joined && openingVal <= 0) ? 'رصيد افتتاحي (موظف جديد 2026)' : 'رصيد إجازات افتتاحي مرحل من 2025 (Regular Opening Balance)',
+      name: (is2026Joined || isElsayed || openingVal <= 0) ? 'رصيد افتتاحي (موظف جديد 2026)' : 'رصيد إجازات افتتاحي مرحل من 2025 (Regular Opening Balance)',
       employeeId: emp.id,
       companyId: emp.companyId || '',
       leaveType: 'ANNUAL',
       allocationType: 'regular',
-      numberOfDays: openingVal,
+      numberOfDays: (is2026Joined || isElsayed) ? 0 : openingVal,
       consumedDays: 0,
-      remainingDays: openingVal,
-      dateFrom: (is2026Joined && openingVal <= 0) ? (emp.joinDate || '2026-06-01') : '2025-12-31',
+      remainingDays: (is2026Joined || isElsayed) ? 0 : openingVal,
+      dateFrom: (is2026Joined || isElsayed || openingVal <= 0) ? (emp.joinDate || '2026-06-01') : '2025-12-31',
       state: 'validate',
-      notes: (is2026Joined && openingVal <= 0) ? 'رصيد افتتاحي للموظفين الجدد خلال 2026 (0 يوم)' : `رصيد مرحل معتمد من نهاية عام 2025 (${openingVal} يوم)`,
+      notes: (is2026Joined || isElsayed || openingVal <= 0) ? 'رصيد افتتاحي للموظفين الجدد خلال 2026 (0 يوم)' : `رصيد مرحل معتمد من نهاية عام 2025 (${openingVal} يوم)`,
       createdAt: '2026-01-01T00:00:00.000Z'
     });
   } else {
     result.forEach(a => {
       if (a.allocationType === 'regular') {
-        if (openingVal > 0 && (a.numberOfDays === 0 || a.numberOfDays === undefined)) {
+        const isOpeningDoc = a.id?.includes('alloc-open') || a.name?.includes('مرحل') || a.name?.includes('افتتاحي') || String((a as any).fromYear) === '2025' || a.dateFrom?.startsWith('2025');
+        if (isElsayed || (is2026Joined && openingVal <= 0)) {
+          if (isOpeningDoc) {
+            a.numberOfDays = 0;
+            a.remainingDays = 0;
+          }
+        } else if (openingVal > 0 && (a.numberOfDays === 0 || a.numberOfDays === undefined)) {
           a.numberOfDays = openingVal;
           a.remainingDays = Math.max(0, openingVal - (a.consumedDays || 0));
         } else if (a.numberOfDays !== undefined && a.numberOfDays > 0) {

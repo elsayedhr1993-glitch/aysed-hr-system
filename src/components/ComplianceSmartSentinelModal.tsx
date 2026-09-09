@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { parseFlexibleDate, checkDocumentExpiry } from '../utils/dateUtils';
 import { 
   ShieldAlert, ShieldCheck, AlertTriangle, CheckCircle2, Clock, 
   FileText, Users, Building, Banknote, RefreshCw, X, ArrowLeft, 
@@ -34,13 +35,14 @@ export const ComplianceSmartSentinelModal: React.FC<ComplianceSmartSentinelModal
   const totalEmployees = employees.length;
   const totalActive = activeEmployees.length;
   
-  // فحص الإقامات المنتهية أو القريبة من الانتهاء (افتراضية أو حقيقية)
+  // فحص الإقامات والبطاقات المدنية المنتهية أو القريبة من الانتهاء
   const expiringResidencies = activeEmployees.filter(e => {
-    if (!e.civilIdExpiry) return false;
-    const expiry = new Date(e.civilIdExpiry);
-    const today = new Date();
-    const diffDays = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    return diffDays <= 45;
+    const civilExp = e.civilIdExpiry || (e as any).civilIdExpiryDate || (e as any).civil_id_expiry || (e as any).raw_payload?.civilIdExpiry;
+    const resExp = (e as any).residencyExpiry || (e as any).residencyExpiryDate || (e as any).raw_payload?.residencyExpiry;
+    const dateToCheck = civilExp || resExp;
+    if (!dateToCheck) return false;
+    const status = checkDocumentExpiry(dateToCheck);
+    return status.isExpired || status.isExpiringSoon;
   });
 
   // فحص عقود العمل الموثقة
@@ -377,19 +379,35 @@ export const ComplianceSmartSentinelModal: React.FC<ComplianceSmartSentinelModal
               <h3 className="text-sm font-black text-slate-900">متابعة الإقامات وتواريخ انتهاء البطاقات المدنية</h3>
               {expiringResidencies.length === 0 ? (
                 <div className="p-4 bg-emerald-50 text-emerald-800 rounded-xl text-xs font-bold">
-                  لا توجد إقامات منتهية أو حرجة خلال الـ 45 يوماً القادمة. جميع الموظفين في وضع سليم.
+                  لا توجد إقامات أو بطاقات منتهية أو حرجة. جميع الموظفين في وضع قانوني سليم.
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {expiringResidencies.map((emp, idx) => (
-                    <div key={idx} className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs flex items-center justify-between">
-                      <div>
-                        <span className="font-bold text-slate-900">{emp.fullNameAr || (emp as any).name || 'موظف'}</span>
-                        <span className="text-slate-500 mr-2">({emp.civilId || emp.employeeCode})</span>
+                  {expiringResidencies.map((emp, idx) => {
+                    const dateVal = emp.civilIdExpiry || (emp as any).civilIdExpiryDate || (emp as any).residencyExpiry || (emp as any).residencyExpiryDate || '';
+                    const expStatus = checkDocumentExpiry(dateVal, 'البطاقة / الإقامة');
+                    return (
+                      <div key={idx} className={`p-3 border rounded-xl text-xs flex items-center justify-between ${
+                        expStatus.isExpired 
+                          ? 'bg-rose-50/80 border-rose-200 text-rose-950' 
+                          : 'bg-amber-50 border-amber-200'
+                      }`}>
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full ${expStatus.isExpired ? 'bg-rose-600 animate-ping' : 'bg-amber-500'}`}></span>
+                          <div>
+                            <span className="font-bold text-slate-900">{emp.fullNameAr || (emp as any).nameAr || (emp as any).name || 'موظف'}</span>
+                            <span className="text-slate-500 mr-2 font-mono">({emp.civilId || (emp as any).civil_id_number || emp.employeeCode || emp.id})</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono text-slate-600 font-bold">التاريخ: {dateVal}</span>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${expStatus.badgeClass}`}>
+                            {expStatus.badgeText}
+                          </span>
+                        </div>
                       </div>
-                      <span className="font-mono text-amber-700 font-bold">انتهاء: {emp.civilIdExpiry}</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

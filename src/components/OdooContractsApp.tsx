@@ -387,6 +387,49 @@ export const OdooContractsApp: React.FC = () => {
       contractStatus: selectedContract.contractStatus
     });
 
+    // مزامنة فورية مع بيانات الموظف الداخلية في قاعدة البيانات والتخزين المحلي
+    try {
+      const selCnt = selectedContract as any;
+      const empKey = `odoo_employees_v1_${currentCompanyId}`;
+      const savedEmps = localStorage.getItem(empKey);
+      if (savedEmps) {
+        const empList = JSON.parse(savedEmps);
+        const targetEmp = empList.find((e: any) => e.id === selCnt.id || e.id === selCnt.employeeId);
+        if (targetEmp) {
+          const bSal = Number(selCnt.basicSalary || 0);
+          const hAll = Number(selCnt.housingAllowance || 0);
+          const tAll = Number(selCnt.transportAllowance || 0);
+          const mAll = Number(selCnt.medicalAllowance || 0);
+          const oAll = Number(selCnt.otherAllowances || selCnt.otherAllowance || 0);
+          const totAllowances = hAll + tAll + mAll + oAll;
+          const totSal = bSal + totAllowances;
+
+          const updatedEmp = {
+            ...targetEmp,
+            basicSalary: bSal,
+            contractSalary: bSal,
+            housingAllowance: hAll,
+            transportAllowance: tAll,
+            medicalAllowance: mAll,
+            otherAllowance: oAll,
+            otherAllowances: oAll,
+            allowances: totAllowances,
+            totalSalary: totSal,
+            salary: totSal,
+            contractType: selCnt.contractType || targetEmp.contractType,
+            contractStatus: selCnt.contractStatus || targetEmp.contractStatus,
+            contractStartDate: selCnt.startDate || targetEmp.contractStartDate,
+            contractEndDate: selCnt.endDate || targetEmp.contractEndDate,
+          };
+          const nextEmps = empList.map((e: any) => e.id === targetEmp.id ? updatedEmp : e);
+          localStorage.setItem(empKey, JSON.stringify(nextEmps));
+          TenantDatabaseService.saveEmployee(updatedEmp, currentCompanyId);
+        }
+      }
+    } catch (err) {
+      console.error('Error syncing employee salary from contract:', err);
+    }
+
     setIsContractModalOpen(false);
   };
 

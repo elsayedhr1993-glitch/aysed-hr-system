@@ -486,6 +486,8 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
           leaves={scopedLeaves}
           activeCompany={activeCompany}
           onNavigateToApp={(app) => setActiveApp(app)}
+          onSaveEmployee={onSaveEmployee}
+          onSaveContract={handleSaveContract}
         />);
 
     case 'HOLIDAY_WORK':

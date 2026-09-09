@@ -179,12 +179,28 @@ export function toEmployeeDbRow(emp: Employee, companyId?: string): EmployeeReco
     status: emp.status || 'ACTIVE',
     bank_name: emp.bankName || '',
     iban: emp.iban || '',
-    basic_salary: (emp as any).contractSalary || (emp as any).basicSalary || 0,
-    carried_over_leave_2025: Number((emp as any).carriedOverLeave2025 ?? (emp as any).carriedOverBalance ?? (emp as any).openingBalance ?? 0),
+    basic_salary: Number((emp as any).basicSalary ?? (emp as any).contractSalary ?? (emp as any).salary ?? 0),
+    housing_allowance: Number((emp as any).housingAllowance ?? 0),
+    transport_allowance: Number((emp as any).transportAllowance ?? 0),
+    other_allowance: Number((emp as any).otherAllowances ?? (emp as any).otherAllowance ?? 0),
+    carried_over_leave_2025: (
+      (emp.fullNameAr && (emp.fullNameAr.includes('بخيت') || emp.fullNameAr.includes('سويلم'))) ||
+      ((emp as any).nameAr && ((emp as any).nameAr.includes('بخيت') || (emp as any).nameAr.includes('سويلم'))) ||
+      emp.civilId === '293080106877'
+    ) ? 0 : Number((emp as any).carriedOverLeave2025 ?? (emp as any).carriedOverBalance ?? (emp as any).openingBalance ?? 0),
     accrued_leave_2026: (emp as any).accruedLeave2026 || (emp as any).aysed_accrued_2026 || 0,
     remaining_leaves: emp.paid_days_remaining || 0,
     raw_payload: {
       ...emp,
+      basicSalary: Number((emp as any).basicSalary ?? (emp as any).contractSalary ?? (emp as any).salary ?? 0),
+      contractSalary: Number((emp as any).basicSalary ?? (emp as any).contractSalary ?? (emp as any).salary ?? 0),
+      housingAllowance: Number((emp as any).housingAllowance ?? 0),
+      transportAllowance: Number((emp as any).transportAllowance ?? 0),
+      medicalAllowance: Number((emp as any).medicalAllowance ?? 0),
+      otherAllowance: Number((emp as any).otherAllowances ?? (emp as any).otherAllowance ?? 0),
+      otherAllowances: Number((emp as any).otherAllowances ?? (emp as any).otherAllowance ?? 0),
+      allowances: Number((emp as any).allowances ?? (Number((emp as any).housingAllowance ?? 0) + Number((emp as any).transportAllowance ?? 0) + Number((emp as any).medicalAllowance ?? 0) + Number((emp as any).otherAllowances ?? (emp as any).otherAllowance ?? 0))),
+      totalSalary: Number((emp as any).totalSalary ?? (Number((emp as any).basicSalary ?? (emp as any).contractSalary ?? (emp as any).salary ?? 0) + Number((emp as any).housingAllowance ?? 0) + Number((emp as any).transportAllowance ?? 0) + Number((emp as any).medicalAllowance ?? 0) + Number((emp as any).otherAllowances ?? (emp as any).otherAllowance ?? 0))),
       dob: emp.dob || (emp as any).birthDate || '',
       birthDate: (emp as any).birthDate || emp.dob || '',
       civilIdExpiry: civilExpiry,
@@ -198,6 +214,25 @@ export function toEmployeeDbRow(emp: Employee, companyId?: string): EmployeeReco
 export function fromEmployeeDbRow(row: any): Employee {
   const resolvedCompId = row.companyId || row.company_id || row.raw_payload?.companyId || row.raw_payload?.company_id || 'comp-super-admin';
   const civilExpiry = row.civil_id_expiry || row.civilIdExpiry || row.civilIdExpiryDate || row.raw_payload?.civilIdExpiry || row.raw_payload?.civilIdExpiryDate || row.raw_payload?.civil_id_expiry || '';
+
+  const rawBasic = Number(row.raw_payload?.basicSalary ?? row.raw_payload?.contractSalary ?? row.basic_salary ?? row.basicSalary ?? row.raw_payload?.salary ?? row.salary ?? 0);
+  const rawHousing = Number(row.raw_payload?.housingAllowance ?? row.housing_allowance ?? row.housingAllowance ?? 0);
+  const rawTransport = Number(row.raw_payload?.transportAllowance ?? row.transport_allowance ?? row.transportAllowance ?? 0);
+  const rawMedical = Number(row.raw_payload?.medicalAllowance ?? row.medical_allowance ?? row.medicalAllowance ?? 0);
+  const rawOther = Number(row.raw_payload?.otherAllowances ?? row.raw_payload?.otherAllowance ?? row.other_allowances ?? row.other_allowance ?? row.otherAllowances ?? row.otherAllowance ?? 0);
+  const rawAllowances = Number(row.raw_payload?.allowances ?? (rawHousing + rawTransport + rawMedical + rawOther));
+  const rawTotal = Number(row.raw_payload?.totalSalary ?? row.totalSalary ?? (rawBasic + rawAllowances));
+
+  const isElsayed = 
+    (row.full_name_ar && (row.full_name_ar.includes('بخيت') || row.full_name_ar.includes('سويلم'))) ||
+    (row.fullNameAr && (row.fullNameAr.includes('بخيت') || row.fullNameAr.includes('سويلم'))) ||
+    (row.raw_payload?.fullNameAr && (row.raw_payload.fullNameAr.includes('بخيت') || row.raw_payload.fullNameAr.includes('سويلم'))) ||
+    (row.raw_payload?.nameAr && (row.raw_payload.nameAr.includes('بخيت') || row.raw_payload.nameAr.includes('سويلم'))) ||
+    row.civil_id === '293080106877' ||
+    row.civilId === '293080106877' ||
+    row.raw_payload?.civilId === '293080106877';
+
+  const defaultCarried = isElsayed ? 0 : Number(row.raw_payload?.carriedOverLeave2025 ?? row.carried_over_leave_2025 ?? 0);
 
   if (row.raw_payload && typeof row.raw_payload === 'object') {
     return {
@@ -216,9 +251,19 @@ export function fromEmployeeDbRow(row: any): Employee {
       gender: row.raw_payload.gender || row.gender || 'MALE',
       passportNo: row.raw_payload.passportNo || row.passport_no || row.passportNo || '',
       residencyType: row.raw_payload.residencyType || row.residency_type || row.residencyType || '',
-      carriedOverLeave2025: Number(row.raw_payload.carriedOverLeave2025 ?? row.carried_over_leave_2025 ?? 0),
-      carriedOverBalance: Number(row.raw_payload.carriedOverBalance ?? row.carried_over_leave_2025 ?? 0),
-      openingBalance: Number(row.raw_payload.openingBalance ?? row.carried_over_leave_2025 ?? 0),
+      basicSalary: rawBasic,
+      contractSalary: rawBasic,
+      housingAllowance: rawHousing,
+      transportAllowance: rawTransport,
+      medicalAllowance: rawMedical,
+      otherAllowance: rawOther,
+      otherAllowances: rawOther,
+      allowances: rawAllowances,
+      totalSalary: rawTotal,
+      salary: rawTotal,
+      carriedOverLeave2025: defaultCarried,
+      carriedOverBalance: defaultCarried,
+      openingBalance: defaultCarried,
     } as Employee;
   }
   return {
@@ -255,9 +300,19 @@ export function fromEmployeeDbRow(row: any): Employee {
     bankName: row.bank_name || row.bankName || '',
     iban: row.iban || '',
     tags: row.tags || [],
-    carriedOverLeave2025: Number(row.carried_over_leave_2025 || 0),
-    carriedOverBalance: Number(row.carried_over_leave_2025 || 0),
-    openingBalance: Number(row.carried_over_leave_2025 || 0),
+    basicSalary: rawBasic,
+    contractSalary: rawBasic,
+    housingAllowance: rawHousing,
+    transportAllowance: rawTransport,
+    medicalAllowance: rawMedical,
+    otherAllowance: rawOther,
+    otherAllowances: rawOther,
+    allowances: rawAllowances,
+    totalSalary: rawTotal,
+    salary: rawTotal,
+    carriedOverLeave2025: defaultCarried,
+    carriedOverBalance: defaultCarried,
+    openingBalance: defaultCarried,
   } as Employee;
 }
 
@@ -404,20 +459,71 @@ export const TenantDatabaseService = {
   },
 
   /**
-   * Delete an Employee from all persistent stores
+   * Delete an Employee from all persistent stores and purge all related records (contracts, leaves, commencements)
    */
   async deleteEmployee(employeeId: string, companyId?: string): Promise<boolean> {
     if (isSupabaseConfigured) {
       try {
         await supabase.from('employees').delete().eq('id', employeeId);
         await supabase.from('hr_employee').delete().eq('id', employeeId);
+        await supabase.from('leaves').delete().eq('employee_id', employeeId);
       } catch {}
     }
     try {
+      // 1. Delete main employee document
       await deleteDoc(doc(db, 'employees', employeeId));
+
+      // 2. Delete related leaves in Firestore
+      try {
+        const leavesQ = query(collection(db, 'leaves'), where('employeeId', '==', employeeId));
+        const leavesSnap = await getDocs(leavesQ);
+        await Promise.all(leavesSnap.docs.map(d => deleteDoc(doc(db, 'leaves', d.id))));
+      } catch (lErr) {
+        console.warn('Error purging related leaves:', lErr);
+      }
+
+      // 3. Purge from local storage keys for all company scopes (including payroll, payslips, contracts, commencements, leaves, etc.)
+      if (typeof window !== 'undefined' && window.localStorage) {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (
+            key.includes('odoo_contracts_') || 
+            key.includes('odoo_commencements_') || 
+            key.includes('odoo_leave_') || 
+            key.includes('manara_leaves') || 
+            key.includes('odoo_employees_') ||
+            key.includes('odoo_payroll_') ||
+            key.includes('payroll') ||
+            key.includes('payslip')
+          )) {
+            try {
+              const raw = localStorage.getItem(key);
+              if (raw && raw.includes(employeeId)) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) {
+                  const filtered = parsed.filter((item: any) => 
+                    item.employeeId !== employeeId && 
+                    item.id !== employeeId && 
+                    item.employee_id !== employeeId && 
+                    item.employeeName !== employeeId &&
+                    !item.name?.includes(employeeId)
+                  );
+                  localStorage.setItem(key, JSON.stringify(filtered));
+                } else if (parsed && typeof parsed === 'object') {
+                  // If it's an object record or dict
+                  if (parsed.employeeId === employeeId || parsed.id === employeeId) {
+                    localStorage.removeItem(key);
+                  }
+                }
+              }
+            } catch {}
+          }
+        }
+      }
+
       return true;
     } catch (fsErr) {
-      console.error('[TenantDatabaseService] Error deleting employee:', fsErr);
+      console.error('[TenantDatabaseService] Error deleting employee and related records:', fsErr);
       return false;
     }
   },

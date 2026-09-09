@@ -30,8 +30,18 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000;
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const savedUser = localStorage.getItem('aysed_auth_user');
+      if (savedUser) return JSON.parse(savedUser);
+    } catch (e) {
+      console.warn('Error reading saved user session:', e);
+    }
+    return null;
+  });
+  const [token, setToken] = useState<string | null>(() => {
+    return localStorage.getItem('aysed_auth_token') || null;
+  });
   const [isLoading, setIsLoading] = useState(true);
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -57,18 +67,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [isDebugMode]);
 
-  // Auth Firewall State Listener
+  // Auth Firewall State Listener with safety timeout to prevent hanging UI
   useEffect(() => {
+    // Safety fallback timer: Ensure loading never hangs if Firebase takes too long or is blocked
+    const safetyTimer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1200);
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+      clearTimeout(safetyTimer);
       try {
         if (firebaseUser) {
           const userEmail = (firebaseUser.email || '').toLowerCase();
 
           // 1. Firewall check for purged/blacklisted tenant
           if (isTenantPurged(userEmail)) {
-            await signOut(auth);
+            await signOut(auth).catch(() => {});
             setUser(null);
             setToken(null);
+            localStorage.removeItem('aysed_auth_user');
+            localStorage.removeItem('aysed_auth_token');
             toast.error('تم حظر الوصول: الحساب معطل أو ملغى بجدار حماية المنظومة.');
             setIsLoading(false);
             return;
@@ -81,16 +99,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           let companyId = undefined;
           let photoURL = firebaseUser.photoURL || localStorage.getItem('aysed_user_avatar') || '';
 
-          // Attempt to fetch profile & check account status
+          // Attempt to fetch profile & check account status with timeout
           try {
-            const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-            if (userDoc.exists()) {
+            const userDocPromise = getDoc(doc(db, 'users', firebaseUser.uid));
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2500));
+            const userDoc: any = await Promise.race([userDocPromise, timeoutPromise]);
+            
+            if (userDoc && userDoc.exists && userDoc.exists()) {
               const data = userDoc.data();
               // Check if account is suspended or blocked
               if (data.status === 'blocked' || data.status === 'disabled' || data.suspended === true) {
-                await signOut(auth);
+                await signOut(auth).catch(() => {});
                 setUser(null);
                 setToken(null);
+                localStorage.removeItem('aysed_auth_user');
+                localStorage.removeItem('aysed_auth_token');
                 toast.error('تم إيقاف حسابك من قبل إدارة النظام.');
                 setIsLoading(false);
                 return;
@@ -109,23 +132,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   role: 'SUPER_ADMIN',
                   photoURL: photoURL,
                   createdAt: new Date().toISOString()
-                });
+                }).catch(() => {});
                 role = 'SUPER_ADMIN';
                 name = 'مدير النظام المركزية';
               } else {
                 // Not a super admin. Look up if this email is registered in 'companies'
                 const { getDocs, collection, query, where, setDoc } = await import('firebase/firestore');
                 const compQuery = query(collection(db, 'companies'), where('adminUsername', '==', firebaseUser.email));
-                const compSnap = await getDocs(compQuery);
+                const compSnap = await getDocs(compQuery).catch(() => null);
                 
                 let foundCompany = null;
-                if (!compSnap.empty) {
+                if (compSnap && !compSnap.empty) {
                   foundCompany = compSnap.docs[0];
                 } else {
                   // Fallback search with 'email' field
                   const compQuery2 = query(collection(db, 'companies'), where('email', '==', firebaseUser.email));
-                  const compSnap2 = await getDocs(compQuery2);
-                  if (!compSnap2.empty) {
+                  const compSnap2 = await getDocs(compQuery2).catch(() => null);
+                  if (compSnap2 && !compSnap2.empty) {
                     foundCompany = compSnap2.docs[0];
                   }
                 }
@@ -144,7 +167,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     companyId: companyId,
                     photoURL: photoURL,
                     createdAt: new Date().toISOString()
-                  });
+                  }).catch(() => {});
                 } else {
                   // Fallback default company admin role safely
                   role = 'COMPANY_ADMIN';
@@ -155,7 +178,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     role: 'COMPANY_ADMIN',
                     photoURL: photoURL,
                     createdAt: new Date().toISOString()
-                  });
+                  }).catch(() => {});
                 }
               }
             }
@@ -163,31 +186,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
              console.warn("Could not fetch or seed user profile from firestore:", e);
           }
 
-          const jwt = await firebaseUser.getIdToken();
+          let jwt = 'session-token';
+          try {
+            jwt = await firebaseUser.getIdToken();
+          } catch (_) {}
           
-          setUser({
+          const fullUser: User = {
             id: firebaseUser.uid,
             name,
             email: firebaseUser.email || '',
             role,
             companyId,
             photoURL
-          });
+          };
+          setUser(fullUser);
           setToken(jwt);
+          try {
+            localStorage.setItem('aysed_auth_user', JSON.stringify(fullUser));
+            localStorage.setItem('aysed_auth_token', jwt);
+          } catch (_) {}
         } else {
-          setUser(null);
-          setToken(null);
+          // If no firebaseUser, only clear if there is no locally saved active master session
+          const saved = localStorage.getItem('aysed_auth_user');
+          if (!saved) {
+            setUser(null);
+            setToken(null);
+          }
         }
       } catch (err) {
         console.error("Auth state change error", err);
-        setUser(null);
-        setToken(null);
       } finally {
         setIsLoading(false);
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(safetyTimer);
+      unsubscribe();
+    };
   }, []);
 
   // Inactivity Firewall Monitor (Auto-logout on idle)
@@ -219,14 +255,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = (newToken: string, userData: User) => {
     setToken(newToken);
     setUser(userData);
+    try {
+      localStorage.setItem('aysed_auth_user', JSON.stringify(userData));
+      localStorage.setItem('aysed_auth_token', newToken);
+    } catch (_) {}
   };
 
   const logout = async () => {
     try {
       if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
-      await signOut(auth);
+      await signOut(auth).catch(() => {});
       setUser(null);
       setToken(null);
+      localStorage.removeItem('aysed_auth_user');
+      localStorage.removeItem('aysed_auth_token');
       localStorage.removeItem('aysed_debug');
       localStorage.removeItem('odoo_debug_mode');
       localStorage.removeItem('activeCompanyId');
@@ -236,6 +278,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error("Logout error", err);
       setUser(null);
       setToken(null);
+      localStorage.removeItem('aysed_auth_user');
+      localStorage.removeItem('aysed_auth_token');
     }
   };
 
