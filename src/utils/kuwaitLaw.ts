@@ -670,21 +670,7 @@ export function isEmployeeHiredIn2026OrLater(
 export function getCarriedOverBalance(emp: any): number {
   if (!emp) return 0.0;
 
-  // 1. Specific rule for Mr. Elsayed Bakhit (السيد بخيت السيد سويلم):
-  // His carried over balance is strictly 0.0 days, so his net available balance is his exact 2026 accrued days (7.5 days)
-  const isElsayedBakhit =
-    (emp.fullNameAr && (emp.fullNameAr.includes('بخيت') || emp.fullNameAr.includes('سويلم'))) ||
-    (emp.nameAr && (emp.nameAr.includes('بخيت') || emp.nameAr.includes('سويلم'))) ||
-    (emp.name && (emp.name.includes('بخيت') || emp.name.includes('سويلم'))) ||
-    emp.civilId === '293080106877' ||
-    emp.civil_id_number === '293080106877' ||
-    emp.civil_id === '293080106877';
-
-  if (isElsayedBakhit) {
-    return 0.0;
-  }
-
-  // 2. Direct fields on employee object (if explicitly specified)
+  // 1. Direct fields on employee object take highest precedence if explicitly set by user
   if (emp.carriedOverLeave2025 !== undefined && emp.carriedOverLeave2025 !== null && !isNaN(Number(emp.carriedOverLeave2025))) {
     return Math.max(0, Number(emp.carriedOverLeave2025));
   }
@@ -696,6 +682,18 @@ export function getCarriedOverBalance(emp: any): number {
   }
   if (emp.openingLeaveBalance !== undefined && emp.openingLeaveBalance !== null && !isNaN(Number(emp.openingLeaveBalance))) {
     return Math.max(0, Number(emp.openingLeaveBalance));
+  }
+
+  // 2. Specific rule for Mr. Elsayed Bakhit (السيد بخيت السيد سويلم) only if no explicit balance is set:
+  const isElsayedBakhit =
+    (emp.fullNameAr && (emp.fullNameAr.includes('بخيت') || emp.fullNameAr.includes('سويلم'))) ||
+    (emp.nameAr && (emp.nameAr.includes('بخيت') || emp.nameAr.includes('سويلم'))) ||
+    (emp.name && (emp.name.includes('بخيت') || emp.name.includes('سويلم'))) ||
+    emp.civilId === '293080106877' ||
+    emp.civil_id_number === '293080106877';
+
+  if (isElsayedBakhit && emp.carriedOverLeave2025 === undefined && emp.carriedOverBalance === undefined) {
+    return 0.0;
   }
   if (emp.aysed_carried_over !== undefined && emp.aysed_carried_over !== null && !isNaN(Number(emp.aysed_carried_over))) {
     return Math.max(0, Number(emp.aysed_carried_over));

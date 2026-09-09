@@ -361,8 +361,10 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
       setIsEditMode(false);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2500);
+      import('react-hot-toast').then(m => m.default.success(`تم حفظ بيانات الموظف (${payloadToSave.nameAr || payloadToSave.fullNameAr}) بنجاح والبقاء في نفس الصفحة.`));
     } catch (err) {
       console.error('Failed to save employee:', err);
+      import('react-hot-toast').then(m => m.default.error('حدث خطأ أثناء حفظ بيانات الموظف.'));
     } finally {
       setIsSaving(false);
     }

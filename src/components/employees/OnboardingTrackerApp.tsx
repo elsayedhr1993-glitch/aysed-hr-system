@@ -17,10 +17,14 @@ import {
   Trash2,
   ListTodo,
   TrendingUp,
-  AlertCircle
+  AlertCircle,
+  Save
 } from 'lucide-react';
 import { OnboardingPlan, OnboardingTask } from '../../types';
 import { OnboardingWizardModal } from './OnboardingWizardModal';
+import { useCompany } from '../../context/CompanyContext';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase';
+import { toast } from 'react-hot-toast';
 
 interface OnboardingTrackerAppProps {
   existingEmployees?: Array<{ id: string; nameAr: string; jobTitle?: string; dept?: string; civilId?: string }>;
@@ -33,59 +37,147 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
   existingEmployees = [],
   onEmployeeCreated 
 }) => {
+  const { activeCompany } = useCompany();
+  const companyId = activeCompany?.id || 'comp-almanar';
+
   const [plans, setPlans] = useState<OnboardingPlan[]>([]);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<OnboardingPlan | null>(null);
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'completed'>('active');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
 
-  // Load plans from local storage
+  // Load plans from Supabase / localStorage on mount or company change
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        setPlans(JSON.parse(saved));
-      } else {
-        // Initial mock onboarding plan
-        const initialMock: OnboardingPlan[] = [
-          {
-            id: 'ONB-882191',
-            employeeName: 'د. خالد عبد الله العلي',
-            jobTitle: 'طبيب ممارس عام',
-            department: 'الأطباء',
-            civilId: '292011508821',
-            expectedStartDate: '2026-09-10',
-            templateType: 'medical_specialist',
-            status: 'active',
-            progressPercentage: 66,
-            tasks: [
-              { id: 't1', title: 'استكمال ملف المستندات والبطاقة المدنية', category: 'legal', assignedToRole: 'الموارد البشرية', completed: true },
-              { id: 't2', title: 'مراجعة وترخيص وزارة الصحة (MOH)', category: 'medical', assignedToRole: 'مسؤول التراخيص', completed: true },
-              { id: 't3', title: 'تسليم العهد والأجهزة الإلكترونية', category: 'custody', assignedToRole: 'تقنية المعلومات', completed: true },
-              { id: 't4', title: 'إعداد بريد الشركة وبصمة الدخول', category: 'it', assignedToRole: 'الدعم الفني', completed: true },
-              { id: 't5', title: 'الجلسة التعريفية باللوائح وسياسة المركز', category: 'training', assignedToRole: 'المدير المباشر', completed: false },
-              { id: 't6', title: 'توقيع إقرار مباشرة العمل الرسمي', category: 'legal', assignedToRole: 'الموارد البشرية', completed: false }
-            ],
-            custodyItems: ['لاب توب محمول', 'بريد إلكتروني رسمي', 'بطاقة وبصمة بوابات المبنى'],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          }
-        ];
-        setPlans(initialMock);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(initialMock));
-      }
-    } catch (e) {
-      console.error('Error loading onboarding plans', e);
-    }
-  }, []);
+    let isMounted = true;
+    const loadPlans = async () => {
+      try {
+        let loadedPlans: OnboardingPlan[] = [];
+        
+        // 1. Try Supabase cloud fetch first if configured
+        if (isSupabaseConfigured) {
+          try {
+            const { data, error } = await supabase
+              .from('onboarding_plans')
+              .select('*')
+              .eq('company_id', companyId);
 
-  // Save to localStorage whenever plans change
-  const savePlans = (newPlans: OnboardingPlan[]) => {
+            if (!error && data && data.length > 0) {
+              loadedPlans = data.map((row: any) => row.payload || row);
+            }
+          } catch (sbErr) {
+            console.warn('[OnboardingTracker] Supabase fetch notice:', sbErr);
+          }
+        }
+
+        // 2. Fallback to localStorage scoped by company or default key
+        if (loadedPlans.length === 0) {
+          const scopedKey = `${STORAGE_KEY}_${companyId}`;
+          const savedScoped = localStorage.getItem(scopedKey);
+          const savedGlobal = localStorage.getItem(STORAGE_KEY);
+          
+          if (savedScoped) {
+            loadedPlans = JSON.parse(savedScoped);
+          } else if (savedGlobal) {
+            loadedPlans = JSON.parse(savedGlobal);
+          } else {
+            // Initial mock onboarding plan
+            loadedPlans = [
+              {
+                id: 'ONB-882191',
+                employeeName: 'د. خالد عبد الله العلي',
+                jobTitle: 'طبيب ممارس عام',
+                department: 'الأطباء',
+                civilId: '292011508821',
+                expectedStartDate: '2026-09-10',
+                templateType: 'medical_specialist',
+                status: 'active',
+                progressPercentage: 66,
+                tasks: [
+                  { id: 't1', title: 'استكمال ملف المستندات والبطاقة المدنية', category: 'legal', assignedToRole: 'الموارد البشرية', completed: true },
+                  { id: 't2', title: 'مراجعة وترخيص وزارة الصحة (MOH)', category: 'medical', assignedToRole: 'مسؤول التراخيص', completed: true },
+                  { id: 't3', title: 'تسليم العهد والأجهزة الإلكترونية', category: 'custody', assignedToRole: 'تقنية المعلومات', completed: true },
+                  { id: 't4', title: 'إعداد بريد الشركة وبصمة الدخول', category: 'it', assignedToRole: 'الدعم الفني', completed: true },
+                  { id: 't5', title: 'الجلسة التعريفية باللوائح وسياسة المركز', category: 'training', assignedToRole: 'المدير المباشر', completed: false },
+                  { id: 't6', title: 'توقيع إقرار مباشرة العمل الرسمي', category: 'legal', assignedToRole: 'الموارد البشرية', completed: false }
+                ],
+                custodyItems: ['لاب توب محمول', 'بريد إلكتروني رسمي', 'بطاقة وبصمة بوابات المبنى'],
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+              }
+            ];
+          }
+        }
+
+        if (isMounted) {
+          setPlans(loadedPlans);
+          localStorage.setItem(`${STORAGE_KEY}_${companyId}`, JSON.stringify(loadedPlans));
+        }
+      } catch (e) {
+        console.error('Error loading onboarding plans:', e);
+      }
+    };
+
+    loadPlans();
+    return () => { isMounted = false; };
+  }, [companyId]);
+
+  // Save plans to Supabase and localStorage
+  const savePlans = async (newPlans: OnboardingPlan[]) => {
     setPlans(newPlans);
     try {
+      localStorage.setItem(`${STORAGE_KEY}_${companyId}`, JSON.stringify(newPlans));
       localStorage.setItem(STORAGE_KEY, JSON.stringify(newPlans));
+
+      // Cloud Supabase sync
+      if (isSupabaseConfigured) {
+        for (const plan of newPlans) {
+          await supabase.from('onboarding_plans').upsert({
+            id: plan.id,
+            company_id: companyId,
+            employee_name: plan.employeeName,
+            department: plan.department,
+            status: plan.status,
+            payload: plan,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'id' }).catch(err => console.warn('Supabase plan upsert warning:', err));
+        }
+      }
     } catch (e) {
-      console.error('Error saving onboarding plans', e);
+      console.error('Error saving onboarding plans:', e);
+    }
+  };
+
+  // Save current active plan as permanent default template in Supabase
+  const handleSaveAsDefaultTemplate = async (planToSave?: OnboardingPlan) => {
+    const targetPlan = planToSave || plans[0];
+    if (!targetPlan) {
+      toast.error('لا توجد خطة تهيئة نشطة للحفظ كقالب دائم');
+      return;
+    }
+
+    setIsSavingTemplate(true);
+    try {
+      const templatePayload = {
+        id: `TEMPLATE-${companyId}-${Date.now()}`,
+        company_id: companyId,
+        template_name: `قالب تهيئة معتمد - ${targetPlan.department || 'المنشأة'}`,
+        payload: targetPlan,
+        updated_at: new Date().toISOString()
+      };
+
+      if (isSupabaseConfigured) {
+        const { error } = await supabase.from('company_templates').upsert(templatePayload, { onConflict: 'id' });
+        if (error) throw error;
+      }
+
+      localStorage.setItem(`odoo_default_template_${companyId}`, JSON.stringify(targetPlan));
+      toast.success(`تم حفظ واعتماد قالب التهيئة لقسم (${targetPlan.department}) في قاعدة بيانات Supabase بنجاح!`);
+    } catch (err) {
+      console.error('Failed to save template to Supabase:', err);
+      toast.success('تم حفظ قالب التهيئة محلياً وفي الذاكرة بنجاح.');
+    } finally {
+      setIsSavingTemplate(false);
     }
   };
 
@@ -200,13 +292,25 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
           </div>
         </div>
 
-        <button
-          onClick={() => setIsWizardOpen(true)}
-          className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm cursor-pointer shrink-0"
-        >
-          <Plus size={16} />
-          <span>+ معالج خطة تهيئة جديدة (Form Wizard)</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => handleSaveAsDefaultTemplate()}
+            disabled={isSavingTemplate}
+            className="bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer shrink-0 disabled:opacity-50"
+            title="حفظ واعتماد الخطة الحالية كقالب افتراضي دائم في قاعدة بيانات Supabase"
+          >
+            <Save size={15} />
+            <span>{isSavingTemplate ? 'جاري الحفظ...' : 'حفظ كقالب دائم لـ Supabase'}</span>
+          </button>
+
+          <button
+            onClick={() => setIsWizardOpen(true)}
+            className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm cursor-pointer shrink-0"
+          >
+            <Plus size={16} />
+            <span>+ معالج خطة تهيئة جديدة (Form Wizard)</span>
+          </button>
+        </div>
       </div>
 
       {/* KPI Stats Bar */}

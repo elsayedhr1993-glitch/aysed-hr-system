@@ -128,6 +128,20 @@ export const EmployeeWorkTab: React.FC<Props> = ({
             type="date"
           />
 
+          <EditableField
+            label="رصيد الإجازات المرحل (Carried Over Leave Balance)"
+            value={employee.carriedOverLeave2025 !== undefined ? employee.carriedOverLeave2025 : (employee.carriedOverBalance !== undefined ? employee.carriedOverBalance : 0)}
+            onChange={(val) => {
+              const num = parseFloat(val) || 0;
+              handleFieldChange('carriedOverLeave2025', num);
+              handleFieldChange('carriedOverBalance', num);
+              handleFieldChange('openingBalance', num);
+            }}
+            isEditMode={isEditMode}
+            type="number"
+            placeholder="0"
+          />
+
           <EditableSelect
             label="جدول وساعات العمل (Working Schedule)"
             value={employee.workingSchedule || 'standard_48h'}
