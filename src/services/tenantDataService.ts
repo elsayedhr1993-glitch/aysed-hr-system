@@ -871,23 +871,25 @@ export const TenantDatabaseService = {
         ? allEmps
         : allEmps.filter(emp => emp.companyId === companyId);
 
-      if (filtered.length > 0) {
-        if (typeof window !== 'undefined' && window.localStorage) {
-          localStorage.setItem(`odoo_employees_v1_${companyId}`, JSON.stringify(filtered));
+      // Successfully queried Firestore - update local storage to match cloud truth
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem(`odoo_employees_v1_${companyId}`, JSON.stringify(filtered));
+        if (companyId === 'comp-super-admin' || companyId === 'comp-almanar') {
+          localStorage.setItem('manara_employees_data', JSON.stringify(filtered));
         }
-        return filtered;
       }
+      return filtered;
     } catch (fsErr) {
-      console.warn('[TenantDatabaseService] Firestore fetch error (falling back to local cache / seed):', fsErr);
+      console.warn('[TenantDatabaseService] Firestore fetch error (falling back to local cache):', fsErr);
     }
 
-    // 3. Fallback to LocalStorage cached data
+    // 3. Fallback to LocalStorage cached data only if Firestore failed
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
-        const cached = localStorage.getItem(`odoo_employees_v1_${companyId}`) || localStorage.getItem('manara_employees_data');
-        if (cached) {
+        const cached = localStorage.getItem(`odoo_employees_v1_${companyId}`);
+        if (cached !== null) {
           const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          if (Array.isArray(parsed)) {
             return parsed;
           }
         }
@@ -896,56 +898,73 @@ export const TenantDatabaseService = {
       }
     }
 
-    // 4. Guaranteed Default Fallback: Seed 10 professional test employees so UI never shows empty
-    const defaultEmps = getTenProfessionalTestEmployees(companyId);
-    if (typeof window !== 'undefined' && window.localStorage) {
-      localStorage.setItem(`odoo_employees_v1_${companyId}`, JSON.stringify(defaultEmps));
-      localStorage.setItem('manara_employees_data', JSON.stringify(defaultEmps));
-    }
-    return defaultEmps;
+    // 4. If nothing in DB and nothing in cache, return empty list (never auto-seed test employees)
+    return [];
   },
 
   /**
    * Delete an Employee from all persistent stores and purge all related records (contracts, leaves, commencements)
    */
   async deleteEmployee(employeeId: string, companyId?: string): Promise<boolean> {
+    // 1. Supabase deletion (isolated safe execution)
     if (isSupabaseConfigured) {
       try {
         await supabase.from('employees').delete().eq('id', employeeId);
         await supabase.from('hr_employee').delete().eq('id', employeeId);
         await supabase.from('leaves').delete().eq('employee_id', employeeId);
-      } catch {}
-    }
-    try {
-      // 1. Delete main employee document
-      await deleteDoc(doc(db, 'employees', employeeId));
-
-      // 2. Delete related leaves in Firestore
-      try {
-        const leavesQ = query(collection(db, 'leaves'), where('employeeId', '==', employeeId));
-        const leavesSnap = await getDocs(leavesQ);
-        await Promise.all(leavesSnap.docs.map(d => deleteDoc(doc(db, 'leaves', d.id))));
-      } catch (lErr) {
-        console.warn('Error purging related leaves:', lErr);
+        await supabase.from('contracts').delete().eq('employee_id', employeeId);
+      } catch (sbErr) {
+        console.warn('Supabase delete error:', sbErr);
       }
+    }
 
-      // 3. Purge from local storage keys for all company scopes (including payroll, payslips, contracts, commencements, leaves, etc.)
-      if (typeof window !== 'undefined' && window.localStorage) {
+    // 2. Firestore deletion of main employee document (isolated safe execution)
+    try {
+      await deleteDoc(doc(db, 'employees', employeeId));
+    } catch (fsErr) {
+      console.warn('[TenantDatabaseService] Firestore delete employee notice:', fsErr);
+    }
+
+    // 3. Firestore deletion of related records (contracts, commencements, leaves, attendance, payslips)
+    try {
+      const relCols = ['contracts', 'commencements', 'leaves', 'attendance', 'payslips'];
+      for (const colName of relCols) {
+        try {
+          const q = query(collection(db, colName), where('employeeId', '==', employeeId));
+          const snap = await getDocs(q);
+          await Promise.all(snap.docs.map(d => deleteDoc(doc(db, colName, d.id))));
+        } catch (colErr) {}
+      }
+      await deleteDoc(doc(db, 'contracts', `contract-${employeeId}`)).catch(() => {});
+      await deleteDoc(doc(db, 'commencements', `commencement-${employeeId}`)).catch(() => {});
+    } catch (relErr) {
+      console.warn('[TenantDatabaseService] Error purging related documents from Firestore:', relErr);
+    }
+
+    // 4. Guaranteed LocalStorage purge across all relevant keys
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const keysToClean: string[] = [];
         for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && (
+          const k = localStorage.key(i);
+          if (k) keysToClean.push(k);
+        }
+
+        for (const key of keysToClean) {
+          if (
             key.includes('odoo_contracts_') || 
             key.includes('odoo_commencements_') || 
             key.includes('odoo_leave_') || 
             key.includes('manara_leaves') || 
             key.includes('odoo_employees_') ||
+            key.includes('manara_employees') ||
             key.includes('odoo_payroll_') ||
             key.includes('payroll') ||
             key.includes('payslip')
-          )) {
+          ) {
             try {
               const raw = localStorage.getItem(key);
-              if (raw && raw.includes(employeeId)) {
+              if (raw && (raw.includes(employeeId) || raw.includes(`"${employeeId}"`))) {
                 const parsed = JSON.parse(raw);
                 if (Array.isArray(parsed)) {
                   const filtered = parsed.filter((item: any) => 
@@ -953,26 +972,30 @@ export const TenantDatabaseService = {
                     item.id !== employeeId && 
                     item.employee_id !== employeeId && 
                     item.employeeName !== employeeId &&
-                    !item.name?.includes(employeeId)
+                    !(typeof item.name === 'string' && item.name.includes(employeeId))
                   );
                   localStorage.setItem(key, JSON.stringify(filtered));
                 } else if (parsed && typeof parsed === 'object') {
-                  // If it's an object record or dict
                   if (parsed.employeeId === employeeId || parsed.id === employeeId) {
                     localStorage.removeItem(key);
                   }
                 }
               }
-            } catch {}
+            } catch (kErr) {}
           }
         }
+      } catch (storageErr) {
+        console.warn('LocalStorage employee purge error:', storageErr);
       }
 
-      return true;
-    } catch (fsErr) {
-      console.error('[TenantDatabaseService] Error deleting employee and related records:', fsErr);
-      return false;
+      // Notify other tabs and components immediately
+      try {
+        window.dispatchEvent(new Event('storage'));
+        window.dispatchEvent(new Event('manara_employees_updated'));
+      } catch (evErr) {}
     }
+
+    return true;
   },
 
   /**
@@ -1585,7 +1608,12 @@ export const TenantDatabaseService = {
       }
       if (activeCompanyId) {
         localStorage.setItem('activeCompanyId', activeCompanyId);
+        localStorage.setItem(`odoo_employees_v1_${activeCompanyId}`, JSON.stringify([]));
+        localStorage.setItem(`odoo_contracts_v1_${activeCompanyId}`, JSON.stringify([]));
+        localStorage.setItem(`odoo_commencements_v1_${activeCompanyId}`, JSON.stringify([]));
       }
+      localStorage.setItem('manara_employees_data', JSON.stringify([]));
+      localStorage.setItem('manara_contracts_data', JSON.stringify([]));
 
       return true;
     } catch (e) {

@@ -831,10 +831,12 @@ class ResConfigSettings(models.TransientModel):
       }
 
       // Clear local storage cache
-      localStorage.removeItem(`odoo_employees_v1_${companyId}`);
+      localStorage.setItem(`odoo_employees_v1_${companyId}`, JSON.stringify([]));
+      localStorage.setItem(`odoo_contracts_v1_${companyId}`, JSON.stringify([]));
+      localStorage.setItem(`odoo_commencements_v1_${companyId}`, JSON.stringify([]));
+      localStorage.setItem('manara_employees_data', JSON.stringify([]));
+      localStorage.setItem('manara_contracts_data', JSON.stringify([]));
       localStorage.removeItem(`aysed_emp_cache_${companyId}`);
-      localStorage.removeItem(`odoo_contracts_v1_${companyId}`);
-      localStorage.removeItem(`odoo_commencements_v1_${companyId}`);
 
       toast.success('تمت تصفية وحذف كافة بيانات وهيكل النظام بنجاح تام!', { id: loadToast });
       setTimeout(() => {

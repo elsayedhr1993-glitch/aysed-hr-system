@@ -289,9 +289,28 @@ export function EmployeesApp(props?: any) {
       const updated = prev.filter(emp => emp.id !== id);
       if (currentCompanyId) {
         localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(updated));
+        localStorage.setItem('manara_employees_data', JSON.stringify(updated));
       }
       return updated;
     });
+    setContracts(prev => {
+      const updated = prev.filter((c: any) => c.employeeId !== id && c.id !== `contract-${id}`);
+      if (currentCompanyId) {
+        localStorage.setItem(`odoo_contracts_v1_${currentCompanyId}`, JSON.stringify(updated));
+      }
+      return updated;
+    });
+    setCommencements(prev => {
+      const updated = prev.filter((c: any) => c.employeeId !== id && c.id !== `commencement-${id}`);
+      if (currentCompanyId) {
+        localStorage.setItem(`odoo_commencements_v1_${currentCompanyId}`, JSON.stringify(updated));
+      }
+      return updated;
+    });
+    try {
+      window.dispatchEvent(new Event('storage'));
+      window.dispatchEvent(new Event('manara_employees_updated'));
+    } catch (evErr) {}
     toast.success(`تم حذف الموظف: ${name || id}`);
     if (selectedEmployee && String(selectedEmployee.id) === String(id)) {
       setShowEmployeeModal(false);
