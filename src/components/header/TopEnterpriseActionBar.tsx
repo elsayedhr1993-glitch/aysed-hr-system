@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { parseFlexibleDate, checkDocumentExpiry } from '../../utils/dateUtils';
+import { useTenant } from '../../context/TenantContext';
 import { 
   Scan, ArrowRight, Clock, UserCircle, Layers, Shield, 
   Settings, Sparkles, Trash2, LogOut, ChevronDown, 
@@ -72,6 +73,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
   debugMode,
   logout
 }) => {
+  const { isActualSuperAdmin, isTenantViewEnabled, setIsTenantViewEnabled } = useTenant();
   const [showCompanyMenu, setShowCompanyMenu] = useState(false);
   const [showQuickActionsMenu, setShowQuickActionsMenu] = useState(false);
   const [showAlertsMenu, setShowAlertsMenu] = useState(false);
@@ -224,10 +226,10 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
           <button 
             onClick={() => setActiveApp('switcher')} 
             className="flex items-center gap-1 bg-white/20 hover:bg-white/30 text-white px-2 py-1 rounded-lg text-xs font-black transition cursor-pointer border border-white/20 shrink-0 shadow-xs"
-            title="العودة لشاشة تطبيقات النظام الرئيسية"
+            title="العودة لشاشة التطبيقات الرئيسية"
           >
             <ArrowRight size={14} />
-            <span className="hidden sm:inline">شبكة التطبيقات</span>
+            <span className="hidden sm:inline">لوحة التطبيقات</span>
           </button>
         )}
 
@@ -239,14 +241,14 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
               ? 'bg-white/35 text-white border-white/50 ring-2 ring-white/30 shadow-inner' 
               : 'bg-white/10 hover:bg-white/20 text-white/90 border-white/15'
           }`}
-          title="شبكة التطبيقات الـ 16 الفارغة والقوالب القياسية"
+          title="عرض لوحة التطبيقات والخدمات"
         >
           <span className="text-sm font-black select-none">▦</span>
-          <span className="hidden sm:inline">تطبيقات النظام</span>
+          <span className="hidden sm:inline">لوحة التطبيقات</span>
         </button>
 
         {/* زر لوحة الإدارة العليا (Super Admin Dashboard) */}
-        {(isSuperAdmin || isDevPreview) && (
+        {(isSuperAdmin || (isDevPreview && !isTenantViewEnabled)) && (
           <button 
             onClick={() => setActiveApp('saas_admin')} 
             className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg text-xs font-black transition cursor-pointer border shrink-0 ${
@@ -510,17 +512,19 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
         </div>
 
         {/* 🚀 زر تعميم التحديث الفوري (Update Broadcast & Sync Button) */}
-        <button
-          onClick={() => {
-            toast.success('🚀 تم تعميم ومزامنة آخر تحديثات نظام Aysed S HR بنجاح وكافة العمليات نشطة!');
-          }}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-xs shadow-sm border border-amber-400/50 transition cursor-pointer shrink-0 animate-pulse"
-          title="تعميم التحديث الفوري على كافة الفروع والشركات (Update Broadcast)"
-        >
-          <Zap size={14} className="text-amber-200" />
-          <span className="hidden sm:inline">تعميم التحديث</span>
-          <span className="sm:hidden">تحديث</span>
-        </button>
+        {isSuperAdmin && activeApp === 'saas_admin' && (
+          <button
+            onClick={() => {
+              toast.success('🚀 تم تعميم ومزامنة آخر تحديثات نظام Aysed S HR بنجاح وكافة العمليات نشطة!');
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-xs shadow-sm border border-amber-400/50 transition cursor-pointer shrink-0 animate-pulse"
+            title="تعميم التحديث الفوري على كافة الفروع والشركات (Update Broadcast)"
+          >
+            <Zap size={14} className="text-amber-200" />
+            <span className="hidden sm:inline">تعميم التحديث</span>
+            <span className="sm:hidden">تحديث</span>
+          </button>
+        )}
 
         {/* 🏢 شارة تراخيص المنشأة والعد التنازلي (Facility License Countdown Badge) */}
         <button
@@ -824,7 +828,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
 
               {/* خيارات المطور والتشخيص التقني */}
               <div className="h-px bg-slate-100 my-1 mx-2"></div>
-              <div className="p-1.5">
+              <div className="p-1.5 space-y-1">
                 <button 
                   onClick={() => { 
                     setDebugMode(!debugMode); 
@@ -841,6 +845,35 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                     <div className="w-3.5 h-3.5 rounded-full bg-white shadow-xs"></div>
                   </div>
                 </button>
+
+                {isActualSuperAdmin && (
+                  <button 
+                    onClick={() => { 
+                      setIsTenantViewEnabled(!isTenantViewEnabled);
+                      setShowUserMenu(false);
+                      toast.success(
+                        !isTenantViewEnabled 
+                          ? '🔔 تم الانتقال لوضع تجربة المشترك (Tenant View) وحجب شاشات السوبر أدمن!' 
+                          : '🔔 تم العودة لوضع السوبر أدمن (SaaS Super Admin) بنجاح!'
+                      );
+                      setActiveApp('switcher');
+                    }}
+                    className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100/80 transition flex items-center justify-between cursor-pointer rounded-xl group"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center group-hover:bg-indigo-100 transition">
+                        <Users size={14} />
+                      </div>
+                      <div>
+                        <span className="block font-bold">وضع تجربة المشترك</span>
+                        <span className="block text-[9px] text-slate-400 font-normal">إخفاء أدوات السوبر أدمن للتقييم</span>
+                      </div>
+                    </div>
+                    <div className={`w-8 h-4.5 flex items-center rounded-full p-0.5 transition ${isTenantViewEnabled ? 'bg-indigo-600 justify-end' : 'bg-slate-300 justify-start'}`}>
+                      <div className="w-3.5 h-3.5 rounded-full bg-white shadow-xs"></div>
+                    </div>
+                  </button>
+                )}
               </div>
 
               {/* تسجيل الخروج */}

@@ -6,6 +6,9 @@ import { useAuth } from './AuthContext';
 
 interface TenantContextType {
   isSuperAdmin: boolean;
+  isActualSuperAdmin: boolean;
+  isTenantViewEnabled: boolean;
+  setIsTenantViewEnabled: (enabled: boolean) => void;
   activeCompany: TenantCompany | null;
   companies: TenantCompany[];
   impersonatingCompanyId: string | null;
@@ -21,7 +24,18 @@ const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
 export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  
+  const isActualSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const [isTenantViewEnabled, setIsTenantViewEnabledState] = useState(() => {
+    return localStorage.getItem('saas_tenant_view_enabled') === 'true';
+  });
+
+  const setIsTenantViewEnabled = (val: boolean) => {
+    setIsTenantViewEnabledState(val);
+    localStorage.setItem('saas_tenant_view_enabled', String(val));
+  };
+
+  const isSuperAdmin = isActualSuperAdmin && !isTenantViewEnabled;
 
   const [companies, setCompanies] = useState<TenantCompany[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -42,7 +56,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // Listen to companies collection
     let q;
-    if (isSuperAdmin) {
+    if (isActualSuperAdmin) {
       q = query(collection(db, collectionName));
     } else if (user.companyId) {
       q = query(collection(db, collectionName), where(documentId(), '==', user.companyId));
@@ -77,7 +91,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const activeCompany = impersonatingCompanyId 
     ? companies.find(c => c.id === impersonatingCompanyId) || null 
-    : (isSuperAdmin ? null : companies.find(c => c.id === user?.companyId) || null);
+    : (isActualSuperAdmin ? null : companies.find(c => c.id === user?.companyId) || null);
 
   const addCompany = async (compData: Omit<TenantCompany, 'id' | 'createdAt' | 'isActive'>) => {
     try {
@@ -150,6 +164,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   return (
     <TenantContext.Provider value={{
       isSuperAdmin,
+      isActualSuperAdmin,
+      isTenantViewEnabled,
+      setIsTenantViewEnabled,
       activeCompany,
       companies,
       impersonatingCompanyId,
