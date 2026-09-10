@@ -551,6 +551,35 @@ export function EmployeesApp(props?: any) {
     return () => { isMounted = false; };
   }, [currentCompanyId]);
 
+  // Listen for real-time employee updates dispatched from ScannerApp, Onboarding, or other components
+  useEffect(() => {
+    const handleSyncEvent = () => {
+      if (currentCompanyId) {
+        try {
+          const raw = localStorage.getItem(`odoo_employees_v1_${currentCompanyId}`) || localStorage.getItem('manara_employees_data');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setEmployees(parsed);
+            }
+          }
+        } catch {}
+        TenantDatabaseService.getEmployeesByTenant(currentCompanyId).then(dbEmps => {
+          if (dbEmps && dbEmps.length > 0) {
+            setEmployees(dbEmps);
+          }
+        }).catch(() => {});
+      }
+    };
+
+    window.addEventListener('manara_employees_updated', handleSyncEvent);
+    window.addEventListener('storage', handleSyncEvent);
+    return () => {
+      window.removeEventListener('manara_employees_updated', handleSyncEvent);
+      window.removeEventListener('storage', handleSyncEvent);
+    };
+  }, [currentCompanyId]);
+
   const [contracts, setContracts] = useState<any[]>([]);
   const [commencements, setCommencements] = useState<any[]>([]);
 
@@ -2057,12 +2086,34 @@ export function EmployeesApp(props?: any) {
         <div className="animate-in fade-in duration-300">
           <OnboardingTrackerApp 
             existingEmployees={employees} 
-            onEmployeeCreated={(newEmp) => {
+            onEmployeeCreated={async (newEmp) => {
               setEmployees(prev => {
                 const exists = prev.some(e => e.id === newEmp.id || (e.civilId && e.civilId === newEmp.civilId));
                 if (exists) return prev;
                 return [newEmp, ...prev];
               });
+              try {
+                const targetComp = currentCompanyId || 'comp-super-admin';
+                await TenantDatabaseService.saveEmployee({
+                  ...newEmp,
+                  companyId: targetComp
+                } as any, targetComp);
+                
+                const currentKey = `odoo_employees_v1_${targetComp}`;
+                const raw = localStorage.getItem(currentKey);
+                let list = raw ? JSON.parse(raw) : [];
+                if (!Array.isArray(list)) list = [];
+                if (!list.some((e: any) => e.id === newEmp.id || (e.civilId && e.civilId === newEmp.civilId))) {
+                  list = [newEmp, ...list];
+                  localStorage.setItem(currentKey, JSON.stringify(list));
+                  localStorage.setItem('manara_employees_data', JSON.stringify(list));
+                }
+                window.dispatchEvent(new Event('storage'));
+                window.dispatchEvent(new Event('manara_employees_updated'));
+                toast.success(`تم تسجيل وترحيل الموظف (${newEmp.nameAr || newEmp.fullNameAr}) بنجاح إلى قاعدة البيانات السحابية!`);
+              } catch (err) {
+                console.error("Error persisting onboarded employee:", err);
+              }
             }}
           />
         </div>

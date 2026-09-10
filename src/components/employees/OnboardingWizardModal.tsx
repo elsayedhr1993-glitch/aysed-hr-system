@@ -17,8 +17,15 @@ import {
   Stethoscope, 
   Lock,
   Layers,
-  Award
+  Award,
+  Camera,
+  Upload,
+  Scan,
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+import { processAnyDocument } from '../../utils/ocrService';
 import { OnboardingPlan, OnboardingTask } from '../../types';
 
 interface OnboardingWizardModalProps {
@@ -49,6 +56,113 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
   const [templateType, setTemplateType] = useState<
     'standard_admin' | 'medical_specialist' | 'executive' | 'technical'
   >('medical_specialist');
+
+  // Smart OCR Scanner State for Step 1
+  const [isScanning, setIsScanning] = useState<boolean>(false);
+  const [scanSuccess, setScanSuccess] = useState<boolean>(false);
+  const [scannedFileName, setScannedFileName] = useState<string>('');
+  const [scannedData, setScannedData] = useState<any>(null);
+  const [scannedImageUrl, setScannedImageUrl] = useState<string>('');
+  const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
+  const videoRef = React.useRef<HTMLVideoElement | null>(null);
+  const streamRef = React.useRef<MediaStream | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const startCamera = async () => {
+    try {
+      setIsCameraActive(true);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      console.error('Camera access error:', err);
+      toast.error('تعذر تشغيل الكاميرا، يرجى استخدام رفع صورة أو ملف PDF.');
+      setIsCameraActive(false);
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setIsCameraActive(false);
+  };
+
+  const capturePhoto = () => {
+    if (!videoRef.current) return;
+    const video = videoRef.current;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob((blob) => {
+      if (blob) {
+        const file = new File([blob], `civil_id_capture_${Date.now()}.jpg`, { type: 'image/jpeg' });
+        stopCamera();
+        handleProcessScanFile(file);
+      }
+    }, 'image/jpeg', 0.9);
+  };
+
+  const handleProcessScanFile = async (file: File) => {
+    if (!file) return;
+    setIsScanning(true);
+    setScanSuccess(false);
+    setScannedFileName(file.name);
+
+    try {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setScannedImageUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+
+      const result = await processAnyDocument(file);
+      if (result) {
+        setScannedData(result);
+        const name = result.fullNameAr || result.fullName || result.fullNameEn || '';
+        if (name) setEmployeeName(name);
+        if (result.civilId) setCivilId(result.civilId);
+        if (result.jobTitle || result.profession) setJobTitle(result.jobTitle || result.profession);
+        
+        if (result.mohLicenseNo || (result.profession && (result.profession.includes('طبيب') || result.profession.includes('علاج')))) {
+          setDepartment('الأطباء');
+          setTemplateType('medical_specialist');
+          setBasicSalary(1200);
+        } else if (result.profession && result.profession.includes('تمريض')) {
+          setDepartment('التمريض');
+          setTemplateType('medical_specialist');
+          setBasicSalary(850);
+        } else if (result.profession && (result.profession.includes('محاسب') || result.profession.includes('إداري'))) {
+          setDepartment('الموارد البشرية');
+          setTemplateType('standard_admin');
+          setBasicSalary(750);
+        }
+        
+        setScanSuccess(true);
+        toast.success(`تم استخراج بيانات ${name ? `الموظف (${name})` : 'الوثيقة'} بالذكاء الاصطناعي بنجاح! 🎉`);
+      }
+    } catch (err: any) {
+      console.error('Scan error in wizard:', err);
+      toast.error('حدث خطأ أثناء قراءة الوثيقة. يرجى التأكد من وضوح الصورة.');
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  React.useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, []);
 
   // Contract Details State
   const [contractType, setContractType] = useState<string>('محدد المدة (Fixed Term)');
@@ -235,6 +349,19 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
         leaveAccrualActivated,
         notes: commencementNotes
       },
+      scannedData: scannedData || undefined,
+      scannedImageUrl: scannedImageUrl || undefined,
+      documentFiles: scannedImageUrl ? {
+        civilIdScan: {
+          name: scannedFileName || 'civil_id_scan.jpg',
+          url: scannedImageUrl,
+          fileSize: '1.2 MB',
+          uploadDate: new Date().toISOString().slice(0, 10),
+          title: 'البطاقة المدنية / جواز السفر (مسح ذكي)',
+          type: 'image',
+          status: 'verified'
+        }
+      } : undefined,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -369,6 +496,132 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                     ))}
                   </select>
                 </div>
+
+                {selectedEmpId === 'new' && (
+                  <div className="md:col-span-2 p-3.5 bg-gradient-to-r from-purple-50 via-slate-50 to-indigo-50/60 border border-purple-200 rounded-xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-[#714B67] text-white flex items-center justify-center shadow-xs">
+                          <Scan className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <strong className="block text-xs font-bold text-slate-800">
+                            المسح الضوئي الذكي للبطاقة المدنية / جواز السفر (AI OCR Scanner)
+                          </strong>
+                          <span className="text-[10px] text-slate-500">
+                            التقط بالكاميرا أو ارفع صورة المستند لتعبئة الاسم والرقم المدني والوظيفة تلقائياً
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {scanSuccess && (
+                        <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-[10px] font-bold flex items-center gap-1 shadow-xs">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          تم استخراج البيانات
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Camera Live Viewfinder */}
+                    {isCameraActive && (
+                      <div className="relative rounded-xl overflow-hidden bg-black border border-slate-700 flex flex-col items-center">
+                        <video ref={videoRef} autoPlay playsInline className="w-full max-h-[260px] object-cover" />
+                        <div className="absolute bottom-3 flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={capturePhoto}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-lg cursor-pointer"
+                          >
+                            <Camera className="w-4 h-4" />
+                            <span>التقاط ومعالجة الصورة</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={stopCamera}
+                            className="bg-red-600 hover:bg-red-700 text-white font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1 shadow-lg cursor-pointer"
+                          >
+                            <X className="w-4 h-4" />
+                            <span>إلغاء</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Scanning Spinner */}
+                    {isScanning && (
+                      <div className="p-3 bg-purple-100/90 border border-purple-300 rounded-xl flex items-center gap-2.5 text-purple-900 animate-pulse">
+                        <Loader2 className="w-5 h-5 text-[#714B67] animate-spin shrink-0" />
+                        <div className="text-xs">
+                          <strong className="block font-bold">جاري قراءة واستخراج البيانات بالذكاء الاصطناعي...</strong>
+                          <span className="text-[11px] text-purple-700">يتم التعرف على الاسم الكامل، الرقم المدني، والمسمى الوظيفي</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    {!isCameraActive && !isScanning && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={startCamera}
+                          className="px-3.5 py-2 bg-[#714B67] hover:bg-[#5a3a51] text-white rounded-lg font-bold text-xs flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+                        >
+                          <Camera className="w-3.5 h-3.5" />
+                          <span>مسح فوري بالكاميرا</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg font-bold text-xs flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+                        >
+                          <Upload className="w-3.5 h-3.5 text-slate-500" />
+                          <span>رفع صورة أو مستند PDF</span>
+                        </button>
+
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handleProcessScanFile(f);
+                            e.target.value = '';
+                          }}
+                        />
+
+                        {scanSuccess && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setScanSuccess(false);
+                              setScannedData(null);
+                              setScannedImageUrl('');
+                            }}
+                            className="px-2.5 py-2 text-slate-500 hover:text-red-600 text-xs flex items-center gap-1 transition cursor-pointer mr-auto"
+                            title="مسح مستند آخر"
+                          >
+                            <RefreshCw className="w-3 h-3" />
+                            <span>مسح مستند آخر</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Scanned Summary Chip */}
+                    {scanSuccess && scannedData && (
+                      <div className="p-2.5 bg-white border border-emerald-200 rounded-lg text-[11px] text-slate-700 flex flex-wrap items-center gap-x-4 gap-y-1 shadow-xs">
+                        <div><strong className="text-slate-900 font-bold">الاسم:</strong> {employeeName || '—'}</div>
+                        <div><strong className="text-slate-900 font-bold">الرقم المدني:</strong> <span className="font-mono font-bold text-emerald-700">{civilId || '—'}</span></div>
+                        {scannedData.nationality && <div><strong className="text-slate-900 font-bold">الجنسية:</strong> {scannedData.nationality}</div>}
+                        {scannedData.dob && <div><strong className="text-slate-900 font-bold">الميلاد:</strong> {scannedData.dob}</div>}
+                        {scannedData.passportNo && <div><strong className="text-slate-900 font-bold">الجواز:</strong> <span className="font-mono">{scannedData.passportNo}</span></div>}
+                        {scannedData.mohLicenseNo && <div><strong className="text-slate-900 font-bold">ترخيص صحي:</strong> {scannedData.mohLicenseNo}</div>}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-slate-700 font-bold mb-1">اسم الموظف الثلاثي / الرباعي *</label>

@@ -940,6 +940,8 @@ export interface OnboardingPlan {
   medicalFitnessStatus?: 'pending' | 'fit' | 'unfit';
   medicalFitnessDate?: string;
   medicalFitnessHospital?: string;
+  scannedData?: any;
+  scannedImageUrl?: string;
   createdAt: string;
   updatedAt: string;
 }

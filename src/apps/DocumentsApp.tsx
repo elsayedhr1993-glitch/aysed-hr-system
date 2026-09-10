@@ -23,7 +23,7 @@ interface DocumentsAppProps {
   filterTab: string;
   onSaveDocument: (doc: DocumentItem) => void;
   onDeleteDocument: (docId: string) => void;
-  onAutoAddEmpFromOCR: (empData: any, docType?: string) => string;
+  onAutoAddEmpFromOCR: (empData: any, docType?: string) => string | Promise<string>;
   isOCRModalOpenInitially?: boolean;
   onNavigateToApp?: (app: any) => void;
   onSelectEmpForForm?: (emp: Employee) => void;
@@ -855,8 +855,8 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
                   </div>
                   <div className="flex gap-2">
                     <button 
-                      onClick={() => {
-                        const newEmpId = onAutoAddEmpFromOCR(scanResult.extractedData, scanResult.docType);
+                      onClick={async () => {
+                        const newEmpId = await onAutoAddEmpFromOCR(scanResult.extractedData, scanResult.docType);
                         onSaveDocument({
                           id: `doc-${Date.now()}`,
                           companyId: activeCompany?.id || '',

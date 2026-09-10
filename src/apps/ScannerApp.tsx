@@ -17,7 +17,7 @@ interface ScannerAppProps {
   activeCompany: Company;
   onSaveDocument: (doc: DocumentItem) => void;
   onDeleteDocument: (docId: string) => void;
-  onAutoAddEmpFromOCR: (empData: any, docType?: string) => string;
+  onAutoAddEmpFromOCR: (empData: any, docType?: string) => string | Promise<string>;
   onNavigateToApp?: (app: any) => void;
 }
 
@@ -271,15 +271,15 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
   }, [scanResult?.extractedData?.civilId]);
 
   // Handle Save and Dispatch
-  const handleSaveAndDispatch = () => {
+  const handleSaveAndDispatch = async () => {
     if (!scanResult) return;
 
     const data = scanResult.extractedData;
     let employeeId = '';
 
     if (routingMode === 'NEW_EMP') {
-      employeeId = onAutoAddEmpFromOCR(data, scanResult.docType);
-      toast.success('تم إنشاء وتعيين سجل الموظف الجديد آلياً');
+      employeeId = await onAutoAddEmpFromOCR(data, scanResult.docType);
+      toast.success('تم ترحيل وتعيين الموظف الجديد بنجاح في قاعدة البيانات!');
     } else if (routingMode === 'EXISTING_EMP') {
       if (!targetEmployeeId) {
         toast.error('يرجى اختيار الموظف المراد تحديث بياناته');
@@ -287,7 +287,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
       }
       employeeId = targetEmployeeId;
       // Trigger employee update by passing employee's own info merged with scanned fields
-      onAutoAddEmpFromOCR({ ...data, id: targetEmployeeId }, scanResult.docType);
+      await onAutoAddEmpFromOCR({ ...data, id: targetEmployeeId }, scanResult.docType);
       const matchedEmp = employees.find(e => e.id === targetEmployeeId);
       toast.success(`تم تحديث وثائق الموظف: ${matchedEmp?.fullNameAr || 'الموظف'}`);
     } else {
@@ -315,6 +315,12 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
 
     onSaveDocument(newDoc);
     setScanResult(null);
+
+    if (routingMode === 'NEW_EMP' && onNavigateToApp) {
+      setTimeout(() => {
+        onNavigateToApp('employees');
+      }, 500);
+    }
   };
 
   return (

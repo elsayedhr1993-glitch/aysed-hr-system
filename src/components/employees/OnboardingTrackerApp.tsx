@@ -477,21 +477,40 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
     if (onEmployeeCreated && newPlan.employeeName) {
       const isExisting = existingEmployees.some(e => e.id === newPlan.employeeId || (e.civilId && e.civilId === newPlan.civilId && newPlan.civilId !== 'غير محدد'));
       if (!isExisting) {
+        const sc = newPlan.scannedData || {};
         const generatedEmp = {
           id: `EMP-2026-${Date.now().toString().slice(-4)}`,
           nameAr: newPlan.employeeName,
           fullNameAr: newPlan.employeeName,
-          jobTitle: newPlan.jobTitle || 'موظف',
+          fullNameEn: sc.fullNameEn || sc.fullName || '',
+          nameEn: sc.fullNameEn || '',
+          jobTitle: newPlan.jobTitle || sc.profession || 'موظف',
           dept: newPlan.department || 'العموم',
           department: newPlan.department || 'العموم',
-          civilId: newPlan.civilId !== 'غير محدد' ? newPlan.civilId : '',
+          civilId: newPlan.civilId !== 'غير محدد' ? newPlan.civilId : (sc.civilId || ''),
+          civil_id_number: newPlan.civilId !== 'غير محدد' ? newPlan.civilId : (sc.civilId || ''),
+          civilIdExpiry: sc.expiryDate || sc.civilIdExpiry || '2027-01-01',
+          civilIdExpiryDate: sc.expiryDate || sc.civilIdExpiry || '2027-01-01',
           hireDate: newPlan.expectedStartDate || new Date().toISOString().slice(0, 10),
+          joinDate: newPlan.expectedStartDate || new Date().toISOString().slice(0, 10),
           status: 'على رأس العمل',
-          basicSalary: newPlan.department === 'الأطباء' ? 1200 : 700,
-          allowances: 150,
-          nationality: 'كويتي',
+          basicSalary: newPlan.contractDetails?.basicSalary || (newPlan.department === 'الأطباء' ? 1200 : 700),
+          contractSalary: newPlan.contractDetails?.basicSalary || (newPlan.department === 'الأطباء' ? 1200 : 700),
+          housingAllowance: newPlan.contractDetails?.housingAllowance || 100,
+          transportAllowance: newPlan.contractDetails?.transportAllowance || 50,
+          otherAllowances: newPlan.contractDetails?.otherAllowances || 0,
+          allowances: (newPlan.contractDetails?.housingAllowance || 100) + (newPlan.contractDetails?.transportAllowance || 50) + (newPlan.contractDetails?.otherAllowances || 0),
+          totalSalary: newPlan.contractDetails?.totalSalary || ((newPlan.contractDetails?.basicSalary || 700) + 150),
+          nationality: sc.nationality || 'كويتي',
+          gender: sc.gender || 'MALE',
+          dob: sc.birthDate || sc.dob || '1990-01-01',
+          birthDate: sc.birthDate || sc.dob || '1990-01-01',
+          passportNo: sc.passportNo || '',
+          passportExpiry: sc.passportExpiryDate || '',
+          residencyType: sc.residencyType || (sc.nationality?.includes('كويت') ? 'مواطن' : 'مادة 18 - قطاع أهلي'),
           avatarColor: 'bg-purple-900',
-          mohLicense: newPlan.department === 'الأطباء' ? 'MOH-DOC-TEMP' : ''
+          mohLicense: sc.mohLicenseNo || (newPlan.department === 'الأطباء' ? 'MOH-DOC-TEMP' : ''),
+          mohLicenseExpiry: sc.mohLicenseExpiryDate || ''
         };
         onEmployeeCreated(generatedEmp);
       }
