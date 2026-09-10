@@ -38,12 +38,8 @@ export const PublicHolidaysApp: React.FC<any> = (props) => {
   useEffect(() => {
     // جلب الموظفين المسجلين
     try {
-      const raw = localStorage.getItem('employees') || localStorage.getItem('company_employees');
-      
       if (props.employees && props.employees.length > 0) {
         setEmployees(props.employees);
-      } else if (raw) {
-        setEmployees(JSON.parse(raw));
       } else {
         setEmployees([]);
       }

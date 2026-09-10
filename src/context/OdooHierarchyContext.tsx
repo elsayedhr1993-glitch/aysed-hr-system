@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { KUWAIT_LABOR_CONFIG } from '../config/kuwaitLaborConfig';
 import { useCompany } from './CompanyContext';
 import { TenantDatabaseService } from '../services/tenantDataService';
+import { collection, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
+import { db, cleanFirestoreData } from '../lib/firebase';
 
 // 1. المستوى الأول: العقد والبيانات الثابتة (hr.contract & hr.employee)
 export interface EmployeeContract {
@@ -270,6 +272,18 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
   // حركات البصمة
   const [attendance, setAttendance] = useState<Record<string, AttendanceLog>>({});
 
+  useEffect(() => {
+    const attendanceQuery = query(collection(db, 'attendance'), where('companyId', '==', currentCompanyId));
+    return onSnapshot(attendanceQuery, snapshot => {
+      const records: Record<string, AttendanceLog> = {};
+      snapshot.docs.forEach(item => {
+        const data = item.data() as AttendanceLog & { employeeId?: string };
+        if (data.employeeId) records[data.employeeId] = data;
+      });
+      setAttendance(records);
+    }, error => console.error('Error in realtime attendance sync:', error));
+  }, [currentCompanyId]);
+
   // السلف المالية
   const [loans, setLoans] = useState<EmployeeLoan[]>([]);
 
@@ -424,10 +438,17 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const recordAttendanceShift = (empId: string, delayMin: number, overtimeHr: number) => {
+    const record = {
+      ...(attendance[empId] || { employeeId: empId, unpaidAbsenceDays: 0 }),
+      delayMinutes: delayMin,
+      overtimeHours: overtimeHr,
+      companyId: currentCompanyId
+    };
     setAttendance(prev => ({
       ...prev,
-      [empId]: { ...(prev[empId] || { employeeId: empId, unpaidAbsenceDays: 0 }), delayMinutes: delayMin, overtimeHours: overtimeHr }
+      [empId]: record
     }));
+    void setDoc(doc(db, 'attendance', empId), cleanFirestoreData(record), { merge: true });
   };
 
   const recordAttendanceTimes = (
@@ -438,20 +459,18 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
     overtimeHours?: number, 
     isHoliday?: boolean
   ) => {
-    setAttendance(prev => {
-      const current = prev[empId] || { employeeId: empId, unpaidAbsenceDays: 0, delayMinutes: 0, overtimeHours: 0 };
-      return {
-        ...prev,
-        [empId]: { 
-          ...current, 
-          checkIn, 
-          checkOut: checkOut || current.checkOut,
-          delayMinutes: delayMinutes !== undefined ? delayMinutes : current.delayMinutes,
-          overtimeHours: overtimeHours !== undefined ? overtimeHours : current.overtimeHours,
-          isHoliday: isHoliday !== undefined ? !!isHoliday : !!current.isHoliday 
-        }
-      };
-    });
+    const current = attendance[empId] || { employeeId: empId, unpaidAbsenceDays: 0, delayMinutes: 0, overtimeHours: 0 };
+    const record = {
+      ...current,
+      checkIn,
+      checkOut: checkOut || current.checkOut,
+      delayMinutes: delayMinutes !== undefined ? delayMinutes : current.delayMinutes,
+      overtimeHours: overtimeHours !== undefined ? overtimeHours : current.overtimeHours,
+      isHoliday: isHoliday !== undefined ? !!isHoliday : !!current.isHoliday,
+      companyId: currentCompanyId
+    };
+    setAttendance(prev => ({ ...prev, [empId]: record }));
+    void setDoc(doc(db, 'attendance', empId), cleanFirestoreData(record), { merge: true });
   };
 
   const addLoan = (empId: string, amount: number, installment: number) => {

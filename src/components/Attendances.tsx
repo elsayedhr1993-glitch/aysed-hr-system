@@ -46,6 +46,8 @@ import { OfficialAttendancePrintModal } from './attendance/OfficialAttendancePri
 import { DynamicQrKioskModal } from './DynamicQrKioskModal';
 import { BiometricDevicesModal } from './attendance/BiometricDevicesModal';
 import { AttendanceSetupWizardModal, getAttendanceMasterPolicy, AttendancePolicyData } from './attendance/AttendanceSetupWizardModal';
+import { db, cleanFirestoreData } from '../lib/firebase';
+import { collection, doc, onSnapshot, setDoc } from 'firebase/firestore';
 
 export interface AttendanceItem {
   id: string;
@@ -131,38 +133,35 @@ export const Attendances: React.FC = () => {
   const [kioskAction, setKioskAction] = useState<'in' | 'out'>('in');
   const [kioskGreeting, setKioskGreeting] = useState<{ name: string; time: string; action: string } | null>(null);
 
-  // Persistent Custom / Manual / Imported Records
-  const storageKey = `odoo_attendances_records_v3_${activeCompId}`;
-  const [customAttendanceRecords, setCustomAttendanceRecords] = useState<AttendanceItem[]>(() => {
-    try {
-      const saved = localStorage.getItem(storageKey);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.error(e);
-    }
-    return [];
-  });
-
-  // Save custom records on change
+  // Persistent custom, manual, and imported records are stored in Firestore.
+  const [customAttendanceRecords, setCustomAttendanceRecords] = useState<AttendanceItem[]>([]);
   useEffect(() => {
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(customAttendanceRecords));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [customAttendanceRecords, storageKey]);
+    const unsubscribe = onSnapshot(collection(db, 'attendance_records'), snapshot => {
+      const records = snapshot.docs
+        .map(item => ({ ...item.data(), id: item.id } as AttendanceItem & { companyId?: string }))
+        .filter(item => item.companyId === activeCompId);
+      setCustomAttendanceRecords(records);
+    }, error => console.error('Failed to load attendance records from Firestore', error));
+    return () => unsubscribe();
+  }, [activeCompId]);
+
+  useEffect(() => {
+    customAttendanceRecords.forEach(record => {
+      void setDoc(
+        doc(db, 'attendance_records', record.id),
+        cleanFirestoreData({ ...record, companyId: activeCompId }),
+        { merge: true }
+      ).catch(error => console.error('Failed to save attendance record to Firestore', error));
+    });
+  }, [activeCompId, customAttendanceRecords]);
 
   // Monthly Posted to Payroll records tracker
-  const monthlyPostedKey = `odoo_attendance_posted_months_${activeCompId}`;
-  const [postedMonths, setPostedMonths] = useState<Record<string, boolean>>(() => {
-    try {
-      const saved = localStorage.getItem(monthlyPostedKey);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.error(e);
-    }
-    return {};
-  });
+  const [postedMonths, setPostedMonths] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    return onSnapshot(doc(db, 'attendance_posted_months', activeCompId), snapshot => {
+      setPostedMonths((snapshot.data()?.months || {}) as Record<string, boolean>);
+    }, error => console.error('Failed to load posted attendance months from Firestore', error));
+  }, [activeCompId]);
 
   // Helper: Read Assigned Shift for an employee on selectedDate from Odoo Planning
   const getEmployeeShiftForDate = (empId: string, dateStr: string) => {
@@ -451,7 +450,7 @@ export const Attendances: React.FC = () => {
     try {
       const updatedPosted = { ...postedMonths, [monthKey]: true };
       setPostedMonths(updatedPosted);
-      localStorage.setItem(monthlyPostedKey, JSON.stringify(updatedPosted));
+      void setDoc(doc(db, 'attendance_posted_months', activeCompId), { months: updatedPosted }, { merge: true });
 
       // Push latest figures to Odoo Hierarchy Context for payslip computations
       summaryList.forEach(item => {

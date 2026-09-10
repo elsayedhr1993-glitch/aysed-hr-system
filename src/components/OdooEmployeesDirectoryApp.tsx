@@ -588,13 +588,11 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
     if (isCreating) {
       updated = [payload, ...employees];
       setEmployees(updated);
-      localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(updated));
       setIsCreating(false);
       toast.success(`تم تسجيل الموظف (${selectedEmployee.name}) بنجاح في قاعدة بيانات Firebase`);
     } else {
       updated = employees.map(e => e.id === selectedEmployee.id ? payload : e);
       setEmployees(updated);
-      localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(updated));
       toast.success(`تم حفظ بيانات الموظف (${selectedEmployee.name}) حياً في Firebase`);
     }
   };
@@ -647,7 +645,6 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
       }
       const updated = employees.filter(e => !selectedIds.includes(e.id));
       setEmployees(updated);
-      localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(updated));
       setSelectedIds([]);
       setIsBulkDeleting(false);
       setEmployeeToDelete(null);
@@ -660,7 +657,6 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
     await TenantDatabaseService.deleteEmployee(employeeToDelete.id, targetCompId);
     const updated = employees.filter(e => e.id !== employeeToDelete.id);
     setEmployees(updated);
-    localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(updated));
     
     if (selectedEmployee?.id === employeeToDelete.id) {
       setSelectedEmployee(null);

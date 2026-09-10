@@ -418,35 +418,8 @@ function MainAppLayout() {
       addEmployee(newEmp as any);
     }
     
-    // Fallback direct storage guarantee for Scanner to ensure employee appears instantly in all views
     try {
       const activeCompId = activeCompany?.id || 'comp-super-admin';
-      const existingKey = `odoo_employees_v1_${activeCompId}`;
-      const existingList = JSON.parse(localStorage.getItem(existingKey) || '[]');
-      const isAlreadyThere = existingList.some((e: any) => e.id === newEmp.id || (e.civilId && e.civilId === newEmp.civilId));
-      if (!isAlreadyThere) {
-        const updatedList = [newEmp, ...existingList];
-        localStorage.setItem(existingKey, JSON.stringify(updatedList));
-      }
-
-      // Also ensure write to master/global if super-admin or almanar
-      const globalKey = 'manara_employees_data';
-      const globalList = JSON.parse(localStorage.getItem(globalKey) || '[]');
-      if (!globalList.some((e: any) => e.id === newEmp.id || (e.civilId && e.civilId === newEmp.civilId))) {
-        localStorage.setItem(globalKey, JSON.stringify([newEmp, ...globalList]));
-      }
-
-      if (activeCompId === 'comp-super-admin' || activeCompId === 'comp-almanar') {
-        const altKey = activeCompId === 'comp-super-admin' ? 'odoo_employees_v1_comp-almanar' : 'odoo_employees_v1_comp-super-admin';
-        const altList = JSON.parse(localStorage.getItem(altKey) || '[]');
-        if (!altList.some((e: any) => e.id === newEmp.id || (e.civilId && e.civilId === newEmp.civilId))) {
-          localStorage.setItem(altKey, JSON.stringify([newEmp, ...altList]));
-        }
-      }
-
-      window.dispatchEvent(new Event('storage'));
-      window.dispatchEvent(new Event('manara_employees_updated'));
-
       await TenantDatabaseService.saveEmployee({
         ...newEmp,
         companyId: activeCompId

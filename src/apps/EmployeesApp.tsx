@@ -287,24 +287,14 @@ export function EmployeesApp(props?: any) {
     await TenantDatabaseService.deleteEmployee(id, currentCompanyId);
     setEmployees(prev => {
       const updated = prev.filter(emp => emp.id !== id);
-      if (currentCompanyId) {
-        localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(updated));
-        localStorage.setItem('manara_employees_data', JSON.stringify(updated));
-      }
       return updated;
     });
     setContracts(prev => {
       const updated = prev.filter((c: any) => c.employeeId !== id && c.id !== `contract-${id}`);
-      if (currentCompanyId) {
-        localStorage.setItem(`odoo_contracts_v1_${currentCompanyId}`, JSON.stringify(updated));
-      }
       return updated;
     });
     setCommencements(prev => {
       const updated = prev.filter((c: any) => c.employeeId !== id && c.id !== `commencement-${id}`);
-      if (currentCompanyId) {
-        localStorage.setItem(`odoo_commencements_v1_${currentCompanyId}`, JSON.stringify(updated));
-      }
       return updated;
     });
     try {
@@ -531,14 +521,8 @@ export function EmployeesApp(props?: any) {
               };
             });
             setEmployees(mapped);
-            if (currentCompanyId) {
-              localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(mapped));
-            }
           } else {
             setEmployees([]);
-            if (currentCompanyId) {
-              localStorage.removeItem(`odoo_employees_v1_${currentCompanyId}`);
-            }
           }
         }
       } catch (e) {
@@ -555,15 +539,6 @@ export function EmployeesApp(props?: any) {
   useEffect(() => {
     const handleSyncEvent = () => {
       if (currentCompanyId) {
-        try {
-          const raw = localStorage.getItem(`odoo_employees_v1_${currentCompanyId}`) || localStorage.getItem('manara_employees_data');
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              setEmployees(parsed);
-            }
-          }
-        } catch {}
         TenantDatabaseService.getEmployeesByTenant(currentCompanyId).then(dbEmps => {
           if (dbEmps && dbEmps.length > 0) {
             setEmployees(dbEmps);
@@ -618,21 +593,12 @@ export function EmployeesApp(props?: any) {
   }, [currentCompanyId]);
 
   useEffect(() => {
-    if (currentCompanyId) {
-      localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(employees));
-    }
   }, [employees, currentCompanyId]);
 
   useEffect(() => {
-    if (currentCompanyId) {
-      localStorage.setItem(`odoo_contracts_v1_${currentCompanyId}`, JSON.stringify(contracts));
-    }
   }, [contracts, currentCompanyId]);
 
   useEffect(() => {
-    if (currentCompanyId) {
-      localStorage.setItem(`odoo_commencements_v1_${currentCompanyId}`, JSON.stringify(commencements));
-    }
   }, [commencements, currentCompanyId]);
 
   // فتح نموذج الموظف (hr.employee) كصفحة نظيفة ومباشرة
@@ -699,9 +665,6 @@ export function EmployeesApp(props?: any) {
 
       setEmployees(prev => {
         const nextList = [newEmp, ...prev];
-        if (currentCompanyId) {
-          localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(nextList));
-        }
         return nextList;
       });
       setSelectedEmployee(newEmp);
@@ -727,9 +690,6 @@ export function EmployeesApp(props?: any) {
 
       setEmployees(prev => {
         const nextList = prev.map(e => e.id === updatedExisting.id ? updatedExisting : e);
-        if (currentCompanyId) {
-          localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(nextList));
-        }
         return nextList;
       });
     }
@@ -806,9 +766,6 @@ export function EmployeesApp(props?: any) {
     setEmployees(prev => {
       const exists = prev.some(e => e.id === payload.id);
       const nextList = exists ? prev.map(e => e.id === payload.id ? payload : e) : [payload, ...prev];
-      if (activeCompanyId) {
-        localStorage.setItem(`odoo_employees_v1_${activeCompanyId}`, JSON.stringify(nextList));
-      }
       return nextList;
     });
 
@@ -1250,7 +1207,6 @@ export function EmployeesApp(props?: any) {
     const updatedList = [...mockEmployees, ...employees];
     setEmployees(updatedList);
     if (currentCompanyId) {
-      localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(updatedList));
       TenantDatabaseService.saveEmployee(mockEmployees[0] as any, currentCompanyId);
       TenantDatabaseService.saveEmployee(mockEmployees[1] as any, currentCompanyId);
       TenantDatabaseService.saveEmployee(mockEmployees[2] as any, currentCompanyId);
@@ -1940,11 +1896,9 @@ export function EmployeesApp(props?: any) {
                   if (props?.onSaveEmployee) {
                     props.onSaveEmployee(updatedEmp);
                   } else {
-                    const employeesKey = `odoo_employees_v1_${currentCompanyId}`;
-                    const currentEmployees = JSON.parse(localStorage.getItem(employeesKey) || '[]');
-                    const updatedLocal = currentEmployees.map((e: any) => e.id === empId ? { ...e, status: newStatus } : e);
-                    localStorage.setItem(employeesKey, JSON.stringify(updatedLocal));
-                    window.dispatchEvent(new Event('manara_employees_updated'));
+                    const updatedEmployee = { ...updatedEmp, status: newStatus };
+                    setEmployees(prev => prev.map(e => e.id === empId ? updatedEmployee : e));
+                    void TenantDatabaseService.saveEmployee(updatedEmployee as any, currentCompanyId);
                   }
                   toast.success(`تم تحديث حالة الموظف لـ ${newStatus === 'ACTIVE' ? 'نشط' : 'غير نشط'}`);
                 }
@@ -2099,16 +2053,6 @@ export function EmployeesApp(props?: any) {
                   companyId: targetComp
                 } as any, targetComp);
                 
-                const currentKey = `odoo_employees_v1_${targetComp}`;
-                const raw = localStorage.getItem(currentKey);
-                let list = raw ? JSON.parse(raw) : [];
-                if (!Array.isArray(list)) list = [];
-                if (!list.some((e: any) => e.id === newEmp.id || (e.civilId && e.civilId === newEmp.civilId))) {
-                  list = [newEmp, ...list];
-                  localStorage.setItem(currentKey, JSON.stringify(list));
-                  localStorage.setItem('manara_employees_data', JSON.stringify(list));
-                }
-                window.dispatchEvent(new Event('storage'));
                 window.dispatchEvent(new Event('manara_employees_updated'));
                 toast.success(`تم تسجيل وترحيل الموظف (${newEmp.nameAr || newEmp.fullNameAr}) بنجاح إلى قاعدة البيانات السحابية!`);
               } catch (err) {

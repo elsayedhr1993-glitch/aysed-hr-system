@@ -64,12 +64,10 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
   const [pendingOcrData, setPendingOcrData] = useState<{ docType: string; data: any } | null>(null);
 
   // Sync Onboarding Plan data back to permanent Employee directory record
-  const syncPlanWithEmployee = (plan: OnboardingPlan) => {
+  const syncPlanWithEmployee = async (plan: OnboardingPlan) => {
     try {
-      const empKey = `odoo_employees_v1_${companyId}`;
-      const raw = localStorage.getItem(empKey);
-      if (raw) {
-        const employees = JSON.parse(raw);
+      const employees = await TenantDatabaseService.getEmployeesByTenant(companyId);
+      if (employees.length > 0) {
         let found = false;
         let matchedEmployee: any = null;
 
@@ -117,7 +115,6 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
         });
 
         if (found) {
-          localStorage.setItem(empKey, JSON.stringify(updatedEmployees));
           console.log('[OnboardingTrackerApp] Successfully synced plan with permanent employee record.');
           
           // بث إشعار التحديث لتحديث كافة شاشات النظام فوراً حياً وبلا تأخير
@@ -137,14 +134,7 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
           // الربط التلقائي لتأسيس عقد العمل آلياً في حال تم تأكيد مباشرة العمل الفعلية
           const isCommenced = plan.commencementDetails?.isCommenced || !!plan.commencementDetails?.actualJoiningDate;
           if (isCommenced && matchedEmployee) {
-            const contractKey = `odoo_contracts_v1_${companyId}`;
-            const rawContracts = localStorage.getItem(contractKey);
-            let contractsList = [];
-            try {
-              contractsList = rawContracts ? JSON.parse(rawContracts) : [];
-            } catch {
-              contractsList = [];
-            }
+            let contractsList: any[] = await TenantDatabaseService.getContractsByTenant(companyId);
 
             const employeeId = matchedEmployee.id || plan.employeeId || `EMP-${Date.now()}`;
             const existingContractIdx = contractsList.findIndex((c: any) => c.id === employeeId || c.employeeId === employeeId);
@@ -183,7 +173,6 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
               contractsList.push(newContract);
             }
 
-            localStorage.setItem(contractKey, JSON.stringify(contractsList));
             console.log('[OnboardingTrackerApp] Automated Contract established/updated in standard contracts database.');
 
             // حفظ العقد في قاعدة البيانات السحابية Firestore

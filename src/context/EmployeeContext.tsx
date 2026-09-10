@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Employee } from '../types';
 import { LeaveService, runAutomatedLeaveAccrual, AccrualLogEntry, AccrualEngineResult, getAccrualMonthNameAr } from '../services/leaveService';
-import { MANARA_STORAGE_KEYS, getPersistentData, setPersistentData } from '../utils/persistentStorage';
 import { db, cleanFirestoreData } from '../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
@@ -40,7 +39,6 @@ export const EmployeeProvider: React.FC<{
 
     if (result.hasRun) {
       setEmployees(result.updatedEmployees);
-      setPersistentData(MANARA_STORAGE_KEYS.EMPLOYEES, result.updatedEmployees);
       setAccrualLogs(prev => [...result.logs, ...prev].slice(0, 100));
       
       const nowIso = currentDate.toISOString();
@@ -90,7 +88,6 @@ export const EmployeeProvider: React.FC<{
     const res = LeaveService.manualAccrueForEmployee(employeeId, employees);
     if (res.success) {
       setEmployees(res.updatedEmployees);
-      setPersistentData(MANARA_STORAGE_KEYS.EMPLOYEES, res.updatedEmployees);
       const targetEmp = res.updatedEmployees.find(e => e.id === employeeId);
       if (targetEmp) {
         try {
@@ -114,7 +111,6 @@ export const EmployeeProvider: React.FC<{
   const updateEmployee = useCallback(async (updatedEmp: Employee) => {
     setEmployees(prev => {
       const next = prev.map(e => e.id === updatedEmp.id ? updatedEmp : e);
-      setPersistentData(MANARA_STORAGE_KEYS.EMPLOYEES, next);
       return next;
     });
     try {

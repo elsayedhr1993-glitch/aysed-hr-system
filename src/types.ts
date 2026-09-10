@@ -45,6 +45,12 @@ export interface Company {
   customDomain?: string; // e.g. "hr.almanara.com.kw"
   nameAr: string;
   nameEn: string;
+  mohLicense?: string;
+  crNumber?: string;
+  pifssNumber?: string;
+  logo?: string;
+  isDefault?: boolean;
+  accountNumber?: string;
   commercialRegNo?: string; // السجل التجاري
   civilIdCompany?: string; // الرقم المدني للشركة
   bankName?: string;
@@ -71,7 +77,7 @@ export interface Company {
   stampUrl?: string;
   authorizedSignatureUrl?: string;
   subscriptionPlan?: string;
-  status?: 'active' | 'suspended' | 'expired';
+  status?: string;
   industry?: string;
   branches?: CompanyBranch[];
 }

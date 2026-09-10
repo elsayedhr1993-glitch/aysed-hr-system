@@ -48,14 +48,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'ALL' | 'HR_PAYROLL' | 'ATTENDANCE_TIME' | 'DOCS_OPERATIONS'>('ALL');
 
-  // استخراج الموظفين الحقيقيين للشركة من الذاكرة المحلية
-  const [realEmployees, setRealEmployees] = useState<any[]>(() => {
-    try {
-      const raw = localStorage.getItem(`odoo_employees_v1_${currentCompanyId}`);
-      if (raw) return JSON.parse(raw);
-    } catch (e) {}
-    return [];
-  });
+  const [realEmployees, setRealEmployees] = useState<any[]>([]);
 
   // استخراج طلبات الإجازات الحقيقية
   const [realLeaves, setRealLeaves] = useState<any[]>(() => {
@@ -69,8 +62,6 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
   // تحديث البيانات دورياً
   useEffect(() => {
     try {
-      const rawEmp = localStorage.getItem(`odoo_employees_v1_${currentCompanyId}`);
-      if (rawEmp) setRealEmployees(JSON.parse(rawEmp));
       const rawLev = localStorage.getItem('odoo_leave_requests_v2');
       if (rawLev) setRealLeaves(JSON.parse(rawLev));
     } catch (e) {}

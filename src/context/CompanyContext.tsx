@@ -1,26 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-
-export interface Company {
-  id: string;
-  nameAr: string;
-  nameEn: string;
-  crNumber: string;
-  pifssNumber: string;
-  mohLicense?: string;
-  logo?: string;
-  isDefault?: boolean;
-  // Odoo-compatible fields
-  name?: string;
-  commercialRegNo?: string;
-  civilIdCompany?: string;
-  civilId?: string;
-  bankName?: string;
-  accountNumber?: string;
-  iban?: string;
-  wsiCode?: string;
-  currency?: string;
-  status?: string;
-}
+import { Company } from '../types';
 
 const defaultMasterCompany: Company = {
   id: 'comp-super-admin',

@@ -8,6 +8,7 @@ import { handleOcrResult } from '../utils/ocrService';
 import { OdooDocumentManager, DocumentFolder, DocumentAttachment } from './OdooDocumentManager';
 import OdooPamContractModal from './OdooPamContractModal';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
+import { TenantDatabaseService } from '../services/tenantDataService';
 import { 
   Users, 
   UserPlus, 
@@ -76,11 +77,9 @@ export const OdooEmployeesFull: React.FC<OdooEmployeesFullProps> = ({ activeComp
   const [employees, setEmployees] = useState<Employee[]>([]);
 
   useEffect(() => {
-    // Load from localStorage
-    const stored = localStorage.getItem('aysed_employees_multitenant');
-    let allEmps: Employee[] = stored ? JSON.parse(stored) : [];
-    
-    setEmployees(allEmps.filter(e => e.companyId === activeCompany?.id));
+    TenantDatabaseService.getEmployeesByTenant(activeCompany?.id || '').then(allEmps => {
+      setEmployees(allEmps as unknown as Employee[]);
+    });
     setSelectedEmployee(null);
     setIsEditing(false);
   }, [activeCompany]);
@@ -187,11 +186,9 @@ export const OdooEmployeesFull: React.FC<OdooEmployeesFullProps> = ({ activeComp
     setIsEditing(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!selectedEmployee) return;
-    
-    const stored = localStorage.getItem('aysed_employees_multitenant');
-    let allEmps: Employee[] = stored ? JSON.parse(stored) : [];
+    const allEmps = employees;
     
     // إنشاء كود وظيفي تلقائي فور الحفظ (EMP-003 أو MED-001 للأطباء)
     let finalCode = selectedEmployee.id;
@@ -209,26 +206,19 @@ export const OdooEmployeesFull: React.FC<OdooEmployeesFullProps> = ({ activeComp
       companyId: activeCompany.id
     };
 
-    const existsIndex = allEmps.findIndex((e) => e.id === employeeToSave.id || (selectedEmployee.id === 'NEW-TEMP' && false));
-    if (existsIndex >= 0) {
-      allEmps[existsIndex] = employeeToSave;
-    } else {
-      allEmps = [employeeToSave, ...allEmps.filter(e => e.id !== selectedEmployee.id)];
-    }
-
-    localStorage.setItem('aysed_employees_multitenant', JSON.stringify(allEmps));
-    setEmployees(allEmps.filter(e => e.companyId === activeCompany.id));
+    await TenantDatabaseService.saveEmployee(employeeToSave as any, activeCompany.id);
+    const nextEmployees = allEmps.some(e => e.id === employeeToSave.id)
+      ? allEmps.map(e => e.id === employeeToSave.id ? employeeToSave : e)
+      : [employeeToSave, ...allEmps];
+    setEmployees(nextEmployees);
     setIsEditing(false);
     setSelectedEmployee(employeeToSave);
   };
 
-  const handleDeleteEmployee = (empId: string) => {
+  const handleDeleteEmployee = async (empId: string) => {
     if (confirm('هل أنت متأكد من حذف ملف هذا الموظف نهائياً؟')) {
-      const stored = localStorage.getItem('aysed_employees_multitenant');
-      let allEmps: Employee[] = stored ? JSON.parse(stored) : [];
-      allEmps = allEmps.filter(e => String(e.id) !== String(empId));
-      localStorage.setItem('aysed_employees_multitenant', JSON.stringify(allEmps));
-      setEmployees(allEmps.filter(e => String(e.companyId) === String(activeCompany.id)));
+      await TenantDatabaseService.deleteEmployee(empId, activeCompany.id);
+      setEmployees(prev => prev.filter(e => String(e.id) !== String(empId)));
       if (selectedEmployee && String(selectedEmployee.id) === String(empId)) {
         setSelectedEmployee(null);
       }

@@ -831,10 +831,8 @@ class ResConfigSettings(models.TransientModel):
       }
 
       // Clear local storage cache
-      localStorage.setItem(`odoo_employees_v1_${companyId}`, JSON.stringify([]));
       localStorage.setItem(`odoo_contracts_v1_${companyId}`, JSON.stringify([]));
       localStorage.setItem(`odoo_commencements_v1_${companyId}`, JSON.stringify([]));
-      localStorage.setItem('manara_employees_data', JSON.stringify([]));
       localStorage.setItem('manara_contracts_data', JSON.stringify([]));
       localStorage.removeItem(`aysed_emp_cache_${companyId}`);
 

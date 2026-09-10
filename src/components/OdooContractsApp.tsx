@@ -387,15 +387,12 @@ export const OdooContractsApp: React.FC = () => {
       contractStatus: selectedContract.contractStatus
     });
 
-    // مزامنة فورية مع بيانات الموظف الداخلية في قاعدة البيانات والتخزين المحلي
+    // مزامنة خصائص الراتب مع سجل الموظف في Firestore
     try {
       const selCnt = selectedContract as any;
-      const empKey = `odoo_employees_v1_${currentCompanyId}`;
-      const savedEmps = localStorage.getItem(empKey);
-      if (savedEmps) {
-        const empList = JSON.parse(savedEmps);
-        const targetEmp = empList.find((e: any) => e.id === selCnt.id || e.id === selCnt.employeeId);
-        if (targetEmp) {
+      const empList = await TenantDatabaseService.getEmployeesByTenant(currentCompanyId);
+      const targetEmp = empList.find((e: any) => e.id === selCnt.id || e.id === selCnt.employeeId);
+      if (targetEmp) {
           const bSal = Number(selCnt.basicSalary || 0);
           const hAll = Number(selCnt.housingAllowance || 0);
           const tAll = Number(selCnt.transportAllowance || 0);
@@ -416,15 +413,12 @@ export const OdooContractsApp: React.FC = () => {
             allowances: totAllowances,
             totalSalary: totSal,
             salary: totSal,
-            contractType: selCnt.contractType || targetEmp.contractType,
+            contractType: selCnt.contractType || (targetEmp as any).contractType,
             contractStatus: selCnt.contractStatus || targetEmp.contractStatus,
-            contractStartDate: selCnt.startDate || targetEmp.contractStartDate,
-            contractEndDate: selCnt.endDate || targetEmp.contractEndDate,
+            contractStartDate: selCnt.startDate || (targetEmp as any).contractStartDate,
+            contractEndDate: selCnt.endDate || (targetEmp as any).contractEndDate,
           };
-          const nextEmps = empList.map((e: any) => e.id === targetEmp.id ? updatedEmp : e);
-          localStorage.setItem(empKey, JSON.stringify(nextEmps));
-          TenantDatabaseService.saveEmployee(updatedEmp, currentCompanyId);
-        }
+          await TenantDatabaseService.saveEmployee(updatedEmp, currentCompanyId);
       }
     } catch (err) {
       console.error('Error syncing employee salary from contract:', err);

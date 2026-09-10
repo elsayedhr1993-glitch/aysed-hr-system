@@ -30,24 +30,12 @@ interface OdooMainDashboardProps {
 export const OdooMainDashboard: React.FC<OdooMainDashboardProps> = ({ onNavigate }) => {
   const { activeCompany } = useCompany();
 
-  // Load real employees from persistent storage
-  // Load real employees from partitioned persistent storage
   const currentCompanyId = activeCompany?.id || 'comp-super-admin';
   const [allEmployees, setAllEmployees] = useState<any[]>([]);
   
   useEffect(() => {
     let isMounted = true;
-    const rawEmployees = localStorage.getItem(`odoo_employees_v1_${currentCompanyId}`);
-    if (rawEmployees) {
-      try {
-        const parsed = JSON.parse(rawEmployees);
-        setAllEmployees(parsed);
-      } catch (e) {
-        setAllEmployees([]);
-      }
-    } else {
-      setAllEmployees([]);
-    }
+    setAllEmployees([]);
 
     // Background fetch to ensure dashboard is up to date
     import('../services/tenantDataService').then(({ TenantDatabaseService }) => {
@@ -56,10 +44,8 @@ export const OdooMainDashboard: React.FC<OdooMainDashboardProps> = ({ onNavigate
           if (dbEmps && dbEmps.length > 0) {
             const mapped = dbEmps.map(emp => ({ ...emp, companyId: emp.companyId || currentCompanyId }));
             setAllEmployees(mapped);
-            localStorage.setItem(`odoo_employees_v1_${currentCompanyId}`, JSON.stringify(mapped));
           } else {
             setAllEmployees([]);
-            localStorage.removeItem(`odoo_employees_v1_${currentCompanyId}`);
           }
         }
       });

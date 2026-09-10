@@ -172,12 +172,6 @@ export const EOSApp: React.FC<EOSAppProps> = ({
       // 2. الحفظ السحابي والمحلي
       await TenantDatabaseService.saveEmployee(updatedEmp, activeCompId);
       
-      const compKey = `odoo_employees_v1_${activeCompId}`;
-      const localEmps = JSON.parse(localStorage.getItem(compKey) || '[]');
-      const nextEmps = localEmps.map((e: any) => e.id === updatedEmp.id ? updatedEmp : e);
-      localStorage.setItem(compKey, JSON.stringify(nextEmps));
-      localStorage.setItem('manara_employees_data', JSON.stringify(nextEmps));
-      window.dispatchEvent(new Event('storage'));
       window.dispatchEvent(new Event('manara_employees_updated'));
 
       if (onSaveEmployee) {

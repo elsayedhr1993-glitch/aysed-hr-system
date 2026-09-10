@@ -5,8 +5,8 @@ import {
   Zap, FileSpreadsheet, Eye, ExternalLink, BadgeAlert, Award, Scan, Upload
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { MANARA_STORAGE_KEYS, getPersistentData, setPersistentData } from '../utils/persistentStorage';
 import { useCompany } from '../context/CompanyContext';
+import { TenantDatabaseService } from '../services/tenantDataService';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
 
 const getDaysUntilExpiry = (expiryDateString?: string) => {
@@ -35,19 +35,8 @@ export const OdooMohMedicalHubApp: React.FC = () => {
 
   // Load employees
   useEffect(() => {
-    const loaded = getPersistentData<any[]>(MANARA_STORAGE_KEYS.EMPLOYEES, []);
-    setEmployees(loaded);
-
-    const handleStorage = () => {
-      setEmployees(getPersistentData<any[]>(MANARA_STORAGE_KEYS.EMPLOYEES, []));
-    };
-    window.addEventListener('storage', handleStorage);
-    window.addEventListener('manara_employees_updated', handleStorage);
-    return () => {
-      window.removeEventListener('storage', handleStorage);
-      window.removeEventListener('manara_employees_updated', handleStorage);
-    };
-  }, []);
+    TenantDatabaseService.getEmployeesByTenant(activeCompany?.id || '').then(setEmployees);
+  }, [activeCompany?.id]);
 
   // Filter medical staff
   const medicalStaff = employees.filter(emp => {
@@ -116,7 +105,7 @@ export const OdooMohMedicalHubApp: React.FC = () => {
     });
 
     setEmployees(updated);
-    setPersistentData(MANARA_STORAGE_KEYS.EMPLOYEES, updated);
+    void TenantDatabaseService.saveEmployee(updated.find(emp => emp.id === selectedEmpId), activeCompany?.id || '');
     window.dispatchEvent(new Event('manara_employees_updated'));
     toast.success('تم تحديث ترخيص وزارة الصحة وحفظ المستند في ملف الكادر بنجاح');
     setActiveTab('licenses');

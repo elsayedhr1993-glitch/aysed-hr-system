@@ -1,6 +1,8 @@
 // src/services/leaveSettlementService.ts
 import { supabase } from '../lib/supabase';
 import { MANARA_STORAGE_KEYS, getPersistentData, setPersistentData } from '../utils/persistentStorage';
+import { doc, setDoc } from 'firebase/firestore';
+import { db, cleanFirestoreData } from '../lib/firebase';
 import { 
   UniversalSettlementItem, 
   UniversalSettlementInput, 
@@ -1122,13 +1124,13 @@ export const onLeaveValidate = async (
  * 3. Push payment amount to Payroll_Input
  * 4. Lock settlement record (Disable duplicate clicks)
  */
-export function on_approve_settlement(
+export async function on_approve_settlement(
   settlementId: string,
   allocations: HrLeaveAllocation[],
   onUpdateAllocations: (updated: HrLeaveAllocation[]) => void,
   employees: Employee[],
   onUpdateEmployees: (updated: Employee[]) => void
-): { success: boolean; message: string } {
+): Promise<{ success: boolean; message: string }> {
   const vouchers = getSavedSettlementVouchers();
   const voucherIndex = vouchers.findIndex(v => v.id === settlementId || v.voucherNumber === settlementId);
   if (voucherIndex === -1) {
@@ -1163,7 +1165,6 @@ export function on_approve_settlement(
   }
 
   // 3. Push payment amount to Payroll_Input
-  const payrollInputs = getPersistentData<any[]>(MANARA_STORAGE_KEYS.PAYSLIPS, []);
   const settlementPayrollItem = {
     id: `payroll-settlement-${voucher.id}`,
     employeeId: voucher.employeeId,
@@ -1174,7 +1175,11 @@ export function on_approve_settlement(
     month: voucher.settlementDate ? voucher.settlementDate.substring(0, 7) : new Date().toISOString().substring(0, 7),
     createdAt: new Date().toISOString(),
   };
-  setPersistentData(MANARA_STORAGE_KEYS.PAYSLIPS, [settlementPayrollItem, ...payrollInputs]);
+  await setDoc(
+    doc(db, 'payslips', settlementPayrollItem.id),
+    cleanFirestoreData(settlementPayrollItem),
+    { merge: true }
+  );
 
   // 4. Lock settlement record (Disable duplicate clicks / set status to settled_locked)
   vouchers[voucherIndex] = {

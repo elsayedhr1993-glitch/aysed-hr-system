@@ -1153,11 +1153,9 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({ onNavigateTo
                                 localStorage.removeItem(k);
                               }
                             });
-                            localStorage.setItem('manara_employees_data', JSON.stringify([]));
                             localStorage.setItem('manara_contracts_data', JSON.stringify([]));
                             localStorage.setItem('manara_attendance_data', JSON.stringify([]));
                             localStorage.setItem('manara_leaves_data', JSON.stringify([]));
-                            localStorage.setItem('manara_payslips_data', JSON.stringify([]));
                             localStorage.setItem('manara_documents_data', JSON.stringify([]));
                             localStorage.setItem('manara_candidates_data', JSON.stringify([]));
                           }

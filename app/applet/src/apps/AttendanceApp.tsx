@@ -215,14 +215,11 @@ export const AttendanceApp: React.FC<any> = (props) => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  // استخراج قائمة الموظفين المسجلين فقط من النظام (localStorage أو State)
+  // استخراج قائمة الموظفين المسجلين من الحالة القادمة من Firestore.
   const getRegisteredEmployeesMap = (): Map<string, string> => {
     const map = new Map<string, string>();
     try {
-      const rawEmployees = localStorage.getItem('employees') || localStorage.getItem('company_employees');
-      
-      // Use props.employees if available
-      if (props.employees && Array.isArray(props.employees) && props.employees.length > 0) {
+      if (props.employees && Array.isArray(props.employees)) {
           props.employees.forEach((emp: any) => {
               const code = String(emp.employeeCode || emp.id || emp.badgeId || emp.biometricId || '').trim();
               const name = emp.fullNameAr || emp.fullNameEn || `موظف (${code})`;
@@ -231,19 +228,6 @@ export const AttendanceApp: React.FC<any> = (props) => {
               if (emp.biometricId) map.set(String(emp.biometricId).trim(), name);
               if (emp.badgeId) map.set(String(emp.badgeId).trim(), name);
           });
-      } else if (rawEmployees) {
-        const list = JSON.parse(rawEmployees);
-        if (Array.isArray(list)) {
-            list.forEach((emp: any) => {
-              const code = String(emp.code || emp.employeeCode || emp.id || emp.device_id || emp.biometricId || emp.civil_id || emp.civilId || '').trim();
-              const name = emp.name || emp.fullNameAr || emp.arabicName || emp.enName || `موظف (${code})`;
-              if (code) map.set(code, name);
-              if (emp.civil_id) map.set(String(emp.civil_id).trim(), name);
-              if (emp.civilId) map.set(String(emp.civilId).trim(), name);
-              if (emp.device_id) map.set(String(emp.device_id).trim(), name);
-              if (emp.biometricId) map.set(String(emp.biometricId).trim(), name);
-            });
-        }
       }
     } catch (e) {
       console.warn('تعذر قراءة سجل الموظفين', e);
@@ -251,21 +235,8 @@ export const AttendanceApp: React.FC<any> = (props) => {
     return map;
   };
 
-  useEffect(() => {
-    const saved = localStorage.getItem('clean_attendances_db');
-    if (saved) {
-      try { setAttendances(JSON.parse(saved)); } catch (e) {}
-    }
-    const savedIgnored = localStorage.getItem('clean_attendances_ignored');
-    if (savedIgnored) {
-        try { setIgnoredCount(Number(savedIgnored)); } catch (e) {}
-    }
-  }, []);
-
   const handleClearAll = () => {
     if (window.confirm('هل تريد مسح وتصفير كافة سجلات الحضور والانصراف السابقة للبدء على نظيف؟')) {
-      localStorage.removeItem('clean_attendances_db');
-      localStorage.removeItem('clean_attendances_ignored');
       setAttendances([]);
       setStartDate('');
       setEndDate('');
@@ -286,9 +257,6 @@ export const AttendanceApp: React.FC<any> = (props) => {
       
       setIgnoredCount(ignored);
       setAttendances(processed);
-      localStorage.setItem('clean_attendances_db', JSON.stringify(processed));
-      localStorage.setItem('clean_attendances_ignored', String(ignored));
-
       let msg = `تم قراءة واعتماد ${processed.length} يوم عمل للموظفين المسجلين فقط.`;
       if (ignored > 0) {
         msg += `\n(تم تجاهل ${ignored} بصمة لموظفين غير مسجلين أو غادروا الشركة تلقائياً).`;

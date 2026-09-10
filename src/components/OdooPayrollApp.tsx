@@ -17,6 +17,8 @@ import { FinalSettlementModal } from './payroll/FinalSettlementModal';
 import { PifssInsuranceReportModal } from './payroll/PifssInsuranceReportModal';
 import { PayrollStructureWizardModal } from './payroll/PayrollStructureWizardModal';
 import { EosSetupWizardModal } from './payroll/EosSetupWizardModal';
+import { db, cleanFirestoreData } from '../lib/firebase';
+import { collection, doc, onSnapshot, setDoc } from 'firebase/firestore';
 
 export interface PayslipItem {
   id: string;
@@ -85,40 +87,37 @@ export const OdooPayrollApp: React.FC = () => {
   const [showPayrollWizard, setShowPayrollWizard] = useState(false);
   const [showEosWizard, setShowEosWizard] = useState(false);
 
-  // Local Storage & State Management
-  const storageKey = `odoo_payroll_payslips_${activeCompany?.id || 'default'}`;
-  const [payslips, setPayslips] = useState<PayslipItem[]>(() => {
-    try {
-      const saved = localStorage.getItem(storageKey);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.error('Failed to load payslips from localStorage', e);
-    }
-    return [];
-  });
+  const [payslips, setPayslips] = useState<PayslipItem[]>([]);
 
-  // Sync with localStorage
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(storageKey);
-      if (saved) {
-        setPayslips(JSON.parse(saved));
-      } else if (employees.length > 0) {
-        // Auto-seed initial payslips from existing employees
-        generateInitialPayslips();
-      }
-    } catch (e) {
-      console.error('Failed to switch company payslips', e);
+    const companyId = activeCompany?.id;
+    if (!companyId) {
+      setPayslips([]);
+      return;
     }
-  }, [activeCompany?.id, storageKey, employees]);
+    return onSnapshot(
+      collection(db, 'payslips'),
+      snapshot => {
+        const remote = snapshot.docs
+          .map(item => ({ ...item.data(), id: item.id } as PayslipItem))
+          .filter(item => (item as PayslipItem & { companyId?: string }).companyId === companyId);
+        setPayslips(remote);
+      },
+      error => console.error('Failed to load payslips from Firestore', error)
+    );
+  }, [activeCompany?.id]);
 
   const savePayslips = (newList: PayslipItem[]) => {
     setPayslips(newList);
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(newList));
-    } catch (e) {
-      console.error('Failed to save payslips to localStorage', e);
-    }
+    const companyId = activeCompany?.id;
+    if (!companyId) return;
+    newList.forEach(payslip => {
+      void setDoc(
+        doc(db, 'payslips', payslip.id),
+        cleanFirestoreData({ ...payslip, companyId }),
+        { merge: true }
+      ).catch(error => console.error('Failed to save payslip to Firestore', error));
+    });
   };
 
   // Generate initial or refreshed payslips from employees & attendance

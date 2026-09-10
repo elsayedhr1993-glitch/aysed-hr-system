@@ -794,24 +794,6 @@ export const TenantDatabaseService = {
       console.warn('[TenantDatabaseService] Firestore save notice (quota/network):', fsErr);
     }
 
-    // 3. Always persist to localStorage for instant UI reactivity and offline fallback
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        const key = `odoo_employees_v1_${compId}`;
-        const raw = localStorage.getItem(key);
-        let list: Employee[] = raw ? JSON.parse(raw) : [];
-        if (!Array.isArray(list)) list = [];
-        const idx = list.findIndex(e => e.id === employee.id);
-        if (idx >= 0) {
-          list[idx] = { ...list[idx], ...employee };
-        } else {
-          list.push(employee);
-        }
-        localStorage.setItem(key, JSON.stringify(list));
-        localStorage.setItem('manara_employees_data', JSON.stringify(list));
-      } catch (e) {}
-    }
-
     return true;
   },
 
@@ -830,9 +812,6 @@ export const TenantDatabaseService = {
           .eq('company_id', companyId);
         if (!error && Array.isArray(data) && data.length > 0) {
           const emps = data.map(fromEmployeeDbRow);
-          if (typeof window !== 'undefined' && window.localStorage) {
-            localStorage.setItem(`odoo_employees_v1_${companyId}`, JSON.stringify(emps));
-          }
           return emps;
         }
 
@@ -843,9 +822,6 @@ export const TenantDatabaseService = {
           .eq('company_id', companyId);
         if (!hrError && Array.isArray(hrData) && hrData.length > 0) {
           const emps = hrData.map(fromEmployeeDbRow);
-          if (typeof window !== 'undefined' && window.localStorage) {
-            localStorage.setItem(`odoo_employees_v1_${companyId}`, JSON.stringify(emps));
-          }
           return emps;
         }
       } catch (sbErr) {
@@ -871,31 +847,9 @@ export const TenantDatabaseService = {
         ? allEmps
         : allEmps.filter(emp => emp.companyId === companyId);
 
-      // Successfully queried Firestore - update local storage to match cloud truth
-      if (typeof window !== 'undefined' && window.localStorage) {
-        localStorage.setItem(`odoo_employees_v1_${companyId}`, JSON.stringify(filtered));
-        if (companyId === 'comp-super-admin' || companyId === 'comp-almanar') {
-          localStorage.setItem('manara_employees_data', JSON.stringify(filtered));
-        }
-      }
       return filtered;
     } catch (fsErr) {
-      console.warn('[TenantDatabaseService] Firestore fetch error (falling back to local cache):', fsErr);
-    }
-
-    // 3. Fallback to LocalStorage cached data only if Firestore failed
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        const cached = localStorage.getItem(`odoo_employees_v1_${companyId}`);
-        if (cached !== null) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed)) {
-            return parsed;
-          }
-        }
-      } catch (err) {
-        console.warn('Error reading employee cache:', err);
-      }
+      console.warn('[TenantDatabaseService] Firestore fetch error:', fsErr);
     }
 
     // 4. If nothing in DB and nothing in cache, return empty list (never auto-seed test employees)
@@ -1528,10 +1482,6 @@ export const TenantDatabaseService = {
         }
       }
 
-      // Remove specific cached keys for this company
-      const prefix = `odoo_employees_v1_${companyId}`;
-      localStorage.removeItem(prefix);
-      localStorage.removeItem(`aysed_emp_cache_${companyId}`);
       return true;
     } catch (e) {
       console.error('Error clearing tenant data:', e);
@@ -1608,11 +1558,9 @@ export const TenantDatabaseService = {
       }
       if (activeCompanyId) {
         localStorage.setItem('activeCompanyId', activeCompanyId);
-        localStorage.setItem(`odoo_employees_v1_${activeCompanyId}`, JSON.stringify([]));
         localStorage.setItem(`odoo_contracts_v1_${activeCompanyId}`, JSON.stringify([]));
         localStorage.setItem(`odoo_commencements_v1_${activeCompanyId}`, JSON.stringify([]));
       }
-      localStorage.setItem('manara_employees_data', JSON.stringify([]));
       localStorage.setItem('manara_contracts_data', JSON.stringify([]));
 
       return true;
@@ -2019,14 +1967,7 @@ export const TenantDatabaseService = {
         }
       ];
 
-      // 1. Immediately hydrate local storage so data is instantly active and never lost
-      if (typeof window !== 'undefined' && window.localStorage) {
-        localStorage.setItem(`odoo_employees_v1_${companyId}`, JSON.stringify(emps));
-        localStorage.setItem('manara_employees_data', JSON.stringify(emps));
-        localStorage.setItem('activeCompanyId', companyId);
-      }
-
-      // 2. Generate and store Contracts
+      // 1. Generate and store Contracts
       const contracts: Contract[] = emps.map(emp => ({
         id: 'contract-' + emp.id,
         companyId,
@@ -2652,9 +2593,6 @@ export const TenantDatabaseService = {
             notes: 'مسير معتمد ومسدد بالكامل (الموظف تحت فترة التجربة 90 يوماً)'
           }
         ];
-        localStorage.setItem(`odoo_payroll_payslips_${companyId}`, JSON.stringify(odooPayslips));
-        localStorage.setItem('manara_payslips_data', JSON.stringify(odooPayslips));
-
         // Save payslips to Firestore so they are synced perfectly in real-time
         for (const slip of odooPayslips) {
           try {
