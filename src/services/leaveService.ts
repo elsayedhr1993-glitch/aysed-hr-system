@@ -462,7 +462,7 @@ export function runAutomatedLeaveAccrual(
   const targetMonthKey = getAccrualMonthKey(asOfDate);
   const monthNameAr = getAccrualMonthNameAr(asOfDate);
   const nowIso = asOfDate.toISOString();
-  const dateFrom = `${targetMonthKey}-01`;
+  const dateFrom = `${targetMonthKey}-28`;
   const logs: AccrualLogEntry[] = [];
   const newAllocations: HrLeaveAllocation[] = [];
 
@@ -711,7 +711,7 @@ export class LeaveService {
       numberOfDays: LEAVE_ACCRUAL_RATE_PER_MONTH,
       consumedDays: 0,
       remainingDays: LEAVE_ACCRUAL_RATE_PER_MONTH,
-      dateFrom: `${targetMonthKey}-01`,
+      dateFrom: `${targetMonthKey}-28`,
       state: 'validate',
       notes: `ترحيل يدوي معتمد لشهر ${monthNameAr}`,
       createdAt: nowIso

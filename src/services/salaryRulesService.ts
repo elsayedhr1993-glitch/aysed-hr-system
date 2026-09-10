@@ -23,16 +23,16 @@ export function calculateUnpaidLeaveDeductionRule(contract: ContractWageDetails)
     return null;
   }
 
-  // المعادلة: (الراتب / 26) * عدد الأيام
+  // المعادلة: قيمة الاستقطاع من الراتب تكون صفر بناءً على قانون المنشأة المعتمد (الخصم يكون من مدة الخدمة فقط وليس من الراتب الشهري)
   const dailyRate = contract.basicWage / 26;
-  const deductionAmount = Number((contract.unpaidDays * dailyRate).toFixed(3));
+  const deductionAmount = 0;
 
   return {
     code: 'LEAVE_DED',
-    name: 'استقطاع إجازة بدون راتب',
+    name: 'أيام إجازة بدون راتب (مخصومة من مدة الخدمة وليس من الراتب)',
     category: 'DEDUCTION',
     sequence: 100,
-    amount: -deductionAmount, // تظهر بالقيمة السالبة للاستقطاع من الراتب الصافي
+    amount: 0, // تظهر بقيمة 0 بناءً على طلب العميل
   };
 }
 

@@ -251,7 +251,7 @@ export function processLeaveSettlement(input: LeaveRequestInput): LeaveSettlemen
   const wage = input.monthlyWage || (input.dailyWage ? input.dailyWage * 26 : 0);
   const dailyRate = input.dailyWage || calculateKuwaitDailyRate(wage);
   const netPayableAmount = cleanKwdAmount(paidDays * dailyRate);
-  const unpaidDeductionAmount = cleanKwdAmount(unpaidDays * dailyRate);
+  const unpaidDeductionAmount = 0; // الخصم المالي المباشر من الراتب هو 0 د.ك بناءً على قانون المنشأة المعتمد
 
   const settlementSummary = [
     {
@@ -265,9 +265,9 @@ export function processLeaveSettlement(input: LeaveRequestInput): LeaveSettlemen
       note: `(${carriedOver.toFixed(2)} مرحل + ${currentAccrued.toFixed(2)} رصيد السنة)`
     },
     {
-      title: "أيام غير مدفوعة (خصم من الراتب)",
+      title: "أيام غير مدفوعة (تُخصم من مدة الخدمة)",
       value: `${unpaidDays.toFixed(2)} يوم`,
-      note: unpaidDays > 0 ? "تُرحل آلياً لمسير الرواتب القادم" : "لا يوجد تجاوز"
+      note: unpaidDays > 0 ? "تُخصم تلقائياً من مدة الخدمة الفعلية وليس من الراتب" : "لا يوجد تجاوز"
     },
     {
       title: "الرصيد المتبقي للموظف بعد التصفية",
@@ -1058,14 +1058,14 @@ export const onLeaveValidate = async (
       unpaidDays = Number(remainingToDeduct.toFixed(2));
       const monthlyWage = Number(employee.wage) || 0;
       const dailyRate = calculateKuwaitDailyRate(monthlyWage);
-      const totalDeductionAmount = Number((unpaidDays * dailyRate).toFixed(3));
+      const totalDeductionAmount = 0; // الخصم يكون 0 بناءً على طلب العميل (الخصم يكون من مدة الخدمة فقط)
 
       try {
         await supabase.from('hr_payroll_input').insert({
           employee_id: employeeId,
           input_type: 'unpaid_leave_deduction',
           amount: totalDeductionAmount,
-          description: `خصم عدد ${unpaidDays} يوم إجازة زائدة عن الرصيد المتاح`,
+          description: `تسجيل غياب زائد عدد ${unpaidDays} يوم (مخصوم من مدة الخدمة وليس من الراتب)`,
           date: new Date().toISOString(),
         });
       } catch (err) {

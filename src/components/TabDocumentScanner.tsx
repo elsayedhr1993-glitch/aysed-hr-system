@@ -3,7 +3,7 @@ import { processAnyDocument } from '../utils/ocrService';
 import toast from 'react-hot-toast';
 
 interface TabDocumentScannerProps {
-  tabType: 'CIVIL_ID' | 'PASSPORT' | 'WORK_PERMIT' | 'MEDICAL_LICENSE';
+  tabType: 'CIVIL_ID' | 'PASSPORT' | 'WORK_PERMIT' | 'MEDICAL_LICENSE' | 'CONTRACT';
   title: string;
   onDataExtracted: (data: any) => void;
 }
@@ -30,6 +30,7 @@ export const TabDocumentScanner: React.FC<TabDocumentScannerProps> = ({
         case 'PASSPORT': docTypeContext = 'PASSPORT'; break;
         case 'WORK_PERMIT': docTypeContext = 'PAM_WORK_PERMIT'; break;
         case 'MEDICAL_LICENSE': docTypeContext = 'MEDICAL_LICENSE'; break;
+        case 'CONTRACT': docTypeContext = 'EMPLOYMENT_CONTRACT'; break;
         default: docTypeContext = 'OTHER';
       }
       

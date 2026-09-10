@@ -66,6 +66,20 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
 
           <div className="space-y-6 text-xs animate-fade-in">
             
+            {/* رسالة توضيحية بأن شاشة المستندات للمشاهدة فقط */}
+            {!isEditMode && (
+              <div className="bg-amber-50 border border-amber-200 text-amber-950 p-4 rounded-2xl flex items-start gap-3 shadow-2xs">
+                <span className="text-lg leading-none mt-0.5">🔒</span>
+                <div>
+                  <strong className="block text-xs font-bold text-amber-900">أرشيف المستندات والملفات (للمشاهدة فقط):</strong>
+                  <p className="text-[11px] text-amber-800 leading-relaxed mt-0.5">
+                    تطبيقاً لإجراءات الحوكمة وضبط الجودة لشركة المنار كلينك الطبية، فإن شاشة مستندات الموظف في هذا القسم مخصصة <strong>للمشاهدة والمعاينة فقط</strong>. 
+                    لتعديل أو إضافة مستندات جديدة أو تشغيل الماسح الضوئي (OCR)، يرجى استخدام <strong>"خطة التهيئة والتعيين الشاملة"</strong>.
+                  </p>
+                </div>
+              </div>
+            )}
+            
             {/* 1. شريط التحكم بحالة الربط الديناميكي مع خطة التعيين */}
             <div className="bg-slate-900 text-white rounded-2xl p-4.5 shadow-md border border-slate-800 space-y-3.5">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -938,6 +952,15 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                         معتمد قانونياً
                       </span>
                     </div>
+
+                    {/* Scanner for Contract */}
+                    {isEditMode && (
+                      <TabDocumentScanner 
+                        tabType="CONTRACT" 
+                        title="مسح واستخراج بيانات عقد العمل (OCR)" 
+                        onDataExtracted={(data) => handleOcrResult(data, 'contract')} 
+                      />
+                    )}
 
                     {/* Input Fields */}
                     <div className="grid grid-cols-2 gap-2.5">

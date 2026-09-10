@@ -58,9 +58,9 @@ export async function computePayslipLeaveDetails(
       }
     });
 
-    // 3. احتساب قيمة اليوم والخصم المالي
+    // 3. احتساب قيمة اليوم والخصم المالي (الخصم يكون 0 بناءً على قانون المنشأة المعتمد: الخصم يكون من مدة الخدمة فقط وليس من الراتب الشهري)
     const dailyRate = calculateKuwaitDailyRate(basicWage);
-    const unpaidDeductionAmount = Number((unpaidDays * dailyRate).toFixed(3));
+    const unpaidDeductionAmount = 0;
 
     return {
       unpaidDays,

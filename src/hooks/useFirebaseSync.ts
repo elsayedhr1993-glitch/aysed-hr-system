@@ -152,6 +152,36 @@ export const useFirebaseSync = (
             const remote = snap.docs.map(d => ({ ...d.data(), id: d.id }));
             setLeaves(remote);
             setPersistentData(MANARA_STORAGE_KEYS.LEAVES, remote);
+
+            // Mirror leaves to legacy 'odoo_leave_requests_v2' for compatibility
+            let empsList: any[] = [];
+            try {
+              const savedEmps = localStorage.getItem(MANARA_STORAGE_KEYS.EMPLOYEES);
+              if (savedEmps) empsList = JSON.parse(savedEmps);
+            } catch (e) {
+              console.error('Error parsing employees list in sync', e);
+            }
+
+            const odooRequests = remote.map((r: any) => {
+              const matchedEmp = empsList.find(e => e.id === r.employeeId);
+              return {
+                id: r.id,
+                employeeId: r.employeeId,
+                employeeName: r.employeeName || matchedEmp?.fullNameAr || matchedEmp?.name || 'موظف',
+                civilId: r.civilId || matchedEmp?.civilId || '',
+                department: r.department || matchedEmp?.department || 'العموم',
+                leaveType: (r.leaveType || 'annual').toLowerCase(),
+                startDate: r.startDate,
+                endDate: r.endDate,
+                daysCount: r.days || r.requestedDays || r.daysCount || 1,
+                reason: r.reason || '',
+                status: (r.status || 'approved').toLowerCase(),
+                appliedDate: r.createdAt?.split('T')[0] || r.appliedDate || '',
+                basicSalary: r.basicSalary || matchedEmp?.basicSalary || 0,
+                totalSalary: r.totalSalary || matchedEmp?.totalSalary || 0
+              };
+            });
+            localStorage.setItem('odoo_leave_requests_v2', JSON.stringify(odooRequests));
           }
         },
         err => handleFirestoreError(err, OperationType.GET, 'leaves')
@@ -178,6 +208,58 @@ export const useFirebaseSync = (
             const remote = snap.docs.map(d => ({ ...d.data(), id: d.id }));
             setPayslips(remote);
             setPersistentData(MANARA_STORAGE_KEYS.PAYSLIPS, remote);
+
+            // Mirror payslips to legacy 'odoo_payroll_payslips_' + tenantId
+            let empsList: any[] = [];
+            try {
+              const savedEmps = localStorage.getItem(MANARA_STORAGE_KEYS.EMPLOYEES);
+              if (savedEmps) empsList = JSON.parse(savedEmps);
+            } catch (e) {
+              console.error('Error parsing employees list in payslip sync', e);
+            }
+
+            const odooPayslips = remote.map((r: any) => {
+              const matchedEmp = empsList.find(e => e.id === r.employeeId);
+              const basic = r.basicSalary || r.basic || matchedEmp?.basicSalary || 0;
+              const housing = r.housingAllowance || r.housing || matchedEmp?.housingAllowance || 0;
+              const transport = r.transportAllowance || r.transport || matchedEmp?.transportAllowance || 0;
+              const medical = r.medicalAllowance || r.medical || matchedEmp?.medicalAllowance || 0;
+              const other = r.otherAllowances || r.otherAllowance || r.allowances || matchedEmp?.otherAllowances || 0;
+              const gross = r.grossSalary || r.gross || (basic + housing + transport + medical + other);
+              const deductions = r.totalDeductions || (r.gosiDeduction || r.pifssDeduction || 0) + (r.loanDeduction || 0) + (r.latenessDeduction || r.delayDeduction || r.absenceDeduction || 0);
+              const net = r.netSalary || r.net || (gross - deductions);
+
+              return {
+                id: r.id,
+                payslipNumber: r.payslipNumber || `PAY/${new Date().getFullYear()}/${String(new Date().getMonth() + 1).padStart(2, '0')}/${r.id.split('-').pop()?.toUpperCase() || '0001'}`,
+                employeeId: r.employeeId,
+                employeeName: r.employeeName || matchedEmp?.fullNameAr || matchedEmp?.name || 'موظف',
+                civilId: r.civilId || matchedEmp?.civilId || '',
+                jobTitle: r.jobTitle || matchedEmp?.jobTitle || 'موظف',
+                department: r.department || matchedEmp?.department || 'العموم',
+                bankName: r.bankName || matchedEmp?.bankName || 'بيت التمويل الكويتي (KFH)',
+                iban: r.iban || matchedEmp?.iban || '',
+                period: r.period || (r.payrollRunId ? r.payrollRunId.split('-').slice(-2).join('-') : '2026-08'),
+                basicSalary: basic,
+                housingAllowance: housing,
+                transportAllowance: transport,
+                medicalAllowance: medical,
+                overtimeHours: r.overtimeHours || 0,
+                overtimeAmount: r.overtimeAmount || 0,
+                absenceDays: r.absenceDays || 0,
+                absenceDeduction: r.absenceDeduction || 0,
+                delayMinutes: r.delayMinutes || 0,
+                delayDeduction: r.delayDeduction || 0,
+                loanDeduction: r.loanDeduction || 0,
+                pifssDeduction: r.pifssDeduction || r.gosiDeduction || 0,
+                grossSalary: gross,
+                totalDeductions: deductions,
+                netSalary: net,
+                status: (r.status === 'calculated' ? 'review' : (r.status || 'draft')).toLowerCase(),
+                notes: r.notes || ''
+              };
+            });
+            localStorage.setItem(`odoo_payroll_payslips_${tenantId}`, JSON.stringify(odooPayslips));
           }
         },
         err => handleFirestoreError(err, OperationType.GET, 'payslips')
@@ -246,6 +328,79 @@ export const useFirebaseSync = (
           }
         },
         err => handleFirestoreError(err, OperationType.GET, 'employeeNotes')
+    );
+
+    // 11. Leave Allocations: Sync and Mirror to 'odoo_leave_allocations_v2'
+    const qLeaveAllocations = query(collection(db, 'leave_allocations'), where('companyId', '==', tenantId));
+    const unsubLeaveAllocations = onSnapshot(qLeaveAllocations,
+        snap => {
+          if (!isSuperAdminPlatformMode) {
+            const remote = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+            
+            let empsList: any[] = [];
+            try {
+              const savedEmps = localStorage.getItem(MANARA_STORAGE_KEYS.EMPLOYEES);
+              if (savedEmps) empsList = JSON.parse(savedEmps);
+            } catch (e) {
+              console.error('Error parsing employees list in allocation sync', e);
+            }
+
+            const odooAllocations = remote.map((r: any) => {
+              const matchedEmp = empsList.find(e => e.id === r.employeeId);
+              return {
+                id: r.id,
+                employeeId: r.employeeId,
+                employeeName: r.employeeName || matchedEmp?.fullNameAr || matchedEmp?.name || 'موظف',
+                fromYear: r.fromYear || new Date().getFullYear().toString(),
+                days: r.days || r.allocatedDays || 30,
+                leaveType: (r.leaveType || 'annual').toLowerCase(),
+                allocationDate: r.allocationDate || r.createdAt?.split('T')[0] || new Date().toISOString().split('T')[0],
+                notes: r.notes || ''
+              };
+            });
+            localStorage.setItem('odoo_leave_allocations_v2', JSON.stringify(odooAllocations));
+          }
+        },
+        err => handleFirestoreError(err, OperationType.GET, 'leave_allocations')
+    );
+
+    // 12. Public Holiday Duties: Sync and Mirror to 'odoo_holiday_duties_v2'
+    const qHolidays = query(collection(db, 'work_on_holidays'), where('companyId', '==', tenantId));
+    const unsubHolidays = onSnapshot(qHolidays,
+        snap => {
+          if (!isSuperAdminPlatformMode) {
+            const remote = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+            
+            let empsList: any[] = [];
+            try {
+              const savedEmps = localStorage.getItem(MANARA_STORAGE_KEYS.EMPLOYEES);
+              if (savedEmps) empsList = JSON.parse(savedEmps);
+            } catch (e) {
+              console.error('Error parsing employees list in holiday duty sync', e);
+            }
+
+            const odooDuties = remote.map((r: any) => {
+              const matchedEmp = empsList.find(e => e.id === r.employeeId);
+              return {
+                id: r.id,
+                employeeId: r.employeeId,
+                employeeName: r.employeeName || matchedEmp?.fullNameAr || matchedEmp?.name || 'موظف',
+                civilId: r.civilId || matchedEmp?.civilId || '',
+                jobTitle: r.jobTitle || matchedEmp?.jobTitle || 'موظف',
+                department: r.department || matchedEmp?.department || 'العموم',
+                holidayName: r.name || r.holidayName || 'عطلة رسمية',
+                dutyDate: r.date || r.dutyDate || '',
+                basicSalary: r.basicSalary || matchedEmp?.basicSalary || 0,
+                totalSalary: r.totalSalary || matchedEmp?.totalSalary || 0,
+                compensationType: r.compensationType || 'comp_day_off',
+                calculatedAmount: r.calculatedAmount || 0,
+                status: (r.status || 'approved').toLowerCase()
+              };
+            });
+            localStorage.setItem('odoo_holiday_duties_v2', JSON.stringify(odooDuties));
+          }
+        },
+        err => handleFirestoreError(err, OperationType.GET, 'work_on_holidays')
     );
 
     let unsubNotifications: (() => void) | null = null;
@@ -358,6 +513,8 @@ export const useFirebaseSync = (
       unsubLoans();
       unsubWarnings();
       unsubNotes();
+      unsubLeaveAllocations();
+      unsubHolidays();
       if(unsubNotifications) unsubNotifications();
       if(unsubDepartments) unsubDepartments();
       if(unsubJobTitles) unsubJobTitles();

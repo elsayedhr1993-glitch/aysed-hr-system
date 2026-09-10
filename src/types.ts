@@ -930,6 +930,16 @@ export interface OnboardingPlan {
     leaveAccrualActivated?: boolean;
     notes?: string;
   };
+  documentFiles?: Record<string, any>;
+  civilIdExpiry?: string;
+  passportNo?: string;
+  passportExpiry?: string;
+  mohLicense?: string;
+  mohLicenseExpiry?: string;
+  biometricsRegistered?: boolean;
+  medicalFitnessStatus?: 'pending' | 'fit' | 'unfit';
+  medicalFitnessDate?: string;
+  medicalFitnessHospital?: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -324,27 +324,29 @@ async function performClientSideGeminiOCR(base64Data: string, mimeType: string, 
     resolvedMimeType = "image/webp";
   }
 
-  const prompt = `أنت نظام خبير في القراءة الضوئية واستخراج بيانات البطاقة المدنية والمستندات الرسمية الكويتية بدقة مطلقة (OCR Vision Engine).
-مهمتك استخراج كافة حقول وبيانات المستند المرفق حصرياً بدقة 100% دون أي تخمين. تحذير شديد: إياك أن تؤلف بيانات وهمية (مثل أحمد محمد عبدالله أو أرقام عشوائية). إذا لم تستطع قراءة حقل، أرجعه فارغاً "".
+  const prompt = `أنت نظام خبير في القراءة الضوئية واستخراج بيانات البطاقة المدنية، إذن العمل (PAM)، عقد العمل الموحد، والمستندات الرسمية الكويتية بدقة مطلقة (OCR Vision Engine).
+مهمتك استخراج كافة حقول وبيانات المستند المرفق حصرياً بدقة 100% دون أي تخمين. تحذير شديد: إياك أن تؤلف بيانات وهمية. إذا لم تستطع قراءة حقل، أرجعه فارغاً "".
 أرجع الناتج بصيغة JSON فقط مطابق لهذا الهيكل بدقة:
 {
-  "civilId": "الرقم المدني (12 رقماً)",
+  "civilId": "الرقم المدني (12 رقماً) للموظف",
   "fullNameAr": "الاسم الكامل بالعربية",
   "fullNameEn": "الاسم الكامل بالإنجليزية",
   "nationality": "الجنسية",
   "gender": "ذكر أو أنثى / MALE أو FEMALE",
   "birthDate": "YYYY-MM-DD",
   "unifiedNo": "الرقم الموحد / الرقم المرجع",
-  "passportNo": "رقم جواز السفر إن وجد بالوجه الخلفي للبطاقة أو في جواز السفر",
-  "passportExpiryDate": "تاريخ انتهاء جواز السفر إن وجد بالوجه الخلفي للبطاقة أو في جواز السفر YYYY-MM-DD",
-  "residencyExpiryDate": "تاريخ انتهاء الإقامة المستقل والمكتوب بظهر البطاقة المدنية YYYY-MM-DD",
-  "paciBuildingRef": "الرقم الآلي للعنوان (8 أرقام) المكتوب بظهر البطاقة المدنية"،
-  "profession": "المهنة أو المسمى الوظيفي المسجل",
-  "expiryDate": "تاريخ الانتهاء للبطاقة المدنية أو الإقامة YYYY-MM-DD",
-  "issueDate": "تاريخ الإصدار YYYY-MM-DD",
+  "passportNo": "رقم جواز السفر إن وجد",
+  "passportExpiryDate": "تاريخ انتهاء جواز السفر YYYY-MM-DD",
+  "residencyExpiryDate": "تاريخ انتهاء الإقامة YYYY-MM-DD",
+  "paciBuildingRef": "الرقم الآلي للعنوان (8 أرقام)",
+  "profession": "المهنة أو المسمى الوظيفي المسجل في البطاقة المدنية أو إذن العمل أو عقد العمل",
+  "expiryDate": "تاريخ الانتهاء للمستند أو الإقامة أو إذن العمل YYYY-MM-DD",
+  "issueDate": "تاريخ الإصدار للمستند أو تاريخ مباشرة العمل أو بداية العقد/إذن العمل YYYY-MM-DD",
   "mohLicenseNo": "رقم الترخيص الصحي إن وجد",
   "mohLicenseExpiryDate": "تاريخ انتهاء الترخيص الصحي YYYY-MM-DD",
   "residencyType": "نوع الإقامة أو مادة الإقامة (مثل مادة 18 أو غيرها)",
+  "workPermitNo": "رقم إذن العمل المسجل لدى الهيئة العامة للقوى العاملة (PAM Work Permit No)",
+  "contractSalary": "الراتب الإجمالي أو الراتب الأساسي المدرج في إذن العمل أو عقد العمل بالدينار الكويتي (رقم فقط)",
   "bloodGroup": "فصيلة الدم",
   "address": {
     "block": "القطعة",
@@ -446,12 +448,13 @@ export const handleOcrResult = (
     const current = prev || {};
     const normalizedDoc = (docType || scannedData?.documentType || 'civil_id').toLowerCase();
 
-    // 1. حالة البطاقة المدنية: تحديث البيانات الشخصية الأساسية
+    // 1. حالة البطاقة المدنية: تحديث البيانات الشخصية الأساسية والمسمى الوظيفي
     if (normalizedDoc === 'civil_id' || normalizedDoc === 'civilid') {
       return {
         ...current,
         civil_id: scannedData.civil_id || scannedData.civilId || current.civil_id || current.civilId,
         civilId: scannedData.civil_id || scannedData.civilId || current.civilId || current.civil_id,
+        civil_id_number: scannedData.civil_id || scannedData.civilId || current.civil_id_number || current.civilId,
         full_name: scannedData.full_name || scannedData.fullNameAr || scannedData.fullName || current.full_name || current.name,
         name: scannedData.full_name || scannedData.fullNameAr || scannedData.fullName || current.name || current.full_name,
         fullNameAr: scannedData.full_name || scannedData.fullNameAr || scannedData.fullName || current.fullNameAr || current.nameAr,
@@ -462,6 +465,8 @@ export const handleOcrResult = (
         gender: scannedData.gender || current.gender,
         civil_id_expiry: scannedData.expiry_date || scannedData.expiryDate || scannedData.civil_id_expiry || current.civil_id_expiry || current.civilIdExpiry,
         civilIdExpiry: scannedData.expiry_date || scannedData.expiryDate || scannedData.civil_id_expiry || current.civilIdExpiry || current.civil_id_expiry,
+        jobTitle: scannedData.profession || scannedData.jobTitle || scannedData.job_title || current.jobTitle || '',
+        profession: scannedData.profession || scannedData.jobTitle || scannedData.job_title || current.profession || '',
       };
     }
 
@@ -490,6 +495,43 @@ export const handleOcrResult = (
         mohLicense: scannedData.license_no || scannedData.medical_license_no || scannedData.mohLicenseNo || scannedData.mohLicense || current.mohLicense || current.medical_license_no,
         mohLicenseExpiry: scannedData.license_expiry || scannedData.medical_license_expiry || scannedData.mohLicenseExpiryDate || scannedData.mohLicenseExpiry || scannedData.expiryDate || current.mohLicenseExpiry || current.medical_license_expiry,
         license_title: scannedData.license_title || scannedData.profession || scannedData.jobTitle || current.license_title,
+        specialty: scannedData.license_title || scannedData.profession || scannedData.jobTitle || current.specialty || '',
+      };
+    }
+
+    // 4. حالة إذن العمل (PAM Work Permit): تحديث بيانات إذن العمل والرواتب والمسمى
+    if (normalizedDoc === 'work_permit' || normalizedDoc === 'workpermit' || normalizedDoc === 'pam_work_permit') {
+      const parsedSalary = parseFloat(scannedData.contractSalary || scannedData.salary || '') || undefined;
+      return {
+        ...current,
+        workPermitNo: scannedData.workPermitNo || scannedData.work_permit_no || scannedData.pam_no || current.workPermitNo || '',
+        work_permit_no: scannedData.workPermitNo || scannedData.work_permit_no || scannedData.pam_no || current.work_permit_no || '',
+        pam_no: scannedData.workPermitNo || scannedData.work_permit_no || scannedData.pam_no || current.pam_no || '',
+        contractStartDate: scannedData.issueDate || scannedData.work_permit_start || scannedData.pam_start || current.contractStartDate || '',
+        contractEndDate: scannedData.expiryDate || scannedData.work_permit_end || scannedData.pam_end || current.contractEndDate || '',
+        basicSalary: parsedSalary !== undefined ? parsedSalary : current.basicSalary,
+        salary: parsedSalary !== undefined ? parsedSalary : current.salary,
+        jobTitle: scannedData.profession || scannedData.jobTitle || scannedData.job_title || current.jobTitle || '',
+        profession: scannedData.profession || scannedData.jobTitle || scannedData.job_title || current.profession || '',
+      };
+    }
+
+    // 5. حالة عقد العمل (Employment Contract): تحديث تفاصيل العقد والراتب والتواريخ
+    if (normalizedDoc === 'contract' || normalizedDoc === 'employment_contract' || normalizedDoc === 'contract_work' || normalizedDoc === 'signedcontract') {
+      const parsedSalary = parseFloat(scannedData.contractSalary || scannedData.salary || '') || undefined;
+      return {
+        ...current,
+        contractSigned: true,
+        contractType: scannedData.contractType || current.contractType || 'محدد المدة',
+        contractStartDate: scannedData.issueDate || scannedData.startDate || current.contractStartDate || current.hireDate || '',
+        hireDate: scannedData.issueDate || scannedData.startDate || current.hireDate || current.contractStartDate || '',
+        contractEndDate: scannedData.expiryDate || scannedData.endDate || current.contractEndDate || '',
+        basicSalary: parsedSalary !== undefined ? parsedSalary : current.basicSalary,
+        salary: parsedSalary !== undefined ? parsedSalary : current.salary,
+        jobTitle: scannedData.profession || scannedData.jobTitle || scannedData.job_title || current.jobTitle || '',
+        profession: scannedData.profession || scannedData.jobTitle || scannedData.job_title || current.profession || '',
+        probationDays: scannedData.probationDays || current.probationDays || 100,
+        contractSignDate: scannedData.issueDate || current.contractSignDate || new Date().toISOString().split('T')[0],
       };
     }
 

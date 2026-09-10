@@ -666,6 +666,249 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
           </div>
         </div>
 
+        {/* Visual Lifecycle Timeline (الربط الديناميكي الاحترافي بدورة حياة الموظف) */}
+        {(() => {
+          // Calculations
+          const docsCount = employee.documentFiles ? Object.keys(employee.documentFiles).length : 0;
+          const totalReqDocs = 6;
+          const docsProgress = Math.min(100, Math.round((docsCount / totalReqDocs) * 100));
+
+          const startDateStr = employee.commencementDate || employee.hireDate || employee.join_date || employee.startDate;
+          let isCommenced = !!startDateStr;
+          
+          let probationDaysPassed = 0;
+          let probationRemaining = 100;
+          let probationPercentage = 0;
+          let isProbationPassed = false;
+          if (startDateStr) {
+            const start = new Date(startDateStr);
+            const today = new Date();
+            const diffTime = today.getTime() - start.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            probationDaysPassed = Math.max(0, diffDays);
+            if (probationDaysPassed >= 100) {
+              isProbationPassed = true;
+              probationPercentage = 100;
+              probationRemaining = 0;
+            } else {
+              probationPercentage = Math.round((probationDaysPassed / 100) * 100);
+              probationRemaining = 100 - probationDaysPassed;
+            }
+          }
+
+          const hasWpsSalary = (parseFloat(employee.basicSalary) || parseFloat(employee.salary) || 0) > 0;
+          const hasIban = !!(employee.iban || employee.iban_number);
+          const hasBank = !!(employee.bankName || employee.bank_name);
+          const isWpsEnrolled = hasWpsSalary && hasIban && hasBank;
+
+          const isFullyActive = isCommenced && isProbationPassed && isWpsEnrolled && (employee.status === 'على رأس العمل' || !employee.status || employee.status === 'ACTIVE');
+
+          return (
+            <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 md:p-5 space-y-4 shadow-3xs" id="employee_lifecycle_timeline">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 bg-purple-100 text-[#714B67] rounded-lg">
+                    <RefreshCw size={15} className="animate-spin-slow" />
+                  </span>
+                  <span className="font-bold text-xs text-slate-800">تتبع دورة حياة الموظف المهنية المترابطة (Employee Lifecycle)</span>
+                </div>
+                <span className="text-[10px] font-bold text-[#714B67] bg-purple-50 border border-purple-200 px-2.5 py-1 rounded-full">
+                  الربط التلقائي النشط
+                </span>
+              </div>
+
+              {/* Horizontal Stepper Timeline */}
+              <div className="relative flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-2 pt-2 pb-1">
+                {/* Connector line (desktop only) */}
+                <div className="absolute top-[26px] right-8 left-8 h-[2px] bg-slate-200 -z-0 hidden md:block" />
+
+                {/* Step 1: Onboarding Docs */}
+                <div 
+                  onClick={() => setActiveTab('documents')}
+                  className="flex items-center md:flex-col gap-3 md:gap-2 text-right md:text-center flex-1 cursor-pointer group z-10 w-full md:w-auto"
+                >
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition duration-200 border-2 ${
+                    docsCount >= 3 
+                      ? 'bg-emerald-600 text-white border-emerald-600' 
+                      : 'bg-white text-slate-500 border-slate-300 group-hover:border-purple-500'
+                  }`}>
+                    {docsCount >= 3 ? '✓' : '1'}
+                  </div>
+                  <div>
+                    <span className="font-bold text-[11px] text-slate-800 block group-hover:text-[#714B67] transition">أرشفة وتهيئة المستندات</span>
+                    <span className="text-[10px] text-slate-500 block font-mono">
+                      {docsCount} وثائق مرفقة ({docsProgress}%)
+                    </span>
+                  </div>
+                </div>
+
+                {/* Step 2: Commencement */}
+                <div 
+                  onClick={() => setActiveTab('commencement')}
+                  className="flex items-center md:flex-col gap-3 md:gap-2 text-right md:text-center flex-1 cursor-pointer group z-10 w-full md:w-auto"
+                >
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition duration-200 border-2 ${
+                    isCommenced 
+                      ? 'bg-emerald-600 text-white border-emerald-600' 
+                      : 'bg-white text-slate-500 border-slate-300 group-hover:border-purple-500'
+                  }`}>
+                    {isCommenced ? '✓' : '2'}
+                  </div>
+                  <div>
+                    <span className="font-bold text-[11px] text-slate-800 block group-hover:text-[#714B67] transition">مباشرة العمل الفعلية</span>
+                    <span className="text-[10px] text-slate-500 block">
+                      {isCommenced ? `تمت في ${startDateStr}` : 'بانتظار تأكيد المباشرة'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Step 3: Probation */}
+                <div 
+                  className="flex items-center md:flex-col gap-3 md:gap-2 text-right md:text-center flex-1 z-10 w-full md:w-auto"
+                >
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition duration-200 border-2 ${
+                    !isCommenced 
+                      ? 'bg-slate-50 text-slate-300 border-slate-200'
+                      : isProbationPassed 
+                        ? 'bg-emerald-600 text-white border-emerald-600' 
+                        : 'bg-amber-500 text-white border-amber-500 animate-pulse'
+                  }`}>
+                    {isProbationPassed ? '✓' : '3'}
+                  </div>
+                  <div>
+                    <span className="font-bold text-[11px] text-slate-800 block">فترة التجربة (100 يوم)</span>
+                    <span className="text-[10px] text-slate-500 block font-mono">
+                      {isCommenced 
+                        ? (isProbationPassed ? 'اجتاز فترة التجربة' : `متبقي ${probationRemaining} يوماً (${probationPercentage}%)`) 
+                        : 'معلقة لحين المباشرة'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Step 4: Payroll & WPS */}
+                <div 
+                  onClick={() => setActiveTab('contract')}
+                  className="flex items-center md:flex-col gap-3 md:gap-2 text-right md:text-center flex-1 cursor-pointer group z-10 w-full md:w-auto"
+                >
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition duration-200 border-2 ${
+                    isWpsEnrolled 
+                      ? 'bg-emerald-600 text-white border-emerald-600' 
+                      : 'bg-white text-slate-500 border-slate-300 group-hover:border-purple-500'
+                  }`}>
+                    {isWpsEnrolled ? '✓' : '4'}
+                  </div>
+                  <div>
+                    <span className="font-bold text-[11px] text-slate-800 block group-hover:text-[#714B67] transition">نظام الرواتب والـ WPS</span>
+                    <span className="text-[10px] text-slate-500 block">
+                      {isWpsEnrolled ? 'مسجل ومثبت' : (hasWpsSalary ? 'بانتظار الآيبان والبنك' : 'غير مسجل بالرواتب')}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Step 5: Active Duty */}
+                <div 
+                  onClick={() => setActiveTab('hr')}
+                  className="flex items-center md:flex-col gap-3 md:gap-2 text-right md:text-center flex-1 cursor-pointer group z-10 w-full md:w-auto"
+                >
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition duration-200 border-2 ${
+                    isFullyActive 
+                      ? 'bg-emerald-600 text-white border-emerald-600' 
+                      : 'bg-white text-slate-500 border-slate-300 group-hover:border-purple-500'
+                  }`}>
+                    {isFullyActive ? '✓' : '5'}
+                  </div>
+                  <div>
+                    <span className="font-bold text-[11px] text-slate-800 block group-hover:text-[#714B67] transition">كادر دائم نشط</span>
+                    <span className="text-[10px] text-slate-500 block">
+                      {isFullyActive ? 'مكتمل بالكامل وبلا نواقص' : 'بانتظار استيفاء الشروط'}
+                    </span>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Informative alerts / stats block connected to the current active stage */}
+              <div className="border border-slate-200/60 bg-white rounded-lg p-3 text-xs text-slate-700 leading-relaxed font-sans space-y-2">
+                {!isCommenced ? (
+                  <div className="flex items-start gap-2 text-amber-900">
+                    <AlertTriangle size={15} className="text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <strong>تنبيه الموارد البشرية:</strong> الموظف مسجل في قاعدة البيانات كـ <span className="underline font-bold">مسودة أو تحت التهيئة</span>. يرجى استكمال المستندات اللازمة وتحديد تاريخ مباشرة العمل الفعلية في علامة تبويب "إقرار المباشرة" لتنشيط ملفه بشكل كامل وتوليد عقده بشكل تلقائي.
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Column 1: Probation Warning System */}
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5 text-slate-900 font-bold text-[11px]">
+                        <Clock size={14} className="text-[#714B67]" />
+                        <span>نظام فترة التجربة والتحذير المسبق:</span>
+                      </div>
+                      {isProbationPassed ? (
+                        <p className="text-[11px] text-emerald-800 font-bold">
+                          ✓ اجتاز الموظف فترة التجربة القانونية بنجاح (100 يوم) من تاريخ مباشرة العمل ({startDateStr}) وتم تثبيته رسمياً كعضو كادر دائم بالمنشأة بموجب قانون العمل الكويتي.
+                        </p>
+                      ) : (
+                        <div className="space-y-1.5">
+                          <p className="text-[11px] text-slate-600">
+                            الموظف حالياً في <span className="font-bold text-[#714B67]">فترة التجربة القانونية</span>. مضى منها <span className="font-mono font-bold">{probationDaysPassed} يوم</span> ومتبقي <span className="font-mono font-bold text-amber-700">{probationRemaining} يوم</span>.
+                          </p>
+                          {/* Mini Progress Bar */}
+                          <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                            <div className="bg-amber-50 h-1.5 rounded-full" style={{ width: `${probationPercentage}%` }} />
+                          </div>
+                          {probationRemaining <= 15 && (
+                            <p className="text-[10px] text-rose-700 font-bold animate-pulse">
+                              🚨 تحذير: متبقي أقل من 15 يوماً لاتخاذ قرار التثبيت أو إنهاء الخدمة قبل انتهاء فترة التجربة القانونية!
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Column 2: Payroll WPS Integration */}
+                    <div className="space-y-1 border-r border-slate-100 pr-4">
+                      <div className="flex items-center gap-1.5 text-slate-900 font-bold text-[11px]">
+                        <ShieldCheck size={14} className="text-emerald-600" />
+                        <span>جاهزية نظام حماية الأجور والـ WPS:</span>
+                      </div>
+                      <div className="text-[11px] space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className={hasWpsSalary ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>
+                            {hasWpsSalary ? "✓" : "✗"}
+                          </span>
+                          <span>إدراج الأجر الأساسي والبدلات ({totalSalary} د.ك)</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={hasBank ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>
+                            {hasBank ? "✓" : "✗"}
+                          </span>
+                          <span>الحساب البنكي: {employee.bankName || "غير محدد"}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={hasIban ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>
+                            {hasIban ? "✓" : "✗"}
+                          </span>
+                          <span>الآيبان البنكي (IBAN): {employee.iban || "غير محدد"}</span>
+                        </div>
+                        {isWpsEnrolled ? (
+                          <p className="text-[10px] text-emerald-800 font-bold pt-1">
+                            ✓ الموظف جاهز ومدرج تلقائياً في ملف حماية الأجور والـ WPS للدورة القادمة.
+                          </p>
+                        ) : (
+                          <p className="text-[10px] text-amber-700 font-bold pt-1">
+                            ⚠️ يرجى إدخال البيانات المصرفية الناقصة في تبويب "البيانات الشخصية" لتجنب مخالفات الشؤون في ملف WPS.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Clean Notebook Tabs Bar */}
         <div className="border-b border-slate-200 flex items-center gap-2 overflow-x-auto pt-2">
           
@@ -788,7 +1031,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
           <EmployeeDocumentsTab
             employee={employee}
             setEmployee={setEmployee}
-            isEditMode={isEditMode}
+            isEditMode={false} // شاشة مستندات الموظف تكون فقط للمشاهدة كما هو مطلوب بالكامل
             handleFieldChange={handleFieldChange}
             handleOcrResult={handleOcrResult}
             handleDocFileUpload={handleDocFileUpload}
@@ -803,6 +1046,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
             handleFieldChange={handleFieldChange}
             handleOcrResult={handleOcrResult}
             calculatedBalance={calculatedBalance}
+            onRefresh={() => setEmployee((prev: any) => ({ ...prev, _refreshTrigger: (prev._refreshTrigger || 0) + 1 }))}
           />
         )}
       </div>

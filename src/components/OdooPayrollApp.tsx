@@ -110,7 +110,7 @@ export const OdooPayrollApp: React.FC = () => {
     } catch (e) {
       console.error('Failed to switch company payslips', e);
     }
-  }, [activeCompany?.id, storageKey]);
+  }, [activeCompany?.id, storageKey, employees]);
 
   const savePayslips = (newList: PayslipItem[]) => {
     setPayslips(newList);

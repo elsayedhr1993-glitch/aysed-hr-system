@@ -21,6 +21,7 @@ export const DeveloperModeTools: React.FC = () => {
   const { isDebugMode, toggleDebugMode } = useAuth();
   const [copied, setCopied] = useState(false);
   const [isWiping, setIsWiping] = useState(false);
+  const [isSeeding, setIsSeeding] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'database' | 'logs' | 'cache'>('overview');
   const [logs, setLogs] = useState<string[]>([
     `[${new Date().toLocaleTimeString()}] INFO: Odoo Core Developer Mode Active`,
@@ -210,6 +211,49 @@ Storage Keys: ${Object.keys(localStorage).filter(k => k.startsWith('aysed_') || 
               >
                 {isWiping ? <RefreshCw size={16} className="animate-spin" /> : <Trash2 size={16} />}
                 <span>{isWiping ? 'جارِ تصفير النظام...' : 'تصفير شامل ومسح البيانات الآن'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Seeding 10 Professional Employees Card */}
+          <div className="bg-[#f0f9ff] border-2 border-[#bae6fd] rounded-2xl p-5 shadow-sm space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="p-2.5 bg-[#0284c7] text-white rounded-xl shadow-sm">
+                  <CheckCircle2 size={24} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-[#0369a1]">زرع 10 موظفين تجريبيين لتشغيل خطة الاختبار الكاملة</h3>
+                  <p className="text-xs text-[#075985] mt-1 leading-relaxed font-sans">
+                    سيقوم هذا الخيار تلقائياً بتنظيف البيانات القديمة وزرع 10 موظفين واقعيين بملفات كاملة وعقود سارية وحالات خاصة (أطباء كويتيين، وافدين، ممرضين، إداريين، إجازة بدون راتب لتجربة الخصم، تكليف العمل بالعطلات الرسمية، وتنبيهات المستندات المنتهية) لتشغيل دورة كاملة ومراجعة التقارير والطباعة.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={async () => {
+                  setIsSeeding(true);
+                  try {
+                    const activeCompanyId = localStorage.getItem('activeCompanyId') || 'comp-almanar';
+                    const success = await TenantDatabaseService.seedTenProfessionalTestEmployees(activeCompanyId);
+                    if (success) {
+                      toast.success('🎉 تم زرع الـ 10 موظفين ومستنداتهم وعقودهم بنجاح! جاري تحديث الصفحة...');
+                      setLogs(prev => [`[${new Date().toLocaleTimeString()}] SEED: Generated 10 professional employees with full contracts & onboarding states`, ...prev]);
+                      setTimeout(() => window.location.reload(), 1500);
+                    } else {
+                      toast.error('حدث خطأ أثناء تهيئة الموظفين التجريبيين');
+                    }
+                  } catch (e) {
+                    toast.error('خطأ غير متوقع أثناء عملية الزرع');
+                  } finally {
+                    setIsSeeding(false);
+                  }
+                }}
+                disabled={isSeeding || isWiping}
+                className="flex items-center justify-center gap-2 px-6 py-3 bg-[#0284c7] hover:bg-[#0369a1] active:scale-95 text-white font-black text-xs rounded-xl shadow-md transition whitespace-nowrap cursor-pointer disabled:opacity-50"
+              >
+                {isSeeding ? <RefreshCw size={16} className="animate-spin" /> : <Layers size={16} />}
+                <span>{isSeeding ? 'جارِ زرع البيانات...' : 'بدء زرع 10 موظفين تجريبيين فوراً'}</span>
               </button>
             </div>
           </div>
