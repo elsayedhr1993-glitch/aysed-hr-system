@@ -1,5 +1,16 @@
-import { Employee, LeaveBalance } from './supabase';
 import { get_aysed_official_balance } from '../utils/kuwaitLaw';
+
+type Employee = Record<string, unknown>;
+interface LeaveBalance {
+  annual_used?: number;
+  sick_used?: number;
+  sick_half_used?: number;
+  sick_unpaid_used?: number;
+  casual_used?: number;
+  hajj_used?: number;
+  hajj_taken?: boolean;
+  maternity_used?: number;
+}
 
 export type LeaveType = 'annual' | 'sick' | 'casual' | 'hajj' | 'maternity' | 'unpaid';
 

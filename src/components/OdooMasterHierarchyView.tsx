@@ -20,7 +20,8 @@ import { useOdooHierarchy } from '../context/OdooHierarchyContext';
 export const OdooMasterHierarchyView: React.FC = () => {
   const { 
     employees, 
-    attendance, 
+    attendance,
+    getAttendanceForEmployee,
     loans, 
     leaveAccruals, 
     computedPayslips, 
@@ -41,7 +42,7 @@ export const OdooMasterHierarchyView: React.FC = () => {
   }, [employees, selectedEmpId]);
 
   const selectedEmp = employees.find(e => e.id === selectedEmpId);
-  const selectedAtt = (selectedEmpId && attendance[selectedEmpId]) || { delayMinutes: 0, overtimeHours: 0, unpaidAbsenceDays: 0 };
+  const selectedAtt = (selectedEmpId && getAttendanceForEmployee(selectedEmpId)) || { delayMinutes: 0, overtimeHours: 0, unpaidAbsenceDays: 0 };
   const selectedLoan = selectedEmpId ? loans.find(l => l.employeeId === selectedEmpId) : undefined;
   const selectedLeave = (selectedEmpId && leaveAccruals[selectedEmpId]) || { carriedFrom2025: 0, earned2026: 0, consumedDays: 0, prepaidLeaveDays: 0 };
   const selectedSlip = selectedEmpId ? computedPayslips.find(p => p.employeeId === selectedEmpId) : undefined;

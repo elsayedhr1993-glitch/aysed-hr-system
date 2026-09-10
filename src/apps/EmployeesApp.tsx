@@ -18,6 +18,8 @@ import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { getPersistentData } from '../utils/persistentStorage';
 import { get_aysed_official_balance, getCarriedOverBalance, getGlobalCompensatoryDays } from '../utils/kuwaitLaw';
 import { checkDocumentExpiry } from '../utils/dateUtils';
+import { collection, deleteDoc, doc, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 export const safePrintA4Document = (htmlContent: string) => {
   try {
@@ -308,13 +310,11 @@ export function EmployeesApp(props?: any) {
     }
   };
 
-  const handleDeleteContract = (contractId: string, e?: React.MouseEvent) => {
+  const handleDeleteContract = async (contractId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    await deleteDoc(doc(db, 'contracts', contractId));
     const updated = contracts.filter((c: any) => c.id !== contractId);
     setContracts(updated);
-    if (currentCompanyId) {
-      localStorage.setItem(`odoo_contracts_v1_${currentCompanyId}`, JSON.stringify(updated));
-    }
     if (selectedContract && selectedContract.id === contractId) {
       setShowContractModal(false);
       setSelectedContract(null);
@@ -565,31 +565,9 @@ export function EmployeesApp(props?: any) {
       setCommencements([]);
       return;
     }
-    const contractKey = `odoo_contracts_v1_${currentCompanyId}`;
-    const savedContracts = localStorage.getItem(contractKey);
-    if (savedContracts) {
-      try {
-        const parsed = JSON.parse(savedContracts);
-        setContracts(Array.isArray(parsed) ? parsed : []);
-      } catch (e) {
-        setContracts([]);
-      }
-    } else {
-      setContracts([]);
-    }
-
-    const commencementKey = `odoo_commencements_v1_${currentCompanyId}`;
-    const savedComms = localStorage.getItem(commencementKey);
-    if (savedComms) {
-      try {
-        const parsed = JSON.parse(savedComms);
-        setCommencements(Array.isArray(parsed) ? parsed : []);
-      } catch (e) {
-        setCommencements([]);
-      }
-    } else {
-      setCommencements([]);
-    }
+    void TenantDatabaseService.getContractsByTenant(currentCompanyId).then(setContracts);
+    void getDocs(query(collection(db, 'commencements'), where('companyId', '==', currentCompanyId)))
+      .then(snapshot => setCommencements(snapshot.docs.map(item => ({ ...item.data(), id: item.id }))));
   }, [currentCompanyId]);
 
   useEffect(() => {
@@ -2432,7 +2410,7 @@ export function EmployeesApp(props?: any) {
                       <div className="grid grid-cols-2 gap-4">
                         <div><strong className="text-slate-500">الاسم:</strong> {printData.nameAr || printData.employeeName || printData.refTitle || 'غير متوفر'}</div>
                         <div><strong className="text-slate-500">المعرف / الرقم:</strong> {printData.id || printData.employeeId || 'N/A'}</div>
-                        <div><strong className="text-slate-500">الرقم المدني:</strong> {printData.civilId || printData.civil_id_number || '290010112345'}</div>
+                        <div><strong className="text-slate-500">الرقم المدني:</strong> {printData.civilId || printData.civil_id_number || 'غير متوفر'}</div>
                         <div><strong className="text-slate-500">المسمى الوظيفي:</strong> {printData.jobTitle || printData.jobPosition || 'غير متوفر'}</div>
                         <div><strong className="text-slate-500">القسم:</strong> {printData.dept || printData.department || 'غير متوفر'}</div>
                         <div><strong className="text-slate-500">تاريخ التعيين / الإصدار:</strong> {printData.hireDate || printData.startDate || printData.commencementDate || '2026-01-01'}</div>

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { initialEmployees } from '../data/initialData';
+import { collection, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
+import { db, cleanFirestoreData } from '../lib/firebase';
+import { useCompany } from './CompanyContext';
 
 export interface Employee {
   id: string;
@@ -31,83 +32,41 @@ const HRContext = createContext<HRContextType | undefined>(undefined);
 export const HRProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
+  const { activeCompanyId, activeCompany } = useCompany();
+  const companyId = activeCompanyId || activeCompany?.id || '';
 
-  // 1. جلب الموظفين المشتركين لكل التطبيقات من جدول hr_employee أو البيانات الافتراضية
-  const refreshData = async () => {
-    setLoading(true);
-    try {
-      if (isSupabaseConfigured) {
-        const { data, error } = await supabase
-          .from('hr_employee')
-          .select('*')
-          .order('name');
-          
-        if (!error && data && data.length > 0) {
-          // تحويل وتطبيع الحقول لضمان التوافق التام مع كافة الشاشات
-          const normalizedEmployees: Employee[] = data.map((emp: any) => ({
-            id: emp.id || String(emp.employee_id || ''),
-            name: emp.name || emp.full_name_ar || emp.full_name_en || 'موظف',
-            job_title: emp.job_title || emp.position || emp.role || 'موظف',
-            department: emp.department || emp.department_name || 'عام',
-            basic_salary: Number(emp.basic_salary ?? emp.salary ?? 850),
-            remaining_leaves: Number(emp.remaining_leaves ?? emp.leave_balance ?? 64),
-            civil_id: emp.civil_id || emp.civilId || '',
-            email: emp.email || '',
-            phone: emp.phone || emp.mobile || '',
-            date_start: emp.date_start || emp.hire_date || '2024-01-01',
-            status: emp.status || 'ACTIVE',
-            company_id: emp.company_id || '',
-            ...emp
-          }));
-          setEmployees(normalizedEmployees);
-          setLoading(false);
-          return;
-        }
-      }
-
-      // استخدام البيانات الموحدة الحية
-      const mappedInitials: Employee[] = (initialEmployees || []).map((emp: any) => ({
-        id: emp.id,
-        name: emp.fullNameAr || emp.fullNameEn || emp.name || 'موظف',
-        job_title: emp.position || emp.jobTitle || 'موظف',
-        department: emp.department || 'الإدارة',
-        basic_salary: Number(emp.basicSalary !== undefined ? emp.basicSalary : (emp.contractSalary !== undefined ? emp.contractSalary : (emp.salary || 0))),
-        remaining_leaves: Number(emp.remaining_leaves ?? emp.leaveBalance ?? 64),
-        civil_id: emp.civilId || '',
-        email: emp.workEmail || emp.email || '',
-        phone: emp.mobilePhone || emp.phone || '',
-        date_start: emp.joinDate || '2024-01-01',
-        status: emp.status || 'ACTIVE',
-        company_id: emp.companyId || '',
-        ...emp
-      }));
-      setEmployees(mappedInitials);
-    } catch (err) {
-      console.warn('استخدام البيانات المحلية الموحدة:', err);
-      const fallbackEmployees: Employee[] = (initialEmployees || []).map((emp: any) => ({
-        id: emp.id,
-        name: emp.fullNameAr || emp.fullNameEn || emp.name || 'موظف',
-        job_title: emp.position || emp.jobTitle || 'موظف',
-        department: emp.department || 'الإدارة',
-        basic_salary: Number(emp.basicSalary !== undefined ? emp.basicSalary : (emp.contractSalary !== undefined ? emp.contractSalary : (emp.salary || 0))),
-        remaining_leaves: Number(emp.remaining_leaves ?? emp.leaveBalance ?? 64),
-        civil_id: emp.civilId || '',
-        email: emp.workEmail || emp.email || '',
-        phone: emp.mobilePhone || emp.phone || '',
-        date_start: emp.joinDate || '2024-01-01',
-        status: emp.status || 'ACTIVE',
-        company_id: emp.companyId || '',
-        ...emp
-      }));
-      setEmployees(fallbackEmployees);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const refreshData = async () => {};
 
   useEffect(() => {
-    refreshData();
-  }, []);
+    if (!companyId) {
+      setEmployees([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const employeesQuery = query(collection(db, 'employees'), where('companyId', '==', companyId));
+    return onSnapshot(employeesQuery, snapshot => {
+      setEmployees(snapshot.docs.map(item => {
+        const emp = item.data() as any;
+        return {
+          ...emp,
+          id: item.id,
+          name: emp.name || emp.fullNameAr || emp.fullNameEn || 'موظف',
+          job_title: emp.job_title || emp.jobTitle || 'موظف',
+          department: emp.department || 'عام',
+          basic_salary: Number(emp.basic_salary ?? emp.basicSalary ?? emp.salary ?? 0),
+          remaining_leaves: Number(emp.remaining_leaves ?? emp.leaveBalance ?? 0),
+          civil_id: emp.civil_id || emp.civilId || '',
+          company_id: emp.company_id || emp.companyId || companyId
+        } as Employee;
+      }));
+      setLoading(false);
+    }, error => {
+      console.error('Failed to load employees from Firestore:', error);
+      setEmployees([]);
+      setLoading(false);
+    });
+  }, [companyId]);
 
   // 2. دالة ربط الإجازة بخصم الرصيد وتحديث كل الشاشات فوراً
   const updateEmployeeBalance = async (employeeId: string, daysDeducted: number) => {
@@ -116,20 +75,12 @@ export const HRProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
     const newBalance = Math.max(0, (target.remaining_leaves || 0) - daysDeducted);
 
-    if (isSupabaseConfigured) {
-      try {
-        await supabase
-          .from('hr_employee')
-          .update({ 
-            remaining_leaves: newBalance,
-            leave_balance: newBalance,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', employeeId);
-      } catch (err) {
-        console.warn('تحديث قاعدة البيانات السحابية واجه تنبيهاً:', err);
-      }
-    }
+    await setDoc(doc(db, 'employees', employeeId), cleanFirestoreData({
+      remaining_leaves: newBalance,
+      leave_balance: newBalance,
+      companyId,
+      updatedAt: new Date().toISOString()
+    }), { merge: true });
 
     // تحديث الحالة المحلية لتتغير الأرقام في كل التطبيقات لحظياً
     setEmployees(prev =>
@@ -139,19 +90,11 @@ export const HRProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
   // دالة تحديث بيانات موظف عامة
   const updateEmployee = async (employeeId: string, updates: Partial<Employee>) => {
-    if (isSupabaseConfigured) {
-      try {
-        await supabase
-          .from('hr_employee')
-          .update({
-            ...updates,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', employeeId);
-      } catch (err) {
-        console.warn('تحديث قاعدة البيانات:', err);
-      }
-    }
+    await setDoc(doc(db, 'employees', employeeId), cleanFirestoreData({
+      ...updates,
+      companyId,
+      updatedAt: new Date().toISOString()
+    }), { merge: true });
 
     setEmployees(prev =>
       prev.map(emp => emp.id === employeeId ? { ...emp, ...updates } : emp)

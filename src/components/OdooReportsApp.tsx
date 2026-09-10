@@ -113,7 +113,7 @@ export interface MedicalEmployeeAnalyticsRecord {
 
 export const OdooReportsApp: React.FC = () => {
   const { activeCompany } = useCompany();
-  const { employees: contextEmployees, attendance, computedPayslips } = useOdooHierarchy();
+  const { employees: contextEmployees, getAttendanceForEmployee, computedPayslips } = useOdooHierarchy();
 
   // الحالة العامة للتنقل بين التقارير والمحاور
   const [activeReport, setActiveReport] = useState<ReportCategory>('wps_reconciliation');
@@ -210,7 +210,7 @@ export const OdooReportsApp: React.FC = () => {
       }
 
       // قراءة حركات البصمة الفعلية أو المحسوبة من السياق
-      const attLog = attendance && attendance[emp.id];
+      const attLog = getAttendanceForEmployee(emp.id);
       const compPayslip = computedPayslips?.find(p => p.employeeId === emp.id);
 
       const otHours = attLog?.overtimeHours || 0;
@@ -273,7 +273,7 @@ export const OdooReportsApp: React.FC = () => {
         netPayableSalary: Number(netSalary.toFixed(3))
       };
     });
-  }, [contextEmployees, attendance, computedPayslips, selectedPeriodMonth]);
+  }, [contextEmployees, getAttendanceForEmployee, computedPayslips, selectedPeriodMonth]);
 
   // Legacy mock data purged for 100% live Firebase usage
 
@@ -309,13 +309,9 @@ export const OdooReportsApp: React.FC = () => {
 
   // إجمالي اشتراكات التأمينات الاجتماعية (PIFSS) للكادر الوطني (سقف 3,000 د.ك، الموظف 10.5%، صاحب العمل 11.5%)
   const kuwaitiStaff = useMemo(() => analyticsData.filter(e => e.isKuwaiti), [analyticsData]);
-  const totalKuwaitiPifssEmployeeDeduct = useMemo(() => {
-    return kuwaitiStaff.reduce((acc, curr) => acc + Math.min(curr.totalSalary, 3000) * 0.105, 0);
-  }, [kuwaitiStaff]);
-  const totalKuwaitiPifssEmployerContrib = useMemo(() => {
-    return kuwaitiStaff.reduce((acc, curr) => acc + Math.min(curr.totalSalary, 3000) * 0.115, 0);
-  }, [kuwaitiStaff]);
-  const totalKuwaitiPifssContribution = totalKuwaitiPifssEmployeeDeduct + totalKuwaitiPifssEmployerContrib;
+  const totalKuwaitiPifssEmployeeDeduct = 0;
+  const totalKuwaitiPifssEmployerContrib = 0;
+  const totalKuwaitiPifssContribution = 0;
 
   // استخراج قائمة الأقسام الفريدة
   const departmentsList = useMemo(() => {
@@ -399,9 +395,6 @@ export const OdooReportsApp: React.FC = () => {
       }));
     } else if (activeReport === 'pifss_contributions') {
       exportRecords = filteredData.filter(d => d.isKuwaiti).map((d, idx) => {
-        const insurable = Math.min(d.totalSalary, 3000);
-        const empDeduct = insurable * 0.105;
-        const compDeduct = insurable * 0.115;
         return {
           'م': idx + 1,
           'الكود': d.id,
@@ -410,10 +403,10 @@ export const OdooReportsApp: React.FC = () => {
           'المسمى': d.jobTitle,
           'القسم': d.department,
           'الراتب الشامل (د.ك)': Number(d.totalSalary.toFixed(3)),
-          'الراتب الخاضع للتأمين (سقف 3000)': Number(insurable.toFixed(3)),
-          'استقطاع الموظف 10.5% (د.ك)': Number(empDeduct.toFixed(3)),
-          'مساهمة صاحب العمل 11.5% (د.ك)': Number(compDeduct.toFixed(3)),
-          'إجمالي اشتراك التأمينات (د.ك)': Number((empDeduct + compDeduct).toFixed(3))
+          'الراتب الخاضع للتأمين': 0,
+          'استقطاع الموظف (د.ك)': 0,
+          'مساهمة صاحب العمل (د.ك)': 0,
+          'إجمالي اشتراك التأمينات (د.ك)': 0
         };
       });
     } else if (activeReport === 'gov_compliance') {
@@ -944,10 +937,10 @@ export const OdooReportsApp: React.FC = () => {
                     </tr>
                   ) : (
                     filteredData.filter(emp => emp.isKuwaiti).map((emp, idx) => {
-                      const insurableWage = Math.min(emp.totalSalary, 3000);
-                      const employeeDeduct = insurableWage * 0.105;
-                      const employerContrib = insurableWage * 0.115;
-                      const totalSub = employeeDeduct + employerContrib;
+                      const insurableWage = 0;
+                      const employeeDeduct = 0;
+                      const employerContrib = 0;
+                      const totalSub = 0;
 
                       return (
                         <tr key={emp.id} className={`hover:bg-purple-50/40 transition ${idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
@@ -986,16 +979,16 @@ export const OdooReportsApp: React.FC = () => {
                       {filteredData.filter(e => e.isKuwaiti).reduce((a, b) => a + b.totalSalary, 0).toFixed(3)}
                     </td>
                     <td className="p-3.5 text-left text-blue-900 font-bold">
-                      {filteredData.filter(e => e.isKuwaiti).reduce((a, b) => a + Math.min(b.totalSalary, 3000), 0).toFixed(3)}
+                      0.000
                     </td>
                     <td className="p-3.5 text-left text-rose-600 font-bold">
-                      -{filteredData.filter(e => e.isKuwaiti).reduce((a, b) => a + Math.min(b.totalSalary, 3000) * 0.105, 0).toFixed(3)}
+                      -0.000
                     </td>
                     <td className="p-3.5 text-left text-purple-700 font-bold">
-                      +{filteredData.filter(e => e.isKuwaiti).reduce((a, b) => a + Math.min(b.totalSalary, 3000) * 0.115, 0).toFixed(3)}
+                      +0.000
                     </td>
                     <td className="p-3.5 text-left text-emerald-900 text-sm font-black">
-                      {filteredData.filter(e => e.isKuwaiti).reduce((a, b) => a + Math.min(b.totalSalary, 3000) * 0.22, 0).toFixed(3)} د.ك
+                      0.000 د.ك
                     </td>
                     <td className="p-3.5 text-center font-sans text-[10px] text-slate-500">
                       سداد إلكتروني (PIFSS)

@@ -34,7 +34,8 @@ import {
 import { OnboardingPlan, OnboardingTask } from '../../types';
 import { OnboardingWizardModal } from './OnboardingWizardModal';
 import { useCompany } from '../../context/CompanyContext';
-import { supabase, isSupabaseConfigured } from '../../lib/supabase';
+import { collection, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
+import { db, cleanFirestoreData } from '../../lib/firebase';
 import { toast } from 'react-hot-toast';
 import { TabDocumentScanner } from '../TabDocumentScanner';
 import { TenantDatabaseService } from '../../services/tenantDataService';
@@ -324,108 +325,31 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
     reader.readAsDataURL(file);
   };
 
-  // Load plans from Supabase / localStorage on mount or company change
+  // Load onboarding plans from Firestore for the active company.
   useEffect(() => {
-    let isMounted = true;
-    const loadPlans = async () => {
-      try {
-        let loadedPlans: OnboardingPlan[] = [];
-        
-        // 1. Try Supabase cloud fetch first if configured
-        if (isSupabaseConfigured) {
-          try {
-            const { data, error } = await supabase
-              .from('onboarding_plans')
-              .select('*')
-              .eq('company_id', companyId);
-
-            if (!error && data && data.length > 0) {
-              loadedPlans = data.map((row: any) => row.payload || row);
-            }
-          } catch (sbErr) {
-            console.warn('[OnboardingTracker] Supabase fetch notice:', sbErr);
-          }
-        }
-
-        // 2. Fallback to localStorage scoped by company or default key
-        if (loadedPlans.length === 0) {
-          const scopedKey = `${STORAGE_KEY}_${companyId}`;
-          const savedScoped = localStorage.getItem(scopedKey);
-          const savedGlobal = localStorage.getItem(STORAGE_KEY);
-          
-          if (savedScoped) {
-            loadedPlans = JSON.parse(savedScoped);
-          } else if (savedGlobal) {
-            loadedPlans = JSON.parse(savedGlobal);
-          } else {
-            // Initial mock onboarding plan
-            loadedPlans = [
-              {
-                id: 'ONB-882191',
-                employeeName: 'د. خالد عبد الله العلي',
-                jobTitle: 'طبيب ممارس عام',
-                department: 'الأطباء',
-                civilId: '292011508821',
-                expectedStartDate: '2026-09-10',
-                templateType: 'medical_specialist',
-                status: 'active',
-                progressPercentage: 66,
-                tasks: [
-                  { id: 't1', title: 'استكمال ملف المستندات والبطاقة المدنية', category: 'legal', assignedToRole: 'الموارد البشرية', completed: true },
-                  { id: 't2', title: 'مراجعة وترخيص وزارة الصحة (MOH)', category: 'medical', assignedToRole: 'مسؤول التراخيص', completed: true },
-                  { id: 't3', title: 'تسليم العهد والأجهزة الإلكترونية', category: 'custody', assignedToRole: 'تقنية المعلومات', completed: true },
-                  { id: 't4', title: 'إعداد بريد الشركة وبصمة الدخول', category: 'it', assignedToRole: 'الدعم الفني', completed: true },
-                  { id: 't5', title: 'الجلسة التعريفية باللوائح وسياسة المركز', category: 'training', assignedToRole: 'المدير المباشر', completed: false },
-                  { id: 't6', title: 'توقيع إقرار مباشرة العمل الرسمي', category: 'legal', assignedToRole: 'الموارد البشرية', completed: false }
-                ],
-                custodyItems: ['لاب توب محمول', 'بريد إلكتروني رسمي', 'بطاقة وبصمة بوابات المبنى'],
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-              }
-            ];
-          }
-        }
-
-        if (isMounted) {
-          setPlans(loadedPlans);
-          localStorage.setItem(`${STORAGE_KEY}_${companyId}`, JSON.stringify(loadedPlans));
-        }
-      } catch (e) {
-        console.error('Error loading onboarding plans:', e);
-      }
-    };
-
-    loadPlans();
-    return () => { isMounted = false; };
+    const plansQuery = query(collection(db, 'onboarding_plans'), where('companyId', '==', companyId));
+    return onSnapshot(plansQuery, snapshot => {
+      setPlans(snapshot.docs.map(item => ({ ...item.data(), id: item.id } as OnboardingPlan)));
+    }, error => console.error('Error loading onboarding plans from Firestore:', error));
   }, [companyId]);
 
-  // Save plans to Supabase and localStorage
+  // Save plans to Firestore.
   const savePlans = async (newPlans: OnboardingPlan[]) => {
     setPlans(newPlans);
     try {
-      localStorage.setItem(`${STORAGE_KEY}_${companyId}`, JSON.stringify(newPlans));
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newPlans));
-
-      // Cloud Supabase sync
-      if (isSupabaseConfigured) {
-        for (const plan of newPlans) {
-          await supabase.from('onboarding_plans').upsert({
-            id: plan.id,
-            company_id: companyId,
-            employee_name: plan.employeeName,
-            department: plan.department,
-            status: plan.status,
-            payload: plan,
-            updated_at: new Date().toISOString()
-          }, { onConflict: 'id' });
-        }
+      for (const plan of newPlans) {
+        await setDoc(doc(db, 'onboarding_plans', plan.id), cleanFirestoreData({
+          ...plan,
+          companyId,
+          updatedAt: new Date().toISOString()
+        }), { merge: true });
       }
     } catch (e) {
       console.error('Error saving onboarding plans:', e);
     }
   };
 
-  // Save current active plan as permanent default template in Supabase
+  // Save current active plan as a permanent Firestore template.
   const handleSaveAsDefaultTemplate = async (planToSave?: OnboardingPlan) => {
     const targetPlan = planToSave || plans[0];
     if (!targetPlan) {
@@ -437,22 +361,17 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
     try {
       const templatePayload = {
         id: `TEMPLATE-${companyId}-${Date.now()}`,
-        company_id: companyId,
+        companyId,
         template_name: `قالب تهيئة معتمد - ${targetPlan.department || 'المنشأة'}`,
         payload: targetPlan,
         updated_at: new Date().toISOString()
       };
 
-      if (isSupabaseConfigured) {
-        const { error } = await supabase.from('company_templates').upsert(templatePayload, { onConflict: 'id' });
-        if (error) throw error;
-      }
-
-      localStorage.setItem(`odoo_default_template_${companyId}`, JSON.stringify(targetPlan));
-      toast.success(`تم حفظ واعتماد قالب التهيئة لقسم (${targetPlan.department}) في قاعدة بيانات Supabase بنجاح!`);
+      await setDoc(doc(db, 'company_templates', templatePayload.id), cleanFirestoreData(templatePayload), { merge: true });
+      toast.success(`تم حفظ واعتماد قالب التهيئة لقسم (${targetPlan.department}) في Firestore بنجاح!`);
     } catch (err) {
-      console.error('Failed to save template to Supabase:', err);
-      toast.success('تم حفظ قالب التهيئة محلياً وفي الذاكرة بنجاح.');
+      console.error('Failed to save template to Firestore:', err);
+      toast.error('تعذر حفظ قالب التهيئة في Firestore.');
     } finally {
       setIsSavingTemplate(false);
     }

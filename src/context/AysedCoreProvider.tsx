@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../lib/firebase';
 import { CompanyProvider } from './CompanyContext';
 import { SystemSettingsProvider } from './SystemSettingsContext';
 export { CompanyProvider, useCompany } from './CompanyContext';
@@ -18,57 +19,25 @@ const AysedContext = createContext<AysedContextType | undefined>(undefined);
 
 export const AysedCoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [systemState, setSystemState] = useState<any>({
-    user: { id: 1, name: 'المسؤول', email: '', role: 'admin' },
+    user: { id: '', name: '', email: '', role: '' },
     company: { id: '', name: '', currency: 'KWD' },
     isStable: true
   });
   const [loading, setLoading] = useState(false);
 
   const initializeSystem = async () => {
-    try {
-      if (!supabase) {
-        // حالة الاستقرار المحلية عند عدم توفر Supabase
-        setSystemState({
-          user: { id: 1, name: 'المسؤول', email: '', role: 'admin' },
-          company: { id: '', name: '', currency: 'KWD' },
-          isStable: true
-        });
-        return;
-      }
-
-      // 2. جدار العزل (Tenant Guard): جلب بيانات المستخدم والشركة النشطة
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-
-      if (authUser) {
-        const { data: profile } = await supabase
-          .from('res_users')
-          .select('id, name, login, company_id, res_groups_id')
-          .eq('login', authUser.email)
-          .single();
-
-        if (profile) {
-          const { data: company } = await supabase
-            .from('res_company')
-            .select('id, name, currency_id')
-            .eq('id', profile.company_id)
-            .single();
-
-          setSystemState({
-            user: { id: profile.id, name: profile.name, email: profile.login, role: 'admin' },
-            company: { id: company?.id || '', name: company?.name || '', currency: 'KWD' },
-            isStable: true
-          });
-        }
-      }
-    } catch (error) {
-      console.error("🚨 ملاحظة في استقرار النظام:", error);
-    } finally {
-      setLoading(false);
-    }
+    const authUser = auth.currentUser;
+    setSystemState({
+      user: authUser ? { id: authUser.uid, name: authUser.displayName || '', email: authUser.email || '', role: 'user' } : { id: '', name: '', email: '', role: '' },
+      company: { id: '', name: '', currency: 'KWD' },
+      isStable: true
+    });
+    setLoading(false);
   };
 
   useEffect(() => { 
-    initializeSystem(); 
+    const unsubscribe = onAuthStateChanged(auth, () => { void initializeSystem(); });
+    return () => unsubscribe();
   }, []);
 
   if (loading) return <div className="starting-server flex items-center justify-center min-h-screen bg-slate-900 text-white font-bold text-lg">جاري تشغيل محرك Aysed S HR 2026...</div>;

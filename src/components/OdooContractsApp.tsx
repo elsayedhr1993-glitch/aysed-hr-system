@@ -153,33 +153,10 @@ export const OdooContractsApp: React.FC = () => {
 
   const [contracts, setContracts] = useState<DetailedContract[]>([]);
 
-  useEffect(() => {
-    if (!currentCompanyId) {
-      setContracts([]);
-      return;
-    }
-    const key = `odoo_contracts_v1_${currentCompanyId}`;
-    const saved = localStorage.getItem(key);
-    if (saved) {
-      try {
-        setContracts(JSON.parse(saved));
-      } catch (e) {
-        setContracts([]);
-      }
-    } else {
-      setContracts([]);
-    }
-  }, [currentCompanyId]);
-
-  useEffect(() => {
-    if (currentCompanyId) {
-      localStorage.setItem(`odoo_contracts_v1_${currentCompanyId}`, JSON.stringify(contracts));
-    }
-  }, [contracts, currentCompanyId]);
-
-  const handleDeleteContract = (contractId: string, e?: React.MouseEvent) => {
+  const handleDeleteContract = async (contractId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (confirm('هل أنت متأكد من حذف هذا العقد نهائياً من النظام؟')) {
+      await TenantDatabaseService.deleteContract(contractId, currentCompanyId);
       const updated = contracts.filter(c => c.contractRef !== contractId && c.id !== contractId);
       setContracts(updated);
       alert('تم حذف العقد بنجاح.');

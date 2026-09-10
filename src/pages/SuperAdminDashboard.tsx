@@ -5,8 +5,6 @@ import {
   Edit3, Save, X, Lock, Building, Phone, Mail, User, Plus, Key, EyeOff, Sliders, Cpu, Layers, Wifi, Settings,
   Download, Upload, HardDrive, FileJson, CheckCheck, RefreshCcw, Sparkles, FolderDown
 } from 'lucide-react';
-import { SystemDiagnosticSuite } from '../components/SystemDiagnosticSuite';
-import { supabase } from '../lib/supabase';
 import { db, auth, provisionTenantAuth, cleanFirestoreData, purgeTenantCascading, isTenantPurged } from '../lib/firebase';
 import { collection, getDocs, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import toast from 'react-hot-toast';
@@ -496,48 +494,6 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         lastLogin: new Date().toISOString()
       }, { merge: true });
 
-      // 6. Save in Supabase & LocalStorage fallbacks
-      try {
-        await supabase.from('aysed_subscription').insert([{
-          id: reqId,
-          name: newCompanyForm.companyName.trim(),
-          requester_name: newCompanyForm.requesterName.trim() || newCompanyForm.companyName.trim(),
-          phone: newCompanyForm.phone.trim(),
-          plan_type: newCompanyForm.planType,
-          emp_count: newCompanyForm.empCount,
-          state: newCompanyForm.initialStatus,
-          created_at: new Date().toISOString()
-        }]);
-      } catch (sbErr) {}
-
-      // Save credentials for quick copy
-      const creds = JSON.parse(localStorage.getItem('aysed_company_credentials') || '{}');
-      creds[cleanEmail] = { email: cleanEmail, password, companyName: newCompanyForm.companyName.trim() };
-      localStorage.setItem('aysed_company_credentials', JSON.stringify(creds));
-
-      // Persist in local storage subscriptions
-      const localSubs = JSON.parse(localStorage.getItem('aysed_saved_subscriptions') || '[]');
-      localSubs.unshift(newReqData);
-      localStorage.setItem('aysed_saved_subscriptions', JSON.stringify(localSubs));
-
-      // Persist in registered_companies_v1
-      const regComps = JSON.parse(localStorage.getItem('registered_companies_v1') || '[]');
-      if (!regComps.some((c: any) => c.nameAr === newCompanyForm.companyName.trim())) {
-        regComps.push({
-          id: compId,
-          nameAr: newCompanyForm.companyName.trim(),
-          nameEn: newCompanyForm.companyName.trim(),
-          ownerName: newCompanyForm.requesterName.trim(),
-          email: cleanEmail,
-          phone: newCompanyForm.phone.trim(),
-          planType: newCompanyForm.planType,
-          empCount: newCompanyForm.empCount,
-          createdAt: new Date().toISOString(),
-          status: newCompanyForm.initialStatus === 'approved' ? 'active' : 'draft'
-        });
-        localStorage.setItem('registered_companies_v1', JSON.stringify(regComps));
-      }
-
       setIsCreateModalOpen(false);
       await fetchRequests();
 
@@ -677,23 +633,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         }
       } catch (e) {}
 
-      // 4. Update in Supabase if exists
-      try {
-        await supabase
-          .from('aysed_subscription')
-          .update({
-            name: updatedReq.name,
-            requester_name: updatedReq.requester_name,
-            phone: updatedReq.phone,
-            email: updatedReq.email,
-            plan_type: updatedReq.plan_type,
-            emp_count: updatedReq.emp_count,
-            state: updatedReq.state
-          })
-          .eq('id', updatedReq.id);
-      } catch (e) {}
-
-      // 5. Update local storage
+      // Update the Firestore subscription request and company records above.
       try {
         const localSubs = JSON.parse(localStorage.getItem('aysed_saved_subscriptions') || '[]');
         const updatedLocal = localSubs.map((s: any) => (s.id === updatedReq.id || s.name === updatedReq.name || s.companyName === updatedReq.name) ? { ...s, ...updatedReq, companyName: updatedReq.name, requesterName: updatedReq.requester_name, status: updatedReq.state } : s);
@@ -750,36 +690,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     setLoading(true);
     let allRequests: SubscriptionRequest[] = [];
 
-    // 1. Try Supabase
-    try {
-      const { data, error } = await supabase
-        .from('aysed_subscription')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (!error && data) {
-        data.forEach((d: any) => {
-          const reqName = d.name || d.company_name || '';
-          if (!isTenantPurged(d.id) && !isTenantPurged(reqName) && !isTenantPurged(d)) {
-            allRequests.push({
-              id: d.id,
-              requester_name: d.requester_name || d.name || '',
-              name: reqName,
-              phone: d.phone || '',
-              plan_type: d.plan_type || 'admin',
-              emp_count: d.emp_count || '1-10',
-              state: d.state || 'draft',
-              created_at: d.created_at || new Date().toISOString(),
-              email: d.email || `${d.phone ? d.phone.replace(/[^0-9]/g, '') : 'client'}@aysedhr.com`
-            });
-          }
-        });
-      }
-    } catch (err) {
-      console.warn('Supabase fetch subscriptions warn:', err);
-    }
-
-    // 2. Try Firebase subscription_requests & companies collections
+    // Load Firebase subscription_requests and companies collections.
     try {
       const snap = await getDocs(collection(db, 'subscription_requests'));
       snap.forEach(d => {
@@ -1003,14 +914,6 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         lastLogin: new Date().toISOString()
       }, { merge: true });
 
-      // 4. Update status to approved across databases and storage
-      try {
-        await supabase
-          .from('aysed_subscription')
-          .update({ state: 'approved' })
-          .eq('id', req.id);
-      } catch (e) {}
-
       try {
         await setDoc(doc(db, 'subscription_requests', req.id), { status: 'approved', state: 'approved' }, { merge: true });
       } catch (e) {}
@@ -1060,13 +963,6 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
   const handleSuspend = async (req: SubscriptionRequest) => {
     try {
-      try {
-        await supabase
-          .from('aysed_subscription')
-          .update({ state: 'suspended' })
-          .eq('id', req.id);
-      } catch (e) {}
-
       try {
         await setDoc(doc(db, 'subscription_requests', req.id), { status: 'suspended', state: 'suspended' }, { merge: true });
       } catch (e) {}
@@ -1591,10 +1487,6 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 </div>
               </div>
 
-              {/* Integration of the full diagnostic and verification suite */}
-              <div className="mt-6">
-                <SystemDiagnosticSuite />
-              </div>
             </div>)}
 
           {activeNav === 'SYSTEM_INTEGRATION' && (

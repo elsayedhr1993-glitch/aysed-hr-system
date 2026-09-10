@@ -34,7 +34,7 @@ export const OdooFullEnterpriseHub: React.FC = () => {
       const newEmp = {
         id: `EMP-00${employees.length + 1}`,
         name: formData.name || 'موظف جديد',
-        civilId: formData.civilId || '290000000000',
+        civilId: formData.civilId || '',
         job: formData.job || 'موظف',
         dept: formData.dept || 'الإدارة',
         salary: Number(formData.salary) || 500,
@@ -377,7 +377,7 @@ export const OdooFullEnterpriseHub: React.FC = () => {
                     <input
                       type="text"
                       required
-                      placeholder="290000000000"
+                      placeholder="الرقم المدني"
                       value={formData.civilId || ''}
                       onChange={(e) => setFormData({ ...formData, civilId: e.target.value })}
                       className="w-full p-2.5 border rounded-lg font-mono outline-none focus:border-[#714B67]"

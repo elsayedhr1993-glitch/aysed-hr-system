@@ -655,7 +655,11 @@ export const OdooMohMedicalHubApp: React.FC = () => {
                     </div>
                     <button
                       onClick={() => {
-                        const emp = medicalStaff[0] || { nameAr: 'د. سارة المحمود', civilId: '290010112345', jobTitle: 'اختصاصي جلدية وتجميل', mohLicenseNo: 'MOH-2241-NUR' };
+                        const emp = medicalStaff[0];
+                        if (!emp) {
+                          toast.error('لا يوجد موظف طبي مسجل لإنشاء الخطاب.');
+                          return;
+                        }
                         handlePrintMohLetter(emp, item.type);
                       }}
                       className="w-full bg-teal-800 hover:bg-teal-900 text-white py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-xs"

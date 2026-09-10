@@ -668,7 +668,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                     maxLength={12}
                     value={civilId}
                     onChange={(e) => setCivilId(e.target.value)}
-                    placeholder="290000000000"
+                    placeholder="الرقم المدني"
                     className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-mono font-bold text-slate-900"
                   />
                 </div>

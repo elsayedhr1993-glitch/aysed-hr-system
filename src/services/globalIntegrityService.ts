@@ -963,7 +963,7 @@ export function autoFixGlobalIntegrityIssues(data: {
     const unpaid = Number(updated.unpaidLeaveDeduction) || 0;
     const loans = Number(updated.loanDeduction) || 0;
     const otherDed = Number((updated as any).otherDeductions) || 0;
-    const pifss = Number(updated.pifssDeduction) || 0;
+    const pifss = 0;
 
     const gross = basic + allowances;
     const totalDeductions = lateness + unpaid + loans + otherDed + pifss;

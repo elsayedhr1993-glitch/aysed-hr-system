@@ -57,10 +57,10 @@ export const defaultPayrollStructure: PayrollStructureData = {
     { id: '4', name: 'بدل اتصال وموبايل (Mobile)', isTaxable: false, isSubjectToPifss: false, defaultAmount: 25 },
   ],
 
-  enablePifssDeductions: true,
-  pifssEmployeePercent: 11.5,
-  pifssEmployerPercent: 11.5,
-  pifssMaxSalaryCap: 2750,
+  enablePifssDeductions: false,
+  pifssEmployeePercent: 0,
+  pifssEmployerPercent: 0,
+  pifssMaxSalaryCap: 0,
 
   wpsEmployerId: 'KW-PAM-998811',
   payerBankShortCode: 'KFH',

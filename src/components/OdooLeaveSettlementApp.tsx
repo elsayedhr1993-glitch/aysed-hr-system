@@ -105,10 +105,10 @@ export const OdooLeaveSettlementApp: React.FC<OdooLeaveSettlementAppProps> = ({ 
       id: newId,
       employeeId: 'EMP-00' + (settlements.length + 2),
       employeeName: formData.empName,
-      civilId: '290000000000', // افتراضي
+      civilId: '',
       jobTitle: 'موظف معتمد',
       bankName: 'بنك الكويت الوطني (NBK)',
-      iban: 'KW00NBOK0000000000000000000000',
+      iban: '',
       basicSalary: formData.totalSalary * 0.7,
       totalSalary: formData.totalSalary,
       leaveStartDate: formData.leaveStartDate,

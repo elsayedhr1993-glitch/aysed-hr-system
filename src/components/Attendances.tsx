@@ -79,7 +79,7 @@ export interface AttendanceItem {
 
 export const Attendances: React.FC = () => {
   const { activeCompany } = useCompany();
-  const { employees, attendance, recordAttendanceTimes } = useOdooHierarchy();
+  const { employees, attendance, getAttendanceForEmployee, recordAttendanceTimes } = useOdooHierarchy();
   const activeCompId = activeCompany?.id || 'default_comp';
 
   // Navigation View State
@@ -194,7 +194,7 @@ export const Attendances: React.FC = () => {
   const liveTableData = useMemo(() => {
     // 1. First map from context employees
     const contextRecords: AttendanceItem[] = employees.map(emp => {
-      const log = attendance[emp.id];
+      const log = getAttendanceForEmployee(emp.id, selectedDate);
       const hasRealLog = log && log.checkIn;
       
       const empGross = emp.basicSalary + emp.housingAllowance + emp.transportAllowance;
@@ -361,7 +361,9 @@ export const Attendances: React.FC = () => {
         payload.checkIn,
         payload.checkOut || undefined,
         effectiveLateMinutes,
-        calculated.overtimeHours
+        calculated.overtimeHours,
+        undefined,
+        payload.date
       );
     }
 
@@ -407,7 +409,9 @@ export const Attendances: React.FC = () => {
       target.checkIn,
       resolvedCheckOut,
       target.lateMinutes,
-      calculated.overtimeHours
+      calculated.overtimeHours,
+      undefined,
+      target.date
     );
 
     toast.success(`تم إغلاق وتصحيح بصمة الانصراف للموظف ${target.employeeName} بنجاح`);
@@ -435,7 +439,9 @@ export const Attendances: React.FC = () => {
       record.checkIn,
       record.checkOut,
       isNowExcused ? 0 : record.lateMinutes,
-      record.overtimeHours
+      record.overtimeHours,
+      undefined,
+      record.date
     );
 
     if (isNowExcused) {
@@ -641,7 +647,9 @@ export const Attendances: React.FC = () => {
           log.checkIn,
           log.checkOut === 'لم يتم التبصيم' ? undefined : log.checkOut,
           log.lateMinutes,
-          log.overtimeHours
+          log.overtimeHours,
+          undefined,
+          log.date
         );
       }
     });
@@ -664,7 +672,9 @@ export const Attendances: React.FC = () => {
           log.checkIn,
           log.checkOut === 'لم يتم التبصيم' ? undefined : log.checkOut,
           log.lateMinutes,
-          log.overtimeHours
+          log.overtimeHours,
+          undefined,
+          log.date
         );
       }
     });
@@ -686,7 +696,8 @@ export const Attendances: React.FC = () => {
     const actionLabel = kioskAction === 'in' ? 'تسجيل حضور (Check-In)' : 'تسجيل انصراف (Check-Out)';
 
     const empGross = kioskSelectedEmp.basicSalary + kioskSelectedEmp.housingAllowance + kioskSelectedEmp.transportAllowance;
-    const log: Partial<AttendanceLog> = attendance[kioskSelectedEmp.id] || {};
+    const kioskDate = new Date().toISOString().split('T')[0];
+    const log: Partial<AttendanceLog> = getAttendanceForEmployee(kioskSelectedEmp.id, kioskDate) || {};
     
     let finalCheckIn = kioskAction === 'in' ? timeNow : (log.checkIn || kioskSelectedEmp.shiftStartTime || '08:00');
     let finalCheckOut = kioskAction === 'out' ? timeNow : (log.checkOut || '');
@@ -727,7 +738,7 @@ export const Attendances: React.FC = () => {
       return [newRecord, ...filtered];
     });
     
-    recordAttendanceTimes(kioskSelectedEmp.id, finalCheckIn, finalCheckOut, calc.delayMinutes, calc.overtimeHours);
+    recordAttendanceTimes(kioskSelectedEmp.id, finalCheckIn, finalCheckOut, calc.delayMinutes, calc.overtimeHours, undefined, kioskDate);
 
     setKioskGreeting({
       name: kioskSelectedEmp.name,
@@ -1511,7 +1522,7 @@ export const Attendances: React.FC = () => {
               status: rec.status === 'PRESENT' ? 'present' : 'late'
             };
             setCustomAttendanceRecords(prev => [newAtt, ...prev]);
-            recordAttendanceTimes(rec.employeeId, newAtt.checkIn, newAtt.checkOut, newAtt.lateMinutes, newAtt.overtimeHours);
+            recordAttendanceTimes(rec.employeeId, newAtt.checkIn, newAtt.checkOut, newAtt.lateMinutes, newAtt.overtimeHours, undefined, newAtt.date);
             toast.success(`تم تسجيل بصمة QR للموظف بنجاح`);
           }}
         />

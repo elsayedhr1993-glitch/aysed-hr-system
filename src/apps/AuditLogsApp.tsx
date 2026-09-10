@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { AuditLog, Company, Employee, Contract, LeaveRequest, AttendanceRecord, Payslip, GeneratedDocument, DocumentItem, DocumentTemplate } from '../types';
 import { ShieldCheck, Search, Filter, History, Trash2, Edit3, Plus, ArrowLeft, ArrowRight, FileText, UserCheck, Activity } from 'lucide-react';
-import { SystemDiagnosticSuite } from '../components/SystemDiagnosticSuite';
 
 interface AuditLogsAppProps {
   auditLogs?: AuditLog[];
@@ -54,7 +53,7 @@ export const AuditLogsApp: React.FC<AuditLogsAppProps> = ({
 
   const allLogs = (propAuditLogs && propAuditLogs.length > 0) ? propAuditLogs : internalLogs;
 
-  const [activeTab, setActiveTab] = useState<'LOGS' | 'DIAGNOSTICS'>('LOGS');
+  const [activeTab, setActiveTab] = useState<'LOGS'>('LOGS');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedActionFilter, setSelectedActionFilter] = useState<string>('ALL');
   const [selectedEntityFilter, setSelectedEntityFilter] = useState<string>('ALL');
@@ -140,36 +139,10 @@ export const AuditLogsApp: React.FC<AuditLogsAppProps> = ({
             <span>سجل التغييرات ({filteredLogs.length})</span>
           </button>
 
-          <button
-            onClick={() => setActiveTab('DIAGNOSTICS')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-              activeTab === 'DIAGNOSTICS' ? 'bg-[#714B67] text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-            }`}
-          >
-            <Activity className="w-4 h-4 text-emerald-400" />
-            <span>فحص واختبار النظام E2E</span>
-          </button>
         </div>
       </div>
 
-      {activeTab === 'DIAGNOSTICS' ? (
-        <SystemDiagnosticSuite
-          activeCompany={activeCompany || undefined}
-          employees={employees}
-          contracts={contracts}
-          leaves={leaves}
-          attendance={attendance}
-          payslips={payslips}
-          generatedDocs={generatedDocs}
-          documentTemplates={documentTemplates}
-          auditLogs={allLogs}
-          onAddEmployee={onAddEmployee}
-          onAddAttendance={onAddAttendance}
-          onAddLeave={onAddLeave}
-          onIssueDocument={onIssueDocument}
-          onAddAuditLog={onAddAuditLog}
-        />) : (
-        <>
+      <>
           {/* Filters Bar */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
         {/* Search */}
@@ -288,6 +261,6 @@ export const AuditLogsApp: React.FC<AuditLogsAppProps> = ({
             </div>
           </div>)}
       </div>
-        </>)}
+      </>
     </div>);
 };

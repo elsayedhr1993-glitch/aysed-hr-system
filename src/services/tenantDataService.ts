@@ -9,7 +9,6 @@
  * - `contracts`
  */
 
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { db, auth, cleanFirestoreData } from '../lib/firebase';
 import { collection, doc, setDoc, deleteDoc, getDocs, query, where, getDoc } from 'firebase/firestore';
 import { Company, Employee, LeaveRequest, AttendanceRecord, Payslip, Contract } from '../types';
@@ -756,32 +755,6 @@ export const TenantDatabaseService = {
    */
   async saveEmployee(employee: Employee, targetCompanyId?: string): Promise<boolean> {
     const compId = targetCompanyId || employee.companyId || (employee as any).company_id || 'comp-super-admin';
-    const row = toEmployeeDbRow({ ...employee, companyId: compId, company_id: compId } as Employee, compId);
-
-    // 1. Dual write to Supabase if configured
-    if (isSupabaseConfigured) {
-      try {
-        const { error } = await supabase.from('employees').upsert([row], { onConflict: 'id' });
-        if (error) {
-          // Also try hr_employee table if employees table schema differs
-          await supabase.from('hr_employee').upsert([{
-            id: row.id,
-            company_id: compId,
-            name: row.full_name_ar,
-            civil_id: row.civil_id,
-            job_title: row.job_title,
-            department: row.department,
-            date_start: row.join_date,
-            remaining_leaves: row.remaining_leaves,
-            updated_at: row.updated_at
-          }], { onConflict: 'id' });
-        }
-      } catch (sbErr) {
-        console.warn('[TenantDatabaseService] Supabase employee upsert fallback:', sbErr);
-      }
-    }
-
-    // 2. Primary cloud persistence to Firestore
     try {
       const cleanDoc = cleanFirestoreData({
         ...employee,
@@ -803,33 +776,6 @@ export const TenantDatabaseService = {
   async getEmployeesByTenant(companyId: string): Promise<Employee[]> {
     if (!companyId) return [];
 
-    // 1. Try Supabase first if configured
-    if (isSupabaseConfigured) {
-      try {
-        const { data, error } = await supabase
-          .from('employees')
-          .select('*')
-          .eq('company_id', companyId);
-        if (!error && Array.isArray(data) && data.length > 0) {
-          const emps = data.map(fromEmployeeDbRow);
-          return emps;
-        }
-
-        // Also check hr_employee table
-        const { data: hrData, error: hrError } = await supabase
-          .from('hr_employee')
-          .select('*')
-          .eq('company_id', companyId);
-        if (!hrError && Array.isArray(hrData) && hrData.length > 0) {
-          const emps = hrData.map(fromEmployeeDbRow);
-          return emps;
-        }
-      } catch (sbErr) {
-        console.warn('[TenantDatabaseService] Supabase fetch error, fallback to Firestore:', sbErr);
-      }
-    }
-
-    // 2. Firestore query by companyId with strict normalization
     try {
       const snap = await getDocs(collection(db, 'employees'));
       const allEmps: Employee[] = snap.docs.map(d => {
@@ -860,19 +806,7 @@ export const TenantDatabaseService = {
    * Delete an Employee from all persistent stores and purge all related records (contracts, leaves, commencements)
    */
   async deleteEmployee(employeeId: string, companyId?: string): Promise<boolean> {
-    // 1. Supabase deletion (isolated safe execution)
-    if (isSupabaseConfigured) {
-      try {
-        await supabase.from('employees').delete().eq('id', employeeId);
-        await supabase.from('hr_employee').delete().eq('id', employeeId);
-        await supabase.from('leaves').delete().eq('employee_id', employeeId);
-        await supabase.from('contracts').delete().eq('employee_id', employeeId);
-      } catch (sbErr) {
-        console.warn('Supabase delete error:', sbErr);
-      }
-    }
-
-    // 2. Firestore deletion of main employee document (isolated safe execution)
+    // Firestore deletion of the main employee document.
     try {
       await deleteDoc(doc(db, 'employees', employeeId));
     } catch (fsErr) {
@@ -895,60 +829,6 @@ export const TenantDatabaseService = {
       console.warn('[TenantDatabaseService] Error purging related documents from Firestore:', relErr);
     }
 
-    // 4. Guaranteed LocalStorage purge across all relevant keys
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        const keysToClean: string[] = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const k = localStorage.key(i);
-          if (k) keysToClean.push(k);
-        }
-
-        for (const key of keysToClean) {
-          if (
-            key.includes('odoo_contracts_') || 
-            key.includes('odoo_commencements_') || 
-            key.includes('odoo_leave_') || 
-            key.includes('manara_leaves') || 
-            key.includes('odoo_employees_') ||
-            key.includes('manara_employees') ||
-            key.includes('odoo_payroll_') ||
-            key.includes('payroll') ||
-            key.includes('payslip')
-          ) {
-            try {
-              const raw = localStorage.getItem(key);
-              if (raw && (raw.includes(employeeId) || raw.includes(`"${employeeId}"`))) {
-                const parsed = JSON.parse(raw);
-                if (Array.isArray(parsed)) {
-                  const filtered = parsed.filter((item: any) => 
-                    item.employeeId !== employeeId && 
-                    item.id !== employeeId && 
-                    item.employee_id !== employeeId && 
-                    item.employeeName !== employeeId &&
-                    !(typeof item.name === 'string' && item.name.includes(employeeId))
-                  );
-                  localStorage.setItem(key, JSON.stringify(filtered));
-                } else if (parsed && typeof parsed === 'object') {
-                  if (parsed.employeeId === employeeId || parsed.id === employeeId) {
-                    localStorage.removeItem(key);
-                  }
-                }
-              }
-            } catch (kErr) {}
-          }
-        }
-      } catch (storageErr) {
-        console.warn('LocalStorage employee purge error:', storageErr);
-      }
-
-      // Notify other tabs and components immediately
-      try {
-        window.dispatchEvent(new Event('storage'));
-        window.dispatchEvent(new Event('manara_employees_updated'));
-      } catch (evErr) {}
-    }
-
     return true;
   },
 
@@ -957,26 +837,10 @@ export const TenantDatabaseService = {
    */
   async clearAllEmployeesAndSeedOne(activeCompanyId: string = 'comp-almanar'): Promise<{ success: boolean; testEmployee: any; message: string }> {
     try {
-      if (isSupabaseConfigured) {
-        try {
-          await supabase.from('employees').delete().neq('id', 'non-existent');
-          await supabase.from('hr_employee').delete().neq('id', 'non-existent');
-        } catch {}
-      }
-
       // 1. Delete all existing employee documents in Firestore
       const snap = await getDocs(collection(db, 'employees'));
       const batchDeletePromises = snap.docs.map(d => deleteDoc(doc(db, 'employees', d.id)));
       await Promise.all(batchDeletePromises);
-
-      // 2. Clear local storage employee keys
-      if (typeof window !== 'undefined' && window.localStorage) {
-        Object.keys(localStorage).forEach(key => {
-          if (key.includes('odoo_employees_') || key.includes('employees_') || key.includes('hr_') || key.includes('clean_attendances') || key.includes('documents_')) {
-            localStorage.removeItem(key);
-          }
-        });
-      }
 
       return {
         success: true,
@@ -998,15 +862,6 @@ export const TenantDatabaseService = {
    */
   async saveLeave(leave: LeaveRequest, targetCompanyId?: string): Promise<boolean> {
     const compId = targetCompanyId || leave.companyId || 'comp-super-admin';
-    const row = toLeaveDbRow(leave, compId);
-
-    if (isSupabaseConfigured) {
-      try {
-        await supabase.from('leaves').upsert([row], { onConflict: 'id' });
-      } catch (sbErr) {
-        console.warn('[TenantDatabaseService] Supabase leave upsert fallback:', sbErr);
-      }
-    }
 
     try {
       const cleanDoc = cleanFirestoreData({ ...leave, companyId: compId, updatedAt: new Date().toISOString() });
@@ -1024,20 +879,6 @@ export const TenantDatabaseService = {
   async getLeavesByTenant(companyId: string): Promise<LeaveRequest[]> {
     if (!companyId) return [];
 
-    if (isSupabaseConfigured) {
-      try {
-        const { data, error } = await supabase
-          .from('leaves')
-          .select('*')
-          .eq('company_id', companyId);
-        if (!error && Array.isArray(data) && data.length > 0) {
-          return data.map(fromLeaveDbRow);
-        }
-      } catch (sbErr) {
-        console.warn('[TenantDatabaseService] Supabase leaves query error:', sbErr);
-      }
-    }
-
     try {
       const q = query(collection(db, 'leaves'), where('companyId', '==', companyId));
       const snap = await getDocs(q);
@@ -1052,14 +893,6 @@ export const TenantDatabaseService = {
    * Save a Payroll Run / Archive
    */
   async savePayrollRun(payrollRun: PayrollRunRecord): Promise<boolean> {
-    if (isSupabaseConfigured) {
-      try {
-        await supabase.from('payroll_runs').upsert([payrollRun], { onConflict: 'id' });
-      } catch (sbErr) {
-        console.warn('[TenantDatabaseService] Supabase payroll run save fallback:', sbErr);
-      }
-    }
-
     try {
       const cleanDoc = cleanFirestoreData(payrollRun);
       await setDoc(doc(db, 'payroll_runs', payrollRun.id), cleanDoc, { merge: true });
@@ -1074,30 +907,6 @@ export const TenantDatabaseService = {
    * Save a single Tenant / Company registration
    */
   async saveTenant(company: Company): Promise<boolean> {
-    const row: TenantRecord = {
-      id: company.id,
-      name_ar: company.nameAr,
-      name_en: company.nameEn,
-      commercial_reg_no: company.commercialRegNo,
-      civil_id_company: company.civilIdCompany,
-      bank_name: company.bankName,
-      iban: company.iban,
-      wsi_code: company.wsiCode,
-      currency: company.currency || 'KWD',
-      status: company.status || 'active',
-      email: company.email,
-      phone: company.phone,
-      updated_at: new Date().toISOString()
-    };
-
-    if (isSupabaseConfigured) {
-      try {
-        await supabase.from('tenants').upsert([row], { onConflict: 'id' });
-      } catch (sbErr) {
-        console.warn('[TenantDatabaseService] Supabase tenant upsert fallback:', sbErr);
-      }
-    }
-
     try {
       const cleanDoc = cleanFirestoreData({ ...company, updatedAt: new Date().toISOString() });
       await setDoc(doc(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies'), company.id), cleanDoc, { merge: true });
@@ -1115,33 +924,6 @@ export const TenantDatabaseService = {
     const compId = targetCompanyId || contract.companyId || 'comp-super-admin';
     const effectiveDailyHours = contract.customDailyHours ?? contract.custom_daily_hours ?? contract.dailyWorkHours ?? contract.plannedDailyHours ?? 8;
     const effectiveWeeklyHours = contract.workingHoursPerWeek || (Number(effectiveDailyHours) * 6);
-
-    if (isSupabaseConfigured) {
-      try {
-        await supabase.from('contracts').upsert([{
-          id: contract.id,
-          company_id: compId,
-          employee_id: contract.employeeId,
-          basic_salary: contract.basicSalary,
-          housing_allowance: contract.housingAllowance || 0,
-          transport_allowance: contract.transportAllowance || 0,
-          other_allowance: contract.otherAllowance || 0,
-          start_date: contract.startDate,
-          end_date: contract.endDate,
-          contract_type: contract.contractType,
-          status: contract.status,
-          working_hours: effectiveDailyHours,
-          custom_daily_hours: effectiveDailyHours,
-          daily_work_hours: effectiveDailyHours,
-          resource_calendar_id: contract.resourceCalendarId,
-          working_schedule: contract.workingSchedule,
-          work_hours_type: contract.workHoursType,
-          updated_at: new Date().toISOString()
-        }], { onConflict: 'id' });
-      } catch (sbErr) {
-        console.warn('[TenantDatabaseService] Supabase contract upsert fallback:', sbErr);
-      }
-    }
 
     try {
       const cleanDoc = cleanFirestoreData({
@@ -1174,43 +956,21 @@ export const TenantDatabaseService = {
     }
   },
 
+  async deleteContract(contractId: string, _companyId?: string): Promise<boolean> {
+    try {
+      await deleteDoc(doc(db, 'contracts', contractId.replace(/\//g, '_')));
+      return true;
+    } catch (error) {
+      console.error('[TenantDatabaseService] Firestore contract delete error:', error);
+      return false;
+    }
+  },
+
   /**
    * Fetch all contracts for a specific tenant/company
    */
   async getContractsByTenant(companyId: string): Promise<Contract[]> {
     if (!companyId) return [];
-
-    if (isSupabaseConfigured) {
-      try {
-        const { data, error } = await supabase
-          .from('contracts')
-          .select('*')
-          .eq('company_id', companyId);
-        if (!error && Array.isArray(data) && data.length > 0) {
-          return data.map(d => ({
-            id: d.id,
-            companyId: d.company_id || d.companyId,
-            employeeId: d.employee_id || d.employeeId,
-            basicSalary: d.basic_salary ?? d.basicSalary ?? 0,
-            housingAllowance: d.housing_allowance ?? d.housingAllowance ?? 0,
-            transportAllowance: d.transport_allowance ?? d.transportAllowance ?? 0,
-            otherAllowance: d.other_allowance ?? d.otherAllowance ?? 0,
-            startDate: d.start_date || d.startDate || '',
-            endDate: d.end_date || d.endDate || '',
-            contractType: d.contract_type || d.contractType || 'fixed',
-            status: d.status || 'running',
-            workingHours: d.working_hours || d.workingHours,
-            customDailyHours: d.custom_daily_hours || d.customDailyHours,
-            dailyWorkHours: d.daily_work_hours || d.dailyWorkHours,
-            resourceCalendarId: d.resource_calendar_id || d.resourceCalendarId,
-            workingSchedule: d.working_schedule || d.workingSchedule,
-            workHoursType: d.work_hours_type || d.workHoursType,
-          } as unknown as Contract));
-        }
-      } catch (sbErr) {
-        console.warn('[TenantDatabaseService] Supabase contracts query error:', sbErr);
-      }
-    }
 
     try {
       const q = query(collection(db, 'contracts'), where('companyId', '==', companyId));
@@ -1221,17 +981,6 @@ export const TenantDatabaseService = {
       console.warn('[TenantDatabaseService] Firestore contracts query error:', fsErr);
     }
 
-    // LocalStorage fallback
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        const cached = localStorage.getItem(`odoo_contracts_v1_${companyId}`) || localStorage.getItem('manara_contracts_data');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        }
-      } catch (e) {}
-    }
-
     return [];
   },
 
@@ -1240,30 +989,6 @@ export const TenantDatabaseService = {
    */
   async saveAttendance(record: AttendanceRecord, targetCompanyId?: string): Promise<boolean> {
     const compId = targetCompanyId || record.companyId || 'comp-super-admin';
-    if (isSupabaseConfigured) {
-      const payload = {
-        id: record.id,
-        company_id: compId,
-        employee_id: record.employeeId,
-        date: record.date,
-        check_in: record.checkIn,
-        check_out: record.checkOut,
-        work_hours: record.workHours,
-        overtime_hours: record.overtimeHours,
-        status: record.status,
-        updated_at: new Date().toISOString()
-      };
-      try {
-        await supabase.from('attendance').upsert([payload], { onConflict: 'id' });
-      } catch (e) {}
-      try {
-        await supabase.from('hr_attendance').upsert([payload], { onConflict: 'id' });
-      } catch (e) {}
-      try {
-        await supabase.from('attendance_logs').upsert([payload], { onConflict: 'id' });
-      } catch (e) {}
-    }
-
     try {
       const cleanDoc = cleanFirestoreData({ ...record, companyId: compId, updatedAt: new Date().toISOString() });
       await setDoc(doc(db, 'attendance', record.id), cleanDoc, { merge: true });
@@ -1279,30 +1004,6 @@ export const TenantDatabaseService = {
    */
   async getAttendanceByTenant(companyId: string): Promise<AttendanceRecord[]> {
     if (!companyId) return [];
-    if (isSupabaseConfigured) {
-      try {
-        const { data, error } = await supabase
-          .from('attendance')
-          .select('*')
-          .eq('company_id', companyId);
-        if (!error && Array.isArray(data) && data.length > 0) {
-          return data.map(d => ({
-            id: d.id,
-            companyId: d.company_id,
-            employeeId: d.employee_id,
-            date: d.date,
-            checkIn: d.check_in,
-            checkOut: d.check_out,
-            workHours: Number(d.work_hours || 0),
-            overtimeHours: Number(d.overtime_hours || 0),
-            status: d.status || 'حاضر'
-          } as unknown as AttendanceRecord));
-        }
-      } catch (e) {
-        console.warn('[TenantDatabaseService] Supabase attendance fetch error:', e);
-      }
-    }
-
     try {
       const q = query(collection(db, 'attendance'), where('companyId', '==', companyId));
       const snap = await getDocs(q);
@@ -1318,27 +1019,6 @@ export const TenantDatabaseService = {
    */
   async saveDocument(docItem: any, targetCompanyId?: string): Promise<boolean> {
     const compId = targetCompanyId || docItem.companyId || 'comp-super-admin';
-    if (isSupabaseConfigured) {
-      try {
-        const payload = {
-          id: docItem.id,
-          company_id: compId,
-          employee_id: docItem.employeeId || null,
-          title: docItem.title || docItem.name || '',
-          type: docItem.type || docItem.category || 'general',
-          doc_number: docItem.docNumber || '',
-          issue_date: docItem.issueDate || null,
-          expiry_date: docItem.expiryDate || null,
-          file_url: docItem.fileUrl || docItem.url || '',
-          status: docItem.status || 'valid',
-          updated_at: new Date().toISOString()
-        };
-        await supabase.from('documents').upsert([payload], { onConflict: 'id' });
-      } catch (e) {
-        console.warn('[TenantDatabaseService] Supabase document save fallback:', e);
-      }
-    }
-
     try {
       const cleanDoc = cleanFirestoreData({ ...docItem, companyId: compId, updatedAt: new Date().toISOString() });
       await setDoc(doc(db, 'documents', docItem.id), cleanDoc, { merge: true });
@@ -1354,31 +1034,6 @@ export const TenantDatabaseService = {
    */
   async getDocumentsByTenant(companyId: string): Promise<any[]> {
     if (!companyId) return [];
-    if (isSupabaseConfigured) {
-      try {
-        const { data, error } = await supabase
-          .from('documents')
-          .select('*')
-          .eq('company_id', companyId);
-        if (!error && Array.isArray(data) && data.length > 0) {
-          return data.map(d => ({
-            id: d.id,
-            companyId: d.company_id,
-            employeeId: d.employee_id,
-            title: d.title,
-            type: d.type,
-            docNumber: d.doc_number,
-            issueDate: d.issue_date,
-            expiryDate: d.expiry_date,
-            fileUrl: d.file_url,
-            status: d.status
-          }));
-        }
-      } catch (e) {
-        console.warn('[TenantDatabaseService] Supabase documents fetch error:', e);
-      }
-    }
-
     try {
       const q = query(collection(db, 'documents'), where('companyId', '==', companyId));
       const snap = await getDocs(q);
@@ -1393,11 +1048,6 @@ export const TenantDatabaseService = {
    * Delete a Document from Supabase and Firestore
    */
   async deleteDocument(docId: string, targetCompanyId?: string): Promise<boolean> {
-    if (isSupabaseConfigured) {
-      try {
-        await supabase.from('documents').delete().eq('id', docId);
-      } catch (e) {}
-    }
     try {
       await deleteDoc(doc(db, 'documents', docId));
       return true;
@@ -1412,26 +1062,6 @@ export const TenantDatabaseService = {
    */
   async savePayslip(payslip: Payslip, targetCompanyId?: string): Promise<boolean> {
     const compId = targetCompanyId || payslip.companyId || 'comp-super-admin';
-    if (isSupabaseConfigured) {
-      try {
-        await supabase.from('payslips').upsert([{
-          id: payslip.id,
-          company_id: compId,
-          employee_id: payslip.employeeId,
-          month: payslip.month,
-          basic_salary: payslip.basicSalary,
-          total_allowances: payslip.allowances || 0,
-          gross_salary: payslip.grossSalary,
-          total_deductions: (payslip.latenessDeduction || 0) + (payslip.loanDeduction || 0) + (payslip.unpaidLeaveDeduction || 0) + (payslip.otherDeductions || 0),
-          net_salary: payslip.netSalary,
-          status: payslip.paymentStatus || 'DRAFT',
-          updated_at: new Date().toISOString()
-        }], { onConflict: 'id' });
-      } catch (sbErr) {
-        console.warn('[TenantDatabaseService] Supabase payslip upsert fallback:', sbErr);
-      }
-    }
-
     try {
       const cleanDoc = cleanFirestoreData({ ...payslip, companyId: compId, updatedAt: new Date().toISOString() });
       await setDoc(doc(db, 'payslips', payslip.id), cleanDoc, { merge: true });
@@ -1468,20 +1098,6 @@ export const TenantDatabaseService = {
         }
       }
       
-      // Also clear Supabase tables if configured
-      if (isSupabaseConfigured) {
-        try {
-          await supabase.from('employees').delete().eq('company_id', companyId);
-          await supabase.from('contracts').delete().eq('company_id', companyId);
-          await supabase.from('leaves').delete().eq('company_id', companyId);
-          await supabase.from('attendance').delete().eq('company_id', companyId);
-          await supabase.from('payslips').delete().eq('company_id', companyId);
-          await supabase.from('documents').delete().eq('company_id', companyId);
-        } catch (sbErr) {
-          console.warn('[TenantDatabaseService] Supabase tenant wipe notice:', sbErr);
-        }
-      }
-
       return true;
     } catch (e) {
       console.error('Error clearing tenant data:', e);
@@ -1514,19 +1130,6 @@ export const TenantDatabaseService = {
           await Promise.all(deletePromises);
         } catch (colErr) {
           console.warn(`[TenantDatabaseService] Error wiping collection ${colName}:`, colErr);
-        }
-      }
-
-      if (isSupabaseConfigured) {
-        try {
-          await supabase.from('employees').delete().neq('id', '___non_existent___');
-          await supabase.from('contracts').delete().neq('id', '___non_existent___');
-          await supabase.from('leaves').delete().neq('id', '___non_existent___');
-          await supabase.from('attendance').delete().neq('id', '___non_existent___');
-          await supabase.from('payslips').delete().neq('id', '___non_existent___');
-          await supabase.from('documents').delete().neq('id', '___non_existent___');
-        } catch (sbErr) {
-          console.warn('[TenantDatabaseService] Supabase full wipe notice:', sbErr);
         }
       }
 

@@ -43,6 +43,8 @@ import { toast } from 'react-hot-toast';
 import { LeaveSettlementCalculator } from './LeaveSettlementCalculator';
 import { calculate2026AccruedDays, getCarriedOverBalance, getGlobalCompensatoryDays, calculateActualLeaveDays } from '../utils/kuwaitLaw';
 import { computeFifoLeaveAllocations, buildEmployeeBaselineAllocations } from '../services/leaveService';
+import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
+import { db, cleanFirestoreData } from '../lib/firebase';
 
 // Time Off Sub-components
 import { PrintableLeaveFormModal } from './timeoff/PrintableLeaveFormModal';
@@ -53,6 +55,7 @@ import { AbsenceTimelineView } from './timeoff/AbsenceTimelineView';
 
 export interface LeaveRequest {
   id: string;
+  companyId?: string;
   employeeId: string;
   employeeName: string;
   civilId: string;
@@ -81,6 +84,7 @@ export interface LeaveRequest {
 
 export interface LeaveAllocation {
   id: string;
+  companyId?: string;
   employeeId?: string;
   employeeName: string;
   fromYear: string;
@@ -101,38 +105,48 @@ const leaveTypeLabels: Record<string, { label: string; color: string; maxDaysRul
   unpaid: { label: 'إجازة بدون راتب', color: 'bg-gray-100 text-gray-700 border-gray-300', maxDaysRule: 'بموافقة صاحب العمل' },
 };
 
-const STORAGE_KEY_ALLOCATIONS = 'odoo_leave_allocations_v2';
-const STORAGE_KEY_REQUESTS = 'odoo_leave_requests_v2';
-
-const DEFAULT_SAMPLE_REQUESTS: LeaveRequest[] = [];
-
 export const OdooTimeOffApp: React.FC = () => {
   const { activeCompany } = useCompany();
   const { employees, leaveAccruals, updateLeaveAccrual, processMonthlyAccruals } = useOdooHierarchy();
+  const companyId = activeCompany?.id || 'comp-super-admin';
 
-  // 1. DATA STATES (with LocalStorage persistence)
-  const [requests, setRequests] = useState<LeaveRequest[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_REQUESTS);
-      if (saved !== null) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
-      }
-    } catch (e) {
-      console.error('Error loading leave requests from storage', e);
-    }
-    return [];
-  });
+  const [requests, setRequests] = useState<LeaveRequest[]>([]);
+  const [allocations, setAllocations] = useState<LeaveAllocation[]>([]);
 
-  const handleDeleteRequest = (id: string, empName: string) => {
+  useEffect(() => {
+    setRequests([]);
+    setAllocations([]);
+    const requestsQuery = query(collection(db, 'leave_requests'), where('companyId', '==', companyId));
+    const allocationsQuery = query(collection(db, 'leave_allocations'), where('companyId', '==', companyId));
+    const unsubscribeRequests = onSnapshot(requestsQuery, snapshot => {
+      setRequests(snapshot.docs.map(item => ({ ...item.data(), id: item.id } as LeaveRequest)));
+    }, error => console.error('Failed to load leave requests from Firestore', error));
+    const unsubscribeAllocations = onSnapshot(allocationsQuery, snapshot => {
+      setAllocations(snapshot.docs.map(item => ({ ...item.data(), id: item.id } as LeaveAllocation)));
+    }, error => console.error('Failed to load leave allocations from Firestore', error));
+    return () => {
+      unsubscribeRequests();
+      unsubscribeAllocations();
+    };
+  }, [companyId]);
+
+  useEffect(() => {
+    requests.forEach(request => {
+      void setDoc(doc(db, 'leave_requests', request.id), cleanFirestoreData({ ...request, companyId }), { merge: true });
+    });
+  }, [companyId, requests]);
+
+  useEffect(() => {
+    allocations.forEach(allocation => {
+      void setDoc(doc(db, 'leave_allocations', allocation.id), cleanFirestoreData({ ...allocation, companyId }), { merge: true });
+    });
+  }, [companyId, allocations]);
+
+  const handleDeleteRequest = async (id: string, empName: string) => {
     if (window.confirm(`هل أنت متأكد من حذف طلب الإجازة للموظف (${empName}) نهائياً؟`)) {
       const updated = requests.filter(r => r.id !== id);
       setRequests(updated);
-      try {
-        localStorage.setItem(STORAGE_KEY_REQUESTS, JSON.stringify(updated));
-      } catch (e) {
-        console.error('Failed to update storage on delete', e);
-      }
+      await deleteDoc(doc(db, 'leave_requests', id));
       toast.success('تم حذف طلب الإجازة بنجاح.');
     }
   };
@@ -140,41 +154,10 @@ export const OdooTimeOffApp: React.FC = () => {
   const handleClearAllSampleData = () => {
     if (window.confirm('هل أنت متأكد من مسح جميع طلبات وسجلات الإجازات الحالية؟')) {
       setRequests([]);
-      try {
-        localStorage.setItem(STORAGE_KEY_REQUESTS, JSON.stringify([]));
-      } catch (e) {
-        console.error('Failed to clear requests storage', e);
-      }
+      void Promise.all(requests.map(request => deleteDoc(doc(db, 'leave_requests', request.id))));
       toast.success('تم مسح كافة طلبات الإجازات بنجاح.');
     }
   };
-
-  const [allocations, setAllocations] = useState<LeaveAllocation[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_ALLOCATIONS);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.error('Error loading allocations from storage', e);
-    }
-    return [];
-  });
-
-  // Save to LocalStorage on update
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY_REQUESTS, JSON.stringify(requests));
-    } catch (e) {
-      console.error('Failed to persist requests', e);
-    }
-  }, [requests]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY_ALLOCATIONS, JSON.stringify(allocations));
-    } catch (e) {
-      console.error('Failed to persist allocations', e);
-    }
-  }, [allocations]);
 
   // Unified Employees List
   const companyEmployees = (employees && employees.length > 0) ? employees : [];
@@ -421,9 +404,10 @@ export const OdooTimeOffApp: React.FC = () => {
     );
   };
 
-  const handleDeleteAllocation = (id: string, empName: string, daysCount: number) => {
+  const handleDeleteAllocation = async (id: string, empName: string, daysCount: number) => {
     if (window.confirm(`هل أنت متأكد من حذف سطر التخصيص للموظف (${empName}) بمقدار ${daysCount} يوم؟`)) {
       setAllocations(allocations.filter(a => a.id !== id));
+      await deleteDoc(doc(db, 'leave_allocations', id));
       toast.success('تم حذف سطر التخصيص وتحديث الرصيد.');
     }
   };

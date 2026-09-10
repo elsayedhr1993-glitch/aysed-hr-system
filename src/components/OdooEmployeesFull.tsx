@@ -650,7 +650,7 @@ export const OdooEmployeesFull: React.FC<OdooEmployeesFullProps> = ({ activeComp
                         value={selectedEmployee.civilId}
                         onChange={(e) => setSelectedEmployee({ ...selectedEmployee, civilId: e.target.value })}
                         className="w-full p-2 border rounded-lg bg-slate-50 focus:bg-white font-mono font-bold"
-                        placeholder="290010112345"
+                        placeholder="الرقم المدني"
                       />
                     </div>
                     <div>

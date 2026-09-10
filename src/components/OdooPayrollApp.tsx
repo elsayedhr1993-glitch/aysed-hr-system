@@ -11,7 +11,6 @@ import { useSystemSettings } from '../context/SystemSettingsContext';
 import { useOdooHierarchy } from '../context/OdooHierarchyContext';
 import { exportToExcel } from '../utils/exportUtils';
 import { OfficialPayslipPrintModal, PayslipPrintData } from './payroll/OfficialPayslipPrintModal';
-import { isKuwaitiEmployee } from '../utils/kuwaitLaw';
 import { WpsAuditShieldModal, WpsAuditItem } from './payroll/WpsAuditShieldModal';
 import { FinalSettlementModal } from './payroll/FinalSettlementModal';
 import { PifssInsuranceReportModal } from './payroll/PifssInsuranceReportModal';
@@ -58,7 +57,8 @@ export const OdooPayrollApp: React.FC = () => {
   const { settings } = useSystemSettings();
   const { 
     employees, 
-    attendance, 
+    attendance,
+    getAttendanceForEmployee,
     loans, 
     addLoan, 
     deleteLoan, 
@@ -124,27 +124,26 @@ export const OdooPayrollApp: React.FC = () => {
   const generateInitialPayslips = () => {
     if (!employees || employees.length === 0) return;
     const initialList: PayslipItem[] = employees.map((emp, idx) => {
-      const att = attendance[emp.id] || { employeeId: emp.id, delayMinutes: 0, unpaidAbsenceDays: 0, overtimeHours: 0 };
+      const att = getAttendanceForEmployee(emp.id) || { employeeId: emp.id, delayMinutes: 0, unpaidAbsenceDays: 0, overtimeHours: 0 };
       const empLoan = loans.find(l => l.employeeId === emp.id && l.remainingAmount > 0);
 
-      const totalBase = (emp.basicSalary || 600) + (emp.housingAllowance || 0) + (emp.transportAllowance || 0) + (emp.medicalAllowance || 0);
+      const totalBase = (emp.basicSalary || 0) + (emp.housingAllowance || 0) + (emp.transportAllowance || 0) + (emp.medicalAllowance || 0);
       const dayRate = totalBase / 26;
       const minRate = (dayRate / (emp.dailyHours || 8)) / 60;
       const hourRate = dayRate / (emp.dailyHours || 8);
 
       const overtimeHours = att.overtimeHours || 0;
-      const overtimeAmount = Math.round((overtimeHours * hourRate * 1.25) * 1000) / 1000;
+      const overtimeAmount = 0;
       const absenceDays = att.unpaidAbsenceDays || 0;
       const absenceDeduction = Math.round((absenceDays * dayRate) * 1000) / 1000;
       const delayMinutes = att.delayMinutes || 0;
       const delayDeduction = Math.round((delayMinutes * minRate) * 1000) / 1000;
       const loanDeduction = empLoan ? Math.min(empLoan.monthlyInstallment, empLoan.remainingAmount) : 0;
       
-      const isKuwaiti = isKuwaitiEmployee(emp);
-      const pifssDeduction = isKuwaiti ? Math.round(((emp.basicSalary || 600) * 0.105) * 1000) / 1000 : 0;
+      const pifssDeduction = 0;
 
-      const grossSalary = totalBase + overtimeAmount;
-      const totalDeductions = absenceDeduction + delayDeduction + loanDeduction + pifssDeduction;
+      const grossSalary = totalBase;
+      const totalDeductions = absenceDeduction + delayDeduction + loanDeduction;
       const netSalary = Math.max(0, grossSalary - totalDeductions);
 
       return {
@@ -152,11 +151,11 @@ export const OdooPayrollApp: React.FC = () => {
         payslipNumber: `PAY/${selectedMonth.replace('-', '/')}/${String(idx + 1).padStart(4, '0')}`,
         employeeId: emp.id,
         employeeName: emp.name,
-        civilId: emp.civilId || '290010112345',
+        civilId: emp.civilId || '',
         jobTitle: emp.jobTitle || 'موظف',
         department: emp.department || 'الإدارة العامة',
         bankName: emp.bankName || 'بنك الكويت الوطني (NBK)',
-        iban: emp.iban || `KW68NBKK000000000000${String(idx + 1000).padStart(10, '0')}`,
+        iban: emp.iban || '',
         period: selectedMonth,
         basicSalary: emp.basicSalary || 600,
         housingAllowance: emp.housingAllowance || 0,
@@ -280,9 +279,8 @@ export const OdooPayrollApp: React.FC = () => {
     const emp = employees.find(e => e.id === empId);
     if (!emp) return;
 
-    const att = attendance[empId] || { delayMinutes: 0, unpaidAbsenceDays: 0, overtimeHours: 0 };
-    const isKuwaiti = isKuwaitiEmployee(emp);
-    const pifss = isKuwaiti ? ((emp.basicSalary || 600) * 0.105).toFixed(3) : '0';
+    const att = getAttendanceForEmployee(empId) || { delayMinutes: 0, unpaidAbsenceDays: 0, overtimeHours: 0 };
+    const pifss = '0';
 
     setNewForm({
       employeeId: emp.id,
@@ -292,7 +290,7 @@ export const OdooPayrollApp: React.FC = () => {
       department: emp.department || 'الإدارة العامة',
       bankName: emp.bankName || 'بنك الكويت الوطني (NBK)',
       iban: emp.iban || '',
-      basicSalary: String(emp.basicSalary || 600),
+      basicSalary: String(emp.basicSalary || 0),
       housingAllowance: String(emp.housingAllowance || 0),
       transportAllowance: String(emp.transportAllowance || 0),
       medicalAllowance: String(emp.medicalAllowance || 0),
@@ -312,19 +310,19 @@ export const OdooPayrollApp: React.FC = () => {
     const otHours = parseFloat(newForm.overtimeHours) || 0;
     const absDays = parseFloat(newForm.absenceDays) || 0;
     const delMins = parseFloat(newForm.delayMinutes) || 0;
-    const pifss = parseFloat(newForm.pifssDeduction) || 0;
+    const pifss = 0;
 
     const totalBase = basic + housing + transport + medical;
     const dayRate = totalBase / 26;
     const hourRate = dayRate / 8;
     const minRate = hourRate / 60;
 
-    const overtimeAmount = Math.round((otHours * hourRate * 1.25) * 1000) / 1000;
+    const overtimeAmount = 0;
     const absenceDeduction = Math.round((absDays * dayRate) * 1000) / 1000;
     const delayDeduction = Math.round((delMins * minRate) * 1000) / 1000;
     
-    const grossSalary = totalBase + overtimeAmount;
-    const totalDeductions = absenceDeduction + delayDeduction + pifss;
+    const grossSalary = totalBase;
+    const totalDeductions = absenceDeduction + delayDeduction;
     const netSalary = Math.max(0, grossSalary - totalDeductions);
 
     const newId = `SLIP-${selectedMonth}-${newForm.employeeId || '00' + (payslips.length + 1)}`;
@@ -339,7 +337,7 @@ export const OdooPayrollApp: React.FC = () => {
       jobTitle: newForm.jobTitle,
       department: newForm.department,
       bankName: newForm.bankName,
-      iban: newForm.iban || 'KW00BANK0000000000000000000000',
+      iban: newForm.iban,
       period: selectedMonth,
       basicSalary: basic,
       housingAllowance: housing,
@@ -352,7 +350,7 @@ export const OdooPayrollApp: React.FC = () => {
       delayMinutes: delMins,
       delayDeduction,
       loanDeduction: 0,
-      pifssDeduction: pifss,
+      pifssDeduction: 0,
       grossSalary,
       totalDeductions,
       netSalary,
@@ -378,12 +376,12 @@ export const OdooPayrollApp: React.FC = () => {
         const hourRate = dayRate / dailyHours;
         const minRate = hourRate / 60;
 
-        const overtimeAmount = Math.round((p.overtimeHours * hourRate * overtimeMult) * 1000) / 1000;
+        const overtimeAmount = 0;
         const absenceDeduction = Math.round((p.absenceDays * dayRate) * 1000) / 1000;
         const delayDeduction = Math.round((p.delayMinutes * minRate) * 1000) / 1000;
         
-        const grossSalary = totalBase + overtimeAmount + (p.bonusAmount || 0);
-        const totalDeductions = absenceDeduction + delayDeduction + p.loanDeduction + p.pifssDeduction;
+        const grossSalary = totalBase;
+        const totalDeductions = absenceDeduction + delayDeduction + p.loanDeduction;
         const netSalary = Math.max(0, grossSalary - totalDeductions);
 
         return {
@@ -456,27 +454,7 @@ export const OdooPayrollApp: React.FC = () => {
   const totalDeductionsAll = filteredPayslips.reduce((sum, p) => sum + p.totalDeductions, 0);
 
   // PIFSS employee dataset
-  const pifssData = useMemo(() => {
-    return employees
-      .filter(emp => isKuwaitiEmployee(emp))
-      .map(emp => {
-        const comprehensive = (emp.basicSalary || 600) + (emp.housingAllowance || 0);
-        const insured = Math.min(3000, comprehensive); // Capped at 3000 KWD
-        const empShare = Math.round((insured * 0.105) * 1000) / 1000;
-        const compShare = Math.round((insured * 0.115) * 1000) / 1000;
-        return {
-          id: emp.id,
-          name: emp.name,
-          civilId: emp.civilId || '290000000000',
-          jobTitle: emp.jobTitle || 'موظف',
-          basicSalary: emp.basicSalary || 600,
-          insuredSalary: insured,
-          employeeShare: empShare,
-          companyShare: compShare,
-          totalContribution: Math.round((empShare + compShare) * 1000) / 1000
-        };
-      });
-  }, [employees]);
+  const pifssData = useMemo(() => [], []);
 
   // EOS employee dataset
   const settlementEmployees = useMemo(() => {
@@ -485,11 +463,11 @@ export const OdooPayrollApp: React.FC = () => {
       return {
         id: emp.id,
         name: emp.name,
-        civilId: emp.civilId || '290000000000',
+        civilId: emp.civilId || '',
         jobTitle: emp.jobTitle || 'موظف',
         department: emp.department || 'إدارة',
         joinDate: emp.joinDate || '2022-01-01',
-        basicSalary: emp.basicSalary || 600,
+        basicSalary: emp.basicSalary || 0,
         housingAllowance: emp.housingAllowance || 0,
         transportAllowance: emp.transportAllowance || 0,
         medicalAllowance: emp.medicalAllowance || 0,
@@ -1280,7 +1258,7 @@ export const OdooPayrollApp: React.FC = () => {
                     type="text"
                     required
                     maxLength={12}
-                    placeholder="290010112345"
+                    placeholder="الرقم المدني"
                     value={newForm.civilId}
                     onChange={(e) => setNewForm({ ...newForm, civilId: e.target.value })}
                     className="w-full p-2.5 border rounded-lg font-mono outline-none focus:border-[#714B67]"
@@ -1308,7 +1286,7 @@ export const OdooPayrollApp: React.FC = () => {
                   <label className="block font-bold text-slate-700 mb-1">رقم الآيبان (IBAN):</label>
                   <input
                     type="text"
-                    placeholder="KW00BANK0000000000000000000000"
+                    placeholder="رقم IBAN الفعلي"
                     value={newForm.iban}
                     onChange={(e) => setNewForm({ ...newForm, iban: e.target.value })}
                     className="w-full p-2.5 border rounded-lg font-mono outline-none focus:border-[#714B67]"
@@ -1527,7 +1505,7 @@ export const OdooPayrollApp: React.FC = () => {
             crNumber: activeCompany?.crNumber || activeCompany?.commercialRegNo || '104829',
             bankName: activeCompany?.bankName || 'بنك الكويت الوطني (NBK)',
             accountNumber: activeCompany?.accountNumber || '0123456789012',
-            iban: activeCompany?.iban || 'KW68NBKK0000000000000123456789'
+            iban: activeCompany?.iban || ''
           }}
           onClose={() => setShowWpsAuditModal(false)}
         />

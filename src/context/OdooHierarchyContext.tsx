@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { KUWAIT_LABOR_CONFIG } from '../config/kuwaitLaborConfig';
 import { useCompany } from './CompanyContext';
 import { TenantDatabaseService } from '../services/tenantDataService';
-import { collection, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
+import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { db, cleanFirestoreData } from '../lib/firebase';
 
 // 1. المستوى الأول: العقد والبيانات الثابتة (hr.contract & hr.employee)
@@ -49,7 +49,9 @@ export interface ShiftSchedule {
 }
 
 export interface AttendanceLog {
+  companyId?: string;
   employeeId: string;
+  date?: string;
   delayMinutes: number; // دقائق التأخير
   unpaidAbsenceDays: number; // أيام الغياب بدون إذن
   overtimeHours: number; // ساعات العمل الإضافي
@@ -142,6 +144,7 @@ export const computeAttendanceAndOvertime = (
 
 export interface EmployeeLoan {
   id: string;
+  companyId?: string;
   employeeId: string;
   totalAmount: number;
   monthlyInstallment: number;
@@ -178,19 +181,20 @@ export interface PayslipComputation {
 interface OdooHierarchyContextType {
   employees: EmployeeContract[];
   attendance: Record<string, AttendanceLog>;
+  getAttendanceForEmployee: (empId: string, date?: string) => AttendanceLog | undefined;
   loans: EmployeeLoan[];
   leaveAccruals: Record<string, LeaveAccrual>;
   computedPayslips: PayslipComputation[];
   updateContractSalary: (empId: string, newBasic: number, newHousing: number) => void;
   updateContractDetails: (contractData: Partial<EmployeeContract> & { id: string }) => void;
-  recordAttendanceShift: (empId: string, delayMin: number, overtimeHr: number) => void;
-  recordAttendanceTimes: (empId: string, checkIn: string, checkOut?: string, delayMinutes?: number, overtimeHours?: number, isHoliday?: boolean) => void;
-  addLoan: (empId: string, amount: number, installment: number) => void;
-  deleteLoan: (loanId: string) => void;
-  registerLoanPayment: (loanId: string, amountToPay: number) => void;
+  recordAttendanceShift: (empId: string, delayMin: number, overtimeHr: number, date?: string) => Promise<void>;
+  recordAttendanceTimes: (empId: string, checkIn: string, checkOut?: string, delayMinutes?: number, overtimeHours?: number, isHoliday?: boolean, date?: string) => Promise<void>;
+  addLoan: (empId: string, amount: number, installment: number) => Promise<void>;
+  deleteLoan: (loanId: string) => Promise<void>;
+  registerLoanPayment: (loanId: string, amountToPay: number) => Promise<void>;
   addEmployee: (emp: EmployeeContract) => void;
   updateEmployee: (id: string, partial: Partial<EmployeeContract>) => void;
-  recordUnpaidAbsence: (empId: string, days: number) => void;
+  recordUnpaidAbsence: (empId: string, days: number, date?: string) => Promise<void>;
   updateLeaveAccrual: (empId: string, carried: number, earned: number, consumed: number, excludedServiceDays?: number) => void;
   processMonthlyAccruals: () => void;
   calculateEmployeeServiceYearsWithExclusions: (empId: string, joinDateStr: string, endDateStr?: string) => {
@@ -203,6 +207,9 @@ interface OdooHierarchyContextType {
 }
 
 const OdooHierarchyContext = createContext<OdooHierarchyContextType | undefined>(undefined);
+
+const getAttendanceDate = (date?: string) => date || new Date().toISOString().split('T')[0];
+const getAttendanceKey = (companyId: string, employeeId: string, date: string) => `${companyId}_${employeeId}_${date}`;
 
 export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { activeCompany, activeCompanyId } = useCompany();
@@ -278,7 +285,10 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
       const records: Record<string, AttendanceLog> = {};
       snapshot.docs.forEach(item => {
         const data = item.data() as AttendanceLog & { employeeId?: string };
-        if (data.employeeId) records[data.employeeId] = data;
+        if (data.employeeId) {
+          const date = getAttendanceDate(data.date);
+          records[item.id] = { ...data, date, companyId: data.companyId || currentCompanyId };
+        }
       });
       setAttendance(records);
     }, error => console.error('Error in realtime attendance sync:', error));
@@ -287,10 +297,22 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
   // السلف المالية
   const [loans, setLoans] = useState<EmployeeLoan[]>([]);
 
+  useEffect(() => {
+    const loansQuery = query(collection(db, 'loans'), where('companyId', '==', currentCompanyId));
+    return onSnapshot(loansQuery, snapshot => {
+      setLoans(snapshot.docs.map(item => ({ ...item.data(), id: item.id } as EmployeeLoan)));
+    }, error => console.error('Error in realtime loan sync:', error));
+  }, [currentCompanyId]);
+
   // أرصدة الإجازات
   const [leaveAccruals, setLeaveAccruals] = useState<Record<string, LeaveAccrual>>({});
 
   const [computedPayslips, setComputedPayslips] = useState<PayslipComputation[]>([]);
+
+  const getAttendanceForEmployee = (empId: string, date?: string) => {
+    const targetDate = getAttendanceDate(date);
+    return attendance[getAttendanceKey(currentCompanyId, empId, targetDate)] || attendance[empId];
+  };
 
   // تفريغ وتصفير كافة البيانات الفرعية تلقائياً عند تغيير المنشأة النشطة لمنع تداخل البيانات
   useEffect(() => {
@@ -310,7 +332,7 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
     });
 
     const results: PayslipComputation[] = activeEmployees.map(emp => {
-      const att = attendance[emp.id] || { employeeId: emp.id, delayMinutes: 0, unpaidAbsenceDays: 0, overtimeHours: 0 };
+      const att = getAttendanceForEmployee(emp.id) || { employeeId: emp.id, delayMinutes: 0, unpaidAbsenceDays: 0, overtimeHours: 0 };
       const empLoan = loans.find(l => l.employeeId === emp.id);
 
       // 1. الراتب الشامل والدوام
@@ -351,18 +373,8 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
 
       // 2. معادلة احتساب الراتب الإجمالي:
       // لموظفي الدوام الجزئي: (إجمالي ساعات البصمة الفعلية × أجر الساعة التعاقدي) + البدلات
-      let gross = 0;
-      let basicDisplay = emp.basicSalary;
-
-      if (isPartTime) {
-        // حساب إجمالي ساعات البصمة (ساعات اليوم الحالي أو المسجلة)
-        const effectiveHours = actualHours > 0 ? actualHours : (emp.dailyHours || 4);
-        const hourlyComputedGross = effectiveHours * contractHourlyRate;
-        gross = hourlyComputedGross + allowances;
-        basicDisplay = hourlyComputedGross;
-      } else {
-        gross = emp.basicSalary + allowances;
-      }
+      const gross = emp.basicSalary + allowances;
+      const basicDisplay = emp.basicSalary;
 
       // 3. معادلة اليوم والساعة وفق القطاع الخاص الكويتي (القسمة على 26 يوم)
       const dayHours = emp.dailyHours || 8;
@@ -378,9 +390,7 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
         ? (finalDelayMinutes * minRate)
         : ((finalDelayMinutes * minRate) + (att.unpaidAbsenceDays * dayRate));
 
-      const otAmount = att.checkIn && att.checkOut 
-        ? calculatedOtAmount 
-        : (finalOvertimeHours * hourRate * (isPartTime ? 1.0 : KUWAIT_LABOR_CONFIG.payroll.overtimeRateRegular));
+      const otAmount = 0;
         
       const loanDed = empLoan && empLoan.remainingAmount > 0 
         ? Math.min(empLoan.monthlyInstallment, empLoan.remainingAmount) 
@@ -398,11 +408,11 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
         iban: emp.iban,
         basic: Math.round(basicDisplay * 1000) / 1000,
         allowances,
-        grossSalary: Math.round(gross * 1000) / 1000,
+        grossSalary: Math.round((emp.basicSalary + allowances) * 1000) / 1000,
         attendanceDeduction: Math.round(attDeduction * 1000) / 1000,
         loanDeduction: loanDed,
         pifssDeduction: 0.000, // صفر تأمينات
-        overtimeAmount: Math.round(otAmount * 1000) / 1000,
+        overtimeAmount: 0,
         prepaidDeduction: 0,
         netSalary: Math.round(net * 1000) / 1000
       };
@@ -437,29 +447,35 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
     }));
   };
 
-  const recordAttendanceShift = (empId: string, delayMin: number, overtimeHr: number) => {
+  const recordAttendanceShift = async (empId: string, delayMin: number, overtimeHr: number, date?: string) => {
+    const targetDate = getAttendanceDate(date);
+    const attendanceId = getAttendanceKey(currentCompanyId, empId, targetDate);
     const record = {
-      ...(attendance[empId] || { employeeId: empId, unpaidAbsenceDays: 0 }),
+      ...(getAttendanceForEmployee(empId, targetDate) || { employeeId: empId, unpaidAbsenceDays: 0 }),
       delayMinutes: delayMin,
       overtimeHours: overtimeHr,
-      companyId: currentCompanyId
+      companyId: currentCompanyId,
+      date: targetDate
     };
     setAttendance(prev => ({
       ...prev,
-      [empId]: record
+      [attendanceId]: record
     }));
-    void setDoc(doc(db, 'attendance', empId), cleanFirestoreData(record), { merge: true });
+    await setDoc(doc(db, 'attendance', attendanceId), cleanFirestoreData(record), { merge: true });
   };
 
-  const recordAttendanceTimes = (
+  const recordAttendanceTimes = async (
     empId: string, 
     checkIn: string, 
     checkOut?: string, 
     delayMinutes?: number, 
     overtimeHours?: number, 
-    isHoliday?: boolean
+    isHoliday?: boolean,
+    date?: string
   ) => {
-    const current = attendance[empId] || { employeeId: empId, unpaidAbsenceDays: 0, delayMinutes: 0, overtimeHours: 0 };
+    const targetDate = getAttendanceDate(date);
+    const attendanceId = getAttendanceKey(currentCompanyId, empId, targetDate);
+    const current = getAttendanceForEmployee(empId, targetDate) || { employeeId: empId, unpaidAbsenceDays: 0, delayMinutes: 0, overtimeHours: 0 };
     const record = {
       ...current,
       checkIn,
@@ -467,30 +483,42 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
       delayMinutes: delayMinutes !== undefined ? delayMinutes : current.delayMinutes,
       overtimeHours: overtimeHours !== undefined ? overtimeHours : current.overtimeHours,
       isHoliday: isHoliday !== undefined ? !!isHoliday : !!current.isHoliday,
+      companyId: currentCompanyId,
+      date: targetDate
+    };
+    setAttendance(prev => ({ ...prev, [attendanceId]: record }));
+    await setDoc(doc(db, 'attendance', attendanceId), cleanFirestoreData(record), { merge: true });
+  };
+
+  const addLoan = async (empId: string, amount: number, installment: number) => {
+    const loanId = `LN-${currentCompanyId}-${empId}-${Date.now()}`;
+    const loan: EmployeeLoan = {
+      id: loanId,
+      companyId: currentCompanyId,
+      employeeId: empId,
+      totalAmount: amount,
+      monthlyInstallment: installment,
+      remainingAmount: amount
+    };
+    await setDoc(doc(db, 'loans', loanId), cleanFirestoreData(loan));
+    setLoans(prev => [...prev.filter(item => item.id !== loanId), loan]);
+  };
+
+  const deleteLoan = async (loanId: string) => {
+    await deleteDoc(doc(db, 'loans', loanId));
+    setLoans(prev => prev.filter(loan => loan.id !== loanId));
+  };
+
+  const registerLoanPayment = async (loanId: string, amountToPay: number) => {
+    const loan = loans.find(item => item.id === loanId);
+    if (!loan) return;
+    const updatedLoan = {
+      ...loan,
+      remainingAmount: Math.max(0, loan.remainingAmount - amountToPay),
       companyId: currentCompanyId
     };
-    setAttendance(prev => ({ ...prev, [empId]: record }));
-    void setDoc(doc(db, 'attendance', empId), cleanFirestoreData(record), { merge: true });
-  };
-
-  const addLoan = (empId: string, amount: number, installment: number) => {
-    setLoans([...loans, { id: `LN-0${loans.length + 1}`, employeeId: empId, totalAmount: amount, monthlyInstallment: installment, remainingAmount: amount }]);
-  };
-
-  const deleteLoan = (loanId: string) => {
-    setLoans(loans.filter(l => l.id !== loanId));
-  };
-
-  const registerLoanPayment = (loanId: string, amountToPay: number) => {
-    setLoans(loans.map(l => {
-      if (l.id === loanId) {
-        return {
-          ...l,
-          remainingAmount: Math.max(0, l.remainingAmount - amountToPay)
-        };
-      }
-      return l;
-    }));
+    await setDoc(doc(db, 'loans', loanId), cleanFirestoreData(updatedLoan), { merge: true });
+    setLoans(prev => prev.map(item => item.id === loanId ? updatedLoan : item));
   };
 
   const addEmployee = async (emp: EmployeeContract) => {
@@ -566,11 +594,17 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
     setEmployees(prev => prev.map(e => e.id === id ? { ...e, ...partial } : e));
   };
 
-  const recordUnpaidAbsence = (empId: string, days: number) => {
-    setAttendance(prev => ({
-      ...prev,
-      [empId]: { ...(prev[empId] || { employeeId: empId, delayMinutes: 0, overtimeHours: 0 }), unpaidAbsenceDays: days }
-    }));
+  const recordUnpaidAbsence = async (empId: string, days: number, date?: string) => {
+    const targetDate = getAttendanceDate(date);
+    const attendanceId = getAttendanceKey(currentCompanyId, empId, targetDate);
+    const record = {
+      ...(getAttendanceForEmployee(empId, targetDate) || { employeeId: empId, delayMinutes: 0, overtimeHours: 0 }),
+      unpaidAbsenceDays: days,
+      companyId: currentCompanyId,
+      date: targetDate
+    };
+    setAttendance(prev => ({ ...prev, [attendanceId]: record }));
+    await setDoc(doc(db, 'attendance', attendanceId), cleanFirestoreData(record), { merge: true });
   };
 
   const updateLeaveAccrual = (
@@ -665,6 +699,7 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
     <OdooHierarchyContext.Provider value={{
       employees,
       attendance,
+      getAttendanceForEmployee,
       loans,
       leaveAccruals,
       computedPayslips,

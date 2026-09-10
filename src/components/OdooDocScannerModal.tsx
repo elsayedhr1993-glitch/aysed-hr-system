@@ -283,7 +283,7 @@ export const OdooDocScannerModal: React.FC<ScannerProps> = ({ isOpen, onClose, o
                       });
                     }}
                     className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono font-bold text-purple-950 text-xs focus:ring-2 focus:ring-[#714B67]"
-                    placeholder="290010112345"
+                    placeholder="الرقم المدني"
                   />
                 </div>
 

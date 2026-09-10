@@ -520,7 +520,7 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave, existin
                       type="text" 
                       value={civilId} 
                       onChange={(e) => setCivilId(e.target.value)} 
-                      placeholder="290010112345"
+                      placeholder="الرقم المدني"
                       maxLength={12}
                       className={`w-full bg-white border rounded-lg p-2 focus:ring-2 focus:outline-none font-mono font-bold text-slate-800 ${
                         civilId.length > 0 && !validateKuwaitCivilId(civilId)

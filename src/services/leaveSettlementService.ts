@@ -1,8 +1,8 @@
 // src/services/leaveSettlementService.ts
-import { supabase } from '../lib/supabase';
 import { MANARA_STORAGE_KEYS, getPersistentData, setPersistentData } from '../utils/persistentStorage';
 import { doc, setDoc } from 'firebase/firestore';
 import { db, cleanFirestoreData } from '../lib/firebase';
+import { collection, getDoc, getDocs, query, updateDoc, where } from 'firebase/firestore';
 import { 
   UniversalSettlementItem, 
   UniversalSettlementInput, 
@@ -1000,13 +1000,10 @@ export const onLeaveValidate = async (
   const { employeeId, requestedDays, leaveId } = params;
 
   try {
-    const { data: employee, error: empError } = await supabase
-      .from('hr_employee')
-      .select('name, wage, remaining_leaves, join_date, carried_over_leaves')
-      .eq('id', employeeId)
-      .single();
+    const employeeSnapshot = await getDoc(doc(db, 'employees', employeeId));
+    const employee = employeeSnapshot.exists() ? employeeSnapshot.data() : null;
 
-    if (empError || !employee) {
+    if (!employee) {
       return {
         status: 'error',
         message: 'تعذر العثور على بيانات الموظف',
@@ -1016,15 +1013,12 @@ export const onLeaveValidate = async (
       };
     }
 
-    const { data: allocations, error: allocError } = await supabase
-      .from('hr_leave_allocation')
-      .select('id, number_of_days, aysed_type')
-      .eq('employee_id', employeeId)
-      .eq('state', 'validate');
-
-    if (allocError) {
-      console.warn('خطأ في استرجاع تخصيصات الإجازة:', allocError.message);
-    }
+    const allocationSnapshot = await getDocs(query(
+      collection(db, 'leave_allocations'),
+      where('employeeId', '==', employeeId),
+      where('state', '==', 'validate')
+    ));
+    const allocations = allocationSnapshot.docs.map(item => ({ id: item.id, ...item.data() } as any));
 
     const sortedAllocations = (allocations || []).sort((a: any, b: any) => {
       if (a.aysed_type === 'carried_over') return -1;
@@ -1045,10 +1039,7 @@ export const onLeaveValidate = async (
       const deductFromThis = Math.min(currentDays, remainingToDeduct);
       const newAllocBalance = Number((currentDays - deductFromThis).toFixed(2));
 
-      await supabase
-        .from('hr_leave_allocation')
-        .update({ number_of_days: newAllocBalance })
-        .eq('id', alloc.id);
+      await updateDoc(doc(db, 'leave_allocations', alloc.id), { numberOfDays: newAllocBalance });
 
       remainingToDeduct -= deductFromThis;
     }
@@ -1058,44 +1049,42 @@ export const onLeaveValidate = async (
 
     if (remainingToDeduct > 0) {
       unpaidDays = Number(remainingToDeduct.toFixed(2));
-      const monthlyWage = Number(employee.wage) || 0;
-      const dailyRate = calculateKuwaitDailyRate(monthlyWage);
       const totalDeductionAmount = 0; // الخصم يكون 0 بناءً على طلب العميل (الخصم يكون من مدة الخدمة فقط)
 
       try {
-        await supabase.from('hr_payroll_input').insert({
-          employee_id: employeeId,
-          input_type: 'unpaid_leave_deduction',
+        const inputId = `unpaid-leave-${leaveId}`;
+        await setDoc(doc(db, 'payroll_inputs', inputId), cleanFirestoreData({
+          id: inputId,
+          companyId: employee.companyId || 'comp-super-admin',
+          employeeId,
+          inputType: 'unpaid_leave_deduction',
           amount: totalDeductionAmount,
           description: `تسجيل غياب زائد عدد ${unpaidDays} يوم (مخصوم من مدة الخدمة وليس من الراتب)`,
-          date: new Date().toISOString(),
-        });
+          date: new Date().toISOString()
+        }), { merge: true });
       } catch (err) {
-        console.warn('hr_payroll_input insert note:', err);
+        console.warn('Firestore payroll input note:', err);
       }
     }
 
     try {
-      await supabase
-        .from('hr_leaves')
-        .update({
+      await updateDoc(doc(db, 'leave_requests', leaveId), cleanFirestoreData({
           state: 'validate',
           aysed_unpaid_days: unpaidDays,
           aysed_paid_days: paidDays,
-        })
-        .eq('id', leaveId);
+        }));
     } catch (err) {
-      console.warn('hr_leaves update note:', err);
+      console.warn('Firestore leave update note:', err);
     }
 
     const newEmployeeBalance = Math.max(0, totalAvailable - paidDays);
     try {
-      await supabase
-        .from('hr_employee')
-        .update({ remaining_leaves: Number(newEmployeeBalance.toFixed(2)) })
-        .eq('id', employeeId);
+      await setDoc(doc(db, 'employees', employeeId), {
+        remaining_leaves: Number(newEmployeeBalance.toFixed(2)),
+        companyId: employee.companyId || 'comp-super-admin'
+      }, { merge: true });
     } catch (err) {
-      console.warn('hr_employee update note:', err);
+      console.warn('Firestore employee balance update note:', err);
     }
 
     return {

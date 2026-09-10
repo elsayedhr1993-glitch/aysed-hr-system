@@ -69,6 +69,8 @@ import { ComplianceSmartSentinelModal } from './components/ComplianceSmartSentin
 import { LegalDocumentBotModal } from './components/LegalDocumentBotModal';
 import { DataPayrollAnalystBotModal } from './components/DataPayrollAnalystBotModal';
 import { FacilityLicensingWizardModal } from './components/facility/FacilityLicensingWizardModal';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { db } from './lib/firebase';
 
 type AppId = 
   | 'switcher' 
@@ -137,11 +139,29 @@ function MainAppLayout() {
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [documents, setDocuments] = useState<any[]>([]);
+  const [leaveStats, setLeaveStats] = useState({ pending: 0, onLeaveToday: 0 });
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
   const [isSentinelOpen, setIsSentinelOpen] = useState(false);
   const [isLegalBotOpen, setIsLegalBotOpen] = useState(false);
   const [isAnalystBotOpen, setIsAnalystBotOpen] = useState(false);
   const [isFacilityWizardOpen, setIsFacilityWizardOpen] = useState(false);
+
+  useEffect(() => {
+    const companyId = activeCompany?.id;
+    if (!companyId) {
+      setLeaveStats({ pending: 0, onLeaveToday: 0 });
+      return;
+    }
+    const leavesQuery = query(collection(db, 'leave_requests'), where('companyId', '==', companyId));
+    return onSnapshot(leavesQuery, snapshot => {
+      const today = new Date().toISOString().slice(0, 10);
+      const requests = snapshot.docs.map(item => item.data() as any);
+      setLeaveStats({
+        pending: requests.filter(request => ['pending', 'pending_manager', 'pending_hr', 'WAITING', 'DRAFT', 'قيد الانتظار'].includes(request.status)).length,
+        onLeaveToday: requests.filter(request => ['approved', 'APPROVED'].includes(request.status) && request.startDate <= today && request.endDate >= today).length
+      });
+    }, error => console.error('Failed to load leave statistics from Firestore:', error));
+  }, [activeCompany?.id]);
   const [contracts, setContracts] = useState<any[]>(() => {
     return getPersistentData<any[]>(MANARA_STORAGE_KEYS.CONTRACTS, []);
   });
@@ -751,18 +771,7 @@ function MainAppLayout() {
                 employeesCount: employees?.length || 0,
                 candidatesCount: candidates?.length || 0,
                 contractsCount: contracts?.length || employees?.length || 0,
-                leavesPendingCount: (() => {
-                  try {
-                    const raw = localStorage.getItem('odoo_leave_requests_v2');
-                    if (raw) {
-                      const parsed = JSON.parse(raw);
-                      if (Array.isArray(parsed)) {
-                        return parsed.filter((r: any) => r.status === 'pending' || r.status === 'WAITING' || r.status === 'DRAFT' || r.status === 'قيد الانتظار').length;
-                      }
-                    }
-                  } catch (e) {}
-                  return 0;
-                })(),
+                leavesPendingCount: leaveStats.pending,
                 documentsCount: documents?.length || 0,
                 automationsCount: 0,
                 custodiesCount: 0,
@@ -770,19 +779,7 @@ function MainAppLayout() {
                 auditLogsCount: 0,
                 shiftsCount: shifts?.length || 0,
                 totalSalariesThisMonth: employees?.reduce((acc: number, e: any) => acc + (Number(e.basicSalary || e.salary || 0) + Number(e.housingAllowance || 0) + Number(e.transportAllowance || 0) + Number(e.natureOfWorkAllowance || 0)), 0) || 0,
-                onLeaveToday: (() => {
-                  try {
-                    const raw = localStorage.getItem('odoo_leave_requests_v2');
-                    if (raw) {
-                      const parsed = JSON.parse(raw);
-                      if (Array.isArray(parsed)) {
-                        const today = new Date().toISOString().slice(0, 10);
-                        return parsed.filter((r: any) => (r.status === 'approved' || r.status === 'APPROVED') && r.startDate <= today && r.endDate >= today).length;
-                      }
-                    }
-                  } catch (e) {}
-                  return 0;
-                })(),
+                onLeaveToday: leaveStats.onLeaveToday,
                 absenceRate: 0,
                 lateArrivalsCount: 0,
                 saturdayAbsencesCount: 0

@@ -6,7 +6,6 @@ import {
   Sliders, Globe, MapPin, MessageSquare, QrCode, Key, Mail, Lock, Code2, Copy, 
   Coins, UserCheck, CheckCircle2, SlidersHorizontal, Settings, Clock, Home, ArrowRight
 } from 'lucide-react';
-import { SystemSettingsPage } from '../components/SystemSettingsPage';
 import { SystemIntegrationsPage } from '../components/SystemIntegrationsPage';
 import { AutomatedBackupCenter } from '../components/AutomatedBackupCenter';
 import { db, cleanFirestoreData, auth } from '../lib/firebase';
@@ -926,17 +925,6 @@ class ResConfigSettings(models.TransientModel):
           <span>النسخ الاحتياطي والأتمتة</span>
         </button>
 
-        <button
-          onClick={() => setActiveTab('SYSTEM_SECURITY')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-            activeTab === 'SYSTEM_SECURITY'
-              ? 'bg-[#714B67] text-white shadow-sm'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-          }`}
-        >
-          <Shield className="w-4 h-4 text-emerald-500" />
-          <span>أمان الحساب وكلمات المرور</span>
-        </button>
 
         <button
           onClick={() => setActiveTab('APPEARANCE')}
@@ -1773,8 +1761,7 @@ class ResConfigSettings(models.TransientModel):
 
         </div>) : activeTab === 'INTEGRATIONS' ? (
         <SystemIntegrationsPage activeCompany={activeCompany} />) : activeTab === 'BACKUP_CENTER' ? (
-        <AutomatedBackupCenter />) : activeTab === 'SYSTEM_SECURITY' ? (
-        <SystemSettingsPage />) : activeTab === 'APPEARANCE' ? (
+        <AutomatedBackupCenter />) : activeTab === 'APPEARANCE' ? (
         <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 border border-slate-200 shadow-sm space-y-6">
           <div>
             <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2 mb-1">

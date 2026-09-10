@@ -1270,7 +1270,7 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
                       maxLength={12}
                       value={selectedEmployee.civilId}
                       onChange={(e) => setSelectedEmployee({ ...selectedEmployee, civilId: e.target.value })}
-                      placeholder="290010112345"
+                      placeholder="الرقم المدني"
                       className="w-full text-xs font-mono font-bold text-slate-800 border-b border-slate-200 py-1 outline-none focus:border-[#714B67] bg-transparent"
                     />
                   </div>

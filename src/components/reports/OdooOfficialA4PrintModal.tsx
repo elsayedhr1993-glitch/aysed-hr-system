@@ -64,9 +64,9 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
 
     if (reportCategory === 'pifss_contributions') {
       exportRows = data.filter(d => d.isKuwaiti).map((d, idx) => {
-        const insurable = Math.min(d.totalSalary, 3000);
-        const empDeduct = insurable * 0.105;
-        const compDeduct = insurable * 0.115;
+        const insurable = 0;
+        const empDeduct = 0;
+        const compDeduct = 0;
         return {
           'م': idx + 1,
           'اسم الموظف': d.name,
@@ -229,10 +229,10 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
                   </thead>
                   <tbody className="divide-y divide-slate-200 font-mono">
                     {data.filter(d => d.isKuwaiti).map((emp, idx) => {
-                      const insurable = Math.min(emp.totalSalary, 3000);
-                      const empDeduct = insurable * 0.105;
-                      const compDeduct = insurable * 0.115;
-                      const totalDue = empDeduct + compDeduct;
+                      const insurable = 0;
+                      const empDeduct = 0;
+                      const compDeduct = 0;
+                      const totalDue = 0;
                       return (
                         <tr key={emp.id} className={idx % 2 === 1 ? 'bg-slate-50/70' : 'bg-white'}>
                           <td className="p-2.5 font-bold">{idx + 1}</td>
@@ -260,13 +260,13 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
                         {data.filter(d => d.isKuwaiti).reduce((s, e) => s + e.totalSalary, 0).toFixed(3)}
                       </td>
                       <td className="p-2.5 text-left">
-                        {data.filter(d => d.isKuwaiti).reduce((s, e) => s + Math.min(e.totalSalary, 3000), 0).toFixed(3)}
+                        0.000
                       </td>
                       <td className="p-2.5 text-left text-blue-800">
-                        {data.filter(d => d.isKuwaiti).reduce((s, e) => s + Math.min(e.totalSalary, 3000) * 0.105, 0).toFixed(3)}
+                        0.000
                       </td>
                       <td className="p-2.5 text-left text-purple-900">
-                        {data.filter(d => d.isKuwaiti).reduce((s, e) => s + Math.min(e.totalSalary, 3000) * 0.115, 0).toFixed(3)}
+                        0.000
                       </td>
                       <td className="p-2.5 text-left text-sm font-black text-slate-950">
                         {totalKuwaitiPifssContribution.toFixed(3)} د.ك

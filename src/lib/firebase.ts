@@ -1,7 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { initializeFirestore, getFirestore, memoryLocalCache, setLogLevel, doc, setDoc, deleteDoc, collection, getDocs, query, where, writeBatch } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
-import { supabase } from './supabase';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 // Suppress benign connection retry / offline notice warnings in sandboxed iframe environment
@@ -417,19 +416,7 @@ export async function purgeTenantCascading(params: {
     }
   }
 
-  // 5. Supabase Cascading Purge
-  try {
-    for (const tId of targetIds) {
-      await supabase.from('aysed_subscription').delete().eq('id', tId);
-    }
-    if (params.name) {
-      await supabase.from('aysed_subscription').delete().ilike('name', `%${params.name}%`);
-    }
-  } catch (sbErr) {
-    console.warn('Supabase delete note:', sbErr);
-  }
-
-  // 6. LocalStorage & SessionStorage Cascading Wipe
+  // LocalStorage & SessionStorage Cascading Wipe
   try {
     // a. Remove credentials
     const creds = JSON.parse(localStorage.getItem('aysed_company_credentials') || '{}');

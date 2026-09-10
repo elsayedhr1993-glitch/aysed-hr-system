@@ -197,7 +197,7 @@ export const OdooDocumentScanner: React.FC<OdooDocumentScannerProps> = ({ onAppl
                     });
                   }}
                   className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-mono font-bold text-purple-950 text-xs"
-                  placeholder="290010112345"
+                  placeholder="الرقم المدني"
                 />
               </div>
 

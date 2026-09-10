@@ -154,29 +154,29 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
     } else if (action.type === 'TRIGGER_FUNCTION') {
       console.log(`📥 [Copilot Function Execution] Executing: "${action.functionName}"`);
       if (action.functionName === 'export_wps' || !action.functionName) {
+        const wpsEmployees = employees
+          .filter(e => e.civilId && e.iban)
+          .map(e => ({
+            civil_id: e.civilId,
+            bank_code: 'KFH',
+            iban: e.iban,
+            basic_salary: Number((e as any).basicSalary || (e as any).salary) || 0,
+            allowances: 0,
+            deductions: 0,
+            net_salary: Number((e as any).basicSalary || (e as any).salary) || 0
+          }));
+        if (wpsEmployees.length === 0) {
+          toast.error('لا يمكن إنشاء ملف WPS قبل توفر الرقم المدني وIBAN الفعلي للموظفين.');
+          onClose();
+          return;
+        }
         downloadKuwaitWPSFile(
           {
             companyMOSALId: '301122',
             employerBankCode: 'KFH',
             payrollMonthYear: new Date().toISOString().slice(0, 7)
           },
-          employees.length > 0 ? employees.map(e => ({
-            civil_id: e.civilId || '290010112345',
-            bank_code: 'KFH',
-            iban: e.iban || 'KW12KFH000000000000112233',
-            basic_salary: Number((e as any).basicSalary || (e as any).salary) || 850,
-            allowances: 0,
-            deductions: 0,
-            net_salary: Number((e as any).basicSalary || (e as any).salary) || 850
-          })) : [{
-            civil_id: '290010112345',
-            bank_code: 'KFH',
-            iban: 'KW12KFH000000000000112233',
-            basic_salary: 850,
-            allowances: 0,
-            deductions: 0,
-            net_salary: 850
-          }]
+          wpsEmployees
         );
         toast.success('تم تنزيل واستخراج ملف حماية الأجور (WPS SIF) للبنوك بنجاح');
       }
