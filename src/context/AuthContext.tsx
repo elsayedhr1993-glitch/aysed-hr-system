@@ -138,7 +138,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               } else {
                 // Not a super admin. Look up if this email is registered in 'companies'
                 const { getDocs, collection, query, where, setDoc } = await import('firebase/firestore');
-                const compQuery = query(collection(db, 'companies'), where('adminUsername', '==', firebaseUser.email));
+                const compQuery = query(collection(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies')), where('adminUsername', '==', firebaseUser.email));
                 const compSnap = await getDocs(compQuery).catch(() => null);
                 
                 let foundCompany = null;
@@ -146,7 +146,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   foundCompany = compSnap.docs[0];
                 } else {
                   // Fallback search with 'email' field
-                  const compQuery2 = query(collection(db, 'companies'), where('email', '==', firebaseUser.email));
+                  const compQuery2 = query(collection(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies')), where('email', '==', firebaseUser.email));
                   const compSnap2 = await getDocs(compQuery2).catch(() => null);
                   if (compSnap2 && !compSnap2.empty) {
                     foundCompany = compSnap2.docs[0];

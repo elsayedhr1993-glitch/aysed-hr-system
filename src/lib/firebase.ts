@@ -331,7 +331,7 @@ export async function purgeTenantCascading(params: {
 
   // 2. Discover all associated IDs from companies & subscriptions first
   try {
-    const compSnap = await getDocs(collection(db, 'companies'));
+    const compSnap = await getDocs(collection(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies')));
     for (const d of compSnap.docs) {
       const val = d.data();
       if (isMatch(val, d.id)) {

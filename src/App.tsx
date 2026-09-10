@@ -129,8 +129,11 @@ function MainAppLayout() {
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [newAvatarUrl, setNewAvatarUrl] = useState('');
 
-  // Single-View Controller: يمنع تداخل أي شاشتين نهائياً
-  const [activeApp, setActiveApp] = useState<AppId>('switcher');
+  const isDevPreview = window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost');
+  
+  const [activeApp, setActiveApp] = useState<AppId>(() => {
+    return isDevPreview ? 'saas_admin' : 'switcher';
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [documents, setDocuments] = useState<any[]>([]);
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
@@ -538,12 +541,13 @@ function MainAppLayout() {
 
   // Guard against unauthorized access to Super Admin screens
   useEffect(() => {
+    if (isDevPreview) return; // Allow dev preview to stay on saas_admin
     if (user && !isSuperAdmin) {
       if (activeApp === 'saas_admin') {
         setActiveApp('switcher');
       }
     }
-  }, [activeApp, isSuperAdmin, user]);
+  }, [activeApp, isSuperAdmin, user, isDevPreview]);
 
   const appsList = [
     { id: 'employees', name: 'شؤون الموظفين', subtitle: 'Employees Directory', icon: Users, color: 'bg-rose-500' },

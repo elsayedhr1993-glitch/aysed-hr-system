@@ -40,7 +40,11 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   onSwitchToWorkspace,
   onSwitchToApps 
 }) => {
-  const [activeNav, setActiveNav] = useState<'SUBSCRIPTIONS' | 'SERVER_STATS' | 'AUDIT_LOGS' | 'SYSTEM_INTEGRATION' | 'BACKUP_RESTORE'>('SUBSCRIPTIONS');
+  const isDevPreview = typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost'));
+
+  const [activeNav, setActiveNav] = useState<'SUBSCRIPTIONS' | 'SERVER_STATS' | 'AUDIT_LOGS' | 'SYSTEM_INTEGRATION' | 'BACKUP_RESTORE'>(
+    isDevPreview ? 'SYSTEM_INTEGRATION' : 'SUBSCRIPTIONS'
+  );
   const [requests, setRequests] = useState<SubscriptionRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -238,7 +242,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
       // 1. Fetch Firestore collections
       try {
-        const compSnap = await getDocs(collection(db, 'companies'));
+        const compSnap = await getDocs(collection(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies')));
         backupData.companies = compSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       } catch (e) {}
 
@@ -312,7 +316,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       if (backupImportData.companies && Array.isArray(backupImportData.companies)) {
         for (const comp of backupImportData.companies) {
           if (comp.id) {
-            await setDoc(doc(db, 'companies', comp.id), cleanFirestoreData(comp), { merge: true });
+            await setDoc(doc(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies'), comp.id), cleanFirestoreData(comp), { merge: true });
           }
         }
       }
@@ -441,7 +445,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
-      await setDoc(doc(db, 'companies', compId), cleanFirestoreData(companyDocData), { merge: true });
+      await setDoc(doc(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies'), compId), cleanFirestoreData(companyDocData), { merge: true });
 
       // 3. Create document in subscriptions collection
       const subscriptionData = {
@@ -644,7 +648,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
       // 3. Update in Firebase companies collection
       try {
-        await setDoc(doc(db, 'companies', updatedReq.id), {
+        await setDoc(doc(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies'), updatedReq.id), {
           nameAr: updatedReq.name,
           email: updatedReq.email,
           adminUsername: updatedReq.email,
@@ -655,11 +659,11 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           updatedAt: new Date().toISOString()
         }, { merge: true });
 
-        const compSnap = await getDocs(collection(db, 'companies'));
+        const compSnap = await getDocs(collection(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies')));
         for (const d of compSnap.docs) {
           const comp = d.data();
           if (d.id === updatedReq.id || comp.nameAr === updatedReq.name || comp.nameEn === updatedReq.name || comp.email === updatedReq.email || comp.adminUsername === updatedReq.email) {
-            await setDoc(doc(db, 'companies', d.id), {
+            await setDoc(doc(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies'), d.id), {
               nameAr: updatedReq.name,
               email: updatedReq.email,
               adminUsername: updatedReq.email,
@@ -738,6 +742,11 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   };
 
   const fetchRequests = async () => {
+    if (isDevPreview) {
+      setLoading(false);
+      setRequests([]);
+      return;
+    }
     setLoading(true);
     let allRequests: SubscriptionRequest[] = [];
 
@@ -800,7 +809,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       });
 
       // Also check Firestore companies collection
-      const compSnap = await getDocs(collection(db, 'companies'));
+      const compSnap = await getDocs(collection(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies')));
       compSnap.forEach(d => {
         const val = d.data();
         const compName = val.companyName || val.nameAr || val.name || '';
@@ -918,7 +927,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       }, (err) => {
         console.warn('Subscription requests listener warning:', err);
       });
-      unsubscribeComp = onSnapshot(collection(db, 'companies'), () => {
+      unsubscribeComp = onSnapshot(collection(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies')), () => {
         fetchRequests();
       }, (err) => {
         console.warn('Companies listener warning:', err);
@@ -981,7 +990,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         isActive: true,
         updatedAt: new Date().toISOString()
       };
-      await setDoc(doc(db, 'companies', compId), cleanFirestoreData(companyDocData), { merge: true });
+      await setDoc(doc(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies'), compId), cleanFirestoreData(companyDocData), { merge: true });
 
       // 3. Ensure user doc exists
       await setDoc(doc(db, 'users', userUid), {
@@ -1135,13 +1144,15 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
             </div>
           </div>
           <nav className="p-3 space-y-1">
-            <button
-              onClick={() => setActiveNav('SUBSCRIPTIONS')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${activeNav === 'SUBSCRIPTIONS' ? 'bg-[#71639e] text-white shadow' : 'text-slate-300 hover:bg-slate-800'}`}
-            >
-              <Building2 size={16} />
-              <span>إدارة الاشتراكات (SaaS)</span>
-            </button>
+            {!isDevPreview && (
+              <button
+                onClick={() => setActiveNav('SUBSCRIPTIONS')}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${activeNav === 'SUBSCRIPTIONS' ? 'bg-[#71639e] text-white shadow' : 'text-slate-300 hover:bg-slate-800'}`}
+              >
+                <Building2 size={16} />
+                <span>إدارة الاشتراكات (SaaS)</span>
+              </button>
+            )}
             <button
               onClick={() => setActiveNav('SERVER_STATS')}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${activeNav === 'SERVER_STATS' ? 'bg-[#71639e] text-white shadow' : 'text-slate-300 hover:bg-slate-800'}`}
@@ -1170,6 +1181,19 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
               <Key size={16} />
               <span>المفاتيح والربط البرمجي (APIs)</span>
             </button>
+            
+            {isDevPreview && (
+              <button
+                onClick={() => {
+                  toast.success('تم تفعيل وضع المطور (Sandbox) 🚀');
+                  if (onSwitchToApps) onSwitchToApps();
+                }}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition-colors cursor-pointer text-amber-300 hover:bg-amber-900/40 border border-amber-900/30 mt-4"
+              >
+                <Eye size={16} />
+                <span>معاينة واجهات النظام (Sandbox)</span>
+              </button>
+            )}
           </nav>
 
           <div className="mt-auto p-3 border-t border-slate-800 space-y-2">

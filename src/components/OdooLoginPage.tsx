@@ -77,11 +77,11 @@ export const OdooLoginPage: React.FC = () => {
         const { getDocs, collection, query, where } = await import('firebase/firestore');
         const { db } = await import('../lib/firebase');
 
-        const compQuery = query(collection(db, 'companies'), where('adminUsername', '==', cleanEmail));
+        const compQuery = query(collection(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies')), where('adminUsername', '==', cleanEmail));
         let compSnap = await getDocs(compQuery).catch(() => null);
         
         if (!compSnap || compSnap.empty) {
-          const compQuery2 = query(collection(db, 'companies'), where('email', '==', cleanEmail));
+          const compQuery2 = query(collection(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies')), where('email', '==', cleanEmail));
           compSnap = await getDocs(compQuery2).catch(() => null);
         }
 

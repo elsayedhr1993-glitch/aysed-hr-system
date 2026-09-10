@@ -111,7 +111,7 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
-      await setDoc(doc(db, 'companies', compId), cleanFirestoreData(companyDocData), { merge: true });
+      await setDoc(doc(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies'), compId), cleanFirestoreData(companyDocData), { merge: true });
 
       // 3. Create document in subscriptions collection
       const subscriptionData = {
@@ -220,7 +220,7 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({
       localStorage.removeItem('aysed_purged_tenants');
       
       // Sync from Firestore to LocalStorage
-      const compSnap = await getDocs(collection(db, 'companies'));
+      const compSnap = await getDocs(collection(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies')));
       const activeComps: any[] = [];
       compSnap.docs.forEach(d => {
         if (d.id === 'comp-super-admin') return;
@@ -315,7 +315,7 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({
 
     // 3. Firestore (companies) as cloud source of truth
     try {
-      const compSnap = await getDocs(collection(db, 'companies'));
+      const compSnap = await getDocs(collection(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies')));
       compSnap.docs.forEach(d => {
         const data = d.data();
         if (d.id === 'comp-super-admin') return;
@@ -440,7 +440,7 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({
       }, (err) => {
         console.warn('SuperAdminPortal requests onSnapshot error:', err);
       });
-      unsubscribeComp = onSnapshot(collection(db, 'companies'), () => {
+      unsubscribeComp = onSnapshot(collection(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies')), () => {
         loadData();
       }, (err) => {
         console.warn('SuperAdminPortal companies onSnapshot error:', err);
@@ -500,7 +500,7 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({
       }
       // Try updating in Firestore
       try {
-        await updateDoc(doc(db, 'companies', tenant.id), {
+        await updateDoc(doc(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies'), tenant.id), {
           status: newState === 'active' ? 'ACTIVE' : 'SUSPENDED'
         });
       } catch (e) {
@@ -587,7 +587,7 @@ export const SuperAdminPortal: React.FC<SuperAdminPortalProps> = ({
     try {
       // 1. Update in Firestore companies
       try {
-        await setDoc(doc(db, 'companies', updatedTenant.id), {
+        await setDoc(doc(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies'), updatedTenant.id), {
           nameAr: updatedTenant.name,
           phone: updatedTenant.phone,
           contactPhone: updatedTenant.phone,

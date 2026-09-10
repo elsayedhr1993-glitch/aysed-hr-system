@@ -186,7 +186,7 @@ export const OdooLogin: React.FC<OdooLoginProps> = ({ onLogin }) => {
 
       // 2. Also register draft in companies collection
       try {
-        await addDoc(collection(db, 'companies'), {
+        await addDoc(collection(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies')), {
           id: `comp_${Date.now()}`,
           companyName: cleanCompName,
           nameAr: cleanCompName,

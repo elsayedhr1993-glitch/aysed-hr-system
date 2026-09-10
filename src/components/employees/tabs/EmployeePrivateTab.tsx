@@ -17,18 +17,20 @@ export const EmployeePrivateTab: React.FC<Props> = ({
 }) => {
   return (
     <div className="space-y-8 animate-fade-in text-slate-900">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <TabDocumentScanner 
-          tabType="CIVIL_ID" 
-          title="البطاقة المدنية" 
-          onDataExtracted={(data) => handleOcrResult(data, 'civil_id')} 
-        />
-        <TabDocumentScanner 
-          tabType="PASSPORT" 
-          title="جواز السفر" 
-          onDataExtracted={(data) => handleOcrResult(data, 'passport')} 
-        />
-      </div>
+      {isEditMode && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <TabDocumentScanner 
+            tabType="CIVIL_ID" 
+            title="البطاقة المدنية" 
+            onDataExtracted={(data) => handleOcrResult(data, 'civil_id')} 
+          />
+          <TabDocumentScanner 
+            tabType="PASSPORT" 
+            title="جواز السفر" 
+            onDataExtracted={(data) => handleOcrResult(data, 'passport')} 
+          />
+        </div>
+      )}
       
       {/* 2-Columns Standard Form Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
@@ -36,7 +38,7 @@ export const EmployeePrivateTab: React.FC<Props> = ({
         {/* Right Column: الهوية والجنسية */}
         <div className="space-y-4">
           <div className="border-b border-slate-200 pb-2 mb-4">
-            <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
+            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-[#714B67]"></span>
               <span>بيانات الهوية والجنسية</span>
             </h4>
@@ -103,7 +105,7 @@ export const EmployeePrivateTab: React.FC<Props> = ({
         {/* Left Column: السفر والإقامة والبنك */}
         <div className="space-y-4">
           <div className="border-b border-slate-200 pb-2 mb-4">
-            <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
+            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-slate-400"></span>
               <span>السفر والإقامة والبيانات البنكية</span>
             </h4>

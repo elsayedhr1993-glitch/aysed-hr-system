@@ -304,7 +304,7 @@ export const useFirebaseSync = (
     }
 
     // Companies & Subscriptions are available for tenant selection and platform administration
-    const unsubCompanies = onSnapshot(collection(db, 'companies'), 
+    const unsubCompanies = onSnapshot(collection(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies')), 
         snap => {
             if (setCompanies) {
                 const docs = snap.docs.map(d => ({ ...d.data(), id: d.id })) as Company[];

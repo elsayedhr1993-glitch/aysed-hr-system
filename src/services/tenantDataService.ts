@@ -676,7 +676,7 @@ export const TenantDatabaseService = {
 
     try {
       const cleanDoc = cleanFirestoreData({ ...company, updatedAt: new Date().toISOString() });
-      await setDoc(doc(db, 'companies', company.id), cleanDoc, { merge: true });
+      await setDoc(doc(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies'), company.id), cleanDoc, { merge: true });
       return true;
     } catch (fsErr) {
       console.error('[TenantDatabaseService] Firestore company save error:', fsErr);

@@ -73,7 +73,7 @@ export const SubscriptionRequest: React.FC<SubscriptionRequestProps> = ({ onBack
 
       // 2. Also register draft in Firestore 'companies' collection for dual-visibility
       try {
-        await addDoc(collection(db, 'companies'), {
+        await addDoc(collection(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies')), {
           id: `comp_${Date.now()}`,
           companyName: cleanCompName,
           nameAr: cleanCompName,

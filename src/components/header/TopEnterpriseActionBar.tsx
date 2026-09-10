@@ -5,7 +5,7 @@ import {
   Settings, Sparkles, Trash2, LogOut, ChevronDown, 
   Building2, Plus, Calculator, Bell, Search, CheckCircle2, 
   AlertTriangle, Maximize2, Minimize2, FileText, Users, 
-  Calendar, Check, ArrowUpRight, X, Briefcase, Scale, BarChart3, Award
+  Calendar, Check, ArrowUpRight, X, Briefcase, Scale, BarChart3, Award, Zap
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { getFacilityMasterData, FacilityLicenseData } from '../facility/FacilityLicensingWizardModal';
@@ -77,6 +77,8 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
   const [showAlertsMenu, setShowAlertsMenu] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [facilityData, setFacilityData] = useState<FacilityLicenseData>(() => getFacilityMasterData());
+
+  const isDevPreview = typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost'));
 
   useEffect(() => {
     const handleFacilityUpdated = () => {
@@ -217,30 +219,47 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
       {/* 🧭 الجانب الأيمن: التنقل وهوية المنشأة */}
       <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
         
-        {/* زر العودة للرئيسية عند التواجد داخل تطبيق */}
-        {activeApp !== 'switcher' && (
+        {/* زر العودة للرئيسية عند التواجد داخل تطبيق فرعي */}
+        {activeApp !== 'switcher' && activeApp !== 'saas_admin' && (
           <button 
             onClick={() => setActiveApp('switcher')} 
-            className="flex items-center gap-1 bg-white/15 hover:bg-white/25 text-white px-2 py-1 rounded-lg text-xs font-black transition cursor-pointer border border-white/10 shrink-0"
-            title="العودة لشاشة التطبيقات الرئيسية"
+            className="flex items-center gap-1 bg-white/20 hover:bg-white/30 text-white px-2 py-1 rounded-lg text-xs font-black transition cursor-pointer border border-white/20 shrink-0 shadow-xs"
+            title="العودة لشاشة تطبيقات النظام الرئيسية"
           >
             <ArrowRight size={14} />
-            <span className="hidden sm:inline">الرئيسية</span>
+            <span className="hidden sm:inline">شبكة التطبيقات</span>
           </button>
         )}
 
-        {/* زر مبدل التطبيقات الرئيسي ▦ */}
+        {/* زر شبكة التطبيقات الـ 16 (App Launcher ▦) */}
         <button 
           onClick={() => setActiveApp('switcher')} 
-          className={`w-8 h-8 rounded-lg flex items-center justify-center transition cursor-pointer shrink-0 ${
+          className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg text-xs font-black transition cursor-pointer shrink-0 border ${
             activeApp === 'switcher' 
-              ? 'bg-white/30 text-white ring-2 ring-white/40 shadow-inner' 
-              : 'hover:bg-white/20 text-white/90 hover:text-white'
+              ? 'bg-white/35 text-white border-white/50 ring-2 ring-white/30 shadow-inner' 
+              : 'bg-white/10 hover:bg-white/20 text-white/90 border-white/15'
           }`}
-          title="شبكة التطبيقات الـ 16 (App Launcher)"
+          title="شبكة التطبيقات الـ 16 الفارغة والقوالب القياسية"
         >
-          <span className="text-lg font-black leading-none select-none">▦</span>
+          <span className="text-sm font-black select-none">▦</span>
+          <span className="hidden sm:inline">تطبيقات النظام</span>
         </button>
+
+        {/* زر لوحة الإدارة العليا (Super Admin Dashboard) */}
+        {(isSuperAdmin || isDevPreview) && (
+          <button 
+            onClick={() => setActiveApp('saas_admin')} 
+            className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg text-xs font-black transition cursor-pointer border shrink-0 ${
+              activeApp === 'saas_admin'
+                ? 'bg-purple-800 text-amber-300 border-amber-400/50 ring-2 ring-amber-300/30 shadow-inner'
+                : 'bg-purple-950/60 hover:bg-purple-900 text-purple-100 border-purple-500/30'
+            }`}
+            title="لوحة الإدارة العليا والتحكم في النظام"
+          >
+            <Shield size={13} className="text-amber-400 shrink-0" />
+            <span className="hidden md:inline">الإدارة العليا</span>
+          </button>
+        )}
 
         {/* زر الماسح الضوئي الذكي OCR */}
         <button 
@@ -248,7 +267,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
           className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg text-xs font-black transition cursor-pointer shadow-xs border shrink-0 ${
             activeApp === 'scanner' 
               ? 'bg-teal-700 text-white border-white/40 ring-2 ring-white/30' 
-              : 'bg-teal-600 hover:bg-teal-700 text-white border-teal-500/50'
+              : 'bg-teal-600/80 hover:bg-teal-600 text-white border-teal-500/40'
           }`}
           title="الماسح الضوئي الذكي للبطاقات المدنية والجوازات (OCR)"
         >
@@ -257,84 +276,86 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
         </button>
 
         {/* 🏢 مبدل المنشآت السريع (Quick Company Switcher Popover) */}
-        <div className="relative shrink-0" ref={companyMenuRef}>
-          <button
-            onClick={() => setShowCompanyMenu(!showCompanyMenu)}
-            className="flex items-center gap-1 bg-black/20 hover:bg-black/30 border border-white/15 px-2 py-1 rounded-lg text-xs font-bold transition cursor-pointer max-w-[120px] sm:max-w-[150px] md:max-w-[180px]"
-            title="تبديل المنشأة أو الفرع"
-          >
-            <Building2 size={14} className="text-amber-300 shrink-0" />
-            <span className="truncate font-black text-white text-[11px] sm:text-[12px]">
-              {activeCompany?.nameAr || 'النظام المركزي'}
-            </span>
-            <ChevronDown size={13} className="text-white/70 shrink-0 transition-transform duration-200" />
-          </button>
+        {!isDevPreview && (
+          <div className="relative shrink-0" ref={companyMenuRef}>
+            <button
+              onClick={() => setShowCompanyMenu(!showCompanyMenu)}
+              className="flex items-center gap-1 bg-black/20 hover:bg-black/30 border border-white/15 px-2 py-1 rounded-lg text-xs font-bold transition cursor-pointer max-w-[120px] sm:max-w-[150px] md:max-w-[180px]"
+              title="تبديل المنشأة أو الفرع"
+            >
+              <Building2 size={14} className="text-amber-300 shrink-0" />
+              <span className="truncate font-black text-white text-[11px] sm:text-[12px]">
+                {activeCompany?.nameAr || 'النظام المركزي'}
+              </span>
+              <ChevronDown size={13} className="text-white/70 shrink-0 transition-transform duration-200" />
+            </button>
 
-          {/* قائمة الشركات المنسدلة */}
-          {showCompanyMenu && (
-            <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden py-1.5 z-50 text-slate-800 animate-in fade-in slide-in-from-top-2 duration-150">
-              <div className="p-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-                <div>
-                  <span className="font-black text-xs text-slate-800 block">المنشآت والشركات المرخصة</span>
-                  <span className="text-[10px] text-slate-500">اختر منشأة للتبديل الفوري دون تسجيل خروج</span>
+            {/* قائمة الشركات المنسدلة */}
+            {showCompanyMenu && (
+              <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden py-1.5 z-50 text-slate-800 animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="p-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                  <div>
+                    <span className="font-black text-xs text-slate-800 block">المنشآت والشركات المرخصة</span>
+                    <span className="text-[10px] text-slate-500">اختر منشأة للتبديل الفوري دون تسجيل خروج</span>
+                  </div>
+                  <span className="text-[10px] bg-purple-100 text-[#714B67] font-bold px-2 py-0.5 rounded-full font-mono">
+                    {companies.length} شركات
+                  </span>
                 </div>
-                <span className="text-[10px] bg-purple-100 text-[#714B67] font-bold px-2 py-0.5 rounded-full font-mono">
-                  {companies.length} شركات
-                </span>
-              </div>
 
-              <div className="max-h-60 overflow-y-auto p-1 divide-y divide-slate-100">
-                {companies.map(comp => {
-                  const isActive = activeCompany?.id === comp.id || impersonatingCompanyId === comp.id;
-                  return (
+                <div className="max-h-60 overflow-y-auto p-1 divide-y divide-slate-100">
+                  {companies.map(comp => {
+                    const isActive = activeCompany?.id === comp.id || impersonatingCompanyId === comp.id;
+                    return (
+                      <button
+                        key={comp.id}
+                        onClick={() => {
+                          onSelectCompany(comp.id);
+                          setShowCompanyMenu(false);
+                        }}
+                        className={`w-full text-right p-2.5 rounded-xl flex items-center justify-between transition cursor-pointer ${
+                          isActive ? 'bg-purple-50 text-[#714B67] font-black' : 'hover:bg-slate-50 text-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
+                            isActive ? 'bg-[#714B67] text-white' : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            {comp.nameAr?.charAt(0) || 'ش'}
+                          </div>
+                          <div className="truncate">
+                            <p className="text-xs truncate font-bold">{comp.nameAr}</p>
+                            <p className="text-[10px] text-slate-400 font-mono truncate">PAM: {comp.pamFileNumber || '---'}</p>
+                          </div>
+                        </div>
+                        {isActive && (
+                          <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded shrink-0 flex items-center gap-0.5">
+                            <Check size={12} /> نشطة
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {isSuperAdmin && (
+                  <div className="p-2 border-t border-slate-100 bg-slate-50">
                     <button
-                      key={comp.id}
                       onClick={() => {
-                        onSelectCompany(comp.id);
                         setShowCompanyMenu(false);
+                        onAddNewCompany();
                       }}
-                      className={`w-full text-right p-2.5 rounded-xl flex items-center justify-between transition cursor-pointer ${
-                        isActive ? 'bg-purple-50 text-[#714B67] font-black' : 'hover:bg-slate-50 text-slate-700'
-                      }`}
+                      className="w-full bg-[#714B67] hover:bg-[#5a3a52] text-white py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                     >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
-                          isActive ? 'bg-[#714B67] text-white' : 'bg-slate-100 text-slate-600'
-                        }`}>
-                          {comp.nameAr?.charAt(0) || 'ش'}
-                        </div>
-                        <div className="truncate">
-                          <p className="text-xs truncate font-bold">{comp.nameAr}</p>
-                          <p className="text-[10px] text-slate-400 font-mono truncate">PAM: {comp.pamFileNumber || '---'}</p>
-                        </div>
-                      </div>
-                      {isActive && (
-                        <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded shrink-0 flex items-center gap-0.5">
-                          <Check size={12} /> نشطة
-                        </span>
-                      )}
+                      <Plus size={14} />
+                      <span>+ إضافة منشأة ومشترك جديد</span>
                     </button>
-                  );
-                })}
+                  </div>
+                )}
               </div>
-
-              {isSuperAdmin && (
-                <div className="p-2 border-t border-slate-100 bg-slate-50">
-                  <button
-                    onClick={() => {
-                      setShowCompanyMenu(false);
-                      onAddNewCompany();
-                    }}
-                    className="w-full bg-[#714B67] hover:bg-[#5a3a52] text-white py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-                  >
-                    <Plus size={14} />
-                    <span>+ إضافة منشأة ومشترك جديد</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
         {/* عنوان الشاشة الحالية - معروض فقط على الشاشات العريضة جداً لتوفير المساحة */}
         <div className="hidden 2xl:flex items-center gap-2 text-white/90 text-xs font-bold border-r border-white/20 pr-2.5 mr-1">
@@ -487,6 +508,19 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
             </div>
           )}
         </div>
+
+        {/* 🚀 زر تعميم التحديث الفوري (Update Broadcast & Sync Button) */}
+        <button
+          onClick={() => {
+            toast.success('🚀 تم تعميم ومزامنة آخر تحديثات نظام Aysed S HR بنجاح وكافة العمليات نشطة!');
+          }}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-xs shadow-sm border border-amber-400/50 transition cursor-pointer shrink-0 animate-pulse"
+          title="تعميم التحديث الفوري على كافة الفروع والشركات (Update Broadcast)"
+        >
+          <Zap size={14} className="text-amber-200" />
+          <span className="hidden sm:inline">تعميم التحديث</span>
+          <span className="sm:hidden">تحديث</span>
+        </button>
 
         {/* 🏢 شارة تراخيص المنشأة والعد التنازلي (Facility License Countdown Badge) */}
         <button

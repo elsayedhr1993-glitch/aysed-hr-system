@@ -656,6 +656,8 @@ export function EmployeesApp(props?: any) {
         }
         return nextList;
       });
+      setSelectedEmployee(newEmp);
+      setActiveTab('directory');
     } else {
       // إذا كان الموظف مسجلاً بالفعل، نقوم بتحديث قائمة وثائقه وخطة تهيئته
       const updatedExisting = {
@@ -912,10 +914,10 @@ export function EmployeesApp(props?: any) {
   // 3. حظر تسريب الموظفين في العرض (Front-end Strict Filter)
   const visibleEmployees = employees.filter(emp => {
     const empCompanyId = emp.companyId || (emp as any).company_id;
-    if (activeCompanyId === 'comp-super-admin') {
+    if (currentCompanyId === 'comp-super-admin' || !currentCompanyId) {
       return true;
     }
-    return empCompanyId === activeCompanyId;
+    return empCompanyId === currentCompanyId;
   });
 
   // 4. KPI Alert Cards State & Quick Filtering

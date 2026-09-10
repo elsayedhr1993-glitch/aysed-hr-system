@@ -377,23 +377,13 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({ onNavigateTo
               </div>
 
               {/* Extended Details */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">رقم السجل التجاري (CR No)</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">رقم ملف الشركة (Company File No)</label>
                   <input
                     type="text"
                     value={formData.crNumber}
                     onChange={(e) => handleFieldChange('crNumber', e.target.value)}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 focus:border-[#714B67] outline-hidden"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">رقم ملف التأمينات (PIFSS)</label>
-                  <input
-                    type="text"
-                    value={formData.pifssNumber}
-                    onChange={(e) => handleFieldChange('pifssNumber', e.target.value)}
                     className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 focus:border-[#714B67] outline-hidden"
                   />
                 </div>

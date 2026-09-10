@@ -96,7 +96,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
       };
 
       const cleaned = cleanFirestoreData(completeCompany) as Company;
-      await setDoc(doc(db, 'companies', compId), {
+      await setDoc(doc(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies'), compId), {
         ...cleaned,
         companyId: compId,
         companyName: completeCompany.nameAr,
@@ -158,7 +158,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
   const confirmDelete = async () => {
     if (!companyToDelete) return;
     try {
-      await deleteDoc(doc(db, 'companies', companyToDelete.id));
+      await deleteDoc(doc(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies'), companyToDelete.id));
       await deleteDoc(doc(db, 'subscriptions', `sub-${companyToDelete.id}`));
       onDeleteCompany(companyToDelete.id);
       

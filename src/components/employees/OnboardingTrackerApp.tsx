@@ -140,7 +140,7 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
             status: plan.status,
             payload: plan,
             updated_at: new Date().toISOString()
-          }, { onConflict: 'id' }).catch(err => console.warn('Supabase plan upsert warning:', err));
+          }, { onConflict: 'id' });
         }
       }
     } catch (e) {

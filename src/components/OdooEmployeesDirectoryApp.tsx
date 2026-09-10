@@ -287,7 +287,7 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
   // 3. حظر تسريب الموظفين في العرض (Front-end Strict Filter)
   const visibleEmployees = employees.filter(emp => {
     const empComp = emp.companyId || (emp as any).company_id;
-    if (activeCompanyId === 'comp-super-admin') {
+    if (activeCompanyId === 'comp-super-admin' || !activeCompanyId) {
       return true;
     }
     return empComp === activeCompanyId;
@@ -865,7 +865,7 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
                 <Users className="w-5 h-5" />
               </div>
               <div>
-                <h1 className="text-base font-black text-slate-900">دليل وبطاقات الموظفين (Odoo Directory & Scanner)</h1>
+                <h1 className="text-base font-bold text-slate-900">دليل وبطاقات الموظفين (Odoo Directory & Scanner)</h1>
                 <p className="text-[11px] text-slate-500">
                   المنشأة: <strong className="text-[#714B67]">{activeCompany?.nameAr || 'الشركة الرئيسية'}</strong> | ماسح الوثائق الذكي AI OCR
                 </p>
@@ -1210,7 +1210,7 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
 
           {/* Form Header Sheet (Avatar + Main Employee Title) */}
           <div className="p-6 border-b border-slate-200 flex flex-col md:flex-row items-start gap-6 bg-white">
-            <div className={`w-24 h-24 rounded-2xl ${selectedEmployee.avatarBg || 'bg-[#714B67]'} text-white font-black text-2xl flex items-center justify-center shadow-md flex-shrink-0`}>
+            <div className={`w-24 h-24 rounded-2xl ${selectedEmployee.avatarBg || 'bg-[#714B67]'} text-white font-bold text-2xl flex items-center justify-center shadow-md flex-shrink-0`}>
               {selectedEmployee.name ? selectedEmployee.name.slice(0, 2) : 'جديد'}
             </div>
 
@@ -1224,7 +1224,7 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
                     value={selectedEmployee.name}
                     onChange={(e) => setSelectedEmployee({ ...selectedEmployee, name: e.target.value })}
                     placeholder="الاسم الرباعي الكامل للموظف"
-                    className="w-full text-lg font-black text-slate-900 border-b border-slate-300 focus:border-[#714B67] outline-none bg-transparent pb-1"
+                    className="w-full text-lg font-bold text-slate-900 border-b border-slate-300 focus:border-[#714B67] outline-none bg-transparent pb-1"
                   />
                 </div>
                 <div>
@@ -1303,7 +1303,7 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
           </div>
 
           {/* Odoo Multi-Tab Notebook Navigation */}
-          <div className="border-b border-slate-200 bg-slate-50/60 flex gap-2 px-6 overflow-x-auto">
+          <div className="flex overflow-x-auto hide-scrollbar gap-1 bg-slate-50 p-1.5 mx-6 mt-4 rounded-xl border border-slate-200/60">
             {[
               { id: 'work', label: 'معلومات العمل والعيادة (Work Info)' },
               { id: 'private', label: 'البيانات الشخصية والخاصة (Private Info)' },
@@ -1315,11 +1315,7 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveFormTab(tab.id as any)}
-                className={`py-3.5 px-4 text-xs font-bold border-b-2 transition cursor-pointer whitespace-nowrap ${
-                  activeFormTab === tab.id
-                    ? 'border-[#714B67] text-[#714B67] bg-white shadow-2xs'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                }`}
+                className={`px-4 py-2.5 text-xs font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap duration-200 flex-shrink-0 ${ activeFormTab === tab.id ? 'bg-white text-[#714B67] shadow-sm ring-1 ring-slate-200/50' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50' }`}
               >
                 {tab.label}
               </button>
@@ -1621,7 +1617,7 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
 
                     <div className="p-3.5 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between">
                       <span className="font-bold text-emerald-800">إجمالي الراتب المستحق (Gross Salary):</span>
-                      <span className="font-mono font-black text-sm text-emerald-900">
+                      <span className="font-mono font-bold text-sm text-emerald-900">
                         {(selectedEmployee.basicSalary + selectedEmployee.housingAllowance + selectedEmployee.transportAllowance + (selectedEmployee.medicalAllowance || 0)).toFixed(3)} KWD
                       </span>
                     </div>
@@ -1970,7 +1966,7 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
               <div className="space-y-1">
                 <span className="text-[11px] font-bold text-slate-500 block">إجمالي القوة العاملة (Active)</span>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-black text-slate-900 font-mono">{activeEmployeesCount}</span>
+                  <span className="text-2xl font-bold text-slate-900 font-mono">{activeEmployeesCount}</span>
                   <span className="text-[10px] text-slate-400 font-bold">موظف مفعّل</span>
                 </div>
                 <span className="text-[10px] text-slate-400 block">جميع الموظفين على رأس عملهم</span>
@@ -1999,7 +1995,7 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
                   )}
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-black text-amber-600 font-mono">{residencyExpiringCount}</span>
+                  <span className="text-2xl font-bold text-amber-600 font-mono">{residencyExpiringCount}</span>
                   <span className="text-[10px] text-amber-700/80 font-bold">خلال 90 يوماً</span>
                 </div>
                 <span className="text-[10px] text-slate-400 block">لتفادي غرامات ومخالفات الشؤون</span>
@@ -2028,7 +2024,7 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
                   )}
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-black text-indigo-600 font-mono">{mohExpiringCount}</span>
+                  <span className="text-2xl font-bold text-indigo-600 font-mono">{mohExpiringCount}</span>
                   <span className="text-[10px] text-indigo-700/80 font-bold">خلال 90 يوماً</span>
                 </div>
                 <span className="text-[10px] text-slate-400 block">مزاولة المهنة كادر الأطباء والتمريض</span>
@@ -2057,7 +2053,7 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
                   )}
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-black text-rose-600 font-mono">{expiredDocsCount}</span>
+                  <span className="text-2xl font-bold text-rose-600 font-mono">{expiredDocsCount}</span>
                   <span className="text-[10px] text-rose-700/80 font-bold">حالة حرجة</span>
                 </div>
                 <span className="text-[10px] text-slate-400 block">تجاوزت تاريخ الصلاحية الفعلي</span>
@@ -2194,7 +2190,7 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
                   <Scan className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-black text-slate-900 text-sm">
+                  <h3 className="font-bold text-slate-900 text-sm">
                     {scanningDocType === 'civil_id' && 'مسح وتفريغ البطاقة المدنية (PACI)'}
                     {scanningDocType === 'passport' && 'مسح جواز السفر وتأشيرة الإقامة'}
                     {scanningDocType === 'moh_license' && 'مسح ترخيص مزاولة المهنة (MOH)'}

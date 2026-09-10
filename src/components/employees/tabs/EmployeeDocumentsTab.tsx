@@ -83,16 +83,18 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddCustomModal(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold transition shadow-xs text-xs"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>إضافة مستند إضافي</span>
-                  </button>
-                </div>
+                {isEditMode && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddCustomModal(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold transition shadow-xs text-xs"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>إضافة مستند إضافي</span>
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Toggle checklist tags */}
@@ -114,14 +116,14 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                     <button
                       key={item.key}
                       type="button"
-                      onClick={() => handleToggleDocRequirement(item.key)}
+                      onClick={() => isEditMode && handleToggleDocRequirement(item.key)}
                       className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold transition border ${
                         isChecked 
                           ? hasFile
                             ? 'bg-emerald-950/70 border-emerald-500/60 text-emerald-300'
                             : 'bg-purple-950/70 border-purple-500/60 text-purple-300'
-                          : 'bg-slate-800/80 border-slate-700 text-slate-400 opacity-60 hover:opacity-100'
-                      }`}
+                          : 'bg-slate-800/80 border-slate-700 text-slate-400 opacity-60'
+                      } ${!isEditMode ? 'cursor-default' : 'hover:opacity-100'}`}
                     >
                       {isChecked ? <CheckSquare className="w-3 h-3 text-emerald-400" /> : <Square className="w-3 h-3 text-slate-500" />}
                       <span>{item.label}</span>
@@ -364,38 +366,40 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                     </div>
 
                     {/* Scanner */}
-                    <TabDocumentScanner 
+                    {isEditMode && (<TabDocumentScanner 
                       tabType="CIVIL_ID" 
                       title="مسح واستخراج البطاقة المدنية (OCR)" 
                       onDataExtracted={(data) => handleOcrResult(data, 'civil_id')} 
-                    />
+                    />)}
 
                     {/* Document Input Fields */}
-                    <div className="grid grid-cols-2 gap-2.5 pt-2">
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">الرقم المدني (12 رقماً)</label>
-                        <input
-                          type="text"
-                          maxLength={12}
-                          value={employee.civil_id_number || employee.civilId || ''}
-                          onChange={(e) => {
-                            handleFieldChange('civil_id_number', e.target.value);
-                            handleFieldChange('civilId', e.target.value);
-                          }}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-900 text-xs focus:ring-2 focus:ring-purple-500"
-                          placeholder="290010100000"
-                        />
+                    <fieldset disabled={!isEditMode} className="w-full block">
+                      <div className="grid grid-cols-2 gap-2.5 pt-2">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">الرقم المدني (12 رقماً)</label>
+                          <input
+                            type="text"
+                            maxLength={12}
+                            value={employee.civil_id_number || employee.civilId || ''}
+                            onChange={(e) => {
+                              handleFieldChange('civil_id_number', e.target.value);
+                              handleFieldChange('civilId', e.target.value);
+                            }}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-900 text-xs focus:ring-2 focus:ring-purple-500 disabled:bg-slate-50 disabled:text-slate-500 disabled:border-slate-200"
+                            placeholder="290010100000"
+                           />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">تاريخ انتهاء البطاقة</label>
+                          <input
+                            type="date"
+                            value={employee.civilIdExpiry ? employee.civilIdExpiry.slice(0, 10) : ''}
+                            onChange={(e) => handleFieldChange('civilIdExpiry', e.target.value)}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-900 text-xs focus:ring-2 focus:ring-purple-500 disabled:bg-slate-50 disabled:text-slate-500 disabled:border-slate-200"
+                           />
+                        </div>
                       </div>
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">تاريخ انتهاء البطاقة</label>
-                        <input
-                          type="date"
-                          value={employee.civilIdExpiry ? employee.civilIdExpiry.slice(0, 10) : ''}
-                          onChange={(e) => handleFieldChange('civilIdExpiry', e.target.value)}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-900 text-xs focus:ring-2 focus:ring-purple-500"
-                        />
-                      </div>
-                    </div>
+                    </fieldset>
 
                     {/* File Attachment Upload Zone */}
                     <div className="pt-2 border-t border-slate-100">
@@ -430,18 +434,19 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                             >
                               <Download className="w-3.5 h-3.5" />
                             </a>
-                            <button
+                            {isEditMode && (<button
                               type="button"
                               onClick={() => handleRemoveDocFile('civilIdScan')}
                               className="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition"
                               title="حذف الملف"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            </button>)}
                           </div>
                         </div>
                       ) : (
-                        <label className="flex flex-col items-center justify-center p-3 border-2 border-dashed border-slate-300 hover:border-purple-500 rounded-xl cursor-pointer bg-slate-50/60 hover:bg-purple-50/30 transition group">
+                        isEditMode ? (
+      <label className="flex flex-col items-center justify-center p-3 border-2 border-dashed border-slate-300 hover:border-purple-500 rounded-xl cursor-pointer bg-slate-50/60 hover:bg-purple-50/30 transition group">
                           <Upload className="w-4 h-4 text-slate-400 group-hover:text-purple-600 mb-1" />
                           <span className="text-[11px] font-bold text-slate-700 group-hover:text-purple-700">اضغط لرفع نسخة البطاقة المدنية الممسوحة (PDF / صورة)</span>
                           <span className="text-[9px] text-slate-400">يدعم PDF, PNG, JPG حتى 10MB</span>
@@ -450,8 +455,13 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                             accept="image/*,.pdf"
                             onChange={(e) => handleDocFileUpload('civilIdScan', e, 'البطاقة المدنية')}
                             className="hidden"
-                          />
+                           />
                         </label>
+    ) : (
+      <div className="flex flex-col items-center justify-center p-4 border border-dashed border-slate-200 rounded-xl bg-slate-50/50 text-slate-400 text-[11px] font-medium text-center">
+        <span>لا توجد نسخة مرفوعة (No file uploaded)</span>
+      </div>
+    )
                       )}
                     </div>
                   </div>
@@ -474,11 +484,11 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                     </div>
 
                     {/* Scanner */}
-                    <TabDocumentScanner 
+                    {isEditMode && (<TabDocumentScanner 
                       tabType="PASSPORT" 
                       title="مسح واستخراج جواز السفر (OCR)" 
                       onDataExtracted={(data) => handleOcrResult(data, 'passport')} 
-                    />
+                    />)}
 
                     {/* Document Input Fields */}
                     <div className="grid grid-cols-2 gap-2.5 pt-2">
@@ -499,7 +509,7 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                           value={employee.passportExpiry ? employee.passportExpiry.slice(0, 10) : ''}
                           onChange={(e) => handleFieldChange('passportExpiry', e.target.value)}
                           className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-900 text-xs focus:ring-2 focus:ring-purple-500"
-                        />
+                         />
                       </div>
                     </div>
 
@@ -536,18 +546,19 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                             >
                               <Download className="w-3.5 h-3.5" />
                             </a>
-                            <button
+                            {isEditMode && (<button
                               type="button"
                               onClick={() => handleRemoveDocFile('passportScan')}
                               className="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition"
                               title="حذف الملف"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            </button>)}
                           </div>
                         </div>
                       ) : (
-                        <label className="flex flex-col items-center justify-center p-3 border-2 border-dashed border-slate-300 hover:border-purple-500 rounded-xl cursor-pointer bg-slate-50/60 hover:bg-purple-50/30 transition group">
+                        isEditMode ? (
+      <label className="flex flex-col items-center justify-center p-3 border-2 border-dashed border-slate-300 hover:border-purple-500 rounded-xl cursor-pointer bg-slate-50/60 hover:bg-purple-50/30 transition group">
                           <Upload className="w-4 h-4 text-slate-400 group-hover:text-purple-600 mb-1" />
                           <span className="text-[11px] font-bold text-slate-700 group-hover:text-purple-700">اضغط لرفع نسخة جواز السفر الممسوحة</span>
                           <span className="text-[9px] text-slate-400">يدعم PDF, PNG, JPG</span>
@@ -556,8 +567,13 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                             accept="image/*,.pdf"
                             onChange={(e) => handleDocFileUpload('passportScan', e, 'جواز السفر')}
                             className="hidden"
-                          />
+                           />
                         </label>
+    ) : (
+      <div className="flex flex-col items-center justify-center p-4 border border-dashed border-slate-200 rounded-xl bg-slate-50/50 text-slate-400 text-[11px] font-medium text-center">
+        <span>لا توجد نسخة مرفوعة (No file uploaded)</span>
+      </div>
+    )
                       )}
                     </div>
                   </div>
@@ -580,11 +596,11 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                     </div>
 
                     {/* Scanner */}
-                    <TabDocumentScanner 
+                    {isEditMode && (<TabDocumentScanner 
                       tabType="WORK_PERMIT" 
                       title="مسح واستخراج إذن العمل (OCR)" 
                       onDataExtracted={(data) => handleOcrResult(data, 'work_permit')} 
-                    />
+                    />)}
 
                     {/* Document Input Fields */}
                     <div className="grid grid-cols-2 gap-2.5 pt-2">
@@ -606,7 +622,7 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                           onChange={(e) => handleFieldChange('jobTitle', e.target.value)}
                           className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-900 text-xs focus:ring-2 focus:ring-purple-500"
                           placeholder="طبيب بشري / ممرض / إداري"
-                        />
+                         />
                       </div>
                     </div>
 
@@ -643,18 +659,19 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                             >
                               <Download className="w-3.5 h-3.5" />
                             </a>
-                            <button
+                            {isEditMode && (<button
                               type="button"
                               onClick={() => handleRemoveDocFile('pamWorkPermit')}
                               className="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition"
                               title="حذف الملف"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            </button>)}
                           </div>
                         </div>
                       ) : (
-                        <label className="flex flex-col items-center justify-center p-3 border-2 border-dashed border-slate-300 hover:border-purple-500 rounded-xl cursor-pointer bg-slate-50/60 hover:bg-purple-50/30 transition group">
+                        isEditMode ? (
+      <label className="flex flex-col items-center justify-center p-3 border-2 border-dashed border-slate-300 hover:border-purple-500 rounded-xl cursor-pointer bg-slate-50/60 hover:bg-purple-50/30 transition group">
                           <Upload className="w-4 h-4 text-slate-400 group-hover:text-purple-600 mb-1" />
                           <span className="text-[11px] font-bold text-slate-700 group-hover:text-purple-700">اضغط لرفع نسخة إذن العمل الرسمي (PAM)</span>
                           <span className="text-[9px] text-slate-400">يدعم PDF, PNG, JPG</span>
@@ -663,8 +680,13 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                             accept="image/*,.pdf"
                             onChange={(e) => handleDocFileUpload('pamWorkPermit', e, 'إذن العمل')}
                             className="hidden"
-                          />
+                           />
                         </label>
+    ) : (
+      <div className="flex flex-col items-center justify-center p-4 border border-dashed border-slate-200 rounded-xl bg-slate-50/50 text-slate-400 text-[11px] font-medium text-center">
+        <span>لا توجد نسخة مرفوعة (No file uploaded)</span>
+      </div>
+    )
                       )}
                     </div>
                   </div>
@@ -687,11 +709,11 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                     </div>
 
                     {/* Scanner */}
-                    <TabDocumentScanner 
+                    {isEditMode && (<TabDocumentScanner 
                       tabType="MEDICAL_LICENSE" 
                       title="مسح واستخراج ترخيص وزارة الصحة (OCR)" 
                       onDataExtracted={(data) => handleOcrResult(data, 'medical_license')} 
-                    />
+                    />)}
 
                     {/* Document Input Fields */}
                     <div className="grid grid-cols-2 gap-2.5 pt-2">
@@ -712,7 +734,7 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                           value={employee.mohLicenseExpiry ? employee.mohLicenseExpiry.slice(0, 10) : ''}
                           onChange={(e) => handleFieldChange('mohLicenseExpiry', e.target.value)}
                           className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-900 text-xs focus:ring-2 focus:ring-purple-500"
-                        />
+                         />
                       </div>
                     </div>
 
@@ -749,18 +771,19 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                             >
                               <Download className="w-3.5 h-3.5" />
                             </a>
-                            <button
+                            {isEditMode && (<button
                               type="button"
                               onClick={() => handleRemoveDocFile('mohLicense')}
                               className="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition"
                               title="حذف الملف"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            </button>)}
                           </div>
                         </div>
                       ) : (
-                        <label className="flex flex-col items-center justify-center p-3 border-2 border-dashed border-slate-300 hover:border-purple-500 rounded-xl cursor-pointer bg-slate-50/60 hover:bg-purple-50/30 transition group">
+                        isEditMode ? (
+      <label className="flex flex-col items-center justify-center p-3 border-2 border-dashed border-slate-300 hover:border-purple-500 rounded-xl cursor-pointer bg-slate-50/60 hover:bg-purple-50/30 transition group">
                           <Upload className="w-4 h-4 text-slate-400 group-hover:text-purple-600 mb-1" />
                           <span className="text-[11px] font-bold text-slate-700 group-hover:text-purple-700">اضغط لرفع شهادة ترخيص مزاولة المهنة الطبية</span>
                           <span className="text-[9px] text-slate-400">يدعم PDF, PNG, JPG</span>
@@ -769,8 +792,13 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                             accept="image/*,.pdf"
                             onChange={(e) => handleDocFileUpload('mohLicense', e, 'ترخيص MOH')}
                             className="hidden"
-                          />
+                           />
                         </label>
+    ) : (
+      <div className="flex flex-col items-center justify-center p-4 border border-dashed border-slate-200 rounded-xl bg-slate-50/50 text-slate-400 text-[11px] font-medium text-center">
+        <span>لا توجد نسخة مرفوعة (No file uploaded)</span>
+      </div>
+    )
                       )}
                     </div>
                   </div>
@@ -793,39 +821,41 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                     </div>
 
                     {/* Input Fields */}
-                    <div className="grid grid-cols-2 gap-2.5">
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">حالة اللياقة الصحية</label>
-                        <select
-                          value={employee.medicalFitnessStatus || 'fit'}
-                          onChange={(e) => handleFieldChange('medicalFitnessStatus', e.target.value)}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-900 text-xs focus:ring-2 focus:ring-purple-500"
-                        >
-                          <option value="fit">✅ لائق طبياً - Fit for duty</option>
-                          <option value="pending">⏳ بانتظار نتائج الفحص - Pending</option>
-                          <option value="unfit">❌ غير لائق طبياً - Unfit</option>
-                        </select>
+                    <fieldset disabled={!isEditMode} className="w-full block">
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">حالة اللياقة الصحية</label>
+                          <select
+                            value={employee.medicalFitnessStatus || 'fit'}
+                            onChange={(e) => handleFieldChange('medicalFitnessStatus', e.target.value)}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-900 text-xs focus:ring-2 focus:ring-purple-500 disabled:bg-slate-50 disabled:text-slate-500 disabled:border-slate-200"
+                          >
+                            <option value="fit">✅ لائق طبياً - Fit for duty</option>
+                            <option value="pending">⏳ بانتظار نتائج الفحص - Pending</option>
+                            <option value="unfit">❌ غير لائق طبياً - Unfit</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">تاريخ إجراء الفحص</label>
+                          <input
+                            type="date"
+                            value={employee.medicalFitnessDate ? employee.medicalFitnessDate.slice(0, 10) : ''}
+                            onChange={(e) => handleFieldChange('medicalFitnessDate', e.target.value)}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-900 text-xs focus:ring-2 focus:ring-purple-500 disabled:bg-slate-50 disabled:text-slate-500 disabled:border-slate-200"
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">المركز / المستشفى الفاحص</label>
+                          <input
+                            type="text"
+                            value={employee.medicalFitnessHospital || ''}
+                            onChange={(e) => handleFieldChange('medicalFitnessHospital', e.target.value)}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-900 text-xs focus:ring-2 focus:ring-purple-500 disabled:bg-slate-50 disabled:text-slate-500 disabled:border-slate-200"
+                            placeholder="إدارة الصحة العامة / مركز الفحص الطبي للعمالة الوافدة"
+                           />
+                        </div>
                       </div>
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">تاريخ إجراء الفحص</label>
-                        <input
-                          type="date"
-                          value={employee.medicalFitnessDate ? employee.medicalFitnessDate.slice(0, 10) : ''}
-                          onChange={(e) => handleFieldChange('medicalFitnessDate', e.target.value)}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-900 text-xs focus:ring-2 focus:ring-purple-500"
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">المركز / المستشفى الفاحص</label>
-                        <input
-                          type="text"
-                          value={employee.medicalFitnessHospital || ''}
-                          onChange={(e) => handleFieldChange('medicalFitnessHospital', e.target.value)}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-900 text-xs focus:ring-2 focus:ring-purple-500"
-                          placeholder="إدارة الصحة العامة / مركز الفحص الطبي للعمالة الوافدة"
-                        />
-                      </div>
-                    </div>
+                    </fieldset>
 
                     {/* File Attachment Upload Zone */}
                     <div className="pt-2 border-t border-slate-100">
@@ -860,18 +890,19 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                             >
                               <Download className="w-3.5 h-3.5" />
                             </a>
-                            <button
+                            {isEditMode && (<button
                               type="button"
                               onClick={() => handleRemoveDocFile('medicalFitness')}
                               className="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition"
                               title="حذف الملف"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            </button>)}
                           </div>
                         </div>
                       ) : (
-                        <label className="flex flex-col items-center justify-center p-3 border-2 border-dashed border-slate-300 hover:border-purple-500 rounded-xl cursor-pointer bg-slate-50/60 hover:bg-purple-50/30 transition group">
+                        isEditMode ? (
+      <label className="flex flex-col items-center justify-center p-3 border-2 border-dashed border-slate-300 hover:border-purple-500 rounded-xl cursor-pointer bg-slate-50/60 hover:bg-purple-50/30 transition group">
                           <Upload className="w-4 h-4 text-slate-400 group-hover:text-purple-600 mb-1" />
                           <span className="text-[11px] font-bold text-slate-700 group-hover:text-purple-700">اضغط لرفع تقرير وشهادة الفحص الطبي (PDF / صورة)</span>
                           <span className="text-[9px] text-slate-400">يدعم PDF, PNG, JPG</span>
@@ -880,8 +911,13 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                             accept="image/*,.pdf"
                             onChange={(e) => handleDocFileUpload('medicalFitness', e, 'الفحص الطبي')}
                             className="hidden"
-                          />
+                           />
                         </label>
+    ) : (
+      <div className="flex flex-col items-center justify-center p-4 border border-dashed border-slate-200 rounded-xl bg-slate-50/50 text-slate-400 text-[11px] font-medium text-center">
+        <span>لا توجد نسخة مرفوعة (No file uploaded)</span>
+      </div>
+    )
                       )}
                     </div>
                   </div>
@@ -932,7 +968,7 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                           value={employee.hireDate ? employee.hireDate.slice(0, 10) : ''}
                           onChange={(e) => handleFieldChange('hireDate', e.target.value)}
                           className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-900 text-xs focus:ring-2 focus:ring-purple-500"
-                        />
+                         />
                       </div>
                     </div>
 
@@ -969,18 +1005,19 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                             >
                               <Download className="w-3.5 h-3.5" />
                             </a>
-                            <button
+                            {isEditMode && (<button
                               type="button"
                               onClick={() => handleRemoveDocFile('signedContract')}
                               className="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition"
                               title="حذف الملف"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            </button>)}
                           </div>
                         </div>
                       ) : (
-                        <label className="flex flex-col items-center justify-center p-3 border-2 border-dashed border-slate-300 hover:border-purple-500 rounded-xl cursor-pointer bg-slate-50/60 hover:bg-purple-50/30 transition group">
+                        isEditMode ? (
+      <label className="flex flex-col items-center justify-center p-3 border-2 border-dashed border-slate-300 hover:border-purple-500 rounded-xl cursor-pointer bg-slate-50/60 hover:bg-purple-50/30 transition group">
                           <Upload className="w-4 h-4 text-slate-400 group-hover:text-purple-600 mb-1" />
                           <span className="text-[11px] font-bold text-slate-700 group-hover:text-purple-700">اضغط لرفع نسخة العقد الموقعة وإقرار المباشرة</span>
                           <span className="text-[9px] text-slate-400">يدعم PDF, PNG, JPG</span>
@@ -989,8 +1026,13 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                             accept="image/*,.pdf"
                             onChange={(e) => handleDocFileUpload('signedContract', e, 'عقد العمل')}
                             className="hidden"
-                          />
+                           />
                         </label>
+    ) : (
+      <div className="flex flex-col items-center justify-center p-4 border border-dashed border-slate-200 rounded-xl bg-slate-50/50 text-slate-400 text-[11px] font-medium text-center">
+        <span>لا توجد نسخة مرفوعة (No file uploaded)</span>
+      </div>
+    )
                       )}
                     </div>
                   </div>
@@ -1007,17 +1049,19 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                           <span className="text-[10px] text-purple-700 font-bold">{cd.category}</span>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const updatedCustomList = (employee.customDocuments || []).filter((item: any) => item.id !== cd.id);
-                          setEmployee((prev: any) => ({ ...prev, customDocuments: updatedCustomList }));
-                        }}
-                        className="text-slate-400 hover:text-red-500 p-1"
-                        title="إزالة هذا المستند"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
+                      {isEditMode && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updatedCustomList = (employee.customDocuments || []).filter((item: any) => item.id !== cd.id);
+                            setEmployee((prev: any) => ({ ...prev, customDocuments: updatedCustomList }));
+                          }}
+                          className="text-slate-400 hover:text-red-500 p-1"
+                          title="إزالة هذا المستند"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-2.5">
@@ -1038,7 +1082,7 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                           value={employee[`doc_exp_${cd.id}`] ? employee[`doc_exp_${cd.id}`].slice(0, 10) : ''}
                           onChange={(e) => handleFieldChange(`doc_exp_${cd.id}`, e.target.value)}
                           className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-900 text-xs focus:ring-2 focus:ring-purple-500"
-                        />
+                         />
                       </div>
                     </div>
 
@@ -1075,18 +1119,19 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                             >
                               <Download className="w-3.5 h-3.5" />
                             </a>
-                            <button
+                            {isEditMode && (<button
                               type="button"
                               onClick={() => handleRemoveDocFile(cd.id)}
                               className="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition"
                               title="حذف الملف"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            </button>)}
                           </div>
                         </div>
                       ) : (
-                        <label className="flex flex-col items-center justify-center p-3 border-2 border-dashed border-slate-300 hover:border-purple-500 rounded-xl cursor-pointer bg-slate-50/60 hover:bg-purple-50/30 transition group">
+                        isEditMode ? (
+      <label className="flex flex-col items-center justify-center p-3 border-2 border-dashed border-slate-300 hover:border-purple-500 rounded-xl cursor-pointer bg-slate-50/60 hover:bg-purple-50/30 transition group">
                           <Upload className="w-4 h-4 text-slate-400 group-hover:text-purple-600 mb-1" />
                           <span className="text-[11px] font-bold text-slate-700 group-hover:text-purple-700">اضغط لرفع مستند ({cd.title})</span>
                           <span className="text-[9px] text-slate-400">يدعم PDF, PNG, JPG</span>
@@ -1097,6 +1142,11 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                             className="hidden"
                           />
                         </label>
+    ) : (
+      <div className="flex flex-col items-center justify-center p-4 border border-dashed border-slate-200 rounded-xl bg-slate-50/50 text-slate-400 text-[11px] font-medium text-center">
+        <span>لا توجد نسخة مرفوعة (No file uploaded)</span>
+      </div>
+    )
                       )}
                     </div>
                   </div>

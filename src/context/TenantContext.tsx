@@ -30,6 +30,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return localStorage.getItem('saas_impersonating_id') || null;
   });
 
+  const isDevPreview = typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost'));
+  const collectionName = isDevPreview ? 'dev_companies' : 'companies';
+
   useEffect(() => {
     if (!user) {
       setCompanies([]);
@@ -40,9 +43,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Listen to companies collection
     let q;
     if (isSuperAdmin) {
-      q = query(collection(db, 'companies'));
+      q = query(collection(db, collectionName));
     } else if (user.companyId) {
-      q = query(collection(db, 'companies'), where(documentId(), '==', user.companyId));
+      q = query(collection(db, collectionName), where(documentId(), '==', user.companyId));
     } else {
       setCompanies([]);
       setIsLoading(false);
@@ -104,7 +107,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         createdAt: new Date().toISOString()
       };
 
-      await setDoc(doc(db, 'companies', newCompanyId), newCompany);
+      await setDoc(doc(db, collectionName, newCompanyId), newCompany);
     } catch (error) {
       console.error("Error adding company: ", error);
       throw error;
@@ -115,7 +118,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       // Currently, we only update the document here, not the Firebase Auth password since it's a bit complex from client.
       // But keeping it documented for now.
-      await updateDoc(doc(db, 'companies', companyId), {
+      await updateDoc(doc(db, collectionName, companyId), {
         adminPassword: newPass
       });
     } catch (error) {
@@ -126,7 +129,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const deleteCompany = async (companyId: string) => {
     try {
-      await deleteDoc(doc(db, 'companies', companyId));
+      await deleteDoc(doc(db, collectionName, companyId));
       if (impersonatingCompanyId === companyId) {
         setImpersonatingCompanyId(null);
       }

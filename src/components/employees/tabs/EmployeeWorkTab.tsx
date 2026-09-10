@@ -33,7 +33,7 @@ export const EmployeeWorkTab: React.FC<Props> = ({
         {/* Right Column: الوظيفة والتنظيم الإداري */}
         <div className="space-y-4">
           <div className="border-b border-slate-200 pb-2 mb-4">
-            <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
+            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-[#714B67]"></span>
               <span>التنظيم الوظيفي والإداري</span>
             </h4>
@@ -96,7 +96,7 @@ export const EmployeeWorkTab: React.FC<Props> = ({
         {/* Left Column: الاتصال ومواعيد الدوام */}
         <div className="space-y-4">
           <div className="border-b border-slate-200 pb-2 mb-4">
-            <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
+            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-slate-400"></span>
               <span>الاتصال بالعمل ومواعيد الدوام</span>
             </h4>
@@ -162,11 +162,11 @@ export const EmployeeWorkTab: React.FC<Props> = ({
         <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-slate-200/80">
           <div className="flex items-center gap-2">
             <DollarSign className="w-4 h-4 text-emerald-700" />
-            <span className="font-black text-xs text-slate-900">حزمة الأجور والبدلات الشهرية (نظام حماية الأجور WPS)</span>
+            <span className="font-bold text-xs text-slate-900">حزمة الأجور والبدلات الشهرية (نظام حماية الأجور WPS)</span>
           </div>
           <div className="text-xs font-mono font-bold flex items-center gap-4 text-slate-700">
             <span>أجر اليوم (26 يوم): <strong className="text-purple-900">{dailyWage.toFixed(3)} د.ك</strong></span>
-            <span className="text-emerald-700 font-black">
+            <span className="text-emerald-700 font-bold">
               الراتب الإجمالي: {totalSalary.toFixed(3)} د.ك
             </span>
           </div>

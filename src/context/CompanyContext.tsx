@@ -49,21 +49,38 @@ function getDeterministicCompanyId(companyOrName: string | Partial<Company>): st
     return 'comp-super-admin';
   }
 
-  if (nameStr.includes('المنار')) return 'comp-almanar';
-  if (nameStr.includes('الفنار')) return 'comp-alfanar';
-  if (nameStr.includes('إيليت') || nameStr.includes('Elite')) return 'comp-elite';
-
-  if (typeof companyOrName === 'object' && companyOrName.id && !['comp-01', 'comp-1', 'comp-demo', 't-comp-01'].includes(companyOrName.id)) {
-    return companyOrName.id;
+  let baseId = '';
+  if (nameStr.includes('المنار')) {
+    baseId = 'comp-almanar';
+  } else if (nameStr.includes('الفنار')) {
+    baseId = 'comp-alfanar';
+  } else if (nameStr.includes('إيليت') || nameStr.includes('Elite')) {
+    baseId = 'comp-elite';
+  } else if (typeof companyOrName === 'object' && companyOrName.id && !['comp-01', 'comp-1', 'comp-demo', 't-comp-01'].includes(companyOrName.id)) {
+    baseId = companyOrName.id;
+  } else {
+    let hash = 0;
+    for (let i = 0; i < nameStr.length; i++) {
+      hash = ((hash << 5) - hash) + nameStr.charCodeAt(i);
+      hash |= 0;
+    }
+    const positiveHash = Math.abs(hash).toString(36);
+    baseId = `comp_${positiveHash}`;
   }
 
-  let hash = 0;
-  for (let i = 0; i < nameStr.length; i++) {
-    hash = ((hash << 5) - hash) + nameStr.charCodeAt(i);
-    hash |= 0;
+  // Safety Gate: If we are in development, prefix with "dev-" to protect production database from accidental pollution
+  const isDev = typeof window !== 'undefined' && (
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname.includes('web-3000') ||
+    window.location.hostname.includes('googleusercontent.com')
+  );
+
+  if (isDev && baseId !== 'comp-super-admin') {
+    return `dev-${baseId}`;
   }
-  const positiveHash = Math.abs(hash).toString(36);
-  return `comp_${positiveHash}`;
+
+  return baseId;
 }
 
 interface CompanyContextType {
@@ -82,23 +99,29 @@ interface CompanyContextType {
 const CompanyContext = createContext<CompanyContextType | undefined>(undefined);
 
 export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Master Company State (Persisted)
+  // Master Company State (Persisted) - Default strictly to Almanar Clinic
   const [masterCompany, setMasterCompany] = useState<Company>(() => {
     try {
       const savedMaster = localStorage.getItem('master_company_profile') || localStorage.getItem('active_company_profile');
       if (savedMaster) {
         const parsed = JSON.parse(savedMaster);
         if (parsed && (parsed.nameAr || parsed.name)) {
-          return { ...defaultMasterCompany, ...parsed };
+          return { ...defaultMasterCompany, ...parsed, id: 'comp-almanar' };
         }
       }
     } catch (e) {
       console.error('Error loading master company profile:', e);
     }
-    return defaultMasterCompany;
+    return {
+      ...defaultMasterCompany,
+      id: 'comp-almanar',
+      nameAr: 'مستوصف المنار الطبي (Almanar Clinic)',
+      nameEn: 'Almanar Clinic',
+      name: 'مستوصف المنار الطبي (Almanar Clinic)'
+    };
   });
 
-  // Impersonation state
+  // Impersonation state - default to false so it stays on Almanar Clinic unless explicitly requested
   const [isImpersonating, setIsImpersonating] = useState<boolean>(() => {
     return localStorage.getItem('aysed_is_impersonating') === 'true';
   });
@@ -112,7 +135,21 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch (e) {
       console.error('Error loading impersonated company:', e);
     }
-    return null;
+    return {
+      id: 'comp-almanar',
+      nameAr: 'مستوصف المنار الطبي (Almanar Clinic)',
+      nameEn: 'Almanar Clinic',
+      name: 'مستوصف المنار الطبي (Almanar Clinic)',
+      crNumber: '301122',
+      pifssNumber: 'KUW-554433',
+      commercialRegNo: '301122',
+      civilIdCompany: '203344',
+      bankName: 'بنك الكويت الوطني (NBK)',
+      iban: 'KW12NBOK000000000000301122',
+      wsiCode: 'WSI-ALMANAR',
+      currency: 'KWD',
+      status: 'active'
+    };
   });
 
   // Automatically listen to auth session or active company changes in localStorage

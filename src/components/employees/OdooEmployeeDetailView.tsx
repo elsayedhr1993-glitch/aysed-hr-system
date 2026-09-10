@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { EmployeeWorkTab } from './tabs/EmployeeWorkTab';
 import { EmployeePrivateTab } from './tabs/EmployeePrivateTab';
 import { EmployeeDocumentsTab } from './tabs/EmployeeDocumentsTab';
+import { EmployeeContractTab } from './tabs/EmployeeContractTab';
+import { EmployeeCommencementTab } from './tabs/EmployeeCommencementTab';
+import { EmployeeHRTab } from './tabs/EmployeeHRTab';
 import { checkDocumentExpiry } from '../../utils/dateUtils';
 import { 
   Briefcase, 
@@ -385,7 +388,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
             <span>العودة لدليل الموظفين</span>
           </button>
           <span className="text-slate-300">/</span>
-          <span className="text-slate-900 font-black">{employee.nameAr || employee.fullNameAr || 'ملف موظف'}</span>
+          <span className="text-slate-900 font-bold">{employee.nameAr || employee.fullNameAr || 'ملف موظف'}</span>
           <span className="font-mono bg-purple-50 text-[#714B67] border border-purple-200 px-2 py-0.5 rounded text-xs font-bold">{employee.id}</span>
         </div>
 
@@ -489,7 +492,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
               </div>
               <div className="text-right leading-tight">
                 <div className="text-[10px] text-slate-400 font-semibold">عقد العمل</div>
-                <div className="text-xs font-black text-slate-900 font-mono">1 نشط</div>
+                <div className="text-xs font-bold text-slate-900 font-mono">1 نشط</div>
               </div>
             </div>
 
@@ -504,7 +507,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
               </div>
               <div className="text-right leading-tight">
                 <div className="text-[10px] text-slate-400 font-semibold">رصيد الإجازات</div>
-                <div className="text-xs font-black text-slate-900 font-mono">{calculatedBalance} يوم</div>
+                <div className="text-xs font-bold text-slate-900 font-mono">{calculatedBalance} يوم</div>
               </div>
             </div>
 
@@ -519,7 +522,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
               </div>
               <div className="text-right leading-tight">
                 <div className="text-[10px] text-slate-400 font-semibold">الهوية والبطاقة</div>
-                <div className="text-xs font-black text-slate-900">طباعة QR</div>
+                <div className="text-xs font-bold text-slate-900">طباعة QR</div>
               </div>
             </div>
           </div>
@@ -527,7 +530,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
 
         {/* Profile Header Block: Avatar + Name + Subtitle + Badge */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-5 pt-1">
-          <div className={`w-20 h-20 rounded-2xl ${employee.avatarColor || 'bg-[#714B67]'} text-white flex items-center justify-center font-black text-2xl shadow-xs shrink-0 overflow-hidden relative`}>
+          <div className={`w-20 h-20 rounded-2xl ${employee.avatarColor || 'bg-[#714B67]'} text-white flex items-center justify-center font-bold text-2xl shadow-xs shrink-0 overflow-hidden relative`}>
             {employee.avatarUrl ? (
               <img src={employee.avatarUrl} alt="" className="w-full h-full object-cover" />
             ) : (
@@ -575,10 +578,10 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
                   value={employee.nameAr || ''}
                   onChange={(e) => handleFieldChange('nameAr', e.target.value)}
                   placeholder="اسم الموظف بالعربية"
-                  className="text-2xl font-black text-slate-900 border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1 bg-white focus:outline-none transition"
+                  className="text-2xl font-bold text-slate-900 border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1 bg-white focus:outline-none transition"
                 />
               ) : (
-                <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                <h2 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
                   <span>{employee.nameAr || employee.fullNameAr || 'اسم الموظف'}</span>
                   <button 
                     onClick={() => setIsEditMode(true)}
@@ -635,7 +638,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
                     </div>
                     <button 
                       onClick={() => setActiveTab('documents')}
-                      className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-black transition cursor-pointer shrink-0"
+                      className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-bold transition cursor-pointer shrink-0"
                     >
                       تحديث الوثيقة 🪪
                     </button>
@@ -651,7 +654,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
                     </div>
                     <button 
                       onClick={() => setActiveTab('documents')}
-                      className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[11px] font-black transition cursor-pointer shrink-0"
+                      className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[11px] font-bold transition cursor-pointer shrink-0"
                     >
                       مراجعة الوثيقة
                     </button>
@@ -669,10 +672,10 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
           <button
             type="button"
             onClick={() => setActiveTab('work')}
-            className={`px-4 py-2.5 text-xs font-bold border-b-2 transition flex items-center gap-2 shrink-0 cursor-pointer ${
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 shrink-0 cursor-pointer duration-200 ${
               activeTab === 'work'
-                ? 'border-[#714B67] text-[#714B67]'
-                : 'border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300'
+                ? 'bg-white text-[#714B67] shadow-sm ring-1 ring-slate-200/50'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
             }`}
           >
             <Briefcase size={15} />
@@ -682,10 +685,10 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
           <button
             type="button"
             onClick={() => setActiveTab('contract')}
-            className={`px-4 py-2.5 text-xs font-bold border-b-2 transition flex items-center gap-2 shrink-0 cursor-pointer ${
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 shrink-0 cursor-pointer duration-200 ${
               activeTab === 'contract'
-                ? 'border-[#714B67] text-[#714B67]'
-                : 'border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300'
+                ? 'bg-white text-[#714B67] shadow-sm ring-1 ring-slate-200/50'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
             }`}
           >
             <span>📄</span>
@@ -695,10 +698,10 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
           <button
             type="button"
             onClick={() => setActiveTab('commencement')}
-            className={`px-4 py-2.5 text-xs font-bold border-b-2 transition flex items-center gap-2 shrink-0 cursor-pointer ${
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 shrink-0 cursor-pointer duration-200 ${
               activeTab === 'commencement'
-                ? 'border-[#714B67] text-[#714B67]'
-                : 'border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300'
+                ? 'bg-white text-[#714B67] shadow-sm ring-1 ring-slate-200/50'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
             }`}
           >
             <span>🚀</span>
@@ -708,10 +711,10 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
           <button
             type="button"
             onClick={() => setActiveTab('private')}
-            className={`px-4 py-2.5 text-xs font-bold border-b-2 transition flex items-center gap-2 shrink-0 cursor-pointer ${
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 shrink-0 cursor-pointer duration-200 ${
               activeTab === 'private'
-                ? 'border-[#714B67] text-[#714B67]'
-                : 'border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300'
+                ? 'bg-white text-[#714B67] shadow-sm ring-1 ring-slate-200/50'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
             }`}
           >
             <UserCheck size={15} />
@@ -721,10 +724,10 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
           <button
             type="button"
             onClick={() => setActiveTab('documents')}
-            className={`px-4 py-2.5 text-xs font-bold border-b-2 transition flex items-center gap-2 shrink-0 cursor-pointer ${
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 shrink-0 cursor-pointer duration-200 ${
               activeTab === 'documents'
-                ? 'border-[#714B67] text-[#714B67]'
-                : 'border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300'
+                ? 'bg-white text-[#714B67] shadow-sm ring-1 ring-slate-200/50'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
             }`}
           >
             <FileSpreadsheet size={15} />
@@ -734,10 +737,10 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
           <button
             type="button"
             onClick={() => setActiveTab('hr')}
-            className={`px-4 py-2.5 text-xs font-bold border-b-2 transition flex items-center gap-2 shrink-0 cursor-pointer ${
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 shrink-0 cursor-pointer duration-200 ${
               activeTab === 'hr'
-                ? 'border-[#714B67] text-[#714B67]'
-                : 'border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300'
+                ? 'bg-white text-[#714B67] shadow-sm ring-1 ring-slate-200/50'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
             }`}
           >
             <Building2 size={15} />
@@ -757,313 +760,21 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
 
         {/* Tab 2: عقد العمل والأجر الشامل (Contract & Wages) */}
         {activeTab === 'contract' && (
-          <div className="space-y-8 animate-fade-in text-slate-900">
-            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200">
-              <div>
-                <h4 className="font-bold text-slate-900 text-sm">عقد العمل الأهلي والهيكل المالي (Employment Contract & Wages)</h4>
-                <p className="text-xs text-slate-500">توثيق بنود العقد الأهلي، فترات التجربة (المادة 32)، والبدلات المعتمدة</p>
-              </div>
-              <button
-                type="button"
-                onClick={onOpenPamModal}
-                className="bg-[#714B67] hover:bg-[#5a3b52] text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
-              >
-                <span>👁️ معاينة العقد الأهلي الصادر من (PAM)</span>
-              </button>
-            </div>
-
-            {/* 2-Columns Grid for Contract Details */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-              <div className="space-y-4">
-                <div className="border-b border-slate-200 pb-2 mb-4">
-                  <h5 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-[#714B67]"></span>
-                    <span>بنود وفترة العقد</span>
-                  </h5>
-                </div>
-
-                <div className="py-1.5">
-                  <label className="block text-xs font-semibold text-slate-500 mb-1">نوع العقد الأهلي</label>
-                  {isEditMode ? (
-                    <select
-                      value={employee.contractType || 'محدد المدة (Fixed Term)'}
-                      onChange={(e) => handleFieldChange('contractType', e.target.value)}
-                      className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-bold text-slate-900 bg-white focus:outline-none text-sm"
-                    >
-                      <option value="محدد المدة (Fixed Term)">محدد المدة (Fixed Term)</option>
-                      <option value="غير محدد المدة (Indefinite Term)">غير محدد المدة (Indefinite Term)</option>
-                    </select>
-                  ) : (
-                    <div className="font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">
-                      {employee.contractType || 'محدد المدة (Fixed Term)'}
-                    </div>
-                  )}
-                </div>
-
-                <div className="py-1.5">
-                  <label className="block text-xs font-semibold text-slate-500 mb-1">فترة التجربة (Probation Period)</label>
-                  {isEditMode ? (
-                    <input
-                      type="number"
-                      value={employee.probationDays || 100}
-                      onChange={(e) => handleFieldChange('probationDays', e.target.value)}
-                      className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-900 bg-white focus:outline-none text-sm"
-                    />
-                  ) : (
-                    <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">
-                      {employee.probationDays || 100} يوم عمل (المادة 32)
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="border-b border-slate-200 pb-2 mb-4">
-                  <h5 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-slate-400"></span>
-                    <span>سريان التواريخ</span>
-                  </h5>
-                </div>
-
-                <div className="py-1.5">
-                  <label className="block text-xs font-semibold text-slate-500 mb-1">تاريخ بداية العقد</label>
-                  {isEditMode ? (
-                    <input
-                      type="date"
-                      value={employee.contractStartDate || employee.hireDate || ''}
-                      onChange={(e) => handleFieldChange('contractStartDate', e.target.value)}
-                      className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-900 bg-white focus:outline-none text-sm"
-                    />
-                  ) : (
-                    <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">
-                      {employee.contractStartDate || employee.hireDate || '—'}
-                    </div>
-                  )}
-                </div>
-
-                <div className="py-1.5">
-                  <label className="block text-xs font-semibold text-slate-500 mb-1">تاريخ نهاية العقد</label>
-                  {isEditMode ? (
-                    <input
-                      type="date"
-                      value={employee.contractEndDate || ''}
-                      onChange={(e) => handleFieldChange('contractEndDate', e.target.value)}
-                      className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-900 bg-white focus:outline-none text-sm"
-                    />
-                  ) : (
-                    <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">
-                      {employee.contractEndDate || 'عقد مفتوح / غير محدد'}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Financial Details */}
-            <div className="pt-6 border-t border-slate-200 space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-slate-200/80">
-                <span className="text-xs font-black text-slate-900">💰 حزمة الراتب والبدلات الشهرية</span>
-                <span className="font-mono text-purple-900 font-black text-sm">
-                  الأجر الشامل: {totalSalary.toFixed(3)} د.ك
-                </span>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-1">
-                <div className="py-1">
-                  <span className="text-slate-500 block text-xs font-semibold mb-1">الراتب الأساسي</span>
-                  {isEditMode ? (
-                    <input
-                      type="number"
-                      step="0.001"
-                      value={employee.basicSalary !== undefined ? employee.basicSalary : ''}
-                      onChange={(e) => handleFieldChange('basicSalary', e.target.value)}
-                      placeholder="0.000"
-                      className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-900 text-sm focus:outline-none"
-                    />
-                  ) : (
-                    <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">{(Number(employee.basicSalary) || 0).toFixed(3)} د.ك</div>
-                  )}
-                </div>
-                <div className="py-1">
-                  <span className="text-slate-500 block text-xs font-semibold mb-1">بدل السكن</span>
-                  {isEditMode ? (
-                    <input
-                      type="number"
-                      step="0.001"
-                      value={employee.housingAllowance !== undefined ? employee.housingAllowance : ''}
-                      onChange={(e) => handleFieldChange('housingAllowance', e.target.value)}
-                      placeholder="0.000"
-                      className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-900 text-sm focus:outline-none"
-                    />
-                  ) : (
-                    <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">{(Number(employee.housingAllowance) || 0).toFixed(3)} د.ك</div>
-                  )}
-                </div>
-                <div className="py-1">
-                  <span className="text-slate-500 block text-xs font-semibold mb-1">بدل الانتقال</span>
-                  {isEditMode ? (
-                    <input
-                      type="number"
-                      step="0.001"
-                      value={employee.transportAllowance !== undefined ? employee.transportAllowance : ''}
-                      onChange={(e) => handleFieldChange('transportAllowance', e.target.value)}
-                      placeholder="0.000"
-                      className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-900 text-sm focus:outline-none"
-                    />
-                  ) : (
-                    <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">{(Number(employee.transportAllowance) || 0).toFixed(3)} د.ك</div>
-                  )}
-                </div>
-                <div className="py-1">
-                  <span className="text-slate-500 block text-xs font-semibold mb-1">بدلات أخرى</span>
-                  {isEditMode ? (
-                    <input
-                      type="number"
-                      step="0.001"
-                      value={employee.otherAllowances !== undefined ? employee.otherAllowances : (employee.otherAllowance !== undefined ? employee.otherAllowance : '')}
-                      onChange={(e) => {
-                        handleFieldChange('otherAllowances', e.target.value);
-                        handleFieldChange('otherAllowance', e.target.value);
-                      }}
-                      placeholder="0.000"
-                      className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-900 text-sm focus:outline-none"
-                    />
-                  ) : (
-                    <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">{(Number(employee.otherAllowances !== undefined ? employee.otherAllowances : employee.otherAllowance) || 0).toFixed(3)} د.ك</div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+          <EmployeeContractTab
+            employee={employee}
+            isEditMode={isEditMode}
+            handleFieldChange={handleFieldChange}
+            onOpenPamModal={onOpenPamModal}
+          />
         )}
 
         {/* Tab 3: إقرار المباشرة والجاهزية (Job Commencement) */}
         {activeTab === 'commencement' && (
-          <div className="space-y-8 animate-fade-in text-slate-900">
-            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200">
-              <div>
-                <h4 className="font-bold text-slate-900 text-sm">إقرار المباشرة الفعلية واستلام العهد (Job Commencement)</h4>
-                <p className="text-xs text-slate-500">توثيق تاريخ المباشرة بالفرع واستلام تجهيزات العمل الرسمية</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  const printWindow = window.open('', '_blank');
-                  if (printWindow) {
-                    printWindow.document.write(`
-                      <html dir="rtl" lang="ar">
-                        <head>
-                          <title>إقرار مباشرة عمل - ${employee.nameAr || employee.name}</title>
-                          <style>
-                            body { font-family: system-ui, sans-serif; padding: 40px; color: #1e293b; line-height: 1.6; }
-                            .header { text-align: center; border-bottom: 2px solid #714B67; padding-bottom: 20px; margin-bottom: 30px; }
-                            .title { font-size: 22px; font-weight: bold; color: #714B67; margin-bottom: 5px; }
-                            .subtitle { font-size: 14px; color: #64748b; }
-                            .box { border: 1px solid #cbd5e1; padding: 15px; border-radius: 8px; background: #f8fafc; margin-bottom: 20px; }
-                            table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-                            th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: right; font-size: 13px; }
-                            th { background: #f1f5f9; font-weight: bold; }
-                            .signatures { margin-top: 50px; display: flex; justify-content: space-between; }
-                            .sig-box { text-align: center; width: 45%; border-top: 1px solid #94a3b8; padding-top: 10px; }
-                          </style>
-                        </head>
-                        <body>
-                          <div class="header">
-                            <div class="title">شركة المنار كلينك الطبية</div>
-                            <div class="subtitle">نموذج وإقرار مباشرة عمل موظف رسمي (Job Commencement Form)</div>
-                          </div>
-
-                          <div class="box">
-                            <strong>بيانات الموظف والمباشرة:</strong>
-                            <table>
-                              <tr><th>اسم الموظف</th><td>${employee.nameAr || employee.name}</td><th>الرقم المدني</th><td>${employee.civilId || '-'}</td></tr>
-                              <tr><th>المسمى الوظيفي</th><td>${employee.jobTitle || '-'}</td><th>القسم / الإدارة</th><td>${employee.department || '-'}</td></tr>
-                              <tr><th>تاريخ المباشرة الفعلية</th><td>${employee.commencementDate || employee.hireDate || '-'}</td><th>المشرف المباشر</th><td>${employee.directSupervisor || employee.manager || '-'}</td></tr>
-                            </table>
-                          </div>
-
-                          <div class="box">
-                            <strong>إقرار استلام العهد والتجهيزات:</strong>
-                            <p style="font-size: 12px; margin-top: 8px;">يقر الموظف المذكور أعلاه بأنه استلم كافة العهد والتجهيزات المبينة أدناه بحالة جيدة وتعهد بالمحافظة عليها:</p>
-                            <ul>
-                              ${(employee.custodyItems || ['لاب توب محمول / جهاز كمبيوتر', 'بريد إلكتروني رسمي (@company.com)', 'بطاقة وبصمة بوابات المبنى']).map((c: string) => `<li>${c}</li>`).join('')}
-                            </ul>
-                          </div>
-
-                          <div class="signatures">
-                            <div class="sig-box">
-                              <strong>توقيع الموظف المباشر</strong><br/><br/><br/>
-                              <span>التاريخ: ${employee.commencementDate || employee.hireDate || ''}</span>
-                            </div>
-                            <div class="sig-box">
-                              <strong>اعتماد مدير الموارد البشرية</strong><br/><br/><br/>
-                              <span>شركة المنار كلينك الطبية</span>
-                            </div>
-                          </div>
-                          <script>window.print();</script>
-                        </body>
-                      </html>
-                    `);
-                    printWindow.document.close();
-                  }
-                }}
-                className="bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
-              >
-                <span>🖨️ طباعة إقرار المباشرة</span>
-              </button>
-            </div>
-
-            {/* 2-Columns Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-              <div className="py-1.5">
-                <label className="block text-xs font-semibold text-slate-500 mb-1">تاريخ المباشرة الفعلية</label>
-                {isEditMode ? (
-                  <input
-                    type="date"
-                    value={employee.commencementDate || employee.hireDate || ''}
-                    onChange={(e) => handleFieldChange('commencementDate', e.target.value)}
-                    className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-900 bg-white focus:outline-none text-sm"
-                  />
-                ) : (
-                  <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">
-                    {employee.commencementDate || employee.hireDate || '—'}
-                  </div>
-                )}
-              </div>
-
-              <div className="py-1.5">
-                <label className="block text-xs font-semibold text-slate-500 mb-1">المشرف المباشر</label>
-                {isEditMode ? (
-                  <input
-                    type="text"
-                    value={employee.directSupervisor || employee.manager || ''}
-                    onChange={(e) => handleFieldChange('directSupervisor', e.target.value)}
-                    className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-bold text-slate-900 bg-white focus:outline-none text-sm"
-                  />
-                ) : (
-                  <div className="font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">
-                    {employee.directSupervisor || employee.manager || 'مدير القسم'}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Custody Items */}
-            <div className="pt-4 border-t border-slate-200">
-              <label className="block text-xs font-semibold text-slate-500 mb-2">العهد والتجهيزات الرسمية المسلمة للموظف</label>
-              <div className="flex flex-wrap gap-2 pt-1">
-                {(employee.custodyItems || [
-                  'لاب توب محمول / جهاز كمبيوتر',
-                  'بريد إلكتروني رسمي (@company.com)',
-                  'بطاقة وبصمة بوابات المبنى'
-                ]).map((item: string, idx: number) => (
-                  <span key={idx} className="bg-slate-50 border border-slate-200 px-3 py-1 rounded-lg text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                    <span className="text-emerald-600">✓</span>
-                    <span>{item}</span>
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
+          <EmployeeCommencementTab
+            employee={employee}
+            isEditMode={isEditMode}
+            handleFieldChange={handleFieldChange}
+          />
         )}
         {activeTab === 'private' && (
           <EmployeePrivateTab
@@ -1086,115 +797,16 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
           />
         )}
         {activeTab === 'hr' && (
-          <div className="space-y-6 text-xs animate-fade-in">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {isMedicalStaff && (
-                <TabDocumentScanner 
-                  tabType="MEDICAL_LICENSE" 
-                  title="ترخيص مزاولة المهنة (MOH)" 
-                  onDataExtracted={(data) => handleOcrResult(data, 'medical_license')} 
-                />
-              )}
-              <TabDocumentScanner 
-                tabType="WORK_PERMIT" 
-                title="إذن العمل (PAM)" 
-                onDataExtracted={(data) => handleOcrResult(data, 'work_permit')} 
-              />
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-2">
-              
-              <EditableSelect
-                label="نوع العقد (Contract Type)"
-                value={employee.contractType || 'محدد المدة'}
-                onChange={(val) => handleFieldChange('contractType', val)}
-                isEditMode={isEditMode}
-                options={[{ value: "محدد المدة", label: "محدد المدة (Fixed-Term)" }, { value: "غير محدد المدة", label: "غير محدد المدة (Indefinite)" }, { value: "عقد تدريب / تأهيل", label: "عقد تدريب / تأهيل" }]}
-              />
-
-              <EditableSelect
-                label="حالة العقد في النظام (Status)"
-                value={employee.contractStatus || 'ساري'}
-                onChange={(val) => handleFieldChange('contractStatus', val)}
-                isEditMode={isEditMode}
-                options={[{ value: "ساري", label: "ساري (Running / Active)" }, { value: "قيد التجديد", label: "قيد التجديد (To Renew)" }, { value: "فترة تجربة", label: "فترة تجربة (Probation)" }, { value: "منتهي", label: "منتهي (Expired)" }]}
-              />
-
-              <EditableField
-                label="رقم البصمة البيومترية (ZKTeco PIN)"
-                value={employee.pin || employee.badgeId || employee.id || ''}
-                onChange={(val) => handleFieldChange('pin', val)}
-                isEditMode={isEditMode}
-                type="text"
-                placeholder="101"
-              />
-
-              <EditableSelect
-                label="الخضوع للتأمينات الاجتماعية (PIFSS)"
-                value={employee.pifssStatus || ((employee.nationality || '').includes('كويت') ? 'subscribed' : 'exempt')}
-                onChange={(val) => handleFieldChange('pifssStatus', val)}
-                isEditMode={isEditMode}
-                options={[{ value: "subscribed", label: "مشترك كويتي - خاضع للتأمينات (مكافأة = 0 د.ك)" }, { value: "exempt", label: "غير كويتي - خاضع لمكافأة نهاية الخدمة (المادة 51)" }]}
-              />
-
-              <div className="py-1.5">
-                <label className="block text-xs font-semibold text-emerald-800 mb-1">صافي رصيد الإجازات المتاح (Available Balance)</label>
-                <div className="font-mono font-black text-emerald-700 text-sm border-b border-emerald-300 pb-1">
-                  {calculatedBalance} يوم
-                </div>
-              </div>
-
-              <div className="py-1.5">
-                <label className="block text-xs font-semibold text-slate-500 mb-1">الرصيد المرحّل من 2025</label>
-                <div className="font-mono font-bold text-slate-800 text-sm border-b border-slate-200/70 pb-1">
-                  {(employee.carriedOverLeave2025 ?? employee.carriedOverBalance ?? employee.openingBalance ?? 0)} يوم
-                </div>
-              </div>
-
-              <div className="py-1.5">
-                <label className="block text-xs font-semibold text-slate-500 mb-1">تاريخ بداية العقد الحالي</label>
-                <div className="font-mono font-bold text-slate-800 text-sm border-b border-slate-200/70 pb-1">
-                  {employee.contractStartDate ? employee.contractStartDate.slice(0, 10) : '—'}
-                </div>
-              </div>
-
-              <div className="py-1.5">
-                <label className="block text-xs font-semibold text-slate-500 mb-1">تاريخ نهاية العقد الحالي</label>
-                <div className="font-mono font-bold text-slate-800 text-sm border-b border-slate-200/70 pb-1">
-                  {employee.contractEndDate ? employee.contractEndDate.slice(0, 10) : 'عقد غير محدد المدة'}
-                </div>
-              </div>
-
-              <div className="col-span-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex items-start gap-2.5 text-slate-700 text-xs font-medium leading-relaxed mt-2">
-                <span className="text-base text-[#714B67]">ℹ️</span>
-                <span>
-                  <strong>إدارة أرصدة الإجازات وتواريخ التعاقد:</strong> رصيد الموظف المرحّل يتم تتبعه واحتسابه ديناميكياً بناءً على طلبات الإجازات والتخصيصات (Allocations) المعتمدة في تطبيق <strong>"الإجازات والغياب"</strong>. كما أن تواريخ سريان ونهاية العقد تُستورد تلقائياً من تطبيق <strong>"العقود والرواتب"</strong> لضمان حوكمة البيانات.
-                </span>
-              </div>
-
-              <div className="md:col-span-3 bg-slate-50/50 p-3 rounded-xl border border-slate-200/80">
-                <label className="block text-slate-500 font-bold mb-1">الملاحظات والسجلات الإدارية</label>
-                {isEditMode ? (
-                  <textarea
-                    rows={3}
-                    value={employee.notes || ''}
-                    onChange={(e) => handleFieldChange('notes', e.target.value)}
-                    className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-900 bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                    placeholder="أي شروط خاصة أو ملاحظات إدارية ملحقة بملف الموظف..."
-                  />
-                ) : (
-                  <div className="font-bold text-slate-900 text-sm whitespace-pre-wrap">{employee.notes || 'لا توجد ملاحظات إدارية مسجلة.'}</div>
-                )}
-              </div>
-
-            </div>
-
-          </div>
+          <EmployeeHRTab
+            employee={employee}
+            isEditMode={isEditMode}
+            handleFieldChange={handleFieldChange}
+            handleOcrResult={handleOcrResult}
+            calculatedBalance={calculatedBalance}
+          />
         )}
-
       </div>
-
-          </div>
+    </div>
   );
 };
 

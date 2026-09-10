@@ -101,16 +101,12 @@ export const CompanySwitcher: React.FC<{ onOpenSaasPortal?: () => void }> = ({ o
                   {activeCompany?.nameAr || activeCompany?.name || 'المنشأة'}
                 </div>
                 <div className="text-[10px] text-slate-500 font-mono">
-                  سجل تجاري: {activeCompany?.crNumber || activeCompany?.commercialRegNo || '---'}
+                  رقم ملف الشركة: {activeCompany?.crNumber || activeCompany?.commercialRegNo || '---'}
                 </div>
               </div>
             </div>
 
             <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 text-[11px] text-slate-600 space-y-1">
-              <div className="flex justify-between">
-                <span>ملف التأمينات:</span>
-                <span className="font-mono font-bold text-slate-800">{activeCompany?.pifssNumber || '-'}</span>
-              </div>
               <div className="flex justify-between">
                 <span>العملة الافتراضية:</span>
                 <span className="font-bold text-slate-800">دينار كويتي (0.000 KWD)</span>
