@@ -72,6 +72,8 @@ export const OdooContractsApp: React.FC = () => {
   const [printableContract, setPrintableContract] = useState<DetailedContract | null>(null);
   const [isExportingContractPdf, setIsExportingContractPdf] = useState(false);
   const contractPrintRef = useRef<HTMLDivElement>(null);
+  const [contractsLoaded, setContractsLoaded] = useState(false);
+  const materializingContractIds = useRef(new Set<string>());
   
   // مزامنة الموظفين والعقود حياً من قاعدة البيانات للشركة النشطة
   useEffect(() => {
@@ -94,7 +96,13 @@ export const OdooContractsApp: React.FC = () => {
             isKuwaiti: Boolean(emp.isKuwaiti),
             bankName: emp.bankName || 'بيت التمويل الكويتي (KFH)',
             iban: emp.iban || '',
-            contractStatus: 'running'
+            contractStatus: normalizeContractStatus((emp as any).contractStatus || 'running'),
+            contractStartDate: (emp as any).contractStartDate || emp.joinDate,
+            contractEndDate: (emp as any).contractEndDate,
+            noticePeriodDays: Number((emp as any).noticePeriodDays || 90),
+            dailyWorkHours: Number((emp as any).dailyWorkHours || 8),
+            workingHoursPerWeek: Number((emp as any).workingHoursPerWeek || 48),
+            workingSchedule: (emp as any).workingSchedule || 'STANDARD'
           }));
           setDbEmployees(mapped);
         }
@@ -108,6 +116,7 @@ export const OdooContractsApp: React.FC = () => {
   }, [currentCompanyId]);
 
   useEffect(() => {
+    setContractsLoaded(false);
     const contractsQuery = query(collection(db, 'contracts'), where('companyId', '==', currentCompanyId));
     return onSnapshot(contractsQuery, snapshot => {
       const mappedContracts: DetailedContract[] = snapshot.docs.map(item => {
@@ -143,6 +152,7 @@ export const OdooContractsApp: React.FC = () => {
         };
       });
       setContracts(mappedContracts);
+      setContractsLoaded(true);
     }, error => console.error('Failed to load contracts from Firestore:', error));
   }, [currentCompanyId]);
 
@@ -157,6 +167,62 @@ export const OdooContractsApp: React.FC = () => {
   }, [dbEmployees, employees]);
 
   const [contracts, setContracts] = useState<DetailedContract[]>([]);
+
+  useEffect(() => {
+    if (!contractsLoaded || !currentCompanyId || dbEmployees.length === 0) return;
+
+    const materializeMissingContracts = async () => {
+      for (const employee of dbEmployees) {
+        const hasContract = contracts.some(contract => contract.id === employee.id);
+        if (hasContract || materializingContractIds.current.has(employee.id)) continue;
+
+        const sourceEmployee = employee as EmployeeContract & Record<string, any>;
+        const startDate = sourceEmployee.contractStartDate || sourceEmployee.joinDate || new Date().toISOString().split('T')[0];
+        const endDate = sourceEmployee.contractEndDate || undefined;
+        const contractId = `contract-${currentCompanyId}-${employee.id}`;
+        materializingContractIds.current.add(employee.id);
+
+        const contract = {
+          id: contractId,
+          employeeId: employee.id,
+          employeeName: employee.name,
+          companyId: currentCompanyId,
+          basicSalary: employee.basicSalary || 0,
+          housingAllowance: employee.housingAllowance || 0,
+          transportAllowance: employee.transportAllowance || 0,
+          otherAllowance: employee.medicalAllowance || 0,
+          contractType: endDate ? 'FIXED_TERM' : 'INDEFINITE',
+          startDate,
+          endDate,
+          noticePeriodDays: Number(sourceEmployee.noticePeriodDays || 90),
+          status: normalizeContractStatus(sourceEmployee.contractStatus || 'running'),
+          dailyWorkHours: Number(sourceEmployee.dailyHours || sourceEmployee.dailyWorkHours || 8),
+          workingHoursPerWeek: Number(sourceEmployee.workingHoursPerWeek || 48),
+          workingSchedule: sourceEmployee.workingSchedule || 'STANDARD',
+          createdAt: new Date().toISOString()
+        };
+
+        try {
+          const saved = await TenantDatabaseService.saveContract(contract as any, currentCompanyId);
+          if (saved) {
+            updateContractDetails({
+              id: employee.id,
+              contractStatus: normalizeContractStatus(contract.status),
+              contractStartDate: startDate,
+              contractEndDate: endDate,
+              contractRef: contractId
+            } as any);
+          }
+        } catch (error) {
+          console.error('Failed to materialize employee contract:', error);
+        } finally {
+          materializingContractIds.current.delete(employee.id);
+        }
+      }
+    };
+
+    void materializeMissingContracts();
+  }, [contractsLoaded, currentCompanyId, dbEmployees, contracts, updateContractDetails]);
 
   const handleDeleteContract = async (contractId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -477,7 +543,7 @@ export const OdooContractsApp: React.FC = () => {
                 'الراتب الشامل (د.ك)': Number(((c.basicSalary || 0) + (c.housingAllowance || 0) + (c.transportAllowance || 0) + (c.medicalAllowance || 0)).toFixed(3)),
                 'البنك': c.bankName,
                 'الآيبان': c.iban,
-                'حالة العقد': c.contractStatus === 'running' ? 'ساري' : c.contractStatus === 'draft' ? 'مسودة' : 'منتهي',
+                'حالة العقد': normalizeContractStatus(c.contractStatus) === 'running' ? 'ساري' : normalizeContractStatus(c.contractStatus) === 'draft' ? 'مسودة' : 'منتهي',
                 'تاريخ البداية': c.startDate,
                 'تاريخ الانتهاء': c.endDate || 'غير محدد'
               }));
