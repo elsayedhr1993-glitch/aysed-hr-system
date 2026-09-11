@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, ArrowRight, Lock, Mail, Globe, Sparkles, UserCog, AlertTriangle, Fingerprint, Zap, Shield } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { ShieldCheck, ArrowRight, Lock, Mail, Globe, Sparkles, AlertTriangle, Fingerprint, Zap, Shield, Eye, EyeOff } from 'lucide-react';
+import { sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { motion } from 'motion/react';
 
 export const OdooLoginPage: React.FC = () => {
-  const { login } = useAuth();
-  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [feedbackType, setFeedbackType] = useState<'error' | 'success'>('error');
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
   
   // Firewall State
   const [failedAttempts, setFailedAttempts] = useState(0);
@@ -38,6 +38,7 @@ export const OdooLoginPage: React.FC = () => {
     if (isLocked) return;
     
     setErrorMsg('');
+    setFeedbackType('error');
     setIsLoading(true);
 
     const cleanEmail = email.trim().toLowerCase();
@@ -50,110 +51,47 @@ export const OdooLoginPage: React.FC = () => {
     }
 
     try {
-      // 1. Strict Master / Super Admin Auth verification
-      const isKnownSuperEmail = (cleanEmail === 'elsayedhr1993@gmail.com' || cleanEmail === 'admin@aysed-hr.com' || cleanEmail === 'admin@aysed.com');
-      const validSuperPasswords = ['Admin2026!', 'Admin@2026', 'Aysed2026#Secure'];
-
-      if (isKnownSuperEmail && validSuperPasswords.includes(cleanPassword)) {
-        login('local-token-master-' + Date.now(), {
-          id: 'admin-master-01',
-          name: 'مدير النظام العام (Super Admin)',
-          email: cleanEmail,
-          role: 'SUPER_ADMIN'
-        });
-        setIsLoading(false);
-        return;
-      }
-
-      // 2. Try Firebase Authentication for Registered Tenant / Company Admins
-      try {
-        await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
-        setFailedAttempts(0);
-        return;
-      } catch (authError: any) {
-        console.warn("Firebase Auth signIn failed:", authError.code);
-        
-        // 3. Fallback: Check Firestore companies collection for explicit credentials match
-        const { getDocs, collection, query, where } = await import('firebase/firestore');
-        const { db } = await import('../lib/firebase');
-
-        const compQuery = query(collection(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies')), where('adminUsername', '==', cleanEmail));
-        let compSnap = await getDocs(compQuery).catch(() => null);
-        
-        if (!compSnap || compSnap.empty) {
-          const compQuery2 = query(collection(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies')), where('email', '==', cleanEmail));
-          compSnap = await getDocs(compQuery2).catch(() => null);
-        }
-
-        // Also check subscription_requests
-        let subReqSnap = null;
-        if (!compSnap || compSnap.empty) {
-          const subQuery = query(collection(db, 'subscription_requests'), where('email', '==', cleanEmail));
-          subReqSnap = await getDocs(subQuery).catch(() => null);
-        }
-
-        // Also check localStorage saved company credentials
-        const savedCreds = JSON.parse(localStorage.getItem('aysed_company_credentials') || '{}');
-        const localCred = savedCreds[cleanEmail];
-
-        let matchedCompany: { id: string; name: string; requiredPass: string } | null = null;
-
-        if (compSnap && !compSnap.empty) {
-          const docItem = compSnap.docs[0];
-          const data = docItem.data();
-          matchedCompany = {
-            id: docItem.id,
-            name: data.nameAr || data.name || data.ownerName || 'مسؤول الشركة',
-            requiredPass: data.adminPassword || data.password || 'Aysed2026#Secure'
-          };
-        } else if (subReqSnap && !subReqSnap.empty) {
-          const docItem = subReqSnap.docs[0];
-          const data = docItem.data();
-          if (data.status === 'approved' || data.state === 'approved') {
-            matchedCompany = {
-              id: docItem.id,
-              name: data.companyName || data.name || data.requesterName || 'مسؤول الشركة',
-              requiredPass: data.password || 'Aysed2026#Secure'
-            };
-          }
-        } else if (localCred) {
-          matchedCompany = {
-            id: `tenant_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`,
-            name: localCred.companyName || 'مسؤول الشركة',
-            requiredPass: localCred.password || 'Aysed2026#Secure'
-          };
-        }
-
-        if (matchedCompany) {
-          if (cleanPassword === matchedCompany.requiredPass || cleanPassword === 'Admin2026!' || cleanPassword === 'Aysed2026#Secure') {
-            login('local-token-tenant-' + Date.now(), {
-              id: 'tenant-user-' + Date.now(),
-              name: matchedCompany.name,
-              email: cleanEmail,
-              role: 'COMPANY_ADMIN',
-              companyId: matchedCompany.id
-            });
-            setFailedAttempts(0);
-            return;
-          }
-        }
-
-        // 4. If credentials don't match -> TRIGGER FIREWALL LOCK & REJECT
-        const newFailed = failedAttempts + 1;
-        setFailedAttempts(newFailed);
-        if (newFailed >= 4) {
-          setIsLocked(true);
-          setLockoutTime(60);
-          setErrorMsg('تم حظر المحاولات مؤقتاً لمدة 60 ثانية لحماية حسابات المنشآت بعد عدة محاولات خاطئة.');
-        } else {
-          setErrorMsg(`بيانات الدخول غير صحيحة. يرجى التحقق من البريد الإلكتروني وكلمة المرور المخصصة لشركتك (المحاولات المتبقية: ${4 - newFailed}).`);
-        }
-      }
+      await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
+      setFailedAttempts(0);
     } catch (error: any) {
       console.error("Login Error:", error);
-      setErrorMsg('فشل التحقق من الحساب. تأكد من صحة بيانات الدخول والاتصال.');
+      const newFailed = failedAttempts + 1;
+      setFailedAttempts(newFailed);
+      if (newFailed >= 4) {
+        setIsLocked(true);
+        setLockoutTime(60);
+        setErrorMsg('تم حظر المحاولات مؤقتاً لمدة 60 ثانية لحماية الحساب بعد عدة محاولات خاطئة.');
+      } else if (error?.code === 'auth/invalid-credential' || error?.code === 'auth/wrong-password' || error?.code === 'auth/user-not-found') {
+        setErrorMsg(`بيانات الدخول غير صحيحة. المحاولات المتبقية: ${4 - newFailed}.`);
+      } else if (error?.code === 'auth/too-many-requests') {
+        setErrorMsg('تم تقييد المحاولات مؤقتاً من مزود المصادقة. يرجى الانتظار ثم المحاولة مرة أخرى.');
+      } else {
+        setErrorMsg('تعذر الاتصال بخدمة المصادقة. يرجى المحاولة مرة أخرى.');
+      }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) {
+      setErrorMsg('أدخل البريد الإلكتروني أولاً لإرسال رابط استعادة كلمة المرور.');
+      return;
+    }
+
+    setIsResettingPassword(true);
+    setErrorMsg('');
+    try {
+      await sendPasswordResetEmail(auth, cleanEmail);
+      setErrorMsg('تم إرسال رابط استعادة كلمة المرور إلى بريدك الإلكتروني.');
+      setFeedbackType('success');
+    } catch (error: any) {
+      console.error('Password reset error:', error);
+      setErrorMsg('تعذر إرسال رابط الاستعادة. تحقق من البريد الإلكتروني وحاول مرة أخرى.');
+      setFeedbackType('error');
+    } finally {
+      setIsResettingPassword(false);
     }
   };
 
@@ -230,11 +168,6 @@ export const OdooLoginPage: React.FC = () => {
         className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 sm:p-12 xl:p-24 relative bg-white"
       >
         
-        <div className="absolute top-6 left-6 text-xs text-slate-400 flex items-center gap-1.5 cursor-pointer hover:text-slate-700 transition">
-          <Globe size={14} />
-          <span className="font-semibold">English (EN)</span>
-        </div>
-        
         <div className="w-full max-w-md space-y-7">
           
           {/* الترحيب */}
@@ -265,9 +198,11 @@ export const OdooLoginPage: React.FC = () => {
             <motion.div 
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold rounded-xl flex items-start gap-2.5 shadow-xs"
+              role={feedbackType === 'success' ? 'status' : 'alert'}
+              aria-live="polite"
+              className={`p-3.5 text-xs font-bold rounded-xl flex items-start gap-2.5 shadow-xs ${feedbackType === 'success' ? 'bg-emerald-50 border border-emerald-200 text-emerald-700' : 'bg-rose-50 border border-rose-200 text-rose-700'}`}
             >
-              <AlertTriangle size={18} className="shrink-0 mt-0.5 text-rose-600" />
+              {feedbackType === 'success' ? <ShieldCheck size={18} className="shrink-0 mt-0.5 text-emerald-600" /> : <AlertTriangle size={18} className="shrink-0 mt-0.5 text-rose-600" />}
               <span>{errorMsg}</span>
             </motion.div>
           )}
@@ -289,14 +224,16 @@ export const OdooLoginPage: React.FC = () => {
             <form onSubmit={handleLoginSubmit} className="space-y-4">
               
               <div className="space-y-1.5">
-                <label className="font-bold text-xs text-slate-700 block">البريد الإلكتروني أو اسم المستخدم</label>
+                  <label htmlFor="login-email" className="font-bold text-xs text-slate-700 block">البريد الإلكتروني أو اسم المستخدم</label>
                 <div className="relative group">
                   <input
-                    type="text"
+                    id="login-email"
+                    type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full p-3.5 pr-11 bg-slate-50 focus:bg-white border border-slate-300 rounded-xl focus:border-[#714B67] focus:ring-2 focus:ring-[#714B67]/20 outline-none text-slate-900 text-xs font-mono transition-all"
                     placeholder="admin@aysed-hr.com"
+                    autoComplete="email"
                     required
                     dir="ltr"
                   />
@@ -306,22 +243,27 @@ export const OdooLoginPage: React.FC = () => {
               
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
-                  <label className="font-bold text-xs text-slate-700 block">كلمة المرور</label>
-                  <a href="#" onClick={(e) => { e.preventDefault(); alert('يرجى التواصل مع الدعم الفني لاستعادة كلمة المرور'); }} className="text-[11px] font-bold text-[#714B67] hover:underline">
-                    نسيت كلمة المرور؟
-                  </a>
+                  <label htmlFor="login-password" className="font-bold text-xs text-slate-700 block">كلمة المرور</label>
+                  <button type="button" onClick={handlePasswordReset} disabled={isResettingPassword} className="text-[11px] font-bold text-[#714B67] hover:underline disabled:opacity-50">
+                    {isResettingPassword ? 'جاري الإرسال...' : 'نسيت كلمة المرور؟'}
+                  </button>
                 </div>
                 <div className="relative group">
                   <input
-                    type="password"
+                    id="login-password"
+                    type={isPasswordVisible ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full p-3.5 pr-11 bg-slate-50 focus:bg-white border border-slate-300 rounded-xl focus:border-[#714B67] focus:ring-2 focus:ring-[#714B67]/20 outline-none text-slate-900 text-xs font-mono transition-all"
                     placeholder="••••••••"
+                    autoComplete="current-password"
                     required
                     dir="ltr"
                   />
                   <Lock size={18} className="absolute right-3.5 top-3.5 text-slate-400 group-focus-within:text-[#714B67] transition-colors" />
+                  <button type="button" onClick={() => setIsPasswordVisible(prev => !prev)} className="absolute left-3.5 top-3.5 text-slate-400 hover:text-[#714B67]" aria-label={isPasswordVisible ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}>
+                    {isPasswordVisible ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
                 </div>
               </div>
               
@@ -349,9 +291,9 @@ export const OdooLoginPage: React.FC = () => {
               النظام محمي بتشفير 256-bit AES وتدقيق الأمان المتقدم
             </span>
             <div className="text-[10px] text-slate-400 flex items-center justify-center gap-4">
-              <a href="#" className="hover:text-slate-600">شروط الاستخدام المؤسسي</a>
+              <span>شروط الاستخدام المؤسسي</span>
               <span>•</span>
-              <a href="#" className="hover:text-slate-600">سياسة الخصوصية وحماية البيانات</a>
+              <span>سياسة الخصوصية وحماية البيانات</span>
             </div>
           </div>
           
