@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { parseKuwaitCivilCardOCR, validateKuwaitCivilId } from '../services/ocrService';
+import { parseKuwaitCivilCardOCR } from '../services/ocrService';
+import { validateKuwaitCivilId } from '../utils/kuwaitLaw';
 import OdooPamContractModal from './OdooPamContractModal';
 import { TabDocumentScanner } from './TabDocumentScanner';
 
@@ -523,16 +524,16 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave, existin
                       placeholder="الرقم المدني"
                       maxLength={12}
                       className={`w-full bg-white border rounded-lg p-2 focus:ring-2 focus:outline-none font-mono font-bold text-slate-800 ${
-                        civilId.length > 0 && !validateKuwaitCivilId(civilId)
+                        civilId.length > 0 && !validateKuwaitCivilId(civilId).isValid
                           ? 'border-rose-400 focus:ring-rose-500'
                           : 'border-slate-300 focus:ring-purple-600'
                       }`}
                       required
                     />
-                    {civilId.length > 0 && !validateKuwaitCivilId(civilId) && (
+                    {civilId.length > 0 && !validateKuwaitCivilId(civilId).isValid && (
                       <span className="absolute left-2 top-2.5 text-[10px] text-rose-500 font-bold">غير صالح (Invalid)</span>
                     )}
-                    {civilId.length === 12 && validateKuwaitCivilId(civilId) && (
+                    {civilId.length === 12 && validateKuwaitCivilId(civilId).isValid && (
                       <span className="absolute left-2 top-2.5 text-[10px] text-emerald-600 font-bold">صالح ✓</span>
                     )}
                   </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { parseKuwaitCivilId } from './utils/kuwaitLaw';
+import { parseKuwaitCivilId, validateKuwaitCivilId } from './utils/kuwaitLaw';
 import { TenantProvider, useTenant } from './context/TenantContext';
 import { useCompany } from './context/CompanyContext';
 import { OdooHierarchyProvider, useOdooHierarchy } from './context/OdooHierarchyContext';
@@ -395,6 +395,10 @@ function MainAppLayout() {
     const newEmpId = `emp-${Date.now()}`;
     let birthDateVal = empData.birthDate || empData.dob || '';
     let genderVal = empData.gender || 'MALE';
+
+    if (civilIdClean.length === 12 && !validateKuwaitCivilId(civilIdClean).isValid) {
+      toast(`تنبيه: الرقم المدني (${civilIdClean}) لم يجتز خوارزمية التحقق الرسمية (MOD 11)، يرجى مراجعة صحته يدوياً.`, { icon: '⚠️' });
+    }
 
     if (civilIdClean.length === 12) {
       const parsedCivil = parseKuwaitCivilId(civilIdClean);
