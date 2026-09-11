@@ -57,7 +57,7 @@ export const AbsenceTimelineView: React.FC<AbsenceTimelineViewProps> = ({
     const windowEnd = timelineDates[timelineDates.length - 1]?.dateStr || '';
 
     return requests.filter(r => {
-      if (r.status === 'rejected' || r.status === 'returned') return false;
+      if (r.status === 'REJECTED' || r.status === 'RETURNED') return false;
       if (selectedDept !== 'ALL' && r.department !== selectedDept) return false;
       // overlap condition with timeline window:
       return r.startDate <= windowEnd && r.endDate >= windowStart;
@@ -67,7 +67,7 @@ export const AbsenceTimelineView: React.FC<AbsenceTimelineViewProps> = ({
   // Metrics
   const todayStr = new Date().toISOString().split('T')[0];
   const currentlyOnLeaveCount = requests.filter(r => 
-    r.status === 'approved' && r.startDate <= todayStr && r.endDate >= todayStr
+    r.status === 'APPROVED' && r.startDate <= todayStr && r.endDate >= todayStr
   ).length;
 
   const presenceRate = totalEmployeesCount > 0

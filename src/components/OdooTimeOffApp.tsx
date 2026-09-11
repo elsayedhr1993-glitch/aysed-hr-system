@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
 import { useOdooHierarchy } from '../context/OdooHierarchyContext';
+import { useAuth } from '../context/AuthContext';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { exportToExcel } from '../utils/exportUtils';
 import { toast } from 'react-hot-toast';
@@ -68,7 +69,7 @@ export interface LeaveRequest {
   daysCount: number;
   totalDays?: number;
   reason: string;
-  status: 'draft' | 'pending' | 'pending_manager' | 'pending_hr' | 'approved' | 'rejected' | 'returned';
+  status: 'DRAFT' | 'SUBMITTED' | 'PENDING_MANAGER' | 'PENDING_HR' | 'APPROVED' | 'REJECTED' | 'RETURNED';
   appliedDate: string;
   replacementEmployee?: string;
   basicSalary: number;
@@ -111,6 +112,8 @@ const leaveTypeLabels: Record<string, { label: string; color: string; maxDaysRul
 export const OdooTimeOffApp: React.FC = () => {
   const { activeCompany } = useCompany();
   const { employees, leaveAccruals, updateLeaveAccrual, processMonthlyAccruals } = useOdooHierarchy();
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const companyId = activeCompany?.id || 'comp-super-admin';
 
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
@@ -573,10 +576,11 @@ export const OdooTimeOffApp: React.FC = () => {
 
   // Filter requests
   const filteredRequests = requests.filter(req => {
-    const isPending = req.status === 'pending' || req.status === 'pending_manager' || req.status === 'pending_hr';
+    const reqStatus = normalizeLeaveStatus(req.status);
+    const isPending = reqStatus === 'PENDING_MANAGER' || reqStatus === 'PENDING_HR' || reqStatus === 'SUBMITTED';
     const matchesFilter = 
       selectedFilter === 'all' || 
-      req.status === selectedFilter ||
+      reqStatus === normalizeLeaveStatus(selectedFilter) ||
       (selectedFilter === 'pending' && isPending);
 
     const matchesSearch = 
@@ -597,9 +601,12 @@ export const OdooTimeOffApp: React.FC = () => {
     .reduce((acc, a) => acc + a.days, 0);
 
   // Stats calculation
-  const pendingRequestsCount = requests.filter(r => r.status === 'pending' || r.status === 'pending_manager' || r.status === 'pending_hr').length;
+  const pendingRequestsCount = requests.filter(r => {
+    const status = normalizeLeaveStatus(r.status);
+    return status === 'PENDING_MANAGER' || status === 'PENDING_HR' || status === 'SUBMITTED';
+  }).length;
   const todayStr = new Date().toISOString().split('T')[0];
-  const activeLeavesTodayCount = requests.filter(r => r.status === 'approved' && r.startDate <= todayStr && r.endDate >= todayStr).length;
+  const activeLeavesTodayCount = requests.filter(r => normalizeLeaveStatus(r.status) === 'APPROVED' && r.startDate <= todayStr && r.endDate >= todayStr).length;
 
   return (
     <div className="space-y-6 font-sans dir-rtl text-right text-slate-800" dir="rtl">
@@ -638,7 +645,7 @@ export const OdooTimeOffApp: React.FC = () => {
                 'من تاريخ': r.startDate,
                 'إلى تاريخ': r.endDate,
                 'عدد الأيام': r.daysCount,
-                'الحالة': r.status === 'approved' ? 'معتمدة' : r.status === 'returned' ? 'تمت مباشرة العمل' : r.status.includes('pending') ? 'قيد المراجعة' : 'مرفوضة',
+                'الحالة': normalizeLeaveStatus(r.status) === 'APPROVED' ? 'معتمدة' : normalizeLeaveStatus(r.status) === 'RETURNED' ? 'تمت مباشرة العمل' : (normalizeLeaveStatus(r.status) === 'PENDING_MANAGER' || normalizeLeaveStatus(r.status) === 'PENDING_HR') ? 'قيد المراجعة' : 'مرفوضة',
                 'الموظف البديل': r.replacementEmployee || 'غير محدد',
                 'السبب': r.reason
               }));
@@ -661,12 +668,12 @@ export const OdooTimeOffApp: React.FC = () => {
             <span>طباعة السجل</span>
           </button>
 
-          {requests.length > 0 && (
+          {requests.length > 0 && isSuperAdmin && (
             <button
               type="button"
               onClick={handleClearAllSampleData}
               className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
-              title="حذف جميع الطلبات الحالية"
+              title="حذف جميع الطلبات الحالية (Super Admin فقط)"
             >
               <Trash2 size={14} className="text-rose-600" />
               <span>حذف كل الطلبات</span>
@@ -683,14 +690,16 @@ export const OdooTimeOffApp: React.FC = () => {
             <span>لائحة وقواعد الإجازات</span>
           </button>
 
-          <button
-            type="button"
-            onClick={handleRunMonthlyAccrual}
-            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-3.5 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
-            title={`تشغيل إضافة الاستحقاق الشهري التلقائي (+${leavePolicy.monthlyAccrualRate} يوم لجميع الموظفين النشطين يوم 30)`}
-          >
-            <RefreshCw size={14} className="text-emerald-600" /> استحقاق الشهر (+{leavePolicy.monthlyAccrualRate} يوم)
-          </button>
+          {isSuperAdmin && (
+            <button
+              type="button"
+              onClick={handleRunMonthlyAccrual}
+              className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-3.5 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+              title={`تشغيل إضافة الاستحقاق الشهري التلقائي (Super Admin فقط) (+${leavePolicy.monthlyAccrualRate} يوم لجميع الموظفين النشطين يوم 30)`}
+            >
+              <RefreshCw size={14} className="text-emerald-600" /> استحقاق الشهر (+{leavePolicy.monthlyAccrualRate} يوم)
+            </button>
+          )}
 
           <button
             type="button"
@@ -873,8 +882,9 @@ export const OdooTimeOffApp: React.FC = () => {
                 <tbody className="divide-y divide-slate-100">
                   {filteredRequests.map((req) => {
                     const leaveConfig = leaveTypeLabels[req.leaveType] || leaveTypeLabels.annual;
-                    const isPendingManager = req.status === 'pending_manager' || req.status === 'pending';
-                    const isPendingHr = req.status === 'pending_hr';
+                    const reqStatus = normalizeLeaveStatus(req.status);
+                    const isPendingManager = reqStatus === 'PENDING_MANAGER' || reqStatus === 'SUBMITTED';
+                    const isPendingHr = reqStatus === 'PENDING_HR';
 
                     return (
                       <tr key={req.id} className="hover:bg-slate-50/70 transition">
@@ -939,21 +949,21 @@ export const OdooTimeOffApp: React.FC = () => {
                             </div>
                           )}
 
-                          {req.status === 'approved' && (
+                          {reqStatus === 'APPROVED' && (
                             <div className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full text-[10px] font-bold border border-emerald-300">
                               <CheckCircle2 size={12} />
                               <span>معتمدة نهائياً</span>
                             </div>
                           )}
 
-                          {req.status === 'returned' && (
+                          {reqStatus === 'RETURNED' && (
                             <div className="inline-flex items-center gap-1 bg-cyan-100 text-cyan-900 px-2.5 py-1 rounded-full text-[10px] font-bold border border-cyan-300">
                               <CheckCheck size={12} />
                               <span>تمت المباشرة ({req.returnedToWorkDate || 'الموعد'})</span>
                             </div>
                           )}
 
-                          {req.status === 'rejected' && (
+                          {reqStatus === 'REJECTED' && (
                             <div className="inline-flex items-center gap-1 bg-rose-100 text-rose-800 px-2.5 py-1 rounded-full text-[10px] font-bold border border-rose-300" title={req.rejectionReason || 'مرفوضة إدارياً'}>
                               <XCircle size={12} />
                               <span>مرفوضة</span>
@@ -1010,7 +1020,7 @@ export const OdooTimeOffApp: React.FC = () => {
                             )}
 
                             {/* Approved State Actions */}
-                            {req.status === 'approved' && (
+                            {reqStatus === 'APPROVED' && (
                               <>
                                 <button
                                   type="button"
@@ -1049,7 +1059,7 @@ export const OdooTimeOffApp: React.FC = () => {
                             )}
 
                             {/* Returned State */}
-                            {req.status === 'returned' && (
+                            {reqStatus === 'RETURNED' && (
                               <button
                                 type="button"
                                 onClick={() => setSelectedPrintReq(req)}
@@ -1061,7 +1071,7 @@ export const OdooTimeOffApp: React.FC = () => {
                             )}
 
                             {/* Rejected State */}
-                            {req.status === 'rejected' && req.rejectionReason && (
+                            {reqStatus === 'REJECTED' && req.rejectionReason && (
                               <span className="text-[10px] text-rose-600 italic truncate max-w-[150px]" title={req.rejectionReason}>
                                 السبب: {req.rejectionReason}
                               </span>
@@ -1238,7 +1248,7 @@ export const OdooTimeOffApp: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {requests.filter(r => r.status === 'approved' && r.leaveType === 'annual').map((req) => {
+                    {requests.filter(r => normalizeLeaveStatus(r.status) === 'APPROVED' && r.leaveType === 'annual').map((req) => {
                       const advanceSalary = (req.daysCount / 30) * req.totalSalary;
                       const ticketAllowance = 120.000;
                       const totalPayable = advanceSalary + ticketAllowance;
@@ -1275,7 +1285,7 @@ export const OdooTimeOffApp: React.FC = () => {
                         </tr>
                       );
                     })}
-                    {requests.filter(r => r.status === 'approved' && r.leaveType === 'annual').length === 0 && (
+                    {requests.filter(r => normalizeLeaveStatus(r.status) === 'APPROVED' && r.leaveType === 'annual').length === 0 && (
                       <tr>
                         <td colSpan={8} className="p-8 text-center text-slate-400 font-bold">
                           لا توجد إجازات سنوية معتمدة جاهزة للصرف المسبق حالياً.
