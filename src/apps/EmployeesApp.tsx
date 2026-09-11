@@ -210,6 +210,7 @@ export const calculateEmployeeTotalSalary = (emp: any): number => {
 export function EmployeesApp(props?: any) {
   const { activeCompany, activeCompanyId } = useCompany();
   const currentCompanyId = activeCompanyId || activeCompany?.id || 'comp-super-admin';
+  const isSuperAdmin = props?.isSuperAdmin === true;
 
   const [activeTab, setActiveTab] = useState<'directory' | 'contracts' | 'commencement' | 'onboarding'>('directory');
   const [showFullCommencementApp, setShowFullCommencementApp] = useState(false);
@@ -1081,6 +1082,10 @@ export function EmployeesApp(props?: any) {
 
   // توليد موظفين تجريبيين
   const generateMockEmployees = () => {
+    if (!isSuperAdmin) {
+      toast.error('هذه الأداة متاحة للسوبر أدمن فقط');
+      return;
+    }
     const mockEmployees = [
       {
         id: `EMP-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -1337,17 +1342,19 @@ export function EmployeesApp(props?: any) {
 
                   <div className="border-t border-slate-100 my-1"></div>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowActionsDropdown(false);
-                      generateMockEmployees();
-                    }}
-                    className="w-full text-right px-3 py-2 hover:bg-slate-50 rounded-lg text-xs font-medium text-slate-700 flex items-center gap-2 cursor-pointer"
-                  >
-                    <span>⚡</span>
-                    <span>توليد موظفين تجريبيين</span>
-                  </button>
+                  {isSuperAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowActionsDropdown(false);
+                        generateMockEmployees();
+                      }}
+                      className="w-full text-right px-3 py-2 hover:bg-slate-50 rounded-lg text-xs font-medium text-slate-700 flex items-center gap-2 cursor-pointer"
+                    >
+                      <span>⚡</span>
+                      <span>توليد موظفين تجريبيين</span>
+                    </button>
+                  )}
 
                   <button
                     type="button"

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
+import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
+import { cleanFirestoreData, db } from '../lib/firebase';
 import { 
   Calendar, Gift, Plus, CheckCircle2, 
   Clock, Download, Trash2, Search, UserCheck, RefreshCw, X 
@@ -45,12 +47,22 @@ export const PublicHolidaysApp: React.FC<any> = (props) => {
       }
     } catch (e) {}
 
-    // جلب كشف سجلات بدل العطل السابقة
-    const saved = localStorage.getItem('holiday_compensations_db');
-    if (saved) {
-      try { setAllocations(JSON.parse(saved)); } catch (e) {}
+    const companyId = props.activeCompany?.id;
+    if (!companyId) {
+      setAllocations([]);
+      return;
     }
-  }, [props.employees]);
+
+    const allocationsQuery = query(
+      collection(db, 'leave_allocations'),
+      where('companyId', '==', companyId)
+    );
+    return onSnapshot(allocationsQuery, snapshot => {
+      setAllocations(snapshot.docs
+        .map(item => ({ ...item.data(), id: item.id }))
+        .filter((allocation: any) => allocation.holidayName || allocation.compensationType));
+    }, error => console.error('Failed to load holiday compensations:', error));
+  }, [props.employees, props.activeCompany?.id]);
 
   const handleHolidaySelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedName = e.target.value;
@@ -63,7 +75,7 @@ export const PublicHolidaysApp: React.FC<any> = (props) => {
     }));
   };
 
-  const handleSaveAllocation = (e: React.FormEvent) => {
+  const handleSaveAllocation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.employeeId) {
       alert('يرجى اختيار الموظف المعني أولاً.');
@@ -89,14 +101,11 @@ export const PublicHolidaysApp: React.FC<any> = (props) => {
       createdAt: new Date().toISOString().split('T')[0]
     };
 
-    const updated = [newRecord, ...allocations];
-    setAllocations(updated);
-    localStorage.setItem('holiday_compensations_db', JSON.stringify(updated));
-
-    // مزامنة مباشرة مع رصيد إجازات الموظف في النظام الشامل
+    // مزامنة مباشرة مع رصيد إجازات الموظف في Firestore
     try {
       const allocId = `alloc-pub-hol-${Date.now()}`;
       const newLeaveAlloc = {
+        ...newRecord,
         id: allocId,
         name: isCompOff
           ? `إجازة تعويضية / راحة بديلة (Comp-Off) عن عمل في (${formData.holidayName})`
@@ -116,14 +125,7 @@ export const PublicHolidaysApp: React.FC<any> = (props) => {
         createdAt: new Date().toISOString()
       };
 
-      const existingAllocsRaw = localStorage.getItem('manara_leave_allocations_data');
-      const existingAllocs = existingAllocsRaw ? JSON.parse(existingAllocsRaw) : [];
-      const updatedAllocs = [newLeaveAlloc, ...existingAllocs.filter((a: any) => a.id !== allocId)];
-      localStorage.setItem('manara_leave_allocations_data', JSON.stringify(updatedAllocs));
-      localStorage.setItem('manara_leave_allocations', JSON.stringify(updatedAllocs));
-      
-      window.dispatchEvent(new Event('manara_allocations_updated'));
-      window.dispatchEvent(new Event('storage'));
+      await setDoc(doc(db, 'leave_allocations', allocId), cleanFirestoreData(newLeaveAlloc), { merge: true });
     } catch (err) {
       console.warn('Sync leave allocations error:', err);
     }
@@ -147,11 +149,11 @@ export const PublicHolidaysApp: React.FC<any> = (props) => {
     );
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm('هل أنت متأكد من حذف هذا السجل؟')) {
       const updated = allocations.filter(a => a.id !== id);
       setAllocations(updated);
-      localStorage.setItem('holiday_compensations_db', JSON.stringify(updated));
+      await deleteDoc(doc(db, 'leave_allocations', id));
     }
   };
 

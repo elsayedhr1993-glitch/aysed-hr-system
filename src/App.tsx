@@ -108,7 +108,7 @@ function MainAppLayout() {
 
   const { isImpersonating, startImpersonation, exitImpersonation: exitCompanyImpersonation } = useCompany();
 
-  const { employees, addEmployee, updateEmployee } = useOdooHierarchy();
+  const { employees, attendance, computedPayslips, addEmployee, updateEmployee } = useOdooHierarchy();
 
   const { logout, user, isLoading, updateAvatar } = useAuth();
 
@@ -167,25 +167,36 @@ function MainAppLayout() {
   });
 
   // إدارة المرشحين وبيانات التوظيف الذكية (Recruitment & ATS)
-  const defaultCandidates: Candidate[] = [];
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
 
-  const [candidates, setCandidates] = useState<Candidate[]>(() => {
-    return getPersistentData<Candidate[]>(MANARA_STORAGE_KEYS.CANDIDATES, defaultCandidates);
-  });
+  useEffect(() => {
+    const companyId = activeCompany?.id;
+    if (!companyId) {
+      setCandidates([]);
+      return;
+    }
 
-  const handleSaveCandidate = (cand: Candidate) => {
+    const candidatesQuery = query(collection(db, 'candidates'), where('companyId', '==', companyId));
+    return onSnapshot(candidatesQuery, snapshot => {
+      setCandidates(snapshot.docs.map(item => ({ ...item.data(), id: item.id } as Candidate)));
+    }, error => console.error('Failed to load candidates from Firestore:', error));
+  }, [activeCompany?.id]);
+
+  const handleSaveCandidate = async (cand: Candidate) => {
+    const companyId = cand.companyId || activeCompany?.id || 'comp-super-admin';
+    const candidate = { ...cand, companyId, updatedAt: new Date().toISOString() };
     setCandidates(prev => {
-      const existingIndex = prev.findIndex(c => c.id === cand.id);
+      const existingIndex = prev.findIndex(c => c.id === candidate.id);
       let updated: Candidate[];
       if (existingIndex >= 0) {
         updated = [...prev];
-        updated[existingIndex] = cand;
+        updated[existingIndex] = candidate;
       } else {
-        updated = [cand, ...prev];
+        updated = [candidate, ...prev];
       }
-      setPersistentData(MANARA_STORAGE_KEYS.CANDIDATES, updated);
       return updated;
     });
+    await setDoc(doc(db, 'candidates', candidate.id), cleanFirestoreData(candidate), { merge: true });
     toast.success('تم حفظ وتحديث بيانات المرشح بنجاح');
   };
 
@@ -774,9 +785,12 @@ function MainAppLayout() {
                 shiftsCount: shifts?.length || 0,
                 totalSalariesThisMonth: employees?.reduce((acc: number, e: any) => acc + (Number(e.basicSalary || e.salary || 0) + Number(e.housingAllowance || 0) + Number(e.transportAllowance || 0) + Number(e.natureOfWorkAllowance || 0)), 0) || 0,
                 onLeaveToday: leaveStats.onLeaveToday,
-                absenceRate: 0,
-                lateArrivalsCount: 0,
-                saturdayAbsencesCount: 0
+                absenceRate: employees?.length
+                  ? Number(((Object.values(attendance || {}).filter((record: any) => Number(record.unpaidAbsenceDays || 0) > 0).length / employees.length) * 100).toFixed(1))
+                  : 0,
+                lateArrivalsCount: Object.values(attendance || {}).filter((record: any) => Number(record.delayMinutes || 0) > 0).length,
+                saturdayAbsencesCount: Object.values(attendance || {}).filter((record: any) => Number(record.unpaidAbsenceDays || 0) > 0 && record.date && new Date(record.date).getDay() === 6).length,
+                leaveCostKwd: computedPayslips?.reduce((total: number, payslip: any) => total + Number(payslip.attendanceDeduction || 0) + Number(payslip.loanDeduction || 0), 0) || 0
               }}
             />
           </div>
@@ -786,7 +800,7 @@ function MainAppLayout() {
         {activeApp === 'employees' && (
           <main className="flex-1 overflow-y-auto w-full">
             <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
-              <EmployeesApp {...employeeAppProps} />
+              <EmployeesApp {...employeeAppProps} isSuperAdmin={isSuperAdmin} />
             </div>
           </main>
         )}

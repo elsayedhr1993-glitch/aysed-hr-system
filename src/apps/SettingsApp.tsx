@@ -726,6 +726,10 @@ class ResConfigSettings(models.TransientModel):
   };
 
   const handleSeedOdooData = async () => {
+    if (!isSuperAdmin) {
+      toast.error('هذه الأداة متاحة للسوبر أدمن فقط');
+      return;
+    }
     const loadingToast = toast.loading('جاري تهيئة الأقسام والمسميات الوظيفية (Odoo XML)...');
     try {
       const medicalSectorRef = doc(db, 'departments', 'dep_medical_sector');
@@ -768,6 +772,10 @@ class ResConfigSettings(models.TransientModel):
   };
 
   const handleSeedFullEcosystem = async () => {
+    if (!isSuperAdmin) {
+      toast.error('هذه الأداة متاحة للسوبر أدمن فقط');
+      return;
+    }
     if (isSeeding || isPurging) return;
     setIsSeeding(true);
     const loadToast = toast.loading('جاري توليد دورة تجريبية شاملة وتغذية المنظومة (11 تطبيقاً)...');
@@ -793,6 +801,10 @@ class ResConfigSettings(models.TransientModel):
   };
 
   const handlePurgeFullEcosystem = async () => {
+    if (!isSuperAdmin) {
+      toast.error('هذه الأداة متاحة للسوبر أدمن فقط');
+      return;
+    }
     if (isSeeding || isPurging) return;
     
     const confirmPurge = window.confirm('هل أنت متأكد من رغبتك في تصفير وحذف كافة البيانات التجريبية وحركات البصمة والرواتب من النظام؟ لن يمكن التراجع عن هذه الخطوة.');

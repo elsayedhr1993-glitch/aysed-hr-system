@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AuditLog, Company, Employee, Contract, LeaveRequest, AttendanceRecord, Payslip, GeneratedDocument, DocumentItem, DocumentTemplate } from '../types';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 import { ShieldCheck, Search, Filter, History, Trash2, Edit3, Plus, ArrowLeft, ArrowRight, FileText, UserCheck, Activity } from 'lucide-react';
 
 interface AuditLogsAppProps {
@@ -50,6 +52,19 @@ export const AuditLogsApp: React.FC<AuditLogsAppProps> = ({
     }
     return DEFAULT_ENTERPRISE_AUDIT_LOGS;
   });
+
+  useEffect(() => {
+    const companyId = activeCompany?.id;
+    if (!companyId || propAuditLogs?.length) return;
+
+    const logsQuery = query(
+      collection(db, 'audit_logs'),
+      where('companyId', '==', companyId)
+    );
+    return onSnapshot(logsQuery, snapshot => {
+      setInternalLogs(snapshot.docs.map(item => ({ ...item.data(), id: item.id } as AuditLog)));
+    }, error => console.error('Failed to load audit logs from Firestore:', error));
+  }, [activeCompany?.id, propAuditLogs]);
 
   const allLogs = (propAuditLogs && propAuditLogs.length > 0) ? propAuditLogs : internalLogs;
 

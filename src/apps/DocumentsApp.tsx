@@ -2,12 +2,13 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { DocumentItem, Employee, Company } from '../types';
 import { CompanyDocument } from '../types/companyDocuments';
 import { CompanyDocumentsKanban } from '../components/CompanyDocumentsKanban';
-import { getPersistentData, setPersistentData, MANARA_STORAGE_KEYS } from '../utils/persistentStorage';
 import { processAnyDocument } from '../utils/ocrService';
 import { exportToExcel } from '../utils/exportUtils';
 import { DocumentPreviewModal } from '../components/documents/DocumentPreviewModal';
 import { DirectDocumentUploadModal } from '../components/documents/DirectDocumentUploadModal';
 import { DocumentCompliancePrintModal } from '../components/documents/DocumentCompliancePrintModal';
+import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
+import { cleanFirestoreData, db } from '../lib/firebase';
 import toast from 'react-hot-toast';
 import { 
   FolderOpen, FileText, Upload, Trash2, Search, X, CheckCircle2, 
@@ -66,22 +67,37 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
   const [scanResult, setScanResult] = useState<any>(null);
 
   // Company Licenses Storage
-  const [companyDocuments, setCompanyDocuments] = useState<CompanyDocument[]>(() => 
-    getPersistentData<CompanyDocument[]>(MANARA_STORAGE_KEYS.COMPANY_DOCUMENTS, [])
-  );
+  const [companyDocuments, setCompanyDocuments] = useState<CompanyDocument[]>([]);
 
-  const handleSaveCompanyDoc = (doc: CompanyDocument) => {
-    const updated = companyDocuments.some(d => d.id === doc.id)
-      ? companyDocuments.map(d => d.id === doc.id ? doc : d)
-      : [doc, ...companyDocuments];
+  useEffect(() => {
+    const companyId = activeCompany?.id;
+    if (!companyId) {
+      setCompanyDocuments([]);
+      return;
+    }
+
+    const documentsQuery = query(
+      collection(db, 'company_documents'),
+      where('companyId', '==', companyId)
+    );
+    return onSnapshot(documentsQuery, snapshot => {
+      setCompanyDocuments(snapshot.docs.map(item => ({ ...item.data(), id: item.id } as CompanyDocument)));
+    }, error => console.error('Failed to load company documents:', error));
+  }, [activeCompany?.id]);
+
+  const handleSaveCompanyDoc = async (document: CompanyDocument) => {
+    const companyDocument = { ...document, companyId: activeCompany?.id || 'comp-super-admin' };
+    const updated = companyDocuments.some(d => d.id === document.id)
+      ? companyDocuments.map(d => d.id === document.id ? companyDocument : d)
+      : [companyDocument, ...companyDocuments];
     setCompanyDocuments(updated);
-    setPersistentData(MANARA_STORAGE_KEYS.COMPANY_DOCUMENTS, updated);
+    await setDoc(doc(db, 'company_documents', document.id), cleanFirestoreData(companyDocument), { merge: true });
   };
 
-  const handleDeleteCompanyDoc = (docId: string) => {
+  const handleDeleteCompanyDoc = async (docId: string) => {
     const updated = companyDocuments.filter(d => d.id !== docId);
     setCompanyDocuments(updated);
-    setPersistentData(MANARA_STORAGE_KEYS.COMPANY_DOCUMENTS, updated);
+    await deleteDoc(doc(db, 'company_documents', docId));
   };
 
   // Departments list

@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import { ActiveApp, Company } from '../types';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from 'recharts';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 interface OdooAppLauncherProps {
   onSelectApp: (app: ActiveApp) => void;
@@ -50,26 +52,28 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
 
   const [realEmployees, setRealEmployees] = useState<any[]>([]);
 
-  // استخراج طلبات الإجازات الحقيقية
-  const [realLeaves, setRealLeaves] = useState<any[]>(() => {
-    try {
-      const raw = localStorage.getItem('odoo_leave_requests_v2');
-      if (raw) return JSON.parse(raw);
-    } catch (e) {}
-    return [];
-  });
+  // استخراج طلبات الإجازات الحقيقية من المصدر المركزي
+  const [realLeaves, setRealLeaves] = useState<any[]>([]);
 
-  // تحديث البيانات دورياً
   useEffect(() => {
-    try {
-      const rawLev = localStorage.getItem('odoo_leave_requests_v2');
-      if (rawLev) setRealLeaves(JSON.parse(rawLev));
-    } catch (e) {}
+    setRealLeaves([]);
+    const leavesQuery = query(
+      collection(db, 'leave_requests'),
+      where('companyId', '==', currentCompanyId)
+    );
+    return onSnapshot(leavesQuery, snapshot => {
+      setRealLeaves(snapshot.docs.map(item => ({ ...item.data(), id: item.id })));
+    }, error => {
+      console.error('Failed to load launcher leave requests:', error);
+    });
   }, [currentCompanyId]);
 
   // حساب طلبات الإجازات بانتظار الاعتماد الحقيقية
   const pendingLeavesCount = useMemo(() => {
-    return realLeaves.filter(req => req.status === 'pending' || req.status === 'WAITING' || req.status === 'DRAFT' || req.status === 'قيد الانتظار').length;
+    return realLeaves.filter(req => {
+      const status = String(req.status || '').toUpperCase();
+      return ['PENDING', 'PENDING_MANAGER', 'PENDING_HR', 'WAITING', 'DRAFT', 'قيد الانتظار'].includes(status);
+    }).length;
   }, [realLeaves]);
 
   // حساب نسبة الامتثال وسلامة المستندات ديناميكياً
