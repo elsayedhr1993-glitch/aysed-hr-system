@@ -590,9 +590,9 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="بحث بالاسم أو المسمى..."
-            className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:bg-white focus:outline-hidden"
+            className="w-full pr-8 pl-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:bg-white focus:outline-hidden"
           />
-          <Search size={14} className="absolute left-2.5 top-2 text-slate-400" />
+          <Search size={14} className="absolute right-2.5 top-2 text-slate-400" />
         </div>
       </div>
 

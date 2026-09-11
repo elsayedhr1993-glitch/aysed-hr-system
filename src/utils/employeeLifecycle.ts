@@ -107,10 +107,10 @@ export const LIFECYCLE_STAGES: Record<EmployeeLifecycleStatus, StatusMeta> = {
     code: 'TERMINATED',
     labelAr: 'منتهية خدمته',
     labelEn: 'Terminated',
-    badgeBg: 'bg-red-50',
-    textColor: 'text-red-900',
-    borderColor: 'border-red-200',
-    dotColor: 'bg-red-600',
+    badgeBg: 'bg-rose-50',
+    textColor: 'text-rose-900',
+    borderColor: 'border-rose-200',
+    dotColor: 'bg-rose-600',
     icon: '🛑',
     description: 'تم إنهاء خدمته من قبل الشركة أو انتهاء مدة عقده وتصفيته'
   }

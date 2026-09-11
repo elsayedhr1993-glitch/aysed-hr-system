@@ -137,7 +137,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
             </button>
             <button 
               onClick={() => setFilter('expired')} 
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${filter === 'expired' ? 'bg-red-600 text-white shadow' : 'text-red-700 hover:bg-red-50'}`}>
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${filter === 'expired' ? 'bg-rose-600 text-white shadow' : 'text-rose-700 hover:bg-rose-50'}`}>
               منتهي
             </button>
             <button 

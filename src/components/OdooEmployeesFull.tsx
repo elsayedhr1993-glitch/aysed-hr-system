@@ -1143,6 +1143,7 @@ export const OdooEmployeesFull: React.FC<OdooEmployeesFullProps> = ({ activeComp
           </div>
         ) : (
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
             <table className="w-full text-right text-xs">
               <thead className="bg-slate-50 text-slate-600 font-bold border-b">
                 <tr>
@@ -1225,6 +1226,7 @@ export const OdooEmployeesFull: React.FC<OdooEmployeesFullProps> = ({ activeComp
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         )
       )}

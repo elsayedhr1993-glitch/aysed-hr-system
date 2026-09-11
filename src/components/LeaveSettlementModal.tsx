@@ -256,7 +256,7 @@ export const LeaveSettlementModal: React.FC<LeaveSettlementModalProps> = ({
 
         {/* تنبيه الخطأ اللحظي إن وجد */}
         {validationError && (
-          <div className="p-2.5 mb-4 bg-red-100 border border-red-300 text-red-700 text-xs rounded-xl text-center font-bold animate-shake flex items-center justify-center gap-1.5">
+          <div className="p-2.5 mb-4 bg-rose-100 border border-rose-300 text-rose-700 text-xs rounded-xl text-center font-bold animate-shake flex items-center justify-center gap-1.5">
             <AlertTriangle className="w-4 h-4 shrink-0" />
             <span>⚠️ {validationError}</span>
           </div>

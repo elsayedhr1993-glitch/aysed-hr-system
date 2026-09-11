@@ -677,6 +677,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
               {/* View 2: Detailed List / Table View */}
               {viewMode === 'list' && (
                 <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+                  <div className="overflow-x-auto">
                   <table className="w-full text-right text-xs">
                     <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                       <tr>
@@ -771,6 +772,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
                       })}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               )}
 

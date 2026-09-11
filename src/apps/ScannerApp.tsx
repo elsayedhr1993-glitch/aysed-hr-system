@@ -835,6 +835,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
             </div>
           </div>
 
+          <div className="overflow-x-auto">
           <table className="w-full text-right text-xs">
             <thead className="bg-slate-50/70 text-slate-600 font-bold border-b border-slate-200">
               <tr>
@@ -907,6 +908,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
               })}
             </tbody>
           </table>
+          </div>
 
           {recentScans.length === 0 && (
             <div className="text-center py-12 text-slate-400">

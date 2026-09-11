@@ -538,7 +538,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                           <button
                             type="button"
                             onClick={stopCamera}
-                            className="bg-red-600 hover:bg-red-700 text-white font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1 shadow-lg cursor-pointer"
+                            className="bg-rose-600 hover:bg-rose-700 text-white font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1 shadow-lg cursor-pointer"
                           >
                             <X className="w-4 h-4" />
                             <span>إلغاء</span>

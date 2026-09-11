@@ -1317,7 +1317,7 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave, existin
 
           {activeTab === 'warnings' && (
              <div className="space-y-4">
-               <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-xl text-sm font-bold">
+               <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl text-sm font-bold">
                  هذا السجل يعرض المخالفات والإنذارات التأديبية الخاصة بالموظف.
                </div>
                <table className="w-full text-right text-xs bg-white rounded-xl border border-slate-200 overflow-hidden">

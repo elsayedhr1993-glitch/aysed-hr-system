@@ -49,7 +49,7 @@ export const LeaveBreakdownBanner: React.FC<LeaveBreakdownProps> = ({
 
         {/* تجاوز الرصيد المتاح (بدون راتب) */}
         {unpaidDays > 0 && (
-          <div className="flex items-center gap-1 bg-red-600 text-white px-3 py-1.5 rounded-md font-bold shadow-sm animate-pulse">
+          <div className="flex items-center gap-1 bg-rose-600 text-white px-3 py-1.5 rounded-md font-bold shadow-sm animate-pulse">
             <span>تجاوز الرصيد (بدون راتب):</span>
             <strong>{unpaidDays} يوم</strong>
           </div>)}

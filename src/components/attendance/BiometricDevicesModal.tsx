@@ -829,7 +829,7 @@ while True:
                         <div className="flex items-center gap-2.5">
                           <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
                             dev.brand === 'ZKTeco' ? 'bg-purple-100 text-purple-700' :
-                            dev.brand === 'Hikvision' ? 'bg-red-100 text-red-700' :
+                            dev.brand === 'Hikvision' ? 'bg-rose-100 text-rose-700' :
                             'bg-blue-100 text-blue-700'
                           }`}>
                             <Fingerprint size={18} />

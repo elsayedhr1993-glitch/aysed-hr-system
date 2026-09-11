@@ -32,7 +32,7 @@ export function getDocumentStatus(expiryDateStr: string): {
     return {
       status: 'expired',
       daysRemaining,
-      badgeColor: 'bg-red-100 text-red-800 border-red-300',
+      badgeColor: 'bg-rose-100 text-rose-800 border-rose-300',
       badgeLabel: `منتهي منذ ${Math.abs(daysRemaining)} يوم`
     };
   } else if (daysRemaining <= 60) {

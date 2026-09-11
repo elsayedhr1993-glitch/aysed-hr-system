@@ -451,7 +451,7 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                             {isEditMode && (<button
                               type="button"
                               onClick={() => handleRemoveDocFile('civilIdScan')}
-                              className="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition"
+                              className="p-1.5 text-rose-600 hover:bg-rose-100 rounded-lg transition"
                               title="حذف الملف"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -563,7 +563,7 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                             {isEditMode && (<button
                               type="button"
                               onClick={() => handleRemoveDocFile('passportScan')}
-                              className="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition"
+                              className="p-1.5 text-rose-600 hover:bg-rose-100 rounded-lg transition"
                               title="حذف الملف"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -676,7 +676,7 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                             {isEditMode && (<button
                               type="button"
                               onClick={() => handleRemoveDocFile('pamWorkPermit')}
-                              className="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition"
+                              className="p-1.5 text-rose-600 hover:bg-rose-100 rounded-lg transition"
                               title="حذف الملف"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -788,7 +788,7 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                             {isEditMode && (<button
                               type="button"
                               onClick={() => handleRemoveDocFile('mohLicense')}
-                              className="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition"
+                              className="p-1.5 text-rose-600 hover:bg-rose-100 rounded-lg transition"
                               title="حذف الملف"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -907,7 +907,7 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                             {isEditMode && (<button
                               type="button"
                               onClick={() => handleRemoveDocFile('medicalFitness')}
-                              className="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition"
+                              className="p-1.5 text-rose-600 hover:bg-rose-100 rounded-lg transition"
                               title="حذف الملف"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -1031,7 +1031,7 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                             {isEditMode && (<button
                               type="button"
                               onClick={() => handleRemoveDocFile('signedContract')}
-                              className="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition"
+                              className="p-1.5 text-rose-600 hover:bg-rose-100 rounded-lg transition"
                               title="حذف الملف"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -1145,7 +1145,7 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                             {isEditMode && (<button
                               type="button"
                               onClick={() => handleRemoveDocFile(cd.id)}
-                              className="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition"
+                              className="p-1.5 text-rose-600 hover:bg-rose-100 rounded-lg transition"
                               title="حذف الملف"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
