@@ -22,6 +22,8 @@ import {
   ShieldCheck 
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { db } from '../../../lib/firebase';
 
 interface Props {
   employee: any;
@@ -42,6 +44,7 @@ export const EmployeeHRTab: React.FC<Props> = ({
 }) => {
   const [holidayRecords, setHolidayRecords] = useState<WorkOnHolidayRecord[]>([]);
   const [isLoadingRecords, setIsLoadingRecords] = useState(false);
+  const [consumedLeaveDays, setConsumedLeaveDays] = useState(0);
   
   // Form State for new Holiday Work
   const [showAddForm, setShowAddForm] = useState(false);
@@ -89,6 +92,31 @@ export const EmployeeHRTab: React.FC<Props> = ({
     fetchRecords();
   }, [employee.id, employee.civil_id_number, employee.civilId]);
 
+  useEffect(() => {
+    const employeeId = employee.id || employee.civil_id_number || employee.civilId;
+    const companyId = employee.companyId || employee.company_id;
+    if (!employeeId || !companyId) {
+      setConsumedLeaveDays(0);
+      return;
+    }
+
+    const requestsQuery = query(
+      collection(db, 'leave_requests'),
+      where('companyId', '==', companyId),
+      where('employeeId', '==', employeeId)
+    );
+    return onSnapshot(requestsQuery, snapshot => {
+      const consumed = snapshot.docs
+        .map(item => item.data() as any)
+        .filter(request => String(request.status || '').toLowerCase() === 'approved' && !request.isHistorical)
+        .reduce((sum, request) => sum + Number(request.paidDays ?? request.totalDays ?? request.daysCount ?? 0), 0);
+      setConsumedLeaveDays(Number(consumed.toFixed(2)));
+    }, error => {
+      console.error('Failed to load approved leave requests:', error);
+      setConsumedLeaveDays(0);
+    });
+  }, [employee.id, employee.civil_id_number, employee.civilId, employee.companyId, employee.company_id]);
+
   // Calculate dynamic components of the "Flower" lifecycle
   const carriedOver = parseFloat(employee.carriedOverLeave2025 ?? employee.carriedOverBalance ?? employee.openingBalance ?? 0) || 0;
 
@@ -108,26 +136,8 @@ export const EmployeeHRTab: React.FC<Props> = ({
     .filter(r => r.state === 'approved')
     .reduce((sum, r) => sum + (r.hoursWorked >= 4 ? 1 : Number((r.hoursWorked / 8).toFixed(2))), 0);
 
-  // Consumed Days from leave requests
-  const getConsumedDays = () => {
-    try {
-      const rawRequests = localStorage.getItem('odoo_leave_requests_v2');
-      const rawManaraLeaves = localStorage.getItem('manara_leaves_data');
-      const requestsList = rawRequests ? JSON.parse(rawRequests) : [];
-      const manaraList = rawManaraLeaves ? JSON.parse(rawManaraLeaves) : [];
-      const combined = [...requestsList, ...manaraList];
-      
-      const empId = employee.id || employee.civilId || employee.civil_id_number;
-      const empRequests = combined.filter((r: any) => 
-        (r.employeeId === empId || r.employee_id === empId) &&
-        (r.state === 'approved' || r.state === 'validate' || r.status === 'approved')
-      );
-      return empRequests.reduce((sum: number, r: any) => sum + (parseFloat(r.numberOfDays || r.days || r.duration || 0) || 0), 0);
-    } catch (e) {
-      return 0;
-    }
-  };
-  const consumedDays = getConsumedDays();
+  // Approved leave consumption comes from the canonical Firestore request collection.
+  const consumedDays = consumedLeaveDays;
 
   // Final Net Available Balance formula output
   const availableBalance = parseFloat(calculatedBalance as string) || (carriedOver + accruedDays + approvedHolidayDays - consumedDays);

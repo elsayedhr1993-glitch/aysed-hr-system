@@ -143,7 +143,7 @@ export const useFirebaseSync = (
     );
     
     // 3. Leaves: Strictly scoped to current tenant
-    const qLeaves = query(collection(db, 'leaves'), where('companyId', '==', tenantId));
+    const qLeaves = query(collection(db, 'leave_requests'), where('companyId', '==', tenantId));
     const unsubLeaves = onSnapshot(qLeaves, 
         snap => {
           if (!isSuperAdminPlatformMode) {
@@ -153,7 +153,7 @@ export const useFirebaseSync = (
 
           }
         },
-        err => handleFirestoreError(err, OperationType.GET, 'leaves')
+        err => handleFirestoreError(err, OperationType.GET, 'leave_requests')
     );
     
     // 4. Attendance: Strictly scoped to current tenant

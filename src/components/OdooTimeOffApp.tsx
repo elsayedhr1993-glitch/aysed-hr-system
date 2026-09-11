@@ -43,6 +43,7 @@ import { toast } from 'react-hot-toast';
 import { LeaveSettlementCalculator } from './LeaveSettlementCalculator';
 import { calculate2026AccruedDays, getCarriedOverBalance, getGlobalCompensatoryDays, calculateActualLeaveDays } from '../utils/kuwaitLaw';
 import { computeFifoLeaveAllocations, buildEmployeeBaselineAllocations } from '../services/leaveService';
+import { approveLeaveRequest } from '../services/leaveApprovalService';
 import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { db, cleanFirestoreData } from '../lib/firebase';
 
@@ -64,6 +65,7 @@ export interface LeaveRequest {
   startDate: string;
   endDate: string;
   daysCount: number;
+  totalDays?: number;
   reason: string;
   status: 'draft' | 'pending' | 'pending_manager' | 'pending_hr' | 'approved' | 'rejected' | 'returned';
   appliedDate: string;
@@ -199,6 +201,8 @@ export const OdooTimeOffApp: React.FC = () => {
     const mappedAllocations = allocations.map(a => ({
       ...a,
       numberOfDays: a.days,
+      consumedDays: (a as any).consumedDays || 0,
+      remainingDays: (a as any).remainingDays ?? Math.max(0, a.days - ((a as any).consumedDays || 0)),
       allocationType: 'regular',
       state: 'validate',
       name: a.notes,
@@ -351,6 +355,7 @@ export const OdooTimeOffApp: React.FC = () => {
       startDate: newRequest.startDate,
       endDate: newRequest.endDate,
       daysCount: count,
+      totalDays: count,
       reason: newRequest.reason || 'إجازة اعتيادية',
       status: 'pending_manager', // Starts at step 1 (Direct Manager Approval)
       appliedDate: new Date().toISOString().split('T')[0],
@@ -431,7 +436,7 @@ export const OdooTimeOffApp: React.FC = () => {
   };
 
   // Step 2: HR approves -> status becomes approved
-  const handleHrApprove = (id: string) => {
+  const handleHrApprove = async (id: string) => {
     const targetReq = requests.find(r => r.id === id);
     if (!targetReq) return;
 
@@ -452,29 +457,35 @@ export const OdooTimeOffApp: React.FC = () => {
       }
     }
 
-    const todayStr = new Date().toISOString().split('T')[0];
-    setRequests(requests.map(req => {
-      if (req.id === id) {
-        return {
-          ...req,
-          status: 'approved',
-          hrApprovedBy: 'إدارة الموارد البشرية والشؤون القانونية',
-          hrApprovedAt: todayStr
-        };
-      }
-      return req;
-    }));
-
-    // Update context
-    if (targetReq.employeeId && updateLeaveAccrual) {
+    try {
+      const result = await approveLeaveRequest(
+        { ...targetReq, companyId },
+        'إدارة الموارد البشرية والشؤون القانونية'
+      );
       const current = leaveAccruals?.[targetReq.employeeId];
-      const carried = current?.carriedFrom2025 || 0;
-      const earned = current?.earned2026 || 0;
-      const prevConsumed = current?.consumedDays || 0;
-      updateLeaveAccrual(targetReq.employeeId, carried, earned, prevConsumed + targetReq.daysCount);
+      if (current && updateLeaveAccrual) {
+        updateLeaveAccrual(
+          targetReq.employeeId,
+          current.carriedFrom2025 || 0,
+          current.earned2026 || 0,
+          (current.consumedDays || 0) + result.paidDays,
+          current.excludedServiceDays
+        );
+      }
+      setRequests(previous => previous.map(req => req.id === id ? {
+        ...req,
+        status: 'approved',
+        totalDays: targetReq.daysCount,
+        paidDays: result.paidDays,
+        unpaidDays: result.unpaidDays,
+        hrApprovedBy: 'إدارة الموارد البشرية والشؤون القانونية',
+        hrApprovedAt: new Date().toISOString().split('T')[0]
+      } : req));
+      toast.success(`تم الاعتماد والخصم بنجاح (${result.paidDays} يوم مدفوع، ${result.unpaidDays} يوم غير مدفوع).`);
+    } catch (error) {
+      console.error('Failed to approve leave request:', error);
+      toast.error(error instanceof Error ? error.message : 'تعذر اعتماد الإجازة وتحديث الرصيد');
     }
-
-    toast.success('تم الاعتماد النهائي للإجازة وتحديث رصيد الموظف وسجلاته الرسمية.');
   };
 
   // Rejection with reason modal confirm
