@@ -56,7 +56,7 @@ export async function approveLeaveRequest(
     }
 
     const isAnnual = normalizeLeaveType(storedRequest.leaveType || request.leaveType) === 'ANNUAL';
-    const allocationDocs = allocationSnapshots
+    let allocationDocs = allocationSnapshots
       .filter(snapshot => snapshot.exists())
       .map(snapshot => ({ id: snapshot.id, ...snapshot.data() } as any))
       .filter(allocation => {
@@ -66,6 +66,36 @@ export async function approveLeaveRequest(
         return isAnnual && type === 'ANNUAL' && ['validate', 'validated', 'confirm'].includes(state);
       })
       .sort((left, right) => String(left.dateFrom || left.allocationDate || '').localeCompare(String(right.dateFrom || right.allocationDate || '')));
+
+    if (isAnnual && allocationDocs.length === 0) {
+      const employeeData = employeeSnapshot.data() || {};
+      const documentedOpeningBalance = Number(
+        employeeData.openingBalance ?? employeeData.carriedOverBalance ?? employeeData.carriedOverLeave2025 ?? 0
+      );
+
+      if (documentedOpeningBalance > 0) {
+        const allocationId = `ALLOC-${companyId}-${request.employeeId}-opening`;
+        const allocationRef = doc(db, 'leave_allocations', allocationId);
+        const allocation = {
+          id: allocationId,
+          employeeId: request.employeeId,
+          companyId,
+          leaveType: 'ANNUAL',
+          allocationType: 'regular',
+          numberOfDays: documentedOpeningBalance,
+          consumedDays: 0,
+          encashedDays: 0,
+          remainingDays: documentedOpeningBalance,
+          dateFrom: `${new Date().getFullYear()}-01-01`,
+          state: 'validate',
+          name: 'رصيد افتتاحي موثق من ملف الموظف',
+          notes: 'تم تحويل الرصيد الافتتاحي الموثق إلى تخصيص سحابي قبل الخصم الذري',
+          createdAt: new Date().toISOString()
+        };
+        transaction.set(allocationRef, cleanFirestoreData(allocation), { merge: true });
+        allocationDocs = [allocation];
+      }
+    }
 
     let remainingToDeduct = requestedDays;
     const allocationBreakdown: LeaveApprovalResult['allocationBreakdown'] = [];

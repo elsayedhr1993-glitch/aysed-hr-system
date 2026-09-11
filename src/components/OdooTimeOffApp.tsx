@@ -475,7 +475,7 @@ export const OdooTimeOffApp: React.FC = () => {
     }
 
     // Balance check
-    if (targetReq.leaveType === 'annual') {
+    if (normalizeLeaveType(targetReq.leaveType) === 'ANNUAL') {
       const current = leaveAccruals?.[targetReq.employeeId];
       const carried = current?.carriedFrom2025 || 0;
       const earned = current?.earned2026 || 0;
