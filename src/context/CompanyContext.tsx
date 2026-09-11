@@ -19,7 +19,7 @@ const defaultMasterCompany: Company = {
   status: 'active'
 };
 
-function getDeterministicCompanyId(companyOrName: string | Partial<Company>): string {
+export function getDeterministicCompanyId(companyOrName: string | Partial<Company>): string {
   const nameStr = typeof companyOrName === 'string' 
     ? companyOrName 
     : (companyOrName.nameAr || companyOrName.name || '');
@@ -45,18 +45,6 @@ function getDeterministicCompanyId(companyOrName: string | Partial<Company>): st
     }
     const positiveHash = Math.abs(hash).toString(36);
     baseId = `comp_${positiveHash}`;
-  }
-
-  // Safety Gate: If we are in development, prefix with "dev-" to protect production database from accidental pollution
-  const isDev = typeof window !== 'undefined' && (
-    window.location.hostname === 'localhost' ||
-    window.location.hostname === '127.0.0.1' ||
-    window.location.hostname.includes('web-3000') ||
-    window.location.hostname.includes('googleusercontent.com')
-  );
-
-  if (isDev && baseId !== 'comp-super-admin') {
-    return `dev-${baseId}`;
   }
 
   return baseId;

@@ -35,7 +35,7 @@ import { useOdooHierarchy, EmployeeContract } from '../context/OdooHierarchyCont
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { exportElementToPdf } from '../utils/printUtils';
 import { tafqeet } from '../utils/tafqeet';
-import { MANARA_STORAGE_KEYS, getPersistentData, setPersistentData } from '../utils/persistentStorage';
+import { TenantDatabaseService } from '../services/tenantDataService';
 import { DocumentItem } from '../types';
 import { toast } from 'react-hot-toast';
 import QRCode from 'qrcode';
@@ -821,14 +821,12 @@ export const OdooTemplatesApp: React.FC = () => {
     toast.success('تم تنزيل المستند بصيغة Word (.doc) بنجاح');
   };
 
-  const handleArchiveDocument = () => {
+  const handleArchiveDocument = async () => {
     if (!selectedEmpId) {
       toast.error('يرجى تحديد الموظف أولاً لأرشفة المستند في ملفه.');
       return;
     }
 
-    const currentDocs = getPersistentData<DocumentItem[]>(MANARA_STORAGE_KEYS.DOCUMENTS, []);
-    
     const newDoc: DocumentItem = {
       id: `doc-${Date.now()}`,
       companyId: activeCompany?.id || 'comp-super-admin',
@@ -847,9 +845,12 @@ export const OdooTemplatesApp: React.FC = () => {
       tags: ['صادر رسمي', activeTemplateDef.title, 'موارد بشرية', referenceNumber]
     };
 
-    const updated = [newDoc, ...currentDocs];
-    setPersistentData(MANARA_STORAGE_KEYS.DOCUMENTS, updated);
-    toast.success(`تم حفظ وأرشفة المستند بنجاح في ملف الموظف (${empName}) برقم إشاري: ${referenceNumber}`);
+    const saved = await TenantDatabaseService.saveDocument(newDoc, activeCompany?.id);
+    if (saved) {
+      toast.success(`تم حفظ وأرشفة المستند بنجاح في ملف الموظف (${empName}) برقم إشاري: ${referenceNumber}`);
+    } else {
+      toast.error('تعذر حفظ المستند في السحابة، يرجى المحاولة مرة أخرى.');
+    }
   };
 
   const handleResetTemplate = () => {
