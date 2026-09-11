@@ -4,6 +4,7 @@ import {
   Building2, User, Calendar, DollarSign, AlertCircle, Shield
 } from 'lucide-react';
 import { tafqitKuwaiti } from '../../utils/tafqit';
+import { calculateKuwaitEOS, calculateDailyWage } from '../../utils/kuwaitPayrollEngine';
 
 export interface FinalSettlementEmployee {
   id: string;
@@ -61,48 +62,22 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
     (currentEmp?.transportAllowance || 0) + 
     (currentEmp?.medicalAllowance || 0);
 
-  // Day rate divisor (Kuwait Labor Law Article 55 / 70 is based on 26 working days)
-  const dayRate = totalComprehensiveSalary / 26;
-
-  // Calculate tenure
-  const joinDateObj = currentEmp?.joinDate ? new Date(currentEmp.joinDate) : new Date();
-  const termDateObj = new Date(terminationDate);
-  const diffTime = Math.max(0, termDateObj.getTime() - joinDateObj.getTime());
-  const tenureDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-  const tenureYears = tenureDays / 365.25;
-
-  // Article 51: End of Service Gratuity
-  // 15 days for each of the first 5 years, then 1 month for each subsequent year, capped at 1.5 years (18 months)
-  let rawEosAmount = 0;
-  if (tenureYears > 0) {
-    if (tenureYears <= 5) {
-      rawEosAmount = tenureYears * 15 * dayRate;
-    } else {
-      const first5 = 5 * 15 * dayRate;
-      const rest = (tenureYears - 5) * 26 * dayRate; // 1 month comprehensive salary per year
-      rawEosAmount = first5 + rest;
-    }
-  }
-
-  // Cap at 1.5 years of total comprehensive salary (Article 51)
-  const eosMaxCap = totalComprehensiveSalary * 18;
-  rawEosAmount = Math.min(rawEosAmount, eosMaxCap);
-
-  // Article 53: Resignation scaling
-  let resignationMultiplier = 1;
-  if (reason === 'resignation') {
-    if (tenureYears < 3) {
-      resignationMultiplier = 0; // Article 53: Nothing if less than 3 years
-    } else if (tenureYears < 5) {
-      resignationMultiplier = 0.5; // Half gratuity
-    } else if (tenureYears < 10) {
-      resignationMultiplier = 2 / 3; // Two-thirds gratuity
-    } else {
-      resignationMultiplier = 1.0; // Full gratuity for 10+ years
-    }
-  }
-
-  const finalEosAward = Math.round(rawEosAmount * resignationMultiplier * 1000) / 1000;
+  const dayRate = calculateDailyWage(totalComprehensiveSalary);
+  const eosResult = calculateKuwaitEOS({
+    employeeId: currentEmp?.id || '',
+    employeeName: currentEmp?.name || '',
+    civilId: currentEmp?.civilId || '',
+    joinDate: currentEmp?.joinDate || terminationDate,
+    leaveDate: terminationDate,
+    grossSalary: totalComprehensiveSalary,
+    terminationType: reason === 'resignation' ? 'RESIGNATION' : 'TERMINATION',
+    contractType: 'INDEFINITE',
+    unusedLeaveDays: leaveDaysToLiquidate,
+    otherDeductions: (deductLoanAmount || 0) + (otherDeductions || 0),
+  });
+  const finalEosAward = Math.round(eosResult.netEosAmount * 1000) / 1000;
+  const tenureYears = eosResult.totalYears + (eosResult.totalMonths / 12) + (eosResult.totalDays / 365.25);
+  const tenureDays = eosResult.netServiceDays;
 
   // Article 70: Leave Liquidation
   const leaveLiquidationAmount = Math.round((leaveDaysToLiquidate * dayRate) * 1000) / 1000;
@@ -320,7 +295,7 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
                     <td className="p-2.5">
                       <strong className="text-slate-900 block">مكافأة نهاية الخدمة (المادة 51 والمادة 53)</strong>
                       <span className="text-[10px] text-slate-500">
-                        احتساب: 15 يوماً للسنوات الـ 5 الأولى + شهر عن كل سنة لاحقة (معامل الاستحقاق: {resignationMultiplier * 100}%)
+                        احتساب: 15 يوماً للسنوات الـ 5 الأولى + شهر عن كل سنة لاحقة (معامل الاستحقاق: {eosResult.article53Ratio * 100}%)
                       </span>
                     </td>
                     <td className="p-2.5 text-left font-mono font-bold text-emerald-700">

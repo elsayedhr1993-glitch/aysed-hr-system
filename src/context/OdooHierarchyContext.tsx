@@ -638,7 +638,7 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
     setLeaveAccruals(prev => {
       const updated: Record<string, LeaveAccrual> = { ...prev };
       employees.forEach(emp => {
-        if (emp.contractStatus === 'running') {
+        if (normalizeContractStatus(emp.contractStatus) === 'running') {
           const current = updated[emp.id] || {
             employeeId: emp.id,
             carriedFrom2025: 0,

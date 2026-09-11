@@ -1,7 +1,8 @@
 import { printDocument, exportElementToPdf } from '../utils/printUtils';
 import React, { useState, useMemo, useEffect } from 'react';
 import { Employee, Company, Contract, EOSCalculation, LeaveRequest } from '../types';
-import { calculateKuwaitEOS, formatKWD, get_aysed_official_balance } from '../utils/kuwaitLaw';
+import { formatKWD, get_aysed_official_balance } from '../utils/kuwaitLaw';
+import { calculateKuwaitEOS } from '../utils/kuwaitPayrollEngine';
 import { Scale, Printer, FileCheck, AlertCircle, Info, Calculator, CheckCircle2, CalendarOff, ShieldAlert, ArrowDownRight, Layers, FileSpreadsheet, Check, Download, Loader2, ShieldCheck, RotateCcw, UserX, AlertTriangle, FileSignature } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { TenantDatabaseService } from '../services/tenantDataService';

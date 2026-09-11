@@ -1,4 +1,5 @@
-import { EmployeeContract } from '../context/OdooHierarchyContext';
+import type { EmployeeContract } from '../context/OdooHierarchyContext';
+import type { EOSCalculation } from '../types';
 
 /**
  * Kuwait Payroll Engine (Article 51, 26 Days Rule)
@@ -10,6 +11,93 @@ import { EmployeeContract } from '../context/OdooHierarchyContext';
  */
 export const KUWAIT_MONTHLY_DAYS = 26;
 export const STANDARD_DAILY_HOURS = 8;
+
+export interface KuwaitEosInput {
+  employeeId: string;
+  employeeName: string;
+  civilId: string;
+  joinDate: string;
+  leaveDate: string;
+  grossSalary: number;
+  terminationType: 'RESIGNATION' | 'TERMINATION' | 'RETIREMENT' | 'CONTRACT_EXPIRED';
+  contractType: 'INDEFINITE' | 'FIXED_TERM';
+  unusedLeaveDays?: number;
+  otherDeductions?: number;
+  totalUnpaidLeaveDays?: number;
+  unpaidLeavesBreakdown?: Array<{
+    id: string;
+    startDate: string;
+    endDate: string;
+    days: number;
+    reason: string;
+  }>;
+}
+
+export function calculateKuwaitEOS(params: KuwaitEosInput): EOSCalculation {
+  const join = new Date(params.joinDate);
+  const leave = new Date(params.leaveDate);
+  const grossTotalDays = Math.max(0, Math.floor((leave.getTime() - join.getTime()) / (1000 * 60 * 60 * 24)));
+  const unpaidDays = Math.max(0, params.totalUnpaidLeaveDays || 0);
+  const netServiceDays = Math.max(0, grossTotalDays - unpaidDays);
+  const totalYearsFloat = netServiceDays / 365.25;
+  const totalYears = Math.floor(totalYearsFloat);
+  const totalMonths = Math.floor((totalYearsFloat - totalYears) * 12);
+  const remainingDays = Math.round((((totalYearsFloat - totalYears) * 12) - totalMonths) * 30.4375);
+  const dailySalary = params.grossSalary / KUWAIT_MONTHLY_DAYS;
+
+  const first5YearsDays = Math.min(totalYearsFloat, 5) * 15;
+  const after5YearsDays = Math.max(0, totalYearsFloat - 5) * KUWAIT_MONTHLY_DAYS;
+  const grossEosAmount = Math.min((first5YearsDays + after5YearsDays) * dailySalary, params.grossSalary * 18);
+
+  let article53Ratio = 1;
+  let article53Note = 'استحقاق كامل بنسبة 100% (إنهاء خدمة من رب العمل / انتهاء عقد / تقاعد)';
+  if (params.terminationType === 'RESIGNATION') {
+    if (totalYearsFloat < 3) {
+      article53Ratio = 0;
+      article53Note = 'استقالة قبل 3 سنوات: 0% استحقاق وفق المادة 53';
+    } else if (totalYearsFloat < 5) {
+      article53Ratio = 0.5;
+      article53Note = 'استقالة من 3 إلى أقل من 5 سنوات: 50% وفق المادة 53';
+    } else if (totalYearsFloat < 10) {
+      article53Ratio = 2 / 3;
+      article53Note = 'استقالة من 5 إلى أقل من 10 سنوات: 66.66% وفق المادة 53';
+    }
+  }
+
+  const netEosAmount = grossEosAmount * article53Ratio;
+  const unusedLeaveDays = params.unusedLeaveDays || 0;
+  const leavePayoutAmount = unusedLeaveDays * dailySalary;
+  const otherDeductions = params.otherDeductions || 0;
+
+  return {
+    employeeId: params.employeeId,
+    employeeName: params.employeeName,
+    civilId: params.civilId,
+    joinDate: params.joinDate,
+    leaveDate: params.leaveDate,
+    totalYears,
+    totalMonths,
+    totalDays: remainingDays,
+    lastGrossSalary: params.grossSalary,
+    terminationType: params.terminationType,
+    contractType: params.contractType,
+    grossServiceDays: grossTotalDays,
+    totalUnpaidLeaveDays: unpaidDays,
+    netServiceDays,
+    unpaidLeavesCount: params.unpaidLeavesBreakdown?.length || (unpaidDays > 0 ? 1 : 0),
+    unpaidLeavesBreakdown: params.unpaidLeavesBreakdown || [],
+    first5YearsEntitlementDays: first5YearsDays,
+    after5YearsEntitlementDays: after5YearsDays,
+    grossEosAmount,
+    article53Ratio,
+    article53Note,
+    netEosAmount,
+    unusedLeaveDays,
+    leavePayoutAmount,
+    otherDeductions,
+    totalSettlement: Math.max(0, netEosAmount + leavePayoutAmount - otherDeductions),
+  };
+}
 
 export function calculateDailyWage(grossSalary: number): number {
   return grossSalary / KUWAIT_MONTHLY_DAYS;
