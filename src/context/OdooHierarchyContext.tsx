@@ -4,6 +4,7 @@ import { useCompany } from './CompanyContext';
 import { TenantDatabaseService } from '../services/tenantDataService';
 import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { db, cleanFirestoreData } from '../lib/firebase';
+import { normalizeEmployeeRecord } from '../utils/employeeMapper';
 
 // 1. المستوى الأول: العقد والبيانات الثابتة (hr.contract & hr.employee)
 export interface EmployeeContract {
@@ -223,34 +224,31 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
     if (!currentCompanyId) return;
     setEmployees([]); // Clear immediately on company change to prevent cross-company bleed
 
-    import('firebase/firestore').then(({ collection, query, where, onSnapshot }) => {
-      import('../lib/firebase').then(({ db }) => {
-        const q = query(collection(db, 'employees'), where('companyId', '==', currentCompanyId));
-        
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-          if (!snapshot.empty) {
-            const mapped: EmployeeContract[] = snapshot.docs.map(docSnap => {
-              const emp = { ...docSnap.data(), id: docSnap.id } as any;
+    const q = query(collection(db, 'employees'), where('companyId', '==', currentCompanyId));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (!snapshot.empty) {
+        const mapped: EmployeeContract[] = snapshot.docs.map(docSnap => {
+              const emp = normalizeEmployeeRecord({ ...docSnap.data(), id: docSnap.id }, currentCompanyId) as any;
               const civilExpiry = emp.civilIdExpiry || emp.civilIdExpiryDate || emp.civil_id_expiry || emp.raw_payload?.civilIdExpiry || emp.raw_payload?.civilIdExpiryDate || emp.raw_payload?.civil_id_expiry || '';
               return {
                 ...emp,
                 id: emp.id,
                 companyId: emp.companyId || currentCompanyId,
-                name: emp.fullNameAr || emp.nameAr || emp.name || 'موظف',
-                civilId: emp.civilId || '',
+                name: emp.fullNameAr,
+                civilId: emp.civilId,
                 civilIdExpiry: civilExpiry,
                 civilIdExpiryDate: civilExpiry,
                 civil_id_expiry: civilExpiry,
                 jobTitle: emp.jobTitle || 'موظف',
                 department: emp.department || emp.dept || 'العموم',
-                basicSalary: Number(emp.basicSalary !== undefined ? emp.basicSalary : (emp.contractSalary !== undefined ? emp.contractSalary : (emp.salary || 0))),
-                housingAllowance: Number(emp.housingAllowance || 0),
-                transportAllowance: Number(emp.transportAllowance || 0),
-                medicalAllowance: Number(emp.medicalAllowance || 0),
-                otherAllowance: Number(emp.otherAllowances !== undefined ? emp.otherAllowances : (emp.otherAllowance || 0)),
-                otherAllowances: Number(emp.otherAllowances !== undefined ? emp.otherAllowances : (emp.otherAllowance || 0)),
-                allowances: Number(emp.allowances || (Number(emp.housingAllowance || 0) + Number(emp.transportAllowance || 0) + Number(emp.medicalAllowance || 0) + Number(emp.otherAllowances || emp.otherAllowance || 0))),
-                totalSalary: Number(emp.totalSalary || (Number(emp.basicSalary || emp.contractSalary || emp.salary || 0) + Number(emp.allowances || (Number(emp.housingAllowance || 0) + Number(emp.transportAllowance || 0) + Number(emp.medicalAllowance || 0) + Number(emp.otherAllowances || emp.otherAllowance || 0))))),
+                basicSalary: emp.basicSalary,
+                housingAllowance: emp.housingAllowance,
+                transportAllowance: emp.transportAllowance,
+                medicalAllowance: emp.medicalAllowance,
+                otherAllowance: emp.otherAllowance,
+                otherAllowances: emp.otherAllowance,
+                allowances: Number(emp.allowances || (emp.housingAllowance + emp.transportAllowance + emp.medicalAllowance + emp.otherAllowance)),
+                totalSalary: Number(emp.totalSalary || (emp.basicSalary + emp.housingAllowance + emp.transportAllowance + emp.medicalAllowance + emp.otherAllowance)),
                 isKuwaiti: Boolean(emp.isKuwaiti),
                 bankName: emp.bankName || 'بيت التمويل الكويتي (KFH)',
                 iban: emp.iban || '',
@@ -262,18 +260,16 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
                 eosReason: emp.eosReason || '',
                 eosSettlementAmount: emp.eosSettlementAmount || 0
               };
-            });
-            setEmployees(mapped);
-          } else {
-            setEmployees([]);
-          }
-        }, (error) => {
-          console.error('Error in realtime employee sync:', error);
         });
-
-        return () => unsubscribe();
-      });
+        setEmployees(mapped);
+      } else {
+        setEmployees([]);
+      }
+    }, (error) => {
+      console.error('Error in realtime employee sync:', error);
     });
+
+    return () => unsubscribe();
   }, [currentCompanyId]);
 
   // حركات البصمة

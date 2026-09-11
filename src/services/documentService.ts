@@ -1,3 +1,6 @@
+import { deleteDoc, doc, setDoc } from 'firebase/firestore';
+import { db, cleanFirestoreData } from '../lib/firebase';
+
 export interface EmployeeDocument {
   id: string;
   employeeId: string;
@@ -27,6 +30,18 @@ export interface EmployeeDocument {
   daysLeft?: number;
   notes?: string;
   uploadDate: string;
+}
+
+export async function saveEmployeeDocument(document: EmployeeDocument): Promise<void> {
+  await setDoc(
+    doc(db, 'employee_documents', document.id),
+    cleanFirestoreData({ ...document, updatedAt: new Date().toISOString() }),
+    { merge: true }
+  );
+}
+
+export async function deleteEmployeeDocument(documentId: string): Promise<void> {
+  await deleteDoc(doc(db, 'employee_documents', documentId));
 }
 
 // دالة فحص وتحديث حالة صلاحية الوثيقة تلقائياً

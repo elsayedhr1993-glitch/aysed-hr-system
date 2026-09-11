@@ -69,8 +69,8 @@ import { ComplianceSmartSentinelModal } from './components/ComplianceSmartSentin
 import { LegalDocumentBotModal } from './components/LegalDocumentBotModal';
 import { DataPayrollAnalystBotModal } from './components/DataPayrollAnalystBotModal';
 import { FacilityLicensingWizardModal } from './components/facility/FacilityLicensingWizardModal';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
-import { db } from './lib/firebase';
+import { collection, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
+import { cleanFirestoreData, db } from './lib/firebase';
 
 type AppId = 
   | 'switcher' 
@@ -189,7 +189,7 @@ function MainAppLayout() {
     toast.success('تم حفظ وتحديث بيانات المرشح بنجاح');
   };
 
-  const handleConvertCandidateToEmployee = (cand: Candidate) => {
+  const handleConvertCandidateToEmployee = async (cand: Candidate) => {
     const newEmpId = `EMP-${Date.now().toString().slice(-6)}`;
     const compId = activeCompany?.id || 'comp-super-admin';
     const compName = activeCompany?.nameAr || (activeCompany as any)?.name || 'المنار كلينك';
@@ -227,10 +227,8 @@ function MainAppLayout() {
 
     addEmployee(newEmployeeRecord as any);
 
-    // إنشاء خطة تهيئة واستقبال تلقائية في مسار Onboarding
+    // إنشاء خطة تهيئة واستقبال تلقائية في Firestore
     try {
-      const rawPlans = localStorage.getItem('odoo_onboarding_plans_v1');
-      const plansList = rawPlans ? JSON.parse(rawPlans) : [];
       const newPlan = {
         id: `ONB-${Date.now().toString().slice(-6)}`,
         employeeId: newEmpId,
@@ -252,16 +250,13 @@ function MainAppLayout() {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
-      plansList.unshift(newPlan);
-      localStorage.setItem('odoo_onboarding_plans_v1', JSON.stringify(plansList));
+      await setDoc(doc(db, 'onboarding_plans', newPlan.id), cleanFirestoreData({ ...newPlan, companyId: compId }), { merge: true });
     } catch (e) {
       console.error('Error auto-creating onboarding plan:', e);
     }
 
-    // إنشاء سجل مباشرة عمل مبدئي قيد الانتظار (Draft Commencement)
+    // إنشاء سجل مباشرة عمل مبدئي في Firestore
     try {
-      const commKey = `odoo_commencements_v1_${compId}`;
-      const existingComms = JSON.parse(localStorage.getItem(commKey) || '[]');
       const newCommRecord = {
         id: `COM-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`,
         companyId: compId,
@@ -282,8 +277,7 @@ function MainAppLayout() {
         status: 'DRAFT',
         createdAt: new Date().toISOString()
       };
-      existingComms.unshift(newCommRecord);
-      localStorage.setItem(commKey, JSON.stringify(existingComms));
+      await setDoc(doc(db, 'commencements', newCommRecord.id), cleanFirestoreData(newCommRecord), { merge: true });
     } catch (e) {
       console.error('Error auto-creating draft commencement:', e);
     }

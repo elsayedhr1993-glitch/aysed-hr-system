@@ -1,4 +1,5 @@
-import { TenantDatabaseService } from '../services/tenantDataService';
+import { doc, setDoc } from 'firebase/firestore';
+import { cleanFirestoreData, db } from '../lib/firebase';
 
 export interface RunningContractTriggerPayload {
   employeeId: string;
@@ -31,37 +32,26 @@ export function triggerContractRunningLeaveAllocation(contract: RunningContractT
   const startYear = startDateIso.split('-')[0] || '2026';
 
   try {
-    const rawAlloc = localStorage.getItem('odoo_leave_allocations_v2');
-    let allocList: any[] = rawAlloc ? JSON.parse(rawAlloc) : [];
-
-    const existingIdx = allocList.findIndex(
-      (a: any) => String(a.employeeId) === String(contract.employeeId) && (String(a.fromYear) === String(startYear) || String(a.fromYear) === '2026')
-    );
-
+    const allocationId = `ALC-${contract.companyId || 'comp-super-admin'}-${contract.employeeId}-${startYear}`;
     const allocDoc = {
-      id: existingIdx >= 0 ? allocList[existingIdx].id : `ALC-${startYear}-${String(allocList.length + 1).padStart(2, '0')}`,
+      id: allocationId,
       employeeId: contract.employeeId,
       employeeName: contract.employeeName || 'موظف',
-      days: 30, // 30 يوماً رصيد سنوي معتمد بقوة القانون الكويتي
+      numberOfDays: 30,
+      consumedDays: 0,
+      remainingDays: 30,
       fromYear: startYear,
-      leaveType: 'annual',
-      type: 'annual',
-      status: 'approved',
-      note: `رصيد سنوي معتمد 30 يوماً ناتج تلقائياً عن تفعيل عقد العمل الساري لسنة ${startYear} (Running Contract Trigger)`,
-      date: startDateIso,
-      startDate: startDateIso,
+      leaveType: 'ANNUAL',
+      allocationType: 'regular',
+      state: 'validate',
+      name: `رصيد سنوي معتمد 30 يوماً - ${startYear}`,
+      notes: `ناتج تلقائياً عن تفعيل العقد الساري لسنة ${startYear}`,
+      dateFrom: startDateIso,
       companyId: contract.companyId || 'comp-super-admin',
       createdAt: new Date().toISOString()
     };
 
-    if (existingIdx >= 0) {
-      allocList[existingIdx] = { ...allocList[existingIdx], ...allocDoc };
-    } else {
-      allocList.unshift(allocDoc);
-    }
-
-    localStorage.setItem('odoo_leave_allocations_v2', JSON.stringify(allocList));
-    window.dispatchEvent(new Event('storage'));
+    void setDoc(doc(db, 'leave_allocations', allocationId), cleanFirestoreData(allocDoc), { merge: true });
 
     return allocDoc;
   } catch (err) {

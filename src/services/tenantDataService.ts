@@ -13,6 +13,7 @@ import { db, auth, cleanFirestoreData } from '../lib/firebase';
 import { collection, doc, setDoc, deleteDoc, getDocs, query, where, getDoc } from 'firebase/firestore';
 import { Company, Employee, LeaveRequest, AttendanceRecord, Payslip, Contract } from '../types';
 import { triggerContractRunningLeaveAllocation } from '../utils/contractLeaveTrigger';
+import { normalizeEmployeeRecord, toEmployeeFirestoreData } from '../utils/employeeMapper';
 import { saveHolidayWorkRecord, approveHolidayWork, WorkOnHolidayRecord } from './holidayWorkService';
 
 export enum OperationType {
@@ -756,12 +757,7 @@ export const TenantDatabaseService = {
   async saveEmployee(employee: Employee, targetCompanyId?: string): Promise<boolean> {
     const compId = targetCompanyId || employee.companyId || (employee as any).company_id || 'comp-super-admin';
     try {
-      const cleanDoc = cleanFirestoreData({
-        ...employee,
-        companyId: compId,
-        company_id: compId,
-        updatedAt: new Date().toISOString()
-      });
+      const cleanDoc = cleanFirestoreData(toEmployeeFirestoreData(employee as any, compId));
       await setDoc(doc(db, 'employees', employee.id), cleanDoc, { merge: true });
     } catch (fsErr) {
       console.warn('[TenantDatabaseService] Firestore save notice (quota/network):', fsErr);
@@ -777,23 +773,13 @@ export const TenantDatabaseService = {
     if (!companyId) return [];
 
     try {
-      const snap = await getDocs(collection(db, 'employees'));
+      const employeesQuery = query(collection(db, 'employees'), where('companyId', '==', companyId));
+      const snap = await getDocs(employeesQuery);
       const allEmps: Employee[] = snap.docs.map(d => {
         const data = d.data();
-        const resolvedCompId = data.companyId || data.company_id || 'comp-super-admin';
-        return {
-          ...data,
-          id: d.id,
-          companyId: resolvedCompId,
-          company_id: resolvedCompId
-        } as unknown as Employee;
+        return normalizeEmployeeRecord({ ...data, id: d.id }, companyId);
       });
-
-      const filtered = companyId === 'comp-super-admin'
-        ? allEmps
-        : allEmps.filter(emp => emp.companyId === companyId);
-
-      return filtered;
+      return allEmps;
     } catch (fsErr) {
       console.warn('[TenantDatabaseService] Firestore fetch error:', fsErr);
     }
@@ -813,9 +799,24 @@ export const TenantDatabaseService = {
       console.warn('[TenantDatabaseService] Firestore delete employee notice:', fsErr);
     }
 
-    // 3. Firestore deletion of related records (contracts, commencements, leaves, attendance, payslips)
+    // 3. Firestore deletion of all employee-owned records across operational collections.
     try {
-      const relCols = ['contracts', 'commencements', 'leaves', 'attendance', 'payslips'];
+      const relCols = [
+        'contracts',
+        'commencements',
+        'leaves',
+        'leave_requests',
+        'leave_allocations',
+        'attendance',
+        'payslips',
+        'loans',
+        'employee_documents',
+        'employee_lifecycle_events',
+        'employeeNotes',
+        'warnings',
+        'work_on_holidays',
+        'onboarding_plans'
+      ];
       for (const colName of relCols) {
         try {
           const q = query(collection(db, colName), where('employeeId', '==', employeeId));

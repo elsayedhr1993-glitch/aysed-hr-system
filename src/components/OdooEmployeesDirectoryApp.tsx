@@ -56,7 +56,6 @@ import { validateKuwaitCivilId, parseKuwaitCivilId } from '../utils/kuwaitLaw';
 import OdooPamContractModal from './OdooPamContractModal';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { exportToExcel } from '../utils/exportUtils';
-import { getPersistentData, setPersistentData, MANARA_STORAGE_KEYS } from '../utils/persistentStorage';
 import { EmployeeListView } from './employees/EmployeeListView';
 import { EmployeeHierarchyView } from './employees/EmployeeHierarchyView';
 import { EmployeeKanbanView } from './employees/EmployeeKanbanView';
@@ -217,8 +216,6 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
     syncDirectoryEmployees();
     return () => { isMounted = false; };
   }, [currentCompanyId]);
-
-  const _legacyMock: EmployeeProfile[] = [];
 
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeProfile | null>(null);
   const [activeFormTab, setActiveFormTab] = useState<'work' | 'private' | 'payroll' | 'residency' | 'medical'>('work');

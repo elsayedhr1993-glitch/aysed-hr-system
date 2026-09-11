@@ -55,6 +55,9 @@ import { TabDocumentScanner } from '../TabDocumentScanner';
 import { EditableField, EditableSelect } from '../EditableField';
 import { getCarriedOverBalance, calculate2026AccruedDays, getGlobalCompensatoryDays } from '../../utils/kuwaitLaw';
 import { buildEmployeeBaselineAllocations, computeFifoLeaveAllocations } from '../../services/leaveService';
+import { deleteEmployeeDocument, saveEmployeeDocument } from '../../services/documentService';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
 
 interface Props {
   employee: any;
@@ -113,6 +116,8 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
   const [activeTab, setActiveTab] = useState<'work' | 'contract' | 'commencement' | 'private' | 'documents' | 'hr'>('work');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
+  const [leaveAllocations, setLeaveAllocations] = useState<any[]>([]);
 
   // تحديث بيانات الموظف عند تغير الـ initialEmployee
   useEffect(() => {
@@ -120,6 +125,38 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
       setEmployee({ ...initialEmployee });
     }
   }, [initialEmployee]);
+
+  useEffect(() => {
+    const employeeId = initialEmployee?.id;
+    const companyId = initialEmployee?.companyId || initialEmployee?.company_id || activeCompany?.id;
+    if (!employeeId || !companyId) {
+      setLeaveRequests([]);
+      setLeaveAllocations([]);
+      return;
+    }
+
+    const requestsQuery = query(
+      collection(db, 'leave_requests'),
+      where('companyId', '==', companyId),
+      where('employeeId', '==', employeeId)
+    );
+    const allocationsQuery = query(
+      collection(db, 'leave_allocations'),
+      where('companyId', '==', companyId),
+      where('employeeId', '==', employeeId)
+    );
+    const unsubscribeRequests = onSnapshot(requestsQuery, snapshot => {
+      setLeaveRequests(snapshot.docs.map(item => ({ ...item.data(), id: item.id })));
+    }, error => console.error('Failed to load employee leave requests:', error));
+    const unsubscribeAllocations = onSnapshot(allocationsQuery, snapshot => {
+      setLeaveAllocations(snapshot.docs.map(item => ({ ...item.data(), id: item.id })));
+    }, error => console.error('Failed to load employee leave allocations:', error));
+
+    return () => {
+      unsubscribeRequests();
+      unsubscribeAllocations();
+    };
+  }, [initialEmployee?.id, initialEmployee?.companyId, initialEmployee?.company_id, activeCompany?.id]);
 
   // تحديد اسم المنشأة الفعلي التابع لها الموظف
   // فحص ما إذا كان هناك شركة تابعة مطابقة، أو استخدام الشركة النشطة إذا كانت ليست الإدارة المركزية
@@ -155,32 +192,21 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
   // Dynamic Time Off Balance Calculation using the core Leave Engine and kuwaitLaw
   const getDynamicBalance = () => {
     try {
-      if (typeof window === 'undefined') return 30;
-
-      // 1. Fetch live requests and allocations from standard localStorage keys
-      const rawRequests = localStorage.getItem('odoo_leave_requests_v2');
-      const rawManaraLeaves = localStorage.getItem('manara_leaves_data');
-      const rawAllocations = localStorage.getItem('odoo_leave_allocations_v2');
-
-      const requestsList = rawRequests ? JSON.parse(rawRequests) : [];
-      const manaraList = rawManaraLeaves ? JSON.parse(rawManaraLeaves) : [];
-      const allocationsList = rawAllocations ? JSON.parse(rawAllocations) : [];
-
-      const combinedRequests = [...requestsList, ...manaraList];
-
-      // 2. Map and parse allocations to match HrLeaveAllocation structure
-      const mappedAllocations = allocationsList.map((a: any) => ({
+      // Firestore is the operational source for leave balances.
+      const mappedAllocations = leaveAllocations.map((a: any) => ({
         ...a,
-        numberOfDays: a.days,
-        allocationType: 'regular',
-        state: 'validate',
-        name: a.notes,
-        dateFrom: a.allocationDate
+        numberOfDays: a.numberOfDays ?? a.days ?? 0,
+        consumedDays: a.consumedDays || 0,
+        remainingDays: a.remainingDays ?? Math.max(0, (a.numberOfDays ?? a.days ?? 0) - (a.consumedDays || 0)),
+        allocationType: a.allocationType || 'regular',
+        state: a.state || 'validate',
+        name: a.name || a.notes,
+        dateFrom: a.dateFrom || a.allocationDate
       }));
 
-      // 3. Use the core engine to build baseline allocations including 2025 carried over and 2026 accrued
+      // Build baseline allocations including carried-over and accrued entitlement.
       const empAllocs = buildEmployeeBaselineAllocations(employee as any, mappedAllocations as any);
-      const fifoResult = computeFifoLeaveAllocations(employee as any, empAllocs, combinedRequests as any);
+      const fifoResult = computeFifoLeaveAllocations(employee as any, empAllocs, leaveRequests as any);
 
       const totalOpening = fifoResult.allocations.filter(a => a.allocationType === 'regular').reduce((s, a) => s + (a.numberOfDays || 0), 0);
       const totalAccrued = fifoResult.allocations.filter(a => a.allocationType === 'accrual' && !a.name?.includes('تعويضي') && !a.name?.includes('بديل') && !a.name?.includes('عطلة')).reduce((s, a) => s + (a.numberOfDays || 0), 0);
@@ -248,6 +274,15 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
     reader.onload = () => {
       const base64Url = reader.result as string;
       const fileInfo = {
+        id: `${employee.id}-${docKey}`,
+        employeeId: employee.id,
+        employeeNameAr: employee.fullNameAr || employee.name || '',
+        civilId: employee.civilId || '',
+        category: 'عقود وإقرارات قانونية (Contracts & Declarations)' as const,
+        docTitleAr: customTitle || docKey,
+        docTitleEn: customTitle || docKey,
+        fileType: file.type.includes('pdf') ? 'PDF' as const : 'JPG' as const,
+        fileName: file.name,
         name: file.name,
         url: base64Url,
         fileSize: `${(file.size / 1024).toFixed(1)} KB`,
@@ -256,6 +291,10 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
         type: file.type.includes('pdf') ? 'pdf' : 'image',
         status: 'verified'
       };
+
+      void saveEmployeeDocument(fileInfo as any).catch(error => {
+        console.error('Failed to persist employee document:', error);
+      });
 
       setEmployee((prev: any) => {
         const currentFiles = prev.documentFiles || {};
@@ -275,6 +314,9 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
   };
 
   const handleRemoveDocFile = (docKey: string) => {
+    void deleteEmployeeDocument(`${employee.id}-${docKey}`).catch(error => {
+      console.error('Failed to delete employee document:', error);
+    });
     setEmployee((prev: any) => {
       const currentFiles = { ...(prev.documentFiles || {}) };
       delete currentFiles[docKey];

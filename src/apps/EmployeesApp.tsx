@@ -18,8 +18,9 @@ import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { getPersistentData } from '../utils/persistentStorage';
 import { get_aysed_official_balance, getCarriedOverBalance, getGlobalCompensatoryDays } from '../utils/kuwaitLaw';
 import { checkDocumentExpiry } from '../utils/dateUtils';
-import { collection, deleteDoc, doc, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { collection, deleteDoc, doc, getDocs, query, setDoc, where } from 'firebase/firestore';
+import { cleanFirestoreData, db } from '../lib/firebase';
+import { changeEmployeeStatus } from '../services/employeeLifecycleService';
 
 export const safePrintA4Document = (htmlContent: string) => {
   try {
@@ -326,9 +327,7 @@ export function EmployeesApp(props?: any) {
     if (e) e.stopPropagation();
     const updated = commencements.filter((c: any) => c.id !== comId);
     setCommencements(updated);
-    if (currentCompanyId) {
-      localStorage.setItem(`odoo_commencements_v1_${currentCompanyId}`, JSON.stringify(updated));
-    }
+    void deleteDoc(doc(db, 'commencements', comId));
     if (selectedCommencement && selectedCommencement.id === comId) {
       setShowCommencementModal(false);
       setSelectedCommencement(null);
@@ -415,39 +414,6 @@ export function EmployeesApp(props?: any) {
       }
     }
   }, [props?.selectedEmployeeId, employees]);
-
-  // One-time sanitization: Ensure Elsayed Bakhit's carried over balance is 0 in localStorage
-  useEffect(() => {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const allocKeys = ['odoo_leave_allocations_v2', 'manara_leave_allocations_data', 'manara_leave_allocations'];
-        for (const k of allocKeys) {
-          const raw = window.localStorage.getItem(k);
-          if (raw) {
-            const list = JSON.parse(raw);
-            if (Array.isArray(list)) {
-              let changed = false;
-              list.forEach((a: any) => {
-                const isBakhit =
-                  a.civilId === '293080106877' ||
-                  (a.employeeName && (a.employeeName.includes('بخيت') || a.employeeName.includes('سويلم'))) ||
-                  (a.name && (a.name.includes('بخيت') || a.name.includes('سويلم')));
-                const isOpening = a.allocationType === 'regular' || a.id?.includes('alloc-open') || a.name?.includes('مرحل') || a.name?.includes('افتتاحي') || String(a.fromYear) === '2025';
-                if (isBakhit && isOpening && (a.numberOfDays > 0 || a.remainingDays > 0)) {
-                  a.numberOfDays = 0;
-                  a.remainingDays = 0;
-                  changed = true;
-                }
-              });
-              if (changed) {
-                window.localStorage.setItem(k, JSON.stringify(list));
-              }
-            }
-          }
-        }
-      }
-    } catch (e) {}
-  }, []);
 
   // 2. مزامنة قاعدة البيانات الحية للمؤسسة أو الشركة النشطة (Single Source of Truth)
   useEffect(() => {
@@ -570,15 +536,6 @@ export function EmployeesApp(props?: any) {
       .then(snapshot => setCommencements(snapshot.docs.map(item => ({ ...item.data(), id: item.id }))));
   }, [currentCompanyId]);
 
-  useEffect(() => {
-  }, [employees, currentCompanyId]);
-
-  useEffect(() => {
-  }, [contracts, currentCompanyId]);
-
-  useEffect(() => {
-  }, [commencements, currentCompanyId]);
-
   // فتح نموذج الموظف (hr.employee) كصفحة نظيفة ومباشرة
   const openEmployeeModal = (emp: any) => {
     const latest = employees.find(e => e.id === emp.id) || emp;
@@ -672,15 +629,11 @@ export function EmployeesApp(props?: any) {
       });
     }
 
-    // حفظ خطة التهيئة والتعيين في الذاكرة
-    try {
-      const savedPlans = localStorage.getItem('odoo_onboarding_plans_v1');
-      let currentPlans = savedPlans ? JSON.parse(savedPlans) : [];
-      const updatedPlans = [plan, ...currentPlans.filter((p: any) => p.id !== plan.id)];
-      localStorage.setItem('odoo_onboarding_plans_v1', JSON.stringify(updatedPlans));
-    } catch (e) {
-      console.error('Error saving onboarding plan:', e);
-    }
+    await setDoc(doc(db, 'onboarding_plans', plan.id), cleanFirestoreData({
+      ...plan,
+      companyId: currentCompanyId,
+      updatedAt: new Date().toISOString()
+    }), { merge: true });
 
     toast.success(`تم تسجيل الموظف (${plan.employeeName}) وتفعيل خطة التهيئة والتعيين بنجاح!`);
   };
@@ -1858,13 +1811,17 @@ export function EmployeesApp(props?: any) {
                   updatedList = [updatedComm, ...commencements];
                 }
                 setCommencements(updatedList);
-                localStorage.setItem(`odoo_commencements_v1_${currentCompanyId}`, JSON.stringify(updatedList));
+                void setDoc(doc(db, 'commencements', updatedComm.id), cleanFirestoreData({
+                  ...updatedComm,
+                  companyId: currentCompanyId,
+                  updatedAt: new Date().toISOString()
+                }), { merge: true });
                 toast.success('تم حفظ إقرار مباشرة العمل بنجاح');
               }}
               onDeleteCommencement={(id) => {
                 const updatedList = commencements.filter(c => c.id !== id);
                 setCommencements(updatedList);
-                localStorage.setItem(`odoo_commencements_v1_${currentCompanyId}`, JSON.stringify(updatedList));
+                void deleteDoc(doc(db, 'commencements', id));
                 toast.success('تم حذف إقرار مباشرة العمل بنجاح');
               }}
               onUpdateEmployeeStatus={(empId, newStatus) => {
@@ -1878,6 +1835,8 @@ export function EmployeesApp(props?: any) {
                     setEmployees(prev => prev.map(e => e.id === empId ? updatedEmployee : e));
                     void TenantDatabaseService.saveEmployee(updatedEmployee as any, currentCompanyId);
                   }
+                  void changeEmployeeStatus(empId, currentCompanyId, newStatus, 'اعتماد مباشرة العمل', 'مسؤول الموارد البشرية')
+                    .catch(error => console.error('Failed to record employee lifecycle event:', error));
                   toast.success(`تم تحديث حالة الموظف لـ ${newStatus === 'ACTIVE' ? 'نشط' : 'غير نشط'}`);
                 }
               }}
