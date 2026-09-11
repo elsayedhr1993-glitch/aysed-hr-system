@@ -1,5 +1,5 @@
 import React from 'react';
-import { LeavesApp } from '../apps/LeavesApp';
+import { OdooTimeOffApp } from './OdooTimeOffApp';
 import { LeaveRequest, Employee, Company, ViewMode, Contract, AttendanceRecord } from '../types';
 
 export interface LeaveManagementProps {
@@ -22,8 +22,8 @@ export interface LeaveManagementProps {
   onNavigateToApp?: (app: any) => void;
 }
 
-export const LeaveManagement: React.FC<LeaveManagementProps> = (props) => {
-  return <LeavesApp {...props} />;
+export const LeaveManagement: React.FC<LeaveManagementProps> = () => {
+  return <OdooTimeOffApp />;
 };
 
 export default LeaveManagement;

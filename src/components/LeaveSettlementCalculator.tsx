@@ -29,6 +29,7 @@ import {
 } from '../services/leaveSettlementService';
 import { LeaveClearanceDocument } from './LeaveClearanceDocument';
 import { calculateUnifiedLeaveBalance, buildLeaveRecordsFromEmployee } from '../utils/leaveEngine';
+import { normalizeContractStatus } from '../utils/contractStatus';
 import toast from 'react-hot-toast';
 
 interface DecimalInputProps {
@@ -132,7 +133,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
 
   const selectedContract = useMemo(() => {
     if (!selectedEmp) return null;
-    return contracts.find(c => c.employeeId === selectedEmp.id && c.status === 'RUNNING') ||
+    return contracts.find(c => c.employeeId === selectedEmp.id && normalizeContractStatus(c.status || (c as any).contractStatus) === 'running') ||
            contracts.find(c => c.employeeId === selectedEmp.id);
   }, [contracts, selectedEmp]);
 

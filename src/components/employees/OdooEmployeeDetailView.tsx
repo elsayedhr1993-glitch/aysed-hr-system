@@ -66,6 +66,7 @@ interface Props {
   onDelete?: (id: string, name: string) => void;
   onTriggerPrint: (title: string, data: any) => void;
   onOpenPamModal: () => void;
+  onOpenContracts?: () => void;
   activeCompany?: any;
 }
 
@@ -76,6 +77,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
   onDelete,
   onTriggerPrint,
   onOpenPamModal,
+  onOpenContracts,
   activeCompany
 }) => {
   const { companies, activeCompany: contextActiveCompany } = useCompany();
@@ -1047,9 +1049,10 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
         {activeTab === 'contract' && (
           <EmployeeContractTab
             employee={employee}
-            isEditMode={isEditMode}
+            isEditMode={false}
             handleFieldChange={handleFieldChange}
             onOpenPamModal={onOpenPamModal}
+            onOpenContracts={onOpenContracts}
           />
         )}
 

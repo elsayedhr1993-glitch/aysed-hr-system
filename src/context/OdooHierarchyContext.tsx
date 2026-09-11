@@ -5,6 +5,7 @@ import { TenantDatabaseService } from '../services/tenantDataService';
 import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { db, cleanFirestoreData } from '../lib/firebase';
 import { normalizeEmployeeRecord } from '../utils/employeeMapper';
+import { normalizeContractStatus } from '../utils/contractStatus';
 
 // 1. المستوى الأول: العقد والبيانات الثابتة (hr.contract & hr.employee)
 export interface EmployeeContract {
@@ -252,8 +253,8 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
                 isKuwaiti: Boolean(emp.isKuwaiti),
                 bankName: emp.bankName || 'بيت التمويل الكويتي (KFH)',
                 iban: emp.iban || '',
-                contractStatus: emp.contractStatus || (['TERMINATED', 'RESIGNED', 'مستقيل', 'منتهي'].includes(emp.status) ? 'expired' : 'running'),
-                status: emp.status || 'ACTIVE',
+                contractStatus: normalizeContractStatus(emp.contractStatus || emp.status || (['TERMINATED', 'RESIGNED', 'مستقيل', 'منتهي'].includes(emp.status) ? 'expired' : 'running')),
+                status: normalizeContractStatus(emp.contractStatus || emp.status || 'running'),
                 commencementDate: emp.commencementDate || emp.joinDate || '',
                 terminationDate: emp.terminationDate || '',
                 resignationDate: emp.resignationDate || '',

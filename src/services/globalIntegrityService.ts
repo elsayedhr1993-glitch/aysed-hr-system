@@ -1,6 +1,7 @@
 import { Employee, Contract, LeaveRequest, AttendanceRecord, Payslip } from '../types';
 import { validateKuwaitCivilId, parseKuwaitCivilId, formatKWD } from '../utils/kuwaitLaw';
 import { validateSettlementConstraints } from '../utils/leaveEngine';
+import { normalizeContractStatus } from '../utils/contractStatus';
 
 export type IntegritySeverity = 'CRITICAL' | 'WARNING' | 'INFO';
 
@@ -135,12 +136,13 @@ export function validateContractIntegrity(
   }
 
   // Single Active Contract Rule
-  const isRunning = contract.status === 'RUNNING' || (contract.status as string) === 'ACTIVE';
+  const status = normalizeContractStatus((contract as any).status || (contract as any).contractStatus);
+  const isRunning = status === 'running';
   if (isRunning && contract.employeeId) {
     const duplicateActive = existingContracts.find(
       c => c.employeeId === contract.employeeId &&
            c.id !== contract.id &&
-           (c.status === 'RUNNING' || (c.status as string) === 'ACTIVE')
+           normalizeContractStatus((c as any).status || (c as any).contractStatus) === 'running'
     );
     if (duplicateActive) {
       errors.push('لا يمكن وجود أكثر من عقد بحالة نشطة (Active/Running) لنفس الموظف.');
@@ -568,7 +570,7 @@ export function runGlobalSystemIntegrityAudit(data: {
     }
 
     // Check corresponding contract
-    const contract = contracts.find(c => c.employeeId === emp.id && (c.status === 'RUNNING' || (c.status as string) === 'ACTIVE'));
+    const contract = contracts.find(c => c.employeeId === emp.id && normalizeContractStatus(c.status || (c as any).contractStatus) === 'running');
     if (!contract) {
       hrCoreIssues++;
       hrCoreWarning++;

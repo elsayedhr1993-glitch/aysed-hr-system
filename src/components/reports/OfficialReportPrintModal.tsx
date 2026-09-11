@@ -13,6 +13,7 @@ import { PivotRowData } from './OdooPivotView';
 import { MeasureOption } from './OdooSearchBar';
 import { PrintWizardConfig } from './OdooReportPrintWizard';
 import { ReportCategory } from '../../apps/ReportsApp';
+import { normalizeContractStatus } from '../../utils/contractStatus';
 import { getGlobalOpeningBalance, getGlobalAccrued2026, getGlobalCompensatoryDays, formatEmployeeNationalityAndResidency } from '../../utils/kuwaitLaw';
 import { getSavedSettlementVouchers } from '../../services/leaveSettlementService';
 import * as XLSX from 'xlsx';
@@ -74,7 +75,7 @@ export const OfficialReportPrintModal: React.FC<OfficialReportPrintModalProps> =
 
   const effectiveEmpId = selectedEmployeeId || wizardConfig?.selectedEmployeeId || printConfig?.selectedEmployeeId;
   const selectedEmployee = employees.find(e => e.id === effectiveEmpId);
-  const selectedEmployeeContract = contracts.find(c => c.employeeId === effectiveEmpId && (c.status === 'RUNNING' || (c.status as string) === 'ACTIVE'));
+  const selectedEmployeeContract = contracts.find(c => c.employeeId === effectiveEmpId && normalizeContractStatus(c.status || (c as any).contractStatus) === 'running');
 
   // Employee specific leave metrics if single selected
   const empLeaveMetrics = selectedEmployee ? (() => {

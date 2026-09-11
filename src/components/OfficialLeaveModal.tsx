@@ -3,6 +3,7 @@ import { X, Calendar, Calculator, Save, AlertTriangle, CheckCircle, Info, AlertC
 import { Employee, LeaveRequest, Contract } from '../types';
 import { computeLeaveRequest, calculateAysedLeaveMetrics } from '../utils/leaveEngine';
 import { computeFifoLeaveAllocations, buildEmployeeBaselineAllocations } from '../services/leaveService';
+import { normalizeContractStatus } from '../utils/contractStatus';
 import { computeUniversalLeaveLedger } from '../utils/kuwaitLaw';
 import { toast } from 'react-hot-toast';
 
@@ -33,7 +34,7 @@ export const OfficialLeaveModal: React.FC<OfficialLeaveModalProps> = ({
   });
 
   const selectedEmp = employees.find(e => e.id === formData.employeeId);
-  const selectedContract = selectedEmp ? contracts.find(c => c.employeeId === selectedEmp.id && (c.status === 'RUNNING' || (c.status as string) === 'ACTIVE' || (c.status as string) === 'active')) : null;
+  const selectedContract = selectedEmp ? contracts.find(c => c.employeeId === selectedEmp.id && normalizeContractStatus(c.status || (c as any).contractStatus) === 'running') : null;
 
   // Recompute available balance if employee changes or when opening
   const totalAvailable = useMemo(() => {

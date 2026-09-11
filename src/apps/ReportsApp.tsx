@@ -10,6 +10,7 @@ import {
   Payslip, DocumentItem, CustodyItem, LoanAdvance, Company, ViewMode
 } from '../types';
 import { getSavedSettlementVouchers } from '../services/leaveSettlementService';
+import { normalizeContractStatus } from '../utils/contractStatus';
 import { get_aysed_official_balance, calculate2026AccruedDays, getGlobalOpeningBalance, getGlobalAccrued2026, getGlobalCompensatoryDays, isEmployeeHiredIn2026OrLater, isKuwaitiEmployee } from '../utils/kuwaitLaw';
 import { calculateServerFifoBalance } from '../../server/leaveCalculatorServer';
 import { OdooSearchBar, FilterOption, GroupByOption, MeasureOption } from '../components/reports/OdooSearchBar';
@@ -332,7 +333,7 @@ export const ReportsApp: React.FC<ReportsAppProps> = ({
   // 1. PAYROLL DATA
   const payrollAggregated = useMemo(() => {
     let list = companyEmployees.map(emp => {
-      const contract = companyContracts.find(c => c.employeeId === emp.id && c.status === 'RUNNING') ||
+      const contract = companyContracts.find(c => c.employeeId === emp.id && normalizeContractStatus(c.status || (c as any).contractStatus) === 'running') ||
                        companyContracts.find(c => c.employeeId === emp.id) || {
                          basicSalary: 45,
                          housingAllowance: 1,
@@ -469,7 +470,7 @@ export const ReportsApp: React.FC<ReportsAppProps> = ({
   // 2. LEAVE BALANCE DATA (Central Backend SSOT Ledger & Movements)
   const leavesAggregated = useMemo(() => {
     let list = companyEmployees.map(emp => {
-      const empContract = companyContracts.find(c => c.employeeId === emp.id && (c.status === 'RUNNING' || (c.status as string) === 'ACTIVE')) || null;
+      const empContract = companyContracts.find(c => c.employeeId === emp.id && normalizeContractStatus(c.status || (c as any).contractStatus) === 'running') || null;
       const serverBalance = calculateServerFifoBalance(emp, [], companyLeaves, empContract);
 
       const opening = Number(serverBalance.carriedOverDays.toFixed(1));
@@ -880,7 +881,7 @@ export const ReportsApp: React.FC<ReportsAppProps> = ({
   // 5. WORKFORCE DEMOGRAPHICS DATA
   const workforceAggregated = useMemo(() => {
     let list = companyEmployees.map(emp => {
-      const contract = companyContracts.find(c => c.employeeId === emp.id && c.status === 'RUNNING') ||
+      const contract = companyContracts.find(c => c.employeeId === emp.id && normalizeContractStatus(c.status || (c as any).contractStatus) === 'running') ||
                        companyContracts.find(c => c.employeeId === emp.id);
       
       const salary = (contract?.basicSalary || 5) + (contract?.housingAllowance || 0) + (contract?.transportAllowance || 0);

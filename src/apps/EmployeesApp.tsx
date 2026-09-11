@@ -1512,6 +1512,7 @@ export function EmployeesApp(props?: any) {
               onDelete={(id, name) => handleDeleteEmployee(id, name)}
               onTriggerPrint={(title, data) => handleTriggerPrint(title, data)}
               onOpenPamModal={() => setShowPamContractModal(true)}
+              onOpenContracts={() => setActiveTab('contracts')}
             />
           ) : (
             <>

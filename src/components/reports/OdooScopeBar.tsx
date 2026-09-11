@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { Employee, Contract, LeaveRequest, AttendanceRecord, DocumentItem } from '../../types';
 import { ReportCategory } from '../../apps/ReportsApp';
+import { normalizeContractStatus } from '../../utils/contractStatus';
 import { get_aysed_official_balance, getGlobalOpeningBalance, getGlobalAccrued2026, isEmployeeHiredIn2026OrLater, isKuwaitiEmployee, formatEmployeeNationalityAndResidency } from '../../utils/kuwaitLaw';
 
 interface OdooScopeBarProps {
@@ -77,7 +78,7 @@ export const OdooScopeBar: React.FC<OdooScopeBarProps> = ({
 
   const selectedContract = useMemo(() => {
     if (!selectedEmployee) return null;
-    return contracts.find(c => c.employeeId === selectedEmployee.id && c.status === 'RUNNING') ||
+    return contracts.find(c => c.employeeId === selectedEmployee.id && normalizeContractStatus(c.status || (c as any).contractStatus) === 'running') ||
            contracts.find(c => c.employeeId === selectedEmployee.id);
   }, [contracts, selectedEmployee]);
 

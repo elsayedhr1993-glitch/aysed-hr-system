@@ -14,6 +14,7 @@ import { collection, doc, setDoc, deleteDoc, getDocs, query, where, getDoc } fro
 import { Company, Employee, LeaveRequest, AttendanceRecord, Payslip, Contract } from '../types';
 import { triggerContractRunningLeaveAllocation } from '../utils/contractLeaveTrigger';
 import { normalizeEmployeeRecord, toEmployeeFirestoreData } from '../utils/employeeMapper';
+import { normalizeContractStatus } from '../utils/contractStatus';
 import { saveHolidayWorkRecord, approveHolidayWork, WorkOnHolidayRecord } from './holidayWorkService';
 
 export enum OperationType {
@@ -923,12 +924,15 @@ export const TenantDatabaseService = {
    */
   async saveContract(contract: Contract, targetCompanyId?: string): Promise<boolean> {
     const compId = targetCompanyId || contract.companyId || 'comp-super-admin';
+    const canonicalStatus = normalizeContractStatus((contract as any).status || (contract as any).contractStatus);
     const effectiveDailyHours = contract.customDailyHours ?? contract.custom_daily_hours ?? contract.dailyWorkHours ?? contract.plannedDailyHours ?? 8;
     const effectiveWeeklyHours = contract.workingHoursPerWeek || (Number(effectiveDailyHours) * 6);
 
     try {
       const cleanDoc = cleanFirestoreData({
         ...contract,
+        status: canonicalStatus,
+        contractStatus: canonicalStatus,
         dailyWorkHours: effectiveDailyHours,
         customDailyHours: effectiveDailyHours,
         custom_daily_hours: effectiveDailyHours,
@@ -940,12 +944,11 @@ export const TenantDatabaseService = {
       const docId = (contract.id || '').replace(/\//g, '_') || doc(collection(db, 'contracts')).id;
       await setDoc(doc(db, 'contracts', docId), cleanDoc, { merge: true });
 
-      // تفعيل رصيد الإجازات السنوية التلقائي (30 يوماً لسنة 2026) عند سريان العقد (Running Trigger)
       if (contract.employeeId) {
         triggerContractRunningLeaveAllocation({
           employeeId: contract.employeeId,
           startDate: contract.startDate || '2026-01-01',
-          status: contract.status,
+          status: canonicalStatus,
           companyId: compId
         });
       }
@@ -959,7 +962,28 @@ export const TenantDatabaseService = {
 
   async deleteContract(contractId: string, _companyId?: string): Promise<boolean> {
     try {
-      await deleteDoc(doc(db, 'contracts', contractId.replace(/\//g, '_')));
+      const normalizedId = contractId.replace(/\//g, '_');
+      const contractRef = doc(db, 'contracts', normalizedId);
+      const contractSnap = await getDoc(contractRef);
+      const contractData = contractSnap.exists() ? contractSnap.data() : null;
+
+      await deleteDoc(contractRef);
+
+      if (contractData?.employeeId) {
+        const employeeRef = doc(db, 'employees', contractData.employeeId);
+        const employeeSnap = await getDoc(employeeRef);
+        if (employeeSnap.exists()) {
+          const employeeData = employeeSnap.data() as Record<string, any>;
+          await setDoc(employeeRef, {
+            ...employeeData,
+            contractStatus: 'expired',
+            status: employeeData.status || 'ACTIVE',
+            contractEndedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
+        }
+      }
+
       return true;
     } catch (error) {
       console.error('[TenantDatabaseService] Firestore contract delete error:', error);

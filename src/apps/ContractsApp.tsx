@@ -45,47 +45,7 @@ export const ContractsApp: React.FC<ContractsAppProps> = ({
   });
 
   const handleSave = () => {
-    const basic = Number(editingContract?.basicSalary) || 0;
-    if (!editingContract?.employeeId || basic <= 0) {
-      alert('يرجى اختيار الموظف وإدخال الراتب الأساسي الفعلي (لا يمكن أن يساوي صفراً)');
-      return;
-    }
-
-    // Determine custom/explicitly specified daily hours
-    // Priority: customDailyHours > custom_daily_hours > dailyWorkHours > plannedDailyHours > 8
-    const rawHours = editingContract.customDailyHours ?? editingContract.custom_daily_hours ?? editingContract.dailyWorkHours ?? editingContract.plannedDailyHours;
-    const finalDailyHours = (rawHours !== undefined && rawHours !== null && !isNaN(Number(rawHours)) && Number(rawHours) > 0)
-      ? Number(rawHours)
-      : 8;
-
-    const finalWeeklyHours = editingContract.workingHoursPerWeek && Number(editingContract.workingHoursPerWeek) > 0
-      ? Number(editingContract.workingHoursPerWeek)
-      : Math.round(finalDailyHours * 6);
-
-    const newContract: Contract = {
-      id: editingContract.id || `cnt-${Date.now()}`,
-      employeeId: editingContract.employeeId,
-      companyId: activeCompany?.id || '',
-      basicSalary: Number(editingContract.basicSalary) || 0,
-      housingAllowance: Number(editingContract.housingAllowance) || 0,
-      transportAllowance: Number(editingContract.transportAllowance) || 0,
-      otherAllowance: Number(editingContract.otherAllowance) || 0,
-      contractType: editingContract.contractType || 'INDEFINITE',
-      startDate: editingContract.startDate || new Date().toISOString().split('T')[0],
-      endDate: editingContract.contractType === 'FIXED_TERM' ? editingContract.endDate : undefined,
-      noticePeriodDays: Number(editingContract.noticePeriodDays) || 90,
-      status: editingContract.status || 'RUNNING',
-      resourceCalendarId: editingContract.resourceCalendarId || 'cal-std-8h-6d',
-      workingSchedule: editingContract.workingSchedule || 'الدوام الصباحي القياسي 8 ساعات (08:00 - 16:00)',
-      workHoursType: editingContract.workHoursType || 'STANDARD',
-      workingHoursPerWeek: finalWeeklyHours,
-      dailyWorkHours: finalDailyHours,
-      customDailyHours: finalDailyHours,
-      custom_daily_hours: finalDailyHours,
-      plannedDailyHours: finalDailyHours,
-    };
-
-    onSaveContract(newContract);
+    alert('هذا العرض قديم ومخصص للعرض فقط. استخدم تطبيق العقود الرسمي لإجراء أي تعديل أو حذف.');
     setEditingContract(null);
   };
 
@@ -96,17 +56,16 @@ export const ContractsApp: React.FC<ContractsAppProps> = ({
         <div>
           <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
             <span>عقود عمل الموظفين Odoo Contracts</span>
-            <span className="text-xs bg-teal-700 text-white px-2 py-0.5 rounded-full font-mono">
-              {filteredContracts.length} عقد
+            <span className="text-xs bg-amber-600 text-white px-2 py-0.5 rounded-full font-mono">
+              أرشيف/عرض قديم
             </span>
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            إدارة العقود المحددة وغير المحددة، والبدلات السكنية والمواصلات وفق قانون الشؤون
+            هذا العرض قديم ولا يُستخدم للتعديل. جميع التحديثات تذهب إلى التطبيق الرسمي للعقود.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
-          {/* View Switcher Toggle */}
           <div className="flex gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
             <button
               onClick={() => onViewModeChange('KANBAN')}
@@ -131,26 +90,18 @@ export const ContractsApp: React.FC<ContractsAppProps> = ({
           </div>
 
           <button
-            onClick={() => {
-              setEditingContract({
-                companyId: activeCompany?.id || '',
-                contractType: 'INDEFINITE',
-                noticePeriodDays: 90,
-                basicSalary: 0,
-                housingAllowance: 0,
-                transportAllowance: 0,
-                otherAllowance: 0,
-                status: 'RUNNING',
-                employeeId: '',
-                startDate: '',
-              });
-            }}
+            type="button"
+            onClick={() => onNavigateToApp?.('contracts')}
             className="bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold px-4 py-2 rounded shadow flex items-center gap-2 transition"
           >
             <Plus className="w-4 h-4" />
-            <span>إنشاء عقد جديد</span>
+            <span>فتح التطبيق الرسمي للعقود</span>
           </button>
         </div>
+      </div>
+
+      <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 mb-4">
+        تم إيقاف التحرير داخل هذا العرض لتجنب التكرار مع تطبيق العقود الرسمي. استخدم زر "فتح التطبيق الرسمي للعقود" لإجراء أي تعديل.
       </div>
 
       {/* Contracts Table */}
@@ -177,23 +128,11 @@ export const ContractsApp: React.FC<ContractsAppProps> = ({
                   <p className="font-bold mb-1">لا توجد عقود عمل مسجلة حالياً</p>
                   <p className="text-[11px] text-slate-400 mb-3">اضغط على زر "إنشاء عقد جديد" لربط الموظف بعقد عمل قانوني معتمد</p>
                   <button
-                    onClick={() => {
-                      setEditingContract({
-                        companyId: activeCompany?.id || '',
-                        contractType: 'INDEFINITE',
-                        noticePeriodDays: 90,
-                        basicSalary: 0,
-                        housingAllowance: 0,
-                        transportAllowance: 0,
-                        otherAllowance: 0,
-                        status: 'RUNNING',
-                        employeeId: '',
-                        startDate: '',
-                      });
-                    }}
+                    type="button"
+                    onClick={() => onNavigateToApp?.('contracts')}
                     className="bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold px-4 py-2 rounded shadow transition"
                   >
-                    إنشاء أول عقد
+                    فتح التطبيق الرسمي للعقود
                   </button>
                 </td>
               </tr>) : (
@@ -239,15 +178,18 @@ export const ContractsApp: React.FC<ContractsAppProps> = ({
                   <td className="p-3">{cnt.noticePeriodDays} يوماً</td>
                   <td className="p-3 text-center space-x-1 space-x-reverse">
                     <button
-                      onClick={() => setEditingContract(cnt)}
+                      type="button"
+                      onClick={() => onNavigateToApp?.('contracts')}
                       className="p-1 text-slate-600 hover:text-teal-700 rounded hover:bg-slate-200"
+                      title="فتح التطبيق الرسمي للعقود"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => onDeleteContract(cnt.id)}
+                      type="button"
+                      onClick={() => onNavigateToApp?.('contracts')}
                       className="p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-slate-200"
-                      title="حذف العقد"
+                      title="فتح التطبيق الرسمي للعقود"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>

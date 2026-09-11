@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 import { Employee, AttendanceRecord, LeaveRequest, Contract } from '../types';
+import { normalizeContractStatus } from './contractStatus';
 
 export interface ShiftConfig {
   nameAr?: string;
@@ -147,7 +148,7 @@ export function processRawLogsToAttendanceRecords(
 
     const targetEmpId = emp ? emp.id : `unmatched-${code}`;
 
-    const empContract = contracts.find(c => (c.employeeId === targetEmpId || (emp && c.employeeId === emp.employeeCode)) && (c.status === 'RUNNING' || (c.status as string) === 'ACTIVE'));
+    const empContract = contracts.find(c => (c.employeeId === targetEmpId || (emp && c.employeeId === emp.employeeCode)) && normalizeContractStatus(c.status || (c as any).contractStatus) === 'running');
     const standardHours = empContract?.plannedDailyHours || empContract?.dailyWorkHours || (empContract as any)?.dailyHours || (empContract as any)?.hours_per_day || shift.dailyWorkHours || 8;
 
     Object.entries(datesData).forEach(([dateStr, times]) => {

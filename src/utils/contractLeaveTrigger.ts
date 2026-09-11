@@ -17,7 +17,7 @@ export interface RunningContractTriggerPayload {
  * تلقائياً ينشئ ويثبت سجل Time Off Allocation برصيد 30 يوماً
  * لحظة حفظ أو تفعيل العقد بحالة Running / Active مع اعتماد تاريخ البداية المكتوب.
  */
-export function triggerContractRunningLeaveAllocation(contract: RunningContractTriggerPayload): any {
+export async function triggerContractRunningLeaveAllocation(contract: RunningContractTriggerPayload): Promise<any> {
   if (!contract || !contract.employeeId) return null;
 
   const rawStatus = String(contract.contractStatus || contract.status || '').toLowerCase();
@@ -51,7 +51,7 @@ export function triggerContractRunningLeaveAllocation(contract: RunningContractT
       createdAt: new Date().toISOString()
     };
 
-    void setDoc(doc(db, 'leave_allocations', allocationId), cleanFirestoreData(allocDoc), { merge: true });
+    await setDoc(doc(db, 'leave_allocations', allocationId), cleanFirestoreData(allocDoc), { merge: true });
 
     return allocDoc;
   } catch (err) {
@@ -64,7 +64,7 @@ export function triggerContractRunningLeaveAllocation(contract: RunningContractT
  * React Hook for executing the running contract trigger in components
  */
 export function useContractLeaveTrigger() {
-  const trigger = (contract: RunningContractTriggerPayload) => {
+  const trigger = async (contract: RunningContractTriggerPayload) => {
     return triggerContractRunningLeaveAllocation(contract);
   };
 

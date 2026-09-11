@@ -46,6 +46,7 @@ import { computeFifoLeaveAllocations, buildEmployeeBaselineAllocations } from '.
 import { approveLeaveRequest } from '../services/leaveApprovalService';
 import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { db, cleanFirestoreData } from '../lib/firebase';
+import { normalizeLeaveStatus, normalizeLeaveType, isLeaveRequestInConflict, canTransitionLeaveStatus } from '../utils/leaveModel';
 
 // Time Off Sub-components
 import { PrintableLeaveFormModal } from './timeoff/PrintableLeaveFormModal';
@@ -269,18 +270,20 @@ export const OdooTimeOffApp: React.FC = () => {
   const newRequestOverlaps = useMemo(() => {
     if (!newRequest.startDate || !newRequest.endDate) return { teamOverlaps: [], replacementOverlap: false };
 
-    const teamOverlaps = requests.filter(r => 
-      (r.status === 'approved' || r.status === 'pending_manager' || r.status === 'pending_hr') &&
-      r.employeeId !== newRequest.employeeId &&
-      r.department && r.department === newRequest.department &&
-      r.startDate <= newRequest.endDate && r.endDate >= newRequest.startDate
-    );
+    const teamOverlaps = requests.filter(r => {
+      const status = normalizeLeaveStatus(r.status);
+      return (status === 'APPROVED' || status === 'PENDING_MANAGER' || status === 'PENDING_HR') &&
+        r.employeeId !== newRequest.employeeId &&
+        r.department && r.department === newRequest.department &&
+        r.startDate <= newRequest.endDate && r.endDate >= newRequest.startDate;
+    });
 
-    const replacementOverlap = requests.some(r =>
-      (r.status === 'approved' || r.status === 'pending_manager' || r.status === 'pending_hr') &&
-      (r.employeeName === newRequest.replacementEmployee || r.employeeId === newRequest.replacementEmployee) &&
-      r.startDate <= newRequest.endDate && r.endDate >= newRequest.startDate
-    );
+    const replacementOverlap = requests.some(r => {
+      const status = normalizeLeaveStatus(r.status);
+      return (status === 'APPROVED' || status === 'PENDING_MANAGER' || status === 'PENDING_HR') &&
+        (r.employeeName === newRequest.replacementEmployee || r.employeeId === newRequest.replacementEmployee) &&
+        r.startDate <= newRequest.endDate && r.endDate >= newRequest.startDate;
+    });
 
     return { teamOverlaps, replacementOverlap };
   }, [requests, newRequest]);
@@ -331,10 +334,25 @@ export const OdooTimeOffApp: React.FC = () => {
       return;
     }
 
+    const employeeId = newRequest.employeeId || companyEmployees[0]?.id || '';
+    const conflictExists = isLeaveRequestInConflict(
+      {
+        employeeId,
+        startDate: newRequest.startDate,
+        endDate: newRequest.endDate,
+        status: 'PENDING_MANAGER'
+      },
+      requests
+    );
+
+    if (conflictExists) {
+      toast.error('يوجد طلب إجازة متداخل أو معتمد لنفس الموظف خلال نفس الفترة. لا يمكن إنشاء طلب مزدوج.');
+      return;
+    }
+
     // Check available balance for Annual Leave
     if (newRequest.leaveType === 'annual') {
-      const empId = newRequest.employeeId || companyEmployees[0]?.id || '';
-      const { available } = getEmployeeContractBalance(empId);
+      const { available } = getEmployeeContractBalance(employeeId);
 
       if (count > available) {
         const excess = count - available;
@@ -347,17 +365,17 @@ export const OdooTimeOffApp: React.FC = () => {
 
     const created: LeaveRequest = {
       id: `LV-2026-00${requests.length + 1}`,
-      employeeId: newRequest.employeeId || companyEmployees[0]?.id || '',
+      employeeId,
       employeeName: newRequest.employeeName || 'موظف جديد',
       civilId: newRequest.civilId,
       department: newRequest.department,
-      leaveType: newRequest.leaveType,
+      leaveType: normalizeLeaveType(newRequest.leaveType) as LeaveRequest['leaveType'],
       startDate: newRequest.startDate,
       endDate: newRequest.endDate,
       daysCount: count,
       totalDays: count,
       reason: newRequest.reason || 'إجازة اعتيادية',
-      status: 'pending_manager', // Starts at step 1 (Direct Manager Approval)
+      status: normalizeLeaveStatus('PENDING_MANAGER') as LeaveRequest['status'],
       appliedDate: new Date().toISOString().split('T')[0],
       replacementEmployee: newRequest.replacementEmployee,
       basicSalary: newRequest.basicSalary,
@@ -420,12 +438,20 @@ export const OdooTimeOffApp: React.FC = () => {
   // 2-Step Approval Workflow:
   // Step 1: Manager approves -> status becomes pending_hr
   const handleManagerApprove = (id: string) => {
+    const targetReq = requests.find(r => r.id === id);
+    if (!targetReq) return;
+
+    if (!canTransitionLeaveStatus(targetReq.status, 'PENDING_HR')) {
+      toast.error('لا يمكن اعتماد هذا الطلب من المدير الآن لأنه ليس في حالة انتظار المدير.');
+      return;
+    }
+
     const todayStr = new Date().toISOString().split('T')[0];
     setRequests(requests.map(req => {
       if (req.id === id) {
         return {
           ...req,
-          status: 'pending_hr',
+          status: normalizeLeaveStatus('PENDING_HR') as LeaveRequest['status'],
           managerApprovedBy: 'مدير القسم المباشر',
           managerApprovedAt: todayStr
         };
@@ -439,6 +465,11 @@ export const OdooTimeOffApp: React.FC = () => {
   const handleHrApprove = async (id: string) => {
     const targetReq = requests.find(r => r.id === id);
     if (!targetReq) return;
+
+    if (!canTransitionLeaveStatus(targetReq.status, 'APPROVED')) {
+      toast.error('لا يمكن اعتماد هذا الطلب من الموارد البشرية الآن لأنه ليس في حالة انتظار الموارد البشرية.');
+      return;
+    }
 
     // Balance check
     if (targetReq.leaveType === 'annual') {
@@ -474,7 +505,7 @@ export const OdooTimeOffApp: React.FC = () => {
       }
       setRequests(previous => previous.map(req => req.id === id ? {
         ...req,
-        status: 'approved',
+        status: normalizeLeaveStatus('APPROVED') as LeaveRequest['status'],
         totalDays: targetReq.daysCount,
         paidDays: result.paidDays,
         unpaidDays: result.unpaidDays,
@@ -490,7 +521,15 @@ export const OdooTimeOffApp: React.FC = () => {
 
   // Rejection with reason modal confirm
   const handleConfirmRejection = (requestId: string, reason: string) => {
-    setRequests(requests.map(r => r.id === requestId ? { ...r, status: 'rejected', rejectionReason: reason } : r));
+    const targetReq = requests.find(r => r.id === requestId);
+    if (!targetReq) return;
+
+    if (!canTransitionLeaveStatus(targetReq.status, 'REJECTED')) {
+      toast.error('لا يمكن رفض هذا الطلب في حالته الحالية.');
+      return;
+    }
+
+    setRequests(requests.map(r => r.id === requestId ? { ...r, status: normalizeLeaveStatus('REJECTED') as LeaveRequest['status'], rejectionReason: reason } : r));
     setRejectionModalState(null);
     toast.success('تم تسجيل قرار الرفض وتوثيق الأسباب في سجل الطلب.');
   };
@@ -501,7 +540,7 @@ export const OdooTimeOffApp: React.FC = () => {
       if (r.id === requestId) {
         return {
           ...r,
-          status: 'returned',
+          status: normalizeLeaveStatus('RETURNED') as LeaveRequest['status'],
           returnedToWorkDate: returnDate,
           returnedToWorkNotes: notes
         };

@@ -1,5 +1,6 @@
 import { collection, doc, getDocs, query, runTransaction, where } from 'firebase/firestore';
 import { db, cleanFirestoreData } from '../lib/firebase';
+import { normalizeLeaveStatus, normalizeLeaveType } from '../utils/leaveModel';
 
 export interface LeaveApprovalInput {
   id: string;
@@ -25,6 +26,8 @@ export async function approveLeaveRequest(
   approver: string
 ): Promise<LeaveApprovalResult> {
   const companyId = request.companyId || 'comp-super-admin';
+  const normalizedLeaveType = normalizeLeaveType(request.leaveType);
+  const normalizedStatus = normalizeLeaveStatus(request.status ?? 'PENDING_HR');
   const requestedDays = Number(request.totalDays ?? request.daysCount ?? 0);
 
   if (!request.id || !request.employeeId || requestedDays <= 0) {
@@ -48,11 +51,11 @@ export async function approveLeaveRequest(
     );
 
     const storedRequest = requestSnapshot.data() || request;
-    if (String(storedRequest.status || '').toLowerCase() === 'approved') {
+    if (normalizeLeaveStatus(storedRequest.status) === 'APPROVED') {
       throw new Error('تم اعتماد طلب الإجازة مسبقًا');
     }
 
-    const isAnnual = String(storedRequest.leaveType || request.leaveType).toUpperCase() === 'ANNUAL';
+    const isAnnual = normalizeLeaveType(storedRequest.leaveType || request.leaveType) === 'ANNUAL';
     const allocationDocs = allocationSnapshots
       .filter(snapshot => snapshot.exists())
       .map(snapshot => ({ id: snapshot.id, ...snapshot.data() } as any))
@@ -108,7 +111,8 @@ export async function approveLeaveRequest(
     transaction.set(requestRef, cleanFirestoreData({
       ...storedRequest,
       companyId,
-      status: 'approved',
+      leaveType: normalizeLeaveType(storedRequest.leaveType || request.leaveType),
+      status: normalizedStatus === 'APPROVED' ? 'APPROVED' : 'APPROVED',
       totalDays: requestedDays,
       paidDays,
       unpaidDays,

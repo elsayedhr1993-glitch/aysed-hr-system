@@ -43,7 +43,10 @@ import { exportToExcel } from '../utils/exportUtils';
 import { exportElementToPdf } from '../utils/printUtils';
 import { tafqeet } from '../utils/tafqeet';
 import { triggerContractRunningLeaveAllocation } from '../utils/contractLeaveTrigger';
+import { normalizeContractStatus } from '../utils/contractStatus';
 import { FileSpreadsheet } from 'lucide-react';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 export interface DetailedContract extends EmployeeContract {
   contractRef: string;
@@ -96,49 +99,51 @@ export const OdooContractsApp: React.FC = () => {
           setDbEmployees(mapped);
         }
 
-        const fetchedContracts = await TenantDatabaseService.getContractsByTenant(currentCompanyId);
-        if (isMounted) {
-          if (fetchedContracts && fetchedContracts.length > 0) {
-            const mappedContracts: DetailedContract[] = fetchedContracts.map((c: any) => ({
-              id: c.employeeId || c.id,
-              contractRef: c.id || `CONTRACT-${c.employeeId}`,
-              name: c.employeeName || c.name || 'موظف',
-              civilId: c.civilId || '',
-              jobTitle: c.jobTitle || 'موظف',
-              department: c.department || 'العموم',
-              basicSalary: c.basicSalary || 0,
-              housingAllowance: c.housingAllowance || 0,
-              transportAllowance: c.transportAllowance || 0,
-              medicalAllowance: c.otherAllowance || c.medicalAllowance || 0,
-              isKuwaiti: Boolean(c.isKuwaiti),
-              bankName: c.bankName || 'بيت التمويل الكويتي',
-              iban: c.iban || '',
-              contractStatus: c.status || 'running',
-              startDate: c.startDate || new Date().toISOString().split('T')[0],
-              endDate: c.endDate || '',
-              contractType: c.contractType || 'fixed',
-              probationDays: c.probationDays || 100,
-              noticePeriodMonths: c.noticePeriodMonths || 3,
-              workingHoursWeekly: c.workingHoursPerWeek || 48,
-              employmentType: c.workingSchedule || c.employmentType || 'full_time',
-              hasCustomSchedule: c.hasCustomSchedule || false,
-              dailyHours: c.customDailyHours || c.dailyWorkHours || 8,
-              shiftStartTime: c.shiftStartTime || '08:00',
-              shiftEndTime: c.shiftEndTime || '16:00',
-              gracePeriodMinutes: c.gracePeriodMinutes || 15,
-              hourlyRate: c.hourlyRate || 0
-            }));
-            setContracts(mappedContracts);
-          } else {
-            setContracts([]);
-          }
-        }
       } catch (e) {
         console.error('Error syncing contracts/employees in OdooContractsApp:', e);
       }
     }
     syncData();
     return () => { isMounted = false; };
+  }, [currentCompanyId]);
+
+  useEffect(() => {
+    const contractsQuery = query(collection(db, 'contracts'), where('companyId', '==', currentCompanyId));
+    return onSnapshot(contractsQuery, snapshot => {
+      const mappedContracts: DetailedContract[] = snapshot.docs.map(item => {
+        const c = item.data() as any;
+        return {
+          id: c.employeeId || item.id,
+          contractRef: item.id,
+          name: c.employeeName || c.name || 'موظف',
+          civilId: c.civilId || '',
+          jobTitle: c.jobTitle || 'موظف',
+          department: c.department || 'العموم',
+          basicSalary: c.basicSalary || 0,
+          housingAllowance: c.housingAllowance || 0,
+          transportAllowance: c.transportAllowance || 0,
+          medicalAllowance: c.otherAllowance || c.medicalAllowance || 0,
+          isKuwaiti: Boolean(c.isKuwaiti),
+          bankName: c.bankName || 'بيت التمويل الكويتي',
+          iban: c.iban || '',
+          contractStatus: normalizeContractStatus(c.status || c.contractStatus || 'running'),
+          startDate: c.startDate || new Date().toISOString().split('T')[0],
+          endDate: c.endDate || '',
+          contractType: c.contractType || 'fixed',
+          probationDays: c.probationDays || 100,
+          noticePeriodMonths: c.noticePeriodMonths || 3,
+          workingHoursWeekly: c.workingHoursPerWeek || 48,
+          employmentType: c.workingSchedule || c.employmentType || 'full_time',
+          hasCustomSchedule: c.hasCustomSchedule || false,
+          dailyHours: c.customDailyHours || c.dailyWorkHours || 8,
+          shiftStartTime: c.shiftStartTime || '08:00',
+          shiftEndTime: c.shiftEndTime || '16:00',
+          gracePeriodMinutes: c.gracePeriodMinutes || 15,
+          hourlyRate: c.hourlyRate || 0
+        };
+      });
+      setContracts(mappedContracts);
+    }, error => console.error('Failed to load contracts from Firestore:', error));
   }, [currentCompanyId]);
 
   // القائمة الشاملة المندمجة لموظفي الشركة
@@ -185,7 +190,7 @@ export const OdooContractsApp: React.FC = () => {
                           jobTitle.includes(term) ||
                           contractRef.includes(term) ||
                           civilId.includes(term);
-    const matchesStatus = filterStatus === 'all' || c.contractStatus === filterStatus;
+    const matchesStatus = filterStatus === 'all' || normalizeContractStatus(c.contractStatus) === filterStatus;
     const matchesEmpType = filterEmploymentType === 'all' || (c.employmentType || 'full_time') === filterEmploymentType;
     return matchesSearch && matchesStatus && matchesEmpType;
   });
@@ -201,8 +206,8 @@ export const OdooContractsApp: React.FC = () => {
   }, 0);
 
   const averageSalary = contracts.length > 0 ? (totalMonthlyPayroll / contracts.length) : 0;
-  const runningCount = contracts.filter(c => c && c.contractStatus === 'running').length;
-  const draftCount = contracts.filter(c => c && c.contractStatus === 'draft').length;
+  const runningCount = contracts.filter(c => c && normalizeContractStatus(c.contractStatus) === 'running').length;
+  const draftCount = contracts.filter(c => c && normalizeContractStatus(c.contractStatus) === 'draft').length;
   const partTimeCount = contracts.filter(c => c && c.employmentType === 'part_time').length;
 
   // Open Create Form
@@ -308,9 +313,35 @@ export const OdooContractsApp: React.FC = () => {
   const handleSaveContract = async () => {
     if (!selectedContract) return;
 
+    if (!selectedContract.id) {
+      toast.error('يرجى اختيار الموظف أولاً');
+      return;
+    }
+    if (Number(selectedContract.basicSalary || 0) <= 0) {
+      toast.error('يجب إدخال راتب أساسي أكبر من صفر');
+      return;
+    }
+    if (selectedContract.endDate && selectedContract.endDate < selectedContract.startDate) {
+      toast.error('تاريخ نهاية العقد لا يمكن أن يسبق تاريخ البداية');
+      return;
+    }
+    if (selectedContract.contractType === 'fixed' && !selectedContract.endDate) {
+      toast.error('العقد محدد المدة يحتاج إلى تاريخ نهاية');
+      return;
+    }
+    const hasActiveContract = contracts.some(contract =>
+      contract.id === selectedContract.id &&
+      contract.contractRef !== selectedContract.contractRef &&
+      normalizeContractStatus(contract.contractStatus) === 'running'
+    );
+    if (hasActiveContract && normalizeContractStatus(selectedContract.contractStatus) === 'running') {
+      toast.error('يوجد عقد ساري آخر لهذا الموظف');
+      return;
+    }
+
     // Persist to Firestore
     try {
-      await TenantDatabaseService.saveContract({
+      const saved = await TenantDatabaseService.saveContract({
         id: selectedContract.contractRef || `CONTRACT-${selectedContract.id}`,
         companyId: currentCompanyId,
         employeeId: selectedContract.id,
@@ -326,12 +357,18 @@ export const OdooContractsApp: React.FC = () => {
         workingHoursPerWeek: selectedContract.workingHoursWeekly,
         workingSchedule: selectedContract.employmentType
       } as any, currentCompanyId);
+      if (!saved) {
+        toast.error('تعذر حفظ العقد في Firestore');
+        return;
+      }
     } catch (e) {
       console.error('Error saving contract to Firestore:', e);
+      toast.error('تعذر حفظ العقد في Firestore');
+      return;
     }
 
     // الربط الآلي للإجازات (Running Trigger Hook): إنشاء وتثبيت رصيد إجازات سنوية 30 يوم لسنة 2026 فور تفعيل العقد الساري
-    triggerContractRunningLeaveAllocation({
+    await triggerContractRunningLeaveAllocation({
       employeeId: selectedContract.id,
       employeeName: selectedContract.name,
       startDate: selectedContract.startDate || '2026-01-01',
