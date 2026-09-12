@@ -296,7 +296,7 @@ export const OdooReportsApp: React.FC = () => {
         complianceStatus: complianceStatus,
         leaveBalance: leaveBal,
         consumedLeaveDays: consumedDays,
-        annualEntitlement: Number((leaveSummary.carriedOverDays || 0) + (leaveSummary.accruedAnnualDays || 0) + (leaveSummary.holidayCompensationDays || 0)).toFixed(2),
+        annualEntitlement: Number(((leaveSummary.carriedOverDays || 0) + (leaveSummary.accruedAnnualDays || 0) + (leaveSummary.holidayCompensationDays || 0)).toFixed(2)),
         leaveCashLiability: Number(leaveCashLiability.toFixed(3)),
         eosAccruedAmount: Number(eosAccruedAmount.toFixed(3)),
         overtimeHours: Number(otHours.toFixed(1)),

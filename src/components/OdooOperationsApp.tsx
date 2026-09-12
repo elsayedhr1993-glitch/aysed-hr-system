@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Package, 
   Laptop, 
@@ -31,11 +31,12 @@ import {
 import { useCompany } from '../context/CompanyContext';
 import { useOdooHierarchy, EmployeeContract } from '../context/OdooHierarchyContext';
 import { CustodyItem } from '../types';
-import { MANARA_STORAGE_KEYS, getPersistentData, setPersistentData } from '../utils/persistentStorage';
 import { formatKWD } from '../utils/kuwaitLaw';
 import { exportToExcel } from '../utils/exportUtils';
 import { printDocument, exportElementToPdf } from '../utils/printUtils';
 import { toast } from 'react-hot-toast';
+import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
+import { cleanFirestoreData, db } from '../lib/firebase';
 
 export const OdooOperationsApp: React.FC = () => {
   const { activeCompany } = useCompany();
@@ -47,19 +48,31 @@ export const OdooOperationsApp: React.FC = () => {
     return employees.filter(e => !activeCompany?.id || e.companyId === activeCompany.id);
   }, [employees, activeCompany]);
 
-  // Default custodies
-  const defaultCustodies: CustodyItem[] = useMemo(() => {
-    return [];
-  }, []);
+  const [custodies, setCustodies] = useState<CustodyItem[]>([]);
 
-  // Persistent State
-  const [custodies, setCustodies] = useState<CustodyItem[]>(() => {
-    return getPersistentData<CustodyItem[]>(MANARA_STORAGE_KEYS.CUSTODIES, defaultCustodies);
-  });
+  useEffect(() => {
+    const companyId = activeCompany?.id;
+    if (!companyId) {
+      setCustodies([]);
+      return;
+    }
+    const custodyQuery = query(collection(db, 'custodies'), where('companyId', '==', companyId));
+    return onSnapshot(custodyQuery, snapshot => {
+      setCustodies(snapshot.docs.map(item => ({ ...item.data(), id: item.id } as CustodyItem)));
+    }, error => console.error('Failed to load custody records from Firestore', error));
+  }, [activeCompany?.id]);
 
   const saveCustodies = (updated: CustodyItem[]) => {
     setCustodies(updated);
-    setPersistentData(MANARA_STORAGE_KEYS.CUSTODIES, updated);
+    const companyId = activeCompany?.id;
+    if (!companyId) return;
+    updated.forEach(item => {
+      void setDoc(
+        doc(db, 'custodies', item.id),
+        cleanFirestoreData({ ...item, companyId }),
+        { merge: true }
+      ).catch(error => console.error('Failed to save custody record to Firestore', error));
+    });
   };
 
   // Filters & Search
@@ -187,6 +200,9 @@ export const OdooOperationsApp: React.FC = () => {
     if (!deleteConfirm) return;
     const updated = custodies.filter(c => c.id !== deleteConfirm.id);
     saveCustodies(updated);
+    void deleteDoc(doc(db, 'custodies', deleteConfirm.id)).catch(error =>
+      console.error('Failed to delete custody record from Firestore', error)
+    );
     toast.success('تم حذف سجل العهدة بنجاح');
     setDeleteConfirm(null);
   };

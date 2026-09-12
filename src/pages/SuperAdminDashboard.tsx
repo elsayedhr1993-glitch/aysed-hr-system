@@ -220,8 +220,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         systemConfig: {
           geminiApiKeyConfigured: !!geminiApiKey,
           firebaseProjectId: firebaseConfigState.projectId
-        },
-        localStorageSnapshot: {}
+        }
       };
 
       // 1. Fetch Firestore collections
@@ -235,22 +234,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         backupData.employees = empSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       } catch (e) {}
 
-      // 2. Fetch local storage keys relevant to HR system
-      const relevantKeys = [
-        'master_company_profile', 'registered_companies_v1', 'aysed_saved_subscriptions',
-        'aysed_company_credentials', 'hr_custom_documents_v1', 'hr_doc_templates_v1',
-        'odoo_leaves_data', 'odoo_attendances_data'
-      ];
-      relevantKeys.forEach(k => {
-        const item = localStorage.getItem(k);
-        if (item) {
-          try {
-            backupData.localStorageSnapshot[k] = JSON.parse(item);
-          } catch {
-            backupData.localStorageSnapshot[k] = item;
-          }
-        }
-      });
+      // 2. Local snapshot export disabled by policy (cloud-only source of truth).
 
       // 3. Create blob & download
       const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(backupData, null, 2))}`;
@@ -313,13 +297,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         }
         setRequests(backupImportData.subscriptions);
       }
-      // Restore LocalStorage
-      if (backupImportData.localStorageSnapshot) {
-        Object.entries(backupImportData.localStorageSnapshot).forEach(([key, val]) => {
-          localStorage.setItem(key, typeof val === 'string' ? val : JSON.stringify(val));
-        });
-      }
-      toast.success('تمت استعادة كافة البيانات السحابية والمحلية بنجاح!');
+      toast.success('تمت استعادة البيانات السحابية بنجاح.');
       setBackupImportData(null);
       setImportFileName('');
     } catch (err: any) {
@@ -509,10 +487,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
   const handleOpenEdit = (req: SubscriptionRequest) => {
     const email = req.email || `${req.phone.replace(/[^0-9]/g, '')}@aysedhr.com`;
-    const creds = JSON.parse(localStorage.getItem('aysed_company_credentials') || '{}');
-    const existingPass = creds[email]?.password || '';
     setEditingRequest({ ...req, email });
-    setEditPassword(existingPass);
+    setEditPassword(req.password || '');
   };
 
   const handleSaveEditedRequest = async (e: React.FormEvent) => {
@@ -619,32 +595,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         }
       } catch (e) {}
 
-      // Update the Firestore subscription request and company records above.
-      try {
-        const localSubs = JSON.parse(localStorage.getItem('aysed_saved_subscriptions') || '[]');
-        const updatedLocal = localSubs.map((s: any) => (s.id === updatedReq.id || s.name === updatedReq.name || s.companyName === updatedReq.name) ? { ...s, ...updatedReq, companyName: updatedReq.name, requesterName: updatedReq.requester_name, status: updatedReq.state } : s);
-        if (!updatedLocal.some((s: any) => s.id === updatedReq.id)) {
-          updatedLocal.push({ ...updatedReq, companyName: updatedReq.name, requesterName: updatedReq.requester_name, status: updatedReq.state });
-        }
-        localStorage.setItem('aysed_saved_subscriptions', JSON.stringify(updatedLocal));
-
-        const regComps = JSON.parse(localStorage.getItem('registered_companies_v1') || '[]');
-        const updatedReg = regComps.map((c: any) => (c.id === updatedReq.id || c.nameAr === updatedReq.name || c.email === updatedReq.email) ? { ...c, nameAr: updatedReq.name, email: updatedReq.email, phone: updatedReq.phone, ownerName: updatedReq.requester_name, planType: updatedReq.plan_type } : c);
-        localStorage.setItem('registered_companies_v1', JSON.stringify(updatedReg));
-      } catch (e) {}
-
-      // 6. Update credentials in localStorage
+      // 6. Update password in auth provider (if endpoint is available)
       if (editPassword) {
-        const creds = JSON.parse(localStorage.getItem('aysed_company_credentials') || '{}');
-        creds[cleanEmail] = {
-          email: cleanEmail,
-          password: editPassword,
-          companyName: updatedReq.name,
-          phone: updatedReq.phone
-        };
-        localStorage.setItem('aysed_company_credentials', JSON.stringify(creds));
-
-        // If force-password route exists
         try {
           await fetch('/api/admin/force-password', {
             method: 'POST',
@@ -738,63 +690,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       console.warn('Firebase fetch subscription_requests warn:', fbErr);
     }
 
-    // 3. LocalStorage registered companies & subscriptions fallback
-    try {
-      const regComps = JSON.parse(localStorage.getItem('registered_companies_v1') || '[]');
-      if (Array.isArray(regComps)) {
-        regComps.forEach((rc: any) => {
-          if (!rc || rc.id === 'comp-super-admin') return;
-          const companyTitle = rc.nameAr || rc.name || rc.nameEn || rc.companyName || '';
-          if (companyTitle && !isTenantPurged(rc.id) && !isTenantPurged(companyTitle) && !isTenantPurged(rc)) {
-            if (!allRequests.some(r => r.id === rc.id || r.name.toLowerCase() === companyTitle.toLowerCase())) {
-              const activePhone = rc.contactPhone || rc.phone || rc.mobile || '99112233';
-              const activeEmail = rc.adminUsername || rc.email || rc.adminEmail || `${activePhone ? activePhone.replace(/[^0-9]/g, '') : rc.id}@aysedhr.com`;
-
-              allRequests.push({
-                id: rc.id,
-                requester_name: rc.ownerName || rc.requesterName || rc.name || 'المسؤول',
-                name: companyTitle,
-                phone: activePhone,
-                plan_type: rc.planType || rc.plan || 'Medical Pro',
-                emp_count: String(rc.employeeCount || rc.empCount || '1-10'),
-                state: rc.status === 'suspended' ? 'suspended' : 'approved',
-                created_at: rc.createdAt || new Date().toISOString(),
-                email: activeEmail
-              });
-            }
-          }
-        });
-      }
-
-      const localSubs = JSON.parse(localStorage.getItem('aysed_saved_subscriptions') || '[]');
-      localSubs.forEach((ls: any) => {
-        const companyTitle = ls.companyName || ls.name || '';
-        if (companyTitle && !isTenantPurged(ls.id) && !isTenantPurged(companyTitle) && !isTenantPurged(ls)) {
-          if (!allRequests.some(r => r.id === ls.id || r.name.toLowerCase() === companyTitle.toLowerCase())) {
-            let st: 'draft' | 'approved' | 'rejected' | 'suspended' = 'approved';
-            const valSt = ls.status || ls.state;
-            if (valSt === 'draft' || valSt === 'pending') st = 'draft';
-            else if (valSt === 'rejected') st = 'rejected';
-            else if (valSt === 'suspended') st = 'suspended';
-
-            const activePhone = ls.contactPhone || ls.phone || '';
-            const activeEmail = ls.adminUsername || ls.email || ls.adminEmail || `${activePhone ? activePhone.replace(/[^0-9]/g, '') : 'client'}@aysedhr.com`;
-
-            allRequests.push({
-              id: ls.id || 'sub-' + Math.random(),
-              requester_name: ls.requesterName || ls.name || 'المسؤول',
-              name: companyTitle,
-              phone: activePhone,
-              plan_type: ls.planType || ls.sector || 'Medical Pro',
-              emp_count: ls.empCount || ls.employee_count || '1-10',
-              state: st,
-              created_at: ls.createdAt || new Date().toISOString(),
-              email: activeEmail
-            });
-          }
-        }
-      });
-    } catch (lErr) {}
+    // 3. Local fallback removed: Firestore is the single source of truth.
 
     // 4. Default registered tenants
     if (allRequests.length === 0) {
@@ -852,8 +748,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   const handleActivate = async (req: SubscriptionRequest) => {
     try {
       const email = (req.email || `${req.phone.replace(/[^0-9]/g, '') || Date.now()}@aysedhr.com`).trim().toLowerCase();
-      const creds = JSON.parse(localStorage.getItem('aysed_company_credentials') || '{}');
-      const tempPass = creds[email]?.password || ('Aysed2026#' + Math.random().toString(36).slice(-6, -1) + '!');
+      const tempPass = req.password || ('Aysed2026#' + Math.random().toString(36).slice(-6, -1) + '!');
       const compId = req.id.startsWith('comp-') ? req.id : `comp-${Date.now()}`;
 
       // 1. Provision official company account safely without overriding Super Admin session
@@ -904,32 +799,6 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         await setDoc(doc(db, 'subscription_requests', req.id), { status: 'approved', state: 'approved' }, { merge: true });
       } catch (e) {}
 
-      const localSubs = JSON.parse(localStorage.getItem('aysed_saved_subscriptions') || '[]');
-      const updated = localSubs.map((s: any) => s.id === req.id ? { ...s, status: 'approved', state: 'approved' } : s);
-      localStorage.setItem('aysed_saved_subscriptions', JSON.stringify(updated));
-
-      // Persist in registered_companies_v1
-      const regComps = JSON.parse(localStorage.getItem('registered_companies_v1') || '[]');
-      if (!regComps.some((c: any) => c.nameAr === req.name)) {
-        regComps.push({
-          id: compId,
-          nameAr: req.name,
-          nameEn: req.name,
-          ownerName: req.requester_name,
-          email,
-          phone: req.phone,
-          planType: req.plan_type,
-          empCount: req.emp_count,
-          createdAt: req.created_at || new Date().toISOString(),
-          status: 'active'
-        });
-        localStorage.setItem('registered_companies_v1', JSON.stringify(regComps));
-      }
-
-      // Save credentials for quick reference
-      creds[email] = { email, password: tempPass, companyName: req.name };
-      localStorage.setItem('aysed_company_credentials', JSON.stringify(creds));
-
       fetchRequests();
       toast.success(authResult.alreadyExisted ? 'تم ربط وتفعيل حساب الشركة بنجاح' : 'تم تفعيل حساب الشركة وإنشاء بيانات الدخول بنجاح');
 
@@ -952,10 +821,6 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       try {
         await setDoc(doc(db, 'subscription_requests', req.id), { status: 'suspended', state: 'suspended' }, { merge: true });
       } catch (e) {}
-
-      const localSubs = JSON.parse(localStorage.getItem('aysed_saved_subscriptions') || '[]');
-      const updated = localSubs.map((s: any) => s.id === req.id ? { ...s, status: 'suspended', state: 'suspended' } : s);
-      localStorage.setItem('aysed_saved_subscriptions', JSON.stringify(updated));
 
       toast.success(`تم إيقاف/تجميد اشتراك شركة (${req.name}) مؤقتاً ومنع وصول المستخدمين`);
       fetchRequests();
@@ -1366,8 +1231,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                                   <button
                                     onClick={() => {
                                       const email = req.email || `${req.phone.replace(/[^0-9]/g, '')}@aysedhr.com`;
-                                      const creds = JSON.parse(localStorage.getItem('aysed_company_credentials') || '{}');
-                                      const existingPass = req.password || creds[email]?.password || 'Aysed2026#Secure';
+                                      const existingPass = req.password || 'Aysed2026#Secure';
                                       setSelectedActivation({
                                         companyName: req.name,
                                         email,
@@ -1780,35 +1644,6 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
               {/* Main 2-Column Grid */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-                {/* Database Migration Card */}
-                <div className="lg:col-span-2 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl shadow-sm p-6">
-                  <div className="flex items-start gap-4">
-                    <div className="p-3 bg-amber-100 text-amber-700 rounded-xl border border-amber-300">
-                      <Database size={24} />
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="text-sm font-black text-amber-900 mb-1">المرحلة 1: ترحيل البيانات إلى السحابة (Firestore Migration)</h4>
-                      <p className="text-xs text-amber-800 mb-4 max-w-3xl leading-relaxed">
-                        تقوم هذه الأداة بترحيل كافة بيانات الذاكرة المؤقتة (Local Storage) من الشركات، الموظفين، الحضور، الإجازات، والرواتب إلى قاعدة بيانات Firestore السحابية بشكل نهائي وربطها بالمزامنة اللحظية (Real-time Sync).
-                      </p>
-                      <button
-                        onClick={async () => {
-                          const { migrateLocalStorageToFirestore } = await import('../utils/firebaseMigration');
-                          toast.promise(migrateLocalStorageToFirestore('comp-super-admin'), {
-                            loading: 'جاري ترحيل البيانات إلى Firestore...',
-                            success: 'تم ترحيل البيانات بنجاح! قاعدة البيانات السحابية تعمل الآن.',
-                            error: 'حدث خطأ أثناء الترحيل'
-                          });
-                        }}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-md transition cursor-pointer"
-                      >
-                        <RefreshCw size={14} />
-                        <span>بدء الترحيل إلى Firestore الآن</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                
                 {/* 1. Export Backup Card */}
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-5 flex flex-col justify-between">
                   <div className="space-y-4">
@@ -1823,7 +1658,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                     </div>
 
                     <p className="text-xs text-gray-600 leading-relaxed">
-                      يتم تجميع كافة السجلات السحابية والمحلية في ملف JSON واحد منظم يتضمن:
+                      يتم تجميع كافة السجلات السحابية في ملف JSON واحد منظم يتضمن:
                     </p>
 
                     <div className="grid grid-cols-2 gap-2 text-xs text-gray-700 bg-gray-50 p-3.5 rounded-xl border border-gray-100">

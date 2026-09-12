@@ -1,7 +1,10 @@
-import { UserProfile } from './auth';
+type AuditUserProfile = {
+  id?: string;
+  name?: string;
+};
 
 export async function logAction(
-  profile: UserProfile | null,
+  profile: AuditUserProfile | null,
   action: 'create' | 'update' | 'delete' | string,
   resource: string,
   targetId: string | null,

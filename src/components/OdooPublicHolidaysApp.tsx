@@ -36,6 +36,8 @@ import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { exportToExcel } from '../utils/exportUtils';
 import { toast } from 'react-hot-toast';
 import { saveHolidayWorkRecord, WorkOnHolidayRecord } from '../services/holidayWorkService';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { cleanFirestoreData, db } from '../lib/firebase';
 
 // Subcomponents
 import { PrintableHolidayDutyModal } from './holidays/PrintableHolidayDutyModal';
@@ -72,9 +74,6 @@ export interface HolidayDutyAssignment {
   status: 'approved' | 'settled';
   settledAt?: string;
 }
-
-const STORAGE_KEY_HOLIDAYS = 'odoo_kuwait_holidays_v2';
-const STORAGE_KEY_DUTIES = 'odoo_holiday_duties_v2';
 
 const kuwaitOfficialHolidaysList: PublicHoliday[] = [
   {
@@ -177,42 +176,55 @@ export const OdooPublicHolidaysApp: React.FC = () => {
   const { employees } = useOdooHierarchy();
   const companyEmployees = employees && employees.length > 0 ? employees : [];
 
-  // State with LocalStorage persistence
-  const [holidays, setHolidays] = useState<PublicHoliday[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_HOLIDAYS);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.error('Error loading holidays', e);
-    }
-    return kuwaitOfficialHolidaysList;
-  });
+  const [holidays, setHolidays] = useState<PublicHoliday[]>(kuwaitOfficialHolidaysList);
+  const [duties, setDuties] = useState<HolidayDutyAssignment[]>([]);
 
-  const [duties, setDuties] = useState<HolidayDutyAssignment[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_DUTIES);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.error('Error loading holiday duties', e);
-    }
-    return [];
-  });
+  const companyId = activeCompany?.id || 'comp-master';
+  const holidayConfigId = `public_holidays_${companyId}`;
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY_HOLIDAYS, JSON.stringify(holidays));
-    } catch (e) {
-      console.error('Failed to save holidays', e);
-    }
-  }, [holidays]);
+    let mounted = true;
+    const loadHolidayState = async () => {
+      try {
+        const snapshot = await getDoc(doc(db, 'system_config', holidayConfigId));
+        if (!mounted) return;
+        const data = snapshot.data() as { holidays?: PublicHoliday[]; duties?: HolidayDutyAssignment[] } | undefined;
+        if (data?.holidays && Array.isArray(data.holidays) && data.holidays.length > 0) {
+          setHolidays(data.holidays);
+        } else {
+          setHolidays(kuwaitOfficialHolidaysList);
+        }
+        if (data?.duties && Array.isArray(data.duties)) {
+          setDuties(data.duties);
+        } else {
+          setDuties([]);
+        }
+      } catch (error) {
+        console.error('Failed to load holidays config from Firestore', error);
+        if (mounted) {
+          setHolidays(kuwaitOfficialHolidaysList);
+          setDuties([]);
+        }
+      }
+    };
+    void loadHolidayState();
+    return () => {
+      mounted = false;
+    };
+  }, [holidayConfigId]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY_DUTIES, JSON.stringify(duties));
-    } catch (e) {
-      console.error('Failed to save duties', e);
-    }
-  }, [duties]);
+    void setDoc(
+      doc(db, 'system_config', holidayConfigId),
+      cleanFirestoreData({
+        companyId,
+        holidays,
+        duties,
+        updatedAt: new Date().toISOString()
+      }),
+      { merge: true }
+    ).catch(error => console.error('Failed to persist holidays config to Firestore', error));
+  }, [companyId, holidayConfigId, holidays, duties]);
 
   // View state: 'list' vs 'calendar' view
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');

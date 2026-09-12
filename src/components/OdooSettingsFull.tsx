@@ -33,6 +33,26 @@ import { useCompany } from '../context/CompanyContext';
 import { toast } from 'react-hot-toast';
 import { BiometricDevicesModal } from './attendance/BiometricDevicesModal';
 import { SystemIntegrationsPage } from './SystemIntegrationsPage';
+import { collection, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore';
+import { cleanFirestoreData, db } from '../lib/firebase';
+
+interface ShiftSeedRulesConfig {
+  enabled: boolean;
+  seedDays: number;
+  adminWeekendOffDay: number;
+  medicalKeywords: string;
+  securityKeywords: string;
+}
+
+type ShiftSeedRunMode = 'preserve_existing' | 'overwrite_window';
+
+const DEFAULT_SHIFT_SEED_RULES: ShiftSeedRulesConfig = {
+  enabled: true,
+  seedDays: 7,
+  adminWeekendOffDay: 5,
+  medicalKeywords: 'طبي,ممرض,تمريض,عيادة,طوارئ,doctor,nurse,medical,clinic,emergency,moh',
+  securityKeywords: 'حارس,أمن,امن,security,guard'
+};
 
 export const OdooSettingsFull: React.FC = () => {
   const { settings, updateSettings, resetSettings, isSaving } = useSystemSettings();
@@ -53,6 +73,33 @@ export const OdooSettingsFull: React.FC = () => {
 
   const [showApiKey, setShowApiKey] = useState(false);
   const [isTestingSmtp, setIsTestingSmtp] = useState(false);
+  const [shiftSeedRules, setShiftSeedRules] = useState<ShiftSeedRulesConfig>(DEFAULT_SHIFT_SEED_RULES);
+  const [isRunningShiftSeed, setIsRunningShiftSeed] = useState(false);
+  const [shiftSeedRunMode, setShiftSeedRunMode] = useState<ShiftSeedRunMode>('preserve_existing');
+
+  const shiftSeedConfigId = `attendance_shift_seed_rules_${activeCompany?.id || 'comp-master'}`;
+
+  React.useEffect(() => {
+    let mounted = true;
+    const loadShiftSeedRules = async () => {
+      try {
+        const snapshot = await getDoc(doc(db, 'system_config', shiftSeedConfigId));
+        if (!mounted) return;
+        const data = snapshot.data() as Partial<ShiftSeedRulesConfig> | undefined;
+        setShiftSeedRules({
+          ...DEFAULT_SHIFT_SEED_RULES,
+          ...(data || {})
+        });
+      } catch (error) {
+        console.error('Failed to load shift seed rules from Firestore', error);
+        if (mounted) setShiftSeedRules(DEFAULT_SHIFT_SEED_RULES);
+      }
+    };
+    void loadShiftSeedRules();
+    return () => {
+      mounted = false;
+    };
+  }, [shiftSeedConfigId]);
 
   const handleFieldChange = <K extends keyof SystemSettings>(key: K, value: SystemSettings[K]) => {
     setFormData((prev) => ({
@@ -136,9 +183,204 @@ export const OdooSettingsFull: React.FC = () => {
       logo: formData.logo
     });
 
+    void setDoc(
+      doc(db, 'system_config', shiftSeedConfigId),
+      cleanFirestoreData({
+        companyId: activeCompany?.id || 'comp-master',
+        ...shiftSeedRules,
+        updatedAt: new Date().toISOString()
+      }),
+      { merge: true }
+    ).catch(error => console.error('Failed to save shift seed rules to Firestore', error));
+
     toast.success('تم حفظ وتحديث بيانات المنشأة ومزامنتها في الشريط العلوي بنجاح');
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
+  };
+
+  const handleRunShiftSeedNow = async () => {
+    const companyId = activeCompany?.id;
+    if (!companyId) {
+      toast.error('لا يمكن تنفيذ التهيئة قبل اختيار منشأة نشطة.');
+      return;
+    }
+
+    setIsRunningShiftSeed(true);
+    try {
+      const profilesSnapshot = await getDocs(query(collection(db, 'shift_profiles'), where('companyId', '==', companyId)));
+      let profiles = profilesSnapshot.docs.map(item => ({ id: item.id, ...(item.data() as any) }));
+
+      if (profiles.length === 0) {
+        const defaults = [
+          {
+            id: `${companyId}_shift_morning`,
+            companyId,
+            name: 'الوردية الصباحية الرئيسية',
+            startTime: '08:00',
+            endTime: '16:00',
+            type: 'MORNING',
+            color: '#d97706'
+          },
+          {
+            id: `${companyId}_shift_evening`,
+            companyId,
+            name: 'الوردية المسائية',
+            startTime: '16:00',
+            endTime: '00:00',
+            type: 'EVENING',
+            color: '#4f46e5'
+          },
+          {
+            id: `${companyId}_shift_night`,
+            companyId,
+            name: 'الوردية الليلية',
+            startTime: '00:00',
+            endTime: '08:00',
+            type: 'CONTINUOUS',
+            color: '#0f766e'
+          }
+        ];
+        await Promise.all(defaults.map(profile =>
+          setDoc(doc(db, 'shift_profiles', profile.id), cleanFirestoreData(profile), { merge: false })
+        ));
+        profiles = defaults;
+      }
+
+      const profileIds = profiles.map(profile => profile.id);
+      const morningProfileId = `${companyId}_shift_morning`;
+      const eveningProfileId = `${companyId}_shift_evening`;
+      const nightProfileId = `${companyId}_shift_night`;
+      const fallbackProfileId = profileIds[0] || '';
+      const defaultShiftId = profileIds.includes(morningProfileId) ? morningProfileId : fallbackProfileId;
+      if (!defaultShiftId) {
+        toast.error('تعذر تحديد شفت افتراضي للتوليد.');
+        return;
+      }
+
+      const employeesSnapshot = await getDocs(query(collection(db, 'employees'), where('companyId', '==', companyId)));
+      const companyEmployees = employeesSnapshot.docs.map(item => ({ id: item.id, ...(item.data() as any) }));
+      if (companyEmployees.length === 0) {
+        toast.error('لا يوجد موظفون مرتبطون بالمنشأة لتنفيذ التهيئة.');
+        return;
+      }
+
+      const medicalKeywords = shiftSeedRules.medicalKeywords
+        .split(',')
+        .map(keyword => keyword.trim().toLowerCase())
+        .filter(Boolean);
+      const securityKeywords = shiftSeedRules.securityKeywords
+        .split(',')
+        .map(keyword => keyword.trim().toLowerCase())
+        .filter(Boolean);
+
+      const hasMorning = profileIds.includes(morningProfileId);
+      const hasEvening = profileIds.includes(eveningProfileId);
+      const hasNight = profileIds.includes(nightProfileId);
+
+      const resolveShiftIdForEmployeeDay = (emp: any, dayOffset: number, dayDate: Date) => {
+        const department = String(emp.department || emp.dept || '').toLowerCase();
+        const jobTitle = String(emp.jobTitle || '').toLowerCase();
+        const workHints = `${department} ${jobTitle}`;
+
+        const isMedical = medicalKeywords.some(keyword => workHints.includes(keyword));
+        const isSecurity = securityKeywords.some(keyword => workHints.includes(keyword));
+        const isAdminOffDay = dayDate.getDay() === shiftSeedRules.adminWeekendOffDay;
+
+        if (!isMedical && !isSecurity && isAdminOffDay) return 'off';
+
+        if (isMedical) {
+          if (hasNight && dayOffset % 3 === 2) return nightProfileId;
+          if (hasEvening && dayOffset % 2 === 1) return eveningProfileId;
+          if (hasMorning) return morningProfileId;
+          return defaultShiftId;
+        }
+
+        if (isSecurity) {
+          if (hasNight && dayOffset % 2 === 1) return nightProfileId;
+          if (hasEvening && dayOffset % 2 === 0) return eveningProfileId;
+          if (hasMorning) return morningProfileId;
+          return defaultShiftId;
+        }
+
+        if (hasMorning) return morningProfileId;
+        return defaultShiftId;
+      };
+
+      const today = new Date();
+      const writes: Promise<unknown>[] = [];
+      const daysToSeed = Math.max(1, Math.min(31, shiftSeedRules.seedDays || 7));
+      let skippedCount = 0;
+
+      if (shiftSeedRunMode === 'overwrite_window') {
+        const totalAssignments = companyEmployees.length * daysToSeed;
+        const confirmOverwrite = window.confirm(
+          `سيتم استبدال تعيينات الشفتات للفترة المحددة بالكامل.\n\nعدد الموظفين: ${companyEmployees.length}\nعدد الأيام: ${daysToSeed}\nإجمالي التعيينات المتوقع تعديلها: ${totalAssignments}\n\nهل تريد المتابعة؟`
+        );
+        if (!confirmOverwrite) {
+          return;
+        }
+      }
+
+      companyEmployees.forEach(emp => {
+        for (let offset = 0; offset < daysToSeed; offset += 1) {
+          const date = new Date(today);
+          date.setDate(today.getDate() + offset);
+          const dateStr = date.toISOString().slice(0, 10);
+          const assignmentId = `${companyId}_${emp.id}_${dateStr}`;
+          const shiftId = resolveShiftIdForEmployeeDay(emp, offset, date);
+
+          if (shiftSeedRunMode === 'preserve_existing') {
+            writes.push((async () => {
+              const existing = await getDoc(doc(db, 'employee_shifts', assignmentId));
+              if (existing.exists()) {
+                skippedCount += 1;
+                return;
+              }
+              await setDoc(
+                doc(db, 'employee_shifts', assignmentId),
+                cleanFirestoreData({
+                  id: assignmentId,
+                  companyId,
+                  employeeId: emp.id,
+                  shiftId,
+                  date: dateStr,
+                  updatedAt: new Date().toISOString()
+                }),
+                { merge: false }
+              );
+            })());
+          } else {
+            writes.push(
+              setDoc(
+                doc(db, 'employee_shifts', assignmentId),
+                cleanFirestoreData({
+                  id: assignmentId,
+                  companyId,
+                  employeeId: emp.id,
+                  shiftId,
+                  date: dateStr,
+                  updatedAt: new Date().toISOString()
+                }),
+                { merge: true }
+              )
+            );
+          }
+        }
+      });
+
+      await Promise.all(writes);
+      const generatedCount = writes.length - skippedCount;
+      if (shiftSeedRunMode === 'preserve_existing') {
+        toast.success(`تم إنشاء ${generatedCount} تعيين جديد وتخطي ${skippedCount} تعيين موجود.`);
+      } else {
+        toast.success(`تمت إعادة توليد ${writes.length} تعيين شفتات للفترة القادمة بنجاح.`);
+      }
+    } catch (error) {
+      console.error('Manual shift seed failed', error);
+      toast.error('تعذر تنفيذ التهيئة اليدوية للشفتات.');
+    } finally {
+      setIsRunningShiftSeed(false);
+    }
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -174,6 +416,47 @@ export const OdooSettingsFull: React.FC = () => {
       s.subtitle.toLowerCase().includes(q)
     );
   }, [searchQuery]);
+
+  const previewDays = useMemo(() => {
+    const daysCount = Math.max(1, Math.min(14, shiftSeedRules.seedDays || 7));
+    const weekDaysAr = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+    const result: Array<{ index: number; dayName: string; dayNumber: number }> = [];
+    const start = new Date();
+    for (let i = 0; i < daysCount; i += 1) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      result.push({
+        index: i,
+        dayName: weekDaysAr[d.getDay()] || '—',
+        dayNumber: d.getDay()
+      });
+    }
+    return result;
+  }, [shiftSeedRules.seedDays]);
+
+  const getPreviewShift = (track: 'medical' | 'security' | 'admin', dayIndex: number, dayNumber: number) => {
+    if (track === 'admin') {
+      if (dayNumber === shiftSeedRules.adminWeekendOffDay) {
+        return { label: 'OFF', className: 'bg-slate-100 text-slate-700 border-slate-300' };
+      }
+      return { label: 'صباحي', className: 'bg-amber-100 text-amber-800 border-amber-200' };
+    }
+
+    if (track === 'medical') {
+      if (dayIndex % 3 === 2) {
+        return { label: 'ليلي', className: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
+      }
+      if (dayIndex % 2 === 1) {
+        return { label: 'مسائي', className: 'bg-indigo-100 text-indigo-800 border-indigo-200' };
+      }
+      return { label: 'صباحي', className: 'bg-amber-100 text-amber-800 border-amber-200' };
+    }
+
+    if (dayIndex % 2 === 1) {
+      return { label: 'ليلي', className: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
+    }
+    return { label: 'مسائي', className: 'bg-indigo-100 text-indigo-800 border-indigo-200' };
+  };
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-800 font-sans dir-rtl pb-24" dir="rtl">
@@ -762,6 +1045,150 @@ export const OdooSettingsFull: React.FC = () => {
                       نسخ الرابط
                     </button>
                   </div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-emerald-50/60 rounded-xl border border-emerald-200 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xs font-bold text-emerald-900">سياسات التهيئة الذكية للشفتات (Auto Shift Seed Rules)</h3>
+                    <p className="text-[10px] text-emerald-700">تستخدم مرة واحدة فقط عند الشركات الجديدة التي لا تمتلك تعيينات شفتات مسبقة.</p>
+                  </div>
+                  <label className="inline-flex items-center gap-2 text-xs font-bold text-emerald-900">
+                    <input
+                      type="checkbox"
+                      checked={shiftSeedRules.enabled}
+                      onChange={(e) => setShiftSeedRules(prev => ({ ...prev, enabled: e.target.checked }))}
+                      className="rounded text-emerald-700"
+                    />
+                    تفعيل التوزيع الذكي
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">عدد الأيام عند التهيئة</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={31}
+                      value={shiftSeedRules.seedDays}
+                      onChange={(e) => setShiftSeedRules(prev => ({ ...prev, seedDays: Math.max(1, Math.min(31, parseInt(e.target.value) || 7)) }))}
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">يوم الراحة الإداري</label>
+                    <select
+                      value={shiftSeedRules.adminWeekendOffDay}
+                      onChange={(e) => setShiftSeedRules(prev => ({ ...prev, adminWeekendOffDay: parseInt(e.target.value) || 5 }))}
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs"
+                    >
+                      <option value={5}>الجمعة</option>
+                      <option value={6}>السبت</option>
+                      <option value={0}>الأحد</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">نمط افتراضي</label>
+                    <div className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-600">
+                      طبي: صباحي/مسائي/ليلي | أمني: مسائي/ليلي
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">كلمات تعريف الكادر الطبي (مفصولة بفاصلة)</label>
+                    <input
+                      type="text"
+                      value={shiftSeedRules.medicalKeywords}
+                      onChange={(e) => setShiftSeedRules(prev => ({ ...prev, medicalKeywords: e.target.value }))}
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">كلمات تعريف الأمن/الحراسة (مفصولة بفاصلة)</label>
+                    <input
+                      type="text"
+                      value={shiftSeedRules.securityKeywords}
+                      onChange={(e) => setShiftSeedRules(prev => ({ ...prev, securityKeywords: e.target.value }))}
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold text-slate-900">معاينة فورية لخطة التوزيع المتوقعة</h4>
+                    <span className="text-[10px] text-slate-500">{previewDays.length} يوم</span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {[
+                      { id: 'medical' as const, label: 'الكادر الطبي' },
+                      { id: 'security' as const, label: 'الأمن والحراسة' },
+                      { id: 'admin' as const, label: 'الإداري والوظائف العامة' }
+                    ].map(track => (
+                      <div key={track.id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+                        <div className="text-[11px] font-bold text-slate-700 mb-2">{track.label}</div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {previewDays.map(day => {
+                            const shift = getPreviewShift(track.id, day.index, day.dayNumber);
+                            return (
+                              <span
+                                key={`${track.id}_${day.index}`}
+                                className={`px-2 py-1 rounded-md border text-[10px] font-bold ${shift.className}`}
+                                title={day.dayName}
+                              >
+                                {day.dayName}: {shift.label}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 border-t border-emerald-200 pt-3">
+                  <div className="space-y-2">
+                    <p className="text-[10px] text-slate-600">
+                      اختر طريقة التنفيذ ثم نفّذ التهيئة للفترة القادمة.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <label className="inline-flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-slate-700">
+                        <input
+                          type="radio"
+                          name="shift-seed-run-mode"
+                          checked={shiftSeedRunMode === 'preserve_existing'}
+                          onChange={() => setShiftSeedRunMode('preserve_existing')}
+                          className="text-emerald-700"
+                        />
+                        تنفيذ دون استبدال الموجود
+                      </label>
+                      <label className="inline-flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-slate-700">
+                        <input
+                          type="radio"
+                          name="shift-seed-run-mode"
+                          checked={shiftSeedRunMode === 'overwrite_window'}
+                          onChange={() => setShiftSeedRunMode('overwrite_window')}
+                          className="text-emerald-700"
+                        />
+                        استبدال كامل للفترة
+                      </label>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRunShiftSeedNow}
+                    disabled={isRunningShiftSeed}
+                    className="px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition disabled:opacity-50 cursor-pointer"
+                  >
+                    {isRunningShiftSeed ? 'جاري التنفيذ...' : 'تنفيذ التهيئة الآن'}
+                  </button>
                 </div>
               </div>
             </div>

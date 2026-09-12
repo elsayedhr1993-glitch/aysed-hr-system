@@ -125,6 +125,9 @@ export const EmployeeHRTab: React.FC<Props> = ({
   // Approved leave consumption comes from the canonical Firestore request collection.
   const consumedDays = consumedLeaveDays;
 
+  const carriedOver = Number(employee.carriedOverLeave2025 ?? employee.carriedOverBalance ?? employee.openingBalance ?? 0) || 0;
+  const accruedDays = Number(employee.accruedAnnualDays ?? employee.accruedDays ?? employee.accruedLeave2026 ?? 0) || 0;
+
   // Final Net Available Balance formula output
   const availableBalance = Number(calculatedBalance) || 0;
 

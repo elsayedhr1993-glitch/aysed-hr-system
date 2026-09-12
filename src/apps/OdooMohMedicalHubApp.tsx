@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import { useCompany } from '../context/CompanyContext';
 import { TenantDatabaseService } from '../services/tenantDataService';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
+import { processAnyDocument } from '../utils/ocrService';
 
 const getDaysUntilExpiry = (expiryDateString?: string) => {
   if (!expiryDateString) return 999;
@@ -68,22 +69,42 @@ export const OdooMohMedicalHubApp: React.FC = () => {
 
   const activeMOH = totalMedical - expiringMOH - expiredMOH;
 
-  // Handle OCR Simulation for MOH License Upload
-  const handleSimulateScan = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle real OCR for MOH License upload
+  const handleSimulateScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setScannedFileName(file.name);
     setIsScanning(true);
     setScanReady(false);
 
-    setTimeout(() => {
-      setIsScanning(false);
+    try {
+      const result = await processAnyDocument(file, undefined, 'MOH_LICENSE');
+      const extractedNo =
+        result.license_no ||
+        result.medical_license_no ||
+        result.mohLicenseNo ||
+        result.mohLicense ||
+        result.documentNumber ||
+        '';
+      const extractedDate =
+        result.license_expiry ||
+        result.medical_license_expiry ||
+        result.mohLicenseExpiryDate ||
+        result.expiryDate ||
+        '';
+
+      setExtractedLicenseNo(String(extractedNo || '').trim());
+      setExtractedExpiry(String(extractedDate || '').slice(0, 10));
       setScanReady(true);
-      const randomLic = `MOH-${Math.floor(1000 + Math.random() * 9000)}-DOC`;
-      setExtractedLicenseNo(randomLic);
-      setExtractedExpiry('2028-12-31');
-      toast.success('تم مسح وتحليل ترخيص وزارة الصحة بنجاح عبر الماسح الضوئي الذكي (OCR)');
-    }, 1500);
+      toast.success('تم مسح وتحليل ترخيص وزارة الصحة بنجاح عبر OCR المؤسسي.');
+    } catch (error: any) {
+      console.error('MOH OCR error:', error);
+      toast.error(error?.message || 'تعذر قراءة ترخيص وزارة الصحة. يرجى رفع ملف أوضح.');
+      setScanReady(false);
+    } finally {
+      setIsScanning(false);
+      if (e.target) e.target.value = '';
+    }
   };
 
   // Save scanned license to employee

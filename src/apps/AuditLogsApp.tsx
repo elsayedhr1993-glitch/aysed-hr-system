@@ -41,15 +41,6 @@ export const AuditLogsApp: React.FC<AuditLogsAppProps> = ({
 }) => {
   const [internalLogs, setInternalLogs] = useState<AuditLog[]>(() => {
     if (propAuditLogs && propAuditLogs.length > 0) return propAuditLogs;
-    try {
-      const stored = localStorage.getItem('odoo_audit_logs_v1');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch (e) {
-      // fallback
-    }
     return DEFAULT_ENTERPRISE_AUDIT_LOGS;
   });
 

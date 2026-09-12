@@ -35,6 +35,13 @@ export interface ScannedData {
   residencyType?: string;
   mohLicenseNo?: string;
   mohLicenseExpiryDate?: string;
+  // Backward-compatible aliases used by older OCR normalization paths.
+  license_no?: string;
+  medical_license_no?: string;
+  mohLicense?: string;
+  documentNumber?: string;
+  license_expiry?: string;
+  medical_license_expiry?: string;
   contractSalary?: number;
   passportExpiryDate?: string;
   residencyExpiryDate?: string;

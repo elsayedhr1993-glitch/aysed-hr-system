@@ -2,7 +2,6 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { DocumentItem, Employee, Company } from '../types';
 import { CompanyDocument } from '../types/companyDocuments';
 import { CompanyDocumentsKanban } from '../components/CompanyDocumentsKanban';
-import { processAnyDocument } from '../utils/ocrService';
 import { exportToExcel } from '../utils/exportUtils';
 import { DocumentPreviewModal } from '../components/documents/DocumentPreviewModal';
 import { DirectDocumentUploadModal } from '../components/documents/DirectDocumentUploadModal';
@@ -58,13 +57,19 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
 
   // Modals state
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [showOCRModal, setShowOCRModal] = useState(isOCRModalOpenInitially);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [selectedDocForPreview, setSelectedDocForPreview] = useState<DocumentItem | null>(null);
 
-  // OCR state
-  const [isScanning, setIsScanning] = useState(false);
-  const [scanResult, setScanResult] = useState<any>(null);
+  useEffect(() => {
+    if (isOCRModalOpenInitially) {
+      onNavigateToApp?.('scanner');
+    }
+  }, [isOCRModalOpenInitially, onNavigateToApp]);
+
+  const handleOpenScanner = () => {
+    onNavigateToApp?.('scanner');
+    toast('تم تحويلك إلى تطبيق الماسح الرسمي لإجراء OCR المؤسسي.', { icon: '🔎' });
+  };
 
   // Company Licenses Storage
   const [companyDocuments, setCompanyDocuments] = useState<CompanyDocument[]>([]);
@@ -369,7 +374,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
                 <span>رفع وأرشفة مستند جديد</span>
               </button>
               <button 
-                onClick={() => setShowOCRModal(true)} 
+                onClick={handleOpenScanner}
                 className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-2 px-3 rounded-xl border border-slate-200 flex items-center justify-center gap-2 text-xs transition cursor-pointer"
               >
                 <Scan className="w-3.5 h-3.5 text-[#714B67]" />
@@ -830,132 +835,6 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
         company={activeCompany}
         filterTitle={activeFolder === 'ACTIVITIES' ? 'الوثائق المطلوب تجديدها عاجلاً' : 'أرشيف الوثائق العام'}
       />
-
-      {/* Modal 4: Smart OCR Scanner Modal */}
-      {showOCRModal && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <Scan className="w-5 h-5 text-[#714B67]" />
-                الماسح الضوئي الذكي (AI OCR)
-              </h3>
-              <button 
-                onClick={() => {
-                  setShowOCRModal(false);
-                  setScanResult(null);
-                }} 
-                className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="p-8 flex flex-col items-center justify-center space-y-6">
-              {isScanning ? (
-                <div className="text-center space-y-4 py-8">
-                  <div className="w-16 h-16 border-4 border-[#714B67] border-t-transparent rounded-full animate-spin mx-auto"></div>
-                  <p className="font-bold text-slate-700 text-sm animate-pulse">جاري تحليل الوثيقة واستخراج البيانات آلياً...</p>
-                </div>
-              ) : scanResult ? (
-                <div className="w-full space-y-4">
-                  <div className="bg-emerald-50 text-emerald-800 p-4 rounded-xl border border-emerald-200 flex items-start gap-3">
-                    <CheckCircle2 className="w-6 h-6 shrink-0 mt-0.5 text-emerald-600" />
-                    <div>
-                      <strong className="block mb-1 text-base">تم التعرف على الوثيقة بنجاح!</strong>
-                      <div className="text-xs space-y-1 font-mono">
-                        <p>نوع الوثيقة: {scanResult.docType}</p>
-                        <p>الاسم: {scanResult.extractedData.fullNameAr || scanResult.extractedData.fullNameEn || '—'}</p>
-                        <p>الرقم المدني / الجواز: {scanResult.extractedData.civilId || scanResult.extractedData.passportNumber || '—'}</p>
-                        <p>تاريخ الانتهاء: {scanResult.extractedData.expiryDate || 'غير محدد'}</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={async () => {
-                        const newEmpId = await onAutoAddEmpFromOCR(scanResult.extractedData, scanResult.docType);
-                        onSaveDocument({
-                          id: `doc-${Date.now()}`,
-                          companyId: activeCompany?.id || '',
-                          employeeId: newEmpId,
-                          title: `${scanResult.docType} - ${scanResult.extractedData.fullNameAr || 'موظف جديد'}`,
-                          category: scanResult.docType === 'CIVIL_ID' ? 'CIVIL_ID' : 'PASSPORT',
-                          fileUrl: scanResult.fileUrl || '#',
-                          fileName: `${scanResult.docType}.pdf`,
-                          fileSize: '1.2 MB',
-                          uploadDate: new Date().toISOString().split('T')[0],
-                          expiryDate: scanResult.extractedData.expiryDate || '2027-01-01',
-                          status: 'active'
-                        });
-                        toast.success('تمت أرشفة الوثيقة وإدراج بيانات الموظف بنجاح');
-                        setShowOCRModal(false);
-                        setScanResult(null);
-                      }}
-                      className="flex-1 bg-[#714B67] hover:bg-[#5a3a51] text-white font-bold py-2.5 rounded-xl transition text-xs shadow-xs"
-                    >
-                      تأكيد الأرشفة وإنشاء الموظف
-                    </button>
-                    <button
-                      onClick={() => setScanResult(null)}
-                      className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition"
-                    >
-                      مسح وثيقة أخرى
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center border-4 border-dashed border-slate-300">
-                    <Upload className="w-10 h-10 text-slate-400" />
-                  </div>
-                  <div className="text-center">
-                    <h4 className="font-bold text-slate-800 text-sm mb-1">قم برفع أو تصوير الوثيقة</h4>
-                    <p className="text-xs text-slate-500 mb-5 max-w-sm">
-                      يدعم قراءة (البطاقة المدنية، الجواز، الإقامة، وتراخيص وزارة الصحة) عبر الذكاء الاصطناعي.
-                    </p>
-                    <label className="bg-[#714B67] hover:bg-[#5a3a51] text-white font-bold py-2.5 px-6 rounded-xl cursor-pointer transition shadow-xs inline-flex items-center gap-2 text-xs">
-                      <Scan className="w-4 h-4" />
-                      <span>اختيار صورة أو ملف PDF</span>
-                      <input 
-                        type="file" 
-                        accept="image/*,.pdf" 
-                        className="hidden"
-                        onChange={async (e) => {
-                          if (e.target.files && e.target.files.length > 0) {
-                            const file = e.target.files[0];
-                            setIsScanning(true);
-                            try {
-                              const result = await processAnyDocument(file);
-                              
-                              // Read data URL for preview
-                              const reader = new FileReader();
-                              reader.onload = () => {
-                                setScanResult({
-                                  docType: result.documentType || 'CIVIL_ID',
-                                  extractedData: result,
-                                  fileUrl: reader.result as string
-                                });
-                              };
-                              reader.readAsDataURL(file);
-                            } catch (error: any) {
-                              console.error("OCR Scan Error:", error);
-                              toast.error(error.message || 'فشل نظام القراءة الضوئية. يرجى التأكد من وضوح الصورة.');
-                              setScanResult(null);
-                            } finally {
-                              setIsScanning(false);
-                            }
-                          }
-                        }}
-                      />
-                    </label>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
     </div>
   );

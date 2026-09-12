@@ -48,7 +48,11 @@ import { BiometricDevicesModal } from './attendance/BiometricDevicesModal';
 import { AttendanceSetupWizardModal, getAttendanceMasterPolicy, AttendancePolicyData } from './attendance/AttendanceSetupWizardModal';
 import { parseAttendanceFile } from '../utils/attendanceParser';
 import { db, cleanFirestoreData } from '../lib/firebase';
-import { collection, doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
+import { EmployeeShift, ShiftProfile } from '../types';
+
+const seededShiftProfilesNoticeByCompany = new Set<string>();
+const seededEmployeeShiftsNoticeByCompany = new Set<string>();
 
 export interface AttendanceItem {
   id: string;
@@ -77,6 +81,22 @@ export interface AttendanceItem {
     color: string;
   };
 }
+
+interface ShiftSeedRulesConfig {
+  enabled: boolean;
+  seedDays: number;
+  adminWeekendOffDay: number;
+  medicalKeywords: string;
+  securityKeywords: string;
+}
+
+const DEFAULT_SHIFT_SEED_RULES: ShiftSeedRulesConfig = {
+  enabled: true,
+  seedDays: 7,
+  adminWeekendOffDay: 5,
+  medicalKeywords: 'طبي,ممرض,تمريض,عيادة,طوارئ,doctor,nurse,medical,clinic,emergency,moh',
+  securityKeywords: 'حارس,أمن,امن,security,guard'
+};
 
 export const Attendances: React.FC = () => {
   const { activeCompany } = useCompany();
@@ -169,31 +189,250 @@ export const Attendances: React.FC = () => {
   const isMonthLocked = (monthKey: string) => Boolean(postedMonths[monthKey]);
   const isDateLocked = (dateStr: string) => isMonthLocked(getMonthKeyFromDate(dateStr));
 
-  // Helper: Read Assigned Shift for an employee on selectedDate from Odoo Planning
-  const getEmployeeShiftForDate = (empId: string, dateStr: string) => {
-    try {
-      const assignedKey = `odoo_assigned_shifts_v2_${activeCompId}`;
-      const raw = localStorage.getItem(assignedKey);
-      if (raw) {
-        const list = JSON.parse(raw);
-        const found = list.find((s: any) => s.employeeId === empId && s.dateStr === dateStr);
-        if (found) {
-          if (found.templateId === 'off') {
-            return { name: 'راحة أسبوعية (OFF)', startTime: '', endTime: '', isOff: true, color: 'bg-slate-100 text-slate-700 border-slate-300' };
-          }
-          if (found.templateId === 'morning') {
-            return { name: 'نوبة صباحية (07:00 - 15:00)', startTime: '07:00', endTime: '15:00', isOff: false, color: 'bg-amber-100 text-amber-800 border-amber-200' };
-          }
-          if (found.templateId === 'evening') {
-            return { name: 'نوبة مسائية (15:00 - 23:00)', startTime: '15:00', endTime: '23:00', isOff: false, color: 'bg-indigo-100 text-indigo-800 border-indigo-200' };
-          }
-          if (found.templateId === 'night') {
-            return { name: 'نوبة ليلية (23:00 - 07:00)', startTime: '23:00', endTime: '07:00', isOff: false, color: 'bg-purple-100 text-purple-800 border-purple-200' };
-          }
+  const [shiftProfilesById, setShiftProfilesById] = useState<Record<string, ShiftProfile>>({});
+  const [shiftAssignmentsByKey, setShiftAssignmentsByKey] = useState<Record<string, EmployeeShift>>({});
+  const [shiftSeedRules, setShiftSeedRules] = useState<ShiftSeedRulesConfig>(DEFAULT_SHIFT_SEED_RULES);
+
+  const shiftSeedConfigId = `attendance_shift_seed_rules_${activeCompId}`;
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadShiftSeedRules = async () => {
+      try {
+        const snapshot = await getDoc(doc(db, 'system_config', shiftSeedConfigId));
+        if (!isMounted) return;
+        const data = snapshot.data() as Partial<ShiftSeedRulesConfig> | undefined;
+        setShiftSeedRules({
+          ...DEFAULT_SHIFT_SEED_RULES,
+          ...(data || {})
+        });
+      } catch (error) {
+        console.error('Failed to load shift seed rules from Firestore', error);
+        if (isMounted) setShiftSeedRules(DEFAULT_SHIFT_SEED_RULES);
+      }
+    };
+    void loadShiftSeedRules();
+    return () => {
+      isMounted = false;
+    };
+  }, [shiftSeedConfigId]);
+
+  useEffect(() => {
+    if (!activeCompId) {
+      setShiftProfilesById({});
+      return;
+    }
+    const profilesQuery = query(collection(db, 'shift_profiles'), where('companyId', '==', activeCompId));
+    return onSnapshot(profilesQuery, snapshot => {
+      const byId: Record<string, ShiftProfile> = {};
+      snapshot.docs.forEach(item => {
+        const profile = { ...item.data(), id: item.id } as ShiftProfile;
+        byId[profile.id] = profile;
+      });
+      setShiftProfilesById(byId);
+    }, error => console.error('Failed to load shift profiles from Firestore', error));
+  }, [activeCompId]);
+
+  useEffect(() => {
+    if (!activeCompId) return;
+    if (Object.keys(shiftProfilesById).length > 0) return;
+
+    const seedDefaultShiftProfiles = async () => {
+      const defaults: ShiftProfile[] = [
+        {
+          id: `${activeCompId}_shift_morning`,
+          companyId: activeCompId,
+          name: 'الوردية الصباحية الرئيسية',
+          startTime: '08:00',
+          endTime: '16:00',
+          type: 'MORNING',
+          color: '#d97706'
+        },
+        {
+          id: `${activeCompId}_shift_evening`,
+          companyId: activeCompId,
+          name: 'الوردية المسائية',
+          startTime: '16:00',
+          endTime: '00:00',
+          type: 'EVENING',
+          color: '#4f46e5'
+        },
+        {
+          id: `${activeCompId}_shift_night`,
+          companyId: activeCompId,
+          name: 'الوردية الليلية',
+          startTime: '00:00',
+          endTime: '08:00',
+          type: 'CONTINUOUS',
+          color: '#0f766e'
+        }
+      ];
+
+      try {
+        const writes = defaults.map(profile =>
+          setDoc(doc(db, 'shift_profiles', profile.id), cleanFirestoreData(profile), { merge: false })
+        );
+        await Promise.all(writes);
+        if (!seededShiftProfilesNoticeByCompany.has(activeCompId)) {
+          seededShiftProfilesNoticeByCompany.add(activeCompId);
+          toast.success('تمت تهيئة ورديات العمل الافتراضية تلقائياً للشركة.');
+        }
+      } catch (error) {
+        console.error('Failed to seed default shift profiles', error);
+      }
+    };
+
+    void seedDefaultShiftProfiles();
+  }, [activeCompId, shiftProfilesById]);
+
+  useEffect(() => {
+    if (!activeCompId) {
+      setShiftAssignmentsByKey({});
+      return;
+    }
+    const assignmentsQuery = query(collection(db, 'employee_shifts'), where('companyId', '==', activeCompId));
+    return onSnapshot(assignmentsQuery, snapshot => {
+      const byKey: Record<string, EmployeeShift> = {};
+      snapshot.docs.forEach(item => {
+        const assignment = { ...item.data(), id: item.id } as EmployeeShift;
+        const key = `${assignment.employeeId}__${assignment.date}`;
+        byKey[key] = assignment;
+      });
+      setShiftAssignmentsByKey(byKey);
+    }, error => console.error('Failed to load employee shifts from Firestore', error));
+  }, [activeCompId]);
+
+  useEffect(() => {
+    if (!activeCompId) return;
+    if (!employees || employees.length === 0) return;
+    if (!shiftSeedRules.enabled) return;
+    if (Object.keys(shiftAssignmentsByKey).length > 0) return;
+
+    const morningProfileId = `${activeCompId}_shift_morning`;
+    const eveningProfileId = `${activeCompId}_shift_evening`;
+    const nightProfileId = `${activeCompId}_shift_night`;
+    const availableProfileIds = Object.keys(shiftProfilesById);
+    const fallbackProfileId = availableProfileIds.length > 0 ? availableProfileIds[0] : '';
+    const defaultShiftId = shiftProfilesById[morningProfileId] ? morningProfileId : fallbackProfileId;
+    if (!defaultShiftId) return;
+
+    const medicalKeywords = shiftSeedRules.medicalKeywords
+      .split(',')
+      .map(keyword => keyword.trim().toLowerCase())
+      .filter(Boolean);
+    const securityKeywords = shiftSeedRules.securityKeywords
+      .split(',')
+      .map(keyword => keyword.trim().toLowerCase())
+      .filter(Boolean);
+
+    const resolveShiftIdForEmployeeDay = (emp: any, dayOffset: number, dayDate: Date) => {
+      const department = String(emp.department || emp.dept || '').toLowerCase();
+      const jobTitle = String(emp.jobTitle || '').toLowerCase();
+      const workHints = `${department} ${jobTitle}`;
+
+      const hasMorning = Boolean(shiftProfilesById[morningProfileId]);
+      const hasEvening = Boolean(shiftProfilesById[eveningProfileId]);
+      const hasNight = Boolean(shiftProfilesById[nightProfileId]);
+
+      const isMedical = medicalKeywords.some(keyword => workHints.includes(keyword));
+      const isSecurity = securityKeywords.some(keyword => workHints.includes(keyword));
+      const isAdminOffDay = dayDate.getDay() === shiftSeedRules.adminWeekendOffDay;
+
+      if (!isMedical && !isSecurity && isAdminOffDay) {
+        return 'off';
+      }
+
+      if (isMedical) {
+        if (hasNight && dayOffset % 3 === 2) return nightProfileId;
+        if (hasEvening && dayOffset % 2 === 1) return eveningProfileId;
+        if (hasMorning) return morningProfileId;
+        return defaultShiftId;
+      }
+
+      if (isSecurity) {
+        if (hasNight && dayOffset % 2 === 1) return nightProfileId;
+        if (hasEvening && dayOffset % 2 === 0) return eveningProfileId;
+        if (hasMorning) return morningProfileId;
+        return defaultShiftId;
+      }
+
+      if (hasMorning) return morningProfileId;
+      return defaultShiftId;
+    };
+
+    const seedFirstWeekAssignments = async () => {
+      const today = new Date();
+      const normalizedEmployees = employees.filter(emp => !emp.companyId || emp.companyId === activeCompId);
+      if (normalizedEmployees.length === 0) return;
+
+      const writes: Promise<void>[] = [];
+      for (const emp of normalizedEmployees) {
+        for (let offset = 0; offset < shiftSeedRules.seedDays; offset += 1) {
+          const date = new Date(today);
+          date.setDate(today.getDate() + offset);
+          const dateStr = date.toISOString().slice(0, 10);
+          const assignmentId = `${activeCompId}_${emp.id}_${dateStr}`;
+          const assignedShiftId = resolveShiftIdForEmployeeDay(emp, offset, date);
+          const assignment: EmployeeShift = {
+            id: assignmentId,
+            companyId: activeCompId,
+            employeeId: emp.id,
+            shiftId: assignedShiftId,
+            date: dateStr
+          };
+          writes.push(
+            setDoc(doc(db, 'employee_shifts', assignmentId), cleanFirestoreData(assignment), { merge: false })
+              .then(() => undefined)
+          );
         }
       }
-    } catch (e) {}
-    return null;
+
+      try {
+        await Promise.all(writes);
+        if (!seededEmployeeShiftsNoticeByCompany.has(activeCompId)) {
+          seededEmployeeShiftsNoticeByCompany.add(activeCompId);
+          toast.success('تمت تهيئة تعيينات الشفتات الافتراضية للأسبوع الأول تلقائياً.');
+        }
+      } catch (error) {
+        console.error('Failed to seed first-week employee shifts', error);
+      }
+    };
+
+    void seedFirstWeekAssignments();
+  }, [activeCompId, employees, shiftAssignmentsByKey, shiftProfilesById, shiftSeedRules]);
+
+  // Helper: Read Assigned Shift for an employee on selectedDate from Odoo Planning
+  const getEmployeeShiftForDate = (empId: string, dateStr: string) => {
+    const assignment = shiftAssignmentsByKey[`${empId}__${dateStr}`];
+    if (!assignment) return null;
+
+    if (assignment.shiftId === 'off') {
+      return {
+        name: 'راحة أسبوعية (OFF)',
+        startTime: '',
+        endTime: '',
+        isOff: true,
+        color: 'bg-slate-100 text-slate-700 border-slate-300'
+      };
+    }
+
+    const profile = shiftProfilesById[assignment.shiftId];
+    if (!profile) return null;
+
+    const colorByType: Record<ShiftProfile['type'], string> = {
+      MORNING: 'bg-amber-100 text-amber-800 border-amber-200',
+      EVENING: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+      CONTINUOUS: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      SPLIT: 'bg-sky-100 text-sky-800 border-sky-200'
+    };
+
+    return {
+      name: profile.name,
+      startTime: profile.startTime || '08:00',
+      endTime: profile.endTime || '16:00',
+      isOff: false,
+      color: colorByType[profile.type] || 'bg-slate-100 text-slate-700 border-slate-300'
+    };
   };
 
   // Calculate live rows

@@ -62,11 +62,17 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       id: authCompanyId,
       nameAr: user.name || ALMANAR_COMPANY_NAME_AR,
       nameEn: 'Almanar Clinic',
-      name: user.name || ALMANAR_COMPANY_NAME_AR,
       adminUsername: user.email || '',
+      adminPassword: '',
+      contactPhone: '',
+      pamFileNumber: '',
+      commercialReg: '',
+      mohLicense: '',
+      iban: '',
+      bankName: '',
       isActive: true,
       createdAt: new Date().toISOString()
-    } as TenantCompany : null;
+    } : null;
 
     // Listen to companies collection
     let q;
