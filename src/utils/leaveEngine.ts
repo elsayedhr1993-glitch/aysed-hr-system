@@ -155,37 +155,20 @@ export function matchesEmployeeIdentity(record: any, employee: any): boolean {
   return employeeMatchesId || employeeMatchesCivil || crossMatch;
 }
 
-export function normalizeLegacyPaidLeaveRecord(record: any, employee?: any): any {
-  if (!record || !employee) return record;
+export function isApprovedLeaveStatus(status?: string): boolean {
+  if (!status) return false;
+  const normalized = String(status).trim().toLowerCase();
+  return ['approved', 'معتمد', 'validate', 'validated', 'returned'].includes(normalized) || normalized === 'approved';
+}
 
-  const totalDays = Number(record.totalDays ?? record.daysCount ?? record.numberOfDays ?? record.days ?? 0) || 0;
-  const paidDays = Number(record.paidDays ?? record.aysed_paid_days ?? 0) || 0;
-  const unpaidDays = Number(record.unpaidDays ?? record.aysed_unpaid_days ?? 0) || 0;
-  const nameText = String(employee?.fullNameAr ?? employee?.name ?? employee?.fullNameEn ?? '').trim();
-  const isFouad = /فؤاد|Fouad|fouad/i.test(nameText) || String(employee?.civilId ?? employee?.civil_id_number ?? '').includes('284082903269');
-
-  if (
-    isFouad &&
-    matchesEmployeeIdentity(record, employee) &&
-    totalDays > 0 &&
-    totalDays === 16 &&
-    paidDays < totalDays &&
-    unpaidDays > 0 &&
-    Math.abs((paidDays + unpaidDays) - totalDays) < 0.01
-  ) {
-    return {
-      ...record,
-      totalDays,
-      paidDays: totalDays,
-      unpaidDays: 0,
-      aysed_paid_days: totalDays,
-      aysed_unpaid_days: 0,
-      correctedLegacySplit: true,
-      correctionReason: 'Legacy Fouad leave split repaired to full paid days for actual approved leave balance.'
-    };
-  }
-
-  return record;
+export function getApprovedEmployeeLeaveRequests(employee: any, leaves: any[] = []): any[] {
+  return (leaves || []).filter((req: any) => {
+    if (!req) return false;
+    const matchesEmployee = matchesEmployeeIdentity(req, employee);
+    const matchesStatus = isApprovedLeaveStatus(req.status);
+    const totalDays = Number(req.daysCount ?? req.totalDays ?? req.numberOfDays ?? req.days ?? 0) || 0;
+    return matchesEmployee && matchesStatus && totalDays > 0;
+  });
 }
 
 export function buildLeaveBalanceLedger(input: LeaveBalanceEngineInput): LeaveLedgerEntry[] {

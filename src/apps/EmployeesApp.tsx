@@ -89,43 +89,10 @@ const matchesEmployeeRecord = (candidate: any, employee: any) => {
   return false;
 };
 
-const normalizeLegacyFouadLeaveSplit = (record: any, employee: any) => {
-  if (!record || !employee) return record;
-
-  const totalDays = Number(record.totalDays ?? record.daysCount ?? record.numberOfDays ?? record.days ?? 0) || 0;
-  const paidDays = Number(record.paidDays ?? record.aysed_paid_days ?? 0) || 0;
-  const unpaidDays = Number(record.unpaidDays ?? record.aysed_unpaid_days ?? 0) || 0;
-  const targetName = String(employee?.fullNameAr ?? employee?.name ?? employee?.fullNameEn ?? '').trim();
-  const isFouad = /فؤاد|Fouad|fouad/i.test(targetName) || String(employee?.civilId ?? employee?.civil_id_number ?? '').includes('284082903269');
-
-  if (
-    isFouad &&
-    matchesEmployeeRecord(record, employee) &&
-    totalDays > 0 &&
-    totalDays === 16 &&
-    paidDays < totalDays &&
-    unpaidDays > 0 &&
-    Math.abs((paidDays + unpaidDays) - totalDays) < 0.01
-  ) {
-    return {
-      ...record,
-      totalDays,
-      paidDays: totalDays,
-      unpaidDays: 0,
-      aysed_paid_days: totalDays,
-      aysed_unpaid_days: 0,
-      correctedLegacySplit: true,
-      correctionReason: 'Legacy Fouad leave split repaired to full paid days for actual approved leave balance.'
-    };
-  }
-
-  return record;
-};
-
 const generateLeavePrintHtml = (printData: any, companyName: string, companyNameEn: string, leaveRequests: any[] = [], leaveAllocations: any[] = []) => {
   const manaraLeaves = getPersistentData<any[]>('manara_leaves_data', []);
   const odooRequests = getPersistentData<any[]>('odoo_leave_requests_v2', []);
-  const companyLeaves = (leaveRequests.length > 0 ? leaveRequests : [...manaraLeaves, ...odooRequests]).map((item: any) => normalizeLegacyFouadLeaveSplit(item, printData));
+  const companyLeaves = (leaveRequests.length > 0 ? leaveRequests : [...manaraLeaves, ...odooRequests]);
   const employeeLeaves = companyLeaves.filter((l: any) => matchesEmployeeRecord(l, printData));
   const employeeAllocations = normalizeLeaveAllocations(leaveAllocations).filter((a: any) => matchesEmployeeRecord(a, printData));
   const summary = getEmployeeUnifiedSummary(printData as any, employeeAllocations as any, employeeLeaves as any);
@@ -135,7 +102,7 @@ const generateLeavePrintHtml = (printData: any, companyName: string, companyName
 
     const normType = String(l.leaveType || '').toUpperCase();
     const normStatus = String(l.status || '').toUpperCase();
-    const isApproved = normStatus === 'APPROVED' || normStatus === 'VALIDATED' || normStatus === 'RETURNED';
+    const isApproved = ['APPROVED', 'VALIDATED', 'RETURNED', 'APPROVE', 'APPROVED', 'معتمد', 'validate'].includes(normStatus);
     return normType === 'ANNUAL' && isApproved;
   });
 
@@ -389,30 +356,6 @@ export function EmployeesApp(props?: any) {
   const [showDevToolsMenu, setShowDevToolsMenu] = useState(false);
   const [showOnboardingWizardModal, setShowOnboardingWizardModal] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
-
-  useEffect(() => {
-    if (!selectedEmployee || leaveRequests.length === 0) return;
-
-    const legacyRepairs = leaveRequests
-      .map((record: any) => normalizeLegacyFouadLeaveSplit(record, selectedEmployee))
-      .filter((record: any) => record?.correctedLegacySplit && record.id);
-
-    legacyRepairs.forEach(async (record: any) => {
-      try {
-        await setDoc(doc(db, 'leave_requests', record.id), cleanFirestoreData({
-          ...record,
-          paidDays: Number(record.paidDays ?? record.aysed_paid_days ?? 0) || 0,
-          unpaidDays: 0,
-          aysed_paid_days: Number(record.aysed_paid_days ?? record.paidDays ?? 0) || 0,
-          aysed_unpaid_days: 0,
-          correctedLegacySplit: true,
-          updatedAt: new Date().toISOString()
-        }), { merge: true });
-      } catch (repairError) {
-        console.warn('Legacy leave repair failed:', repairError);
-      }
-    });
-  }, [selectedEmployee, leaveRequests]);
 
   useEffect(() => {
     if (props?.initialTab) {
@@ -2454,7 +2397,7 @@ export function EmployeesApp(props?: any) {
                   const isLeaveReport = printTitle.includes('كشف رصيد إجازات');
                   if (isLeaveReport) {
                     const effectiveAllocations = normalizeLeaveAllocations(leaveAllocations).filter((a: any) => matchesEmployeeRecord(a, printData));
-                    const normalizedLeaveRequests = leaveRequests.map((l: any) => normalizeLegacyFouadLeaveSplit(l, printData));
+                    const normalizedLeaveRequests = leaveRequests.filter((l: any) => matchesEmployeeRecord(l, printData));
                     const summary = getEmployeeUnifiedSummary(printData as any, effectiveAllocations as any, normalizedLeaveRequests as any);
                     const empLeaves = normalizedLeaveRequests.filter((l: any) => {
                       const matchEmp = matchesEmployeeRecord(l, printData);
@@ -2462,7 +2405,7 @@ export function EmployeesApp(props?: any) {
 
                       const normType = String(l.leaveType || '').toUpperCase();
                       const normStatus = String(l.status || '').toUpperCase();
-                      const isApproved = normStatus === 'APPROVED' || normStatus === 'VALIDATED' || normStatus === 'RETURNED';
+                      const isApproved = ['APPROVED', 'VALIDATED', 'RETURNED', 'APPROVE', 'معتمد', 'validate'].includes(normStatus);
                       return normType === 'ANNUAL' && isApproved;
                     });
                     const totalTaken = Number(summary.usedLeaveDays || 0);
