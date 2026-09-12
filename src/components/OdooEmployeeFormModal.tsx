@@ -291,6 +291,19 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave, existin
     }
 
     const cleanCivilId = (civilId || '').trim();
+    const civilValidation = validateKuwaitCivilId(cleanCivilId);
+    if (!civilValidation.isValid) {
+      alert(civilValidation.message || 'الرقم المدني غير صحيح.');
+      return;
+    }
+
+    const cleanEmail = (workEmail || '').trim().toLowerCase();
+    const cleanIban = (iban || '').trim().replace(/\s+/g, '').toUpperCase();
+    if (!cleanEmail || !bankName.trim() || !cleanIban) {
+      alert('يرجى استكمال البريد الوظيفي وبيانات البنك والآيبان قبل حفظ الموظف.');
+      return;
+    }
+
     if (existingEmployees && existingEmployees.length > 0 && cleanCivilId) {
       const compId = activeCompanyId || 'comp-super-admin';
       const isDuplicate = existingEmployees.some(emp => 
@@ -301,6 +314,24 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave, existin
       );
       if (isDuplicate) {
         alert('خطأ: الموظف مسجل بالفعل! الرقم المدني مكرر في هذه الشركة.');
+        return;
+      }
+
+      const duplicateEmail = existingEmployees.some(emp =>
+        (emp.companyId === compId || compId === 'comp-super-admin') &&
+        String(emp.email || emp.workEmail || '').trim().toLowerCase() === cleanEmail
+      );
+      if (duplicateEmail) {
+        alert('خطأ: البريد الوظيفي مكرر في هذه الشركة.');
+        return;
+      }
+
+      const duplicateIban = existingEmployees.some(emp =>
+        (emp.companyId === compId || compId === 'comp-super-admin') &&
+        String(emp.iban || '').trim().replace(/\s+/g, '').toUpperCase() === cleanIban
+      );
+      if (duplicateIban) {
+        alert('خطأ: رقم الآيبان مكرر في هذه الشركة.');
         return;
       }
     }
@@ -321,7 +352,8 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave, existin
       jobTitle: selectedJob.ar,
       jobPositionAr: selectedJob.ar,
       jobPositionEn: selectedJob.en,
-      workEmail,
+      workEmail: cleanEmail,
+      email: cleanEmail,
       phone: workPhone || '+965 9',
       manager,
       workLocation,
@@ -334,7 +366,7 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave, existin
       residencyType,
       residencyExpiry,
       bankName,
-      iban,
+      iban: cleanIban,
       mohLicense,
       mohLicenseExpiry,
       qualification,
@@ -367,6 +399,7 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave, existin
       custodyItems,
       leaveAccrualActivated,
       commencementNotes,
+      isNewRecord: true,
       avatarUrl,
       avatarColor: 'bg-emerald-600',
       chatter: [

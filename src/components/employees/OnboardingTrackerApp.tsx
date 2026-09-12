@@ -39,7 +39,7 @@ import { db, cleanFirestoreData } from '../../lib/firebase';
 import { toast } from 'react-hot-toast';
 import { TabDocumentScanner } from '../TabDocumentScanner';
 import { TenantDatabaseService } from '../../services/tenantDataService';
-import { triggerContractRunningLeaveAllocation } from '../../utils/contractLeaveTrigger';
+import { createEmployeeOnboardingBundle } from '../../services/employeeOnboardingService';
 
 interface OnboardingTrackerAppProps {
   existingEmployees?: Array<{ id: string; nameAr: string; jobTitle?: string; dept?: string; civilId?: string }>;
@@ -99,11 +99,20 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
               medicalFitnessHospital: plan.medicalFitnessHospital || emp.medicalFitnessHospital,
               directSupervisor: plan.commencementDetails?.directSupervisor || emp.directSupervisor,
               branchLocation: plan.commencementDetails?.branchLocation || emp.branch || emp.branchLocation,
+              email: plan.contractDetails?.workEmail || emp.email || emp.workEmail,
+              workEmail: plan.contractDetails?.workEmail || emp.email || emp.workEmail,
+              bankName: plan.contractDetails?.bankName || emp.bankName,
+              iban: plan.contractDetails?.iban || emp.iban,
+              contractType: plan.contractDetails?.contractType || emp.contractType,
+              contractStartDate: plan.contractDetails?.startDate || emp.contractStartDate || emp.joinDate,
+              contractEndDate: plan.contractDetails?.endDate || emp.contractEndDate,
               basicSalary: plan.contractDetails?.basicSalary || emp.basicSalary,
               housingAllowance: plan.contractDetails?.housingAllowance || emp.housingAllowance,
               transportAllowance: plan.contractDetails?.transportAllowance || emp.transportAllowance,
               otherAllowances: plan.contractDetails?.otherAllowances || emp.otherAllowances,
               totalSalary: plan.contractDetails?.totalSalary || emp.totalSalary,
+              leaveAccrualActivated: plan.commencementDetails?.leaveAccrualActivated !== false,
+              isCommenced,
               documentFiles: {
                 ...(emp.documentFiles || {}),
                 ...(plan.documentFiles || {})
@@ -121,84 +130,16 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
           // بث إشعار التحديث لتحديث كافة شاشات النظام فوراً حياً وبلا تأخير
           window.dispatchEvent(new Event('manara_employees_updated'));
 
-          // حفظ الموظف حياً وبشكل متكامل في قاعدة بيانات السحابية Firestore
           if (matchedEmployee) {
             try {
-              TenantDatabaseService.saveEmployee(matchedEmployee, companyId).then((success) => {
-                if (success) console.log('[OnboardingTrackerApp] Synced employee to Cloud Firestore successfully.');
+              await createEmployeeOnboardingBundle({
+                companyId,
+                employee: matchedEmployee,
+                existingEmployees: employees as any
               });
+              console.log('[OnboardingTrackerApp] Synced employee bundle to Cloud Firestore successfully.');
             } catch (dbErr) {
-              console.error('Firestore save failed in onboarding sync:', dbErr);
-            }
-          }
-
-          // الربط التلقائي لتأسيس عقد العمل آلياً في حال تم تأكيد مباشرة العمل الفعلية
-          const isCommenced = plan.commencementDetails?.isCommenced || !!plan.commencementDetails?.actualJoiningDate;
-          if (isCommenced && matchedEmployee) {
-            let contractsList: any[] = await TenantDatabaseService.getContractsByTenant(companyId);
-
-            const employeeId = matchedEmployee.id || plan.employeeId || `EMP-${Date.now()}`;
-            const existingContractIdx = contractsList.findIndex((c: any) => c.id === employeeId || c.employeeId === employeeId);
-
-            const newContract = {
-              id: employeeId,
-              employeeId: employeeId,
-              contractRef: `CONTRACT-${employeeId}`,
-              name: plan.employeeName,
-              civilId: plan.civilId || matchedEmployee.civilId || '',
-              jobTitle: plan.jobTitle || matchedEmployee.jobTitle || 'موظف',
-              department: plan.department || matchedEmployee.dept || matchedEmployee.department || 'العموم',
-              basicSalary: plan.contractDetails?.basicSalary || matchedEmployee.basicSalary || 0,
-              housingAllowance: plan.contractDetails?.housingAllowance || matchedEmployee.housingAllowance || 0,
-              transportAllowance: plan.contractDetails?.transportAllowance || matchedEmployee.transportAllowance || 0,
-              medicalAllowance: plan.contractDetails?.otherAllowances || matchedEmployee.otherAllowances || 0,
-              isKuwaiti: false,
-              bankName: 'بيت التمويل الكويتي (KFH)',
-              iban: '',
-              contractStatus: 'running',
-              startDate: plan.commencementDetails?.actualJoiningDate || new Date().toISOString().split('T')[0],
-              endDate: '',
-              contractType: 'fixed' as const,
-              probationDays: 100, // المادة 32 من قانون العمل الكويتي
-              noticePeriodMonths: 3,
-              workingHoursWeekly: 48,
-              status: 'running'
-            };
-
-            if (existingContractIdx > -1) {
-              contractsList[existingContractIdx] = {
-                ...contractsList[existingContractIdx],
-                ...newContract
-              };
-            } else {
-              contractsList.push(newContract);
-            }
-
-            console.log('[OnboardingTrackerApp] Automated Contract established/updated in standard contracts database.');
-
-            // حفظ العقد في قاعدة البيانات السحابية Firestore
-            try {
-              TenantDatabaseService.saveContract(newContract as any, companyId).then((success) => {
-                if (success) console.log('[OnboardingTrackerApp] Synced contract to Cloud Firestore.');
-              });
-            } catch (cErr) {
-              console.error('Firestore contract save failed:', cErr);
-            }
-
-            // تفعيل وتوليد حساب رصيد الإجازات السنوية آلياً
-            if (plan.commencementDetails?.leaveAccrualActivated) {
-              try {
-                triggerContractRunningLeaveAllocation({
-                  employeeId: employeeId,
-                  employeeName: plan.employeeName,
-                  startDate: plan.commencementDetails?.actualJoiningDate || new Date().toISOString().split('T')[0],
-                  contractStatus: 'running',
-                  companyId: companyId
-                });
-                console.log('[OnboardingTrackerApp] Triggered dynamic leave allocation for active contract.');
-              } catch (leaveErr) {
-                console.error('Error triggering leave allocation during onboarding completion:', leaveErr);
-              }
+              console.error('Firestore onboarding bundle save failed in onboarding sync:', dbErr);
             }
           }
         }
@@ -397,10 +338,22 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
           department: newPlan.department || 'العموم',
           civilId: newPlan.civilId !== 'غير محدد' ? newPlan.civilId : (sc.civilId || ''),
           civil_id_number: newPlan.civilId !== 'غير محدد' ? newPlan.civilId : (sc.civilId || ''),
+          email: newPlan.contractDetails?.workEmail || '',
+          workEmail: newPlan.contractDetails?.workEmail || '',
+          bankName: newPlan.contractDetails?.bankName || '',
+          iban: newPlan.contractDetails?.iban || '',
           civilIdExpiry: sc.expiryDate || sc.civilIdExpiry || '2027-01-01',
           civilIdExpiryDate: sc.expiryDate || sc.civilIdExpiry || '2027-01-01',
           hireDate: newPlan.expectedStartDate || new Date().toISOString().slice(0, 10),
           joinDate: newPlan.expectedStartDate || new Date().toISOString().slice(0, 10),
+          contractStartDate: newPlan.contractDetails?.startDate || newPlan.expectedStartDate || new Date().toISOString().slice(0, 10),
+          contractEndDate: newPlan.contractDetails?.endDate || '',
+          contractType: newPlan.contractDetails?.contractType || 'محدد المدة (Fixed Term)',
+          commencementDate: newPlan.commencementDetails?.actualJoiningDate || newPlan.expectedStartDate || new Date().toISOString().slice(0, 10),
+          directSupervisor: newPlan.commencementDetails?.directSupervisor || 'مدير القسم',
+          branchLocation: newPlan.commencementDetails?.branchLocation || 'الفرع الرئيسي',
+          isCommenced: newPlan.commencementDetails?.isCommenced !== false,
+          leaveAccrualActivated: newPlan.commencementDetails?.leaveAccrualActivated !== false,
           status: 'على رأس العمل',
           basicSalary: newPlan.contractDetails?.basicSalary || (newPlan.department === 'الأطباء' ? 1200 : 700),
           contractSalary: newPlan.contractDetails?.basicSalary || (newPlan.department === 'الأطباء' ? 1200 : 700),

@@ -69,6 +69,7 @@ import { ComplianceSmartSentinelModal } from './components/ComplianceSmartSentin
 import { LegalDocumentBotModal } from './components/LegalDocumentBotModal';
 import { DataPayrollAnalystBotModal } from './components/DataPayrollAnalystBotModal';
 import { FacilityLicensingWizardModal } from './components/facility/FacilityLicensingWizardModal';
+import { createEmployeeOnboardingBundle } from './services/employeeOnboardingService';
 import { collection, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { cleanFirestoreData, db } from './lib/firebase';
 
@@ -203,7 +204,6 @@ function MainAppLayout() {
   const handleConvertCandidateToEmployee = async (cand: Candidate) => {
     const newEmpId = `EMP-${Date.now().toString().slice(-6)}`;
     const compId = activeCompany?.id || 'comp-super-admin';
-    const compName = activeCompany?.nameAr || (activeCompany as any)?.name || 'المنار كلينك';
     const todayStr = new Date().toISOString().split('T')[0];
 
     const newEmployeeRecord = {
@@ -233,10 +233,25 @@ function MainAppLayout() {
       email: cand.email,
       bankName: 'بيت التمويل الكويتي (KFH)',
       iban: '',
+      contractStartDate: todayStr,
+      commencementDate: todayStr,
+      directSupervisor: 'مدير الموارد البشرية',
+      branchLocation: activeCompany?.nameAr ? `${activeCompany.nameAr} - المقر الرئيسي` : 'المقر الرئيسي - مدينة الكويت',
+      isCommenced: false,
+      leaveAccrualActivated: true,
       notes: `تم التعيين والتحويل من بوابة التوظيف - مرحلة التهيئة والتعاقد الأولية`
     };
 
-    addEmployee(newEmployeeRecord as any);
+    try {
+      await createEmployeeOnboardingBundle({
+        companyId: compId,
+        employee: newEmployeeRecord as any,
+        existingEmployees: employees as any
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'تعذر تحويل المرشح إلى موظف.');
+      return;
+    }
 
     // إنشاء خطة تهيئة واستقبال تلقائية في Firestore
     try {
@@ -264,33 +279,6 @@ function MainAppLayout() {
       await setDoc(doc(db, 'onboarding_plans', newPlan.id), cleanFirestoreData({ ...newPlan, companyId: compId }), { merge: true });
     } catch (e) {
       console.error('Error auto-creating onboarding plan:', e);
-    }
-
-    // إنشاء سجل مباشرة عمل مبدئي في Firestore
-    try {
-      const newCommRecord = {
-        id: `COM-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`,
-        companyId: compId,
-        companyName: compName,
-        employeeId: newEmpId,
-        employeeName: cand.fullName,
-        civilId: 'غير محدد',
-        jobTitle: cand.appliedPosition,
-        department: cand.department || 'العموم',
-        commencementDate: todayStr,
-        reportingTime: '08:00',
-        workScheduleId: 'SCHEDULE-A',
-        workScheduleName: 'دوام صباحي كادر طبي (8:00 ص - 4:00 م)',
-        supervisorName: 'مدير الموارد البشرية',
-        readinessStatus: 'IN_PREPARATION',
-        isUnderProbation: true,
-        probationDaysTotal: 100,
-        status: 'DRAFT',
-        createdAt: new Date().toISOString()
-      };
-      await setDoc(doc(db, 'commencements', newCommRecord.id), cleanFirestoreData(newCommRecord), { merge: true });
-    } catch (e) {
-      console.error('Error auto-creating draft commencement:', e);
     }
 
     handleSaveCandidate({

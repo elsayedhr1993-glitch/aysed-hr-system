@@ -920,6 +920,9 @@ export interface OnboardingPlan {
     startDate?: string;
     endDate?: string;
     probationDays?: number;
+    workEmail?: string;
+    bankName?: string;
+    iban?: string;
     basicSalary?: number;
     housingAllowance?: number;
     transportAllowance?: number;

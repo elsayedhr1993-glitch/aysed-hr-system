@@ -13,6 +13,7 @@ import { CommencementApp } from './CommencementApp';
 import { OnboardingTrackerApp } from '../components/employees/OnboardingTrackerApp';
 import { OnboardingWizardModal } from '../components/employees/OnboardingWizardModal';
 import { useCompany } from '../context/CompanyContext';
+import { createEmployeeOnboardingBundle, EmployeeOnboardingValidationError } from '../services/employeeOnboardingService';
 import { TenantDatabaseService } from '../services/tenantDataService';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { getPersistentData } from '../utils/persistentStorage';
@@ -560,51 +561,76 @@ export function EmployeesApp(props?: any) {
     );
 
     if (!existingEmp) {
-      const nextSeq = employees.length + 1;
-      const newEmp = {
-        id: `EMP-2026-${String(nextSeq).padStart(3, '0')}`,
-        nameAr: plan.employeeName || 'موظف جديد',
-        fullNameAr: plan.employeeName || 'موظف جديد',
-        jobTitle: plan.jobTitle || 'موظف',
-        dept: plan.department || 'العموم',
-        department: plan.department || 'العموم',
-        civilId: plan.civilId !== 'غير محدد' ? plan.civilId : '',
-        civil_id_number: plan.civilId !== 'غير محدد' ? plan.civilId : '',
-        hireDate: plan.expectedStartDate || new Date().toISOString().slice(0, 10),
-        status: 'على رأس العمل',
-        companyId: currentCompanyId,
-        basicSalary: plan.department === 'الأطباء' ? 1200 : 700,
-        allowances: 150,
-        nationality: 'كويتي',
-        salary: (plan.department === 'الأطباء' ? 1200 : 700) + 150,
-        carriedOverLeave2025: 0,
-        carriedOverBalance: 0,
-        openingBalance: 0,
-        avatarColor: 'bg-purple-900',
-        mohLicense: plan.department === 'الأطباء' ? 'MOH-DOC-TEMP' : '',
-        pifssStatus: 'subscribed',
-        legalChecklist: plan.legalChecklist || {
-          civilIdScan: true,
-          passportScan: true,
-          pamWorkPermit: true,
-          mohLicense: plan.department === 'الأطباء',
-          medicalFitness: true,
-          signedContract: true
-        },
-        requiredDocuments: plan.requiredDocuments || ['civilIdScan', 'passportScan', 'pamWorkPermit', 'signedContract', 'medicalFitness'],
-        onboardingPlanId: plan.id,
-        custodyItems: plan.custodyItems || [],
-        documentFiles: {}
-      };
+      try {
+        const nextSeq = employees.length + 1;
+        const seedEmployee = {
+          id: `EMP-2026-${String(nextSeq).padStart(3, '0')}`,
+          nameAr: plan.employeeName || 'موظف جديد',
+          fullNameAr: plan.employeeName || 'موظف جديد',
+          fullNameEn: plan.scannedData?.fullNameEn || '',
+          nameEn: plan.scannedData?.fullNameEn || '',
+          jobTitle: plan.jobTitle || 'موظف',
+          dept: plan.department || 'العموم',
+          department: plan.department || 'العموم',
+          civilId: plan.civilId !== 'غير محدد' ? plan.civilId : '',
+          civil_id_number: plan.civilId !== 'غير محدد' ? plan.civilId : '',
+          email: plan.contractDetails?.workEmail || '',
+          workEmail: plan.contractDetails?.workEmail || '',
+          hireDate: plan.expectedStartDate || new Date().toISOString().slice(0, 10),
+          joinDate: plan.expectedStartDate || new Date().toISOString().slice(0, 10),
+          contractStartDate: plan.contractDetails?.startDate || plan.expectedStartDate,
+          contractEndDate: plan.contractDetails?.endDate || '',
+          contractType: plan.contractDetails?.contractType || 'محدد المدة (Fixed Term)',
+          commencementDate: plan.commencementDetails?.actualJoiningDate || plan.expectedStartDate,
+          directSupervisor: plan.commencementDetails?.directSupervisor || 'مدير القسم',
+          branchLocation: plan.commencementDetails?.branchLocation || 'الفرع الرئيسي',
+          isCommenced: plan.commencementDetails?.isCommenced !== false,
+          companyId: currentCompanyId,
+          basicSalary: plan.contractDetails?.basicSalary || (plan.department === 'الأطباء' ? 1200 : 700),
+          housingAllowance: plan.contractDetails?.housingAllowance || 100,
+          transportAllowance: plan.contractDetails?.transportAllowance || 50,
+          otherAllowances: plan.contractDetails?.otherAllowances || 0,
+          totalSalary: plan.contractDetails?.totalSalary || ((plan.contractDetails?.basicSalary || (plan.department === 'الأطباء' ? 1200 : 700)) + (plan.contractDetails?.housingAllowance || 100) + (plan.contractDetails?.transportAllowance || 50) + (plan.contractDetails?.otherAllowances || 0)),
+          bankName: plan.contractDetails?.bankName || '',
+          iban: plan.contractDetails?.iban || '',
+          nationality: plan.scannedData?.nationality || 'كويتي',
+          salary: plan.contractDetails?.totalSalary || ((plan.contractDetails?.basicSalary || (plan.department === 'الأطباء' ? 1200 : 700)) + (plan.contractDetails?.housingAllowance || 100) + (plan.contractDetails?.transportAllowance || 50) + (plan.contractDetails?.otherAllowances || 0)),
+          carriedOverLeave2025: 0,
+          carriedOverBalance: 0,
+          openingBalance: 0,
+          avatarColor: 'bg-purple-900',
+          mohLicense: plan.mohLicense || (plan.department === 'الأطباء' ? 'MOH-DOC-TEMP' : ''),
+          pifssStatus: 'subscribed',
+          leaveAccrualActivated: plan.commencementDetails?.leaveAccrualActivated !== false,
+          legalChecklist: plan.legalChecklist || {
+            civilIdScan: true,
+            passportScan: true,
+            pamWorkPermit: true,
+            mohLicense: plan.department === 'الأطباء',
+            medicalFitness: true,
+            signedContract: true
+          },
+          requiredDocuments: plan.requiredDocuments || ['civilIdScan', 'passportScan', 'pamWorkPermit', 'signedContract', 'medicalFitness'],
+          onboardingPlanId: plan.id,
+          custodyItems: plan.custodyItems || [],
+          documentFiles: {}
+        };
 
-      await TenantDatabaseService.saveEmployee(newEmp as any, currentCompanyId);
+        const bundle = await createEmployeeOnboardingBundle({
+          companyId: currentCompanyId,
+          employee: seedEmployee,
+          existingEmployees: employees as any
+        });
 
-      setEmployees(prev => {
-        const nextList = [newEmp, ...prev];
-        return nextList;
-      });
-      setSelectedEmployee(newEmp);
-      setActiveTab('directory');
+        setEmployees(prev => [bundle.employee as any, ...prev.filter(e => e.id !== bundle.employee.id)]);
+        setContracts(prev => [bundle.contract, ...prev.filter(c => c.id !== bundle.contract.id)]);
+        setCommencements(prev => [bundle.commencement, ...prev.filter(c => c.id !== bundle.commencement.id)]);
+        setSelectedEmployee(bundle.employee as any);
+        setActiveTab('directory');
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'تعذر إنشاء حزمة الموظف الموحدة.');
+        return;
+      }
     } else {
       // إذا كان الموظف مسجلاً بالفعل، نقوم بتحديث قائمة وثائقه وخطة تهيئته
       const updatedExisting = {
@@ -642,6 +668,30 @@ export function EmployeesApp(props?: any) {
   const handleSaveEmployee = async (updatedEmp: any) => {
     if (!updatedEmp) return;
     const activeCompanyId = currentCompanyId;
+    const employeeExists = employees.some(e => e.id === updatedEmp.id);
+
+    if (!employeeExists) {
+      try {
+        const bundle = await createEmployeeOnboardingBundle({
+          companyId: activeCompanyId,
+          employee: updatedEmp,
+          existingEmployees: employees as any
+        });
+        setEmployees(prev => [bundle.employee as any, ...prev.filter(e => e.id !== bundle.employee.id)]);
+        setContracts(prev => [bundle.contract, ...prev.filter(c => c.id !== bundle.contract.id)]);
+        setCommencements(prev => [bundle.commencement, ...prev.filter(c => c.id !== bundle.commencement.id)]);
+        setSelectedEmployee(bundle.employee as any);
+        toast.success(`تم إنشاء الموظف (${bundle.employee.fullNameAr || bundle.employee.nameAr}) مع العقد والمباشرة ورصيد الإجازات بنجاح`);
+      } catch (error) {
+        if (error instanceof EmployeeOnboardingValidationError || error instanceof Error) {
+          alert(error.message);
+        } else {
+          alert('تعذر إنشاء الموظف عبر مسار التهيئة الموحد.');
+        }
+      }
+      return;
+    }
+
     const civilId = (updatedEmp.civil_id_number || updatedEmp.civilId || updatedEmp.civil_id || '').trim();
 
     if (updatedEmp.isNewRecord && civilId) {

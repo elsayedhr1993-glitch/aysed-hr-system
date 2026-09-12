@@ -28,6 +28,17 @@ import { toast } from 'react-hot-toast';
 import { processAnyDocument } from '../../utils/ocrService';
 import { OnboardingPlan, OnboardingTask } from '../../types';
 
+const KUWAIT_BANK_OPTIONS = [
+  'بنك الكويت الوطني (NBK)',
+  'بيت التمويل الكويتي (KFH)',
+  'بنك بوبيان',
+  'بنك الخليج',
+  'البنك التجاري الكويتي',
+  'بنك برقان',
+  'البنك الأهلي الكويتي',
+  'بنك وربة'
+];
+
 interface OnboardingWizardModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -171,6 +182,9 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
   const [housingAllowance, setHousingAllowance] = useState<number>(100);
   const [transportAllowance, setTransportAllowance] = useState<number>(50);
   const [otherAllowances, setOtherAllowances] = useState<number>(0);
+  const [workEmail, setWorkEmail] = useState<string>('');
+  const [bankName, setBankName] = useState<string>('بيت التمويل الكويتي (KFH)');
+  const [iban, setIban] = useState<string>('');
 
   // Commencement Details State
   const [actualJoiningDate, setActualJoiningDate] = useState<string>(
@@ -309,6 +323,14 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
       alert('يرجى إدخال اسم الموظف لاستكمال خطة التهيئة');
       return;
     }
+    if (!civilId.trim()) {
+      alert('يرجى إدخال الرقم المدني قبل تفعيل خطة التهيئة.');
+      return;
+    }
+    if (!workEmail.trim() || !bankName.trim() || !iban.trim()) {
+      alert('يرجى استكمال البريد الوظيفي وبيانات البنك والآيبان قبل التفعيل.');
+      return;
+    }
 
     const tasks = buildFinalTasksList();
     const completedTasksCount = tasks.filter(t => t.completed).length;
@@ -333,6 +355,9 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
         contractType,
         startDate: expectedStartDate,
         probationDays,
+        workEmail: workEmail.trim().toLowerCase(),
+        bankName,
+        iban: iban.trim().replace(/\s+/g, '').toUpperCase(),
         basicSalary,
         housingAllowance,
         transportAllowance,
@@ -783,12 +808,47 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                     className="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-mono font-bold text-slate-900"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">البريد الوظيفي (Work Email) *</label>
+                  <input
+                    type="email"
+                    value={workEmail}
+                    onChange={(e) => setWorkEmail(e.target.value)}
+                    placeholder="name@almanar.com"
+                    className="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-bold text-slate-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">البنك المعتمد لتحويل WPS *</label>
+                  <select
+                    value={bankName}
+                    onChange={(e) => setBankName(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-bold text-slate-900"
+                  >
+                    {KUWAIT_BANK_OPTIONS.map((bank) => (
+                      <option key={bank} value={bank}>{bank}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-slate-700 font-bold mb-1">رقم الآيبان (IBAN) *</label>
+                  <input
+                    type="text"
+                    value={iban}
+                    onChange={(e) => setIban(e.target.value)}
+                    placeholder="KW..."
+                    className="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-mono font-bold text-slate-900"
+                  />
+                </div>
               </div>
             </div>
           )}
 
           {/* STEP 2: Checklist & Legal Requirements */}
-          {currentStep === 2 && (
+          {currentStep === 3 && (
             <div className="space-y-4 animate-fadeIn">
               <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-200 flex items-center gap-2 text-emerald-900">
                 <ShieldCheck size={18} className="text-emerald-700" />
@@ -893,7 +953,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
           )}
 
           {/* STEP 3: Custody, IT & Access Provisioning */}
-          {currentStep === 3 && (
+          {currentStep === 4 && (
             <div className="space-y-4 animate-fadeIn">
               <div className="bg-indigo-50 p-3 rounded-xl border border-indigo-200 flex items-center gap-2 text-indigo-900">
                 <Laptop size={18} className="text-indigo-700" />
@@ -1050,6 +1110,10 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
               onClick={() => {
                 if (currentStep === 1 && !employeeName.trim()) {
                   alert('يرجى كتابة اسم الموظف للانتقال للخطوة التالية');
+                  return;
+                }
+                if (currentStep === 2 && (!workEmail.trim() || !bankName.trim() || !iban.trim())) {
+                  alert('يرجى استكمال البريد الوظيفي وبيانات البنك والآيبان قبل الانتقال.');
                   return;
                 }
                 setCurrentStep(prev => prev + 1);

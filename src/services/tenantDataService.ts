@@ -15,6 +15,7 @@ import { Company, Employee, LeaveRequest, AttendanceRecord, Payslip, Contract } 
 import { triggerContractRunningLeaveAllocation } from '../utils/contractLeaveTrigger';
 import { normalizeEmployeeRecord, toEmployeeFirestoreData } from '../utils/employeeMapper';
 import { normalizeContractStatus } from '../utils/contractStatus';
+import { requireCompanyId } from '../utils/tenantGuards';
 import { saveHolidayWorkRecord, approveHolidayWork, WorkOnHolidayRecord } from './holidayWorkService';
 
 export enum OperationType {
@@ -156,7 +157,7 @@ export interface PayrollRunRecord {
 // -------------------------------------------------------------
 
 export function toEmployeeDbRow(emp: Employee, companyId?: string): EmployeeRecord {
-  const compId = companyId || emp.companyId || 'comp-super-admin';
+  const compId = requireCompanyId(companyId || emp.companyId);
   const civilExpiry = emp.civilIdExpiry || (emp as any).civilIdExpiryDate || (emp as any).civil_id_expiry || (emp as any).raw_payload?.civilIdExpiry || (emp as any).raw_payload?.civilIdExpiryDate || (emp as any).raw_payload?.civil_id_expiry || '';
   return {
     id: emp.id,
@@ -214,7 +215,7 @@ export function toEmployeeDbRow(emp: Employee, companyId?: string): EmployeeReco
 }
 
 export function fromEmployeeDbRow(row: any): Employee {
-  const resolvedCompId = row.companyId || row.company_id || row.raw_payload?.companyId || row.raw_payload?.company_id || 'comp-super-admin';
+  const resolvedCompId = requireCompanyId(row.companyId || row.company_id || row.raw_payload?.companyId || row.raw_payload?.company_id);
   const civilExpiry = row.civil_id_expiry || row.civilIdExpiry || row.civilIdExpiryDate || row.raw_payload?.civilIdExpiry || row.raw_payload?.civilIdExpiryDate || row.raw_payload?.civil_id_expiry || '';
 
   const rawBasic = Number(row.raw_payload?.basicSalary ?? row.raw_payload?.contractSalary ?? row.basic_salary ?? row.basicSalary ?? row.raw_payload?.salary ?? row.salary ?? 0);
@@ -319,9 +320,10 @@ export function fromEmployeeDbRow(row: any): Employee {
 }
 
 export function toLeaveDbRow(leave: LeaveRequest, companyId?: string): LeaveDbRecord {
+  const resolvedCompanyId = requireCompanyId(companyId || leave.companyId);
   return {
     id: leave.id,
-    company_id: companyId || leave.companyId || 'comp-super-admin',
+    company_id: resolvedCompanyId,
     employee_id: leave.employeeId,
     leave_type: leave.leaveType || (leave as any).type || 'ANNUAL',
     start_date: leave.startDate,
@@ -756,7 +758,7 @@ export const TenantDatabaseService = {
    * Save or update an Employee to persistent database (Supabase + Firestore)
    */
   async saveEmployee(employee: Employee, targetCompanyId?: string): Promise<boolean> {
-    const compId = targetCompanyId || employee.companyId || (employee as any).company_id || 'comp-super-admin';
+    const compId = requireCompanyId(targetCompanyId || employee.companyId || (employee as any).company_id);
     try {
       const cleanDoc = cleanFirestoreData(toEmployeeFirestoreData(employee as any, compId));
       await setDoc(doc(db, 'employees', employee.id), cleanDoc, { merge: true });
@@ -863,7 +865,7 @@ export const TenantDatabaseService = {
    * Save or update a Leave request in persistent database
    */
   async saveLeave(leave: LeaveRequest, targetCompanyId?: string): Promise<boolean> {
-    const compId = targetCompanyId || leave.companyId || 'comp-super-admin';
+    const compId = requireCompanyId(targetCompanyId || leave.companyId);
 
     try {
       const cleanDoc = cleanFirestoreData({ ...leave, companyId: compId, updatedAt: new Date().toISOString() });
@@ -923,7 +925,7 @@ export const TenantDatabaseService = {
    * Save a Contract record
    */
   async saveContract(contract: Contract, targetCompanyId?: string): Promise<boolean> {
-    const compId = targetCompanyId || contract.companyId || 'comp-super-admin';
+    const compId = requireCompanyId(targetCompanyId || contract.companyId);
     const canonicalStatus = normalizeContractStatus((contract as any).status || (contract as any).contractStatus);
     const effectiveDailyHours = contract.customDailyHours ?? contract.custom_daily_hours ?? contract.dailyWorkHours ?? contract.plannedDailyHours ?? 8;
     const effectiveWeeklyHours = contract.workingHoursPerWeek || (Number(effectiveDailyHours) * 6);
@@ -1013,7 +1015,7 @@ export const TenantDatabaseService = {
    * Save an Attendance record
    */
   async saveAttendance(record: AttendanceRecord, targetCompanyId?: string): Promise<boolean> {
-    const compId = targetCompanyId || record.companyId || 'comp-super-admin';
+    const compId = requireCompanyId(targetCompanyId || record.companyId);
     try {
       const cleanDoc = cleanFirestoreData({ ...record, companyId: compId, updatedAt: new Date().toISOString() });
       await setDoc(doc(db, 'attendance', record.id), cleanDoc, { merge: true });
@@ -1043,7 +1045,7 @@ export const TenantDatabaseService = {
    * Save a Document Item to Supabase & Firestore
    */
   async saveDocument(docItem: any, targetCompanyId?: string): Promise<boolean> {
-    const compId = targetCompanyId || docItem.companyId || 'comp-super-admin';
+    const compId = requireCompanyId(targetCompanyId || docItem.companyId);
     try {
       const cleanDoc = cleanFirestoreData({ ...docItem, companyId: compId, updatedAt: new Date().toISOString() });
       await setDoc(doc(db, 'documents', docItem.id), cleanDoc, { merge: true });
@@ -1086,7 +1088,7 @@ export const TenantDatabaseService = {
    * Save a Payslip record
    */
   async savePayslip(payslip: Payslip, targetCompanyId?: string): Promise<boolean> {
-    const compId = targetCompanyId || payslip.companyId || 'comp-super-admin';
+    const compId = requireCompanyId(targetCompanyId || payslip.companyId);
     try {
       const cleanDoc = cleanFirestoreData({ ...payslip, companyId: compId, updatedAt: new Date().toISOString() });
       await setDoc(doc(db, 'payslips', payslip.id), cleanDoc, { merge: true });

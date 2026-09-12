@@ -10,6 +10,7 @@ export function normalizeEmployeeRecord(raw: Partial<Employee> & Record<string, 
   const fullNameAr = raw.fullNameAr || raw.full_name_ar || raw.nameAr || raw.name || 'موظف';
   const fullNameEn = raw.fullNameEn || raw.full_name_en || raw.nameEn || raw.name_en || '';
   const civilId = raw.civilId || raw.civil_id || raw.civil_id_number || '';
+  const email = raw.email || raw.workEmail || raw.work_email || '';
 
   return {
     ...raw,
@@ -41,6 +42,8 @@ export function normalizeEmployeeRecord(raw: Partial<Employee> & Record<string, 
     joinDate: raw.joinDate || raw.join_date || '',
     department: raw.department || raw.dept || '',
     jobTitle: raw.jobTitle || raw.job_title || '',
+    email,
+    workEmail: email,
     bankName: raw.bankName || raw.bank_name || '',
     iban: raw.iban || raw.bankIban || raw.bank_iban || '',
     tags: Array.isArray(raw.tags) ? raw.tags : []
