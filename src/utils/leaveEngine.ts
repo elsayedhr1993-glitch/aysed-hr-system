@@ -2,6 +2,47 @@ import { Employee, Contract, LeaveRequest, HrLeaveAllocation } from '../types';
 import { getGlobalOpeningBalance, getGlobalAccrued2026, getGlobalCompensatoryDays } from './kuwaitLaw';
 import { computeFifoLeaveAllocations, buildEmployeeBaselineAllocations } from '../services/leaveService';
 
+export type LeaveLedgerSource =
+  | 'carried_forward'
+  | 'accrued_entitlement'
+  | 'holiday_compensation'
+  | 'manual_adjustment'
+  | 'approved_leave_deduction';
+
+export interface LeaveLedgerEntry {
+  id: string;
+  employeeId: string;
+  companyId?: string;
+  direction: 'credit' | 'debit';
+  source: LeaveLedgerSource;
+  days: number;
+  effectiveDate: string;
+  status: 'approved' | 'pending';
+  referenceId?: string;
+  notes?: string;
+}
+
+export interface LeaveBalanceEngineInput {
+  employee: Employee;
+  allocations?: HrLeaveAllocation[];
+  leaves?: LeaveRequest[];
+  contract?: Contract;
+}
+
+export interface LeaveBalanceSnapshot {
+  entries: LeaveLedgerEntry[];
+  carriedForwardDays: number;
+  accruedDays: number;
+  holidayCompensationDays: number;
+  manualAdjustmentDays: number;
+  approvedLeaveDeductionDays: number;
+  totalBalance: number;
+  dailyWage: number;
+  cashLiability: number;
+  basicSalary: number;
+  comprehensiveSalary: number;
+}
+
 export interface LeaveRecord {
   type: 'annual' | 'unpaid' | 'sick' | 'compensation_holiday' | 'manual_adjustment';
   days: number;
@@ -22,6 +63,168 @@ export interface EmployeeLeaveSummary {
   basicSalary?: number;            // الراتب الأساسي
   comprehensiveSalary?: number;    // الراتب الأساسي (أو الشامل)
 }
+
+function roundDays(value: number): number {
+  return Number((Number(value || 0)).toFixed(2));
+}
+
+function roundMoney(value: number): number {
+  return Number((Number(value || 0)).toFixed(3));
+}
+
+export function normalizeLeaveBalanceInputs(
+  allocations: HrLeaveAllocation[] = [],
+  leaves: LeaveRequest[] = []
+): { allocations: HrLeaveAllocation[]; leaves: LeaveRequest[] } {
+  const normalizedAllocations = (allocations || []).map((allocation: any) => ({
+    ...allocation,
+    numberOfDays: Number(allocation.numberOfDays ?? allocation.days ?? 0) || 0,
+    consumedDays: Number(allocation.consumedDays || 0) || 0,
+    remainingDays: allocation.remainingDays !== undefined
+      ? Number(allocation.remainingDays) || 0
+      : Math.max(0, (Number(allocation.numberOfDays ?? allocation.days ?? 0) || 0) - (Number(allocation.consumedDays || 0) || 0)),
+    allocationType: allocation.allocationType || 'regular',
+    state: allocation.state || 'validate',
+    name: allocation.name || allocation.notes,
+    dateFrom: allocation.dateFrom || allocation.allocationDate || '2026-01-01',
+    companyId: allocation.companyId || ''
+  })) as HrLeaveAllocation[];
+
+  const normalizedLeaves = (leaves || []).map((leave: any) => ({
+    ...leave,
+    totalDays: Number(leave.totalDays ?? leave.daysCount ?? leave.numberOfDays ?? leave.days ?? 0) || 0,
+    paidDays: leave.paidDays !== undefined ? Number(leave.paidDays) || 0 : undefined,
+    unpaidDays: leave.unpaidDays !== undefined ? Number(leave.unpaidDays) || 0 : undefined,
+    status: String(leave.status || '').toUpperCase()
+  })) as LeaveRequest[];
+
+  return {
+    allocations: normalizedAllocations,
+    leaves: normalizedLeaves
+  };
+}
+
+export function buildLeaveBalanceLedger(input: LeaveBalanceEngineInput): LeaveLedgerEntry[] {
+  const { employee, contract } = input;
+  const { allocations, leaves } = normalizeLeaveBalanceInputs(input.allocations, input.leaves);
+  const data = buildLeaveRecordsFromEmployee(employee, allocations, leaves);
+  const baselineAllocations = buildEmployeeBaselineAllocations(employee, allocations);
+  const fifo = computeFifoLeaveAllocations(employee, baselineAllocations, leaves);
+  const companyId = employee.companyId || (employee as any).company_id || contract?.companyId || '';
+  const employeeId = employee.id;
+
+  const entries: LeaveLedgerEntry[] = [
+    {
+      id: `lf-carry-${employeeId}`,
+      employeeId,
+      companyId,
+      direction: 'credit',
+      source: 'carried_forward',
+      days: roundDays(data.carriedOver),
+      effectiveDate: '2025-12-31',
+      status: 'approved',
+      notes: 'رصيد مرحل افتتاحي'
+    },
+    {
+      id: `lf-accrued-${employeeId}`,
+      employeeId,
+      companyId,
+      direction: 'credit',
+      source: 'accrued_entitlement',
+      days: roundDays(data.accrued2026),
+      effectiveDate: employee.joinDate || (employee as any).hireDate || '2026-01-01',
+      status: 'approved',
+      notes: 'استحقاق الإجازات السنوي'
+    }
+  ];
+
+  data.records
+    .filter(record => record.type === 'compensation_holiday' && record.status === 'approved')
+    .forEach((record, index) => {
+      entries.push({
+        id: `lf-holiday-${employeeId}-${index + 1}`,
+        employeeId,
+        companyId,
+        direction: 'credit',
+        source: 'holiday_compensation',
+        days: roundDays(record.days),
+        effectiveDate: record.date || '2026-01-01',
+        status: 'approved',
+        notes: record.notes
+      });
+    });
+
+  data.records
+    .filter(record => record.type === 'manual_adjustment' && record.status === 'approved')
+    .forEach((record, index) => {
+      entries.push({
+        id: `lf-adjust-${employeeId}-${index + 1}`,
+        employeeId,
+        companyId,
+        direction: 'credit',
+        source: 'manual_adjustment',
+        days: roundDays(record.days),
+        effectiveDate: record.date || '2026-01-01',
+        status: 'approved',
+        notes: record.notes
+      });
+    });
+
+  fifo.breakdown.forEach((item, index) => {
+    if ((Number(item.paidDays) || 0) <= 0) return;
+    entries.push({
+      id: `lf-deduct-${item.leaveId || employeeId}-${index + 1}`,
+      employeeId,
+      companyId,
+      direction: 'debit',
+      source: 'approved_leave_deduction',
+      days: roundDays(item.paidDays),
+      effectiveDate: item.leaveStartDate || '2026-01-01',
+      status: 'approved',
+      referenceId: item.leaveId,
+      notes: `${item.leaveType || 'ANNUAL'} leave deduction`
+    });
+  });
+
+  return entries.filter(entry => entry.days > 0);
+}
+
+export function calculateLeaveBalanceSnapshot(input: LeaveBalanceEngineInput): LeaveBalanceSnapshot {
+  const { employee, contract } = input;
+  const entries = buildLeaveBalanceLedger(input);
+  const basicSalary = Number(contract?.basicSalary ?? (employee as any).basicSalary ?? (employee as any).basic_salary ?? (employee as any).salary ?? 0) || 0;
+  const comprehensiveSalary = basicSalary;
+
+  const carriedForwardDays = roundDays(entries.filter(entry => entry.source === 'carried_forward' && entry.direction === 'credit').reduce((sum, entry) => sum + entry.days, 0));
+  const accruedDays = roundDays(entries.filter(entry => entry.source === 'accrued_entitlement' && entry.direction === 'credit').reduce((sum, entry) => sum + entry.days, 0));
+  const holidayCompensationDays = roundDays(entries.filter(entry => entry.source === 'holiday_compensation' && entry.direction === 'credit').reduce((sum, entry) => sum + entry.days, 0));
+  const manualAdjustmentDays = roundDays(entries.filter(entry => entry.source === 'manual_adjustment' && entry.direction === 'credit').reduce((sum, entry) => sum + entry.days, 0));
+  const approvedLeaveDeductionDays = roundDays(entries.filter(entry => entry.source === 'approved_leave_deduction' && entry.direction === 'debit').reduce((sum, entry) => sum + entry.days, 0));
+  const totalCredits = roundDays(carriedForwardDays + accruedDays + holidayCompensationDays + manualAdjustmentDays);
+  const totalBalance = roundDays(Math.max(0, totalCredits - approvedLeaveDeductionDays));
+  const dailyWage = roundMoney(basicSalary > 0 ? (basicSalary / 26) : 0);
+  const cashLiability = roundMoney(totalBalance * dailyWage);
+
+  return {
+    entries,
+    carriedForwardDays,
+    accruedDays,
+    holidayCompensationDays,
+    manualAdjustmentDays,
+    approvedLeaveDeductionDays,
+    totalBalance,
+    dailyWage,
+    cashLiability,
+    basicSalary,
+    comprehensiveSalary
+  };
+}
+
+export const LeaveBalanceEngine = {
+  normalizeInputs: normalizeLeaveBalanceInputs,
+  buildLedger: buildLeaveBalanceLedger,
+  calculate: calculateLeaveBalanceSnapshot,
+};
 
 /**
  * المحرك المركزي الموحد لحساب رصيد وتصفية الإجازات
@@ -166,31 +369,19 @@ export function getEmployeeUnifiedSummary(
   leaves: LeaveRequest[] = [],
   contract?: Contract
 ): EmployeeLeaveSummary {
-  const data = buildLeaveRecordsFromEmployee(employee, allocations, leaves);
-  const basicSalary = contract ? Number(contract.basicSalary || 0) : data.basicSalary;
-  const allowances = contract ? (Number(contract.housingAllowance || 0) + Number(contract.transportAllowance || 0) + Number(contract.otherAllowance || 0)) : data.allowances;
-
-  // الربط المباشر مع محرك وسجل FIFO المركزي لضمان التطابق 100%
-  const baselineAllocations = buildEmployeeBaselineAllocations(employee, allocations);
-  const fifo = computeFifoLeaveAllocations(employee, baselineAllocations, leaves);
-  const compDays = data.compensatoryDays || getGlobalCompensatoryDays(employee);
-
-  const basicSalaryOnly = Number(basicSalary || 0);
-  const dailyWageRate = basicSalaryOnly > 0 ? (basicSalaryOnly / 26) : 0;
-  const netAvailable = fifo.netAvailable;
-  const cashSettlementAmount = Number((netAvailable * dailyWageRate).toFixed(3));
+  const snapshot = calculateLeaveBalanceSnapshot({ employee, allocations, leaves, contract });
 
   return {
-    carriedOverDays: data.carriedOver,
-    accruedAnnualDays: data.accrued2026,
-    holidayCompensationDays: compDays,
-    manualAdjustments: 0,
-    usedLeaveDays: fifo.totalConsumed,
-    totalAvailableDays: netAvailable,
-    cashSettlementAmount,
-    dailyWageRate: dailyWageRate, // Do not round to preserve precision for future multiplications
-    basicSalary: basicSalaryOnly,
-    comprehensiveSalary: basicSalaryOnly
+    carriedOverDays: snapshot.carriedForwardDays,
+    accruedAnnualDays: snapshot.accruedDays,
+    holidayCompensationDays: snapshot.holidayCompensationDays,
+    manualAdjustments: snapshot.manualAdjustmentDays,
+    usedLeaveDays: snapshot.approvedLeaveDeductionDays,
+    totalAvailableDays: snapshot.totalBalance,
+    cashSettlementAmount: snapshot.cashLiability,
+    dailyWageRate: snapshot.dailyWage,
+    basicSalary: snapshot.basicSalary,
+    comprehensiveSalary: snapshot.comprehensiveSalary
   };
 }
 

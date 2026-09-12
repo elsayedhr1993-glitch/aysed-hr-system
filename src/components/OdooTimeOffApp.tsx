@@ -47,6 +47,7 @@ import { computeFifoLeaveAllocations, buildEmployeeBaselineAllocations } from '.
 import { approveLeaveRequest } from '../services/leaveApprovalService';
 import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { db, cleanFirestoreData } from '../lib/firebase';
+import { LeaveBalanceEngine } from '../utils/leaveEngine';
 import { normalizeLeaveStatus, normalizeLeaveType, isLeaveRequestInConflict, canTransitionLeaveStatus } from '../utils/leaveModel';
 
 // Time Off Sub-components
@@ -258,17 +259,15 @@ export const OdooTimeOffApp: React.FC = () => {
     let available = 0;
 
     if (emp) {
-      const empAllocs = buildEmployeeBaselineAllocations(emp as any, mappedAllocations as any);
-      const fifo = computeFifoLeaveAllocations(emp as any, empAllocs, requests as any);
-      
-      const totalOpening = fifo.allocations.filter(a => a.allocationType === 'regular').reduce((s, a) => s + (Number(a.numberOfDays) || 0), 0);
-      const totalAccrued = fifo.allocations.filter(a => a.allocationType === 'accrual' && !a.name?.includes('تعويضي') && !a.name?.includes('بديل') && !a.name?.includes('عطلة')).reduce((s, a) => s + (Number(a.numberOfDays) || 0), 0);
-      const totalCompensatory = Number(getGlobalCompensatoryDays(emp as any)) || 0;
-      
-      carried = Number(totalOpening) || 0;
-      earned = (Number(totalAccrued) || 0) + totalCompensatory;
-      consumed = Number(fifo.totalConsumed) || 0;
-      available = Math.max(0, (carried + earned) - consumed);
+      const snapshot = LeaveBalanceEngine.calculate({
+        employee: emp as any,
+        allocations: mappedAllocations as any,
+        leaves: requests as any,
+      });
+      carried = snapshot.carriedForwardDays;
+      earned = snapshot.accruedDays + snapshot.holidayCompensationDays + snapshot.manualAdjustmentDays;
+      consumed = snapshot.approvedLeaveDeductionDays;
+      available = snapshot.totalBalance;
     }
 
     const startYear = contractStartStr ? contractStartStr.slice(0, 4) : '2025';
@@ -515,11 +514,7 @@ export const OdooTimeOffApp: React.FC = () => {
 
     // Balance check
     if (normalizeLeaveType(targetReq.leaveType) === 'ANNUAL') {
-      const current = leaveAccruals?.[targetReq.employeeId];
-      const carried = Number(current?.carriedFrom2025) || 0;
-      const earned = Number(current?.earned2026) || 0;
-      const consumed = Number(current?.consumedDays) || 0;
-      const available = (carried + earned) - consumed;
+      const { available } = getEmployeeContractBalance(targetReq.employeeId);
 
       if (targetReq.daysCount > available) {
         const excess = targetReq.daysCount - available;
