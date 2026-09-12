@@ -1,12 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { onAuthStateChanged, signOut, setPersistence, browserSessionPersistence, User as FirebaseUser } from 'firebase/auth';
+import { onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
 import { auth, db, isTenantPurged } from '../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 
-const ALMANAR_ADMIN_EMAIL = 'admin@almanar.com';
-const ALMANAR_COMPANY_ID = 'comp-1788442584841';
-const ALMANAR_COMPANY_NAME_AR = 'مستوصف المنار الطبي (Almanar Clinic)';
+const AUTH_USER_KEY = 'aysed_auth_user';
+const AUTH_TOKEN_KEY = 'aysed_auth_token';
+const REMEMBER_ME_KEY = 'aysed_remember_me';
 
 export interface User {
   id: string;
@@ -33,19 +33,56 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // Inactivity timeout: 15 minutes (900,000 ms)
 const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000;
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(() => {
-    try {
-      const savedUser = localStorage.getItem('aysed_auth_user');
-      if (savedUser) return JSON.parse(savedUser);
-    } catch (e) {
-      console.warn('Error reading saved user session:', e);
-    }
+const getRememberMePreference = () => {
+  try {
+    return localStorage.getItem(REMEMBER_ME_KEY) === 'true';
+  } catch {
+    return false;
+  }
+};
+
+const readStoredUser = (): User | null => {
+  try {
+    const raw = localStorage.getItem(AUTH_USER_KEY) || sessionStorage.getItem(AUTH_USER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
     return null;
-  });
-  const [token, setToken] = useState<string | null>(() => {
-    return localStorage.getItem('aysed_auth_token') || null;
-  });
+  }
+};
+
+const readStoredToken = (): string | null => {
+  try {
+    return localStorage.getItem(AUTH_TOKEN_KEY) || sessionStorage.getItem(AUTH_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+};
+
+const clearAuthStorage = () => {
+  try {
+    localStorage.removeItem(AUTH_USER_KEY);
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    sessionStorage.removeItem(AUTH_USER_KEY);
+    sessionStorage.removeItem(AUTH_TOKEN_KEY);
+  } catch {}
+};
+
+const persistAuthStorage = (userData: User, jwt: string) => {
+  const rememberMe = getRememberMePreference();
+  const primaryStorage = rememberMe ? localStorage : sessionStorage;
+  const secondaryStorage = rememberMe ? sessionStorage : localStorage;
+
+  try {
+    primaryStorage.setItem(AUTH_USER_KEY, JSON.stringify(userData));
+    primaryStorage.setItem(AUTH_TOKEN_KEY, jwt);
+    secondaryStorage.removeItem(AUTH_USER_KEY);
+    secondaryStorage.removeItem(AUTH_TOKEN_KEY);
+  } catch {}
+};
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(() => readStoredUser());
+  const [token, setToken] = useState<string | null>(() => readStoredToken());
   const [isLoading, setIsLoading] = useState(true);
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -53,13 +90,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const params = new URLSearchParams(window.location.search);
     return params.get('debug') === '1' || localStorage.getItem('aysed_debug') === 'true' || localStorage.getItem('odoo_debug_mode') === 'true';
   });
-
-  // Enforce session-only persistence (Firebase Auth Session Firewall)
-  useEffect(() => {
-    setPersistence(auth, browserSessionPersistence).catch((err) => {
-      console.warn('Could not set browserSessionPersistence:', err);
-    });
-  }, []);
 
   useEffect(() => {
     if (isDebugMode) {
@@ -89,19 +119,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             await signOut(auth).catch(() => {});
             setUser(null);
             setToken(null);
-            localStorage.removeItem('aysed_auth_user');
-            localStorage.removeItem('aysed_auth_token');
+            clearAuthStorage();
             toast.error('تم حظر الوصول: الحساب معطل أو ملغى بجدار حماية المنظومة.');
             setIsLoading(false);
             return;
           }
 
           // Fetch user role and company info from Firestore if needed
-          const isSuper = ['admin@aysed.com', 'elsayedhr1993@gmail.com', 'admin@aysed-hr.com'].includes(userEmail);
-          const isAlmanarAdmin = userEmail === ALMANAR_ADMIN_EMAIL;
-          let role = isSuper ? 'SUPER_ADMIN' : 'COMPANY_ADMIN';
-          let name = isSuper ? 'مدير النظام (Super Admin)' : 'مسؤول الشركة';
-          let companyId: string | undefined = isAlmanarAdmin ? ALMANAR_COMPANY_ID : undefined;
+          let role = 'COMPANY_ADMIN';
+          let name = 'مسؤول الشركة';
+          let companyId: string | undefined;
           let photoURL = firebaseUser.photoURL || localStorage.getItem('aysed_user_avatar') || '';
 
           // Attempt to fetch profile & check account status with timeout
@@ -117,8 +144,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 await signOut(auth).catch(() => {});
                 setUser(null);
                 setToken(null);
-                localStorage.removeItem('aysed_auth_user');
-                localStorage.removeItem('aysed_auth_token');
+                clearAuthStorage();
                 toast.error('تم إيقاف حسابك من قبل إدارة النظام.');
                 setIsLoading(false);
                 return;
@@ -127,100 +153,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               name = data.name || name;
               companyId = data.companyId;
               photoURL = data.photoURL || data.avatar || photoURL;
-              if (isAlmanarAdmin) {
-                companyId = data.companyId || ALMANAR_COMPANY_ID;
-              }
             } else {
-              if (isSuper) {
-                // Auto-seed for the first time login if it's the known admin
-                const { setDoc } = await import('firebase/firestore');
-                await setDoc(doc(db, 'users', firebaseUser.uid), {
-                  email: firebaseUser.email,
-                  name: 'مدير النظام المركزية',
-                  role: 'SUPER_ADMIN',
-                  photoURL: photoURL,
-                  createdAt: new Date().toISOString()
-                }).catch(() => {});
-                role = 'SUPER_ADMIN';
-                name = 'مدير النظام المركزية';
-              } else if (isAlmanarAdmin) {
-                const { setDoc } = await import('firebase/firestore');
-                const collectionName = (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies');
-                await setDoc(doc(db, 'users', firebaseUser.uid), {
-                  email: firebaseUser.email,
-                  name: ALMANAR_COMPANY_NAME_AR,
-                  role: 'COMPANY_ADMIN',
-                  companyId: ALMANAR_COMPANY_ID,
-                  photoURL: photoURL,
-                  createdAt: new Date().toISOString()
-                }).catch(() => {});
-                await setDoc(doc(db, collectionName, ALMANAR_COMPANY_ID), {
-                  id: ALMANAR_COMPANY_ID,
-                  nameAr: ALMANAR_COMPANY_NAME_AR,
-                  nameEn: 'Almanar Clinic',
-                  name: ALMANAR_COMPANY_NAME_AR,
-                  ownerName: ALMANAR_COMPANY_NAME_AR,
-                  adminUsername: firebaseUser.email,
-                  email: firebaseUser.email,
-                  isActive: true,
-                  createdAt: new Date().toISOString()
-                }, { merge: true }).catch(() => {});
-                role = 'COMPANY_ADMIN';
-                name = ALMANAR_COMPANY_NAME_AR;
-                companyId = ALMANAR_COMPANY_ID;
+              // Look up if this email is registered in company collections
+              const { getDocs, collection, query, where, setDoc } = await import('firebase/firestore');
+              const collectionName = (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies');
+              const compQuery = query(collection(db, collectionName), where('adminUsername', '==', firebaseUser.email));
+              const compSnap = await getDocs(compQuery).catch(() => null);
+
+              let foundCompany = null;
+              if (compSnap && !compSnap.empty) {
+                foundCompany = compSnap.docs[0];
               } else {
-                // Not a super admin. Look up if this email is registered in 'companies'
-                const { getDocs, collection, query, where, setDoc } = await import('firebase/firestore');
-                const compQuery = query(collection(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies')), where('adminUsername', '==', firebaseUser.email));
-                const compSnap = await getDocs(compQuery).catch(() => null);
-                
-                let foundCompany = null;
-                if (compSnap && !compSnap.empty) {
-                  foundCompany = compSnap.docs[0];
-                } else {
-                  // Fallback search with 'email' field
-                  const compQuery2 = query(collection(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies')), where('email', '==', firebaseUser.email));
-                  const compSnap2 = await getDocs(compQuery2).catch(() => null);
-                  if (compSnap2 && !compSnap2.empty) {
-                    foundCompany = compSnap2.docs[0];
-                  }
-                }
-
-                if (foundCompany) {
-                  const compData = foundCompany.data();
-                  role = 'COMPANY_ADMIN';
-                  name = compData.ownerName || compData.nameAr || 'مسؤول الشركة';
-                  companyId = foundCompany.id;
-
-                  // Seed user document as COMPANY_ADMIN
-                  await setDoc(doc(db, 'users', firebaseUser.uid), {
-                    email: firebaseUser.email,
-                    name: name,
-                    role: 'COMPANY_ADMIN',
-                    companyId: companyId,
-                    photoURL: photoURL,
-                    createdAt: new Date().toISOString()
-                  }).catch(() => {});
-                } else {
-                  // Fallback default company admin role safely
-                  role = 'COMPANY_ADMIN';
-                  name = 'مسؤول شركة جديد';
-                  await setDoc(doc(db, 'users', firebaseUser.uid), {
-                    email: firebaseUser.email,
-                    name: name,
-                    role: 'COMPANY_ADMIN',
-                    photoURL: photoURL,
-                    createdAt: new Date().toISOString()
-                  }).catch(() => {});
+                const compQuery2 = query(collection(db, collectionName), where('email', '==', firebaseUser.email));
+                const compSnap2 = await getDocs(compQuery2).catch(() => null);
+                if (compSnap2 && !compSnap2.empty) {
+                  foundCompany = compSnap2.docs[0];
                 }
               }
+
+              if (foundCompany) {
+                const compData = foundCompany.data();
+                role = 'COMPANY_ADMIN';
+                name = compData.ownerName || compData.nameAr || 'مسؤول الشركة';
+                companyId = foundCompany.id;
+              } else {
+                role = 'COMPANY_ADMIN';
+                name = 'مسؤول شركة جديد';
+              }
+
+              await setDoc(doc(db, 'users', firebaseUser.uid), {
+                email: firebaseUser.email,
+                name,
+                role,
+                companyId: companyId || null,
+                photoURL,
+                createdAt: new Date().toISOString()
+              }, { merge: true }).catch(() => {});
             }
           } catch (e) {
-             console.warn("Could not fetch or seed user profile from firestore:", e);
-          }
-
-          if (isAlmanarAdmin && !companyId) {
-            companyId = ALMANAR_COMPANY_ID;
+            console.warn('Auth profile lookup skipped.');
           }
 
           let jwt = 'session-token';
@@ -238,20 +209,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           };
           setUser(fullUser);
           setToken(jwt);
-          try {
-            localStorage.setItem('aysed_auth_user', JSON.stringify(fullUser));
-            localStorage.setItem('aysed_auth_token', jwt);
-          } catch (_) {}
+          persistAuthStorage(fullUser, jwt);
         } else {
           // If no firebaseUser, only clear if there is no locally saved active master session
-          const saved = localStorage.getItem('aysed_auth_user');
+          const saved = localStorage.getItem(AUTH_USER_KEY) || sessionStorage.getItem(AUTH_USER_KEY);
           if (!saved) {
             setUser(null);
             setToken(null);
           }
         }
       } catch (err) {
-        console.error("Auth state change error", err);
+        console.warn('Auth state processing failed.');
       } finally {
         setIsLoading(false);
       }
@@ -292,10 +260,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = (newToken: string, userData: User) => {
     setToken(newToken);
     setUser(userData);
-    try {
-      localStorage.setItem('aysed_auth_user', JSON.stringify(userData));
-      localStorage.setItem('aysed_auth_token', newToken);
-    } catch (_) {}
+    persistAuthStorage(userData, newToken);
   };
 
   const logout = async () => {
@@ -304,19 +269,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await signOut(auth).catch(() => {});
       setUser(null);
       setToken(null);
-      localStorage.removeItem('aysed_auth_user');
-      localStorage.removeItem('aysed_auth_token');
+      clearAuthStorage();
       localStorage.removeItem('aysed_debug');
       localStorage.removeItem('odoo_debug_mode');
       localStorage.removeItem('activeCompanyId');
       localStorage.removeItem('odoo_active_company_id');
       toast.success('تم تسجيل الخروج وتأمين الجلسة بنجاح.');
     } catch (err) {
-      console.error("Logout error", err);
+      console.warn('Logout completed with a non-critical issue.');
       setUser(null);
       setToken(null);
-      localStorage.removeItem('aysed_auth_user');
-      localStorage.removeItem('aysed_auth_token');
+      clearAuthStorage();
     }
   };
 
@@ -362,7 +325,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(prev => prev ? { ...prev, photoURL: url } : null);
       localStorage.setItem('aysed_user_avatar', url);
     } catch (err) {
-      console.error("Error updating avatar:", err);
+      console.warn('Avatar update completed with a non-critical issue.');
       setUser(prev => prev ? { ...prev, photoURL: url } : null);
       localStorage.setItem('aysed_user_avatar', url);
     }

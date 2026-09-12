@@ -969,7 +969,7 @@ function MainAppLayout() {
           <main className="flex-1 overflow-y-auto w-full">
             <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
               <SuperAdminDashboard 
-                currentUserEmail={user?.email || 'elsayedhr1993@gmail.com'}
+                currentUserEmail={user?.email || ''}
                 onLogout={logout}
                 onSwitchToApps={() => setActiveApp('switcher')}
                 onSwitchToWorkspace={() => setActiveApp('employees')}
