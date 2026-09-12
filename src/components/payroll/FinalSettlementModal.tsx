@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { 
   Calculator, Printer, Download, CheckCircle, FileText, X, 
   Building2, User, Calendar, DollarSign, AlertCircle, Shield
 } from 'lucide-react';
 import { tafqitKuwaiti } from '../../utils/tafqit';
 import { calculateKuwaitEOS, calculateDailyWage } from '../../utils/kuwaitPayrollEngine';
+import { LeaveBalanceEngine } from '../../utils/leaveEngine';
 
 export interface FinalSettlementEmployee {
   id: string;
@@ -17,12 +18,13 @@ export interface FinalSettlementEmployee {
   housingAllowance: number;
   transportAllowance: number;
   medicalAllowance: number;
-  leaveBalanceDays?: number;
   activeLoanRemaining?: number;
 }
 
 interface FinalSettlementModalProps {
   employees: FinalSettlementEmployee[];
+  leaveRequests?: any[];
+  leaveAllocations?: any[];
   companyName: string;
   companyNameEn: string;
   crNumber: string;
@@ -31,6 +33,8 @@ interface FinalSettlementModalProps {
 
 export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
   employees,
+  leaveRequests = [],
+  leaveAllocations = [],
   companyName,
   companyNameEn,
   crNumber,
@@ -47,13 +51,49 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
 
   const currentEmp = employees.find((e) => e.id === selectedEmpId) || employees[0];
 
+  const liveLeaveBalance = useMemo(() => {
+    if (!currentEmp) return 0;
+
+    const normalizedAllocations = (leaveAllocations || []).map((a: any) => ({
+      ...a,
+      employeeId: a.employeeId || a.employee_id || '',
+      days: Number(a.days ?? a.numberOfDays ?? a.number_of_days ?? 0) || 0,
+      numberOfDays: Number(a.numberOfDays ?? a.number_of_days ?? a.days ?? 0) || 0,
+      allocationDate: a.allocationDate || a.dateFrom || a.date_from || '2026-01-01',
+      notes: a.notes || a.name || ''
+    }));
+
+    const normalizedLeaves = (leaveRequests || []).map((l: any) => ({
+      ...l,
+      employeeId: l.employeeId || l.employee_id || '',
+      totalDays: Number(l.totalDays ?? l.daysCount ?? l.numberOfDays ?? l.days ?? 0) || 0,
+      status: String(l.status || '').toUpperCase()
+    }));
+
+    const snapshot = LeaveBalanceEngine.calculate({
+      employee: {
+        id: currentEmp.id,
+        employeeCode: currentEmp.id,
+        fullNameAr: currentEmp.name,
+        civilId: currentEmp.civilId,
+        joinDate: currentEmp.joinDate,
+        basicSalary: currentEmp.basicSalary,
+        salary: currentEmp.basicSalary
+      } as any,
+      allocations: normalizedAllocations as any,
+      leaves: normalizedLeaves as any
+    });
+
+    return Number(snapshot.totalBalance || 0);
+  }, [currentEmp, leaveAllocations, leaveRequests]);
+
   // Auto set default values on employee change
-  React.useEffect(() => {
+  useEffect(() => {
     if (currentEmp) {
-      setLeaveDaysToLiquidate(currentEmp.leaveBalanceDays || 0);
+      setLeaveDaysToLiquidate(liveLeaveBalance);
       setDeductLoanAmount(currentEmp.activeLoanRemaining || 0);
     }
-  }, [currentEmp]);
+  }, [currentEmp, liveLeaveBalance]);
 
   // Calculations under Kuwait Labor Law (Law No. 6 of 2010)
   const totalComprehensiveSalary = 
@@ -62,7 +102,14 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
     (currentEmp?.transportAllowance || 0) + 
     (currentEmp?.medicalAllowance || 0);
 
-  const dayRate = calculateDailyWage(totalComprehensiveSalary);
+  const settlementReasonMap: Record<'termination' | 'resignation' | 'contract_expiry', 'TERMINATION' | 'RESIGNATION' | 'CONTRACT_EXPIRED'> = {
+    termination: 'TERMINATION',
+    resignation: 'RESIGNATION',
+    contract_expiry: 'CONTRACT_EXPIRED'
+  };
+
+  const eosDayRate = calculateDailyWage(totalComprehensiveSalary);
+  const leaveDayRate = calculateDailyWage(Number(currentEmp?.basicSalary || 0));
   const eosResult = calculateKuwaitEOS({
     employeeId: currentEmp?.id || '',
     employeeName: currentEmp?.name || '',
@@ -70,7 +117,7 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
     joinDate: currentEmp?.joinDate || terminationDate,
     leaveDate: terminationDate,
     grossSalary: totalComprehensiveSalary,
-    terminationType: reason === 'resignation' ? 'RESIGNATION' : 'TERMINATION',
+    terminationType: settlementReasonMap[reason],
     contractType: 'INDEFINITE',
     unusedLeaveDays: leaveDaysToLiquidate,
     otherDeductions: (deductLoanAmount || 0) + (otherDeductions || 0),
@@ -80,10 +127,10 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
   const tenureDays = eosResult.netServiceDays;
 
   // Article 70: Leave Liquidation
-  const leaveLiquidationAmount = Math.round((leaveDaysToLiquidate * dayRate) * 1000) / 1000;
+  const leaveLiquidationAmount = Math.round((leaveDaysToLiquidate * leaveDayRate) * 1000) / 1000;
 
   // Last month salary
-  const lastMonthSalaryAmount = Math.round((workedDaysLastMonth * dayRate) * 1000) / 1000;
+  const lastMonthSalaryAmount = Math.round((workedDaysLastMonth * eosDayRate) * 1000) / 1000;
 
   // Total Gross Entitlements
   const totalEntitlements = finalEosAward + leaveLiquidationAmount + lastMonthSalaryAmount + (otherAllowances || 0);
@@ -189,9 +236,10 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
                   type="number"
                   min="0"
                   value={leaveDaysToLiquidate}
-                  onChange={(e) => setLeaveDaysToLiquidate(Number(e.target.value))}
-                  className="w-full p-1.5 bg-slate-50 border border-slate-200 rounded-lg font-mono"
+                  readOnly
+                  className="w-full p-1.5 bg-emerald-50 border border-emerald-200 rounded-lg font-mono text-emerald-800 font-bold"
                 />
+                <p className="text-[10px] text-emerald-700 mt-1">يُسحب تلقائياً من LeaveBalanceEngine (رصيد حي موحد).</p>
               </div>
 
               <div>
@@ -309,7 +357,7 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
                       <td className="p-2.5">
                         <strong className="text-slate-900 block">بدل رصيد الإجازات السنوية المتبقية (المادة 70)</strong>
                         <span className="text-[10px] text-slate-500">
-                          تصفية نقدي لـ ({leaveDaysToLiquidate}) يوم × أجر اليوم ({dayRate.toFixed(3)} د.ك)
+                            تصفية نقدي لـ ({leaveDaysToLiquidate}) يوم × أجر اليوم الأساسي ({leaveDayRate.toFixed(3)} د.ك = الأساسي ÷ 26)
                         </span>
                       </td>
                       <td className="p-2.5 text-left font-mono font-bold text-emerald-700">

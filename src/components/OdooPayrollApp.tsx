@@ -17,7 +17,7 @@ import { PifssInsuranceReportModal } from './payroll/PifssInsuranceReportModal';
 import { PayrollStructureWizardModal } from './payroll/PayrollStructureWizardModal';
 import { EosSetupWizardModal } from './payroll/EosSetupWizardModal';
 import { db, cleanFirestoreData } from '../lib/firebase';
-import { collection, doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 
 export interface PayslipItem {
   id: string;
@@ -88,6 +88,8 @@ export const OdooPayrollApp: React.FC = () => {
   const [showEosWizard, setShowEosWizard] = useState(false);
 
   const [payslips, setPayslips] = useState<PayslipItem[]>([]);
+  const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
+  const [leaveAllocations, setLeaveAllocations] = useState<any[]>([]);
 
   useEffect(() => {
     const companyId = activeCompany?.id;
@@ -105,6 +107,31 @@ export const OdooPayrollApp: React.FC = () => {
       },
       error => console.error('Failed to load payslips from Firestore', error)
     );
+  }, [activeCompany?.id]);
+
+  useEffect(() => {
+    const companyId = activeCompany?.id;
+    if (!companyId) {
+      setLeaveRequests([]);
+      setLeaveAllocations([]);
+      return;
+    }
+
+    const requestsQuery = query(collection(db, 'leave_requests'), where('companyId', '==', companyId));
+    const allocationsQuery = query(collection(db, 'leave_allocations'), where('companyId', '==', companyId));
+
+    const unsubscribeRequests = onSnapshot(requestsQuery, snapshot => {
+      setLeaveRequests(snapshot.docs.map(item => ({ ...item.data(), id: item.id })));
+    }, error => console.error('Failed to load leave requests for payroll settlements', error));
+
+    const unsubscribeAllocations = onSnapshot(allocationsQuery, snapshot => {
+      setLeaveAllocations(snapshot.docs.map(item => ({ ...item.data(), id: item.id })));
+    }, error => console.error('Failed to load leave allocations for payroll settlements', error));
+
+    return () => {
+      unsubscribeRequests();
+      unsubscribeAllocations();
+    };
   }, [activeCompany?.id]);
 
   const savePayslips = (newList: PayslipItem[]) => {
@@ -471,7 +498,6 @@ export const OdooPayrollApp: React.FC = () => {
         housingAllowance: emp.housingAllowance || 0,
         transportAllowance: emp.transportAllowance || 0,
         medicalAllowance: emp.medicalAllowance || 0,
-        leaveBalanceDays: 15,
         activeLoanRemaining: empLoan ? empLoan.remainingAmount : 0
       };
     });
@@ -1515,6 +1541,8 @@ export const OdooPayrollApp: React.FC = () => {
       {showFinalSettlementModal && (
         <FinalSettlementModal
           employees={settlementEmployees}
+          leaveRequests={leaveRequests}
+          leaveAllocations={leaveAllocations}
           companyName={activeCompany?.nameAr || 'شركة الأفق للتجارة العامة والمقاولات ذ.م.م'}
           companyNameEn={activeCompany?.nameEn || 'Al-Ufuq General Trading & Contracting W.L.L.'}
           crNumber={activeCompany?.crNumber || activeCompany?.commercialRegNo || '104829'}
