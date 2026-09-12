@@ -479,9 +479,14 @@ export const OdooTimeOffApp: React.FC = () => {
     }
 
     if (window.confirm(`هل أنت متأكد من حذف سطر التخصيص للموظف (${employeeName}) بمقدار ${daysCount} يوم؟`)) {
-      setAllocations(allocations.filter(a => a.id !== allocationId));
-      await deleteDoc(doc(db, 'leave_allocations', allocationId));
-      toast.success('تم حذف سطر التخصيص وتحديث الرصيد.');
+      try {
+        await deleteDoc(doc(db, 'leave_allocations', allocationId));
+        setAllocations(previous => previous.filter(a => a.id !== allocationId));
+        toast.success('تم حذف سطر التخصيص وتحديث الرصيد.');
+      } catch (error) {
+        console.error('Failed to delete leave allocation row', error);
+        toast.error('تعذر حذف سطر التخصيص من قاعدة البيانات.');
+      }
     }
   };
 
@@ -523,6 +528,15 @@ export const OdooTimeOffApp: React.FC = () => {
       console.error('Bulk delete invalid allocations failed:', error);
       toast.error('حدث خطأ أثناء حذف السجلات المعزولة دفعة واحدة.');
     }
+  };
+
+  const buildAllocationDuplicateKey = (alloc: any): string => {
+    const employeeId = String(alloc?.employeeId || '').trim();
+    const fromYear = String(alloc?.fromYear || alloc?.from_year || '').trim();
+    const allocationDate = String(alloc?.allocationDate || alloc?.dateFrom || alloc?.date_from || '').trim();
+    const leaveType = String(alloc?.leaveType || '').trim();
+    const days = Number(alloc?.days ?? alloc?.numberOfDays ?? alloc?.number_of_days ?? 0) || 0;
+    return `${employeeId}|${fromYear}|${allocationDate}|${leaveType}|${days.toFixed(2)}`;
   };
 
   // 2-Step Approval Workflow:
@@ -678,6 +692,51 @@ export const OdooTimeOffApp: React.FC = () => {
   const validAllocations = allocations.filter((alloc: any) => isValidAllocationRow(alloc));
 
   const invalidAllocations = allocations.filter((alloc: any) => !isValidAllocationRow(alloc));
+
+  const duplicateAllocationIdSet = useMemo(() => {
+    const groups = new Map<string, any[]>();
+    validAllocations.forEach((alloc: any) => {
+      const key = buildAllocationDuplicateKey(alloc);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(alloc);
+    });
+
+    const duplicateIds = new Set<string>();
+    groups.forEach(groupRows => {
+      if (groupRows.length <= 1) return;
+      const sorted = [...groupRows].sort((a, b) => String(a?.id || '').localeCompare(String(b?.id || '')));
+      sorted.slice(1).forEach(row => {
+        const rowId = String(row?.id || '').trim();
+        if (rowId) duplicateIds.add(rowId);
+      });
+    });
+
+    return duplicateIds;
+  }, [validAllocations]);
+
+  const duplicateAllocations = validAllocations.filter((alloc: any) => duplicateAllocationIdSet.has(String(alloc?.id || '').trim()));
+
+  const handleBulkDeleteDuplicateAllocations = async () => {
+    if (duplicateAllocationIdSet.size === 0) {
+      toast('لا توجد سجلات مكررة للتنظيف حالياً.');
+      return;
+    }
+
+    const duplicateIds = Array.from(duplicateAllocationIdSet);
+    const confirmDelete = window.confirm(
+      `تم اكتشاف (${duplicateIds.length}) سجل تخصيص مكرر. هل تريد حذف النسخ المكررة والإبقاء على نسخة واحدة لكل سجل؟`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      await Promise.all(duplicateIds.map(id => deleteDoc(doc(db, 'leave_allocations', id))));
+      setAllocations(previous => previous.filter(a => !duplicateAllocationIdSet.has(String((a as any)?.id || '').trim())));
+      toast.success(`تم حذف ${duplicateIds.length} سجل مكرر والإبقاء على نسخة واحدة.`);
+    } catch (error) {
+      console.error('Failed to bulk delete duplicate allocations', error);
+      toast.error('حدث خطأ أثناء حذف السجلات المكررة.');
+    }
+  };
 
   const totalCarriedDays = validAllocations.reduce((acc, a) => acc + (Number((a as any).days ?? (a as any).numberOfDays) || 0), 0);
 
@@ -1246,7 +1305,14 @@ export const OdooTimeOffApp: React.FC = () => {
                 {validAllocations.map((alloc: any) => (
                   <tr key={alloc.id} className="hover:bg-slate-50/70 transition">
                     <td className="p-3.5 font-mono font-bold text-slate-500">{alloc.id}</td>
-                    <td className="p-3.5 font-bold text-slate-900">{alloc.employeeName || alloc.employee_name || '---'}</td>
+                    <td className="p-3.5 font-bold text-slate-900">
+                      <div className="flex items-center gap-2">
+                        <span>{alloc.employeeName || alloc.employee_name || '---'}</span>
+                        {duplicateAllocationIdSet.has(String(alloc?.id || '').trim()) && (
+                          <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-bold">مكرر</span>
+                        )}
+                      </div>
+                    </td>
                     <td className="p-3.5 font-mono text-purple-900 font-bold">{alloc.fromYear || alloc.from_year || '---'}</td>
                     <td className="p-3.5 font-mono font-black text-emerald-700 text-sm">+{Number(alloc.days ?? alloc.numberOfDays ?? alloc.number_of_days ?? 0)} يوم</td>
                     <td className="p-3.5 font-mono text-slate-500">{alloc.allocationDate || alloc.dateFrom || alloc.date_from || '---'}</td>
@@ -1323,6 +1389,27 @@ export const OdooTimeOffApp: React.FC = () => {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+
+          {duplicateAllocations.length > 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div className="flex items-center gap-2 text-blue-900 text-xs font-bold">
+                  <Info size={14} />
+                  <span>تم اكتشاف سجلات تخصيص مكررة ({duplicateAllocations.length})</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleBulkDeleteDuplicateAllocations}
+                  className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer"
+                  title="حذف كل النسخ المكررة والإبقاء على نسخة واحدة"
+                >
+                  <Trash2 size={13} />
+                  <span>حذف المكرر والإبقاء على نسخة</span>
+                </button>
+              </div>
+              <p className="text-[11px] text-blue-800">يمكنك أيضاً حذف أي سطر مكرر يدوياً من عمود الإجراءات داخل الجدول.</p>
             </div>
           )}
 

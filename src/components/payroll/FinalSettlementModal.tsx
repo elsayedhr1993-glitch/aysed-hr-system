@@ -19,6 +19,7 @@ export interface FinalSettlementEmployee {
   transportAllowance: number;
   medicalAllowance: number;
   activeLoanRemaining?: number;
+  [key: string]: any;
 }
 
 interface FinalSettlementModalProps {
@@ -51,8 +52,21 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
 
   const currentEmp = employees.find((e) => e.id === selectedEmpId) || employees[0];
 
-  const liveLeaveBalance = useMemo(() => {
-    if (!currentEmp) return 0;
+  const liveLeaveSnapshot = useMemo(() => {
+    if (!currentEmp) {
+      return {
+        carried: 0,
+        earned: 0,
+        compensatory: 0,
+        consumed: 0,
+        net: 0
+      };
+    }
+
+    const empId = String(currentEmp.id || '').trim();
+    const empCode = String(currentEmp.employeeCode || '').trim();
+    const empCivilId = String(currentEmp.civilId || '').trim();
+    const empName = String(currentEmp.fullNameAr || currentEmp.nameAr || currentEmp.name || '').trim();
 
     const normalizedAllocations = (leaveAllocations || []).map((a: any) => ({
       ...a,
@@ -61,31 +75,68 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
       numberOfDays: Number(a.numberOfDays ?? a.number_of_days ?? a.days ?? 0) || 0,
       allocationDate: a.allocationDate || a.dateFrom || a.date_from || '2026-01-01',
       notes: a.notes || a.name || ''
-    }));
+    })).filter((a: any) => {
+      const allocEmpId = String(a.employeeId || '').trim();
+      const allocCivilId = String(a.civilId || '').trim();
+      const allocEmpName = String(a.employeeName || a.employee_name || '').trim();
+      return (
+        (empId && allocEmpId === empId) ||
+        (empCode && allocEmpId === empCode) ||
+        (empCivilId && allocCivilId === empCivilId) ||
+        (empName && allocEmpName && allocEmpName === empName)
+      );
+    });
 
     const normalizedLeaves = (leaveRequests || []).map((l: any) => ({
       ...l,
       employeeId: l.employeeId || l.employee_id || '',
       totalDays: Number(l.totalDays ?? l.daysCount ?? l.numberOfDays ?? l.days ?? 0) || 0,
       status: String(l.status || '').toUpperCase()
-    }));
+    })).filter((l: any) => {
+      const leaveEmpId = String(l.employeeId || '').trim();
+      const leaveCivilId = String(l.civilId || '').trim();
+      const leaveEmpName = String(l.employeeName || l.employee_name || '').trim();
+      return (
+        (empId && leaveEmpId === empId) ||
+        (empCode && leaveEmpId === empCode) ||
+        (empCivilId && leaveCivilId === empCivilId) ||
+        (empName && leaveEmpName && leaveEmpName === empName)
+      );
+    });
 
     const snapshot = LeaveBalanceEngine.calculate({
       employee: {
+        ...currentEmp,
         id: currentEmp.id,
-        employeeCode: currentEmp.id,
-        fullNameAr: currentEmp.name,
+        employeeCode: currentEmp.employeeCode || currentEmp.id,
+        fullNameAr: currentEmp.fullNameAr || currentEmp.nameAr || currentEmp.name,
+        nameAr: currentEmp.nameAr || currentEmp.name,
+        name: currentEmp.name,
         civilId: currentEmp.civilId,
         joinDate: currentEmp.joinDate,
         basicSalary: currentEmp.basicSalary,
-        salary: currentEmp.basicSalary
+        salary: currentEmp.salary || currentEmp.basicSalary
       } as any,
       allocations: normalizedAllocations as any,
       leaves: normalizedLeaves as any
     });
 
-    return Number(snapshot.totalBalance || 0);
+    const carried = Number(snapshot.carriedForwardDays || 0);
+    const earned = Number(((snapshot.accruedDays || 0) + (snapshot.manualAdjustmentDays || 0)).toFixed(2));
+    const compensatory = Number(snapshot.holidayCompensationDays || 0);
+    const consumed = Number(snapshot.approvedLeaveDeductionDays || 0);
+    const net = Number(snapshot.totalBalance || 0);
+
+    return {
+      carried,
+      earned,
+      compensatory,
+      consumed,
+      net
+    };
   }, [currentEmp, leaveAllocations, leaveRequests]);
+
+  const liveLeaveBalance = Number(liveLeaveSnapshot.net || 0);
 
   // Auto set default values on employee change
   useEffect(() => {
@@ -240,6 +291,9 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
                   className="w-full p-1.5 bg-emerald-50 border border-emerald-200 rounded-lg font-mono text-emerald-800 font-bold"
                 />
                 <p className="text-[10px] text-emerald-700 mt-1">يُسحب تلقائياً من LeaveBalanceEngine (رصيد حي موحد).</p>
+                <p className="text-[10px] text-slate-600 mt-1 font-mono">
+                  (مرحل {liveLeaveSnapshot.carried.toFixed(2)} + مكتسب {liveLeaveSnapshot.earned.toFixed(2)} + تعويضي {liveLeaveSnapshot.compensatory.toFixed(2)} - مستهلك {liveLeaveSnapshot.consumed.toFixed(2)} = صافي {liveLeaveSnapshot.net.toFixed(2)})
+                </p>
               </div>
 
               <div>
@@ -324,6 +378,11 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
                 <span className="text-[10px] text-slate-500 block">سبب الانتهاء:</span>
                 <span className="font-bold text-slate-700">
                   {reason === 'termination' ? 'إنهاء خدمة' : reason === 'contract_expiry' ? 'انتهاء عقد' : 'استقالة (م 53)'}
+                </span>
+              </div>
+              <div className="sm:col-span-4 bg-emerald-50 border border-emerald-200 rounded-lg p-2">
+                <span className="text-[10px] text-emerald-800 font-mono font-bold">
+                  تحقق الرصيد (LeaveBalanceEngine): مرحل {liveLeaveSnapshot.carried.toFixed(2)} + مكتسب {liveLeaveSnapshot.earned.toFixed(2)} + تعويضي {liveLeaveSnapshot.compensatory.toFixed(2)} - مستهلك {liveLeaveSnapshot.consumed.toFixed(2)} = صافي {liveLeaveSnapshot.net.toFixed(2)} يوم
                 </span>
               </div>
             </div>
