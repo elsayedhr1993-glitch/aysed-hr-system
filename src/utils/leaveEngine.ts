@@ -323,6 +323,22 @@ export function buildLeaveRecordsFromEmployee(
       });
     });
 
+  // حقن فرق الأيام التعويضية من المصدر التشغيلي المركزي (Holiday Duties / Work on Holidays)
+  // لمنع التكرار: نضيف فقط الفرق غير الموجود فعلياً داخل التخصيصات.
+  const recordedCompensatory = records
+    .filter(r => r.type === 'compensation_holiday' && r.status === 'approved')
+    .reduce((sum, r) => sum + Number(r.days || 0), 0);
+  const compensatoryDelta = Number((Math.max(0, compensatoryDays - recordedCompensatory)).toFixed(2));
+  if (compensatoryDelta > 0) {
+    records.push({
+      type: 'compensation_holiday',
+      days: compensatoryDelta,
+      status: 'approved',
+      date: new Date().toISOString().split('T')[0],
+      notes: 'Holiday Duty (Article 68) compensatory credit'
+    });
+  }
+
   // تسويات يدوية أخرى
   allocations
     .filter(a => (a.employeeId === empId || a.employeeId === empCode) && ((a.allocationType as string) === 'manual_adjustment' || a.name?.includes('تسوية') || a.name?.includes('تعديل')))

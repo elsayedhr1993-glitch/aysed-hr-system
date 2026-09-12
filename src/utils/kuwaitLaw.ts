@@ -628,6 +628,7 @@ export function getGlobalCompensatoryDays(emp: any): number {
       const targetEmpId = String(emp.id || '');
       const targetEmpCode = String(emp.employeeCode || '');
       const targetCivilId = String(emp.civilId || '');
+      const targetName = String(emp.fullNameAr || emp.nameAr || emp.name || '').trim();
 
       // 1. Primary & Authoritative Source: approved work_on_holidays (manara_holiday_work_records)
       const rawHolidays = window.localStorage.getItem('manara_holiday_work_records');
@@ -662,6 +663,63 @@ export function getGlobalCompensatoryDays(emp: any): number {
             let holidayDays = 0;
             dateMap.forEach(d => { holidayDays += d; });
             return holidayDays;
+          }
+        }
+      }
+
+      // 1.5 Secondary source from Holiday Duty screen (odoo_holiday_duties_v2)
+      // This captures approved Article 68 assignments such as DUTY-2026-01 even when sync is delayed.
+      const rawDuties = window.localStorage.getItem('odoo_holiday_duties_v2');
+      if (rawDuties) {
+        const parsedDuties = JSON.parse(rawDuties);
+        if (Array.isArray(parsedDuties)) {
+          const empDuties = parsedDuties.filter((d: any) => {
+            const dutyEmpId = String(d.employeeId || '');
+            const dutyCivilId = String(d.civilId || '');
+            const dutyName = String(d.employeeName || '').trim();
+
+            const matchesEmp =
+              (targetEmpId && dutyEmpId === targetEmpId) ||
+              (targetEmpCode && dutyEmpId === targetEmpCode) ||
+              (targetCivilId && dutyCivilId === targetCivilId) ||
+              (targetName && dutyName && dutyName === targetName);
+            if (!matchesEmp) return false;
+
+            const dutyCompType = String(d.compensationType || '').toLowerCase();
+            const isCompDay =
+              dutyCompType === 'add_to_annual_leave' ||
+              dutyCompType === 'comp_day_off' ||
+              dutyCompType === 'annual_accrual' ||
+              dutyCompType === 'comp_off' ||
+              dutyCompType === 'day';
+            if (!isCompDay) return false;
+
+            const dutyStatus = String(d.status || d.state || '').toLowerCase();
+            const isApproved =
+              dutyStatus === 'approved' ||
+              dutyStatus === 'settled' ||
+              dutyStatus === 'done' ||
+              dutyStatus === 'validated' ||
+              dutyStatus === '';
+            return isApproved;
+          });
+
+          if (empDuties.length > 0) {
+            const dutyMap = new Map<string, number>();
+            empDuties.forEach((d: any) => {
+              const key = d.dutyDate || d.date || d.id || `duty-${Date.now()}`;
+              const dutyDays = Number(d.days || d.compensatoryDays || 1) || 1;
+              const normalized = Math.max(0, Number(dutyDays.toFixed(2)));
+              if (!dutyMap.has(key) || dutyMap.get(key)! < normalized) {
+                dutyMap.set(key, normalized);
+              }
+            });
+
+            let dutyTotal = 0;
+            dutyMap.forEach(v => { dutyTotal += v; });
+            if (dutyTotal > 0) {
+              return Number(dutyTotal.toFixed(2));
+            }
           }
         }
       }

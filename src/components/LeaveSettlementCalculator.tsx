@@ -28,7 +28,7 @@ import {
   validateSettlementConstraints
 } from '../services/leaveSettlementService';
 import { LeaveClearanceDocument } from './LeaveClearanceDocument';
-import { calculateUnifiedLeaveBalance, buildLeaveRecordsFromEmployee } from '../utils/leaveEngine';
+import { getEmployeeUnifiedSummary } from '../utils/leaveEngine';
 import { normalizeContractStatus } from '../utils/contractStatus';
 import toast from 'react-hot-toast';
 
@@ -137,6 +137,11 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
            contracts.find(c => c.employeeId === selectedEmp.id);
   }, [contracts, selectedEmp]);
 
+  const unifiedSummary = useMemo(() => {
+    if (!selectedEmp) return null;
+    return getEmployeeUnifiedSummary(selectedEmp, allocations || [], leaves || [], selectedContract || undefined);
+  }, [selectedEmp, allocations, leaves, selectedContract]);
+
   // FIFO Leave Balances calculation
   const empFifo = useMemo(() => {
     if (!selectedEmp) return null;
@@ -147,11 +152,11 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
     );
   }, [selectedEmp, allocations, leaves]);
 
-  const carriedOverBal = (selectedEmp as any)?.carriedOverBalance ?? (empFifo?.allocations.filter(a => a.allocationType === 'regular').reduce((sum, a) => sum + (a.numberOfDays || 0), 0) || 0);
-  const accruedBalance = (selectedEmp as any)?.accruedBalance ?? (empFifo?.allocations.filter(a => a.allocationType === 'accrual').reduce((sum, a) => sum + (a.numberOfDays || 0), 0) || 0);
-  const totalAvailableBalance = Number((carriedOverBal + accruedBalance).toFixed(2));
-  const totalTaken = empFifo?.totalConsumed || 0;
-  const netAvailable = Number((empFifo?.netAvailable || 0).toFixed(2));
+  const totalAvailableBalance = Number(unifiedSummary?.totalAvailableDays || 0);
+  const carriedOverBal = Number(Math.min(Number(unifiedSummary?.carriedOverDays || 0), totalAvailableBalance).toFixed(2));
+  const accruedBalance = Number(Math.max(0, totalAvailableBalance - carriedOverBal).toFixed(2));
+  const totalTaken = Number(unifiedSummary?.usedLeaveDays || 0);
+  const netAvailable = totalAvailableBalance;
 
   // Wages calculation (Kuwait Labor Law 26-day basis on Basic Salary only)
   const basicSalary = selectedContract?.basicSalary || (selectedEmp as any)?.basicSalary || 0;
@@ -829,7 +834,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                   {(totalAvailableBalance).toFixed(2)} يوم
                 </span>
                 <span className="block text-[9px] text-purple-700 font-medium mt-0.5">
-                  (مرحل {carriedOverBal.toFixed(1)} + مكتسب {accruedBalance.toFixed(1)})
+                  (مرحل {carriedOverBal.toFixed(1)} + صافي مكتسب/تعويضي {accruedBalance.toFixed(1)})
                 </span>
               </div>
 
