@@ -118,6 +118,21 @@ export function computeFifoLeaveAllocations(
   allocations: HrLeaveAllocation[],
   leaves: LeaveRequest[]
 ): FifoAllocationResult {
+  const isCompensatoryAlloc = (alloc: HrLeaveAllocation) =>
+    alloc.allocationType === 'compensatory_off' ||
+    (alloc as any).allocationType === 'compensatory' ||
+    alloc.name?.includes('عطلة') ||
+    alloc.name?.includes('تعويضي') ||
+    alloc.notes?.includes('عطلة') ||
+    alloc.notes?.includes('تعويضي');
+
+  // Mandatory waterfall buckets: carried (regular) -> accrued -> compensatory.
+  const getWaterfallPriority = (alloc: HrLeaveAllocation): number => {
+    if (isCompensatoryAlloc(alloc)) return 2;
+    if (alloc.allocationType === 'regular' || alloc.allocationType === 'carried_over') return 0;
+    return 1;
+  };
+
   // Filter allocations for this employee (ANNUAL or COMPENSATORY leave type, approved or validated state)
   const empAllocations = allocations
     .filter(a => 
@@ -132,8 +147,11 @@ export function computeFifoLeaveAllocations(
       remainingDays: a.numberOfDays - (a.consumedDays || 0) - (a.encashedDays || 0)
     }));
 
-  // Sort allocations chronologically by dateFrom ASC (FIFO: earliest date first)
+  // Sort allocations by mandatory waterfall bucket first, then oldest first inside each bucket.
   empAllocations.sort((a, b) => {
+    const priorityDelta = getWaterfallPriority(a) - getWaterfallPriority(b);
+    if (priorityDelta !== 0) return priorityDelta;
+
     const dateA = new Date(a.dateFrom || a.createdAt || '2000-01-01').getTime();
     const dateB = new Date(b.dateFrom || b.createdAt || '2000-01-01').getTime();
     if (dateA !== dateB) return dateA - dateB;
@@ -199,11 +217,7 @@ export function computeFifoLeaveAllocations(
       const currentAvailable = (alloc.numberOfDays || 0) - (alloc.consumedDays || 0) - (alloc.encashedDays || 0);
       if (currentAvailable <= 0) continue;
 
-      // Filter logic: COMPENSATORY leaves only consume compensatory allocations
-      // ANNUAL/BEREAVEMENT leaves only consume regular/accrual allocations
-      const isCompensatoryAlloc = alloc.allocationType === 'compensatory_off' || (alloc as any).allocationType === 'compensatory' || alloc.name?.includes('عطلة') || alloc.name?.includes('تعويضي') || alloc.notes?.includes('عطلة');
-      if (normalizedType === 'COMPENSATORY' && !isCompensatoryAlloc) continue;
-      if (normalizedType !== 'COMPENSATORY' && isCompensatoryAlloc) continue;
+      // Mandatory FIFO waterfall applies globally across deductible leaves.
 
       const take = Math.min(daysToConsume, currentAvailable);
       alloc.consumedDays = Number(((alloc.consumedDays || 0) + take).toFixed(2));
