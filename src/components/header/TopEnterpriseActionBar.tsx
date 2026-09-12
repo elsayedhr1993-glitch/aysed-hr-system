@@ -2,14 +2,17 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { parseFlexibleDate, checkDocumentExpiry } from '../../utils/dateUtils';
 import { useTenant } from '../../context/TenantContext';
 import { 
-  Scan, ArrowRight, Clock, UserCircle, Layers, Shield, 
+  Scan, ArrowRight, Clock, UserCircle, Layers, Shield, Key,
   Settings, Sparkles, Trash2, LogOut, ChevronDown, 
   Building2, Plus, Calculator, Bell, Search, CheckCircle2, 
   AlertTriangle, Maximize2, Minimize2, FileText, Users, 
-  Calendar, Check, ArrowUpRight, X, Briefcase, Scale, BarChart3, Award, Zap
+  Calendar, Check, ArrowUpRight, X, Briefcase, Scale, BarChart3, Award
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { getFacilityMasterData, FacilityLicenseData } from '../facility/FacilityLicensingWizardModal';
+import { getFacilityMasterData, FacilityLicenseData, defaultFacilityData } from '../facility/FacilityLicensingWizardModal';
+import { useLang } from '../../lib/i18n';
+import { auth } from '../../lib/firebase';
+import { sendPasswordResetEmail } from 'firebase/auth';
 
 interface TopEnterpriseActionBarProps {
   activeApp: string;
@@ -74,21 +77,33 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
   logout
 }) => {
   const { isActualSuperAdmin, isTenantViewEnabled, setIsTenantViewEnabled } = useTenant();
+  const { lang, setLang } = useLang();
   const [showCompanyMenu, setShowCompanyMenu] = useState(false);
   const [showQuickActionsMenu, setShowQuickActionsMenu] = useState(false);
   const [showAlertsMenu, setShowAlertsMenu] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [facilityData, setFacilityData] = useState<FacilityLicenseData>(() => getFacilityMasterData());
+  const [facilityData, setFacilityData] = useState<FacilityLicenseData>(defaultFacilityData);
 
   const isDevPreview = typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost'));
 
   useEffect(() => {
-    const handleFacilityUpdated = () => {
-      setFacilityData(getFacilityMasterData());
+    const loadFacilityData = async () => {
+      const companyId = activeCompany?.id || undefined;
+      const data = await getFacilityMasterData(companyId);
+      setFacilityData(data);
+    };
+    loadFacilityData();
+  }, [activeCompany?.id]);
+
+  useEffect(() => {
+    const handleFacilityUpdated = async () => {
+      const companyId = activeCompany?.id || undefined;
+      const data = await getFacilityMasterData(companyId);
+      setFacilityData(data);
     };
     window.addEventListener('facility_data_updated', handleFacilityUpdated);
     return () => window.removeEventListener('facility_data_updated', handleFacilityUpdated);
-  }, []);
+  }, [activeCompany?.id]);
 
   const facilityExpiryStatus = useMemo(() => {
     const now = new Date();
@@ -213,7 +228,32 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
     return alerts.sort((a, b) => a.daysRemaining - b.daysRemaining);
   }, [employees]);
 
-  const totalAlertsCount = expiringAlerts.length;
+  const facilityLicenseAlert = useMemo(() => {
+    if (facilityExpiryStatus.minDays >= 999 || !facilityExpiryStatus.nearestLabel) return null;
+    if (facilityExpiryStatus.minDays > 90) return null;
+
+    return {
+      type: facilityExpiryStatus.nearestLabel,
+      daysRemaining: facilityExpiryStatus.minDays,
+      isExpired: facilityExpiryStatus.minDays < 0,
+    };
+  }, [facilityExpiryStatus]);
+
+  const totalAlertsCount = expiringAlerts.length + (facilityLicenseAlert ? 1 : 0);
+
+  const handlePasswordResetRequest = async () => {
+    const userEmail = (user?.email || '').toString().trim();
+    if (!userEmail) {
+      toast.error('تعذر تحديد بريد المستخدم لإرسال رابط تغيير كلمة المرور.');
+      return;
+    }
+    try {
+      await sendPasswordResetEmail(auth, userEmail);
+      toast.success(`تم إرسال رابط تغيير كلمة المرور إلى ${userEmail}`);
+    } catch (err: any) {
+      toast.error(err?.message || 'فشل إرسال رابط تغيير كلمة المرور.');
+    }
+  };
 
   return (
     <header className="h-12 bg-[#714B67] text-white flex items-center justify-between px-2 sm:px-3 md:px-4 z-40 select-none shadow-md shrink-0 border-b border-white/10 dir-rtl w-full relative" dir="rtl">
@@ -263,20 +303,6 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
           </button>
         )}
 
-        {/* زر الماسح الضوئي الذكي OCR */}
-        <button 
-          onClick={() => setActiveApp('scanner')} 
-          className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg text-xs font-black transition cursor-pointer shadow-xs border shrink-0 ${
-            activeApp === 'scanner' 
-              ? 'bg-teal-700 text-white border-white/40 ring-2 ring-white/30' 
-              : 'bg-teal-600/80 hover:bg-teal-600 text-white border-teal-500/40'
-          }`}
-          title="الماسح الضوئي الذكي للبطاقات المدنية والجوازات (OCR)"
-        >
-          <Scan size={14} />
-          <span className="hidden xl:inline">الماسح الضوئي</span>
-        </button>
-
         {/* 🏢 مبدل المنشآت السريع (Quick Company Switcher Popover) */}
         {!isDevPreview && (
           <div className="relative shrink-0" ref={companyMenuRef}>
@@ -287,7 +313,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
             >
               <Building2 size={14} className="text-amber-300 shrink-0" />
               <span className="truncate font-black text-white text-[11px] sm:text-[12px]">
-                {activeCompany?.nameAr || 'النظام المركزي'}
+                {activeCompany?.nameAr || 'اختر منشأة'}
               </span>
               <ChevronDown size={13} className="text-white/70 shrink-0 transition-transform duration-200" />
             </button>
@@ -387,6 +413,16 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
 
       {/* ⚡ الجانب الأيسر: الوظائف السريعة، الحاسبة، الإشعارات، والملف الشخصي */}
       <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+
+        {/* 🌐 محول لغة صريح العربية / English */}
+        <button
+          onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}
+          className="hidden sm:flex items-center gap-1 bg-white/15 hover:bg-white/25 border border-white/15 px-2 py-1 rounded-lg text-[11px] font-black transition cursor-pointer shrink-0"
+          title="تبديل اللغة بين العربية والإنجليزية"
+        >
+          <span className="font-mono">{lang === 'ar' ? 'AR' : 'EN'}</span>
+          <span className="hidden lg:inline">{lang === 'ar' ? 'العربية' : 'English'}</span>
+        </button>
 
         {/* ⚡ زر الإجراءات السريعة المنبثقة (+ إجراء سريع) */}
         <div className="relative shrink-0" ref={quickActionsMenuRef}>
@@ -511,21 +547,6 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
           )}
         </div>
 
-        {/* 🚀 زر تعميم التحديث الفوري (Update Broadcast & Sync Button) */}
-        {isSuperAdmin && activeApp === 'saas_admin' && (
-          <button
-            onClick={() => {
-              toast.success('🚀 تم تعميم ومزامنة آخر تحديثات نظام Aysed S HR بنجاح وكافة العمليات نشطة!');
-            }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-xs shadow-sm border border-amber-400/50 transition cursor-pointer shrink-0 animate-pulse"
-            title="تعميم التحديث الفوري على كافة الفروع والشركات (Update Broadcast)"
-          >
-            <Zap size={14} className="text-amber-200" />
-            <span className="hidden sm:inline">تعميم التحديث</span>
-            <span className="sm:hidden">تحديث</span>
-          </button>
-        )}
-
         {/* 🏢 شارة تراخيص المنشأة والعد التنازلي (Facility License Countdown Badge) */}
         <button
           onClick={() => {
@@ -638,6 +659,35 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
 
               {/* Expiry alerts list */}
               <div className="max-h-64 overflow-y-auto p-1 divide-y divide-slate-100">
+                {facilityLicenseAlert && (
+                  <div
+                    onClick={() => {
+                      setShowAlertsMenu(false);
+                      if (onOpenFacilityWizard) onOpenFacilityWizard();
+                    }}
+                    className="p-2.5 hover:bg-slate-50 transition cursor-pointer flex items-start gap-2.5 rounded-xl"
+                  >
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                      facilityLicenseAlert.isExpired ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      <Award size={15} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="font-bold text-xs text-slate-800 truncate">تنبيه تراخيص المنشأة</span>
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded font-mono shrink-0 ${
+                          facilityLicenseAlert.isExpired ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
+                        }`}>
+                          {facilityLicenseAlert.isExpired ? 'منتهي' : `${facilityLicenseAlert.daysRemaining} يوم متبقي`}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        أقرب ترخيص على الانتهاء: <strong className="text-slate-700">{facilityLicenseAlert.type}</strong>
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {expiringAlerts.length === 0 ? (
                   <div className="p-6 text-center text-slate-500 text-xs">
                     <CheckCircle2 size={24} className="mx-auto text-emerald-500 mb-1.5" />
@@ -781,6 +831,22 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                     <span>تعديل الصورة الشخصية</span>
                   </div>
                   <span className="text-[10px] text-slate-400">تغيير</span>
+                </button>
+
+                <button
+                  onClick={async () => {
+                    await handlePasswordResetRequest();
+                    setShowUserMenu(false);
+                  }}
+                  className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100/80 hover:text-[#714B67] transition flex items-center justify-between cursor-pointer rounded-xl group"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center group-hover:bg-blue-100 transition">
+                      <Key size={15} />
+                    </div>
+                    <span>تغيير كلمة المرور</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400">رابط آمن</span>
                 </button>
               </div>
 

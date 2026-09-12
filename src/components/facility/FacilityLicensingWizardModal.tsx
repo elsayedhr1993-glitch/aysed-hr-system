@@ -4,6 +4,8 @@ import {
   FileText, Upload, AlertTriangle, Calendar, Award, Flame, 
   Store, Send, Image, Sparkles, Building, CheckCircle2, RefreshCw
 } from 'lucide-react';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
 
 export interface FacilityLicenseData {
   // Step 1: Commercial Identity
@@ -41,6 +43,8 @@ export interface FacilityLicenseData {
 }
 
 export const FACILITY_STORAGE_KEY = 'facility_master_licensing_v1';
+const FACILITY_CONFIG_COLLECTION = 'system_config';
+const FACILITY_DOC_PREFIX = 'facility_licensing_';
 
 export const defaultFacilityData: FacilityLicenseData = {
   nameAr: 'مستوصف المنار كلينك الطبي',
@@ -72,7 +76,9 @@ export const defaultFacilityData: FacilityLicenseData = {
   lastUpdated: new Date().toISOString(),
 };
 
-export const getFacilityMasterData = (): FacilityLicenseData => {
+const getFacilityDocId = (companyId?: string) => `${FACILITY_DOC_PREFIX}${companyId || 'global'}`;
+
+const readFacilityFromLocalStorage = (): FacilityLicenseData => {
   try {
     const raw = localStorage.getItem(FACILITY_STORAGE_KEY);
     if (raw) {
@@ -81,14 +87,30 @@ export const getFacilityMasterData = (): FacilityLicenseData => {
   } catch (e) {
     console.error('Failed to load facility data:', e);
   }
-  return defaultFacilityData;
+  return { ...defaultFacilityData };
 };
 
-export const saveFacilityMasterData = (data: FacilityLicenseData) => {
+export const getFacilityMasterData = async (companyId?: string): Promise<FacilityLicenseData> => {
+  try {
+    const snap = await getDoc(doc(db, FACILITY_CONFIG_COLLECTION, getFacilityDocId(companyId)));
+    if (snap.exists()) {
+      const fromDb = { ...defaultFacilityData, ...(snap.data() as Partial<FacilityLicenseData>) };
+      localStorage.setItem(FACILITY_STORAGE_KEY, JSON.stringify(fromDb));
+      return fromDb;
+    }
+  } catch (e) {
+    console.error('Failed to load facility data from Firestore:', e);
+  }
+
+  return readFacilityFromLocalStorage();
+};
+
+export const saveFacilityMasterData = async (data: FacilityLicenseData, companyId?: string): Promise<FacilityLicenseData> => {
   try {
     const updated = { ...data, lastUpdated: new Date().toISOString(), isCompleted: true };
+    await setDoc(doc(db, FACILITY_CONFIG_COLLECTION, getFacilityDocId(companyId)), updated, { merge: true });
     localStorage.setItem(FACILITY_STORAGE_KEY, JSON.stringify(updated));
-    window.dispatchEvent(new Event('facility_data_updated'));
+    window.dispatchEvent(new CustomEvent('facility_data_updated', { detail: { companyId: companyId || 'global' } }));
     return updated;
   } catch (e) {
     console.error('Failed to save facility data:', e);
@@ -100,12 +122,14 @@ interface FacilityLicensingWizardModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSaved?: (data: FacilityLicenseData) => void;
+  companyId?: string;
 }
 
 export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModalProps> = ({
   isOpen,
   onClose,
   onSaved,
+  companyId,
 }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FacilityLicenseData>(defaultFacilityData);
@@ -117,10 +141,14 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
 
   useEffect(() => {
     if (isOpen) {
-      setFormData(getFacilityMasterData());
-      setCurrentStep(1);
+      const loadData = async () => {
+        const data = await getFacilityMasterData(companyId);
+        setFormData(data);
+        setCurrentStep(1);
+      };
+      loadData();
     }
-  }, [isOpen]);
+  }, [isOpen, companyId]);
 
   if (!isOpen) return null;
 
@@ -187,8 +215,8 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
     }));
   };
 
-  const handleSaveAndActivate = () => {
-    const saved = saveFacilityMasterData(formData);
+  const handleSaveAndActivate = async () => {
+    const saved = await saveFacilityMasterData(formData, companyId);
     if (onSaved) onSaved(saved);
     alert('✅ تم اعتماد وتثبيت تراخيص المنشأة والهوية المؤسسية بنجاح!');
     onClose();

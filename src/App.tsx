@@ -1178,6 +1178,7 @@ function MainAppLayout() {
       <FacilityLicensingWizardModal
         isOpen={isFacilityWizardOpen}
         onClose={() => setIsFacilityWizardOpen(false)}
+        companyId={activeCompany?.id}
       />
     </div>
   );

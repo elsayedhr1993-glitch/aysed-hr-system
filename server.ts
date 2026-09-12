@@ -8,7 +8,7 @@ import dotenv from "dotenv";
 import nodemailer from "nodemailer";
 import { initializeApp, cert, getApps, App } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
-import { getFirestore } from "firebase-admin/firestore";
+import { getFirestore, FieldPath } from "firebase-admin/firestore";
 import { 
   sendWelcomeEmail, 
   sendAdminNewSubscriptionNotification,
@@ -34,6 +34,27 @@ dotenv.config({ path: ".env.local", override: true });
 
 const app = express();
 const PORT = 3000;
+
+interface FacilityLicenseDoc {
+  id?: string;
+  nameAr?: string;
+  nameEn?: string;
+  commercialRegNo?: string;
+  mohExpiryDate?: string;
+  kffExpiryDate?: string;
+  baladiyaExpiryDate?: string;
+  lastUpdated?: string;
+}
+
+interface FacilityAuditResult {
+  success: boolean;
+  scannedCompanies: number;
+  alertsCreated: number;
+  alertsUpdated: number;
+  skipped: number;
+  errors: string[];
+  executedAt: string;
+}
 
 // CORS and Preflight Request Handler for standalone link and external domain requests
 app.use((req, res, next) => {
@@ -178,6 +199,171 @@ function getSupabaseAdmin() {
     },
   });
   return supabaseAdminClient;
+}
+
+const FACILITY_DOC_PREFIX = "facility_licensing_";
+const FACILITY_ALERT_THRESHOLDS = [90, 30, 7];
+const FACILITY_AUDIT_INTERVAL_MS = 6 * 60 * 60 * 1000;
+let latestFacilityAuditResult: FacilityAuditResult | null = null;
+
+function parseDateToMidnight(value?: string): Date | null {
+  if (!value || typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const direct = new Date(trimmed);
+  if (!Number.isNaN(direct.getTime())) {
+    return new Date(direct.getFullYear(), direct.getMonth(), direct.getDate());
+  }
+
+  const normalized = trimmed.replace(/\//g, "-").replace(/\./g, "-");
+  const parts = normalized.split("-").map((p) => p.trim());
+  if (parts.length !== 3) return null;
+
+  let year = 0;
+  let month = 0;
+  let day = 0;
+  if (parts[0].length === 4) {
+    year = Number(parts[0]);
+    month = Number(parts[1]);
+    day = Number(parts[2]);
+  } else if (parts[2].length === 4) {
+    year = Number(parts[2]);
+    month = Number(parts[1]);
+    day = Number(parts[0]);
+  } else {
+    return null;
+  }
+
+  if (!year || !month || !day) return null;
+  const out = new Date(year, month - 1, day);
+  if (Number.isNaN(out.getTime())) return null;
+  return out;
+}
+
+function toIsoDate(value: Date): string {
+  const y = value.getFullYear();
+  const m = String(value.getMonth() + 1).padStart(2, "0");
+  const d = String(value.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function buildFacilityAlertMessage(companyName: string, label: string, daysRemaining: number, expiryDate: string): string {
+  if (daysRemaining < 0) {
+    return `انتهت صلاحية ${label} لمنشأة ${companyName} بتاريخ ${expiryDate}. يرجى التجديد فوراً لتجنب المخالفات.`;
+  }
+  return `متبقي ${daysRemaining} يوم على انتهاء ${label} لمنشأة ${companyName} بتاريخ ${expiryDate}.`;
+}
+
+async function runFacilityLicenseAudit(trigger = "AUTOMATED"): Promise<FacilityAuditResult> {
+  const executedAt = new Date().toISOString();
+  const admin = getAdminAuth();
+  if (!admin || !adminApp) {
+    const fallback: FacilityAuditResult = {
+      success: false,
+      scannedCompanies: 0,
+      alertsCreated: 0,
+      alertsUpdated: 0,
+      skipped: 0,
+      errors: ["Firebase Admin غير مهيأ، تعذر تنفيذ تدقيق تراخيص المنشأة."],
+      executedAt,
+    };
+    latestFacilityAuditResult = fallback;
+    return fallback;
+  }
+
+  const result: FacilityAuditResult = {
+    success: true,
+    scannedCompanies: 0,
+    alertsCreated: 0,
+    alertsUpdated: 0,
+    skipped: 0,
+    errors: [],
+    executedAt,
+  };
+
+  try {
+    const adminDb = getFirestore(adminApp);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dayKey = toIsoDate(today);
+
+    const facilitySnap = await adminDb
+      .collection("system_config")
+      .where(FieldPath.documentId(), ">=", FACILITY_DOC_PREFIX)
+      .where(FieldPath.documentId(), "<", `${FACILITY_DOC_PREFIX}\uf8ff`)
+      .get();
+
+    for (const docSnap of facilitySnap.docs) {
+      result.scannedCompanies += 1;
+      const raw = docSnap.data() as FacilityLicenseDoc;
+      const companyId = docSnap.id.replace(FACILITY_DOC_PREFIX, "") || "global";
+      const companyName = raw.nameAr || raw.nameEn || companyId;
+
+      const licenses = [
+        { key: "moh", label: "ترخيص وزارة الصحة (MOH)", expiryDate: raw.mohExpiryDate || "" },
+        { key: "kff", label: "ترخيص الإطفاء (KFF)", expiryDate: raw.kffExpiryDate || "" },
+        { key: "baladiya", label: "ترخيص البلدية", expiryDate: raw.baladiyaExpiryDate || "" },
+      ];
+
+      for (const license of licenses) {
+        const parsed = parseDateToMidnight(license.expiryDate);
+        if (!parsed) {
+          result.skipped += 1;
+          continue;
+        }
+
+        const diffDays = Math.ceil((parsed.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        const matchedThreshold = FACILITY_ALERT_THRESHOLDS.find((d) => diffDays === d);
+        const isExpired = diffDays < 0;
+
+        if (!matchedThreshold && !isExpired) {
+          result.skipped += 1;
+          continue;
+        }
+
+        const thresholdTag = isExpired ? "expired" : `${matchedThreshold}d`;
+        const alertId = `facility_${companyId}_${license.key}_${thresholdTag}_${dayKey}`;
+        const severity = isExpired ? "critical" : diffDays <= 7 ? "high" : diffDays <= 30 ? "medium" : "low";
+        const payload = {
+          id: alertId,
+          type: "FACILITY_LICENSE_EXPIRY",
+          category: "COMPLIANCE",
+          companyId,
+          companyName,
+          licenseType: license.key,
+          licenseLabel: license.label,
+          expiryDate: toIsoDate(parsed),
+          daysRemaining: diffDays,
+          threshold: matchedThreshold || null,
+          severity,
+          status: "open",
+          trigger,
+          message: buildFacilityAlertMessage(companyName, license.label, diffDays, toIsoDate(parsed)),
+          updatedAt: executedAt,
+        };
+
+        const alertRef = adminDb.collection("system_notifications").doc(alertId);
+        const existing = await alertRef.get();
+        if (existing.exists) {
+          await alertRef.set(payload, { merge: true });
+          result.alertsUpdated += 1;
+        } else {
+          await alertRef.set({
+            ...payload,
+            createdAt: executedAt,
+          });
+          result.alertsCreated += 1;
+        }
+      }
+    }
+  } catch (err: any) {
+    result.success = false;
+    result.errors.push(err?.message || "Facility audit failed");
+  }
+
+  latestFacilityAuditResult = result;
+  return result;
 }
 
 const OCR_RATE_LIMIT_WINDOW_MS = 60 * 1000;
@@ -726,6 +912,27 @@ app.all("/api/guards/nightly-audit", async (req, res) => {
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message });
   }
+});
+
+app.post("/api/guards/facility-license-audit/run", express.json(), async (req, res) => {
+  try {
+    const report = await runFacilityLicenseAudit("MANUAL_API");
+    return res.json({ success: report.success, report });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || "تعذر تشغيل تدقيق التراخيص" });
+  }
+});
+
+app.get("/api/guards/facility-license-audit/status", async (req, res) => {
+  return res.json({
+    success: true,
+    scheduler: {
+      intervalMs: FACILITY_AUDIT_INTERVAL_MS,
+      thresholdsDays: FACILITY_ALERT_THRESHOLDS,
+      collection: "system_notifications",
+    },
+    latest: latestFacilityAuditResult,
+  });
 });
 
 // OCR Document Scanner via OpenAI Vision or Gemini Vision API
@@ -2077,6 +2284,36 @@ setInterval(() => {
       console.error("[Auto-Backup Scheduler] Failed automated daily backup:", err);
     });
 }, DAILY_BACKUP_INTERVAL_MS);
+
+setTimeout(() => {
+  console.log("[Facility License Scheduler] Running initial facility license compliance audit...");
+  runFacilityLicenseAudit("INITIAL_BOOT")
+    .then((report) => {
+      if (report.success) {
+        console.log(`[Facility License Scheduler] Initial audit done. companies=${report.scannedCompanies}, created=${report.alertsCreated}, updated=${report.alertsUpdated}`);
+      } else {
+        console.warn(`[Facility License Scheduler] Initial audit warning: ${report.errors.join(' | ')}`);
+      }
+    })
+    .catch((err) => {
+      console.error("[Facility License Scheduler] Initial audit failed:", err);
+    });
+}, 60000);
+
+setInterval(() => {
+  console.log("[Facility License Scheduler] Running periodic facility license compliance audit...");
+  runFacilityLicenseAudit("AUTOMATED_INTERVAL")
+    .then((report) => {
+      if (report.success) {
+        console.log(`[Facility License Scheduler] Audit done. companies=${report.scannedCompanies}, created=${report.alertsCreated}, updated=${report.alertsUpdated}`);
+      } else {
+        console.warn(`[Facility License Scheduler] Audit warning: ${report.errors.join(' | ')}`);
+      }
+    })
+    .catch((err) => {
+      console.error("[Facility License Scheduler] Audit failed:", err);
+    });
+}, FACILITY_AUDIT_INTERVAL_MS);
 
 // Welcome Email Route for Subscription
 app.post("/api/send-welcome-email", express.json(), async (req, res) => {
