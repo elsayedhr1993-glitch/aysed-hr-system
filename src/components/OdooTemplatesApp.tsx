@@ -49,14 +49,21 @@ export type TemplateId =
   | 'contract_kuwait' 
   | 'pam_contract' 
   | 'contract_part_time'
+  | 'leave_request_form'
   | 'salary_cert_ar' 
   | 'salary_cert_en' 
+  | 'salary_cert_bank'
+  | 'salary_cert_gov'
   | 'to_whom' 
   | 'noc_letter'
+  | 'custody_handover'
+  | 'custody_clearance'
   | 'commencement'
   | 'return_from_leave'
   | 'warning' 
   | 'non_renewal'
+  | 'termination_notice'
+  | 'probation_notice'
   | 'eos_settlement' 
   | 'experience_cert';
 
@@ -116,6 +123,22 @@ const TEMPLATES_LIST: TemplateDef[] = [
     icon: '🌐'
   },
   {
+    id: 'salary_cert_bank',
+    category: 'BANKING',
+    title: 'شهادة راتب بنكية تفصيلية',
+    subtitle: 'نسخة موجهة للبنوك تتضمن الآيبان ورقم الحساب وتفاصيل البدلات ونظام WPS',
+    badge: 'نسخة بنكية',
+    icon: '💳'
+  },
+  {
+    id: 'salary_cert_gov',
+    category: 'BANKING',
+    title: 'شهادة راتب للجهات الحكومية',
+    subtitle: 'نسخة رسمية مبسطة موجهة للوزارات والجهات الرسمية والبعثات',
+    badge: 'نسخة حكومية',
+    icon: '🏢'
+  },
+  {
     id: 'to_whom',
     category: 'BANKING',
     title: 'شهادة لمن يهمه الأمر (إثبات عمل)',
@@ -150,6 +173,30 @@ const TEMPLATES_LIST: TemplateDef[] = [
     icon: '🏖️'
   },
   {
+    id: 'leave_request_form',
+    category: 'ADMIN',
+    title: 'نموذج طلب إجازة واعتماد رسمي',
+    subtitle: 'طلب إجازة متكامل يتضمن بيانات الموظف والفترة والتوقيعات والاعتماد الإداري',
+    badge: 'إجازات',
+    icon: '📝'
+  },
+  {
+    id: 'custody_handover',
+    category: 'ADMIN',
+    title: 'نموذج استلام عهدة',
+    subtitle: 'توثيق استلام العهد والأصول وتسليم المسؤولية على الموظف المستلم',
+    badge: 'عهد وأصول',
+    icon: '📦'
+  },
+  {
+    id: 'custody_clearance',
+    category: 'ADMIN',
+    title: 'نموذج إخلاء وتصفية عهدة',
+    subtitle: 'إقرار تسليم كامل العهد وبراءة مسؤولية الإدارات المعنية قبل المخالصة',
+    badge: 'إخلاء عهدة',
+    icon: '✅'
+  },
+  {
     id: 'warning',
     category: 'ADMIN',
     title: 'كتاب إنذار ولفت نظر إداري رسمي',
@@ -164,6 +211,22 @@ const TEMPLATES_LIST: TemplateDef[] = [
     subtitle: 'إخطار رسمي للموظف قبل انتهاء مدة الإخطار المقررة قانوناً (Notice Period)',
     badge: 'إشعار تعاقدي',
     icon: '⏱️'
+  },
+  {
+    id: 'termination_notice',
+    category: 'ADMIN',
+    title: 'إخطار إنهاء خدمة',
+    subtitle: 'إشعار رسمي بإنهاء الخدمة مع تحديد آخر يوم عمل وأسباب الإنهاء النظامية',
+    badge: 'إنهاء خدمة',
+    icon: '🛑'
+  },
+  {
+    id: 'probation_notice',
+    category: 'ADMIN',
+    title: 'إخطار عدم اجتياز فترة التجربة',
+    subtitle: 'إخطار إداري بعدم اجتياز التجربة وفق فترة 100 يوم عمل المعمول بها',
+    badge: 'فترة التجربة',
+    icon: '📌'
   },
   {
     id: 'eos_settlement',
@@ -184,7 +247,7 @@ const TEMPLATES_LIST: TemplateDef[] = [
 ];
 
 // Default HTML template bodies with smart placeholders embedded
-const DEFAULT_TEMPLATE_BODIES: Record<TemplateId, string> = {
+const DEFAULT_TEMPLATE_BODIES: Partial<Record<TemplateId, string>> = {
   salary_cert_ar: `
 <div style="text-align: center; margin: 15px 0;">
   <h1 style="font-size: 20px; font-weight: 900; border-bottom: 2px solid #0f172a; display: inline-block; padding-bottom: 6px;">
@@ -289,6 +352,58 @@ const DEFAULT_TEMPLATE_BODIES: Record<TemplateId, string> = {
 </div>
 `,
 
+  salary_cert_bank: `
+<div style="text-align: center; margin: 15px 0;">
+  <h1 style="font-size: 20px; font-weight: 900; border-bottom: 2px solid #0f172a; display: inline-block; padding-bottom: 6px;">
+    شهادة راتب بنكية تفصيلية
+  </h1>
+</div>
+
+<p><strong>السادة / إدارة الائتمان أو التمويل المحترمين</strong></p>
+<p>تحية طيبة وبعد ،،،</p>
+
+<p>
+  تشهد إدارة <strong>{اسم_الشركة}</strong> بأن {السيد_السيدة}/ <strong>{اسم_الموظف}</strong>، حامل البطاقة المدنية رقم (<strong>{الرقم_المدني}</strong>)،
+  {يعمل_تعمل} لدينا على وظيفة (<strong>{المسمى_الوظيفي}</strong>) منذ تاريخ <strong>{تاريخ_المباشرة}</strong> وما زال على رأس عمله حتى تاريخه.
+</p>
+
+<table style="width: 100%; border-collapse: collapse; margin: 15px 0; border: 1px solid #cbd5e1;">
+  <tbody>
+    <tr><td style="border: 1px solid #cbd5e1; padding: 8px;">الراتب الأساسي</td><td style="border: 1px solid #cbd5e1; padding: 8px;"><strong>{الراتب_الأساسي}</strong></td></tr>
+    <tr><td style="border: 1px solid #cbd5e1; padding: 8px;">بدل السكن</td><td style="border: 1px solid #cbd5e1; padding: 8px;"><strong>{بدل_السكن}</strong></td></tr>
+    <tr><td style="border: 1px solid #cbd5e1; padding: 8px;">بدل الانتقال</td><td style="border: 1px solid #cbd5e1; padding: 8px;"><strong>{بدل_الانتقال}</strong></td></tr>
+    <tr style="background: #faf5ff;"><td style="border: 1px solid #cbd5e1; padding: 8px;"><strong>إجمالي الراتب الشهري</strong></td><td style="border: 1px solid #cbd5e1; padding: 8px;"><strong>{الراتب_الشامل}</strong></td></tr>
+    <tr><td style="border: 1px solid #cbd5e1; padding: 8px;">اسم البنك</td><td style="border: 1px solid #cbd5e1; padding: 8px;"><strong>{اسم_البنك}</strong></td></tr>
+    <tr><td style="border: 1px solid #cbd5e1; padding: 8px;">رقم الحساب</td><td style="border: 1px solid #cbd5e1; padding: 8px;"><strong>{رقم_الحساب}</strong></td></tr>
+    <tr><td style="border: 1px solid #cbd5e1; padding: 8px;">رقم الآيبان</td><td style="border: 1px solid #cbd5e1; padding: 8px;"><strong>{الآيبان}</strong></td></tr>
+  </tbody>
+</table>
+
+<p><strong>فقط وقدره:</strong> ({تفقيت_الراتب}). ويتم تحويل الراتب شهرياً عبر نظام حماية الأجور (WPS).</p>
+<p>أُصدرت هذه الشهادة بناءً على طلب الموظف دون تحمل المنشأة أي التزام تجاه الغير.</p>
+`,
+
+  salary_cert_gov: `
+<div style="text-align: center; margin: 15px 0;">
+  <h1 style="font-size: 20px; font-weight: 900; border-bottom: 2px solid #0f172a; display: inline-block; padding-bottom: 6px;">
+    شهادة راتب للجهات الحكومية والرسمية
+  </h1>
+</div>
+
+<p><strong>السادة / الجهة الحكومية المختصة المحترمين</strong></p>
+<p>تحية طيبة وبعد ،،،</p>
+<p>
+  نفيدكم بأن {السيد_السيدة}/ <strong>{اسم_الموظف}</strong>، حامل البطاقة المدنية رقم (<strong>{الرقم_المدني}</strong>)،
+  {يعمل_تعمل} لدى <strong>{اسم_الشركة}</strong> بمسمى (<strong>{المسمى_الوظيفي}</strong>) منذ <strong>{تاريخ_المباشرة}</strong> وحتى تاريخه.
+</p>
+<p>
+  إجمالي الراتب الشهري المستحق: <strong>{الراتب_الشامل}</strong> فقط ({تفقيت_الراتب}).
+</p>
+<p>
+  وقد منحت له هذه الشهادة لتقديمها إلى الجهة الرسمية المعنية، دون أي التزامات مالية إضافية على المنشأة.
+</p>
+`,
+
   contract_kuwait: `
 <div style="text-align: center; margin: 10px 0;">
   <h1 style="font-size: 20px; font-weight: 900; border-bottom: 2px solid #0f172a; display: inline-block; padding-bottom: 4px;">
@@ -332,8 +447,6 @@ const DEFAULT_TEMPLATE_BODIES: Record<TemplateId, string> = {
   <strong>البند السادس (المحاكم المختصة):</strong> تختص المحاكم العمالية بدولة الكويت بنظر أي نزاع قد ينشأ، وحُرر هذا العقد من نسختين بيد كل طرف نسخة للعمل بموجبها.
 </p>
 `,
-
-  pam_contract: `<p>نموذج عقد القوى العاملة الموحد PAM 2</p>`,
 
   contract_part_time: `
 <div style="text-align: center; margin: 10px 0;">
@@ -439,6 +552,29 @@ const DEFAULT_TEMPLATE_BODIES: Record<TemplateId, string> = {
 <p>ويرجى اعتماد استئناف دوامي وإخطار قسم الأجور لتحديث سجلات الإجازات والرصيد المتبقي.</p>
 `,
 
+  leave_request_form: `
+<div style="text-align: center; margin: 10px 0;">
+  <h1 style="font-size: 20px; font-weight: 900; border-bottom: 2px solid #0f172a; display: inline-block; padding-bottom: 4px;">
+    نموذج طلب إجازة واعتماد رسمي
+  </h1>
+</div>
+
+<p>أرجو الموافقة على منحي إجازة وفق البيانات التالية:</p>
+<div style="padding: 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; margin: 10px 0;">
+  <p style="margin: 4px 0;"><strong>اسم الموظف:</strong> {اسم_الموظف}</p>
+  <p style="margin: 4px 0;"><strong>الرقم المدني:</strong> {الرقم_المدني}</p>
+  <p style="margin: 4px 0;"><strong>المسمى الوظيفي:</strong> {المسمى_الوظيفي}</p>
+  <p style="margin: 4px 0;"><strong>القسم:</strong> {القسم}</p>
+  <p style="margin: 4px 0;"><strong>نوع الإجازة:</strong> سنوية</p>
+  <p style="margin: 4px 0;"><strong>تاريخ بدء الإجازة:</strong> __ / __ / ____</p>
+  <p style="margin: 4px 0;"><strong>تاريخ العودة:</strong> __ / __ / ____</p>
+</div>
+
+<p><strong>توقيع الموظف:</strong> ____________________</p>
+<p><strong>اعتماد المدير المباشر:</strong> ____________________</p>
+<p><strong>اعتماد الموارد البشرية:</strong> ____________________</p>
+`,
+
   warning: `
 <div style="text-align: center; margin: 15px 0;">
   <h1 style="font-size: 20px; font-weight: 900; color: #991b1b; border-bottom: 2px solid #991b1b; display: inline-block; padding-bottom: 6px;">
@@ -478,6 +614,78 @@ const DEFAULT_TEMPLATE_BODIES: Record<TemplateId, string> = {
 <p>
   ويعتبر هذا الخطاب إخطاراً رسمياً مسبقاً قبل الميعاد القانوني المحدد في العقد وقانون العمل، ويرجى منكم التكرم بمراجعة إدارة الموارد البشرية لاستكمال إجراءات تسليم العهد وإجراء المخالصة النهائية واستلام مستحقاتكم القانونية كاملة.
 </p>
+`,
+
+  termination_notice: `
+<div style="text-align: center; margin: 15px 0;">
+  <h1 style="font-size: 20px; font-weight: 900; color: #991b1b; border-bottom: 2px solid #991b1b; display: inline-block; padding-bottom: 6px;">
+    إخطار إنهاء خدمة
+  </h1>
+</div>
+
+<p><strong>إلى {السيد_السيدة}/</strong> {اسم_الموظف} | <strong>الرقم المدني:</strong> {الرقم_المدني}</p>
+<p>
+  نفيدكم بصدور قرار إدارة <strong>{اسم_الشركة}</strong> بإنهاء خدماتكم اعتباراً من تاريخ <strong>{نهاية_العقد}</strong>،
+  ويعتبر هذا الخطاب إشعاراً رسمياً لتحديد آخر يوم عمل واستكمال إجراءات التسليم والمخالصة وفق قانون العمل الكويتي.
+</p>
+<p><strong>آخر يوم عمل:</strong> {نهاية_العقد}</p>
+<p><strong>سبب الإنهاء الإداري:</strong> مقتضيات تنظيم العمل.</p>
+`,
+
+  probation_notice: `
+<div style="text-align: center; margin: 15px 0;">
+  <h1 style="font-size: 20px; font-weight: 900; border-bottom: 2px solid #0f172a; display: inline-block; padding-bottom: 6px;">
+    إخطار عدم اجتياز فترة التجربة
+  </h1>
+</div>
+
+<p><strong>إلى {السيد_السيدة}/</strong> {اسم_الموظف}</p>
+<p>
+  بالإشارة إلى عقد العمل المبرم معكم، نفيدكم بعدم اجتياز فترة التجربة المنصوص عليها في العقد،
+  وعليه ينتهي التعاقد اعتباراً من تاريخ <strong>{نهاية_العقد}</strong> مع استكمال كافة الإجراءات النظامية.
+</p>
+<p>
+  يرجى مراجعة إدارة الموارد البشرية لتسليم ما بعهدتكم واستلام مستحقاتكم القانونية.
+</p>
+`,
+
+  custody_handover: `
+<div style="text-align: center; margin: 15px 0;">
+  <h1 style="font-size: 20px; font-weight: 900; border-bottom: 2px solid #0f172a; display: inline-block; padding-bottom: 6px;">
+    نموذج استلام عهدة
+  </h1>
+</div>
+
+<p>أقر أنا {السيد_السيدة}/ <strong>{اسم_الموظف}</strong> (المدني: <strong>{الرقم_المدني}</strong>) باستلام العهد التالية:</p>
+<div style="padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; margin: 12px 0;">
+  <p style="margin: 4px 0;">1) جهاز/أصل: ____________________</p>
+  <p style="margin: 4px 0;">2) الرقم التسلسلي: ____________________</p>
+  <p style="margin: 4px 0;">3) تاريخ الاستلام: {تاريخ_اليوم}</p>
+  <p style="margin: 4px 0;">4) الحالة الفنية: سليمة</p>
+</div>
+<p><strong>توقيع المستلم:</strong> ____________________</p>
+<p><strong>توقيع مسؤول العهد:</strong> ____________________</p>
+`,
+
+  custody_clearance: `
+<div style="text-align: center; margin: 15px 0;">
+  <h1 style="font-size: 20px; font-weight: 900; border-bottom: 2px solid #0f172a; display: inline-block; padding-bottom: 6px;">
+    نموذج إخلاء وتصفية عهدة
+  </h1>
+</div>
+
+<p>تفيد الإدارات المختصة بأن {السيد_السيدة}/ <strong>{اسم_الموظف}</strong> قد قام بتسليم كافة العهد المسجلة عليه، ولا يوجد عليه أي التزامات عهد قائمة حتى تاريخ <strong>{تاريخ_اليوم}</strong>.</p>
+
+<table style="width: 100%; border-collapse: collapse; margin: 12px 0; border: 1px solid #cbd5e1;">
+  <tbody>
+    <tr><td style="border: 1px solid #cbd5e1; padding: 8px;">إدارة تقنية المعلومات</td><td style="border: 1px solid #cbd5e1; padding: 8px;">تم الإخلاء</td></tr>
+    <tr><td style="border: 1px solid #cbd5e1; padding: 8px;">الإدارة المالية</td><td style="border: 1px solid #cbd5e1; padding: 8px;">تم الإخلاء</td></tr>
+    <tr><td style="border: 1px solid #cbd5e1; padding: 8px;">الموارد البشرية</td><td style="border: 1px solid #cbd5e1; padding: 8px;">تم الإخلاء</td></tr>
+  </tbody>
+</table>
+
+<p><strong>توقيع الموظف:</strong> ____________________</p>
+<p><strong>اعتماد الموارد البشرية:</strong> ____________________</p>
 `,
 
   eos_settlement: `
@@ -551,13 +759,14 @@ export const OdooTemplatesApp: React.FC = () => {
   const { employees } = useOdooHierarchy();
 
   const [activeCategory, setActiveCategory] = useState<TemplateCategory>('ALL');
-  const [selectedTemplate, setSelectedTemplate] = useState<TemplateId>('salary_cert_ar');
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateId>('salary_cert_bank');
   const [selectedEmpId, setSelectedEmpId] = useState<string>('');
   const [showPamModal, setShowPamModal] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [useLetterhead, setUseLetterhead] = useState<boolean>(true); // true = print company header, false = for pre-printed letterhead
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('split');
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
+  const [barcodeDataUrl, setBarcodeDataUrl] = useState<string>('');
 
   // Editable Form & Context State
   const [empName, setEmpName] = useState('');
@@ -580,7 +789,7 @@ export const OdooTemplatesApp: React.FC = () => {
   const [eosAmount, setEosAmount] = useState('0.000');
 
   // Active Template HTML Content (loaded in the rich editor)
-  const [editorContent, setEditorContent] = useState<string>(DEFAULT_TEMPLATE_BODIES.salary_cert_ar);
+  const [editorContent, setEditorContent] = useState<string>(DEFAULT_TEMPLATE_BODIES.salary_cert_bank || '');
 
   const previewSheetRef = useRef<HTMLDivElement>(null);
 
@@ -591,12 +800,14 @@ export const OdooTemplatesApp: React.FC = () => {
   const companyDisplayName = activeCompany?.nameAr || activeCompany?.name || 'مجموعة المنارة للخدمات المتكاملة ذ.م.م';
   const companyCommercialReg = activeCompany?.commercialRegNo || (activeCompany as any)?.commercialRegister || '148291';
   const companyPaci = (activeCompany as any)?.paciNumber || '20491823';
+  const companyLogoUrl = activeCompany?.logoUrl || activeCompany?.logo || '';
+  const companyAccountNumber = activeCompany?.accountNumber || '—';
+  const companyWsiCode = activeCompany?.wsiCode || '—';
 
   // Load template body when template changes
   useEffect(() => {
-    if (DEFAULT_TEMPLATE_BODIES[selectedTemplate]) {
-      setEditorContent(DEFAULT_TEMPLATE_BODIES[selectedTemplate]);
-    }
+    const defaultBody = DEFAULT_TEMPLATE_BODIES[selectedTemplate];
+    setEditorContent(defaultBody || '');
   }, [selectedTemplate]);
 
   // Auto-fill when employee is selected
@@ -679,6 +890,47 @@ export const OdooTemplatesApp: React.FC = () => {
     makeQr();
   }, [referenceNumber, companyDisplayName, empName, civilId]);
 
+  // Lightweight barcode image for print footer based on the reference number.
+  useEffect(() => {
+    const makeBarcode = () => {
+      if (typeof document === 'undefined') return;
+      const canvas = document.createElement('canvas');
+      const width = 260;
+      const height = 70;
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+
+      const source = `${referenceNumber}|${civilId || '000000000000'}`;
+      let x = 8;
+      const top = 8;
+      const barHeight = 42;
+
+      for (let i = 0; i < source.length && x < width - 10; i += 1) {
+        const code = source.charCodeAt(i);
+        const barWidth = code % 3 === 0 ? 1 : 2;
+        const gap = code % 2 === 0 ? 1 : 2;
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(x, top, barWidth, barHeight);
+        x += barWidth + gap;
+      }
+
+      ctx.fillStyle = '#475569';
+      ctx.font = 'bold 10px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(referenceNumber, width / 2, 64);
+
+      setBarcodeDataUrl(canvas.toDataURL('image/png'));
+    };
+
+    makeBarcode();
+  }, [referenceNumber, civilId]);
+
   // Compile editor HTML content by replacing all {placeholders} with live context
   const compiledHtml = useMemo(() => {
     let output = editorContent || '';
@@ -714,7 +966,9 @@ export const OdooTemplatesApp: React.FC = () => {
       '{الراتب_الشامل}': `${totalSalary} د.ك`,
       '{تفقيت_الراتب}': `${salaryTafqeetAr} لا غير`,
       '{اسم_البنك}': bankName || 'البنك المعتمد',
+      '{رقم_الحساب}': companyAccountNumber || '—',
       '{الآيبان}': iban || '—',
+      '{رقم_الملف_العمالي}': companyWsiCode || '—',
       '{سنوات_الخدمة}': `${serviceYears} سنوات`,
       '{مكافأة_نهاية_الخدمة}': `${eosAmount} د.ك`,
       '{تفقيت_نهاية_الخدمة}': `${eosTafqeetAr} لا غير`,
@@ -750,6 +1004,8 @@ export const OdooTemplatesApp: React.FC = () => {
     transportAllowance, 
     totalSalary, 
     bankName, 
+    companyAccountNumber,
+    companyWsiCode,
     iban, 
     serviceYears, 
     eosAmount, 
@@ -854,9 +1110,13 @@ export const OdooTemplatesApp: React.FC = () => {
   };
 
   const handleResetTemplate = () => {
-    if (DEFAULT_TEMPLATE_BODIES[selectedTemplate]) {
-      setEditorContent(DEFAULT_TEMPLATE_BODIES[selectedTemplate]);
+    const defaultBody = DEFAULT_TEMPLATE_BODIES[selectedTemplate];
+    if (defaultBody) {
+      setEditorContent(defaultBody);
       toast.success('تمت إعادة ضبط نص القالب إلى الصياغة القانونية الأصلية');
+    } else if (selectedTemplate === 'pam_contract') {
+      setEditorContent('');
+      toast.success('قالب PAM يعتمد على المولد المتخصص فقط وتم تنظيف النص الاحتياطي');
     }
   };
 
@@ -1057,7 +1317,7 @@ export const OdooTemplatesApp: React.FC = () => {
           <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
             <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl mb-2">
               {[
-                { id: 'ALL', label: 'الكل (13)' },
+                { id: 'ALL', label: `الكل (${TEMPLATES_LIST.length})` },
                 { id: 'CONTRACTS', label: 'عقود العمل' },
                 { id: 'BANKING', label: 'الشهادات' },
                 { id: 'ADMIN', label: 'إداري' }
@@ -1179,9 +1439,19 @@ export const OdooTemplatesApp: React.FC = () => {
                       <div className="border-b-2 border-[#714B67] pb-5 mb-6">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3.5">
-                            <div className="w-14 h-14 bg-slate-50 border-2 border-[#714B67] rounded-2xl flex items-center justify-center font-black text-[#714B67] text-2xl shadow-2xs">
-                              {companyDisplayName.charAt(0)}
-                            </div>
+                            {companyLogoUrl ? (
+                              <div className="w-14 h-14 bg-white border-2 border-[#714B67] rounded-2xl p-1.5 shadow-2xs">
+                                <img
+                                  src={companyLogoUrl}
+                                  alt="Company Logo"
+                                  className="w-full h-full object-contain"
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-14 h-14 bg-slate-50 border-2 border-[#714B67] rounded-2xl flex items-center justify-center font-black text-[#714B67] text-2xl shadow-2xs">
+                                {companyDisplayName.charAt(0)}
+                              </div>
+                            )}
                             <div>
                               <h2 className="text-xl font-black text-[#714B67] leading-tight">
                                 {companyDisplayName}
@@ -1231,7 +1501,7 @@ export const OdooTemplatesApp: React.FC = () => {
 
                         {/* Second Party Signature or QR Code */}
                         <div className="text-left flex flex-col items-end space-y-1">
-                          {selectedTemplate.startsWith('contract') || selectedTemplate === 'eos_settlement' ? (
+                          {selectedTemplate.startsWith('contract') || selectedTemplate === 'eos_settlement' || selectedTemplate === 'pam_contract' ? (
                             <div className="text-right w-full space-y-1">
                               <div className="font-black text-slate-800">
                                 {gender === 'female' ? 'توقيع الطرف الثاني (العاملة):' : 'توقيع الطرف الثاني (العامل):'}
@@ -1240,19 +1510,38 @@ export const OdooTemplatesApp: React.FC = () => {
                               <div className="pt-8 font-bold text-slate-400">التوقيع: ............................</div>
                             </div>
                           ) : (
-                            <div className="flex flex-col items-center">
-                              {qrCodeDataUrl ? (
-                                <img 
-                                  src={qrCodeDataUrl} 
-                                  alt="رمز التحقق الرقمي" 
-                                  className="w-20 h-20 border border-slate-200 rounded-lg p-0.5 bg-white"
-                                />
-                              ) : (
-                                <div className="w-20 h-20 bg-slate-100 rounded border border-slate-200" />
-                              )}
-                              <span className="text-[9px] font-mono text-slate-400 mt-1">التحقق الرقمي المعتمد</span>
+                            <div className="text-right w-full space-y-1">
+                              <div className="font-black text-slate-800">اعتماد الموارد البشرية:</div>
+                              <div className="pt-8 font-bold text-slate-400">التوقيع: ............................</div>
                             </div>
                           )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-end justify-end gap-2">
+                        <div className="flex flex-col items-center">
+                          {barcodeDataUrl ? (
+                            <img
+                              src={barcodeDataUrl}
+                              alt="Barcode"
+                              className="w-36 h-14 border border-slate-200 rounded-md p-0.5 bg-white"
+                            />
+                          ) : (
+                            <div className="w-36 h-14 bg-slate-100 rounded border border-slate-200" />
+                          )}
+                          <span className="text-[9px] font-mono text-slate-400 mt-1">Barcode: {referenceNumber}</span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                          {qrCodeDataUrl ? (
+                            <img 
+                              src={qrCodeDataUrl} 
+                              alt="رمز التحقق الرقمي" 
+                              className="w-20 h-20 border border-slate-200 rounded-lg p-0.5 bg-white"
+                            />
+                          ) : (
+                            <div className="w-20 h-20 bg-slate-100 rounded border border-slate-200" />
+                          )}
+                          <span className="text-[9px] font-mono text-slate-400 mt-1">التحقق الرقمي المعتمد</span>
                         </div>
                       </div>
 
