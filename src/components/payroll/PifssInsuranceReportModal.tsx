@@ -59,8 +59,8 @@ export const PifssInsuranceReportModal: React.FC<PifssInsuranceReportModalProps>
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 z-50 overflow-y-auto">
-      <div className="bg-white rounded-2xl max-w-4xl w-full shadow-2xl border border-slate-200 overflow-hidden my-auto flex flex-col max-h-[94vh]">
+    <div className="fixed printable-modal-root inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 z-50 overflow-y-auto">
+      <div className="printable-modal-sheet bg-white rounded-2xl max-w-4xl w-full shadow-2xl border border-slate-200 overflow-hidden my-auto flex flex-col max-h-[94vh]">
         {/* Header Bar */}
         <div className="flex items-center justify-between px-6 py-4 bg-slate-900 text-white print:hidden">
           <div className="flex items-center gap-2.5">
@@ -96,7 +96,7 @@ export const PifssInsuranceReportModal: React.FC<PifssInsuranceReportModalProps>
         </div>
 
         {/* Body Content */}
-        <div className="p-6 overflow-y-auto flex-1 bg-slate-50 text-xs">
+        <div className="printable-scroll p-6 overflow-y-auto flex-1 bg-slate-50 text-xs">
           {/* KPI Summary Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6 print:hidden">
             <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
@@ -203,7 +203,7 @@ export const PifssInsuranceReportModal: React.FC<PifssInsuranceReportModalProps>
                 </div>
 
                 {/* Total in Words */}
-                <div className="bg-slate-100 p-3.5 rounded-xl border border-slate-200 mb-6 flex justify-between items-center">
+                <div className="bg-slate-100 p-3.5 rounded-xl border border-slate-200 mb-6 flex justify-between items-center print-avoid-break">
                   <div>
                     <span className="text-slate-500 text-[10px] block">إجمالي المبلغ المطلوب سداده لبوابة التأمينات:</span>
                     <strong className="text-slate-900">{totalInWords}</strong>
@@ -214,7 +214,7 @@ export const PifssInsuranceReportModal: React.FC<PifssInsuranceReportModalProps>
                 </div>
 
                 {/* Signatures */}
-                <div className="grid grid-cols-2 gap-8 pt-4 border-t border-slate-300 text-center">
+                <div className="grid grid-cols-2 gap-8 pt-4 border-t border-slate-300 text-center print-avoid-break">
                   <div>
                     <span className="text-[10px] text-slate-600 font-bold block mb-10">إعداد / قسم الرواتب وشؤون الموظفين</span>
                     <div className="border-b border-dashed border-slate-400 w-3/4 mx-auto mb-1"></div>

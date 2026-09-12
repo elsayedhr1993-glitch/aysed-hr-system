@@ -214,7 +214,8 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
       uploadDate: new Date().toLocaleDateString('ar-KW'),
       uploadedBy: uploadUploader,
       expiryDate: uploadExpiryDate || undefined,
-      documentNumber: uploadDocNo || undefined
+      documentNumber: uploadDocNo || undefined,
+      previewUrl: selectedFileObj?.dataUrl || undefined
     };
 
     const updatedFiles = [newFile, ...attachments];
@@ -225,6 +226,21 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
     setUploadExpiryDate('');
     setUploadDocNo('');
     setShowUploadModal(false);
+  };
+
+  const handleDownloadFile = (file: DocumentAttachment) => {
+    if (!file.previewUrl) {
+      toast.error('لا يوجد ملف فعلي مرتبط بهذه الوثيقة للتنزيل.');
+      return;
+    }
+
+    const link = document.createElement('a');
+    link.href = file.previewUrl;
+    link.download = file.name || `document_${file.id}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success(`تم تنزيل المستند: ${file.name}`);
   };
 
   const handleDeleteFile = (fileId: string) => {
@@ -514,9 +530,7 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
                           
                           <button
                             type="button"
-                            onClick={() => {
-                              alert(`جاري تحميل المستند: ${file.name}`);
-                            }}
+                            onClick={() => handleDownloadFile(file)}
                             title="تحميل الملف"
                             className="p-1.5 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
                           >
@@ -861,7 +875,7 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => alert(`جاري تنزيل الملف: ${previewDoc.name}`)}
+                  onClick={() => handleDownloadFile(previewDoc)}
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center gap-1.5 transition"
                 >
                   <Download size={14} /> تنزيل الملف

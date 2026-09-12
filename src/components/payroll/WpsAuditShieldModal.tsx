@@ -30,6 +30,7 @@ interface WpsAuditShieldModalProps {
     nameAr: string;
     nameEn: string;
     crNumber: string;
+    employerMosaCode?: string;
     bankName?: string;
     accountNumber?: string;
     iban?: string;
@@ -120,12 +121,12 @@ export const WpsAuditShieldModal: React.FC<WpsAuditShieldModalProps> = ({
       const content = generateWpsSifFile(
         'companyId', 
         companyInfo.nameEn || 'Company', 
-        companyInfo.crNumber || '000000', 
+        companyInfo.employerMosaCode || companyInfo.crNumber || '000000', 
         period, 
         formattedRecords
       );
       
-      downloadSifFile(content, `WPS_SIF_${period.replace('-', '')}_KW.csv`);
+      downloadSifFile(content, `WPS_SIF_${period.replace('-', '')}_KW.sif`);
       toast.success('تم إنشاء وتحميل ملف الرواتب بصيغة SIF بنجاح للمصرف.');
     });
   };
@@ -152,8 +153,8 @@ export const WpsAuditShieldModal: React.FC<WpsAuditShieldModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 z-50 overflow-y-auto">
-      <div className="bg-white rounded-2xl max-w-4xl w-full shadow-2xl border border-slate-200 overflow-hidden my-auto flex flex-col max-h-[94vh]">
+    <div className="fixed printable-modal-root inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 z-50 overflow-y-auto">
+      <div className="printable-modal-sheet bg-white rounded-2xl max-w-4xl w-full shadow-2xl border border-slate-200 overflow-hidden my-auto flex flex-col max-h-[94vh]">
         {/* Header Bar */}
         <div className="flex items-center justify-between px-6 py-4 bg-slate-900 text-white print:hidden">
           <div className="flex items-center gap-2.5">
@@ -187,7 +188,7 @@ export const WpsAuditShieldModal: React.FC<WpsAuditShieldModalProps> = ({
         </div>
 
         {/* Content Body */}
-        <div className="p-6 overflow-y-auto flex-1 bg-slate-50 text-xs">
+        <div className="printable-scroll p-6 overflow-y-auto flex-1 bg-slate-50 text-xs">
           {activeView === 'audit' ? (
             <div className="space-y-6">
               {/* Scorecard KPI Cards */}
@@ -325,7 +326,7 @@ export const WpsAuditShieldModal: React.FC<WpsAuditShieldModalProps> = ({
             </div>
           ) : (
             /* Official Bank Cover Letter View */
-            <div className="bg-white p-8 sm:p-12 rounded-xl shadow-xs border border-slate-200 max-w-2xl mx-auto print:border-none print:shadow-none print:p-0 print:m-0 text-slate-800" dir="rtl">
+            <div className="bg-white p-8 sm:p-12 rounded-xl shadow-xs border border-slate-200 max-w-2xl mx-auto print:border-none print:shadow-none print:p-0 print:m-0 text-slate-800 print-avoid-break" dir="rtl">
               <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-200 print:hidden">
                 <span className="font-bold text-sm text-slate-800">خطاب تحويل الرواتب الرسمي الموجه للبنك</span>
                 <button

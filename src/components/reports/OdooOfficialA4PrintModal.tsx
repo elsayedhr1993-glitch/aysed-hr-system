@@ -59,14 +59,20 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
     await printDocument('odoo-official-report-a4-sheet', `${reportTitle} - ${selectedMonth}`);
   };
 
+  const computePifssBreakdown = (grossSalary: number) => {
+    const insuredSalary = Math.min(Math.max(grossSalary || 0, 0), 3000);
+    const employeeShare = Number((insuredSalary * 0.105).toFixed(3));
+    const employerShare = Number((insuredSalary * 0.115).toFixed(3));
+    const totalShare = Number((employeeShare + employerShare).toFixed(3));
+    return { insuredSalary, employeeShare, employerShare, totalShare };
+  };
+
   const handleExport = () => {
     let exportRows: Record<string, any>[] = [];
 
     if (reportCategory === 'pifss_contributions') {
       exportRows = data.filter(d => d.isKuwaiti).map((d, idx) => {
-        const insurable = 0;
-        const empDeduct = 0;
-        const compDeduct = 0;
+        const pifss = computePifssBreakdown(d.totalSalary);
         return {
           'م': idx + 1,
           'اسم الموظف': d.name,
@@ -74,10 +80,10 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
           'المسمى': d.jobTitle,
           'القسم': d.department,
           'الراتب الشامل': Number(d.totalSalary.toFixed(3)),
-          'الراتب التأميني (سقف 3,000)': Number(insurable.toFixed(3)),
-          'استقطاع الموظف (10.5%)': Number(empDeduct.toFixed(3)),
-          'مساهمة صاحب العمل (11.5%)': Number(compDeduct.toFixed(3)),
-          'إجمالي اشتراك التأمينات (د.ك)': Number((empDeduct + compDeduct).toFixed(3))
+          'الراتب التأميني (سقف 3,000)': Number(pifss.insuredSalary.toFixed(3)),
+          'استقطاع الموظف (10.5%)': Number(pifss.employeeShare.toFixed(3)),
+          'مساهمة صاحب العمل (11.5%)': Number(pifss.employerShare.toFixed(3)),
+          'إجمالي اشتراك التأمينات (د.ك)': Number(pifss.totalShare.toFixed(3))
         };
       });
     } else {
@@ -229,10 +235,11 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
                   </thead>
                   <tbody className="divide-y divide-slate-200 font-mono">
                     {data.filter(d => d.isKuwaiti).map((emp, idx) => {
-                      const insurable = 0;
-                      const empDeduct = 0;
-                      const compDeduct = 0;
-                      const totalDue = 0;
+                      const pifss = computePifssBreakdown(emp.totalSalary);
+                      const insurable = pifss.insuredSalary;
+                      const empDeduct = pifss.employeeShare;
+                      const compDeduct = pifss.employerShare;
+                      const totalDue = pifss.totalShare;
                       return (
                         <tr key={emp.id} className={idx % 2 === 1 ? 'bg-slate-50/70' : 'bg-white'}>
                           <td className="p-2.5 font-bold">{idx + 1}</td>
@@ -260,13 +267,13 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
                         {data.filter(d => d.isKuwaiti).reduce((s, e) => s + e.totalSalary, 0).toFixed(3)}
                       </td>
                       <td className="p-2.5 text-left">
-                        0.000
+                        {data.filter(d => d.isKuwaiti).reduce((s, e) => s + computePifssBreakdown(e.totalSalary).insuredSalary, 0).toFixed(3)}
                       </td>
                       <td className="p-2.5 text-left text-blue-800">
-                        0.000
+                        {data.filter(d => d.isKuwaiti).reduce((s, e) => s + computePifssBreakdown(e.totalSalary).employeeShare, 0).toFixed(3)}
                       </td>
                       <td className="p-2.5 text-left text-purple-900">
-                        0.000
+                        {data.filter(d => d.isKuwaiti).reduce((s, e) => s + computePifssBreakdown(e.totalSalary).employerShare, 0).toFixed(3)}
                       </td>
                       <td className="p-2.5 text-left text-sm font-black text-slate-950">
                         {totalKuwaitiPifssContribution.toFixed(3)} د.ك
@@ -379,7 +386,7 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
             </div>
 
             {/* 5. التواقيع الرسمية الثلاثية المعتمدة */}
-            <div className="grid grid-cols-3 gap-6 text-center text-xs pt-8 border-t-2 border-slate-300">
+            <div className="grid grid-cols-3 gap-6 text-center text-xs pt-8 border-t-2 border-slate-300 print-avoid-break">
               <div className="space-y-1">
                 <p className="font-bold text-slate-800">إعداد المحاسب / مسؤول الرواتب</p>
                 <div className="h-12 border-b border-dashed border-slate-300 flex items-end justify-center pb-1 text-[10px] text-slate-400">

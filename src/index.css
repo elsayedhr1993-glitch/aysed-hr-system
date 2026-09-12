@@ -950,9 +950,40 @@ table {
   button,
   input[type="button"],
   input[type="submit"],
-  .fixed,
   .sticky {
     display: none !important;
+  }
+
+  /* Allow specific print-ready modals to bypass generic fixed hiding rules. */
+  .fixed.printable-modal-root {
+    display: flex !important;
+    position: static !important;
+    inset: auto !important;
+    width: 100% !important;
+    min-height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+    backdrop-filter: none !important;
+    overflow: visible !important;
+  }
+
+  .fixed.printable-modal-root > .printable-modal-sheet {
+    max-width: none !important;
+    width: 100% !important;
+    max-height: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+
+  .printable-modal-root .printable-scroll {
+    overflow: visible !important;
+    max-height: none !important;
+    padding: 0 !important;
+    background: #ffffff !important;
   }
 
   /* 2. Reset backgrounds and full-bleed layout */
@@ -995,6 +1026,12 @@ table {
 
   tfoot {
     display: table-footer-group;
+  }
+
+  .print-avoid-break,
+  .print-avoid-break * {
+    break-inside: avoid-page !important;
+    page-break-inside: avoid !important;
   }
 
   /* 5. Document Header for Official Prints */

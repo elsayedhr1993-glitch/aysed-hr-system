@@ -50,11 +50,11 @@ export function generateWpsSifFile(
   const footer = `TOTAL,${payrollRecords.length},${totalNet}`;
 
   // Combine
-  return [header, ...records, footer].join('\n');
+  return [header, ...records, footer].join('\r\n');
 }
 
 export function downloadSifFile(sifContent: string, filename: string) {
-  const blob = new Blob([sifContent], { type: 'text/csv;charset=utf-8;' });
+  const blob = new Blob([sifContent], { type: 'text/plain;charset=utf-8;' });
   const link = document.createElement('a');
   const url = URL.createObjectURL(blob);
   link.setAttribute('href', url);

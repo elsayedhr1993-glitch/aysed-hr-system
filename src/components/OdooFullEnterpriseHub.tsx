@@ -6,6 +6,7 @@ import {
   AlertTriangle, FolderKanban, Scan, Download, RefreshCw
 } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
+import toast from 'react-hot-toast';
 
 export const OdooFullEnterpriseHub: React.FC = () => {
   const { activeCompany } = useCompany();
@@ -49,7 +50,9 @@ export const OdooFullEnterpriseHub: React.FC = () => {
         from: formData.from || '2026-09-10',
         to: formData.to || '2026-09-25',
         days: Number(formData.days) || 15,
-        status: 'approved'
+        status: 'approved',
+        payoutPosted: false,
+        payoutPostedAt: ''
       };
       setLeaves([newLv, ...leaves]);
     } else if (modalType === 'new_custody') {
@@ -201,10 +204,21 @@ export const OdooFullEnterpriseHub: React.FC = () => {
                   <td className="p-3 text-center">
                     <button 
                       type="button"
-                      onClick={() => alert(`تم إصدار وتأكيد سند صرف راتب الإجازة مقدماً للموظف ${l.empName} وفق المادة 71 وتوجيهه إلى مسير الرواتب WPS`)}
+                      onClick={() => {
+                        if ((l as any).payoutPosted) {
+                          toast('تم ترحيل سند الصرف مسبقاً لهذا الطلب.', { icon: 'ℹ️' });
+                          return;
+                        }
+                        setLeaves((prev) => prev.map((item) => item.id === l.id ? {
+                          ...item,
+                          payoutPosted: true,
+                          payoutPostedAt: new Date().toISOString()
+                        } : item));
+                        toast.success(`تم ترحيل صرف مستحقات الإجازة للموظف ${l.empName} إلى مسار الرواتب.`);
+                      }}
                       className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-2.5 py-1 rounded text-[10px] font-bold shadow-2xs cursor-pointer"
                     >
-                      صرف المستحقات ✈️
+                      {(l as any).payoutPosted ? 'تم ترحيل الصرف' : 'صرف المستحقات ✈️'}
                     </button>
                   </td>
                 </tr>

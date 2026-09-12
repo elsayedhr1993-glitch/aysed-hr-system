@@ -57,8 +57,8 @@ export const OfficialPayslipPrintModal: React.FC<OfficialPayslipPrintModalProps>
   const netSalaryInWords = tafqitKuwaiti(payslip.netSalary);
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 z-50 overflow-y-auto">
-      <div className="bg-white rounded-2xl max-w-3xl w-full shadow-2xl border border-slate-200 overflow-hidden my-auto flex flex-col max-h-[92vh]">
+    <div className="fixed printable-modal-root inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 z-50 overflow-y-auto">
+      <div className="printable-modal-sheet bg-white rounded-2xl max-w-3xl w-full shadow-2xl border border-slate-200 overflow-hidden my-auto flex flex-col max-h-[92vh]">
         {/* Modal Bar - Hidden during printing */}
         <div className="flex items-center justify-between px-6 py-4 bg-slate-900 text-white print:hidden">
           <div className="flex items-center gap-2">
@@ -84,7 +84,7 @@ export const OfficialPayslipPrintModal: React.FC<OfficialPayslipPrintModalProps>
         </div>
 
         {/* Printable Paper Canvas */}
-        <div className="overflow-y-auto p-6 sm:p-10 bg-slate-50 flex-1">
+        <div className="printable-scroll overflow-y-auto p-6 sm:p-10 bg-slate-50 flex-1">
           <div
             ref={printContentRef}
             id="official-payslip-sheet"
@@ -253,7 +253,7 @@ export const OfficialPayslipPrintModal: React.FC<OfficialPayslipPrintModalProps>
             </div>
 
             {/* Signatures */}
-            <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-300 text-center">
+            <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-300 text-center print-avoid-break">
               <div>
                 <span className="text-[10px] text-slate-500 block mb-8">إعداد / محاسب الرواتب</span>
                 <div className="border-b border-dashed border-slate-400 w-3/4 mx-auto mb-1"></div>

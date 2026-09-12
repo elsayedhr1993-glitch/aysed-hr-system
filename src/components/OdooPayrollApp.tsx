@@ -480,8 +480,43 @@ export const OdooPayrollApp: React.FC = () => {
   const totalGross = filteredPayslips.reduce((sum, p) => sum + p.grossSalary, 0);
   const totalDeductionsAll = filteredPayslips.reduce((sum, p) => sum + p.totalDeductions, 0);
 
-  // PIFSS employee dataset
-  const pifssData = useMemo(() => [], []);
+  // PIFSS employee dataset (real payroll-linked values with statutory cap and rates)
+  const pifssData = useMemo(() => {
+    const byEmployee = new Map<string, PayslipItem>();
+    filteredPayslips.forEach((p) => {
+      byEmployee.set(p.employeeId, p);
+    });
+
+    return employees
+      .filter((emp: any) => {
+        const nationality = String(emp?.nationality || '').toLowerCase();
+        return Boolean(emp?.isKuwaiti) || nationality.includes('كويتي') || nationality.includes('kuwaiti');
+      })
+      .map((emp: any) => {
+        const linkedPayslip = byEmployee.get(emp.id);
+        const grossSalary = linkedPayslip
+          ? Number(linkedPayslip.grossSalary || 0)
+          : Number((emp.basicSalary || 0) + (emp.housingAllowance || 0) + (emp.transportAllowance || 0) + (emp.medicalAllowance || 0));
+
+        const insuredSalary = Math.min(Math.max(grossSalary, 0), 3000);
+        const employeeShare = Number((insuredSalary * 0.105).toFixed(3));
+        const companyShare = Number((insuredSalary * 0.115).toFixed(3));
+        const totalContribution = Number((employeeShare + companyShare).toFixed(3));
+
+        return {
+          id: emp.id,
+          name: emp.name || (emp as any).fullNameAr || 'موظف',
+          civilId: emp.civilId || '',
+          jobTitle: emp.jobTitle || 'موظف',
+          nationality: emp.nationality,
+          basicSalary: Number(emp.basicSalary || 0),
+          insuredSalary,
+          employeeShare,
+          companyShare,
+          totalContribution,
+        };
+      });
+  }, [employees, filteredPayslips]);
 
   // EOS employee dataset
   const settlementEmployees = useMemo(() => {
@@ -1540,6 +1575,7 @@ export const OdooPayrollApp: React.FC = () => {
             nameAr: activeCompany?.nameAr || 'شركة الأفق للتجارة العامة والمقاولات ذ.م.م',
             nameEn: activeCompany?.nameEn || 'Al-Ufuq General Trading & Contracting W.L.L.',
             crNumber: activeCompany?.crNumber || activeCompany?.commercialRegNo || '104829',
+            employerMosaCode: (activeCompany as any)?.mosaWorkNumber || activeCompany?.wsiCode || (activeCompany as any)?.pamFileNumber || activeCompany?.crNumber || activeCompany?.commercialRegNo || '000000',
             bankName: activeCompany?.bankName || 'بنك الكويت الوطني (NBK)',
             accountNumber: activeCompany?.accountNumber || '0123456789012',
             iban: activeCompany?.iban || ''

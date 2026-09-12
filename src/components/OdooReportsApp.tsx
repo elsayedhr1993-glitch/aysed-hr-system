@@ -342,11 +342,19 @@ export const OdooReportsApp: React.FC = () => {
   const expiredComplianceCount = analyticsData.filter(e => e.complianceStatus === 'منتهي الصلاحية').length;
   const expiringSoonCount = analyticsData.filter(e => e.complianceStatus === 'ينتهي قريباً (<30 يوم)').length;
 
+  const computePifssBreakdown = (grossSalary: number) => {
+    const insuredSalary = Math.min(Math.max(grossSalary || 0, 0), 3000);
+    const employeeShare = Number((insuredSalary * 0.105).toFixed(3));
+    const employerShare = Number((insuredSalary * 0.115).toFixed(3));
+    const totalShare = Number((employeeShare + employerShare).toFixed(3));
+    return { insuredSalary, employeeShare, employerShare, totalShare };
+  };
+
   // إجمالي اشتراكات التأمينات الاجتماعية (PIFSS) للكادر الوطني (سقف 3,000 د.ك، الموظف 10.5%، صاحب العمل 11.5%)
   const kuwaitiStaff = useMemo(() => analyticsData.filter(e => e.isKuwaiti), [analyticsData]);
-  const totalKuwaitiPifssEmployeeDeduct = 0;
-  const totalKuwaitiPifssEmployerContrib = 0;
-  const totalKuwaitiPifssContribution = 0;
+  const totalKuwaitiPifssEmployeeDeduct = kuwaitiStaff.reduce((acc, curr) => acc + computePifssBreakdown(curr.totalSalary).employeeShare, 0);
+  const totalKuwaitiPifssEmployerContrib = kuwaitiStaff.reduce((acc, curr) => acc + computePifssBreakdown(curr.totalSalary).employerShare, 0);
+  const totalKuwaitiPifssContribution = kuwaitiStaff.reduce((acc, curr) => acc + computePifssBreakdown(curr.totalSalary).totalShare, 0);
 
   // استخراج قائمة الأقسام الفريدة
   const departmentsList = useMemo(() => {
@@ -430,6 +438,7 @@ export const OdooReportsApp: React.FC = () => {
       }));
     } else if (activeReport === 'pifss_contributions') {
       exportRecords = filteredData.filter(d => d.isKuwaiti).map((d, idx) => {
+        const pifss = computePifssBreakdown(d.totalSalary);
         return {
           'م': idx + 1,
           'الكود': d.id,
@@ -438,10 +447,10 @@ export const OdooReportsApp: React.FC = () => {
           'المسمى': d.jobTitle,
           'القسم': d.department,
           'الراتب الشامل (د.ك)': Number(d.totalSalary.toFixed(3)),
-          'الراتب الخاضع للتأمين': 0,
-          'استقطاع الموظف (د.ك)': 0,
-          'مساهمة صاحب العمل (د.ك)': 0,
-          'إجمالي اشتراك التأمينات (د.ك)': 0
+          'الراتب الخاضع للتأمين': Number(pifss.insuredSalary.toFixed(3)),
+          'استقطاع الموظف (د.ك)': Number(pifss.employeeShare.toFixed(3)),
+          'مساهمة صاحب العمل (د.ك)': Number(pifss.employerShare.toFixed(3)),
+          'إجمالي اشتراك التأمينات (د.ك)': Number(pifss.totalShare.toFixed(3))
         };
       });
     } else if (activeReport === 'gov_compliance') {
@@ -972,10 +981,11 @@ export const OdooReportsApp: React.FC = () => {
                     </tr>
                   ) : (
                     filteredData.filter(emp => emp.isKuwaiti).map((emp, idx) => {
-                      const insurableWage = 0;
-                      const employeeDeduct = 0;
-                      const employerContrib = 0;
-                      const totalSub = 0;
+                      const pifss = computePifssBreakdown(emp.totalSalary);
+                      const insurableWage = pifss.insuredSalary;
+                      const employeeDeduct = pifss.employeeShare;
+                      const employerContrib = pifss.employerShare;
+                      const totalSub = pifss.totalShare;
 
                       return (
                         <tr key={emp.id} className={`hover:bg-purple-50/40 transition ${idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
@@ -1014,13 +1024,13 @@ export const OdooReportsApp: React.FC = () => {
                       {filteredData.filter(e => e.isKuwaiti).reduce((a, b) => a + b.totalSalary, 0).toFixed(3)}
                     </td>
                     <td className="p-3.5 text-left text-blue-900 font-bold">
-                      0.000
+                      {filteredData.filter(e => e.isKuwaiti).reduce((a, b) => a + computePifssBreakdown(b.totalSalary).insuredSalary, 0).toFixed(3)}
                     </td>
                     <td className="p-3.5 text-left text-rose-600 font-bold">
-                      -0.000
+                      -{totalKuwaitiPifssEmployeeDeduct.toFixed(3)}
                     </td>
                     <td className="p-3.5 text-left text-purple-700 font-bold">
-                      +0.000
+                      +{totalKuwaitiPifssEmployerContrib.toFixed(3)}
                     </td>
                     <td className="p-3.5 text-left text-emerald-900 text-sm font-black">
                       0.000 د.ك
