@@ -76,6 +76,7 @@ export const computeAttendanceAndOvertime = (
     gracePeriodMinutes?: number;
     employmentType?: 'full_time' | 'part_time';
     hourlyRate?: number;
+    workdayType?: 'regular' | 'rest_day' | 'holiday';
   }
 ) => {
   if (!checkIn || !checkOut || typeof checkIn !== 'string' || typeof checkOut !== 'string') {
@@ -130,8 +131,13 @@ export const computeAttendanceAndOvertime = (
     delayMinutes = actualInTotalMin - expectedInTotalMin;
   }
 
-  // نسبة البدل للإضافي
-  const multiplier = isHoliday ? 2.0 : 1.25;
+  // نسبة البدل للإضافي حسب قانون العمل الكويتي
+  const isRestDay = contractSchedule?.workdayType === 'rest_day';
+  const multiplier = isHoliday
+    ? KUWAIT_LABOR_CONFIG.payroll.overtimeRateHoliday
+    : isRestDay
+      ? KUWAIT_LABOR_CONFIG.payroll.overtimeRateRestDay
+      : KUWAIT_LABOR_CONFIG.payroll.overtimeRateRegular;
   const overtimeAmount = overtimeHours * hourRate * multiplier;
   const delayDeduction = (delayMinutes / 60) * hourRate;
 
@@ -387,7 +393,7 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
         ? (finalDelayMinutes * minRate)
         : ((finalDelayMinutes * minRate) + (att.unpaidAbsenceDays * dayRate));
 
-      const otAmount = 0;
+      const otAmount = Math.round(calculatedOtAmount * 1000) / 1000;
         
       const loanDed = empLoan && empLoan.remainingAmount > 0 
         ? Math.min(empLoan.monthlyInstallment, empLoan.remainingAmount) 
@@ -409,7 +415,7 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
         attendanceDeduction: Math.round(attDeduction * 1000) / 1000,
         loanDeduction: loanDed,
         pifssDeduction: 0.000, // صفر تأمينات
-        overtimeAmount: 0,
+        overtimeAmount: otAmount,
         prepaidDeduction: 0,
         netSalary: Math.round(net * 1000) / 1000
       };

@@ -17,7 +17,7 @@ import { PifssInsuranceReportModal } from './payroll/PifssInsuranceReportModal';
 import { PayrollStructureWizardModal } from './payroll/PayrollStructureWizardModal';
 import { EosSetupWizardModal } from './payroll/EosSetupWizardModal';
 import { db, cleanFirestoreData } from '../lib/firebase';
-import { collection, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
+import { collection, doc, getDoc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 
 export interface PayslipItem {
   id: string;
@@ -52,13 +52,22 @@ export interface PayslipItem {
   notes?: string;
 }
 
+interface MonthlyAttendanceRollupEntry {
+  employeeId: string;
+  lateMinutes: number;
+  unexcusedAbsenceDays: number;
+  overtimeHours: number;
+  overtimePay: number;
+  delayDeduction: number;
+  absenceDeduction: number;
+  actualHours: number;
+}
+
 export const OdooPayrollApp: React.FC = () => {
   const { activeCompany } = useCompany();
   const { settings } = useSystemSettings();
   const { 
     employees, 
-    attendance,
-    getAttendanceForEmployee,
     loans, 
     addLoan, 
     deleteLoan, 
@@ -90,6 +99,7 @@ export const OdooPayrollApp: React.FC = () => {
   const [payslips, setPayslips] = useState<PayslipItem[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [leaveAllocations, setLeaveAllocations] = useState<any[]>([]);
+  const [monthlyRollupByEmployee, setMonthlyRollupByEmployee] = useState<Record<string, MonthlyAttendanceRollupEntry>>({});
 
   useEffect(() => {
     const companyId = activeCompany?.id;
@@ -108,6 +118,23 @@ export const OdooPayrollApp: React.FC = () => {
       error => console.error('Failed to load payslips from Firestore', error)
     );
   }, [activeCompany?.id]);
+
+  useEffect(() => {
+    const companyId = activeCompany?.id;
+    if (!companyId || !selectedMonth) {
+      setMonthlyRollupByEmployee({});
+      return;
+    }
+
+    return onSnapshot(
+      doc(db, 'attendance_monthly_rollups', `${companyId}_${selectedMonth}`),
+      (snapshot) => {
+        const summaries = (snapshot.data()?.summaries || {}) as Record<string, MonthlyAttendanceRollupEntry>;
+        setMonthlyRollupByEmployee(summaries);
+      },
+      () => setMonthlyRollupByEmployee({})
+    );
+  }, [activeCompany?.id, selectedMonth]);
 
   useEffect(() => {
     const companyId = activeCompany?.id;
@@ -147,31 +174,74 @@ export const OdooPayrollApp: React.FC = () => {
     });
   };
 
+  const round3 = (value: number) => Math.round((Number(value) || 0) * 1000) / 1000;
+
+  const getAttendanceFinancials = (emp: any, rollupByEmployee?: Record<string, MonthlyAttendanceRollupEntry>) => {
+    const sourceRollup = rollupByEmployee || monthlyRollupByEmployee;
+    const monthly = sourceRollup[emp.id];
+    if (!monthly) {
+      return {
+        hasMonthlyRollup: false,
+        overtimeHours: 0,
+        overtimeAmount: 0,
+        absenceDays: 0,
+        absenceDeduction: 0,
+        delayMinutes: 0,
+        delayDeduction: 0
+      };
+    }
+
+    const overtimeHours = Number(monthly.overtimeHours || 0);
+    const overtimeAmount = round3(Number(monthly.overtimePay || 0));
+    const absenceDays = Number(monthly.unexcusedAbsenceDays || 0);
+    const absenceDeduction = round3(Number(monthly.absenceDeduction || 0));
+    const delayMinutes = Number(monthly.lateMinutes || 0);
+    const delayDeduction = round3(Number(monthly.delayDeduction || 0));
+
+    return {
+      hasMonthlyRollup: true,
+      overtimeHours,
+      overtimeAmount,
+      absenceDays,
+      absenceDeduction,
+      delayMinutes,
+      delayDeduction
+    };
+  };
+
+  const loadMonthlyRollupForPeriod = async (monthKey: string) => {
+    const companyId = activeCompany?.id;
+    if (!companyId || !monthKey) return {} as Record<string, MonthlyAttendanceRollupEntry>;
+
+    if (monthKey === selectedMonth) {
+      return monthlyRollupByEmployee;
+    }
+
+    const snapshot = await getDoc(doc(db, 'attendance_monthly_rollups', `${companyId}_${monthKey}`));
+    return (snapshot.data()?.summaries || {}) as Record<string, MonthlyAttendanceRollupEntry>;
+  };
+
   // Generate initial or refreshed payslips from employees & attendance
   const generateInitialPayslips = () => {
     if (!employees || employees.length === 0) return;
     const initialList: PayslipItem[] = employees.map((emp, idx) => {
-      const att = getAttendanceForEmployee(emp.id) || { employeeId: emp.id, delayMinutes: 0, unpaidAbsenceDays: 0, overtimeHours: 0 };
       const empLoan = loans.find(l => l.employeeId === emp.id && l.remainingAmount > 0);
 
       const totalBase = (emp.basicSalary || 0) + (emp.housingAllowance || 0) + (emp.transportAllowance || 0) + (emp.medicalAllowance || 0);
-      const dayRate = totalBase / 26;
-      const minRate = (dayRate / (emp.dailyHours || 8)) / 60;
-      const hourRate = dayRate / (emp.dailyHours || 8);
-
-      const overtimeHours = att.overtimeHours || 0;
-      const overtimeAmount = 0;
-      const absenceDays = att.unpaidAbsenceDays || 0;
-      const absenceDeduction = Math.round((absenceDays * dayRate) * 1000) / 1000;
-      const delayMinutes = att.delayMinutes || 0;
-      const delayDeduction = Math.round((delayMinutes * minRate) * 1000) / 1000;
+      const attendanceFinancials = getAttendanceFinancials(emp);
+      const overtimeHours = attendanceFinancials.overtimeHours;
+      const overtimeAmount = attendanceFinancials.overtimeAmount;
+      const absenceDays = attendanceFinancials.absenceDays;
+      const absenceDeduction = attendanceFinancials.absenceDeduction;
+      const delayMinutes = attendanceFinancials.delayMinutes;
+      const delayDeduction = attendanceFinancials.delayDeduction;
       const loanDeduction = empLoan ? Math.min(empLoan.monthlyInstallment, empLoan.remainingAmount) : 0;
       
       const pifssDeduction = 0;
 
       const grossSalary = totalBase;
-      const totalDeductions = absenceDeduction + delayDeduction + loanDeduction;
-      const netSalary = Math.max(0, grossSalary - totalDeductions);
+      const totalDeductions = round3(absenceDeduction + delayDeduction + loanDeduction);
+      const netSalary = Math.max(0, round3(grossSalary + overtimeAmount - totalDeductions));
 
       return {
         id: `SLIP-${selectedMonth}-${emp.id}`,
@@ -284,6 +354,7 @@ export const OdooPayrollApp: React.FC = () => {
 
   // New Payslip Modal Form State
   const [newForm, setNewForm] = useState({
+    period: selectedMonth,
     employeeId: '',
     employeeName: '',
     civilId: '',
@@ -300,16 +371,64 @@ export const OdooPayrollApp: React.FC = () => {
     delayMinutes: '0',
     pifssDeduction: '0'
   });
+  const [newPayslipPeriodStatus, setNewPayslipPeriodStatus] = useState<{
+    isLoading: boolean;
+    hasPostedRollup: boolean;
+    isLocked: boolean;
+    employeesCount: number;
+  }>({
+    isLoading: false,
+    hasPostedRollup: false,
+    isLocked: false,
+    employeesCount: 0
+  });
+
+  const refreshNewPayslipPeriodStatus = async (monthKey: string) => {
+    const companyId = activeCompany?.id;
+    if (!companyId || !monthKey) {
+      setNewPayslipPeriodStatus({ isLoading: false, hasPostedRollup: false, isLocked: false, employeesCount: 0 });
+      return;
+    }
+
+    setNewPayslipPeriodStatus(prev => ({ ...prev, isLoading: true }));
+    const snapshot = await getDoc(doc(db, 'attendance_monthly_rollups', `${companyId}_${monthKey}`));
+    const data = snapshot.data() || {};
+    const summaries = (data.summaries || {}) as Record<string, MonthlyAttendanceRollupEntry>;
+    const employeesCount = Object.keys(summaries).length;
+    const hasPostedRollup = snapshot.exists() && employeesCount > 0;
+    setNewPayslipPeriodStatus({
+      isLoading: false,
+      hasPostedRollup,
+      isLocked: Boolean(data.locked),
+      employeesCount
+    });
+  };
+
+  useEffect(() => {
+    if (!showNewPayslipModal) return;
+    const effectivePeriod = newForm.period || selectedMonth;
+    if (newForm.period !== effectivePeriod) {
+      setNewForm(prev => ({ ...prev, period: effectivePeriod }));
+    }
+    void refreshNewPayslipPeriodStatus(effectivePeriod);
+  }, [showNewPayslipModal, newForm.period, selectedMonth, activeCompany?.id]);
 
   // Handle employee select in New Payslip Modal
-  const handleSelectEmployeeForPayslip = (empId: string) => {
+  const handleSelectEmployeeForPayslip = async (empId: string, periodMonth?: string) => {
     const emp = employees.find(e => e.id === empId);
     if (!emp) return;
 
-    const att = getAttendanceForEmployee(empId) || { delayMinutes: 0, unpaidAbsenceDays: 0, overtimeHours: 0 };
+    const targetMonth = periodMonth || newForm.period || selectedMonth;
+    const rollupByEmployee = await loadMonthlyRollupForPeriod(targetMonth);
+    const attendanceFinancials = getAttendanceFinancials(emp, rollupByEmployee);
+    if (!attendanceFinancials.hasMonthlyRollup) {
+      alert(`لا توجد بيانات حضور مرحّلة لشهر ${targetMonth} لهذا الموظف. قم بترحيل الشهر من شاشة الحضور أولاً.`);
+      return;
+    }
     const pifss = '0';
 
     setNewForm({
+      period: targetMonth,
       employeeId: emp.id,
       employeeName: emp.name,
       civilId: emp.civilId || '',
@@ -321,98 +440,134 @@ export const OdooPayrollApp: React.FC = () => {
       housingAllowance: String(emp.housingAllowance || 0),
       transportAllowance: String(emp.transportAllowance || 0),
       medicalAllowance: String(emp.medicalAllowance || 0),
-      overtimeHours: String(att.overtimeHours || 0),
-      absenceDays: String(att.unpaidAbsenceDays || 0),
-      delayMinutes: String(att.delayMinutes || 0),
+      overtimeHours: String(attendanceFinancials.overtimeHours || 0),
+      absenceDays: String(attendanceFinancials.absenceDays || 0),
+      delayMinutes: String(attendanceFinancials.delayMinutes || 0),
       pifssDeduction: pifss
     });
   };
 
   const handleCreateNewPayslip = (e: React.FormEvent) => {
     e.preventDefault();
+    const periodMonth = newForm.period || selectedMonth;
+    if (!periodMonth) {
+      alert('يرجى تحديد شهر القسيمة أولاً.');
+      return;
+    }
+
+    if (!newForm.employeeId) {
+      alert('يرجى اختيار الموظف أولاً لإنشاء قسيمة مرتبطة بترحيل الحضور الشهري.');
+      return;
+    }
+
+    const selectedEmployee = employees.find(emp => emp.id === newForm.employeeId);
+    if (!selectedEmployee) {
+      alert('تعذر العثور على بيانات الموظف المختار.');
+      return;
+    }
+
     const basic = parseFloat(newForm.basicSalary) || 0;
     const housing = parseFloat(newForm.housingAllowance) || 0;
     const transport = parseFloat(newForm.transportAllowance) || 0;
     const medical = parseFloat(newForm.medicalAllowance) || 0;
-    const otHours = parseFloat(newForm.overtimeHours) || 0;
-    const absDays = parseFloat(newForm.absenceDays) || 0;
-    const delMins = parseFloat(newForm.delayMinutes) || 0;
-    const pifss = 0;
+    const createWithMonthlyRollup = async () => {
+      const rollupByEmployee = await loadMonthlyRollupForPeriod(periodMonth);
+      const attendanceFinancials = getAttendanceFinancials(selectedEmployee, rollupByEmployee);
+      if (!attendanceFinancials.hasMonthlyRollup) {
+        alert(`لا توجد بيانات حضور مرحّلة لشهر ${periodMonth} لهذا الموظف. قم بترحيل الشهر من شاشة الحضور أولاً.`);
+        return;
+      }
 
-    const totalBase = basic + housing + transport + medical;
-    const dayRate = totalBase / 26;
-    const hourRate = dayRate / 8;
-    const minRate = hourRate / 60;
+      const otHours = attendanceFinancials.overtimeHours;
+      const absDays = attendanceFinancials.absenceDays;
+      const delMins = attendanceFinancials.delayMinutes;
+      const pifss = 0;
 
-    const overtimeAmount = 0;
-    const absenceDeduction = Math.round((absDays * dayRate) * 1000) / 1000;
-    const delayDeduction = Math.round((delMins * minRate) * 1000) / 1000;
-    
-    const grossSalary = totalBase;
-    const totalDeductions = absenceDeduction + delayDeduction;
-    const netSalary = Math.max(0, grossSalary - totalDeductions);
+      const totalBase = basic + housing + transport + medical;
+      const overtimeAmount = attendanceFinancials.overtimeAmount;
+      const absenceDeduction = attendanceFinancials.absenceDeduction;
+      const delayDeduction = attendanceFinancials.delayDeduction;
+      
+      const grossSalary = totalBase;
+      const totalDeductions = round3(absenceDeduction + delayDeduction);
+      const netSalary = Math.max(0, round3(grossSalary + overtimeAmount - totalDeductions));
 
-    const newId = `SLIP-${selectedMonth}-${newForm.employeeId || '00' + (payslips.length + 1)}`;
-    const newSeq = `PAY/${selectedMonth.replace('-', '/')}/${String(payslips.length + 1).padStart(4, '0')}`;
+      const newId = `SLIP-${periodMonth}-${newForm.employeeId || '00' + (payslips.length + 1)}`;
+      const newSeq = `PAY/${periodMonth.replace('-', '/')}/${String(payslips.length + 1).padStart(4, '0')}`;
 
-    const created: PayslipItem = {
-      id: newId,
-      payslipNumber: newSeq,
-      employeeId: newForm.employeeId || `EMP-${String(payslips.length + 1).padStart(3, '0')}`,
-      employeeName: newForm.employeeName,
-      civilId: newForm.civilId,
-      jobTitle: newForm.jobTitle,
-      department: newForm.department,
-      bankName: newForm.bankName,
-      iban: newForm.iban,
-      period: selectedMonth,
-      basicSalary: basic,
-      housingAllowance: housing,
-      transportAllowance: transport,
-      medicalAllowance: medical,
-      overtimeHours: otHours,
-      overtimeAmount,
-      absenceDays: absDays,
-      absenceDeduction,
-      delayMinutes: delMins,
-      delayDeduction,
-      loanDeduction: 0,
-      pifssDeduction: 0,
-      grossSalary,
-      totalDeductions,
-      netSalary,
-      status: 'draft',
-      notes: 'مسير تم إدخاله واحتسابه يدوياً'
+      const created: PayslipItem = {
+        id: newId,
+        payslipNumber: newSeq,
+        employeeId: newForm.employeeId || `EMP-${String(payslips.length + 1).padStart(3, '0')}`,
+        employeeName: newForm.employeeName,
+        civilId: newForm.civilId,
+        jobTitle: newForm.jobTitle,
+        department: newForm.department,
+        bankName: newForm.bankName,
+        iban: newForm.iban,
+        period: periodMonth,
+        basicSalary: basic,
+        housingAllowance: housing,
+        transportAllowance: transport,
+        medicalAllowance: medical,
+        overtimeHours: otHours,
+        overtimeAmount,
+        absenceDays: absDays,
+        absenceDeduction,
+        delayMinutes: delMins,
+        delayDeduction,
+        loanDeduction: 0,
+        pifssDeduction: pifss,
+        grossSalary,
+        totalDeductions,
+        netSalary,
+        status: 'draft',
+        notes: `مسير مرتبط بترحيل الحضور الشهري (${periodMonth})`
+      };
+
+      savePayslips([created, ...payslips.filter(p => p.id !== created.id)]);
+      setShowNewPayslipModal(false);
+      setActivePayslipId(created.id);
     };
 
-    savePayslips([created, ...payslips.filter(p => p.id !== created.id)]);
-    setShowNewPayslipModal(false);
-    setActivePayslipId(created.id);
+    void createWithMonthlyRollup();
   };
 
   // Re-compute single payslip based on Kuwait Labor Law (26 days)
-  const handleRecomputePayslip = (id: string) => {
-    const divisor = 26;
-    const dailyHours = 8;
-    const overtimeMult = 1.25;
+  const handleRecomputePayslip = async (id: string) => {
+    const targetPayslip = payslips.find(p => p.id === id);
+    if (!targetPayslip) return;
+
+    const targetEmployee = employees.find(emp => emp.id === targetPayslip.employeeId);
+    if (!targetEmployee) {
+      alert('لا يمكن إعادة الاحتساب: الموظف غير موجود.');
+      return;
+    }
+
+    const periodMonth = targetPayslip.period || selectedMonth;
+    const rollupByEmployee = await loadMonthlyRollupForPeriod(periodMonth);
+    const attendanceFinancials = getAttendanceFinancials(targetEmployee, rollupByEmployee);
+    if (!attendanceFinancials.hasMonthlyRollup) {
+      alert(`لا توجد بيانات حضور مرحّلة لشهر ${periodMonth} لهذا الموظف. قم بترحيل الشهر من شاشة الحضور أولاً.`);
+      return;
+    }
 
     const updated = payslips.map(p => {
       if (p.id === id) {
         const totalBase = p.basicSalary + p.housingAllowance + p.transportAllowance + p.medicalAllowance;
-        const dayRate = totalBase / divisor;
-        const hourRate = dayRate / dailyHours;
-        const minRate = hourRate / 60;
-
-        const overtimeAmount = 0;
-        const absenceDeduction = Math.round((p.absenceDays * dayRate) * 1000) / 1000;
-        const delayDeduction = Math.round((p.delayMinutes * minRate) * 1000) / 1000;
+        const overtimeAmount = attendanceFinancials.overtimeAmount;
+        const absenceDeduction = attendanceFinancials.absenceDeduction;
+        const delayDeduction = attendanceFinancials.delayDeduction;
         
         const grossSalary = totalBase;
-        const totalDeductions = absenceDeduction + delayDeduction + p.loanDeduction;
-        const netSalary = Math.max(0, grossSalary - totalDeductions);
+        const totalDeductions = round3(absenceDeduction + delayDeduction + p.loanDeduction);
+        const netSalary = Math.max(0, round3(grossSalary + overtimeAmount - totalDeductions));
 
         return {
           ...p,
+          overtimeHours: attendanceFinancials.overtimeHours,
+          absenceDays: attendanceFinancials.absenceDays,
+          delayMinutes: attendanceFinancials.delayMinutes,
           overtimeAmount,
           absenceDeduction,
           delayDeduction,
@@ -1284,7 +1439,7 @@ export const OdooPayrollApp: React.FC = () => {
             <div className="flex justify-between items-center border-b pb-3 mb-4">
               <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
                 <CreditCard className="text-[#714B67]" size={18} />
-                إنشاء قسيمة راتب جديدة لشهر {selectedMonth}
+                إنشاء قسيمة راتب جديدة لشهر {newForm.period || selectedMonth}
               </h3>
               <button 
                 type="button" 
@@ -1297,10 +1452,44 @@ export const OdooPayrollApp: React.FC = () => {
 
             <form onSubmit={handleCreateNewPayslip} className="space-y-4">
               <div>
+                <label className="block font-bold text-slate-700 mb-1">شهر القسيمة (مستقل عن شهر الشاشة):</label>
+                <input
+                  type="month"
+                  value={newForm.period}
+                  onChange={async (e) => {
+                    const nextPeriod = e.target.value;
+                    setNewForm(prev => ({ ...prev, period: nextPeriod }));
+                    await refreshNewPayslipPeriodStatus(nextPeriod);
+                    if (newForm.employeeId) {
+                      await handleSelectEmployeeForPayslip(newForm.employeeId, nextPeriod);
+                    }
+                  }}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold text-slate-800 outline-none focus:border-[#714B67]"
+                />
+                <div className="mt-2">
+                  {newPayslipPeriodStatus.isLoading ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                      جاري التحقق من ترحيل الشهر...
+                    </span>
+                  ) : newPayslipPeriodStatus.hasPostedRollup ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      تم ترحيل الشهر ({newPayslipPeriodStatus.employeesCount} موظف) {newPayslipPeriodStatus.isLocked ? 'ومقفّل رسميًا' : 'وغير مقفّل'}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-200">
+                      الشهر غير مُرحّل بعد. لا يمكن إنشاء القسيمة قبل الترحيل من شاشة الحضور.
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div>
                 <label className="block font-bold text-slate-700 mb-1">اختر الموظف (تعبئة تلقائية للراتب والبدلات):</label>
                 <select
                   value={newForm.employeeId}
-                  onChange={(e) => handleSelectEmployeeForPayslip(e.target.value)}
+                  onChange={(e) => {
+                    void handleSelectEmployeeForPayslip(e.target.value, newForm.period || selectedMonth);
+                  }}
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 outline-none focus:border-[#714B67]"
                 >
                   <option value="">-- اختر من موظفي المنشأة --</option>
@@ -1406,29 +1595,29 @@ export const OdooPayrollApp: React.FC = () => {
 
                 <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200">
                   <div>
-                    <label className="block text-[11px] text-slate-500 mb-1">ساعات الإضافي</label>
+                    <label className="block text-[11px] text-slate-500 mb-1">ساعات الإضافي (من ترحيل الشهر)</label>
                     <input
                       type="number"
                       value={newForm.overtimeHours}
-                      onChange={(e) => setNewForm({ ...newForm, overtimeHours: e.target.value })}
+                      readOnly
                       className="w-full p-2 border rounded-lg font-mono"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] text-slate-500 mb-1">أيام الغياب</label>
+                    <label className="block text-[11px] text-slate-500 mb-1">أيام الغياب (من ترحيل الشهر)</label>
                     <input
                       type="number"
                       value={newForm.absenceDays}
-                      onChange={(e) => setNewForm({ ...newForm, absenceDays: e.target.value })}
+                      readOnly
                       className="w-full p-2 border rounded-lg font-mono"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] text-slate-500 mb-1">دقائق التأخير</label>
+                    <label className="block text-[11px] text-slate-500 mb-1">دقائق التأخير (من ترحيل الشهر)</label>
                     <input
                       type="number"
                       value={newForm.delayMinutes}
-                      onChange={(e) => setNewForm({ ...newForm, delayMinutes: e.target.value })}
+                      readOnly
                       className="w-full p-2 border rounded-lg font-mono"
                     />
                   </div>
@@ -1445,11 +1634,20 @@ export const OdooPayrollApp: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-[#714B67] hover:bg-[#583950] text-white rounded-xl font-bold cursor-pointer"
+                  disabled={newPayslipPeriodStatus.isLoading || !newPayslipPeriodStatus.hasPostedRollup}
+                  className="px-5 py-2 bg-[#714B67] hover:bg-[#583950] text-white rounded-xl font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   إنشاء المسير
                 </button>
               </div>
+
+              {(newPayslipPeriodStatus.isLoading || !newPayslipPeriodStatus.hasPostedRollup) && (
+                <div className="text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
+                  {newPayslipPeriodStatus.isLoading
+                    ? 'تعذر إنشاء القسيمة حالياً: يتم التحقق من حالة ترحيل الشهر المختار.'
+                    : 'تعذر إنشاء القسيمة: الشهر المختار غير مُرحّل بعد من شاشة الحضور.'}
+                </div>
+              )}
             </form>
           </div>
         </div>

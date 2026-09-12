@@ -17,6 +17,7 @@ export const KUWAIT_LABOR_CONFIG = {
     pifssEnabled: false,         // التأمينات الاجتماعية معطلة (0%)
     pifssDeductionRate: 0.0,
     overtimeRateRegular: 1.25,   // 125% في الأيام العادية
+    overtimeRateRestDay: 1.50,   // 150% في أيام الراحة الأسبوعية
     overtimeRateHoliday: 2.00,   // 200% في العطلات الرسمية (مادة 68)
   },
 

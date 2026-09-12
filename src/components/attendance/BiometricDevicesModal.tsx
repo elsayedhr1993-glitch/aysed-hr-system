@@ -33,9 +33,9 @@ import {
   Activity
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import * as XLSX from 'xlsx';
 import { useCompany } from '../../context/CompanyContext';
 import { useOdooHierarchy, computeAttendanceAndOvertime } from '../../context/OdooHierarchyContext';
+import { parseAttendanceFile } from '../../utils/attendanceParser';
 import { AttendanceItem } from '../Attendances';
 
 export interface BiometricDevice {
@@ -376,167 +376,117 @@ export const BiometricDevicesModal: React.FC<BiometricDevicesModalProps> = ({
   };
 
   // Parse Biometric DAT / TXT / CSV / Excel File
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsParsingFile(true);
-    const reader = new FileReader();
-
-    reader.onload = (evt) => {
-      try {
-        const ext = file.name.split('.').pop()?.toLowerCase();
-        let rawPunches: { pin: string; dateTime: string; status?: string }[] = [];
-
-        if (ext === 'dat' || ext === 'txt') {
-          // Standard ZKTeco attlog.dat format: "PIN \t YYYY-MM-DD HH:MM:SS \t STATUS \t VERIFY"
-          const text = evt.target?.result as string;
-          const lines = text.split(/\r?\n/);
-
-          lines.forEach(line => {
-            const trimmed = line.trim();
-            if (!trimmed) return;
-            const parts = trimmed.split(/\s+/); // Split by tabs or spaces
-            if (parts.length >= 2) {
-              const pin = parts[0].replace(/[^0-9a-zA-Z]/g, '');
-              let dateTime = parts[1];
-              if (parts[2] && parts[2].includes(':')) {
-                dateTime = `${parts[1]} ${parts[2]}`;
-              }
-              if (pin && dateTime) {
-                rawPunches.push({ pin, dateTime });
-              }
-            }
-          });
-        } else {
-          // Excel / CSV Parse
-          const data = new Uint8Array(evt.target?.result as ArrayBuffer);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-          const json: any[] = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
-
-          json.forEach(row => {
-            const pin = String(row['User ID'] || row['ID'] || row['رقم البصمة'] || row['كود الموظف'] || row['PIN'] || row['Enroll ID'] || Object.values(row)[0] || '').trim();
-            const dateStr = String(row['Date'] || row['التاريخ'] || row['Time'] || row['الوقت'] || row['DateTime'] || Object.values(row)[1] || '').trim();
-            const timeStr = String(row['Time'] || row['الوقت'] || row['Time In'] || Object.values(row)[2] || '').trim();
-
-            if (pin) {
-              const combinedDateTime = timeStr && !dateStr.includes(':') ? `${dateStr} ${timeStr}` : dateStr;
-              rawPunches.push({ pin, dateTime: combinedDateTime });
-            }
-          });
-        }
-
-        if (rawPunches.length === 0) {
-          toast.error('لم يتم العثور على حركات بصمة صالحة في الملف');
-          setIsParsingFile(false);
-          return;
-        }
-
-        // Group by Employee and Date
-        const groupedMap = new Map<string, { pin: string; date: string; punches: string[] }>();
-
-        rawPunches.forEach(p => {
-          let datePart = new Date().toISOString().split('T')[0];
-          let timePart = '08:00';
-
-          if (p.dateTime.includes(' ')) {
-            const [d, t] = p.dateTime.split(' ');
-            if (d && d.includes('-')) datePart = d;
-            if (t) timePart = t.substring(0, 5);
-          } else if (p.dateTime.includes(':')) {
-            timePart = p.dateTime.substring(0, 5);
-          }
-
-          const groupKey = `${p.pin}_${datePart}`;
-          if (!groupedMap.has(groupKey)) {
-            groupedMap.set(groupKey, { pin: p.pin, date: datePart, punches: [] });
-          }
-          groupedMap.get(groupKey)!.punches.push(timePart);
-        });
-
-        // Map to AttendanceItems
-        const generatedItems: AttendanceItem[] = [];
-        let matchedCount = 0;
-
-        groupedMap.forEach((entry) => {
-          entry.punches.sort();
-          const firstPunch = entry.punches[0];
-          const lastPunch = entry.punches.length > 1 ? entry.punches[entry.punches.length - 1] : '';
-
-          // Find employee by PIN mapping or ID
-          const emp = employees.find(e => {
-            const anyE = e as any;
-            return pinMappings[e.id] === entry.pin || 
-              anyE.employeeCode === entry.pin || 
-              anyE.biometricId === entry.pin || 
-              e.id.includes(entry.pin);
-          });
-
-          if (emp) matchedCount++;
-
-          const empId = emp ? emp.id : `PIN-${entry.pin}`;
-          const empName = emp ? emp.name : `موظف بصمة #${entry.pin}`;
-          const dept = emp ? emp.department : 'غير محدد';
-          const gross = emp ? (emp.basicSalary + emp.housingAllowance + emp.transportAllowance) : 1000;
-          const expectedIn = emp?.shiftStartTime || '08:00';
-          const expectedOut = emp?.shiftEndTime || '16:00';
-          const dailyHours = emp?.dailyHours || 8;
-
-          const calc = computeAttendanceAndOvertime(firstPunch, lastPunch || firstPunch, gross, false, {
-            dailyHours,
-            shiftStartTime: expectedIn,
-            shiftEndTime: expectedOut,
-            gracePeriodMinutes: emp?.gracePeriodMinutes || 15,
-            employmentType: emp?.employmentType || 'full_time',
-            hourlyRate: emp?.hourlyRate
-          });
-
-          let status: AttendanceItem['status'] = 'present';
-          if (!lastPunch) status = 'single_punch';
-          else if (calc.delayMinutes > 0) status = 'late';
-          else if (calc.overtimeHours > 0) status = 'overtime';
-
-          generatedItems.push({
-            id: `BIO-${entry.pin}-${entry.date}-${Date.now()}`,
-            employeeId: empId,
-            employeeName: empName,
-            department: dept,
-            jobTitle: emp?.jobTitle || '',
-            date: entry.date,
-            checkIn: firstPunch,
-            checkOut: lastPunch || 'لم يتم التبصيم',
-            workHours: lastPunch ? Math.round(calc.actualHours * 10) / 10 : 0,
-            standardHours: dailyHours,
-            lateMinutes: calc.delayMinutes,
-            overtimeHours: calc.overtimeHours,
-            method: 'دستور بيومتري (Device)',
-            status,
-            sourceFile: file.name
-          });
-        });
-
-        setParsedFileLogs(generatedItems);
-        setFileStats({
-          totalPunches: rawPunches.length,
-          matchedEmployees: matchedCount,
-          dateRange: generatedItems[0]?.date || 'اليوم'
-        });
-
-        toast.success(`تمت معالجة ملف البصمة (${rawPunches.length} حركة - ${generatedItems.length} يوم عمل)`);
-      } catch (err: any) {
-        console.error(err);
-        toast.error('حدث خطأ أثناء قراءة ملف البصمة. تأكد من صحة التنسيق.');
-      } finally {
-        setIsParsingFile(false);
-        if (fileInputRef.current) fileInputRef.current.value = '';
+    try {
+      const rawLogs = await parseAttendanceFile(file);
+      if (rawLogs.length === 0) {
+        toast.error('لم يتم العثور على حركات بصمة صالحة في الملف');
+        return;
       }
-    };
 
-    if (file.name.endsWith('.dat') || file.name.endsWith('.txt')) {
-      reader.readAsText(file);
-    } else {
-      reader.readAsArrayBuffer(file);
+      const normalize = (value: any) => String(value || '').trim();
+      const lower = (value: any) => normalize(value).toLowerCase();
+      const digits = (value: any) => normalize(value).replace(/\D/g, '');
+
+      const isExactCodeMatch = (a: any, b: string) => {
+        const left = normalize(a);
+        const right = normalize(b);
+        if (!left || !right) return false;
+        if (lower(left) === lower(right)) return true;
+        const leftDigits = digits(left);
+        const rightDigits = digits(right);
+        return Boolean(leftDigits && rightDigits && leftDigits === rightDigits);
+      };
+
+      const groupedMap = new Map<string, { pin: string; date: string; punches: string[] }>();
+      rawLogs.forEach((row) => {
+        const pin = normalize(row.employeeCode);
+        const date = normalize(row.date) || new Date().toISOString().split('T')[0];
+        const time = normalize(row.time);
+        if (!pin || !time) return;
+        const groupKey = `${pin.toLowerCase()}_${date}`;
+        if (!groupedMap.has(groupKey)) {
+          groupedMap.set(groupKey, { pin, date, punches: [] });
+        }
+        groupedMap.get(groupKey)!.punches.push(time);
+      });
+
+      const generatedItems: AttendanceItem[] = [];
+      let matchedCount = 0;
+
+      groupedMap.forEach((entry) => {
+        entry.punches.sort();
+        const firstPunch = entry.punches[0];
+        const lastPunch = entry.punches.length > 1 ? entry.punches[entry.punches.length - 1] : '';
+
+        const emp = employees.find(e => {
+          const anyE = e as any;
+          return isExactCodeMatch(pinMappings[e.id], entry.pin) ||
+            isExactCodeMatch(anyE.employeeCode, entry.pin) ||
+            isExactCodeMatch(anyE.biometricId, entry.pin) ||
+            isExactCodeMatch(e.id, entry.pin);
+        });
+
+        if (emp) matchedCount++;
+
+        const empId = emp ? emp.id : `PIN-${entry.pin}`;
+        const empName = emp ? emp.name : `موظف بصمة #${entry.pin}`;
+        const dept = emp ? emp.department : 'غير محدد';
+        const gross = emp ? (emp.basicSalary + emp.housingAllowance + emp.transportAllowance) : 1000;
+        const expectedIn = emp?.shiftStartTime || '08:00';
+        const expectedOut = emp?.shiftEndTime || '16:00';
+        const dailyHours = emp?.dailyHours || 8;
+
+        const calc = computeAttendanceAndOvertime(firstPunch, lastPunch || firstPunch, gross, false, {
+          dailyHours,
+          shiftStartTime: expectedIn,
+          shiftEndTime: expectedOut,
+          gracePeriodMinutes: emp?.gracePeriodMinutes || 15,
+          employmentType: emp?.employmentType || 'full_time',
+          hourlyRate: emp?.hourlyRate
+        });
+
+        let status: AttendanceItem['status'] = 'present';
+        if (!lastPunch) status = 'single_punch';
+        else if (calc.delayMinutes > 0) status = 'late';
+        else if (calc.overtimeHours > 0) status = 'overtime';
+
+        generatedItems.push({
+          id: `BIO-${entry.pin}-${entry.date}-${Date.now()}`,
+          employeeId: empId,
+          employeeName: empName,
+          department: dept,
+          jobTitle: emp?.jobTitle || '',
+          date: entry.date,
+          checkIn: firstPunch,
+          checkOut: lastPunch || 'لم يتم التبصيم',
+          workHours: lastPunch ? Math.round(calc.actualHours * 10) / 10 : 0,
+          standardHours: dailyHours,
+          lateMinutes: calc.delayMinutes,
+          overtimeHours: calc.overtimeHours,
+          method: 'دستور بيومتري (Device)',
+          status,
+          sourceFile: file.name
+        });
+      });
+
+      setParsedFileLogs(generatedItems);
+      setFileStats({
+        totalPunches: rawLogs.length,
+        matchedEmployees: matchedCount,
+        dateRange: generatedItems[0]?.date || 'اليوم'
+      });
+
+      toast.success(`تمت معالجة ملف البصمة (${rawLogs.length} حركة - ${generatedItems.length} يوم عمل)`);
+    } catch {
+      toast.error('حدث خطأ أثناء قراءة ملف البصمة. تأكد من صحة التنسيق.');
+    } finally {
+      setIsParsingFile(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 

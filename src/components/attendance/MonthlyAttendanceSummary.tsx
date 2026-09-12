@@ -1,14 +1,14 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { 
   Calendar, Search, Download, Printer, Send, CheckCircle2, 
   AlertTriangle, DollarSign, Clock, UserCheck, UserX, ShieldCheck, 
-  Sparkles, ArrowRight, Building2, TrendingUp, TrendingDown 
+  Sparkles, ArrowRight, Building2, TrendingUp, TrendingDown, RotateCcw
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { toast } from 'react-hot-toast';
 import { AttendanceItem } from '../Attendances';
 import { getDepartmentColorStyle } from '../../utils/odooPalette';
-import { KUWAIT_LABOR_CONFIG } from '../../config/kuwaitLaborConfig';
+import { buildMonthlyAttendanceSummary } from '../../utils/attendanceParser';
 
 interface MonthlyAttendanceSummaryProps {
   employees: Array<{
@@ -27,7 +27,10 @@ interface MonthlyAttendanceSummaryProps {
   }>;
   attendanceLogs: AttendanceItem[];
   companyName: string;
+  selectedMonth: string;
+  onSelectedMonthChange: (monthKey: string) => void;
   onPostToPayroll: (monthKey: string, summary: any[]) => void;
+  onReopenMonth: (monthKey: string) => void;
   isMonthPosted: boolean;
   onOpenPrintModal: (data: any) => void;
 }
@@ -36,12 +39,13 @@ export const MonthlyAttendanceSummary: React.FC<MonthlyAttendanceSummaryProps> =
   employees,
   attendanceLogs,
   companyName,
+  selectedMonth,
+  onSelectedMonthChange,
   onPostToPayroll,
+  onReopenMonth,
   isMonthPosted,
   onOpenPrintModal
 }) => {
-  const currentYearMonth = new Date().toISOString().slice(0, 7); // '2026-09'
-  const [selectedMonth, setSelectedMonth] = useState(currentYearMonth);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDept, setSelectedDept] = useState('الكل');
 
@@ -51,79 +55,9 @@ export const MonthlyAttendanceSummary: React.FC<MonthlyAttendanceSummaryProps> =
     return ['الكل', ...Array.from(set)];
   }, [employees]);
 
-  // Kuwait Labor Law Standard: 26 Working Days per month divisor
-  const STANDARD_WORK_DAYS = 26;
-
   // Compute monthly metrics per employee
   const monthlyData = useMemo(() => {
-    return employees.map(emp => {
-      const grossSalary = emp.basicSalary + (emp.housingAllowance || 0) + (emp.transportAllowance || 0) + (emp.medicalAllowance || 0);
-      const isPartTime = emp.employmentType === 'part_time';
-      const dayHours = emp.dailyHours || 8;
-
-      // Rates according to Kuwait Labor Law
-      const dayRate = isPartTime ? ((emp.hourlyRate || 0) * dayHours) : (grossSalary / STANDARD_WORK_DAYS);
-      const hourRate = isPartTime ? (emp.hourlyRate || 0) : (dayRate / dayHours);
-      const minRate = hourRate / 60;
-
-      // Filter attendance logs for this employee in selectedMonth
-      const logsForMonth = attendanceLogs.filter(log => 
-        log.employeeId === emp.id && 
-        log.date.startsWith(selectedMonth)
-      );
-
-      // Present count: days where checkIn exists
-      const presentDays = logsForMonth.filter(l => l.checkIn && l.checkIn !== '').length;
-
-      // Total actual work hours
-      const actualHours = logsForMonth.reduce((acc, l) => acc + (l.workHours || 0), 0);
-
-      // Total overtime hours
-      const overtimeHours = logsForMonth.reduce((acc, l) => acc + (l.overtimeHours || 0), 0);
-
-      // Total late minutes (excluding officially excused ones)
-      const lateMinutes = logsForMonth.reduce((acc, l) => {
-        if (l.isExcused) return acc;
-        return acc + (l.lateMinutes || 0);
-      }, 0);
-
-      // Excused permissions count
-      const excusedDays = logsForMonth.filter(l => l.isExcused).length;
-
-      // Unexcused absence days estimation (assumes workdays - present, capped appropriately)
-      // If employee has 0 logs, consider them with missing punches
-      const unexcusedAbsenceDays = logsForMonth.filter(l => l.status === 'absent').length;
-
-      // Financial computations
-      // Overtime regular rate in Kuwait: 1.25x
-      const otMultiplier = 1.25;
-      const overtimePay = Math.round((overtimeHours * hourRate * otMultiplier) * 1000) / 1000;
-      const delayDeduction = Math.round((lateMinutes * minRate) * 1000) / 1000;
-      const absenceDeduction = Math.round((unexcusedAbsenceDays * dayRate) * 1000) / 1000;
-      const netAdjustment = Math.round((overtimePay - (delayDeduction + absenceDeduction)) * 1000) / 1000;
-
-      return {
-        employeeId: emp.id,
-        employeeName: emp.name,
-        civilId: emp.civilId || '',
-        department: emp.department,
-        jobTitle: emp.jobTitle || 'موظف',
-        grossSalary,
-        dayRate,
-        hourRate,
-        standardWorkDays: STANDARD_WORK_DAYS,
-        presentDays,
-        unexcusedAbsenceDays,
-        actualHours: Math.round(actualHours * 10) / 10,
-        overtimeHours: Math.round(overtimeHours * 10) / 10,
-        lateMinutes,
-        excusedDays,
-        overtimePay,
-        delayDeduction,
-        absenceDeduction,
-        netAdjustment
-      };
-    });
+    return buildMonthlyAttendanceSummary(employees as any, attendanceLogs as any, selectedMonth);
   }, [employees, attendanceLogs, selectedMonth]);
 
   // Filtered rows
@@ -193,7 +127,7 @@ export const MonthlyAttendanceSummary: React.FC<MonthlyAttendanceSummaryProps> =
             <input
               type="month"
               value={selectedMonth}
-              onChange={e => setSelectedMonth(e.target.value)}
+              onChange={e => onSelectedMonthChange(e.target.value)}
               className="outline-none font-mono font-bold text-xs bg-transparent text-[#714B67] cursor-pointer"
             />
           </div>
@@ -217,11 +151,23 @@ export const MonthlyAttendanceSummary: React.FC<MonthlyAttendanceSummaryProps> =
           <button
             type="button"
             onClick={() => onPostToPayroll(selectedMonth, monthlyData)}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+            disabled={isMonthPosted}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Send size={14} />
-            <span>{isMonthPosted ? 'إعادة ترحيل للرواتب (Update WPS)' : '⚡ ترحيل لمسير الرواتب (Post WPS)'}</span>
+            <span>{isMonthPosted ? 'الشهر مقفل بعد الاعتماد' : '⚡ ترحيل لمسير الرواتب (Post WPS)'}</span>
           </button>
+
+          {isMonthPosted && (
+            <button
+              type="button"
+              onClick={() => onReopenMonth(selectedMonth)}
+              className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+            >
+              <RotateCcw size={14} />
+              <span>فك قفل الشهر (Reopen)</span>
+            </button>
+          )}
 
           {/* Export Excel */}
           <button

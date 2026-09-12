@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 import { Employee, AttendanceRecord, LeaveRequest, Contract } from '../types';
 import { normalizeContractStatus } from './contractStatus';
+import { KUWAIT_LABOR_CONFIG } from '../config/kuwaitLaborConfig';
 
 export interface ShiftConfig {
   nameAr?: string;
@@ -27,12 +28,163 @@ export interface ParsedAttendanceResult {
   datesFound: string[];
 }
 
+export interface MonthlyAttendanceEmployeeInput {
+  id: string;
+  name?: string;
+  fullNameAr?: string;
+  civilId?: string;
+  department?: string;
+  jobTitle?: string;
+  basicSalary?: number;
+  housingAllowance?: number;
+  transportAllowance?: number;
+  medicalAllowance?: number;
+  dailyHours?: number;
+  employmentType?: string;
+  hourlyRate?: number;
+}
+
+export interface MonthlyAttendanceLogInput {
+  employeeId: string;
+  date: string;
+  checkIn?: string;
+  workHours?: number;
+  overtimeHours?: number;
+  lateMinutes?: number;
+  isExcused?: boolean;
+  status?: string;
+  isHoliday?: boolean;
+  shiftInfo?: {
+    isOff?: boolean;
+  };
+}
+
+export interface MonthlyAttendanceSummaryRow {
+  employeeId: string;
+  employeeName: string;
+  civilId: string;
+  department: string;
+  jobTitle: string;
+  grossSalary: number;
+  dayRate: number;
+  hourRate: number;
+  standardWorkDays: number;
+  presentDays: number;
+  unexcusedAbsenceDays: number;
+  actualHours: number;
+  overtimeHours: number;
+  overtimeRegularHours: number;
+  overtimeRestDayHours: number;
+  overtimeHolidayHours: number;
+  lateMinutes: number;
+  excusedDays: number;
+  overtimePay: number;
+  delayDeduction: number;
+  absenceDeduction: number;
+  netAdjustment: number;
+}
+
 export const DEFAULT_SHIFT: ShiftConfig = {
   startTime: '08:00',
   endTime: '16:00',
   graceMinutes: 15,
   dailyWorkHours: 8,
 };
+
+export function buildMonthlyAttendanceSummary(
+  employees: MonthlyAttendanceEmployeeInput[],
+  attendanceLogs: MonthlyAttendanceLogInput[],
+  selectedMonth: string
+): MonthlyAttendanceSummaryRow[] {
+  const safeEmployees = employees || [];
+  const safeLogs = attendanceLogs || [];
+  const standardWorkDays = KUWAIT_LABOR_CONFIG.payroll.monthlyWorkingDaysBasis || 26;
+
+  const round3 = (value: number) => Math.round((Number(value) || 0) * 1000) / 1000;
+
+  return safeEmployees.map((emp) => {
+    const grossSalary = Number(emp.basicSalary || 0) + Number(emp.housingAllowance || 0) + Number(emp.transportAllowance || 0) + Number(emp.medicalAllowance || 0);
+    const isPartTime = emp.employmentType === 'part_time';
+    const dayHours = Number(emp.dailyHours || KUWAIT_LABOR_CONFIG.payroll.dailyHoursBasis || 8);
+
+    const dayRate = isPartTime ? (Number(emp.hourlyRate || 0) * dayHours) : (grossSalary / standardWorkDays);
+    const hourRate = isPartTime ? Number(emp.hourlyRate || 0) : (dayRate / dayHours);
+    const minRate = hourRate / 60;
+
+    const logsForMonth = safeLogs.filter((log) => log.employeeId === emp.id && String(log.date || '').startsWith(selectedMonth));
+
+    const presentDays = logsForMonth.filter((l) => Boolean(l.checkIn)).length;
+    const actualHours = logsForMonth.reduce((acc, l) => acc + Number(l.workHours || 0), 0);
+    const overtimeHours = logsForMonth.reduce((acc, l) => acc + Number(l.overtimeHours || 0), 0);
+    const lateMinutes = logsForMonth.reduce((acc, l) => {
+      if (l.isExcused) return acc;
+      return acc + Number(l.lateMinutes || 0);
+    }, 0);
+    const excusedDays = logsForMonth.filter((l) => Boolean(l.isExcused)).length;
+    const unexcusedAbsenceDays = logsForMonth.filter((l) => (l.status || '').toLowerCase() === 'absent').length;
+
+    const overtimeRegularHours = logsForMonth.reduce((acc, l) => {
+      const isHoliday = Boolean(l.isHoliday);
+      const isRestDay = Boolean(l.shiftInfo?.isOff);
+      if (isHoliday || isRestDay) return acc;
+      return acc + Number(l.overtimeHours || 0);
+    }, 0);
+
+    const overtimeRestDayHours = logsForMonth.reduce((acc, l) => {
+      const isHoliday = Boolean(l.isHoliday);
+      const isRestDay = Boolean(l.shiftInfo?.isOff);
+      if (!isHoliday && isRestDay) return acc + Number(l.overtimeHours || 0);
+      return acc;
+    }, 0);
+
+    const overtimeHolidayHours = logsForMonth.reduce((acc, l) => {
+      if (l.isHoliday) return acc + Number(l.overtimeHours || 0);
+      return acc;
+    }, 0);
+
+    const overtimePay = round3(logsForMonth.reduce((acc, l) => {
+      const otHours = Number(l.overtimeHours || 0);
+      if (!otHours) return acc;
+      const isHoliday = Boolean(l.isHoliday);
+      const isRestDay = Boolean(l.shiftInfo?.isOff);
+      const multiplier = isHoliday
+        ? KUWAIT_LABOR_CONFIG.payroll.overtimeRateHoliday
+        : isRestDay
+          ? KUWAIT_LABOR_CONFIG.payroll.overtimeRateRestDay
+          : KUWAIT_LABOR_CONFIG.payroll.overtimeRateRegular;
+      return acc + (otHours * hourRate * multiplier);
+    }, 0));
+
+    const delayDeduction = round3(lateMinutes * minRate);
+    const absenceDeduction = round3(unexcusedAbsenceDays * dayRate);
+    const netAdjustment = round3(overtimePay - (delayDeduction + absenceDeduction));
+
+    return {
+      employeeId: emp.id,
+      employeeName: emp.name || emp.fullNameAr || 'موظف',
+      civilId: emp.civilId || '',
+      department: emp.department || 'غير محدد',
+      jobTitle: emp.jobTitle || 'موظف',
+      grossSalary,
+      dayRate,
+      hourRate,
+      standardWorkDays,
+      presentDays,
+      unexcusedAbsenceDays,
+      actualHours: Math.round(actualHours * 10) / 10,
+      overtimeHours: Math.round(overtimeHours * 10) / 10,
+      overtimeRegularHours: Math.round(overtimeRegularHours * 10) / 10,
+      overtimeRestDayHours: Math.round(overtimeRestDayHours * 10) / 10,
+      overtimeHolidayHours: Math.round(overtimeHolidayHours * 10) / 10,
+      lateMinutes,
+      excusedDays,
+      overtimePay,
+      delayDeduction,
+      absenceDeduction,
+      netAdjustment
+    };
+  });
+}
 
 // Convert HH:mm to minutes from midnight
 export function timeToMinutes(timeStr: string): number {

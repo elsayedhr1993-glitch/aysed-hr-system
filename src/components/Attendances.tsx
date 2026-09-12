@@ -46,6 +46,7 @@ import { OfficialAttendancePrintModal } from './attendance/OfficialAttendancePri
 import { DynamicQrKioskModal } from './DynamicQrKioskModal';
 import { BiometricDevicesModal } from './attendance/BiometricDevicesModal';
 import { AttendanceSetupWizardModal, getAttendanceMasterPolicy, AttendancePolicyData } from './attendance/AttendanceSetupWizardModal';
+import { parseAttendanceFile } from '../utils/attendanceParser';
 import { db, cleanFirestoreData } from '../lib/firebase';
 import { collection, doc, onSnapshot, setDoc } from 'firebase/firestore';
 
@@ -88,6 +89,7 @@ export const Attendances: React.FC = () => {
   const [selectedDept, setSelectedDept] = useState('الكل');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedMonthForPosting, setSelectedMonthForPosting] = useState<string>(new Date().toISOString().slice(0, 7));
 
   // Excel / CSV Importer State
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -163,6 +165,10 @@ export const Attendances: React.FC = () => {
     }, error => console.error('Failed to load posted attendance months from Firestore', error));
   }, [activeCompId]);
 
+  const getMonthKeyFromDate = (dateStr: string) => String(dateStr || '').slice(0, 7);
+  const isMonthLocked = (monthKey: string) => Boolean(postedMonths[monthKey]);
+  const isDateLocked = (dateStr: string) => isMonthLocked(getMonthKeyFromDate(dateStr));
+
   // Helper: Read Assigned Shift for an employee on selectedDate from Odoo Planning
   const getEmployeeShiftForDate = (empId: string, dateStr: string) => {
     try {
@@ -222,7 +228,8 @@ export const Attendances: React.FC = () => {
           shiftEndTime: expectedOut,
           gracePeriodMinutes: emp.gracePeriodMinutes,
           employmentType: emp.employmentType,
-          hourlyRate: emp.hourlyRate
+          hourlyRate: emp.hourlyRate,
+          workdayType: assignedShift?.isOff ? 'rest_day' : 'regular'
         });
         calc = {
           actualHours: calculated.actualHours,
@@ -303,6 +310,11 @@ export const Attendances: React.FC = () => {
 
   // Handle Manual Punch Save
   const handleSaveManualPunch = (payload: ManualPunchPayload) => {
+    if (isDateLocked(payload.date)) {
+      toast.error('هذا الشهر مقفل بعد الاعتماد. يجب فك القفل الرسمي قبل أي تعديل.');
+      return;
+    }
+
     const emp = employees.find(e => e.id === payload.employeeId);
     if (!emp) return;
 
@@ -317,7 +329,8 @@ export const Attendances: React.FC = () => {
       shiftEndTime: expectedOut,
       gracePeriodMinutes: emp.gracePeriodMinutes,
       employmentType: emp.employmentType,
-      hourlyRate: emp.hourlyRate
+      hourlyRate: emp.hourlyRate,
+      workdayType: assignedShift?.isOff ? 'rest_day' : 'regular'
     });
 
     // If officially excused, zero out delay minutes
@@ -376,18 +389,24 @@ export const Attendances: React.FC = () => {
   const handleResolveSinglePunch = (recordId: string, resolvedCheckOut: string, reason: string) => {
     const target = liveTableData.find(r => r.id === recordId) || customAttendanceRecords.find(r => r.id === recordId);
     if (!target) return;
+    if (isDateLocked(target.date)) {
+      toast.error('هذا الشهر مقفل بعد الاعتماد. يجب فك القفل الرسمي قبل التعديل.');
+      return;
+    }
 
     const emp = employees.find(e => e.id === target.employeeId);
     if (!emp) return;
 
     const empGross = emp.basicSalary + emp.housingAllowance + emp.transportAllowance;
+    const assignedShift = getEmployeeShiftForDate(target.employeeId, target.date);
     const calculated = computeAttendanceAndOvertime(target.checkIn, resolvedCheckOut, empGross, false, {
       dailyHours: emp.dailyHours,
-      shiftStartTime: emp.shiftStartTime,
-      shiftEndTime: emp.shiftEndTime,
+      shiftStartTime: assignedShift?.startTime || emp.shiftStartTime,
+      shiftEndTime: assignedShift?.endTime || emp.shiftEndTime,
       gracePeriodMinutes: emp.gracePeriodMinutes,
       employmentType: emp.employmentType,
-      hourlyRate: emp.hourlyRate
+      hourlyRate: emp.hourlyRate,
+      workdayType: assignedShift?.isOff ? 'rest_day' : 'regular'
     });
 
     const updatedRecord: AttendanceItem = {
@@ -421,6 +440,11 @@ export const Attendances: React.FC = () => {
 
   // Quick Official Excuse Toggle
   const handleToggleExcuse = (record: AttendanceItem) => {
+    if (isDateLocked(record.date)) {
+      toast.error('هذا الشهر مقفل بعد الاعتماد. يجب فك القفل الرسمي قبل التعديل.');
+      return;
+    }
+
     const isNowExcused = !record.isExcused;
     const updated: AttendanceItem = {
       ...record,
@@ -454,20 +478,42 @@ export const Attendances: React.FC = () => {
   // Handle Monthly Post to Payroll (WPS)
   const handlePostToPayroll = (monthKey: string, summaryList: any[]) => {
     try {
+      if (isMonthLocked(monthKey)) {
+        toast.error('الشهر معتمد ومقفل. استخدم إجراء فك القفل الرسمي أولاً.');
+        return;
+      }
+
       const updatedPosted = { ...postedMonths, [monthKey]: true };
       setPostedMonths(updatedPosted);
       void setDoc(doc(db, 'attendance_posted_months', activeCompId), { months: updatedPosted }, { merge: true });
 
-      // Push latest figures to Odoo Hierarchy Context for payslip computations
-      summaryList.forEach(item => {
-        recordAttendanceTimes(
-          item.employeeId,
-          '08:00',
-          '16:00',
-          item.lateMinutes,
-          item.overtimeHours
-        );
-      });
+      const summaries = summaryList.reduce((acc: Record<string, any>, item: any) => {
+        acc[item.employeeId] = {
+          employeeId: item.employeeId,
+          employeeName: item.employeeName,
+          lateMinutes: Number(item.lateMinutes || 0),
+          unexcusedAbsenceDays: Number(item.unexcusedAbsenceDays || 0),
+          overtimeHours: Number(item.overtimeHours || 0),
+          overtimeRegularHours: Number(item.overtimeRegularHours || 0),
+          overtimeRestDayHours: Number(item.overtimeRestDayHours || 0),
+          overtimeHolidayHours: Number(item.overtimeHolidayHours || 0),
+          overtimePay: Number(item.overtimePay || 0),
+          delayDeduction: Number(item.delayDeduction || 0),
+          absenceDeduction: Number(item.absenceDeduction || 0),
+          actualHours: Number(item.actualHours || 0),
+          netAdjustment: Number(item.netAdjustment || 0),
+          postedAt: new Date().toISOString()
+        };
+        return acc;
+      }, {});
+
+      void setDoc(doc(db, 'attendance_monthly_rollups', `${activeCompId}_${monthKey}`), {
+        companyId: activeCompId,
+        month: monthKey,
+        locked: true,
+        postedAt: new Date().toISOString(),
+        summaries
+      }, { merge: true });
 
       toast.success(`تم بنجاح ترحيل واعتماد كشف الحضور والخصومات والإضافي لشهر (${monthKey}) إلى مسير الرواتب ونظام WPS!`);
     } catch (e) {
@@ -476,166 +522,168 @@ export const Attendances: React.FC = () => {
     }
   };
 
+  const handleReopenMonth = (monthKey: string) => {
+    if (!isMonthLocked(monthKey)) {
+      toast('الشهر غير مقفل حالياً.');
+      return;
+    }
+
+    if (!confirm(`تأكيد إجراء رسمي: هل تريد فك قفل شهر ${monthKey} لإتاحة التعديل؟`)) {
+      return;
+    }
+
+    const updatedPosted = { ...postedMonths };
+    delete updatedPosted[monthKey];
+    setPostedMonths(updatedPosted);
+    void setDoc(doc(db, 'attendance_posted_months', activeCompId), { months: updatedPosted }, { merge: true });
+    void setDoc(doc(db, 'attendance_monthly_rollups', `${activeCompId}_${monthKey}`), {
+      locked: false,
+      reopenedAt: new Date().toISOString()
+    }, { merge: true });
+    toast.success(`تم فك قفل شهر ${monthKey} رسمياً. يمكنك تعديل البيانات ثم إعادة الترحيل.`);
+  };
+
   // Handle Excel/CSV File Upload & Aggregation Engine
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsProcessingFile(true);
-    const reader = new FileReader();
-
-    reader.onload = (evt) => {
-      try {
-        const data = new Uint8Array(evt.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const rawRows: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
-
-        if (!rawRows || rawRows.length === 0) {
-          toast.error('الملف فارغ أو لا يحتوي على صفوف بيانات صالحة');
-          setIsProcessingFile(false);
-          return;
-        }
-
-        const employeeMap = new Map<string, any>();
-        employees.forEach(emp => {
-          employeeMap.set(emp.id.toLowerCase(), emp);
-          employeeMap.set(emp.civilId, emp);
-          const numericId = emp.id.replace(/\D/g, '');
-          if (numericId) employeeMap.set(numericId, emp);
-        });
-
-        const dailyPunches = new Map<string, { empId: string; date: string; punches: string[] }>();
-
-        rawRows.forEach((row) => {
-          let rawId = row['Employee ID'] || row['Emp No'] || row['رقم الموظف'] || row['الرقم المدني'] || 
-                      row['Device ID'] || row['ID'] || row['AC-No.'] || row['User ID'] || row['No'] || 
-                      row['كود الموظف'] || row['الكود'] || row['Code'] || row['PIN'] || row['Employee Code'];
-
-          if (!rawId) {
-            const key = Object.keys(row).find(k => k.toLowerCase().includes('id') || k.toLowerCase().includes('code') || k.includes('كود') || k.includes('رقم'));
-            if (key) rawId = row[key];
-          }
-
-          let punchDate = selectedDate;
-          let punchTime = '';
-
-          const rawDateTime = row['DateTime'] || row['Date/Time'] || row['الوقت والتاريخ'] || row['التاريخ والوقت'] || row['Punch Time'];
-          if (rawDateTime) {
-            const dt = new Date(rawDateTime);
-            if (!isNaN(dt.getTime())) {
-              punchDate = dt.toISOString().split('T')[0];
-              punchTime = dt.toTimeString().slice(0, 5);
-            } else {
-              const parts = String(rawDateTime).trim().split(/\s+/);
-              if (parts.length >= 2) {
-                punchDate = parts[0];
-                punchTime = parts[1].slice(0, 5);
-              }
-            }
-          } else {
-            const rawTime = row['Time'] || row['الوقت'] || row['ساعة البصمة'] || row['Clock'];
-            const rawD = row['Date'] || row['التاريخ'] || row['اليوم'];
-            if (rawD) punchDate = String(rawD).slice(0, 10);
-            if (rawTime) punchTime = String(rawTime).slice(0, 5);
-          }
-
-          if (rawId && punchTime) {
-            const cleanId = String(rawId).trim();
-            const groupKey = `${cleanId}_${punchDate}`;
-            if (!dailyPunches.has(groupKey)) {
-              dailyPunches.set(groupKey, { empId: cleanId, date: punchDate, punches: [] });
-            }
-            dailyPunches.get(groupKey)!.punches.push(punchTime);
-          }
-        });
-
-        const processedItems: AttendanceItem[] = [];
-        let matchedCount = 0;
-        let unmatchedCount = 0;
-        let totalCalculatedHours = 0;
-
-        dailyPunches.forEach(({ empId, date: pDate, punches }, key) => {
-          punches.sort();
-          const firstPunch = punches[0];
-          const lastPunch = punches.length > 1 ? punches[punches.length - 1] : '';
-
-          const emp = employeeMap.get(empId.toLowerCase()) || employeeMap.get(empId);
-
-          if (emp) matchedCount++;
-          else unmatchedCount++;
-
-          const empName = emp ? emp.name : `موظف كود (${empId})`;
-          const dept = emp ? emp.department : 'غير محدد';
-          const grossSalary = emp ? (emp.basicSalary + emp.housingAllowance + emp.transportAllowance) : 1000;
-          const standardDailyHours = emp?.dailyHours || 8;
-
-          const assignedShift = emp ? getEmployeeShiftForDate(emp.id, pDate) : null;
-          const expectedIn = assignedShift?.startTime || emp?.shiftStartTime || '08:00';
-          const expectedOut = assignedShift?.endTime || emp?.shiftEndTime || '16:00';
-
-          const calc = computeAttendanceAndOvertime(firstPunch, lastPunch || firstPunch, grossSalary, false, {
-            dailyHours: standardDailyHours,
-            shiftStartTime: expectedIn,
-            shiftEndTime: expectedOut,
-            gracePeriodMinutes: emp?.gracePeriodMinutes || 15,
-            employmentType: emp?.employmentType || 'full_time',
-            hourlyRate: emp?.hourlyRate
-          });
-
-          const actualHrs = lastPunch ? Math.round(calc.actualHours * 10) / 10 : 0;
-          totalCalculatedHours += actualHrs;
-
-          let status: AttendanceItem['status'] = 'present';
-          if (!lastPunch) status = 'single_punch';
-          else if (calc.delayMinutes > 0) status = 'late';
-          else if (calc.overtimeHours > 0) status = 'overtime';
-
-          processedItems.push({
-            id: `IMP-${empId}-${pDate}-${Date.now()}`,
-            employeeId: emp ? emp.id : empId,
-            employeeName: empName,
-            department: dept,
-            jobTitle: emp?.jobTitle || '',
-            date: pDate,
-            checkIn: firstPunch,
-            checkOut: lastPunch || 'لم يتم التبصيم',
-            workHours: actualHrs,
-            standardHours: standardDailyHours,
-            lateMinutes: calc.delayMinutes,
-            overtimeHours: calc.overtimeHours,
-            method: 'استيراد شيت (Excel)',
-            status,
-            sourceFile: file.name,
-            shiftInfo: assignedShift || undefined
-          });
-        });
-
-        setImportedLogs(processedItems);
-        setImportSummary({
-          total: processedItems.length,
-          matched: matchedCount,
-          unmatched: unmatchedCount,
-          totalHours: Math.round(totalCalculatedHours)
-        });
-        setIsImportModalOpen(true);
-        toast.success(`تمت معالجة شيت البصمة (${processedItems.length} حركة مجمعة)`);
-      } catch (err: any) {
-        console.error(err);
-        toast.error('حدث خطأ أثناء قراءة ملف البصمة. تأكد من صحة تنسيق الملف.');
-      } finally {
-        setIsProcessingFile(false);
-        if (fileInputRef.current) fileInputRef.current.value = '';
+    try {
+      const rawLogs = await parseAttendanceFile(file);
+      if (!rawLogs.length) {
+        toast.error('الملف فارغ أو لا يحتوي على صفوف بيانات صالحة');
+        return;
       }
-    };
 
-    reader.readAsArrayBuffer(file);
+      const normalize = (value: any) => String(value || '').trim();
+      const lower = (value: any) => normalize(value).toLowerCase();
+      const digits = (value: any) => normalize(value).replace(/\D/g, '');
+
+      const resolveEmployee = (rawCode: string) => {
+        const code = normalize(rawCode);
+        const codeLower = lower(code);
+        const codeDigits = digits(code);
+        return employees.find((emp: any) => {
+          const keys = [
+            emp.id,
+            emp.employeeCode,
+            emp.biometricId,
+            emp.badgeId,
+            emp.pinCode,
+            emp.civilId
+          ];
+
+          return keys.some((candidate) => {
+            const cand = normalize(candidate);
+            if (!cand) return false;
+            if (lower(cand) === codeLower) return true;
+            const candDigits = digits(cand);
+            return Boolean(codeDigits && candDigits && candDigits === codeDigits);
+          });
+        });
+      };
+
+      const dailyPunches = new Map<string, { rawCode: string; date: string; punches: string[] }>();
+      rawLogs.forEach((log) => {
+        const rawCode = normalize(log.employeeCode);
+        const date = normalize(log.date) || selectedDate;
+        const time = normalize(log.time);
+        if (!rawCode || !time) return;
+        const key = `${rawCode.toLowerCase()}_${date}`;
+        if (!dailyPunches.has(key)) {
+          dailyPunches.set(key, { rawCode, date, punches: [] });
+        }
+        dailyPunches.get(key)!.punches.push(time);
+      });
+
+      const processedItems: AttendanceItem[] = [];
+      let matchedCount = 0;
+      let unmatchedCount = 0;
+      let totalCalculatedHours = 0;
+
+      dailyPunches.forEach(({ rawCode, date: pDate, punches }) => {
+        punches.sort();
+        const firstPunch = punches[0];
+        const lastPunch = punches.length > 1 ? punches[punches.length - 1] : '';
+        const emp = resolveEmployee(rawCode);
+
+        if (emp) matchedCount++;
+        else unmatchedCount++;
+
+        const empName = emp ? emp.name : `موظف كود (${rawCode})`;
+        const dept = emp ? emp.department : 'غير محدد';
+        const grossSalary = emp ? (emp.basicSalary + emp.housingAllowance + emp.transportAllowance) : 1000;
+        const standardDailyHours = emp?.dailyHours || 8;
+
+        const assignedShift = emp ? getEmployeeShiftForDate(emp.id, pDate) : null;
+        const expectedIn = assignedShift?.startTime || emp?.shiftStartTime || '08:00';
+        const expectedOut = assignedShift?.endTime || emp?.shiftEndTime || '16:00';
+
+        const calc = computeAttendanceAndOvertime(firstPunch, lastPunch || firstPunch, grossSalary, false, {
+          dailyHours: standardDailyHours,
+          shiftStartTime: expectedIn,
+          shiftEndTime: expectedOut,
+          gracePeriodMinutes: emp?.gracePeriodMinutes || 15,
+          employmentType: emp?.employmentType || 'full_time',
+          hourlyRate: emp?.hourlyRate,
+          workdayType: assignedShift?.isOff ? 'rest_day' : 'regular'
+        });
+
+        const actualHrs = lastPunch ? Math.round(calc.actualHours * 10) / 10 : 0;
+        totalCalculatedHours += actualHrs;
+
+        let status: AttendanceItem['status'] = 'present';
+        if (!lastPunch) status = 'single_punch';
+        else if (calc.delayMinutes > 0) status = 'late';
+        else if (calc.overtimeHours > 0) status = 'overtime';
+
+        processedItems.push({
+          id: `IMP-${rawCode}-${pDate}-${Date.now()}`,
+          employeeId: emp ? emp.id : rawCode,
+          employeeName: empName,
+          department: dept,
+          jobTitle: emp?.jobTitle || '',
+          date: pDate,
+          checkIn: firstPunch,
+          checkOut: lastPunch || 'لم يتم التبصيم',
+          workHours: actualHrs,
+          standardHours: standardDailyHours,
+          lateMinutes: calc.delayMinutes,
+          overtimeHours: calc.overtimeHours,
+          method: 'استيراد شيت (Excel)',
+          status,
+          sourceFile: file.name,
+          shiftInfo: assignedShift || undefined
+        });
+      });
+
+      setImportedLogs(processedItems);
+      setImportSummary({
+        total: processedItems.length,
+        matched: matchedCount,
+        unmatched: unmatchedCount,
+        totalHours: Math.round(totalCalculatedHours)
+      });
+      setIsImportModalOpen(true);
+      toast.success(`تمت معالجة شيت البصمة (${processedItems.length} حركة مجمعة)`);
+    } catch {
+      toast.error('حدث خطأ أثناء قراءة ملف البصمة. تأكد من صحة تنسيق الملف.');
+    } finally {
+      setIsProcessingFile(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   // Commit Imported Records
   const handleCommitImport = () => {
     if (importedLogs.length === 0) return;
+
+    const lockedRows = importedLogs.filter(log => isDateLocked(log.date));
+    if (lockedRows.length > 0) {
+      toast.error('يتعذر اعتماد الاستيراد: يحتوي الملف على سجلات ضمن شهر مقفل. قم بفك القفل الرسمي أولاً.');
+      return;
+    }
 
     setCustomAttendanceRecords(prev => [...importedLogs, ...prev]);
 
@@ -662,6 +710,13 @@ export const Attendances: React.FC = () => {
   // Handle Imported Logs from Biometric Devices Hub
   const handleImportFromBiometricHub = (punches: AttendanceItem[]) => {
     if (punches.length === 0) return;
+
+    const lockedRows = punches.filter(log => isDateLocked(log.date));
+    if (lockedRows.length > 0) {
+      toast.error('يتعذر اعتماد سجلات الأجهزة: بعض الحركات ضمن شهر مقفل. قم بفك القفل الرسمي أولاً.');
+      return;
+    }
+
     setCustomAttendanceRecords(prev => [...punches, ...prev]);
 
     punches.forEach(log => {
@@ -697,18 +752,24 @@ export const Attendances: React.FC = () => {
 
     const empGross = kioskSelectedEmp.basicSalary + kioskSelectedEmp.housingAllowance + kioskSelectedEmp.transportAllowance;
     const kioskDate = new Date().toISOString().split('T')[0];
+    if (isDateLocked(kioskDate)) {
+      toast.error('الشهر الحالي مقفل بعد الاعتماد. لا يمكن تسجيل حركات جديدة قبل فك القفل الرسمي.');
+      return;
+    }
     const log: Partial<AttendanceLog> = getAttendanceForEmployee(kioskSelectedEmp.id, kioskDate) || {};
+    const assignedShift = getEmployeeShiftForDate(kioskSelectedEmp.id, kioskDate);
     
     let finalCheckIn = kioskAction === 'in' ? timeNow : (log.checkIn || kioskSelectedEmp.shiftStartTime || '08:00');
     let finalCheckOut = kioskAction === 'out' ? timeNow : (log.checkOut || '');
 
     const calc = computeAttendanceAndOvertime(finalCheckIn, finalCheckOut || timeNow, empGross, false, {
       dailyHours: kioskSelectedEmp.dailyHours,
-      shiftStartTime: kioskSelectedEmp.shiftStartTime,
-      shiftEndTime: kioskSelectedEmp.shiftEndTime,
+      shiftStartTime: assignedShift?.startTime || kioskSelectedEmp.shiftStartTime,
+      shiftEndTime: assignedShift?.endTime || kioskSelectedEmp.shiftEndTime,
       gracePeriodMinutes: kioskSelectedEmp.gracePeriodMinutes,
       employmentType: kioskSelectedEmp.employmentType,
-      hourlyRate: kioskSelectedEmp.hourlyRate
+      hourlyRate: kioskSelectedEmp.hourlyRate,
+      workdayType: assignedShift?.isOff ? 'rest_day' : 'regular'
     });
 
     let status: AttendanceItem['status'] = 'present';
@@ -1027,8 +1088,11 @@ export const Attendances: React.FC = () => {
           employees={employees as any}
           attendanceLogs={customAttendanceRecords}
           companyName={activeCompany?.nameAr || 'الشركة'}
+          selectedMonth={selectedMonthForPosting}
+          onSelectedMonthChange={setSelectedMonthForPosting}
           onPostToPayroll={handlePostToPayroll}
-          isMonthPosted={Boolean(postedMonths[selectedDate.slice(0, 7)])}
+          onReopenMonth={handleReopenMonth}
+          isMonthPosted={Boolean(postedMonths[selectedMonthForPosting])}
           onOpenPrintModal={handleOpenMonthlyPrintModal}
         />
       )}
@@ -1433,6 +1497,10 @@ export const Attendances: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => {
+                                if (isDateLocked(row.date)) {
+                                  toast.error('السجل ضمن شهر مقفل. فك القفل الرسمي مطلوب قبل التعديل.');
+                                  return;
+                                }
                                 setEditingManualRecord({
                                   employeeId: row.employeeId,
                                   date: row.date,
@@ -1521,6 +1589,10 @@ export const Attendances: React.FC = () => {
               method: 'رمز QR ديناميكي',
               status: rec.status === 'PRESENT' ? 'present' : 'late'
             };
+            if (isDateLocked(newAtt.date)) {
+              toast.error('الشهر مقفل. لا يمكن اعتماد بصمة QR قبل فك القفل الرسمي.');
+              return;
+            }
             setCustomAttendanceRecords(prev => [newAtt, ...prev]);
             recordAttendanceTimes(rec.employeeId, newAtt.checkIn, newAtt.checkOut, newAtt.lateMinutes, newAtt.overtimeHours, undefined, newAtt.date);
             toast.success(`تم تسجيل بصمة QR للموظف بنجاح`);
