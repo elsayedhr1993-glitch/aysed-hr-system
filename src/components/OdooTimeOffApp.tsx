@@ -168,6 +168,45 @@ export const OdooTimeOffApp: React.FC = () => {
   // Unified Employees List
   const companyEmployees = (employees && employees.length > 0) ? employees : [];
 
+  useEffect(() => {
+    if (companyId !== 'comp-1788442584841' || companyEmployees.length === 0) return;
+
+    const seedOpeningBalances = async () => {
+      for (const emp of companyEmployees) {
+        const carried = Number(getCarriedOverBalance(emp as any)) || 0;
+        if (carried <= 0) continue;
+
+        const openingAllocationId = `opening-balance-${companyId}-${emp.id}`;
+        const alreadyExists = allocations.some(allocation =>
+          allocation.id === openingAllocationId ||
+          (allocation.employeeId === emp.id && Number(allocation.days) === carried)
+        );
+        if (alreadyExists) continue;
+
+        const openingAllocation = {
+          id: openingAllocationId,
+          companyId,
+          employeeId: emp.id,
+          employeeName: emp.name || (emp as any)?.fullNameAr || 'موظف',
+          fromYear: new Date().getFullYear().toString(),
+          days: carried,
+          leaveType: 'annual',
+          allocationDate: `${new Date().getFullYear()}-01-01`,
+          notes: 'رصيد افتتاحي مرحل تلقائياً',
+          allocatedBy: 'system',
+          allocationType: 'carried_over',
+          state: 'validate',
+          name: 'رصيد افتتاحي مرحل',
+          dateFrom: `${new Date().getFullYear()}-01-01`
+        };
+
+        await setDoc(doc(db, 'leave_allocations', openingAllocationId), cleanFirestoreData(openingAllocation), { merge: true });
+      }
+    };
+
+    void seedOpeningBalances();
+  }, [companyId, companyEmployees, allocations]);
+
   // Main navigation tabs: requests, timeline, allocations, finance
   const [activeMainTab, setActiveMainTab] = useState<'requests' | 'timeline' | 'allocations' | 'finance'>('requests');
   const [financeSubTab, setFinanceSubTab] = useState<'advance_salary' | 'encashment_calculator'>('advance_salary');
@@ -204,9 +243,9 @@ export const OdooTimeOffApp: React.FC = () => {
 
     const mappedAllocations = allocations.map(a => ({
       ...a,
-      numberOfDays: a.days,
-      consumedDays: (a as any).consumedDays || 0,
-      remainingDays: (a as any).remainingDays ?? Math.max(0, a.days - ((a as any).consumedDays || 0)),
+      numberOfDays: Number(a.days) || 0,
+      consumedDays: Number((a as any).consumedDays) || 0,
+      remainingDays: (a as any).remainingDays ?? Math.max(0, (Number(a.days) || 0) - (Number((a as any).consumedDays) || 0)),
       allocationType: 'regular',
       state: 'validate',
       name: a.notes,
@@ -222,13 +261,13 @@ export const OdooTimeOffApp: React.FC = () => {
       const empAllocs = buildEmployeeBaselineAllocations(emp as any, mappedAllocations as any);
       const fifo = computeFifoLeaveAllocations(emp as any, empAllocs, requests as any);
       
-      const totalOpening = fifo.allocations.filter(a => a.allocationType === 'regular').reduce((s, a) => s + (a.numberOfDays || 0), 0);
-      const totalAccrued = fifo.allocations.filter(a => a.allocationType === 'accrual' && !a.name?.includes('تعويضي') && !a.name?.includes('بديل') && !a.name?.includes('عطلة')).reduce((s, a) => s + (a.numberOfDays || 0), 0);
-      const totalCompensatory = getGlobalCompensatoryDays(emp as any);
+      const totalOpening = fifo.allocations.filter(a => a.allocationType === 'regular').reduce((s, a) => s + (Number(a.numberOfDays) || 0), 0);
+      const totalAccrued = fifo.allocations.filter(a => a.allocationType === 'accrual' && !a.name?.includes('تعويضي') && !a.name?.includes('بديل') && !a.name?.includes('عطلة')).reduce((s, a) => s + (Number(a.numberOfDays) || 0), 0);
+      const totalCompensatory = Number(getGlobalCompensatoryDays(emp as any)) || 0;
       
-      carried = totalOpening;
-      earned = totalAccrued + totalCompensatory;
-      consumed = fifo.totalConsumed;
+      carried = Number(totalOpening) || 0;
+      earned = (Number(totalAccrued) || 0) + totalCompensatory;
+      consumed = Number(fifo.totalConsumed) || 0;
       available = Math.max(0, (carried + earned) - consumed);
     }
 
@@ -418,10 +457,10 @@ export const OdooTimeOffApp: React.FC = () => {
     // Sync with Odoo Hierarchy Context if employee exists
     if (newAllocation.employeeId && updateLeaveAccrual) {
       const currentAccrual = leaveAccruals?.[newAllocation.employeeId];
-      const prevCarried = currentAccrual?.carriedFrom2025 || 0;
-      const earned = currentAccrual?.earned2026 || 20;
-      const consumed = currentAccrual?.consumedDays || 0;
-      updateLeaveAccrual(newAllocation.employeeId, prevCarried + daysNum, earned, consumed);
+      const prevCarried = Number(currentAccrual?.carriedFrom2025) || 0;
+      const earned = Number(currentAccrual?.earned2026) || 20;
+      const consumed = Number(currentAccrual?.consumedDays) || 0;
+      updateLeaveAccrual(newAllocation.employeeId, Number((prevCarried + daysNum).toFixed(2)), Number(earned.toFixed(2)), Number(consumed.toFixed(2)));
     }
 
     setShowAllocationModal(false);
@@ -477,9 +516,9 @@ export const OdooTimeOffApp: React.FC = () => {
     // Balance check
     if (normalizeLeaveType(targetReq.leaveType) === 'ANNUAL') {
       const current = leaveAccruals?.[targetReq.employeeId];
-      const carried = current?.carriedFrom2025 || 0;
-      const earned = current?.earned2026 || 0;
-      const consumed = current?.consumedDays || 0;
+      const carried = Number(current?.carriedFrom2025) || 0;
+      const earned = Number(current?.earned2026) || 0;
+      const consumed = Number(current?.consumedDays) || 0;
       const available = (carried + earned) - consumed;
 
       if (targetReq.daysCount > available) {
@@ -500,10 +539,10 @@ export const OdooTimeOffApp: React.FC = () => {
       if (current && updateLeaveAccrual) {
         updateLeaveAccrual(
           targetReq.employeeId,
-          current.carriedFrom2025 || 0,
-          current.earned2026 || 0,
-          (current.consumedDays || 0) + result.paidDays,
-          current.excludedServiceDays
+          Number(current.carriedFrom2025) || 0,
+          Number(current.earned2026) || 0,
+          (Number(current.consumedDays) || 0) + Number(result.paidDays || 0),
+          Number(current.excludedServiceDays) || 0
         );
       }
       setRequests(previous => previous.map(req => req.id === id ? {
@@ -592,13 +631,13 @@ export const OdooTimeOffApp: React.FC = () => {
     return matchesFilter && matchesSearch;
   });
 
-  const totalCarriedDays = allocations.reduce((acc, a) => acc + a.days, 0);
+  const totalCarriedDays = allocations.reduce((acc, a) => acc + (Number(a.days) || 0), 0);
 
   // Selected Employee Details for Allocation Preview
   const selectedEmpForAlloc = companyEmployees.find(e => e.id === newAllocation.employeeId) || companyEmployees[0];
   const empAllocatedDaysTotal = allocations
     .filter(a => a.employeeId === selectedEmpForAlloc?.id || a.employeeName === selectedEmpForAlloc?.name)
-    .reduce((acc, a) => acc + a.days, 0);
+    .reduce((acc, a) => acc + (Number(a.days) || 0), 0);
 
   // Stats calculation
   const pendingRequestsCount = requests.filter(r => {

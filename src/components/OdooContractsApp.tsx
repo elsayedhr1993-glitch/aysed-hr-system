@@ -244,6 +244,7 @@ export const OdooContractsApp: React.FC = () => {
   // Filtered list
   const filteredContracts = contracts.filter(c => {
     if (!c) return false;
+    const normalizedStatus = normalizeContractStatus(c.contractStatus);
     const term = (searchTerm || '').toLowerCase();
     const name = (c.name || '').toLowerCase();
     const id = String(c.id || '').toLowerCase();
@@ -256,7 +257,7 @@ export const OdooContractsApp: React.FC = () => {
                           jobTitle.includes(term) ||
                           contractRef.includes(term) ||
                           civilId.includes(term);
-    const matchesStatus = filterStatus === 'all' || normalizeContractStatus(c.contractStatus) === filterStatus;
+    const matchesStatus = filterStatus === 'all' || normalizedStatus === filterStatus;
     const matchesEmpType = filterEmploymentType === 'all' || (c.employmentType || 'full_time') === filterEmploymentType;
     return matchesSearch && matchesStatus && matchesEmpType;
   });
@@ -395,12 +396,13 @@ export const OdooContractsApp: React.FC = () => {
       toast.error('العقد محدد المدة يحتاج إلى تاريخ نهاية');
       return;
     }
+    const normalizedContractStatus = normalizeContractStatus(selectedContract.contractStatus);
     const hasActiveContract = contracts.some(contract =>
       contract.id === selectedContract.id &&
       contract.contractRef !== selectedContract.contractRef &&
       normalizeContractStatus(contract.contractStatus) === 'running'
     );
-    if (hasActiveContract && normalizeContractStatus(selectedContract.contractStatus) === 'running') {
+    if (hasActiveContract && normalizedContractStatus === 'running') {
       toast.error('يوجد عقد ساري آخر لهذا الموظف');
       return;
     }
@@ -418,7 +420,7 @@ export const OdooContractsApp: React.FC = () => {
         startDate: selectedContract.startDate,
         endDate: selectedContract.endDate,
         contractType: selectedContract.contractType,
-        status: selectedContract.contractStatus,
+        status: normalizedContractStatus,
         customDailyHours: selectedContract.dailyHours,
         workingHoursPerWeek: selectedContract.workingHoursWeekly,
         workingSchedule: selectedContract.employmentType
@@ -438,7 +440,7 @@ export const OdooContractsApp: React.FC = () => {
       employeeId: selectedContract.id,
       employeeName: selectedContract.name,
       startDate: selectedContract.startDate || '2026-01-01',
-      contractStatus: selectedContract.contractStatus,
+        contractStatus: normalizedContractStatus,
       companyId: currentCompanyId
     });
 
@@ -464,7 +466,7 @@ export const OdooContractsApp: React.FC = () => {
       shiftEndTime: selectedContract.shiftEndTime,
       gracePeriodMinutes: selectedContract.gracePeriodMinutes,
       hourlyRate: selectedContract.hourlyRate,
-      contractStatus: selectedContract.contractStatus
+        contractStatus: normalizedContractStatus
     });
 
     // مزامنة خصائص الراتب مع سجل الموظف في Firestore
@@ -738,19 +740,19 @@ export const OdooContractsApp: React.FC = () => {
 
                     {/* Status Badge */}
                     <td className="p-3 text-center">
-                      {c.contractStatus === 'running' && (
+                      {normalizeContractStatus(c.contractStatus) === 'running' && (
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
                           <span>ساري</span>
                         </span>
                       )}
-                      {c.contractStatus === 'draft' && (
+                      {normalizeContractStatus(c.contractStatus) === 'draft' && (
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
                           <span className="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
                           <span>مسودة</span>
                         </span>
                       )}
-                      {c.contractStatus === 'expired' && (
+                      {normalizeContractStatus(c.contractStatus) === 'expired' && (
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
                           <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
                           <span>منتهي</span>
@@ -821,9 +823,9 @@ export const OdooContractsApp: React.FC = () => {
               <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 text-xs font-bold">
                 <button
                   type="button"
-                  onClick={() => setSelectedContract({ ...selectedContract, contractStatus: 'draft' })}
+                  onClick={() => setSelectedContract({ ...selectedContract, contractStatus: normalizeContractStatus('draft') })}
                   className={`px-3 py-1 rounded-lg transition cursor-pointer ${
-                    selectedContract.contractStatus === 'draft' ? 'bg-amber-500 text-white shadow-2xs' : 'text-slate-500 hover:bg-slate-50'
+                    normalizeContractStatus(selectedContract.contractStatus) === 'draft' ? 'bg-amber-500 text-white shadow-2xs' : 'text-slate-500 hover:bg-slate-50'
                   }`}
                 >
                   مسودة (Draft)
@@ -831,9 +833,9 @@ export const OdooContractsApp: React.FC = () => {
                 <ChevronRight size={12} className="text-slate-300 rotate-180" />
                 <button
                   type="button"
-                  onClick={() => setSelectedContract({ ...selectedContract, contractStatus: 'running' })}
+                  onClick={() => setSelectedContract({ ...selectedContract, contractStatus: normalizeContractStatus('running') })}
                   className={`px-3 py-1 rounded-lg transition cursor-pointer ${
-                    selectedContract.contractStatus === 'running' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-500 hover:bg-slate-50'
+                    normalizeContractStatus(selectedContract.contractStatus) === 'running' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-500 hover:bg-slate-50'
                   }`}
                 >
                   ساري (Running)
@@ -841,9 +843,9 @@ export const OdooContractsApp: React.FC = () => {
                 <ChevronRight size={12} className="text-slate-300 rotate-180" />
                 <button
                   type="button"
-                  onClick={() => setSelectedContract({ ...selectedContract, contractStatus: 'expired' })}
+                  onClick={() => setSelectedContract({ ...selectedContract, contractStatus: normalizeContractStatus('expired') })}
                   className={`px-3 py-1 rounded-lg transition cursor-pointer ${
-                    selectedContract.contractStatus === 'expired' ? 'bg-rose-600 text-white shadow-2xs' : 'text-slate-500 hover:bg-slate-50'
+                    normalizeContractStatus(selectedContract.contractStatus) === 'expired' ? 'bg-rose-600 text-white shadow-2xs' : 'text-slate-500 hover:bg-slate-50'
                   }`}
                 >
                   منتهي (Expired)
@@ -1470,7 +1472,7 @@ export const OdooContractsApp: React.FC = () => {
             {(() => {
                const messages: ChatterMessage[] = [];
                contracts.forEach(c => {
-                 if (c.contractStatus === 'draft') {
+                 if (normalizeContractStatus(c.contractStatus) === 'draft') {
                     messages.push({
                       id: `auto-contract-${c.id}`,
                       author: 'نظام العقود (hr.contract)',
