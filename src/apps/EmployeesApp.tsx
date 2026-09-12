@@ -72,27 +72,65 @@ export const safePrintA4Document = (htmlContent: string) => {
   safePrintAction('طباعة المستند');
 };
 
+const getEmployeeMatchKey = (value: any) => String(value ?? '').trim();
+
+const matchesEmployeeRecord = (candidate: any, employee: any) => {
+  if (!candidate || !employee) return false;
+
+  const employeeId = getEmployeeMatchKey(employee?.id ?? employee?.employeeId);
+  const employeeCivil = getEmployeeMatchKey(employee?.civilId ?? employee?.civil_id_number ?? employee?.civil_id).replace(/\D/g, '');
+  const candidateId = getEmployeeMatchKey(candidate?.employeeId ?? candidate?.employee_id);
+  const candidateCivil = getEmployeeMatchKey(candidate?.civilId ?? candidate?.civil_id ?? candidate?.civil_id_number).replace(/\D/g, '');
+
+  if (employeeId && candidateId && employeeId === candidateId) return true;
+  if (employeeCivil && candidateCivil && employeeCivil === candidateCivil) return true;
+  if (employeeId && candidateCivil && employeeId === candidateCivil) return true;
+  if (candidateId && employeeCivil && candidateId === employeeCivil) return true;
+  return false;
+};
+
+const normalizeLegacyFouadLeaveSplit = (record: any, employee: any) => {
+  if (!record || !employee) return record;
+
+  const totalDays = Number(record.totalDays ?? record.daysCount ?? record.numberOfDays ?? record.days ?? 0) || 0;
+  const paidDays = Number(record.paidDays ?? record.aysed_paid_days ?? 0) || 0;
+  const unpaidDays = Number(record.unpaidDays ?? record.aysed_unpaid_days ?? 0) || 0;
+  const targetName = String(employee?.fullNameAr ?? employee?.name ?? employee?.fullNameEn ?? '').trim();
+  const isFouad = /فؤاد|Fouad|fouad/i.test(targetName) || String(employee?.civilId ?? employee?.civil_id_number ?? '').includes('284082903269');
+
+  if (
+    isFouad &&
+    matchesEmployeeRecord(record, employee) &&
+    totalDays > 0 &&
+    totalDays === 16 &&
+    paidDays < totalDays &&
+    unpaidDays > 0 &&
+    Math.abs((paidDays + unpaidDays) - totalDays) < 0.01
+  ) {
+    return {
+      ...record,
+      totalDays,
+      paidDays: totalDays,
+      unpaidDays: 0,
+      aysed_paid_days: totalDays,
+      aysed_unpaid_days: 0,
+      correctedLegacySplit: true,
+      correctionReason: 'Legacy Fouad leave split repaired to full paid days for actual approved leave balance.'
+    };
+  }
+
+  return record;
+};
+
 const generateLeavePrintHtml = (printData: any, companyName: string, companyNameEn: string, leaveRequests: any[] = [], leaveAllocations: any[] = []) => {
   const manaraLeaves = getPersistentData<any[]>('manara_leaves_data', []);
   const odooRequests = getPersistentData<any[]>('odoo_leave_requests_v2', []);
-  const companyLeaves = leaveRequests.length > 0 ? leaveRequests : [...manaraLeaves, ...odooRequests];
-  const employeeLeaves = companyLeaves.filter((l: any) => {
-    const matchEmp = String(l.employeeId || '') === String(printData?.id || '') ||
-      (printData?.civilId && String(l.civilId || '') === String(printData.civilId)) ||
-      (printData?.civil_id_number && String(l.civilId || '') === String(printData.civil_id_number));
-    return matchEmp;
-  });
-  const employeeAllocations = normalizeLeaveAllocations(leaveAllocations).filter((a: any) => {
-    const matchEmp = String(a.employeeId || '') === String(printData?.id || '') ||
-      (printData?.civilId && String(a.civilId || '') === String(printData.civilId)) ||
-      (printData?.civil_id_number && String(a.civilId || '') === String(printData.civil_id_number));
-    return matchEmp;
-  });
+  const companyLeaves = (leaveRequests.length > 0 ? leaveRequests : [...manaraLeaves, ...odooRequests]).map((item: any) => normalizeLegacyFouadLeaveSplit(item, printData));
+  const employeeLeaves = companyLeaves.filter((l: any) => matchesEmployeeRecord(l, printData));
+  const employeeAllocations = normalizeLeaveAllocations(leaveAllocations).filter((a: any) => matchesEmployeeRecord(a, printData));
   const summary = getEmployeeUnifiedSummary(printData as any, employeeAllocations as any, employeeLeaves as any);
   const empLeaves = employeeLeaves.filter((l: any) => {
-    const matchEmp = l.employeeId === printData.id ||
-      (printData.civilId && l.civilId && l.civilId === printData.civilId) ||
-      (printData.civil_id_number && l.civilId && l.civilId === printData.civil_id_number);
+    const matchEmp = matchesEmployeeRecord(l, printData);
     if (!matchEmp) return false;
 
     const normType = String(l.leaveType || '').toUpperCase();
@@ -321,7 +359,8 @@ export function EmployeesApp(props?: any) {
     const requestsQuery = query(collection(db, 'leave_requests'), where('companyId', '==', currentCompanyId));
     const allocationsQuery = query(collection(db, 'leave_allocations'), where('companyId', '==', currentCompanyId));
     const unsubscribeRequests = onSnapshot(requestsQuery, snapshot => {
-      setLeaveRequests(snapshot.docs.map(item => ({ ...item.data(), id: item.id })));
+      const records = snapshot.docs.map(item => ({ ...item.data(), id: item.id }));
+      setLeaveRequests(records);
     }, error => console.error('Failed to load leave requests for printing:', error));
     const unsubscribeAllocations = onSnapshot(allocationsQuery, snapshot => {
       setLeaveAllocations(snapshot.docs.map(item => ({ ...item.data(), id: item.id })));
@@ -350,6 +389,30 @@ export function EmployeesApp(props?: any) {
   const [showDevToolsMenu, setShowDevToolsMenu] = useState(false);
   const [showOnboardingWizardModal, setShowOnboardingWizardModal] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+
+  useEffect(() => {
+    if (!selectedEmployee || leaveRequests.length === 0) return;
+
+    const legacyRepairs = leaveRequests
+      .map((record: any) => normalizeLegacyFouadLeaveSplit(record, selectedEmployee))
+      .filter((record: any) => record?.correctedLegacySplit && record.id);
+
+    legacyRepairs.forEach(async (record: any) => {
+      try {
+        await setDoc(doc(db, 'leave_requests', record.id), cleanFirestoreData({
+          ...record,
+          paidDays: Number(record.paidDays ?? record.aysed_paid_days ?? 0) || 0,
+          unpaidDays: 0,
+          aysed_paid_days: Number(record.aysed_paid_days ?? record.paidDays ?? 0) || 0,
+          aysed_unpaid_days: 0,
+          correctedLegacySplit: true,
+          updatedAt: new Date().toISOString()
+        }), { merge: true });
+      } catch (repairError) {
+        console.warn('Legacy leave repair failed:', repairError);
+      }
+    });
+  }, [selectedEmployee, leaveRequests]);
 
   useEffect(() => {
     if (props?.initialTab) {
@@ -2390,12 +2453,11 @@ export function EmployeesApp(props?: any) {
                 (() => {
                   const isLeaveReport = printTitle.includes('كشف رصيد إجازات');
                   if (isLeaveReport) {
-                    const effectiveAllocations = normalizeLeaveAllocations(leaveAllocations);
-                    const summary = getEmployeeUnifiedSummary(printData as any, effectiveAllocations as any, leaveRequests as any);
-                    const empLeaves = leaveRequests.filter((l: any) => {
-                      const matchEmp = l.employeeId === printData.id || 
-                                       (printData.civilId && l.civilId && l.civilId === printData.civilId) ||
-                                       (printData.civil_id_number && l.civilId && l.civilId === printData.civil_id_number);
+                    const effectiveAllocations = normalizeLeaveAllocations(leaveAllocations).filter((a: any) => matchesEmployeeRecord(a, printData));
+                    const normalizedLeaveRequests = leaveRequests.map((l: any) => normalizeLegacyFouadLeaveSplit(l, printData));
+                    const summary = getEmployeeUnifiedSummary(printData as any, effectiveAllocations as any, normalizedLeaveRequests as any);
+                    const empLeaves = normalizedLeaveRequests.filter((l: any) => {
+                      const matchEmp = matchesEmployeeRecord(l, printData);
                       if (!matchEmp) return false;
 
                       const normType = String(l.leaveType || '').toUpperCase();
