@@ -3,7 +3,7 @@ import { parseKuwaitCivilId, validateKuwaitCivilId } from './utils/kuwaitLaw';
 import { TenantProvider, useTenant } from './context/TenantContext';
 import { useCompany } from './context/CompanyContext';
 import { OdooHierarchyProvider, useOdooHierarchy } from './context/OdooHierarchyContext';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { useAuth } from './context/AuthContext';
 import { toast, Toaster } from 'react-hot-toast';
 import { 
   Users, 
@@ -1185,12 +1185,10 @@ function MainAppLayout() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <TenantProvider>
-        <OdooHierarchyProvider>
-          <MainAppLayout />
-        </OdooHierarchyProvider>
-      </TenantProvider>
-    </AuthProvider>
+    <TenantProvider>
+      <OdooHierarchyProvider>
+        <MainAppLayout />
+      </OdooHierarchyProvider>
+    </TenantProvider>
   );
 }

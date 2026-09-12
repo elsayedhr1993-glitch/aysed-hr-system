@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AysedCoreProvider } from './context/AysedCoreProvider';
+import { AuthProvider } from './context/AuthContext';
 import { clearOutdatedLocalStorage } from './utils/persistentStorage';
 import './index.css';
 
@@ -14,9 +15,11 @@ if (rootElement) {
   createRoot(rootElement).render(
     <StrictMode>
       <ErrorBoundary>
-        <AysedCoreProvider>
-          <App />
-        </AysedCoreProvider>
+        <AuthProvider>
+          <AysedCoreProvider>
+            <App />
+          </AysedCoreProvider>
+        </AuthProvider>
       </ErrorBoundary>
     </StrictMode>,
   );
