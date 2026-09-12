@@ -75,10 +75,21 @@ export const safePrintA4Document = (htmlContent: string) => {
 const generateLeavePrintHtml = (printData: any, companyName: string, companyNameEn: string, leaveRequests: any[] = [], leaveAllocations: any[] = []) => {
   const manaraLeaves = getPersistentData<any[]>('manara_leaves_data', []);
   const odooRequests = getPersistentData<any[]>('odoo_leave_requests_v2', []);
-  const effectiveLeaves = leaveRequests.length > 0 ? leaveRequests : [...manaraLeaves, ...odooRequests];
-  const effectiveAllocations = normalizeLeaveAllocations(leaveAllocations);
-  const summary = getEmployeeUnifiedSummary(printData as any, effectiveAllocations as any, effectiveLeaves as any);
-  const empLeaves = effectiveLeaves.filter((l: any) => {
+  const companyLeaves = leaveRequests.length > 0 ? leaveRequests : [...manaraLeaves, ...odooRequests];
+  const employeeLeaves = companyLeaves.filter((l: any) => {
+    const matchEmp = String(l.employeeId || '') === String(printData?.id || '') ||
+      (printData?.civilId && String(l.civilId || '') === String(printData.civilId)) ||
+      (printData?.civil_id_number && String(l.civilId || '') === String(printData.civil_id_number));
+    return matchEmp;
+  });
+  const employeeAllocations = normalizeLeaveAllocations(leaveAllocations).filter((a: any) => {
+    const matchEmp = String(a.employeeId || '') === String(printData?.id || '') ||
+      (printData?.civilId && String(a.civilId || '') === String(printData.civilId)) ||
+      (printData?.civil_id_number && String(a.civilId || '') === String(printData.civil_id_number));
+    return matchEmp;
+  });
+  const summary = getEmployeeUnifiedSummary(printData as any, employeeAllocations as any, employeeLeaves as any);
+  const empLeaves = employeeLeaves.filter((l: any) => {
     const matchEmp = l.employeeId === printData.id ||
       (printData.civilId && l.civilId && l.civilId === printData.civilId) ||
       (printData.civil_id_number && l.civilId && l.civilId === printData.civil_id_number);
