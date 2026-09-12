@@ -468,10 +468,19 @@ export const OdooTimeOffApp: React.FC = () => {
     );
   };
 
-  const handleDeleteAllocation = async (id: string, empName: string, daysCount: number) => {
+  const handleDeleteAllocation = async (allocation: Partial<LeaveAllocation> & Record<string, any>) => {
+    const allocationId = String(allocation?.id || '');
+    const employeeName = allocation?.employeeName || allocation?.employee_name || allocation?.name || 'الموظف';
+    const daysCount = Number(allocation?.numberOfDays || allocation?.number_of_days || allocation?.days || 0) || 0;
+
+    if (!allocationId) {
+      toast.error('تعذر تحديد سطر التخصيص المطلوب حذفه.');
+      return;
+    }
+
     if (window.confirm(`هل أنت متأكد من حذف سطر التخصيص للموظف (${empName}) بمقدار ${daysCount} يوم؟`)) {
-      setAllocations(allocations.filter(a => a.id !== id));
-      await deleteDoc(doc(db, 'leave_allocations', id));
+      setAllocations(allocations.filter(a => a.id !== allocationId));
+      await deleteDoc(doc(db, 'leave_allocations', allocationId));
       toast.success('تم حذف سطر التخصيص وتحديث الرصيد.');
     }
   };
@@ -1202,7 +1211,7 @@ export const OdooTimeOffApp: React.FC = () => {
                     <td className="p-3.5 text-center">
                       <button
                         type="button"
-                        onClick={() => handleDeleteAllocation(alloc.id, alloc.employeeName, alloc.days)}
+                        onClick={() => handleDeleteAllocation(alloc as any)}
                         className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
                         title="حذف سطر التخصيص"
                       >
