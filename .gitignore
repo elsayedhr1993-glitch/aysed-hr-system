@@ -6,4 +6,5 @@ coverage/
 !.env.example
 bun.lock
 bun.lockb
+# dist
 

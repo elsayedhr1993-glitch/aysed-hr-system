@@ -173,27 +173,27 @@ const generateLeavePrintHtml = (printData: any, companyName: string, companyName
           <tr>
             <td style="background-color: #fff7ed; border: 1px solid #fed7aa; padding: 12px; border-radius: 6px; width: 16.66%;">
               <div style="font-size: 10px; color: #9a3412; font-weight: bold; margin-bottom: 5px;">خصم من المرحل</div>
-              <div style="font-size: 15px; font-weight: bold; color: #c2410c;">-${consumedFromCarried} يوم</div>
+              <div style="font-size: 15px; font-weight: bold; color: #c2410c;">-${summary.fifoBreakdown?.consumedFromCarried ?? 0} يوم</div>
             </td>
             <td style="background-color: #faf5ff; border: 1px solid #e9d5ff; padding: 12px; border-radius: 6px; width: 16.66%;">
               <div style="font-size: 10px; color: #6b21a8; font-weight: bold; margin-bottom: 5px;">خصم من المستحق</div>
-              <div style="font-size: 15px; font-weight: bold; color: #7e22ce;">-${consumedFromAccrued} يوم</div>
+              <div style="font-size: 15px; font-weight: bold; color: #7e22ce;">-${summary.fifoBreakdown?.consumedFromAccrued ?? 0} يوم</div>
             </td>
             <td style="background-color: #ecfdf5; border: 1px solid #a7f3d0; padding: 12px; border-radius: 6px; width: 16.66%;">
               <div style="font-size: 10px; color: #065f46; font-weight: bold; margin-bottom: 5px;">خصم من التعويضي</div>
-              <div style="font-size: 15px; font-weight: bold; color: #047857;">-${consumedFromComp} يوم</div>
+              <div style="font-size: 15px; font-weight: bold; color: #047857;">-${summary.fifoBreakdown?.consumedFromComp ?? 0} يوم</div>
             </td>
             <td style="background-color: #f8fafc; border: 1px solid #cbd5e1; padding: 12px; border-radius: 6px; width: 16.66%;">
               <div style="font-size: 10px; color: #475569; font-weight: bold; margin-bottom: 5px;">المتبقي من المرحل</div>
-              <div style="font-size: 15px; font-weight: bold; color: #334155;">${remainingCarried} يوم</div>
+              <div style="font-size: 15px; font-weight: bold; color: #334155;">${summary.fifoBreakdown?.remainingCarried ?? 0} يوم</div>
             </td>
             <td style="background-color: #eef2ff; border: 1px solid #c7d2fe; padding: 12px; border-radius: 6px; width: 16.66%;">
               <div style="font-size: 10px; color: #3730a3; font-weight: bold; margin-bottom: 5px;">المتبقي من المستحق</div>
-              <div style="font-size: 15px; font-weight: bold; color: #4338ca;">${remainingAccrued} يوم</div>
+              <div style="font-size: 15px; font-weight: bold; color: #4338ca;">${summary.fifoBreakdown?.remainingAccrued ?? 0} يوم</div>
             </td>
             <td style="background-color: #f0fdfa; border: 1px solid #99f6e4; padding: 12px; border-radius: 6px; width: 16.66%;">
               <div style="font-size: 10px; color: #115e59; font-weight: bold; margin-bottom: 5px;">المتبقي من التعويضي</div>
-              <div style="font-size: 15px; font-weight: bold; color: #0f766e;">${remainingComp} يوم</div>
+              <div style="font-size: 15px; font-weight: bold; color: #0f766e;">${summary.fifoBreakdown?.remainingComp ?? 0} يوم</div>
             </td>
           </tr>
         </table>
@@ -2460,27 +2460,27 @@ export function EmployeesApp(props?: any) {
                           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-center border-t border-slate-100 pt-4">
                             <div className="p-3 rounded-lg bg-orange-50 border border-orange-200">
                               <div className="text-[10px] text-orange-900 font-bold mb-1">خصم من المرحل</div>
-                              <div className="text-base font-black text-orange-800 font-mono">-{consumedFromCarried} يوم</div>
+                              <div className="text-base font-black text-orange-800 font-mono">-{summary.fifoBreakdown?.consumedFromCarried ?? 0} يوم</div>
                             </div>
                             <div className="p-3 rounded-lg bg-violet-50 border border-violet-200">
                               <div className="text-[10px] text-violet-900 font-bold mb-1">خصم من المستحق</div>
-                              <div className="text-base font-black text-violet-800 font-mono">-{consumedFromAccrued} يوم</div>
+                              <div className="text-base font-black text-violet-800 font-mono">-{summary.fifoBreakdown?.consumedFromAccrued ?? 0} يوم</div>
                             </div>
                             <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200">
                               <div className="text-[10px] text-emerald-900 font-bold mb-1">خصم من التعويضي</div>
-                              <div className="text-base font-black text-emerald-800 font-mono">-{consumedFromComp} يوم</div>
+                              <div className="text-base font-black text-emerald-800 font-mono">-{summary.fifoBreakdown?.consumedFromComp ?? 0} يوم</div>
                             </div>
                             <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
                               <div className="text-[10px] text-slate-600 font-bold mb-1">المتبقي من المرحل</div>
-                              <div className="text-base font-black text-slate-800 font-mono">{remainingCarried} يوم</div>
+                              <div className="text-base font-black text-slate-800 font-mono">{summary.fifoBreakdown?.remainingCarried ?? 0} يوم</div>
                             </div>
                             <div className="p-3 rounded-lg bg-indigo-50 border border-indigo-200">
                               <div className="text-[10px] text-indigo-900 font-bold mb-1">المتبقي من المستحق</div>
-                              <div className="text-base font-black text-indigo-800 font-mono">{remainingAccrued} يوم</div>
+                              <div className="text-base font-black text-indigo-800 font-mono">{summary.fifoBreakdown?.remainingAccrued ?? 0} يوم</div>
                             </div>
                             <div className="p-3 rounded-lg bg-teal-50 border border-teal-200">
                               <div className="text-[10px] text-teal-900 font-bold mb-1">المتبقي من التعويضي</div>
-                              <div className="text-base font-black text-teal-800 font-mono">{remainingComp} يوم</div>
+                              <div className="text-base font-black text-teal-800 font-mono">{summary.fifoBreakdown?.remainingComp ?? 0} يوم</div>
                             </div>
                           </div>
                         </div>
