@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   BarChart3, 
   Printer, 
@@ -44,6 +44,9 @@ import { useCompany } from '../context/CompanyContext';
 import { useOdooHierarchy } from '../context/OdooHierarchyContext';
 import { exportToExcel } from '../utils/exportUtils';
 import { OdooOfficialA4PrintModal } from './reports/OdooOfficialA4PrintModal';
+import { getEmployeeUnifiedSummary } from '../utils/leaveEngine';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 export type ReportCategory = 
   | 'wps_reconciliation'
@@ -114,6 +117,8 @@ export interface MedicalEmployeeAnalyticsRecord {
 export const OdooReportsApp: React.FC = () => {
   const { activeCompany } = useCompany();
   const { employees: contextEmployees, getAttendanceForEmployee, computedPayslips } = useOdooHierarchy();
+  const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
+  const [leaveAllocations, setLeaveAllocations] = useState<any[]>([]);
 
   // الحالة العامة للتنقل بين التقارير والمحاور
   const [activeReport, setActiveReport] = useState<ReportCategory>('wps_reconciliation');
@@ -128,6 +133,29 @@ export const OdooReportsApp: React.FC = () => {
   const companyDisplayName = activeCompany?.nameAr || activeCompany?.name || '';
   const companyCivilId = activeCompany?.civilIdCompany || activeCompany?.civilId || '123456789012';
   const commercialRegNo = activeCompany?.commercialRegNo || (activeCompany as any)?.crNumber || 'CR-KW-987654';
+
+  useEffect(() => {
+    const companyId = activeCompany?.id;
+    if (!companyId) {
+      setLeaveRequests([]);
+      setLeaveAllocations([]);
+      return;
+    }
+
+    const requestsQuery = query(collection(db, 'leave_requests'), where('companyId', '==', companyId));
+    const allocationsQuery = query(collection(db, 'leave_allocations'), where('companyId', '==', companyId));
+    const unsubscribeRequests = onSnapshot(requestsQuery, snapshot => {
+      setLeaveRequests(snapshot.docs.map(item => ({ ...item.data(), id: item.id })));
+    }, error => console.error('Failed to load leave requests for reports:', error));
+    const unsubscribeAllocations = onSnapshot(allocationsQuery, snapshot => {
+      setLeaveAllocations(snapshot.docs.map(item => ({ ...item.data(), id: item.id })));
+    }, error => console.error('Failed to load leave allocations for reports:', error));
+
+    return () => {
+      unsubscribeRequests();
+      unsubscribeAllocations();
+    };
+  }, [activeCompany?.id]);
 
   // قاعدة بيانات الكادر الشاملة من موظفي النظام الحقيقيين وحركات البصمة الحية
   const analyticsData: MedicalEmployeeAnalyticsRecord[] = useMemo(() => {
@@ -151,19 +179,26 @@ export const OdooReportsApp: React.FC = () => {
       const serviceYears = elapsedDays / 365.25;
       const serviceMonths = elapsedDays / 30.4375;
 
-      // احتساب رصيد الإجازات المستحق طبقاً لقانون العمل (2.5 يوم عن كل شهر خدمة)
-      const accruedDays = Math.max(0, serviceMonths * 2.5);
-      const openingDays = Number(emp.openingBalance || 0);
-      const consumedDays = Number(emp.consumedLeaveDays || 0);
-      const leaveBal = emp.leaveBalance !== undefined 
-        ? Number(emp.leaveBalance) 
-        : Math.max(0, Math.min(30, (accruedDays + openingDays) - consumedDays));
+      const normalizedAllocations = leaveAllocations.map((allocation: any) => ({
+        ...allocation,
+        numberOfDays: Number(allocation.numberOfDays ?? allocation.days ?? 0) || 0,
+        consumedDays: Number(allocation.consumedDays || 0) || 0,
+        remainingDays: allocation.remainingDays !== undefined
+          ? Number(allocation.remainingDays) || 0
+          : Math.max(0, (Number(allocation.numberOfDays ?? allocation.days ?? 0) || 0) - (Number(allocation.consumedDays || 0) || 0)),
+        allocationType: allocation.allocationType || 'regular',
+        state: allocation.state || 'validate',
+        name: allocation.name || allocation.notes,
+        dateFrom: allocation.dateFrom || allocation.allocationDate || '2026-01-01'
+      }));
+      const leaveSummary = getEmployeeUnifiedSummary(emp as any, normalizedAllocations as any, leaveRequests as any);
+      const consumedDays = Number(leaveSummary.usedLeaveDays || 0);
+      const leaveBal = Number(leaveSummary.totalAvailableDays || 0);
 
       // أجر اليوم الواحد وفق معيار الـ 26 يوم عمل (المادتين 70 و 71)
-      const dailyWage = total > 0 ? (total / 26) : 0;
+      const dailyWage = Number(leaveSummary.dailyWageRate || 0);
       const hourlyWage = dailyWage > 0 ? (dailyWage / 8) : 0;
-      // الالتزام المالي لرصيد الإجازات = أجر اليوم × رصيد الأيام
-      const leaveCashLiability = dailyWage * leaveBal;
+      const leaveCashLiability = Number(leaveSummary.cashSettlementAmount || 0);
 
       // احتساب مخصص مكافأة نهاية الخدمة المتراكم (المادة 51)
       let eosAccruedAmount = 0;
@@ -261,7 +296,7 @@ export const OdooReportsApp: React.FC = () => {
         complianceStatus: complianceStatus,
         leaveBalance: leaveBal,
         consumedLeaveDays: consumedDays,
-        annualEntitlement: 30,
+        annualEntitlement: Number((leaveSummary.carriedOverDays || 0) + (leaveSummary.accruedAnnualDays || 0) + (leaveSummary.holidayCompensationDays || 0)).toFixed(2),
         leaveCashLiability: Number(leaveCashLiability.toFixed(3)),
         eosAccruedAmount: Number(eosAccruedAmount.toFixed(3)),
         overtimeHours: Number(otHours.toFixed(1)),
@@ -273,7 +308,7 @@ export const OdooReportsApp: React.FC = () => {
         netPayableSalary: Number(netSalary.toFixed(3))
       };
     });
-  }, [contextEmployees, getAttendanceForEmployee, computedPayslips, selectedPeriodMonth]);
+  }, [contextEmployees, getAttendanceForEmployee, computedPayslips, selectedPeriodMonth, leaveRequests, leaveAllocations]);
 
   // Legacy mock data purged for 100% live Firebase usage
 

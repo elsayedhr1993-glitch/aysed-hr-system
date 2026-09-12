@@ -19,9 +19,23 @@ import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { getPersistentData } from '../utils/persistentStorage';
 import { get_aysed_official_balance, getCarriedOverBalance, getGlobalCompensatoryDays } from '../utils/kuwaitLaw';
 import { checkDocumentExpiry } from '../utils/dateUtils';
-import { collection, deleteDoc, doc, getDocs, query, setDoc, where } from 'firebase/firestore';
+import { getEmployeeUnifiedSummary } from '../utils/leaveEngine';
+import { collection, deleteDoc, doc, getDocs, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { cleanFirestoreData, db } from '../lib/firebase';
 import { changeEmployeeStatus } from '../services/employeeLifecycleService';
+
+const normalizeLeaveAllocations = (allocations: any[] = []) => allocations.map((allocation: any) => ({
+  ...allocation,
+  numberOfDays: Number(allocation.numberOfDays ?? allocation.days ?? 0) || 0,
+  consumedDays: Number(allocation.consumedDays || 0) || 0,
+  remainingDays: allocation.remainingDays !== undefined
+    ? Number(allocation.remainingDays) || 0
+    : Math.max(0, (Number(allocation.numberOfDays ?? allocation.days ?? 0) || 0) - (Number(allocation.consumedDays || 0) || 0)),
+  allocationType: allocation.allocationType || 'regular',
+  state: allocation.state || 'validate',
+  name: allocation.name || allocation.notes,
+  dateFrom: allocation.dateFrom || allocation.allocationDate || '2026-01-01'
+}));
 
 export const safePrintA4Document = (htmlContent: string) => {
   try {
@@ -58,15 +72,16 @@ export const safePrintA4Document = (htmlContent: string) => {
   safePrintAction('طباعة المستند');
 };
 
-const generateLeavePrintHtml = (printData: any, companyName: string, companyNameEn: string) => {
+const generateLeavePrintHtml = (printData: any, companyName: string, companyNameEn: string, leaveRequests: any[] = [], leaveAllocations: any[] = []) => {
   const manaraLeaves = getPersistentData<any[]>('manara_leaves_data', []);
   const odooRequests = getPersistentData<any[]>('odoo_leave_requests_v2', []);
-  const combinedList = [...manaraLeaves, ...odooRequests];
-
-  const empLeaves = combinedList.filter(l => {
-    const matchEmp = l.employeeId === printData.id || 
-                     (printData.civilId && l.civilId && l.civilId === printData.civilId) ||
-                     (printData.civil_id_number && l.civilId && l.civilId === printData.civil_id_number);
+  const effectiveLeaves = leaveRequests.length > 0 ? leaveRequests : [...manaraLeaves, ...odooRequests];
+  const effectiveAllocations = normalizeLeaveAllocations(leaveAllocations);
+  const summary = getEmployeeUnifiedSummary(printData as any, effectiveAllocations as any, effectiveLeaves as any);
+  const empLeaves = effectiveLeaves.filter((l: any) => {
+    const matchEmp = l.employeeId === printData.id ||
+      (printData.civilId && l.civilId && l.civilId === printData.civilId) ||
+      (printData.civil_id_number && l.civilId && l.civilId === printData.civil_id_number);
     if (!matchEmp) return false;
 
     const normType = String(l.leaveType || '').toUpperCase();
@@ -74,12 +89,12 @@ const generateLeavePrintHtml = (printData: any, companyName: string, companyName
     const isApproved = normStatus === 'APPROVED' || normStatus === 'VALIDATED';
     return normType === 'ANNUAL' && isApproved;
   });
-  
-  const totalTaken = empLeaves.reduce((sum, l) => sum + (Number(l.totalDays || l.daysCount) || 0), 0);
-  const carriedOver = getCarriedOverBalance(printData);
-  const accrued2026 = get_aysed_official_balance(printData);
-  const compensatory = getGlobalCompensatoryDays(printData);
-  const netAvailable = Number((carriedOver + accrued2026 + compensatory - totalTaken).toFixed(1));
+
+  const totalTaken = Number(summary.usedLeaveDays || 0);
+  const carriedOver = Number(summary.carriedOverDays || getCarriedOverBalance(printData));
+  const accrued2026 = Number(summary.accruedAnnualDays || get_aysed_official_balance(printData));
+  const compensatory = Number(summary.holidayCompensationDays || getGlobalCompensatoryDays(printData));
+  const netAvailable = Number(summary.totalAvailableDays || 0);
 
   return `
     <div style="direction: rtl; font-family: 'Arial', 'Tahoma', sans-serif; padding: 25px; line-height: 1.6; color: #1e293b;">
@@ -236,6 +251,30 @@ export function EmployeesApp(props?: any) {
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printTitle, setPrintTitle] = useState('');
   const [printData, setPrintData] = useState<any>(null);
+  const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
+  const [leaveAllocations, setLeaveAllocations] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!currentCompanyId) {
+      setLeaveRequests([]);
+      setLeaveAllocations([]);
+      return;
+    }
+
+    const requestsQuery = query(collection(db, 'leave_requests'), where('companyId', '==', currentCompanyId));
+    const allocationsQuery = query(collection(db, 'leave_allocations'), where('companyId', '==', currentCompanyId));
+    const unsubscribeRequests = onSnapshot(requestsQuery, snapshot => {
+      setLeaveRequests(snapshot.docs.map(item => ({ ...item.data(), id: item.id })));
+    }, error => console.error('Failed to load leave requests for printing:', error));
+    const unsubscribeAllocations = onSnapshot(allocationsQuery, snapshot => {
+      setLeaveAllocations(snapshot.docs.map(item => ({ ...item.data(), id: item.id })));
+    }, error => console.error('Failed to load leave allocations for printing:', error));
+
+    return () => {
+      unsubscribeRequests();
+      unsubscribeAllocations();
+    };
+  }, [currentCompanyId]);
 
   const handleTriggerPrint = (title: string, data: any) => {
     setPrintTitle(title);
@@ -2294,11 +2333,9 @@ export function EmployeesApp(props?: any) {
                 (() => {
                   const isLeaveReport = printTitle.includes('كشف رصيد إجازات');
                   if (isLeaveReport) {
-                    const manaraLeaves = getPersistentData<any[]>('manara_leaves_data', []);
-                    const odooRequests = getPersistentData<any[]>('odoo_leave_requests_v2', []);
-                    const combinedList = [...manaraLeaves, ...odooRequests];
-
-                    const empLeaves = combinedList.filter(l => {
+                    const effectiveAllocations = normalizeLeaveAllocations(leaveAllocations);
+                    const summary = getEmployeeUnifiedSummary(printData as any, effectiveAllocations as any, leaveRequests as any);
+                    const empLeaves = leaveRequests.filter((l: any) => {
                       const matchEmp = l.employeeId === printData.id || 
                                        (printData.civilId && l.civilId && l.civilId === printData.civilId) ||
                                        (printData.civil_id_number && l.civilId && l.civilId === printData.civil_id_number);
@@ -2309,12 +2346,11 @@ export function EmployeesApp(props?: any) {
                       const isApproved = normStatus === 'APPROVED' || normStatus === 'VALIDATED';
                       return normType === 'ANNUAL' && isApproved;
                     });
-                    
-                    const totalTaken = empLeaves.reduce((sum, l) => sum + (Number(l.totalDays || l.daysCount) || 0), 0);
-                    const carriedOver = getCarriedOverBalance(printData);
-                    const accrued2026 = get_aysed_official_balance(printData);
-                    const compensatory = getGlobalCompensatoryDays(printData);
-                    const netAvailable = Number((carriedOver + accrued2026 + compensatory - totalTaken).toFixed(1));
+                    const totalTaken = Number(summary.usedLeaveDays || 0);
+                    const carriedOver = Number(summary.carriedOverDays || 0);
+                    const accrued2026 = Number(summary.accruedAnnualDays || 0);
+                    const compensatory = Number(summary.holidayCompensationDays || 0);
+                    const netAvailable = Number(summary.totalAvailableDays || 0);
 
                     return (
                       <div className="space-y-6">
@@ -2453,7 +2489,7 @@ export function EmployeesApp(props?: any) {
                 onClick={() => {
                   const isLeaveReport = printTitle.includes('كشف رصيد إجازات');
                   if (isLeaveReport && printData) {
-                    const html = generateLeavePrintHtml(printData, activeCompany?.nameAr || activeCompany?.name || 'تقرير المنشأة', activeCompany?.nameEn || 'State of Kuwait');
+                    const html = generateLeavePrintHtml(printData, activeCompany?.nameAr || activeCompany?.name || 'تقرير المنشأة', activeCompany?.nameEn || 'State of Kuwait', leaveRequests, leaveAllocations);
                     safePrintA4Document(html);
                     setShowPrintModal(false);
                   } else {

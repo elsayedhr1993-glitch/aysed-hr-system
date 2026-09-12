@@ -117,20 +117,6 @@ export const EmployeeHRTab: React.FC<Props> = ({
     });
   }, [employee.id, employee.civil_id_number, employee.civilId, employee.companyId, employee.company_id]);
 
-  // Calculate dynamic components of the "Flower" lifecycle
-  const carriedOver = parseFloat(employee.carriedOverLeave2025 ?? employee.carriedOverBalance ?? employee.openingBalance ?? 0) || 0;
-
-  // Calculate 2026 Accrued Days
-  const getAccrued2026 = () => {
-    const startDateStr = employee.contractStartDate || employee.hireDate || '2026-01-01';
-    const start = new Date(startDateStr);
-    const now = new Date(); // 2026
-    const calculationStart = start.getFullYear() >= 2026 ? start : new Date('2026-01-01');
-    const elapsedMonths = (now.getFullYear() - calculationStart.getFullYear()) * 12 + (now.getMonth() - calculationStart.getMonth()) + 1;
-    return Math.max(0, elapsedMonths * 2.5);
-  };
-  const accruedDays = getAccrued2026();
-
   // Approved Holiday Work days count
   const approvedHolidayDays = holidayRecords
     .filter(r => r.state === 'approved')
@@ -140,7 +126,7 @@ export const EmployeeHRTab: React.FC<Props> = ({
   const consumedDays = consumedLeaveDays;
 
   // Final Net Available Balance formula output
-  const availableBalance = parseFloat(calculatedBalance as string) || (carriedOver + accruedDays + approvedHolidayDays - consumedDays);
+  const availableBalance = Number(calculatedBalance) || 0;
 
   // Add Holiday Work Record Handler
   const handleAddHolidayWork = async (e: React.FormEvent) => {

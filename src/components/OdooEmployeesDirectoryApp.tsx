@@ -61,6 +61,9 @@ import { EmployeeHierarchyView } from './employees/EmployeeHierarchyView';
 import { EmployeeKanbanView } from './employees/EmployeeKanbanView';
 import { EmployeeDeleteConfirmModal } from './employees/EmployeeDeleteConfirmModal';
 import OdooDocumentUploadModal from './OdooDocumentUploadModal';
+import { getEmployeeUnifiedSummary } from '../utils/leaveEngine';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 export interface EmployeeDocument {
   id: string;
@@ -141,6 +144,30 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
   const currentCompanyId = activeCompanyId || activeCompany?.id || 'comp-super-admin';
 
   const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
+  const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
+  const [leaveAllocations, setLeaveAllocations] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!currentCompanyId) {
+      setLeaveRequests([]);
+      setLeaveAllocations([]);
+      return;
+    }
+
+    const requestsQuery = query(collection(db, 'leave_requests'), where('companyId', '==', currentCompanyId));
+    const allocationsQuery = query(collection(db, 'leave_allocations'), where('companyId', '==', currentCompanyId));
+    const unsubscribeRequests = onSnapshot(requestsQuery, snapshot => {
+      setLeaveRequests(snapshot.docs.map(item => ({ ...item.data(), id: item.id })));
+    }, error => console.error('Failed to load directory leave requests:', error));
+    const unsubscribeAllocations = onSnapshot(allocationsQuery, snapshot => {
+      setLeaveAllocations(snapshot.docs.map(item => ({ ...item.data(), id: item.id })));
+    }, error => console.error('Failed to load directory leave allocations:', error));
+
+    return () => {
+      unsubscribeRequests();
+      unsubscribeAllocations();
+    };
+  }, [currentCompanyId]);
 
   // Sync live with Firestore for active company
   useEffect(() => {
@@ -160,6 +187,19 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
               const mohLic = (emp as any).mohLicenseNo || '';
               const mohExp = (emp as any).mohLicenseExpiry || '';
               const docs = Array.isArray((emp as any).documents) ? (emp as any).documents : [];
+              const normalizedAllocations = leaveAllocations.map((allocation: any) => ({
+                ...allocation,
+                numberOfDays: Number(allocation.numberOfDays ?? allocation.days ?? 0) || 0,
+                consumedDays: Number(allocation.consumedDays || 0) || 0,
+                remainingDays: allocation.remainingDays !== undefined
+                  ? Number(allocation.remainingDays) || 0
+                  : Math.max(0, (Number(allocation.numberOfDays ?? allocation.days ?? 0) || 0) - (Number(allocation.consumedDays || 0) || 0)),
+                allocationType: allocation.allocationType || 'regular',
+                state: allocation.state || 'validate',
+                name: allocation.name || allocation.notes,
+                dateFrom: allocation.dateFrom || allocation.allocationDate || '2026-01-01'
+              }));
+              const leaveSummary = getEmployeeUnifiedSummary(emp as any, normalizedAllocations as any, leaveRequests as any);
 
               return {
                 id: emp.id,
@@ -174,7 +214,7 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
                 avatarBg: 'bg-[#714B67]',
                 status: (emp.status === 'ACTIVE' || (emp.status as any) === 'على رأس العمل') ? 'active' : 'on_leave',
                 joinDate: emp.joinDate || '',
-                leaveBalance: emp.paid_days_remaining || 30.0,
+                leaveBalance: Number(leaveSummary.totalAvailableDays || 0),
                 shiftType: 'دوام صباحي (8:00 ص - 4:00 م)',
                 directManager: (emp as any).manager || '',
                 nationality: emp.nationality || 'كويتي',
@@ -215,7 +255,7 @@ export const OdooEmployeesDirectoryApp: React.FC = () => {
     }
     syncDirectoryEmployees();
     return () => { isMounted = false; };
-  }, [currentCompanyId]);
+  }, [currentCompanyId, leaveRequests, leaveAllocations]);
 
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeProfile | null>(null);
   const [activeFormTab, setActiveFormTab] = useState<'work' | 'private' | 'payroll' | 'residency' | 'medical'>('work');

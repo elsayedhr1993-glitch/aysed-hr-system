@@ -55,6 +55,7 @@ import { TabDocumentScanner } from '../TabDocumentScanner';
 import { EditableField, EditableSelect } from '../EditableField';
 import { getCarriedOverBalance, calculate2026AccruedDays, getGlobalCompensatoryDays } from '../../utils/kuwaitLaw';
 import { buildEmployeeBaselineAllocations, computeFifoLeaveAllocations } from '../../services/leaveService';
+import { getEmployeeUnifiedSummary } from '../../utils/leaveEngine';
 import { deleteEmployeeDocument, saveEmployeeDocument } from '../../services/documentService';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
@@ -194,32 +195,18 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
   // Dynamic Time Off Balance Calculation using the core Leave Engine and kuwaitLaw
   const getDynamicBalance = () => {
     try {
-      // Firestore is the operational source for leave balances.
       const mappedAllocations = leaveAllocations.map((a: any) => ({
         ...a,
-        numberOfDays: a.numberOfDays ?? a.days ?? 0,
-        consumedDays: a.consumedDays || 0,
-        remainingDays: a.remainingDays ?? Math.max(0, (a.numberOfDays ?? a.days ?? 0) - (a.consumedDays || 0)),
+        numberOfDays: Number(a.numberOfDays ?? a.days ?? 0) || 0,
+        consumedDays: Number(a.consumedDays || 0) || 0,
+        remainingDays: a.remainingDays ?? Math.max(0, (Number(a.numberOfDays ?? a.days ?? 0) || 0) - (Number(a.consumedDays || 0) || 0)),
         allocationType: a.allocationType || 'regular',
         state: a.state || 'validate',
         name: a.name || a.notes,
         dateFrom: a.dateFrom || a.allocationDate
       }));
-
-      // Build baseline allocations including carried-over and accrued entitlement.
-      const empAllocs = buildEmployeeBaselineAllocations(employee as any, mappedAllocations as any);
-      const fifoResult = computeFifoLeaveAllocations(employee as any, empAllocs, leaveRequests as any);
-
-      const totalOpening = fifoResult.allocations.filter(a => a.allocationType === 'regular').reduce((s, a) => s + (a.numberOfDays || 0), 0);
-      const totalAccrued = fifoResult.allocations.filter(a => a.allocationType === 'accrual' && !a.name?.includes('تعويضي') && !a.name?.includes('بديل') && !a.name?.includes('عطلة')).reduce((s, a) => s + (a.numberOfDays || 0), 0);
-      const totalCompensatory = getGlobalCompensatoryDays(employee as any);
-
-      const carried = totalOpening;
-      const earned = totalAccrued + totalCompensatory;
-      const consumed = fifoResult.totalConsumed;
-      const available = Math.max(0, (carried + earned) - consumed);
-
-      return available;
+      const summary = getEmployeeUnifiedSummary(employee as any, mappedAllocations as any, leaveRequests as any);
+      return Number(summary.totalAvailableDays || 0);
     } catch (err) {
       console.error('Failed to compute dynamic balance in detail view:', err);
       // Fallback to simpler lookup
