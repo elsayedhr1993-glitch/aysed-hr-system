@@ -10,10 +10,6 @@ import {
 } from 'lucide-react';
 import { printDocument, exportElementToPdf } from '../utils/printUtils';
 import { 
-  computeFifoLeaveAllocations, 
-  buildEmployeeBaselineAllocations 
-} from '../services/leaveService';
-import { 
   calculateKuwaitDailyRate,
   calculateKuwaitHourlyRate,
   calculatePhysicalWorkedDays,
@@ -28,7 +24,7 @@ import {
   validateSettlementConstraints
 } from '../services/leaveSettlementService';
 import { LeaveClearanceDocument } from './LeaveClearanceDocument';
-import { getEmployeeUnifiedSummary } from '../utils/leaveEngine';
+import { LeaveBalanceEngine } from '../utils/leaveEngine';
 import { normalizeContractStatus } from '../utils/contractStatus';
 import toast from 'react-hot-toast';
 
@@ -137,26 +133,69 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
            contracts.find(c => c.employeeId === selectedEmp.id);
   }, [contracts, selectedEmp]);
 
-  const unifiedSummary = useMemo(() => {
+  const matchesSelectedEmployee = (item: any) => {
+    if (!selectedEmp || !item) return false;
+    const empId = String(selectedEmp.id || '').trim();
+    const empCode = String((selectedEmp as any).employeeCode || '').trim();
+    const empCivilId = String((selectedEmp as any).civilId || (selectedEmp as any).civil_id_number || '').trim();
+    const empName = String((selectedEmp as any).fullNameAr || (selectedEmp as any).nameAr || (selectedEmp as any).name || '').trim();
+
+    const itemEmpId = String(item.employeeId || item.employee_id || '').trim();
+    const itemCivilId = String(item.civilId || item.civil_id_number || '').trim();
+    const itemName = String(item.employeeName || item.employee_name || item.fullNameAr || item.nameAr || item.name || '').trim();
+
+    return (
+      (empId && itemEmpId === empId) ||
+      (empCode && itemEmpId === empCode) ||
+      (empCivilId && itemCivilId === empCivilId) ||
+      (empName && itemName && itemName === empName)
+    );
+  };
+
+  const leaveBalanceSnapshot = useMemo(() => {
     if (!selectedEmp) return null;
-    return getEmployeeUnifiedSummary(selectedEmp, allocations || [], leaves || [], selectedContract || undefined);
+    const normalizedAllocations = (allocations || []).map((a: any) => ({
+      ...a,
+      employeeId: a.employeeId || a.employee_id || '',
+      days: Number(a.days ?? a.numberOfDays ?? a.number_of_days ?? 0) || 0,
+      numberOfDays: Number(a.numberOfDays ?? a.number_of_days ?? a.days ?? 0) || 0,
+      allocationDate: a.allocationDate || a.dateFrom || a.date_from || '2026-01-01',
+      notes: a.notes || a.name || ''
+    })).filter(matchesSelectedEmployee);
+
+    const normalizedLeaves = (leaves || []).map((l: any) => ({
+      ...l,
+      employeeId: l.employeeId || l.employee_id || '',
+      totalDays: Number(l.totalDays ?? l.daysCount ?? l.numberOfDays ?? l.days ?? 0) || 0,
+      status: String(l.status || '').toUpperCase()
+    })).filter(matchesSelectedEmployee);
+
+    return LeaveBalanceEngine.calculate({
+      employee: {
+        ...selectedEmp,
+        id: selectedEmp.id,
+        employeeCode: (selectedEmp as any).employeeCode || selectedEmp.id,
+        fullNameAr: (selectedEmp as any).fullNameAr || (selectedEmp as any).nameAr || (selectedEmp as any).name,
+        nameAr: (selectedEmp as any).nameAr || (selectedEmp as any).name,
+        name: (selectedEmp as any).name,
+        civilId: (selectedEmp as any).civilId,
+        joinDate: (selectedEmp as any).joinDate,
+        basicSalary: (selectedEmp as any).basicSalary,
+        salary: (selectedEmp as any).salary || (selectedEmp as any).basicSalary
+      } as any,
+      allocations: normalizedAllocations as any,
+      leaves: normalizedLeaves as any,
+      contract: selectedContract || undefined
+    });
   }, [selectedEmp, allocations, leaves, selectedContract]);
 
-  // FIFO Leave Balances calculation
-  const empFifo = useMemo(() => {
-    if (!selectedEmp) return null;
-    return computeFifoLeaveAllocations(
-      selectedEmp, 
-      buildEmployeeBaselineAllocations(selectedEmp, allocations || []), 
-      leaves || []
-    );
-  }, [selectedEmp, allocations, leaves]);
-
-  const totalAvailableBalance = Number(unifiedSummary?.totalAvailableDays || 0);
-  const carriedOverBal = Number(Math.min(Number(unifiedSummary?.carriedOverDays || 0), totalAvailableBalance).toFixed(2));
-  const accruedBalance = Number(Math.max(0, totalAvailableBalance - carriedOverBal).toFixed(2));
-  const totalTaken = Number(unifiedSummary?.usedLeaveDays || 0);
+  const totalAvailableBalance = Number(leaveBalanceSnapshot?.totalBalance || 0);
+  const carriedOverBal = Number(leaveBalanceSnapshot?.carriedForwardDays || 0);
+  const accruedBalance = Number(((leaveBalanceSnapshot?.accruedDays || 0) + (leaveBalanceSnapshot?.holidayCompensationDays || 0) + (leaveBalanceSnapshot?.manualAdjustmentDays || 0)).toFixed(2));
+  const totalTaken = Number(leaveBalanceSnapshot?.approvedLeaveDeductionDays || 0);
   const netAvailable = totalAvailableBalance;
+
+  const clampToAvailable = (value: number) => Number(Math.max(0, Math.min(Number(value || 0), netAvailable)).toFixed(2));
 
   // Wages calculation (Kuwait Labor Law 26-day basis on Basic Salary only)
   const basicSalary = selectedContract?.basicSalary || (selectedEmp as any)?.basicSalary || 0;
@@ -211,7 +250,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
     } else if (settlementMode === 'LEAVE_WITH_TRAVEL' && selectedLeaveId === 'custom' && departureDate && returnDate) {
       const working = calculateWorkingLeaveDays(departureDate, returnDate);
       if (working.workingDays > 0) {
-        setConsumedLeaveDays(working.workingDays);
+        setConsumedLeaveDays(clampToAvailable(working.workingDays));
       }
     }
   }, [selectedEmpId, netAvailable, settlementMode]);
@@ -234,7 +273,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
         setSelectedLeaveId('custom');
         const working = calculateWorkingLeaveDays(departureDate, returnDate);
         if (working.workingDays > 0) {
-          setConsumedLeaveDays(working.workingDays);
+          setConsumedLeaveDays(clampToAvailable(working.workingDays));
         }
       }
     }
@@ -252,7 +291,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
     if (settlementMode !== 'ENCASHMENT_LIQUIDATION' && selectedLeaveId === 'custom' && returnDate) {
       const working = calculateWorkingLeaveDays(newDateStr, returnDate);
       if (working.workingDays > 0) {
-        setConsumedLeaveDays(working.workingDays);
+        setConsumedLeaveDays(clampToAvailable(working.workingDays));
       }
     }
   };
@@ -262,7 +301,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
     if (settlementMode !== 'ENCASHMENT_LIQUIDATION' && selectedLeaveId === 'custom' && departureDate) {
       const working = calculateWorkingLeaveDays(departureDate, newDateStr);
       if (working.workingDays > 0) {
-        setConsumedLeaveDays(working.workingDays);
+        setConsumedLeaveDays(clampToAvailable(working.workingDays));
       }
     }
   };
@@ -297,7 +336,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
       setIncludeEncashment(false);
       setEncashmentDays(0);
       const working = calculateWorkingLeaveDays(departureDate, returnDate);
-      setConsumedLeaveDays(working.workingDays > 0 ? working.workingDays : 0);
+      setConsumedLeaveDays(working.workingDays > 0 ? clampToAvailable(working.workingDays) : 0);
       setIncludeProratedSalary(true);
       const phys = calculatePhysicalWorkedDays(departureDate);
       setWorkedDaysInMonth(phys.workingDays > 0 ? phys.workingDays : 1);
@@ -350,7 +389,10 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
   // Approved leaves for employee
   const employeeLeavesForSettlement = useMemo(() => {
     if (!selectedEmp) return [];
-    return leaves.filter(l => l.employeeId === selectedEmp.id && ['APPROVED', 'SUBMITTED', 'PENDING_MANAGER', 'PENDING_HR'].includes(l.status));
+    return leaves.filter(l => {
+      const status = String(l.status || '').toUpperCase();
+      return matchesSelectedEmployee(l) && ['APPROVED', 'VALIDATED', 'SUBMITTED', 'PENDING_MANAGER', 'PENDING_HR'].includes(status);
+    });
   }, [leaves, selectedEmp]);
 
   // Handle selecting a specific approved leave
@@ -367,14 +409,20 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
         const statutory = found.bereavementStatutoryDays || 3;
         setStatutoryLeaveDays(statutory);
         const regularTaken = found.annualDeductedDays ?? Math.max(0, (found.totalDays || 0) - statutory);
-        setConsumedLeaveDays(regularTaken);
+        setConsumedLeaveDays(clampToAvailable(regularTaken));
       } else {
-        setConsumedLeaveDays(found.paidDays !== undefined ? found.paidDays : (found.totalDays || 0));
+        setConsumedLeaveDays(clampToAvailable(found.paidDays !== undefined ? found.paidDays : (found.totalDays || 0)));
         setStatutoryLeaveDays(0);
       }
       setUnpaidLeaveDays(found.unpaidDays || found.excessDays || 0);
     }
   };
+
+  useEffect(() => {
+    if (settlementMode !== 'ENCASHMENT_LIQUIDATION' && consumedLeaveDays > netAvailable) {
+      setConsumedLeaveDays(clampToAvailable(consumedLeaveDays));
+    }
+  }, [netAvailable, consumedLeaveDays, settlementMode]);
 
   // Voucher number state for session stability
   const [currentVoucherNumber, setCurrentVoucherNumber] = useState<string>(() => 
@@ -1128,8 +1176,9 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                           <label className="block font-bold text-slate-700 mb-1">أيام الإجازة المصروفة مقدماً / Paid Leave Days:</label>
                           <DecimalInput
                             min={0}
+                            max={netAvailable}
                             value={consumedLeaveDays}
-                            onChange={setConsumedLeaveDays}
+                            onChange={(value) => setConsumedLeaveDays(clampToAvailable(value))}
                             className="w-full bg-white border border-slate-300 rounded-xl p-2 font-mono font-black text-slate-900 outline-none focus:border-[#714B67]"
                           />
                           <span className="text-[10px] text-slate-500 mt-0.5 block">تخصم من رصيد الإجازات السنوي</span>
