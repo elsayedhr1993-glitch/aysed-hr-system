@@ -70,6 +70,14 @@ export interface EmployeeLeaveSummary {
   remainingCarried: number;
   remainingAccrued: number;
   remainingComp: number;
+  fifoBreakdown?: {
+    consumedFromCarried: number;
+    consumedFromAccrued: number;
+    consumedFromComp: number;
+    remainingCarried: number;
+    remainingAccrued: number;
+    remainingComp: number;
+  };
   totalAvailableDays: number;      // الرصيد الإجمالي القابل للاستخدام والصرف
   cashSettlementAmount: number;    // القيمة المالية المستحقة في حال الصرف
   dailyWageRate?: number;          // أجر اليوم (الراتب الأساسي / 26)
@@ -471,6 +479,14 @@ export function getEmployeeUnifiedSummary(
   contract?: Contract
 ): EmployeeLeaveSummary {
   const snapshot = calculateLeaveBalanceSnapshot({ employee, allocations, leaves, contract });
+  const fifoBreakdown = {
+    consumedFromCarried: snapshot.consumedFromCarried,
+    consumedFromAccrued: snapshot.consumedFromAccrued,
+    consumedFromComp: snapshot.consumedFromComp,
+    remainingCarried: snapshot.remainingCarried,
+    remainingAccrued: snapshot.remainingAccrued,
+    remainingComp: snapshot.remainingComp,
+  };
 
   return {
     carriedOverDays: snapshot.carriedForwardDays,
@@ -484,6 +500,7 @@ export function getEmployeeUnifiedSummary(
     remainingCarried: snapshot.remainingCarried,
     remainingAccrued: snapshot.remainingAccrued,
     remainingComp: snapshot.remainingComp,
+    fifoBreakdown,
     totalAvailableDays: snapshot.totalBalance,
     cashSettlementAmount: snapshot.cashLiability,
     dailyWageRate: snapshot.dailyWage,

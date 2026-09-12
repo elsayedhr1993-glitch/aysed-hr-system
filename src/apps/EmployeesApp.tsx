@@ -95,12 +95,20 @@ const generateLeavePrintHtml = (printData: any, companyName: string, companyName
   const accrued2026 = Number(summary.accruedAnnualDays || get_aysed_official_balance(printData));
   const compensatory = Number(summary.holidayCompensationDays || getGlobalCompensatoryDays(printData));
   const netAvailable = Number(summary.totalAvailableDays || 0);
-  const consumedFromCarried = Number(summary.consumedFromCarried || 0);
-  const consumedFromAccrued = Number(summary.consumedFromAccrued || 0);
-  const consumedFromComp = Number(summary.consumedFromComp || 0);
-  const remainingCarried = Number(summary.remainingCarried || 0);
-  const remainingAccrued = Number(summary.remainingAccrued || 0);
-  const remainingComp = Number(summary.remainingComp || 0);
+  const fifoBreakdown = summary.fifoBreakdown || {
+    consumedFromCarried: Number(summary.consumedFromCarried || 0),
+    consumedFromAccrued: Number(summary.consumedFromAccrued || 0),
+    consumedFromComp: Number(summary.consumedFromComp || 0),
+    remainingCarried: Number(summary.remainingCarried || 0),
+    remainingAccrued: Number(summary.remainingAccrued || 0),
+    remainingComp: Number(summary.remainingComp || 0),
+  };
+  const consumedFromCarried = Number(fifoBreakdown.consumedFromCarried || 0);
+  const consumedFromAccrued = Number(fifoBreakdown.consumedFromAccrued || 0);
+  const consumedFromComp = Number(fifoBreakdown.consumedFromComp || 0);
+  const remainingCarried = Number(fifoBreakdown.remainingCarried || 0);
+  const remainingAccrued = Number(fifoBreakdown.remainingAccrued || 0);
+  const remainingComp = Number(fifoBreakdown.remainingComp || 0);
 
   return `
     <div style="direction: rtl; font-family: 'Arial', 'Tahoma', sans-serif; padding: 25px; line-height: 1.6; color: #1e293b;">
@@ -165,27 +173,27 @@ const generateLeavePrintHtml = (printData: any, companyName: string, companyName
           <tr>
             <td style="background-color: #fff7ed; border: 1px solid #fed7aa; padding: 12px; border-radius: 6px; width: 16.66%;">
               <div style="font-size: 10px; color: #9a3412; font-weight: bold; margin-bottom: 5px;">خصم من المرحل</div>
-              <div style="font-size: 15px; font-weight: bold; color: #c2410c;">-{consumedFromCarried} يوم</div>
+              <div style="font-size: 15px; font-weight: bold; color: #c2410c;">-${consumedFromCarried} يوم</div>
             </td>
             <td style="background-color: #faf5ff; border: 1px solid #e9d5ff; padding: 12px; border-radius: 6px; width: 16.66%;">
               <div style="font-size: 10px; color: #6b21a8; font-weight: bold; margin-bottom: 5px;">خصم من المستحق</div>
-              <div style="font-size: 15px; font-weight: bold; color: #7e22ce;">-{consumedFromAccrued} يوم</div>
+              <div style="font-size: 15px; font-weight: bold; color: #7e22ce;">-${consumedFromAccrued} يوم</div>
             </td>
             <td style="background-color: #ecfdf5; border: 1px solid #a7f3d0; padding: 12px; border-radius: 6px; width: 16.66%;">
               <div style="font-size: 10px; color: #065f46; font-weight: bold; margin-bottom: 5px;">خصم من التعويضي</div>
-              <div style="font-size: 15px; font-weight: bold; color: #047857;">-{consumedFromComp} يوم</div>
+              <div style="font-size: 15px; font-weight: bold; color: #047857;">-${consumedFromComp} يوم</div>
             </td>
             <td style="background-color: #f8fafc; border: 1px solid #cbd5e1; padding: 12px; border-radius: 6px; width: 16.66%;">
               <div style="font-size: 10px; color: #475569; font-weight: bold; margin-bottom: 5px;">المتبقي من المرحل</div>
-              <div style="font-size: 15px; font-weight: bold; color: #334155;">{remainingCarried} يوم</div>
+              <div style="font-size: 15px; font-weight: bold; color: #334155;">${remainingCarried} يوم</div>
             </td>
             <td style="background-color: #eef2ff; border: 1px solid #c7d2fe; padding: 12px; border-radius: 6px; width: 16.66%;">
               <div style="font-size: 10px; color: #3730a3; font-weight: bold; margin-bottom: 5px;">المتبقي من المستحق</div>
-              <div style="font-size: 15px; font-weight: bold; color: #4338ca;">{remainingAccrued} يوم</div>
+              <div style="font-size: 15px; font-weight: bold; color: #4338ca;">${remainingAccrued} يوم</div>
             </td>
             <td style="background-color: #f0fdfa; border: 1px solid #99f6e4; padding: 12px; border-radius: 6px; width: 16.66%;">
               <div style="font-size: 10px; color: #115e59; font-weight: bold; margin-bottom: 5px;">المتبقي من التعويضي</div>
-              <div style="font-size: 15px; font-weight: bold; color: #0f766e;">{remainingComp} يوم</div>
+              <div style="font-size: 15px; font-weight: bold; color: #0f766e;">${remainingComp} يوم</div>
             </td>
           </tr>
         </table>
@@ -2389,12 +2397,20 @@ export function EmployeesApp(props?: any) {
                     const accrued2026 = Number(summary.accruedAnnualDays || 0);
                     const compensatory = Number(summary.holidayCompensationDays || 0);
                     const netAvailable = Number(summary.totalAvailableDays || 0);
-                    const consumedFromCarried = Number(summary.consumedFromCarried || 0);
-                    const consumedFromAccrued = Number(summary.consumedFromAccrued || 0);
-                    const consumedFromComp = Number(summary.consumedFromComp || 0);
-                    const remainingCarried = Number(summary.remainingCarried || 0);
-                    const remainingAccrued = Number(summary.remainingAccrued || 0);
-                    const remainingComp = Number(summary.remainingComp || 0);
+                    const fifoBreakdown = summary.fifoBreakdown || {
+                      consumedFromCarried: Number(summary.consumedFromCarried || 0),
+                      consumedFromAccrued: Number(summary.consumedFromAccrued || 0),
+                      consumedFromComp: Number(summary.consumedFromComp || 0),
+                      remainingCarried: Number(summary.remainingCarried || 0),
+                      remainingAccrued: Number(summary.remainingAccrued || 0),
+                      remainingComp: Number(summary.remainingComp || 0),
+                    };
+                    const consumedFromCarried = Number(fifoBreakdown.consumedFromCarried || 0);
+                    const consumedFromAccrued = Number(fifoBreakdown.consumedFromAccrued || 0);
+                    const consumedFromComp = Number(fifoBreakdown.consumedFromComp || 0);
+                    const remainingCarried = Number(fifoBreakdown.remainingCarried || 0);
+                    const remainingAccrued = Number(fifoBreakdown.remainingAccrued || 0);
+                    const remainingComp = Number(fifoBreakdown.remainingComp || 0);
 
                     return (
                       <div className="space-y-6">
