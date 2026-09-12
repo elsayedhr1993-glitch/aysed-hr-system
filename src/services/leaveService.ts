@@ -1,5 +1,6 @@
 import { Employee, LeaveRequest, HrLeaveAllocation, AttendanceRecord } from '../types';
 import { calculate2026AccruedDays, isEmployeeHiredIn2026OrLater, getGlobalOpeningBalance, getGlobalAccrued2026, getGlobalCompensatoryDays } from '../utils/kuwaitLaw';
+import { normalizeLeaveStatus, normalizeLeaveType } from '../utils/leaveModel';
 
 export const LEAVE_ACCRUAL_RATE_PER_MONTH = 2.5; // 30 days per year / 12 months = 2.5 days/month according to Kuwait Labor Law
 
@@ -148,21 +149,24 @@ export function computeFifoLeaveAllocations(
       if (l.isHistorical) return false;
       const lAny = l as any;
       const empAny = employee as any;
+      const empName = String(employee.fullNameAr || (employee as any).nameAr || employee.name || '').trim();
+      const leaveName = String(lAny.employeeName || lAny.employee_name || lAny.nameAr || lAny.name || '').trim();
       
       const matchEmp = l.employeeId === employee.id || 
                        l.employeeId === employee.employeeCode || 
                        (empAny.civilId && lAny.civilId && lAny.civilId === empAny.civilId) ||
-                       (empAny.civil_id_number && lAny.civilId && lAny.civilId === empAny.civil_id_number);
+                       (empAny.civil_id_number && lAny.civilId && lAny.civilId === empAny.civil_id_number) ||
+                       (empName && leaveName && leaveName === empName);
       if (!matchEmp) return false;
 
-      const normStatus = String(l.status || '').toUpperCase();
-      const isApproved = normStatus === 'APPROVED' || normStatus === 'VALIDATED';
-      if (!isApproved) return false;
+      const normalizedStatus = normalizeLeaveStatus(l.status);
+      const isDeductibleStatus = normalizedStatus === 'APPROVED' || normalizedStatus === 'RETURNED';
+      if (!isDeductibleStatus) return false;
 
-      const normType = String(l.leaveType || '').toUpperCase();
-      const isDeductibleType = normType === 'ANNUAL' || 
-                               normType === 'COMPENSATORY' || 
-                               ((normType === 'BEREAVEMENT' || normType === 'COMPASSIONATE') && l.isSplitBereavement);
+      const normalizedType = normalizeLeaveType(l.leaveType);
+      const isDeductibleType = normalizedType === 'ANNUAL' || 
+                               normalizedType === 'COMPENSATORY' || 
+                               ((normalizedType === 'BEREAVEMENT' || normalizedType === 'COMPASSIONATE') && l.isSplitBereavement);
       return isDeductibleType;
     })
     .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
@@ -171,8 +175,9 @@ export function computeFifoLeaveAllocations(
 
   // Iterate over leaves and consume allocations FIFO
   for (const leave of approvedDeductibleLeaves) {
+    const normalizedType = normalizeLeaveType(leave.leaveType);
     let daysToConsume = 0;
-    if (leave.leaveType === 'BEREAVEMENT' || leave.leaveType === 'COMPASSIONATE') {
+    if (normalizedType === 'BEREAVEMENT' || normalizedType === 'COMPASSIONATE') {
       daysToConsume = leave.annualDeductedDays !== undefined ? leave.annualDeductedDays : Math.max(0, (leave.totalDays || 0) - 3);
     } else {
       daysToConsume = leave.paidDays !== undefined ? leave.paidDays : (leave.totalDays || 1);
@@ -182,7 +187,7 @@ export function computeFifoLeaveAllocations(
       leaveId: leave.id,
       leaveStartDate: leave.startDate,
       leaveEndDate: leave.endDate,
-      leaveType: leave.leaveType,
+      leaveType: normalizedType,
       totalDays: leaveTotalDays,
       paidDays: 0,
       excessDays: leave.excessDays || 0,
@@ -197,8 +202,8 @@ export function computeFifoLeaveAllocations(
       // Filter logic: COMPENSATORY leaves only consume compensatory allocations
       // ANNUAL/BEREAVEMENT leaves only consume regular/accrual allocations
       const isCompensatoryAlloc = alloc.allocationType === 'compensatory_off' || (alloc as any).allocationType === 'compensatory' || alloc.name?.includes('عطلة') || alloc.name?.includes('تعويضي') || alloc.notes?.includes('عطلة');
-      if (leave.leaveType === 'COMPENSATORY' && !isCompensatoryAlloc) continue;
-      if (leave.leaveType !== 'COMPENSATORY' && isCompensatoryAlloc) continue;
+      if (normalizedType === 'COMPENSATORY' && !isCompensatoryAlloc) continue;
+      if (normalizedType !== 'COMPENSATORY' && isCompensatoryAlloc) continue;
 
       const take = Math.min(daysToConsume, currentAvailable);
       alloc.consumedDays = Number(((alloc.consumedDays || 0) + take).toFixed(2));

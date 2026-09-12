@@ -86,7 +86,7 @@ const generateLeavePrintHtml = (printData: any, companyName: string, companyName
 
     const normType = String(l.leaveType || '').toUpperCase();
     const normStatus = String(l.status || '').toUpperCase();
-    const isApproved = normStatus === 'APPROVED' || normStatus === 'VALIDATED';
+    const isApproved = normStatus === 'APPROVED' || normStatus === 'VALIDATED' || normStatus === 'RETURNED';
     return normType === 'ANNUAL' && isApproved;
   });
 
@@ -2343,7 +2343,7 @@ export function EmployeesApp(props?: any) {
 
                       const normType = String(l.leaveType || '').toUpperCase();
                       const normStatus = String(l.status || '').toUpperCase();
-                      const isApproved = normStatus === 'APPROVED' || normStatus === 'VALIDATED';
+                      const isApproved = normStatus === 'APPROVED' || normStatus === 'VALIDATED' || normStatus === 'RETURNED';
                       return normType === 'ANNUAL' && isApproved;
                     });
                     const totalTaken = Number(summary.usedLeaveDays || 0);

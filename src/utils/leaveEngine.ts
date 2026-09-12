@@ -1,6 +1,7 @@
 import { Employee, Contract, LeaveRequest, HrLeaveAllocation } from '../types';
 import { getGlobalOpeningBalance, getGlobalAccrued2026, getGlobalCompensatoryDays } from './kuwaitLaw';
 import { computeFifoLeaveAllocations, buildEmployeeBaselineAllocations } from '../services/leaveService';
+import { normalizeLeaveStatus, normalizeLeaveType } from './leaveModel';
 
 export type LeaveLedgerSource =
   | 'carried_forward'
@@ -354,10 +355,21 @@ export function buildLeaveRecordsFromEmployee(
 
   // الإجازات المستهلكة
   leaves
-    .filter(l => !l.isHistorical && (l.employeeId === empId || l.employeeId === empCode) && (l.status === 'APPROVED' || (l as any).state === 'validate' || (l as any).state === 'approved' || (l as any).status === 'approved'))
+    .filter(l => {
+      if (l.isHistorical) return false;
+      const lAny = l as any;
+      const employeeName = String(employee.fullNameAr || (employee as any).nameAr || employee.name || '').trim();
+      const leaveName = String(lAny.employeeName || lAny.employee_name || lAny.nameAr || lAny.name || '').trim();
+      const matchesEmployee = (l.employeeId === empId || l.employeeId === empCode) || (employeeName && leaveName && employeeName === leaveName);
+      if (!matchesEmployee) return false;
+
+      const status = normalizeLeaveStatus(l.status || lAny.state || lAny.status);
+      return status === 'APPROVED' || status === 'RETURNED';
+    })
     .forEach(l => {
+      const normalizedType = normalizeLeaveType(l.leaveType);
       records.push({
-        type: l.leaveType === 'UNPAID' ? 'unpaid' : l.leaveType === 'SICK' ? 'sick' : 'annual',
+        type: normalizedType === 'UNPAID' ? 'unpaid' : normalizedType === 'SICK' ? 'sick' : 'annual',
         days: Number(l.totalDays || (l as any).numberOfDays || (l as any).days || 0),
         status: 'approved',
         date: l.startDate,

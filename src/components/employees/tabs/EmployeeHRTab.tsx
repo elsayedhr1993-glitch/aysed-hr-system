@@ -108,7 +108,11 @@ export const EmployeeHRTab: React.FC<Props> = ({
     return onSnapshot(requestsQuery, snapshot => {
       const consumed = snapshot.docs
         .map(item => item.data() as any)
-        .filter(request => String(request.status || '').toLowerCase() === 'approved' && !request.isHistorical)
+        .filter(request => {
+          if (request.isHistorical) return false;
+          const status = String(request.status || '').toUpperCase();
+          return status === 'APPROVED' || status === 'VALIDATED' || status === 'RETURNED';
+        })
         .reduce((sum, request) => sum + Number(request.paidDays ?? request.totalDays ?? request.daysCount ?? 0), 0);
       setConsumedLeaveDays(Number(consumed.toFixed(2)));
     }, error => {
