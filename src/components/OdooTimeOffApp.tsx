@@ -478,10 +478,50 @@ export const OdooTimeOffApp: React.FC = () => {
       return;
     }
 
-    if (window.confirm(`هل أنت متأكد من حذف سطر التخصيص للموظف (${empName}) بمقدار ${daysCount} يوم؟`)) {
+    if (window.confirm(`هل أنت متأكد من حذف سطر التخصيص للموظف (${employeeName}) بمقدار ${daysCount} يوم؟`)) {
       setAllocations(allocations.filter(a => a.id !== allocationId));
       await deleteDoc(doc(db, 'leave_allocations', allocationId));
       toast.success('تم حذف سطر التخصيص وتحديث الرصيد.');
+    }
+  };
+
+  const isValidAllocationRow = (alloc: any) => {
+    const daysValue = Number(alloc?.days ?? alloc?.numberOfDays ?? alloc?.number_of_days ?? 0);
+    const employeeIdValue = String(alloc?.employeeId || '').trim();
+    return Number.isFinite(daysValue) && daysValue > 0 && employeeIdValue.length > 0;
+  };
+
+  const handleBulkDeleteInvalidAllocations = async () => {
+    const invalidRows = allocations.filter((alloc: any) => !isValidAllocationRow(alloc));
+    if (invalidRows.length === 0) {
+      toast('لا توجد سجلات معزولة للتنظيف حالياً.');
+      return;
+    }
+
+    const confirmBulkDelete = window.confirm(
+      `سيتم حذف (${invalidRows.length}) سجل تخصيص تالف/فارغ نهائياً من قاعدة البيانات. هل ترغب بالمتابعة؟`
+    );
+    if (!confirmBulkDelete) return;
+
+    const invalidWithId = invalidRows
+      .map((alloc: any) => String(alloc?.id || '').trim())
+      .filter((id: string) => id.length > 0);
+
+    if (invalidWithId.length === 0) {
+      toast.error('تعذر حذف السجلات المعزولة لعدم توفر معرفات صالحة.');
+      return;
+    }
+
+    try {
+      await Promise.all(invalidWithId.map((id: string) => deleteDoc(doc(db, 'leave_allocations', id))));
+      setAllocations(previous => previous.filter((alloc: any) => {
+        const id = String(alloc?.id || '').trim();
+        return id.length === 0 || !invalidWithId.includes(id);
+      }));
+      toast.success(`تم تنظيف وحذف ${invalidWithId.length} سجل معزول بنجاح.`);
+    } catch (error) {
+      console.error('Bulk delete invalid allocations failed:', error);
+      toast.error('حدث خطأ أثناء حذف السجلات المعزولة دفعة واحدة.');
     }
   };
 
@@ -635,13 +675,17 @@ export const OdooTimeOffApp: React.FC = () => {
     return matchesFilter && matchesSearch;
   });
 
-  const totalCarriedDays = allocations.reduce((acc, a) => acc + (Number(a.days) || 0), 0);
+  const validAllocations = allocations.filter((alloc: any) => isValidAllocationRow(alloc));
+
+  const invalidAllocations = allocations.filter((alloc: any) => !isValidAllocationRow(alloc));
+
+  const totalCarriedDays = validAllocations.reduce((acc, a) => acc + (Number((a as any).days ?? (a as any).numberOfDays) || 0), 0);
 
   // Selected Employee Details for Allocation Preview
   const selectedEmpForAlloc = companyEmployees.find(e => e.id === newAllocation.employeeId) || companyEmployees[0];
-  const empAllocatedDaysTotal = allocations
+  const empAllocatedDaysTotal = validAllocations
     .filter(a => a.employeeId === selectedEmpForAlloc?.id || a.employeeName === selectedEmpForAlloc?.name)
-    .reduce((acc, a) => acc + (Number(a.days) || 0), 0);
+    .reduce((acc, a) => acc + (Number((a as any).days ?? (a as any).numberOfDays) || 0), 0);
 
   // Stats calculation
   const pendingRequestsCount = requests.filter(r => {
@@ -1199,14 +1243,14 @@ export const OdooTimeOffApp: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {allocations.map((alloc) => (
+                {validAllocations.map((alloc: any) => (
                   <tr key={alloc.id} className="hover:bg-slate-50/70 transition">
                     <td className="p-3.5 font-mono font-bold text-slate-500">{alloc.id}</td>
-                    <td className="p-3.5 font-bold text-slate-900">{alloc.employeeName}</td>
-                    <td className="p-3.5 font-mono text-purple-900 font-bold">{alloc.fromYear}</td>
-                    <td className="p-3.5 font-mono font-black text-emerald-700 text-sm">+{alloc.days} يوم</td>
-                    <td className="p-3.5 font-mono text-slate-500">{alloc.allocationDate}</td>
-                    <td className="p-3.5 text-slate-600">{alloc.notes}</td>
+                    <td className="p-3.5 font-bold text-slate-900">{alloc.employeeName || alloc.employee_name || '---'}</td>
+                    <td className="p-3.5 font-mono text-purple-900 font-bold">{alloc.fromYear || alloc.from_year || '---'}</td>
+                    <td className="p-3.5 font-mono font-black text-emerald-700 text-sm">+{Number(alloc.days ?? alloc.numberOfDays ?? alloc.number_of_days ?? 0)} يوم</td>
+                    <td className="p-3.5 font-mono text-slate-500">{alloc.allocationDate || alloc.dateFrom || alloc.date_from || '---'}</td>
+                    <td className="p-3.5 text-slate-600">{alloc.notes || alloc.name || '---'}</td>
                     <td className="p-3.5 text-slate-500">{alloc.allocatedBy || 'الموارد البشرية'}</td>
                     <td className="p-3.5 text-center">
                       <button
@@ -1220,7 +1264,7 @@ export const OdooTimeOffApp: React.FC = () => {
                     </td>
                   </tr>
                 ))}
-                {allocations.length === 0 && (
+                {validAllocations.length === 0 && (
                   <tr>
                     <td colSpan={8} className="p-8 text-center text-slate-400 font-bold">
                       لا توجد أرصدة مرحّلة مسجلة حالياً. اضغط على "إضافة رصيد مرحّل جديد" لتسجيل رصيد افتتاحي.
@@ -1230,6 +1274,57 @@ export const OdooTimeOffApp: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {invalidAllocations.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div className="flex items-center gap-2 text-amber-900 text-xs font-bold">
+                  <AlertTriangle size={14} />
+                  <span>سجلات تخصيص تالفة/فارغة معزولة ({invalidAllocations.length})</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleBulkDeleteInvalidAllocations}
+                  className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer"
+                  title="تنظيف وحذف كل السجلات المعزولة دفعة واحدة"
+                >
+                  <Trash2 size={13} />
+                  <span>تنظيف وحذف الكل</span>
+                </button>
+              </div>
+              <div className="overflow-x-auto bg-white rounded-lg border border-amber-200">
+                <table className="w-full text-right text-xs">
+                  <thead className="bg-amber-50 text-amber-800 font-bold border-b border-amber-200">
+                    <tr>
+                      <th className="p-3">رقم السند</th>
+                      <th className="p-3">اسم الموظف</th>
+                      <th className="p-3">الأيام</th>
+                      <th className="p-3">إجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-amber-100">
+                    {invalidAllocations.map((alloc: any) => (
+                      <tr key={alloc.id || `${alloc.employeeName || 'unknown'}-${alloc.fromYear || 'n/a'}-${alloc.allocationDate || Date.now()}`}>
+                        <td className="p-3 font-mono text-amber-900">{alloc.id || '---'}</td>
+                        <td className="p-3 text-amber-900">{alloc.employeeName || alloc.employee_name || '---'}</td>
+                        <td className="p-3 font-mono text-amber-900">{Number(alloc.days ?? alloc.numberOfDays ?? alloc.number_of_days ?? 0) || 0}</td>
+                        <td className="p-3">
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteAllocation(alloc as any)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                            title="حذف السجل الفارغ نهائياً"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
         </div>
       )}
