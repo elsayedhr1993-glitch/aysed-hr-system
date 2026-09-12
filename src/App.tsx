@@ -52,7 +52,6 @@ import { OdooTemplatesApp } from './components/OdooTemplatesApp';
 import { OdooPublicHolidaysApp } from './components/OdooPublicHolidaysApp';
 import { OdooReportsApp } from './components/OdooReportsApp';
 import { OdooSettingsFull } from './components/OdooSettingsFull';
-import { SettingsApp } from './apps/SettingsApp';
 import { ScannerApp } from './apps/ScannerApp';
 import { OdooMohMedicalHubApp } from './apps/OdooMohMedicalHubApp';
 import { SuperAdminDashboard } from './pages/SuperAdminDashboard';
@@ -87,7 +86,6 @@ type AppId =
   | 'holidays' 
   | 'reports' 
   | 'settings'
-  | 'settings_dev'
   | 'saas_admin'
   | 'scanner'
   | 'moh'
@@ -594,7 +592,6 @@ function MainAppLayout() {
       case 'moh': return 'إدارة التراخيص الطبية والكادر الصحي (MOH Medical Hub)';
       case 'audit': return 'سجل الرقابة وتتبع العمليات (Audit Logs & Diagnostic Center)';
       case 'settings': return isSuperAdmin ? 'الإعدادات والمشتركين (Settings & SaaS Tenants)' : 'بيانات المنشأة والإعدادات (Company Profile & Settings)';
-      case 'settings_dev': return 'أدوات المطور ومحاكي البيانات (Developer Tools)';
       default: return 'نظام Aysed S HR 2026';
     }
   };
@@ -960,7 +957,7 @@ function MainAppLayout() {
         {/* الحالة 12: شاشة إعدادات المنشأة والنظام */}
         {activeApp === 'settings' && (
           <main className="flex-1 overflow-y-auto w-full relative">
-            <OdooSettingsFull onNavigateToDeveloperTools={() => setActiveApp('settings_dev')} />
+            <OdooSettingsFull />
           </main>
         )}
 
@@ -999,29 +996,6 @@ function MainAppLayout() {
           </main>
         )}
 
-        {/* الحالة 14: أدوات المطور ومحاكي البيانات */}
-        {activeApp === 'settings_dev' && (
-          <main className="flex-1 overflow-y-auto w-full">
-            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
-              <SettingsApp
-                companies={companies || []}
-                activeCompany={activeCompany}
-                onSaveCompany={(c) => addCompany(c as any)}
-                onAddCompany={(c) => addCompany(c as any)}
-                onDeleteCompany={(id) => deleteCompany(id)}
-                onSelectCompany={(c) => impersonateCompany(c.id)}
-                bgTheme="FOREST_VIDEO"
-                setBgTheme={() => {}}
-                motionEnabled={true}
-                setMotionEnabled={() => {}}
-                initialSubTab="DEVELOPER_TOOLS"
-                currentUserEmail={user?.email || ''}
-                currentUserRole={isSuperAdmin ? 'SUPER_ADMIN' : 'COMPANY_ADMIN'}
-                onNavigateHome={() => setActiveApp('switcher')}
-              />
-            </div>
-          </main>
-        )}
       </div>
 
       {/* نافذة تعديل الصورة الشخصية (Avatar Update Modal) */}

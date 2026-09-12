@@ -32,12 +32,9 @@ import { useSystemSettings, SystemSettings } from '../context/SystemSettingsCont
 import { useCompany } from '../context/CompanyContext';
 import { toast } from 'react-hot-toast';
 import { BiometricDevicesModal } from './attendance/BiometricDevicesModal';
+import { SystemIntegrationsPage } from './SystemIntegrationsPage';
 
-interface OdooSettingsFullProps {
-  onNavigateToDeveloperTools?: () => void;
-}
-
-export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({ onNavigateToDeveloperTools }) => {
+export const OdooSettingsFull: React.FC = () => {
   const { settings, updateSettings, resetSettings, isSaving } = useSystemSettings();
   const { activeCompany, updateActiveCompany } = useCompany();
 
@@ -165,8 +162,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({ onNavigateTo
     { id: 'attendance', label: 'الدوام وأجهزة البصمة', icon: Clock, subtitle: 'ساعات العمل، دقائق السماح، وإعدادات الربط' },
     { id: 'indemnity', label: 'حاسبة مكافأة نهاية الخدمة', icon: Scale, subtitle: 'المادتان 51 و 53، شرائح الاستقالة والبدلات' },
     { id: 'integrations', label: 'الذكاء الاصطناعي والربط سحابي', icon: Sparkles, subtitle: 'مفتاح Gemini API، محرك OCR، والبريد الإلكتروني' },
-    { id: 'security', label: 'الأمان والنسخ الاحتياطي', icon: ShieldCheck, subtitle: 'الجلسات، النسخ السحابي، والتأمين' },
-    { id: 'developer', label: 'أدوات المطور ومحاكي البيانات', icon: Sparkles, subtitle: 'توليد دورة تجريبية شاملة (10 موظفين)، تصفير البيانات، ومحاكاة الأنظمة' }
+    { id: 'security', label: 'الأمان والنسخ الاحتياطي', icon: ShieldCheck, subtitle: 'الجلسات، النسخ السحابي، والتأمين' }
   ];
 
   // تصفية الأقسام بحسب البحث
@@ -270,13 +266,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({ onNavigateTo
                 <button
                   type="button"
                   key={sec.id}
-                  onClick={() => {
-                    if (sec.id === 'developer' && onNavigateToDeveloperTools) {
-                      onNavigateToDeveloperTools();
-                    } else {
-                      setActiveSection(sec.id);
-                    }
-                  }}
+                  onClick={() => setActiveSection(sec.id)}
                   className={`w-full text-right px-3 py-2.5 rounded-lg transition-all flex items-center justify-between cursor-pointer ${
                     isActive 
                       ? 'bg-[#714B67] text-white font-bold shadow-xs' 
@@ -861,221 +851,17 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({ onNavigateTo
                     <Sparkles size={18} />
                   </div>
                   <div>
-                    <h2 className="text-sm font-bold text-slate-900">الذكاء الاصطناعي ومعالجة المستندات (AI & Integrations)</h2>
-                    <p className="text-[11px] text-slate-500">تفعيل خدمات الذكاء الاصطناعي، مفاتيح الربط، وأتمتة مسح المستندات وعقد الصادر.</p>
+                    <h2 className="text-sm font-bold text-slate-900">الإعدادات التكاملية المركزية (Integrations Control Center)</h2>
+                    <p className="text-[11px] text-slate-500">لوحة موحدة للربط الجغرافي، الواتساب، التحقق العام، وسياسات OCR/AI الخادمية.</p>
                   </div>
                 </div>
               </div>
 
-              {/* 1. Gemini Engine Settings */}
-              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/80 space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
-                  <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                    <Sparkles size={14} className="text-[#714B67]" />
-                    <span>محرك الذكاء الاصطناعي (Google Gemini AI Engine)</span>
-                  </div>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    formData.geminiApiKey ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                  }`}>
-                    {formData.geminiApiKey ? 'مُتصل ونشط' : 'غير مضبوط (يستخدم السيرفر)'}
-                  </span>
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-bold text-slate-700">مفتاح API الخاص بـ Gemini (Gemini API Key)</label>
-                      <a 
-                        href="https://aistudio.google.com/" 
-                        target="_blank" 
-                        rel="noreferrer" 
-                        className="text-[10px] text-indigo-600 hover:underline flex items-center gap-0.5 font-bold animate-pulse"
-                      >
-                        <span>الحصول على مفتاح مجاني</span>
-                        <ExternalLink size={10} />
-                      </a>
-                    </div>
-                    <div className="relative">
-                      <Key className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
-                      <input
-                        type={showApiKey ? 'text' : 'password'}
-                        value={formData.geminiApiKey || ''}
-                        onChange={(e) => handleFieldChange('geminiApiKey', e.target.value)}
-                        placeholder="AIzaSy..."
-                        dir="ltr"
-                        className="w-full bg-white border border-slate-300 rounded-lg pr-9 pl-10 py-2.5 text-xs font-mono font-bold text-slate-800 focus:border-[#714B67] outline-hidden shadow-2xs"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowApiKey(!showApiKey)}
-                        className="absolute left-3 top-3 text-slate-400 hover:text-slate-600 cursor-pointer"
-                      >
-                        {showApiKey ? <EyeOff size={14} /> : <Eye size={14} />}
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">
-                      عند إدخال مفتاحك الخاص، سيقوم النظام بتشغيل عمليات تحليل صور الهويات المدنية والرخص مباشرة من متصفحك (Client-Side OCR) بسرعة خارقة وبدون التعراض لقيود المهلة السحابية (Vercel Timeout 10s).
-                    </p>
-                  </div>
-                </div>
+              <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-xl text-xs text-indigo-900 font-bold">
+                سياسات مفاتيح الذكاء الاصطناعي تعمل في وضع Server Managed فقط. جميع اختبارات الربط تتم عبر الخادم.
               </div>
 
-              {/* 2. Document Extraction Engine Mode */}
-              <div className="p-4 bg-purple-50/40 rounded-xl border border-purple-200/60 space-y-3">
-                <div className="text-xs font-bold text-[#714B67] flex items-center gap-1.5">
-                  <Sliders size={14} />
-                  <span>وضع محرك القراءة الضوئية واستخراج البيانات (OCR Mode)</span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <label className={`p-3 rounded-lg border flex items-start gap-3 cursor-pointer transition ${
-                    formData.ocrEngineMode === 'cloud_server' ? 'bg-white border-[#714B67] shadow-2xs' : 'bg-transparent border-slate-200'
-                  }`}>
-                    <input
-                      type="radio"
-                      name="ocrEngineMode"
-                      checked={formData.ocrEngineMode === 'cloud_server'}
-                      onChange={() => handleFieldChange('ocrEngineMode', 'cloud_server')}
-                      className="mt-0.5 text-[#714B67]"
-                    />
-                    <div>
-                      <div className="text-xs font-bold text-slate-900">سيرفر معالجة السحابة الآمنة (Cloud Server)</div>
-                      <div className="text-[10px] text-slate-500 mt-0.5">استخدام السيرفر المركزي لمعالجة المستندات وحفظ البيانات بسرية تامة.</div>
-                    </div>
-                  </label>
-
-                  <label className={`p-3 rounded-lg border flex items-start gap-3 cursor-pointer transition ${
-                    formData.ocrEngineMode === 'direct_client' ? 'bg-white border-[#714B67] shadow-2xs' : 'bg-transparent border-slate-200'
-                  }`}>
-                    <input
-                      type="radio"
-                      name="ocrEngineMode"
-                      checked={formData.ocrEngineMode === 'direct_client'}
-                      onChange={() => handleFieldChange('ocrEngineMode', 'direct_client')}
-                      className="mt-0.5 text-[#714B67]"
-                    />
-                    <div>
-                      <div className="text-xs font-bold text-slate-900">العميل المباشر فائق السرعة (Direct Client)</div>
-                      <div className="text-[10px] text-slate-500 mt-0.5">ربط مباشر بمتصفح العميل يتجاوز أي فترات توقف سحابية ويستخرج البيانات بثانية واحدة.</div>
-                    </div>
-                  </label>
-                </div>
-
-                <div className="space-y-2 pt-2 border-t border-purple-200/40">
-                  <label className="flex items-start gap-2.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.autoExtractDocuments}
-                      onChange={(e) => handleFieldChange('autoExtractDocuments', e.target.checked)}
-                      className="text-[#714B67] rounded mt-0.5"
-                    />
-                    <div>
-                      <span className="text-xs font-bold text-slate-800 block">المسح التلقائي الفوري للمستندات عند رفعها</span>
-                      <span className="text-[10px] text-slate-500">قراءة وتفكيك البطاقة المدنية، رخصة وزارة الصحة، أو الجواز تلقائياً وتعبئة سجل الموظف الجديد دون تدخل بشري.</span>
-                    </div>
-                  </label>
-
-                  <label className="flex items-start gap-2.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.enableAiAssistant}
-                      onChange={(e) => handleFieldChange('enableAiAssistant', e.target.checked)}
-                      className="text-[#714B67] rounded mt-0.5"
-                    />
-                    <div>
-                      <span className="text-xs font-bold text-slate-800 block">تفعيل المستشار المساعد للمنظومة (Copilot Assistant)</span>
-                      <span className="text-[10px] text-slate-500">تقديم اقتراحات لتصميم قوالب الشفتات والتحذير من انتهاء الإقامات أو تعارض الدوامات.</span>
-                    </div>
-                  </label>
-                </div>
-              </div>
-
-              {/* 3. SMTP Mail Gateway Configuration */}
-              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-4">
-                <div className="text-xs font-bold text-slate-900 flex items-center justify-between border-b border-slate-200/60 pb-2">
-                  <div className="flex items-center gap-1.5">
-                    <Mail size={14} className="text-blue-600" />
-                    <span>بوابة صادر البريد الإلكتروني والمراسلات (SMTP Mail Gateway)</span>
-                  </div>
-                  <span className="text-[10px] text-blue-700 bg-blue-50 font-bold px-2 py-0.5 rounded-full border border-blue-100">
-                    Odoo Mail Exchange
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">خادم SMTP (SMTP Server Address)</label>
-                    <input
-                      type="text"
-                      value={formData.smtpHost || ''}
-                      onChange={(e) => handleFieldChange('smtpHost', e.target.value)}
-                      placeholder="smtp.gmail.com"
-                      dir="ltr"
-                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 focus:border-[#714B67] outline-hidden shadow-2xs"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">المنفذ المعتمد (SMTP Port)</label>
-                    <input
-                      type="number"
-                      value={formData.smtpPort || 465}
-                      onChange={(e) => handleFieldChange('smtpPort', parseInt(e.target.value) || 465)}
-                      placeholder="465"
-                      dir="ltr"
-                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 focus:border-[#714B67] outline-hidden shadow-2xs"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">البريد الإلكتروني للربط والتوثيق</label>
-                    <input
-                      type="email"
-                      value={formData.smtpUser || ''}
-                      onChange={(e) => handleFieldChange('smtpUser', e.target.value)}
-                      placeholder="elsayedhr1993@gmail.com"
-                      dir="ltr"
-                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 focus:border-[#714B67] outline-hidden shadow-2xs"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">الرقم السري أو رمز التطبيق (SMTP Pass)</label>
-                    <input
-                      type="password"
-                      value={formData.smtpPass || ''}
-                      onChange={(e) => handleFieldChange('smtpPass', e.target.value)}
-                      placeholder="••••••••••••••••"
-                      dir="ltr"
-                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 focus:border-[#714B67] outline-hidden shadow-2xs"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between pt-2">
-                  <p className="text-[10px] text-slate-500 max-w-md leading-normal">
-                    تُستعمل هذه التهيئة لإبلاغ الموظفين بقرارات الإجازات والرواتب وتقرير الشفتات الشهري تلقائياً عبر البريد الإلكتروني.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleTestSmtp}
-                    disabled={isTestingSmtp}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition shrink-0 cursor-pointer disabled:opacity-50"
-                  >
-                    {isTestingSmtp ? (
-                      <>
-                        <RefreshCw size={13} className="animate-spin" />
-                        <span>جاري إرسال الاختبار...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Mail size={13} />
-                        <span>اختبار اتصال البريد الإلكتروني</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
+              <SystemIntegrationsPage activeCompany={activeCompany as any} />
             </div>
           )}
 
