@@ -381,19 +381,20 @@ export function buildEmployeeBaselineAllocations(
   // Filter out any invalid/duplicate compensatory allocations
   const nonCompAllocs = result.filter(a => !isCompAlloc(a));
   const rawCompAllocs = result.filter(isCompAlloc);
+  const existingCompTotal = rawCompAllocs.reduce((sum, a) => sum + (Number(a.numberOfDays) || 0), 0);
+  const authoritativeCompDays = Math.max(compDays, existingCompTotal);
 
-  if (compDays <= 0) {
-    // If no compensatory days are due, do not include any placeholder compensatory allocations
+  if (rawCompAllocs.length === 0 && compDays <= 0) {
+    // No compensatory entitlement and no explicit comp allocation exists; keep only non-comp buckets.
     return [...nonCompAllocs];
   }
 
   // Deduplicate compensatory allocations:
-  // If specific holiday work allocations exist (e.g. alloc-comp-hwr-...), prefer them and drop generic placeholder
+  // If specific holiday work allocations exist (e.g. alloc-comp-hwr-...), prefer them and drop generic placeholder.
   const specificCompAllocs = rawCompAllocs.filter(a => a.id && a.id.startsWith('alloc-comp-hwr-'));
   
   let finalCompAllocs: HrLeaveAllocation[] = [];
   if (specificCompAllocs.length > 0) {
-    // Deduplicate specific allocations by ID or date
     const seen = new Set<string>();
     specificCompAllocs.forEach(a => {
       const key = a.id || `${a.dateFrom}-${a.name}`;
@@ -408,25 +409,21 @@ export function buildEmployeeBaselineAllocations(
       }
     });
 
-    // Ensure total days in finalCompAllocs equals compDays
     const currentSum = finalCompAllocs.reduce((s, a) => s + (Number(a.numberOfDays) || 0), 0);
-    if (currentSum !== compDays && finalCompAllocs.length > 0) {
-      // Normalize to match compDays
-      finalCompAllocs[0].numberOfDays = compDays;
-      finalCompAllocs[0].remainingDays = Math.max(0, compDays - (finalCompAllocs[0].consumedDays || 0));
+    if (currentSum !== authoritativeCompDays && finalCompAllocs.length > 0) {
+      finalCompAllocs[0].numberOfDays = authoritativeCompDays;
+      finalCompAllocs[0].remainingDays = Math.max(0, authoritativeCompDays - (finalCompAllocs[0].consumedDays || 0));
     }
   } else if (rawCompAllocs.length > 0) {
-    // Take the first valid allocation and set its days strictly to compDays
     const primary = { ...rawCompAllocs[0] };
     primary.id = primary.id || `alloc-comp-${emp.id}-holiday`;
     primary.allocationType = 'compensatory_off';
     primary.leaveType = 'ANNUAL';
-    primary.numberOfDays = compDays;
-    primary.remainingDays = Math.max(0, compDays - (primary.consumedDays || 0));
+    primary.numberOfDays = authoritativeCompDays;
+    primary.remainingDays = Math.max(0, authoritativeCompDays - (primary.consumedDays || 0));
     primary.state = 'validate';
     finalCompAllocs = [primary];
   } else {
-    // Create single authoritative compensatory allocation
     finalCompAllocs = [{
       id: `alloc-comp-${emp.id}-holiday`,
       name: `يوم تعويضي معتمد (بديل عن العمل في عطلة رسمية)`,
@@ -434,12 +431,12 @@ export function buildEmployeeBaselineAllocations(
       companyId: emp.companyId || '',
       leaveType: 'ANNUAL',
       allocationType: 'compensatory_off',
-      numberOfDays: compDays,
+      numberOfDays: authoritativeCompDays,
       consumedDays: 0,
-      remainingDays: compDays,
+      remainingDays: authoritativeCompDays,
       dateFrom: '2026-07-01',
       state: 'validate',
-      notes: `رصيد أيام تعويضية بديلة عن عطل رسمية (${compDays} يوم) وفق المادة 70`,
+      notes: `رصيد أيام تعويضية بديلة عن عطل رسمية (${authoritativeCompDays} يوم) وفق المادة 70`,
       createdAt: new Date().toISOString()
     }];
   }

@@ -95,6 +95,12 @@ const generateLeavePrintHtml = (printData: any, companyName: string, companyName
   const accrued2026 = Number(summary.accruedAnnualDays || get_aysed_official_balance(printData));
   const compensatory = Number(summary.holidayCompensationDays || getGlobalCompensatoryDays(printData));
   const netAvailable = Number(summary.totalAvailableDays || 0);
+  const consumedFromCarried = Number(summary.consumedFromCarried || 0);
+  const consumedFromAccrued = Number(summary.consumedFromAccrued || 0);
+  const consumedFromComp = Number(summary.consumedFromComp || 0);
+  const remainingCarried = Number(summary.remainingCarried || 0);
+  const remainingAccrued = Number(summary.remainingAccrued || 0);
+  const remainingComp = Number(summary.remainingComp || 0);
 
   return `
     <div style="direction: rtl; font-family: 'Arial', 'Tahoma', sans-serif; padding: 25px; line-height: 1.6; color: #1e293b;">
@@ -148,6 +154,38 @@ const generateLeavePrintHtml = (printData: any, companyName: string, companyName
             <td style="background-color: #f0fdfa; border: 1px solid #ccfbf1; padding: 12px; border-radius: 6px; width: 20%;">
               <div style="font-size: 10px; color: #115e59; font-weight: bold; margin-bottom: 5px;">الرصيد المتاح الصافي</div>
               <div style="font-size: 16px; font-weight: bold; color: #0f766e;">${netAvailable} يوم</div>
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="margin-bottom: 30px;">
+        <h4 style="margin: 0 0 15px 0; color: #714b67; font-size: 14px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">تفصيل السحب التتابعي الإلزامي (FIFO Waterfall)</h4>
+        <table style="width: 100%; border-collapse: collapse; text-align: center; font-size: 11px;">
+          <tr>
+            <td style="background-color: #fff7ed; border: 1px solid #fed7aa; padding: 12px; border-radius: 6px; width: 16.66%;">
+              <div style="font-size: 10px; color: #9a3412; font-weight: bold; margin-bottom: 5px;">خصم من المرحل</div>
+              <div style="font-size: 15px; font-weight: bold; color: #c2410c;">-{consumedFromCarried} يوم</div>
+            </td>
+            <td style="background-color: #faf5ff; border: 1px solid #e9d5ff; padding: 12px; border-radius: 6px; width: 16.66%;">
+              <div style="font-size: 10px; color: #6b21a8; font-weight: bold; margin-bottom: 5px;">خصم من المستحق</div>
+              <div style="font-size: 15px; font-weight: bold; color: #7e22ce;">-{consumedFromAccrued} يوم</div>
+            </td>
+            <td style="background-color: #ecfdf5; border: 1px solid #a7f3d0; padding: 12px; border-radius: 6px; width: 16.66%;">
+              <div style="font-size: 10px; color: #065f46; font-weight: bold; margin-bottom: 5px;">خصم من التعويضي</div>
+              <div style="font-size: 15px; font-weight: bold; color: #047857;">-{consumedFromComp} يوم</div>
+            </td>
+            <td style="background-color: #f8fafc; border: 1px solid #cbd5e1; padding: 12px; border-radius: 6px; width: 16.66%;">
+              <div style="font-size: 10px; color: #475569; font-weight: bold; margin-bottom: 5px;">المتبقي من المرحل</div>
+              <div style="font-size: 15px; font-weight: bold; color: #334155;">{remainingCarried} يوم</div>
+            </td>
+            <td style="background-color: #eef2ff; border: 1px solid #c7d2fe; padding: 12px; border-radius: 6px; width: 16.66%;">
+              <div style="font-size: 10px; color: #3730a3; font-weight: bold; margin-bottom: 5px;">المتبقي من المستحق</div>
+              <div style="font-size: 15px; font-weight: bold; color: #4338ca;">{remainingAccrued} يوم</div>
+            </td>
+            <td style="background-color: #f0fdfa; border: 1px solid #99f6e4; padding: 12px; border-radius: 6px; width: 16.66%;">
+              <div style="font-size: 10px; color: #115e59; font-weight: bold; margin-bottom: 5px;">المتبقي من التعويضي</div>
+              <div style="font-size: 15px; font-weight: bold; color: #0f766e;">{remainingComp} يوم</div>
             </td>
           </tr>
         </table>
@@ -2351,6 +2389,12 @@ export function EmployeesApp(props?: any) {
                     const accrued2026 = Number(summary.accruedAnnualDays || 0);
                     const compensatory = Number(summary.holidayCompensationDays || 0);
                     const netAvailable = Number(summary.totalAvailableDays || 0);
+                    const consumedFromCarried = Number(summary.consumedFromCarried || 0);
+                    const consumedFromAccrued = Number(summary.consumedFromAccrued || 0);
+                    const consumedFromComp = Number(summary.consumedFromComp || 0);
+                    const remainingCarried = Number(summary.remainingCarried || 0);
+                    const remainingAccrued = Number(summary.remainingAccrued || 0);
+                    const remainingComp = Number(summary.remainingComp || 0);
 
                     return (
                       <div className="space-y-6">
@@ -2394,6 +2438,33 @@ export function EmployeesApp(props?: any) {
                             <div className="p-3 rounded-lg bg-teal-50 border border-teal-200 col-span-2 md:col-span-1">
                               <div className="text-[10px] text-teal-950 font-bold mb-1">الرصيد المتاح الصافي</div>
                               <div className="text-lg font-black text-teal-900 font-mono">{netAvailable} يوم</div>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-center border-t border-slate-100 pt-4">
+                            <div className="p-3 rounded-lg bg-orange-50 border border-orange-200">
+                              <div className="text-[10px] text-orange-900 font-bold mb-1">خصم من المرحل</div>
+                              <div className="text-base font-black text-orange-800 font-mono">-{consumedFromCarried} يوم</div>
+                            </div>
+                            <div className="p-3 rounded-lg bg-violet-50 border border-violet-200">
+                              <div className="text-[10px] text-violet-900 font-bold mb-1">خصم من المستحق</div>
+                              <div className="text-base font-black text-violet-800 font-mono">-{consumedFromAccrued} يوم</div>
+                            </div>
+                            <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200">
+                              <div className="text-[10px] text-emerald-900 font-bold mb-1">خصم من التعويضي</div>
+                              <div className="text-base font-black text-emerald-800 font-mono">-{consumedFromComp} يوم</div>
+                            </div>
+                            <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
+                              <div className="text-[10px] text-slate-600 font-bold mb-1">المتبقي من المرحل</div>
+                              <div className="text-base font-black text-slate-800 font-mono">{remainingCarried} يوم</div>
+                            </div>
+                            <div className="p-3 rounded-lg bg-indigo-50 border border-indigo-200">
+                              <div className="text-[10px] text-indigo-900 font-bold mb-1">المتبقي من المستحق</div>
+                              <div className="text-base font-black text-indigo-800 font-mono">{remainingAccrued} يوم</div>
+                            </div>
+                            <div className="p-3 rounded-lg bg-teal-50 border border-teal-200">
+                              <div className="text-[10px] text-teal-900 font-bold mb-1">المتبقي من التعويضي</div>
+                              <div className="text-base font-black text-teal-800 font-mono">{remainingComp} يوم</div>
                             </div>
                           </div>
                         </div>

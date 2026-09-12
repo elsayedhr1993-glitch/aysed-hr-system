@@ -98,6 +98,12 @@ export interface MedicalEmployeeAnalyticsRecord {
   // Leaves & Financial Liabilities
   leaveBalance: number;
   consumedLeaveDays: number;
+  consumedFromCarried: number;
+  consumedFromAccrued: number;
+  consumedFromComp: number;
+  remainingCarried: number;
+  remainingAccrued: number;
+  remainingComp: number;
   annualEntitlement: number;
   leaveCashLiability: number; // (totalSalary / 26) * leaveBalance
   
@@ -296,6 +302,12 @@ export const OdooReportsApp: React.FC = () => {
         complianceStatus: complianceStatus,
         leaveBalance: leaveBal,
         consumedLeaveDays: consumedDays,
+        consumedFromCarried: Number(leaveSummary.consumedFromCarried || 0),
+        consumedFromAccrued: Number(leaveSummary.consumedFromAccrued || 0),
+        consumedFromComp: Number(leaveSummary.consumedFromComp || 0),
+        remainingCarried: Number(leaveSummary.remainingCarried || 0),
+        remainingAccrued: Number(leaveSummary.remainingAccrued || 0),
+        remainingComp: Number(leaveSummary.remainingComp || 0),
         annualEntitlement: Number(((leaveSummary.carriedOverDays || 0) + (leaveSummary.accruedAnnualDays || 0) + (leaveSummary.holidayCompensationDays || 0)).toFixed(2)),
         leaveCashLiability: Number(leaveCashLiability.toFixed(3)),
         eosAccruedAmount: Number(eosAccruedAmount.toFixed(3)),
@@ -1245,6 +1257,7 @@ export const OdooReportsApp: React.FC = () => {
                     <th className="p-3.5">المسمى والقسم</th>
                     <th className="p-3.5 text-center">الاستحقاق السنوي (يوم)</th>
                     <th className="p-3.5 text-center text-slate-500">المستهلك فعلياً</th>
+                    <th className="p-3.5 text-center">تفصيل FIFO</th>
                     <th className="p-3.5 text-center font-bold text-purple-900">الرصيد المتبقي (يوم)</th>
                     <th className="p-3.5 text-left">أجر اليوم (÷26)</th>
                     <th className="p-3.5 text-left text-amber-800 font-bold">الالتزام النقدي للرصيد (د.ك)</th>
@@ -1263,6 +1276,10 @@ export const OdooReportsApp: React.FC = () => {
                       </td>
                       <td className="p-3.5 text-center font-bold">{emp.annualEntitlement} يوماً</td>
                       <td className="p-3.5 text-center text-slate-500">{emp.consumedLeaveDays} يوماً</td>
+                      <td className="p-3.5 text-center text-[10px] leading-5 text-slate-600 font-sans">
+                        <div>خصم: {emp.consumedFromCarried} / {emp.consumedFromAccrued} / {emp.consumedFromComp}</div>
+                        <div className="text-slate-400">متبق: {emp.remainingCarried} / {emp.remainingAccrued} / {emp.remainingComp}</div>
+                      </td>
                       <td className="p-3.5 text-center font-black text-purple-900 text-sm">{emp.leaveBalance} يوماً</td>
                       <td className="p-3.5 text-left font-bold">{(emp.totalSalary / 26).toFixed(3)}</td>
                       <td className="p-3.5 text-left font-black text-amber-700 text-sm">

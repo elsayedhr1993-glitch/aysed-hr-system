@@ -63,9 +63,20 @@ export const LeaveSettlementModal: React.FC<LeaveSettlementModalProps> = ({
       return {
         carriedOverDays: Number(employeeData.carriedOver || 0),
         accruedAnnualDays: Number(employeeData.accrued || 0),
+        holidayCompensationDays: 0,
+        manualAdjustments: 0,
+        usedLeaveDays: 0,
+        consumedFromCarried: 0,
+        consumedFromAccrued: 0,
+        consumedFromComp: 0,
+        remainingCarried: Number(employeeData.carriedOver || 0),
+        remainingAccrued: Number(employeeData.accrued || 0),
+        remainingComp: 0,
         totalAvailableDays: Number(employeeData.carriedOver || 0) + Number(employeeData.accrued || 0),
+        cashSettlementAmount: 0,
         basicSalary: Number(employeeData.basicSalary || 0),
-        dailyWageRate: Number(employeeData.dailyWageRate || ((employeeData.basicSalary || 0) / 26))
+        dailyWageRate: Number(employeeData.dailyWageRate || ((employeeData.basicSalary || 0) / 26)),
+        comprehensiveSalary: Number(employeeData.basicSalary || 0)
       };
     }
     const computed = getEmployeeUnifiedSummary(effEmployee, allocations, leaves, contract);

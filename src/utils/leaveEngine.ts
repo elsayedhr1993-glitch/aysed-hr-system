@@ -37,6 +37,12 @@ export interface LeaveBalanceSnapshot {
   holidayCompensationDays: number;
   manualAdjustmentDays: number;
   approvedLeaveDeductionDays: number;
+  consumedFromCarried: number;
+  consumedFromAccrued: number;
+  consumedFromComp: number;
+  remainingCarried: number;
+  remainingAccrued: number;
+  remainingComp: number;
   totalBalance: number;
   dailyWage: number;
   cashLiability: number;
@@ -58,6 +64,12 @@ export interface EmployeeLeaveSummary {
   holidayCompensationDays: number; // بدل العمل بالعطلات الرسمية
   manualAdjustments: number;       // أي تسويات أو إضافات يدوية
   usedLeaveDays: number;           // الإجازات المستهلكة المعتمدة
+  consumedFromCarried: number;
+  consumedFromAccrued: number;
+  consumedFromComp: number;
+  remainingCarried: number;
+  remainingAccrued: number;
+  remainingComp: number;
   totalAvailableDays: number;      // الرصيد الإجمالي القابل للاستخدام والصرف
   cashSettlementAmount: number;    // القيمة المالية المستحقة في حال الصرف
   dailyWageRate?: number;          // أجر اليوم (الراتب الأساسي / 26)
@@ -71,6 +83,21 @@ function roundDays(value: number): number {
 
 function roundMoney(value: number): number {
   return Number((Number(value || 0)).toFixed(3));
+}
+
+function isCompensatoryAllocation(allocation: HrLeaveAllocation): boolean {
+  return allocation.allocationType === 'compensatory_off' ||
+    (allocation as any).allocationType === 'compensatory' ||
+    allocation.name?.includes('عطلة') ||
+    allocation.name?.includes('تعويضي') ||
+    allocation.notes?.includes('عطلة') ||
+    allocation.notes?.includes('تعويضي');
+}
+
+function getAllocationBucket(allocation: HrLeaveAllocation): 'carried' | 'accrued' | 'comp' {
+  if (isCompensatoryAllocation(allocation)) return 'comp';
+  if (allocation.allocationType === 'regular' || allocation.allocationType === 'carried_over') return 'carried';
+  return 'accrued';
 }
 
 export function normalizeLeaveBalanceInputs(
@@ -192,6 +219,9 @@ export function buildLeaveBalanceLedger(input: LeaveBalanceEngineInput): LeaveLe
 
 export function calculateLeaveBalanceSnapshot(input: LeaveBalanceEngineInput): LeaveBalanceSnapshot {
   const { employee, contract } = input;
+  const { allocations, leaves } = normalizeLeaveBalanceInputs(input.allocations, input.leaves);
+  const baselineAllocations = buildEmployeeBaselineAllocations(employee, allocations);
+  const fifo = computeFifoLeaveAllocations(employee, baselineAllocations, leaves);
   const entries = buildLeaveBalanceLedger(input);
   const basicSalary = Number(contract?.basicSalary ?? (employee as any).basicSalary ?? (employee as any).basic_salary ?? (employee as any).salary ?? 0) || 0;
   const comprehensiveSalary = basicSalary;
@@ -201,6 +231,37 @@ export function calculateLeaveBalanceSnapshot(input: LeaveBalanceEngineInput): L
   const holidayCompensationDays = roundDays(entries.filter(entry => entry.source === 'holiday_compensation' && entry.direction === 'credit').reduce((sum, entry) => sum + entry.days, 0));
   const manualAdjustmentDays = roundDays(entries.filter(entry => entry.source === 'manual_adjustment' && entry.direction === 'credit').reduce((sum, entry) => sum + entry.days, 0));
   const approvedLeaveDeductionDays = roundDays(entries.filter(entry => entry.source === 'approved_leave_deduction' && entry.direction === 'debit').reduce((sum, entry) => sum + entry.days, 0));
+  const bucketAvailable = {
+    carried: 0,
+    accrued: 0,
+    comp: 0
+  };
+  baselineAllocations.forEach(allocation => {
+    if (allocation.employeeId !== employee.id && allocation.employeeId !== employee.employeeCode) return;
+    const available = Number((Number(allocation.numberOfDays || 0) - Number(allocation.consumedDays || 0) - Number((allocation as any).encashedDays || 0)).toFixed(2));
+    if (available <= 0) return;
+    bucketAvailable[getAllocationBucket(allocation)] += available;
+  });
+
+  const bucketConsumed = {
+    carried: 0,
+    accrued: 0,
+    comp: 0
+  };
+  fifo.breakdown.forEach(item => {
+    item.allocationUsages.forEach(usage => {
+      const allocation = fifo.allocations.find(candidate => candidate.id === usage.allocationId);
+      if (!allocation) return;
+      bucketConsumed[getAllocationBucket(allocation)] += Number(usage.daysUsed || 0);
+    });
+  });
+
+  const consumedFromCarried = roundDays(bucketConsumed.carried);
+  const consumedFromAccrued = roundDays(bucketConsumed.accrued);
+  const consumedFromComp = roundDays(bucketConsumed.comp);
+  const remainingCarried = roundDays(Math.max(0, bucketAvailable.carried - bucketConsumed.carried));
+  const remainingAccrued = roundDays(Math.max(0, bucketAvailable.accrued - bucketConsumed.accrued));
+  const remainingComp = roundDays(Math.max(0, bucketAvailable.comp - bucketConsumed.comp));
   const totalCredits = roundDays(carriedForwardDays + accruedDays + holidayCompensationDays + manualAdjustmentDays);
   const totalBalance = roundDays(Math.max(0, totalCredits - approvedLeaveDeductionDays));
   const dailyWage = roundMoney(basicSalary > 0 ? (basicSalary / 26) : 0);
@@ -213,6 +274,12 @@ export function calculateLeaveBalanceSnapshot(input: LeaveBalanceEngineInput): L
     holidayCompensationDays,
     manualAdjustmentDays,
     approvedLeaveDeductionDays,
+    consumedFromCarried,
+    consumedFromAccrued,
+    consumedFromComp,
+    remainingCarried,
+    remainingAccrued,
+    remainingComp,
     totalBalance,
     dailyWage,
     cashLiability,
@@ -267,6 +334,12 @@ export function calculateUnifiedLeaveBalance(
     holidayCompensationDays,
     manualAdjustments,
     usedLeaveDays,
+    consumedFromCarried: 0,
+    consumedFromAccrued: usedLeaveDays,
+    consumedFromComp: 0,
+    remainingCarried: 0,
+    remainingAccrued: totalAvailableDays,
+    remainingComp: holidayCompensationDays,
     totalAvailableDays,
     cashSettlementAmount,
     dailyWageRate: Number(dailyWageRate.toFixed(3)),
@@ -405,6 +478,12 @@ export function getEmployeeUnifiedSummary(
     holidayCompensationDays: snapshot.holidayCompensationDays,
     manualAdjustments: snapshot.manualAdjustmentDays,
     usedLeaveDays: snapshot.approvedLeaveDeductionDays,
+    consumedFromCarried: snapshot.consumedFromCarried,
+    consumedFromAccrued: snapshot.consumedFromAccrued,
+    consumedFromComp: snapshot.consumedFromComp,
+    remainingCarried: snapshot.remainingCarried,
+    remainingAccrued: snapshot.remainingAccrued,
+    remainingComp: snapshot.remainingComp,
     totalAvailableDays: snapshot.totalBalance,
     cashSettlementAmount: snapshot.cashLiability,
     dailyWageRate: snapshot.dailyWage,

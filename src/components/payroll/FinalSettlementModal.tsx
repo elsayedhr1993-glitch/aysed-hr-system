@@ -132,6 +132,12 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
       earned,
       compensatory,
       consumed,
+      consumedFromCarried: Number(snapshot.consumedFromCarried || 0),
+      consumedFromAccrued: Number(snapshot.consumedFromAccrued || 0),
+      consumedFromComp: Number(snapshot.consumedFromComp || 0),
+      remainingCarried: Number(snapshot.remainingCarried || 0),
+      remainingAccrued: Number(snapshot.remainingAccrued || 0),
+      remainingComp: Number(snapshot.remainingComp || 0),
       net
     };
   }, [currentEmp, leaveAllocations, leaveRequests]);
@@ -294,6 +300,9 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
                 <p className="text-[10px] text-slate-600 mt-1 font-mono">
                   (مرحل {liveLeaveSnapshot.carried.toFixed(2)} + مكتسب {liveLeaveSnapshot.earned.toFixed(2)} + تعويضي {liveLeaveSnapshot.compensatory.toFixed(2)} - مستهلك {liveLeaveSnapshot.consumed.toFixed(2)} = صافي {liveLeaveSnapshot.net.toFixed(2)})
                 </p>
+                <p className="text-[10px] text-slate-500 mt-1 font-mono">
+                  FIFO: خصم {liveLeaveSnapshot.consumedFromCarried.toFixed(2)} من المرحل + {liveLeaveSnapshot.consumedFromAccrued.toFixed(2)} من المستحق + {liveLeaveSnapshot.consumedFromComp.toFixed(2)} من التعويضي | المتبقي: {liveLeaveSnapshot.remainingCarried.toFixed(2)} / {liveLeaveSnapshot.remainingAccrued.toFixed(2)} / {liveLeaveSnapshot.remainingComp.toFixed(2)}
+                </p>
               </div>
 
               <div>
@@ -384,6 +393,9 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
                 <span className="text-[10px] text-emerald-800 font-mono font-bold">
                   تحقق الرصيد (LeaveBalanceEngine): مرحل {liveLeaveSnapshot.carried.toFixed(2)} + مكتسب {liveLeaveSnapshot.earned.toFixed(2)} + تعويضي {liveLeaveSnapshot.compensatory.toFixed(2)} - مستهلك {liveLeaveSnapshot.consumed.toFixed(2)} = صافي {liveLeaveSnapshot.net.toFixed(2)} يوم
                 </span>
+                <div className="text-[10px] text-slate-600 font-mono mt-1">
+                  FIFO Waterfall: خصم من المرحل {liveLeaveSnapshot.consumedFromCarried.toFixed(2)} | من المستحق {liveLeaveSnapshot.consumedFromAccrued.toFixed(2)} | من التعويضي {liveLeaveSnapshot.consumedFromComp.toFixed(2)} | المتبقي {liveLeaveSnapshot.remainingCarried.toFixed(2)} / {liveLeaveSnapshot.remainingAccrued.toFixed(2)} / {liveLeaveSnapshot.remainingComp.toFixed(2)}
+                </div>
               </div>
             </div>
 
