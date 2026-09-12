@@ -129,17 +129,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
   // ---------------------------------------------------------------------------
   // 4. GOOGLE GEMINI AI & OCR CONFIG STATE
   // ---------------------------------------------------------------------------
-  const [geminiApiKey, setGeminiApiKey] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem(`gemini_api_key_${activeCompany?.id || 'default'}`) || 
-             localStorage.getItem('custom_gemini_key') || 
-             localStorage.getItem('custom_gemini_api_key') || 
-             localStorage.getItem('gemini_api_key') || 
-             '';
-    }
-    return '';
-  });
-  const [showGeminiKey, setShowGeminiKey] = useState(false);
+  const [geminiApiKey, setGeminiApiKey] = useState<string>('');
   const [isTestingGemini, setIsTestingGemini] = useState(false);
   const [geminiTestResult, setGeminiTestResult] = useState<{
     success: boolean;
@@ -183,12 +173,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
       setVerificationDomain(savedDomain);
     }
 
-    const savedGemini = localStorage.getItem(`gemini_api_key_${compId}`) || 
-                        localStorage.getItem('custom_gemini_api_key') || 
-                        localStorage.getItem('gemini_api_key');
-    if (savedGemini) {
-      setGeminiApiKey(savedGemini);
-    }
+    setGeminiApiKey('');
   }, [activeCompany]);
 
   // Haversine Distance Calculation Formula (in Meters)
@@ -380,20 +365,15 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
 
   // Test Gemini AI Key Live Connection
   const handleTestGeminiKey = async () => {
-    if (!geminiApiKey || geminiApiKey.trim() === '') {
-      toast.error('يرجى إدخال مفتاح Google Gemini API أولاً للاختبار.');
-      return;
-    }
-
     setIsTestingGemini(true);
     setGeminiTestResult(null);
-    const toastId = toast.loading('جاري فحص واختبار اتصال محرك الذكاء الاصطناعي وخدمات OCR...');
+    const toastId = toast.loading('جاري فحص اتصال محرك الذكاء الاصطناعي عبر مفتاح الخادم...');
 
     try {
       const res = await fetch('/api/ai/test-key', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey: geminiApiKey.trim() }),
+        body: JSON.stringify({}),
       });
 
       const data = await res.json();
@@ -404,13 +384,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
           model: data.model,
           responseTimeMs: data.responseTimeMs,
         });
-        // Save immediately as verified working key
-        const compId = activeCompany?.id || 'default';
-        localStorage.setItem('custom_gemini_key', geminiApiKey.trim());
-        localStorage.setItem('custom_gemini_api_key', geminiApiKey.trim());
-        localStorage.setItem('gemini_api_key', geminiApiKey.trim());
-        localStorage.setItem(`gemini_api_key_${compId}`, geminiApiKey.trim());
-        toast.success(data.message || 'تم التحقق من مفتاح الذكاء الاصطناعي بنجاح!', { id: toastId });
+        toast.success(data.message || 'تم التحقق من اتصال الذكاء الاصطناعي عبر إعدادات الخادم بنجاح!', { id: toastId });
       } else {
         setGeminiTestResult({
           success: false,
@@ -432,23 +406,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
   };
 
   const handleSaveGeminiKeyOnly = async () => {
-    const compId = activeCompany?.id || 'default';
-    const key = geminiApiKey.trim();
-    localStorage.setItem('custom_gemini_key', key);
-    localStorage.setItem('custom_gemini_api_key', key);
-    localStorage.setItem('gemini_api_key', key);
-    localStorage.setItem(`gemini_api_key_${compId}`, key);
-    
-    try {
-      if (db) {
-        const configDocRef = doc(db, 'system_integrations', compId);
-        await setDoc(configDocRef, { geminiApiKey: key, updatedAt: new Date().toISOString() }, { merge: true });
-      }
-    } catch (err) {
-      console.warn('Firestore gemini key sync:', err);
-    }
-    
-    toast.success('تم حفظ وتفعيل مفتاح Google Gemini API بنجاح في النظام!');
+    toast('إدارة مفتاح Gemini أصبحت من الخادم فقط. لا يتم حفظ أي مفاتيح في الواجهة.');
   };
 
   // Save All Configurations
@@ -462,7 +420,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
       publicVerificationDomain: verificationDomain.trim(),
       whatsAppGateway: whatsAppConfig,
       branches: branches,
-      geminiApiKey: geminiApiKey.trim(),
+      geminiApiKey: '',
       updatedAt: new Date().toISOString()
     };
 
@@ -470,10 +428,6 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
     localStorage.setItem(`geofence_branches_${compId}`, JSON.stringify(branches));
     localStorage.setItem(`whatsapp_gateway_${compId}`, JSON.stringify(whatsAppConfig));
     localStorage.setItem(`public_verification_domain_${compId}`, verificationDomain.trim());
-    localStorage.setItem(`gemini_api_key_${compId}`, geminiApiKey.trim());
-    localStorage.setItem('custom_gemini_key', geminiApiKey.trim());
-    localStorage.setItem('custom_gemini_api_key', geminiApiKey.trim());
-    localStorage.setItem('gemini_api_key', geminiApiKey.trim());
 
     // Save to Firebase Firestore if connected
     try {
@@ -1087,7 +1041,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                تكوين مفتاح الربط الرسمي لقراءة وفحص البطاقات المدنية والمستندات الذكية تلقائياً (OCR) ودعم المساعد الذكي
+                تشغيل خدمات OCR والمساعد الذكي يتم حصرياً عبر مفتاح الخادم (Server Environment Key) دون أي مفاتيح على الواجهة
               </p>
             </div>
           </div>
@@ -1098,7 +1052,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
               className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-xs transition cursor-pointer"
             >
               <Save className="w-3.5 h-3.5" />
-              <span>حفظ المفتاح فقط</span>
+              <span>وضع الخادم فقط</span>
             </button>
           </div>
         </div>
@@ -1108,40 +1062,21 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
           <div className="lg:col-span-2 space-y-4">
             <div>
               <label className="block text-xs font-black text-slate-800 mb-1.5">
-                مفتاح API الرسمي (Google Gemini API Key):
+                مفتاح API (مُدار من الخادم فقط):
               </label>
               <div className="relative">
                 <input
-                  type={showGeminiKey ? 'text' : 'password'}
-                  value={geminiApiKey}
-                  onChange={(e) => setGeminiApiKey(e.target.value)}
-                  placeholder="AQ.Ab8... أو AIzaSy..."
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 pr-10 pl-24 text-xs font-mono font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition dir-ltr"
+                  type="text"
+                  value="SERVER_MANAGED"
+                  readOnly
+                  placeholder="SERVER_MANAGED"
+                  className="w-full bg-slate-100 border border-slate-300 rounded-xl p-3 pr-10 text-xs font-mono font-bold text-slate-700 transition dir-ltr cursor-not-allowed"
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
                   <Key className="w-4 h-4" />
                 </div>
-                <div className="absolute left-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setShowGeminiKey(!showGeminiKey)}
-                    className="p-1 text-slate-400 hover:text-slate-600 rounded"
-                    title={showGeminiKey ? 'إخفاء' : 'إظهار'}
-                  >
-                    {showGeminiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                  </button>
-                  {geminiApiKey && (
-                    <button
-                      type="button"
-                      onClick={() => handleCopyText(geminiApiKey, 'مفتاح Gemini API')}
-                      className="p-1 text-slate-400 hover:text-slate-600 rounded"
-                      title="نسخ"
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
               </div>
+              <p className="text-[11px] text-slate-500 mt-1">تم إيقاف إدخال/نسخ/حفظ المفاتيح من الواجهة لأسباب أمنية.</p>
             </div>
 
             {/* Test Connection Button and Actions */}
@@ -1149,31 +1084,21 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
               <button
                 type="button"
                 onClick={handleTestGeminiKey}
-                disabled={isTestingGemini || !geminiApiKey.trim()}
+                disabled={isTestingGemini}
                 className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md hover:shadow-lg transition cursor-pointer disabled:opacity-50"
               >
                 {isTestingGemini ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>جاري فحص الاتصال الحقيقي مع Google AI Studio...</span>
+                    <span>جاري فحص الاتصال عبر مفتاح الخادم...</span>
                   </>
                 ) : (
                   <>
                     <Zap className="w-4 h-4 text-amber-300" />
-                    <span>فحص واختبار الاتصال المباشر (Test Live AI Connection)</span>
+                    <span>فحص اتصال خادم الذكاء الاصطناعي</span>
                   </>
                 )}
               </button>
-
-              <a
-                href="https://aistudio.google.com/app/apikey"
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-1.5 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3.5 py-2.5 rounded-xl text-xs font-bold transition"
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-                <span>الحصول على مفتاح مجاني من Google AI Studio</span>
-              </a>
             </div>
 
             {/* Test Live Result Banner */}
@@ -1228,19 +1153,17 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
             <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs text-slate-700">
               <div className="font-black text-slate-800 flex items-center gap-1.5">
                 <CheckSquare className="w-4 h-4 text-indigo-600" />
-                <span>توافق الصيغ والمفاتيح المدعومة في النظام:</span>
+                <span>سياسة الأمان الحالية:</span>
               </div>
               <ul className="list-disc list-inside space-y-1 text-[11px] text-slate-600">
                 <li>
-                  <span className="font-bold text-slate-800">مفاتيح Google AI Studio الجديدة:</span> تبدأ بـ{' '}
-                  <code className="bg-white px-1.5 py-0.5 rounded border border-slate-300 font-mono text-indigo-700 font-bold">AQ.Ab8...</code> (مدعومة بالكامل وبدون أي قيود على البادئة أو الطول).
+                  مفاتيح Gemini لا تُخزن محلياً ولا تُمرر من المتصفح.
                 </li>
                 <li>
-                  <span className="font-bold text-slate-800">مفاتيح Google Cloud / Vertex AI:</span> تبدأ بـ{' '}
-                  <code className="bg-white px-1.5 py-0.5 rounded border border-slate-300 font-mono text-slate-700">AIzaSy...</code> (مدعومة بالكامل).
+                  جميع الطلبات تمر عبر الخادم باستخدام GEMINI_API_KEY في بيئة التشغيل.
                 </li>
                 <li>
-                  <span className="font-bold text-slate-800">النماذج الذكية التلقائية:</span> يتم التشغيل تلقائياً على نموذج <code className="bg-white px-1.5 py-0.5 rounded border border-slate-300 font-mono font-bold text-purple-700">gemini-3.5-flash-lite</code> و <code className="bg-white px-1.5 py-0.5 rounded border border-slate-300 font-mono font-bold text-purple-700">gemini-3.8-flash</code> لقراءة البطاقات المدنية واستخراج النصوص بنسبة دقة 100%.
+                  فحص الاتصال هنا يختبر جاهزية مفتاح الخادم فقط دون استقبال أي مفاتيح من المستخدم.
                 </li>
               </ul>
             </div>

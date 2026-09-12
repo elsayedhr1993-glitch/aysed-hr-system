@@ -888,7 +888,7 @@ var PORT = 3e3;
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, apikey, prefer, range, x-gemini-key, x-gemini-api-key, x-api-key");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, apikey, prefer, range, x-api-key");
   if (req.method === "OPTIONS") {
     return res.sendStatus(200);
   }
@@ -982,8 +982,8 @@ function getAdminAuth() {
   return null;
 }
 app.use(import_express.default.json({ limit: "25mb" }));
-function getGeminiClient(customKey) {
-  const apiKey = customKey && typeof customKey === "string" && customKey.trim() !== "" && !customKey.includes("YOUR_") ? customKey.trim() : process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.VITE_GEMINI_API_KEY;
+function getGeminiClient() {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.VITE_GEMINI_API_KEY;
   if (!apiKey || apiKey.trim() === "" || apiKey.includes("YOUR_")) {
     return null;
   }
@@ -1010,6 +1010,64 @@ function getSupabaseAdmin() {
     }
   });
   return supabaseAdminClient;
+}
+var OCR_RATE_LIMIT_WINDOW_MS = 60 * 1e3;
+var OCR_RATE_LIMIT_MAX_REQUESTS = 12;
+var OCR_RATE_LIMIT_BLOCK_MS = 5 * 60 * 1e3;
+var OCR_MAX_TOTAL_FILE_BYTES = 15 * 1024 * 1024;
+var OCR_MAX_SINGLE_PAGE_BYTES = 8 * 1024 * 1024;
+var ALLOWED_OCR_MIME_TYPES = /* @__PURE__ */ new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf"
+]);
+var ocrRateLimitStore = /* @__PURE__ */ new Map();
+function getClientIpAddress(req) {
+  const forwarded = req.headers?.["x-forwarded-for"];
+  if (typeof forwarded === "string" && forwarded.trim()) {
+    return forwarded.split(",")[0].trim();
+  }
+  return req.ip || req.socket?.remoteAddress || "unknown";
+}
+function logOcrAudit(event, data) {
+  console.warn(`[OCR Audit] ${event}`, {
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    ...data
+  });
+}
+function enforceOcrRateLimit(req, res) {
+  const ip = getClientIpAddress(req);
+  const now = Date.now();
+  const entry = ocrRateLimitStore.get(ip);
+  if (entry?.blockedUntil && now < entry.blockedUntil) {
+    const retryAfterSeconds = Math.max(1, Math.ceil((entry.blockedUntil - now) / 1e3));
+    res.setHeader("Retry-After", String(retryAfterSeconds));
+    logOcrAudit("rate_limit_blocked", { ip, retryAfterSeconds });
+    res.status(429).json({
+      error: "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0645\u0633\u0645\u0648\u062D \u0644\u0637\u0644\u0628\u0627\u062A OCR \u0645\u0646 \u0647\u0630\u0627 \u0627\u0644\u062C\u0647\u0627\u0632 \u0645\u0624\u0642\u062A\u0627\u064B.",
+      details: `\u064A\u0631\u062C\u0649 \u0627\u0644\u0627\u0646\u062A\u0638\u0627\u0631 ${retryAfterSeconds} \u062B\u0627\u0646\u064A\u0629 \u062B\u0645 \u0625\u0639\u0627\u062F\u0629 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629.`
+    });
+    return false;
+  }
+  if (!entry || now - entry.windowStart >= OCR_RATE_LIMIT_WINDOW_MS) {
+    ocrRateLimitStore.set(ip, { windowStart: now, count: 1 });
+    return true;
+  }
+  entry.count += 1;
+  if (entry.count > OCR_RATE_LIMIT_MAX_REQUESTS) {
+    entry.blockedUntil = now + OCR_RATE_LIMIT_BLOCK_MS;
+    const retryAfterSeconds = Math.ceil(OCR_RATE_LIMIT_BLOCK_MS / 1e3);
+    res.setHeader("Retry-After", String(retryAfterSeconds));
+    logOcrAudit("rate_limit_exceeded", { ip, count: entry.count, windowMs: OCR_RATE_LIMIT_WINDOW_MS });
+    res.status(429).json({
+      error: "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0645\u0633\u0645\u0648\u062D \u0644\u0637\u0644\u0628\u0627\u062A OCR.",
+      details: "\u0644\u062D\u0645\u0627\u064A\u0629 \u0627\u0644\u062E\u062F\u0645\u0629\u060C \u062A\u0645 \u0625\u064A\u0642\u0627\u0641 \u0627\u0644\u0637\u0644\u0628\u0627\u062A \u0645\u0624\u0642\u062A\u0627\u064B \u0644\u0647\u0630\u0627 \u0627\u0644\u0645\u0635\u062F\u0631."
+    });
+    return false;
+  }
+  ocrRateLimitStore.set(ip, entry);
+  return true;
 }
 app.get("/api/health", (req, res) => {
   const hasServiceRole = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY.trim().length > 0);
@@ -1224,12 +1282,11 @@ app.get("/api/system/env-health", async (req, res) => {
 });
 app.post("/api/ai/test-key", async (req, res) => {
   try {
-    const { apiKey } = req.body;
-    const client = getGeminiClient(apiKey);
+    const client = getGeminiClient();
     if (!client) {
       return res.status(400).json({
         success: false,
-        error: "\u0644\u0645 \u064A\u062A\u0645 \u062A\u0648\u0641\u064A\u0631 \u0645\u0641\u062A\u0627\u062D Gemini API \u0635\u0627\u0644\u062D. \u064A\u0631\u062C\u0649 \u0625\u062F\u062E\u0627\u0644 \u0627\u0644\u0645\u0641\u062A\u0627\u062D \u0648\u0625\u0639\u0627\u062F\u0629 \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629."
+        error: "\u0645\u0641\u062A\u0627\u062D Gemini API \u063A\u064A\u0631 \u0645\u0647\u064A\u0623 \u0639\u0644\u0649 \u0627\u0644\u062E\u0627\u062F\u0645. \u064A\u0631\u062C\u0649 \u0636\u0628\u0637 GEMINI_API_KEY \u0641\u064A \u0628\u064A\u0626\u0629 \u0627\u0644\u062A\u0634\u063A\u064A\u0644."
       });
     }
     const modelsToTry = ["gemini-3.6-flash", "gemini-3.1-pro-preview"];
@@ -1257,7 +1314,7 @@ app.post("/api/ai/test-key", async (req, res) => {
     }
     return res.status(500).json({
       success: false,
-      error: "\u062A\u0639\u0630\u0631 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0645\u062D\u0631\u0643 \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A \u0628\u0627\u0644\u0645\u0641\u062A\u0627\u062D \u0627\u0644\u0645\u0632\u0648\u062F.",
+      error: "\u062A\u0639\u0630\u0631 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0645\u062D\u0631\u0643 \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A \u0628\u0645\u0641\u062A\u0627\u062D \u0627\u0644\u062E\u0627\u062F\u0645.",
       details: lastError?.message || String(lastError)
     });
   } catch (err) {
@@ -1507,11 +1564,88 @@ function normalizeOcrDataServer(parsed) {
   };
 }
 app.post("/api/ocr-scan", import_express.default.json({ limit: "50mb" }), async (req, res) => {
-  const { imageBase64, mimeType, docType, customApiKey } = req.body;
-  const headerKey = req.headers["x-gemini-api-key"] || req.headers["x-gemini-key"];
-  const effectiveKey = customApiKey || headerKey;
-  if (!imageBase64) {
+  if (!enforceOcrRateLimit(req, res)) {
+    return;
+  }
+  const { imageBase64, imageBase64Pages, mimeType, docType } = req.body;
+  const clientIp = getClientIpAddress(req);
+  const normalizePageInputs = (input) => {
+    if (!Array.isArray(input)) return [];
+    return input.filter((v) => typeof v === "string" && v.trim() !== "").map((v) => v.trim()).slice(0, 4);
+  };
+  const pageInputs = normalizePageInputs(imageBase64Pages);
+  if (!imageBase64 && pageInputs.length === 0) {
+    logOcrAudit("invalid_request_empty_payload", { ip: clientIp, docType: docType || "unknown" });
     return res.status(400).json({ error: "\u064A\u0631\u062C\u0649 \u0627\u062E\u062A\u064A\u0627\u0631 \u0648\u0631\u0641\u0639 \u0635\u0648\u0631\u0629 \u0627\u0644\u0645\u0633\u062A\u0646\u062F \u0627\u0644\u062D\u0642\u064A\u0642\u064A \u0623\u0648\u0644\u0627\u064B \u0642\u0628\u0644 \u0625\u062C\u0631\u0627\u0621 \u0627\u0644\u0645\u0627\u0633\u062D \u0627\u0644\u0636\u0648\u0626\u064A OCR" });
+  }
+  const rawInputs = pageInputs.length > 0 ? pageInputs : [imageBase64];
+  const stripDataUrl = (value) => value.replace(/^data:.*?;base64,/, "").replace(/\s/g, "");
+  const extractMimeFromDataUrl = (value) => {
+    const match = value.match(/^data:(.*?);base64,/i);
+    return match?.[1] || "";
+  };
+  const firstRaw = stripDataUrl(rawInputs[0] || "");
+  let resolvedMimeType = "image/jpeg";
+  if (firstRaw.startsWith("JVBERi")) {
+    resolvedMimeType = "application/pdf";
+  } else if (firstRaw.startsWith("/9j/")) {
+    resolvedMimeType = "image/jpeg";
+  } else if (firstRaw.startsWith("iVBORw")) {
+    resolvedMimeType = "image/png";
+  } else if (firstRaw.startsWith("UklGR")) {
+    resolvedMimeType = "image/webp";
+  } else {
+    resolvedMimeType = extractMimeFromDataUrl(rawInputs[0] || "") || mimeType || "image/jpeg";
+  }
+  resolvedMimeType = (resolvedMimeType || "").toLowerCase().trim();
+  if (!ALLOWED_OCR_MIME_TYPES.has(resolvedMimeType)) {
+    logOcrAudit("invalid_mime_type", {
+      ip: clientIp,
+      mimeType: resolvedMimeType,
+      docType: docType || "unknown",
+      pages: rawInputs.length
+    });
+    return res.status(415).json({
+      error: "\u0635\u064A\u063A\u0629 \u0627\u0644\u0645\u0644\u0641 \u063A\u064A\u0631 \u0645\u062F\u0639\u0648\u0645\u0629 \u0644\u0644\u0645\u0627\u0633\u062D \u0627\u0644\u0636\u0648\u0626\u064A.",
+      details: "\u0627\u0644\u0635\u064A\u063A \u0627\u0644\u0645\u0633\u0645\u0648\u062D \u0628\u0647\u0627: JPG, PNG, WEBP, PDF."
+    });
+  }
+  const normalizedPages = rawInputs.map((payload) => {
+    const payloadMime = extractMimeFromDataUrl(payload) || resolvedMimeType;
+    return {
+      data: stripDataUrl(payload),
+      mimeType: payloadMime
+    };
+  });
+  const pageBytes = normalizedPages.map((page) => {
+    try {
+      return Buffer.byteLength(page.data, "base64");
+    } catch {
+      return Number.NaN;
+    }
+  });
+  const hasInvalidBase64 = pageBytes.some((size) => !Number.isFinite(size) || size <= 0);
+  if (hasInvalidBase64) {
+    logOcrAudit("invalid_base64_payload", { ip: clientIp, docType: docType || "unknown", pages: normalizedPages.length });
+    return res.status(400).json({
+      error: "\u0627\u0644\u0645\u0644\u0641 \u0627\u0644\u0645\u0631\u0641\u0648\u0639 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D.",
+      details: "\u062A\u0639\u0630\u0631 \u0642\u0631\u0627\u0621\u0629 \u062A\u0631\u0645\u064A\u0632 \u0627\u0644\u0645\u0644\u0641 (Base64). \u064A\u0631\u062C\u0649 \u0625\u0639\u0627\u062F\u0629 \u0627\u0644\u0631\u0641\u0639 \u0648\u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649."
+    });
+  }
+  const totalBytes = pageBytes.reduce((sum, size) => sum + size, 0);
+  const tooLargePageIndex = pageBytes.findIndex((size) => size > OCR_MAX_SINGLE_PAGE_BYTES);
+  if (tooLargePageIndex >= 0 || totalBytes > OCR_MAX_TOTAL_FILE_BYTES) {
+    logOcrAudit("payload_too_large", {
+      ip: clientIp,
+      docType: docType || "unknown",
+      pages: normalizedPages.length,
+      totalBytes,
+      pageBytes
+    });
+    return res.status(413).json({
+      error: "\u062D\u062C\u0645 \u0627\u0644\u0645\u0644\u0641 \u064A\u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u062D\u062F \u0627\u0644\u0645\u0633\u0645\u0648\u062D \u0644\u0644\u0645\u0627\u0633\u062D \u0627\u0644\u0636\u0648\u0626\u064A.",
+      details: "\u0627\u0644\u062D\u062F \u0627\u0644\u0623\u0642\u0635\u0649 \u0644\u0643\u0644 \u0635\u0641\u062D\u0629 8MB \u0648\u0628\u0625\u062C\u0645\u0627\u0644\u064A 15MB \u0644\u0644\u0637\u0644\u0628 \u0627\u0644\u0648\u0627\u062D\u062F."
+    });
   }
   const systemPrompt = `\u0623\u0646\u062A \u0646\u0638\u0627\u0645 \u062E\u0628\u064A\u0631 \u0641\u064A \u0627\u0644\u0642\u0631\u0627\u0621\u0629 \u0627\u0644\u0636\u0648\u0626\u064A\u0629 \u0648\u0627\u0633\u062A\u062E\u0631\u0627\u062C \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0628\u0637\u0627\u0642\u0629 \u0627\u0644\u0645\u062F\u0646\u064A\u0629 \u0648\u062C\u0648\u0627\u0632 \u0627\u0644\u0633\u0641\u0631 \u0648\u0627\u0644\u0625\u0642\u0627\u0645\u0629 \u0648\u0627\u0644\u0645\u0633\u062A\u0646\u062F\u0627\u062A \u0627\u0644\u0631\u0633\u0645\u064A\u0629 \u0627\u0644\u0643\u0648\u064A\u062A\u064A\u0629 (Kuwait OCR Vision Engine).
 \u0645\u0647\u0645\u062A\u0643 \u0627\u0633\u062A\u062E\u0631\u0627\u062C \u0643\u0627\u0641\u0629 \u0627\u0644\u0646\u0635\u0648\u0635 \u0648\u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062D\u0642\u064A\u0642\u064A\u0629 \u0627\u0644\u0645\u0648\u062C\u0648\u062F\u0629 \u0641\u064A \u0627\u0644\u0645\u0633\u062A\u0646\u062F \u0628\u062F\u0642\u0629 100% \u062F\u0648\u0646 \u0623\u064A \u062A\u062E\u0645\u064A\u0646. \u062A\u062D\u0630\u064A\u0631 \u0634\u062F\u064A\u062F: \u0625\u064A\u0627\u0643 \u0623\u0646 \u062A\u0624\u0644\u0641 \u0628\u064A\u0627\u0646\u0627\u062A \u0648\u0647\u0645\u064A\u0629. \u0625\u0630\u0627 \u0644\u0645 \u062A\u062C\u062F \u0627\u0644\u062D\u0642\u0644\u060C \u0627\u062A\u0631\u0643\u0647 \u0641\u0627\u0631\u063A\u0627\u064B.
@@ -1559,10 +1693,16 @@ app.post("/api/ocr-scan", import_express.default.json({ limit: "50mb" }), async 
   "address": { "block": "", "street": "", "building": "", "area": "" }
 }`;
   const openaiApiKey = process.env.OPENAI_API_KEY;
-  const isPdfFile = mimeType === "application/pdf" || mimeType?.includes("pdf");
+  const isPdfFile = resolvedMimeType === "application/pdf" || resolvedMimeType?.includes("pdf");
   if (openaiApiKey && openaiApiKey.trim() !== "" && !openaiApiKey.includes("YOUR_") && !isPdfFile) {
     try {
-      const base64Data = imageBase64.includes(",") ? imageBase64 : `data:${mimeType || "image/jpeg"};base64,${imageBase64}`;
+      const userImageParts = normalizedPages.map((page) => ({
+        type: "image_url",
+        image_url: {
+          url: `data:${page.mimeType || resolvedMimeType};base64,${page.data}`,
+          detail: "high"
+        }
+      }));
       const oaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -1580,8 +1720,8 @@ app.post("/api/ocr-scan", import_express.default.json({ limit: "50mb" }), async 
             {
               role: "user",
               content: [
-                { type: "text", text: `\u0642\u0645 \u0628\u062A\u062D\u0644\u064A\u0644 \u0635\u0648\u0631\u0629 \u0627\u0644\u0645\u0633\u062A\u0646\u062F (${docType || "\u0628\u0637\u0627\u0642\u0629 \u0645\u062F\u0646\u064A\u0629/\u062C\u0648\u0627\u0632 \u0633\u0641\u0631"}) \u0648\u0627\u0633\u062A\u062E\u0631\u0627\u062C \u0643\u0627\u0641\u0629 \u0627\u0644\u062D\u0642\u0648\u0644 \u0648\u062E\u0627\u0635\u0629 (\u062A\u0627\u0631\u064A\u062E \u0627\u0644\u0645\u064A\u0644\u0627\u062F\u060C \u0627\u0644\u062C\u0646\u0633\u064A\u0629\u060C \u0646\u0648\u0639 \u0627\u0644\u062C\u0646\u0633\u060C \u0631\u0642\u0645 \u0627\u0644\u062C\u0648\u0627\u0632\u060C \u0648\u0646\u0648\u0639 \u0627\u0644\u0625\u0642\u0627\u0645\u0629).` },
-                { type: "image_url", image_url: { url: base64Data, detail: "high" } }
+                { type: "text", text: `\u0642\u0645 \u0628\u062A\u062D\u0644\u064A\u0644 \u0627\u0644\u0645\u0633\u062A\u0646\u062F (${docType || "\u0628\u0637\u0627\u0642\u0629 \u0645\u062F\u0646\u064A\u0629/\u062C\u0648\u0627\u0632 \u0633\u0641\u0631"}) \u0639\u0628\u0631 \u062C\u0645\u064A\u0639 \u0627\u0644\u0635\u0641\u062D\u0627\u062A/\u0627\u0644\u0623\u0648\u062C\u0647 \u0627\u0644\u0645\u0631\u0641\u0642\u0629 \u0648\u0627\u0633\u062A\u062E\u0631\u0627\u062C \u0643\u0627\u0641\u0629 \u0627\u0644\u062D\u0642\u0648\u0644 \u0648\u062E\u0627\u0635\u0629 (\u062A\u0627\u0631\u064A\u062E \u0627\u0644\u0645\u064A\u0644\u0627\u062F\u060C \u0627\u0644\u062C\u0646\u0633\u064A\u0629\u060C \u0646\u0648\u0639 \u0627\u0644\u062C\u0646\u0633\u060C \u0631\u0642\u0645 \u0627\u0644\u062C\u0648\u0627\u0632\u060C \u0648\u0646\u0648\u0639 \u0627\u0644\u0625\u0642\u0627\u0645\u0629).` },
+                ...userImageParts
               ]
             }
           ],
@@ -1602,29 +1742,24 @@ app.post("/api/ocr-scan", import_express.default.json({ limit: "50mb" }), async 
       }
     } catch (oaiErr) {
       console.error("OpenAI Vision error:", oaiErr);
+      logOcrAudit("openai_vision_failure", {
+        ip: clientIp,
+        docType: docType || "unknown",
+        mimeType: resolvedMimeType,
+        pages: normalizedPages.length
+      });
     }
   }
-  const ai = getGeminiClient(effectiveKey);
+  const ai = getGeminiClient();
   if (!ai) {
-    return res.status(400).json({
-      error: "\u0645\u0641\u062A\u0627\u062D \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A (GEMINI_API_KEY \u0623\u0648 OPENAI_API_KEY) \u063A\u064A\u0631 \u0645\u062A\u0648\u0641\u0631. \u064A\u0631\u062C\u0649 \u0625\u062F\u062E\u0627\u0644 \u0627\u0644\u0645\u0641\u062A\u0627\u062D \u0641\u064A \u0625\u0639\u062F\u0627\u062F\u0627\u062A \u0627\u0644\u0646\u0638\u0627\u0645 \u0623\u0648 \u0625\u062F\u062E\u0627\u0644 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u064A\u062F\u0648\u064A\u0627\u064B."
+    logOcrAudit("missing_server_ai_key", {
+      ip: clientIp,
+      docType: docType || "unknown",
+      mimeType: resolvedMimeType
     });
-  }
-  let rawBase64 = imageBase64.replace(/^data:.*?;base64,/, "").replace(/\s/g, "");
-  let resolvedMimeType = "image/jpeg";
-  if (rawBase64.startsWith("JVBERi")) {
-    resolvedMimeType = "application/pdf";
-  } else if (rawBase64.startsWith("/9j/")) {
-    resolvedMimeType = "image/jpeg";
-  } else if (rawBase64.startsWith("iVBORw")) {
-    resolvedMimeType = "image/png";
-  } else if (rawBase64.startsWith("UklGR")) {
-    resolvedMimeType = "image/webp";
-  } else {
-    resolvedMimeType = mimeType || "image/jpeg";
-    if (resolvedMimeType.includes("bdf") || resolvedMimeType === "" || !resolvedMimeType) {
-      resolvedMimeType = "application/pdf";
-    }
+    return res.status(400).json({
+      error: "\u0645\u0641\u062A\u0627\u062D \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A \u0639\u0644\u0649 \u0627\u0644\u062E\u0627\u062F\u0645 \u063A\u064A\u0631 \u0645\u062A\u0648\u0641\u0631 (GEMINI_API_KEY \u0623\u0648 OPENAI_API_KEY). \u064A\u0631\u062C\u0649 \u062A\u0647\u064A\u0626\u0629 \u0645\u062A\u063A\u064A\u0631\u0627\u062A \u0627\u0644\u0628\u064A\u0626\u0629."
+    });
   }
   const modelsToTry = ["gemini-3.6-flash", "gemini-3.1-pro-preview"];
   let lastError = null;
@@ -1634,13 +1769,13 @@ app.post("/api/ocr-scan", import_express.default.json({ limit: "50mb" }), async 
         model: modelName,
         contents: {
           parts: [
-            {
+            ...normalizedPages.map((page) => ({
               inlineData: {
-                data: rawBase64,
-                mimeType: resolvedMimeType
+                data: page.data,
+                mimeType: page.mimeType || resolvedMimeType
               }
-            },
-            { text: systemPrompt }
+            })),
+            { text: systemPrompt + "\n\u0627\u0639\u062A\u0645\u062F \u062C\u0645\u064A\u0639 \u0627\u0644\u0635\u0641\u062D\u0627\u062A/\u0627\u0644\u0623\u0648\u062C\u0647 \u0627\u0644\u0645\u0631\u0641\u0642\u0629 \u0645\u0639\u0627\u064B \u0642\u0628\u0644 \u0627\u0644\u0625\u062E\u0631\u0627\u062C." }
           ]
         },
         config: {
@@ -1698,13 +1833,13 @@ app.post("/api/ocr-scan", import_express.default.json({ limit: "50mb" }), async 
         model: modelName,
         contents: {
           parts: [
-            {
+            ...normalizedPages.map((page) => ({
               inlineData: {
-                data: rawBase64,
-                mimeType: resolvedMimeType
+                data: page.data,
+                mimeType: page.mimeType || resolvedMimeType
               }
-            },
-            { text: systemPrompt + "\n\u0623\u0631\u062C\u0639 \u0627\u0644\u0646\u062A\u064A\u062C\u0629 \u0628\u0635\u064A\u063A\u0629 JSON \u0641\u0642\u0637." }
+            })),
+            { text: systemPrompt + "\n\u0627\u0639\u062A\u0645\u062F \u062C\u0645\u064A\u0639 \u0627\u0644\u0635\u0641\u062D\u0627\u062A/\u0627\u0644\u0623\u0648\u062C\u0647 \u0627\u0644\u0645\u0631\u0641\u0642\u0629 \u0645\u0639\u0627\u064B \u0642\u0628\u0644 \u0627\u0644\u0625\u062E\u0631\u0627\u062C. \u0623\u0631\u062C\u0639 \u0627\u0644\u0646\u062A\u064A\u062C\u0629 \u0628\u0635\u064A\u063A\u0629 JSON \u0641\u0642\u0637." }
           ]
         },
         config: {
@@ -1747,6 +1882,14 @@ app.post("/api/ocr-scan", import_express.default.json({ limit: "50mb" }), async 
   } else if (errorMessage) {
     cause = errorMessage;
   }
+  logOcrAudit("ocr_processing_failure", {
+    ip: clientIp,
+    docType: docType || "unknown",
+    mimeType: resolvedMimeType,
+    pages: normalizedPages.length,
+    totalBytes,
+    providerError: errorMessage || "unknown"
+  });
   return res.status(500).json({
     error: friendlyError,
     details: cause
@@ -1754,13 +1897,11 @@ app.post("/api/ocr-scan", import_express.default.json({ limit: "50mb" }), async 
 });
 app.post("/api/ai-chat", async (req, res) => {
   try {
-    const { prompt, contextSummary, conversationHistory, customApiKey } = req.body;
-    const headerKey = req.headers["x-gemini-api-key"] || req.headers["x-gemini-key"];
-    const effectiveKey = customApiKey || headerKey;
+    const { prompt, contextSummary, conversationHistory } = req.body;
     if (!prompt) {
       return res.status(400).json({ error: "\u0627\u0644\u0631\u062C\u0627\u0621 \u0643\u062A\u0627\u0628\u0629 \u0627\u0644\u0633\u0624\u0627\u0644 \u0623\u0648 \u0627\u0644\u0637\u0644\u0628 \u0644\u0644\u0645\u0633\u0627\u0639\u062F \u0627\u0644\u0630\u0643\u064A" });
     }
-    const ai = getGeminiClient(effectiveKey);
+    const ai = getGeminiClient();
     const systemInstruction = `\u0623\u0646\u062A \u0627\u0644\u0645\u0633\u0627\u0639\u062F \u0627\u0644\u0628\u0631\u0645\u062C\u064A \u0627\u0644\u0631\u0633\u0645\u064A \u0644\u0646\u0638\u0627\u0645 "Aysed S HR 2026". 
 \u0647\u0648\u064A\u062A\u0643 \u0648\u0645\u0647\u0627\u0645\u0643:
 1. \u062E\u0628\u064A\u0631 \u0641\u064A \u062A\u0637\u0648\u064A\u0631 \u0648\u0628\u0631\u0645\u062C\u0629 \u0646\u0638\u0627\u0645 \u0623\u0648\u062F\u0648 (Odoo Framework) \u0648\u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0648\u0627\u0631\u062F \u0627\u0644\u0628\u0634\u0631\u064A\u0629.

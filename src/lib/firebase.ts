@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { initializeFirestore, getFirestore, memoryLocalCache, setLogLevel, doc, setDoc, deleteDoc, collection, getDocs, query, where, writeBatch } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
+import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 // Suppress benign connection retry / offline notice warnings in sandboxed iframe environment
@@ -33,6 +34,7 @@ try {
 
 export const db = firestoreInstance;
 export const auth = getAuth(app);
+export const storage = getStorage(app);
 
 /**
  * Creates a secondary isolated Firebase App instance so creating accounts

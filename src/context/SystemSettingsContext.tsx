@@ -117,7 +117,7 @@ export const defaultSettings: SystemSettings = {
   workingDaysPerMonthDivisor: 26,
 
   // الذكاء الاصطناعي و OCR و البريد
-  geminiApiKey: localStorage.getItem('custom_gemini_key') || '',
+  geminiApiKey: '',
   ocrEngineMode: 'cloud_server',
   autoExtractDocuments: true,
   smtpHost: 'smtp.gmail.com',
@@ -205,11 +205,7 @@ export const SystemSettingsProvider: React.FC<{ children: React.ReactNode }> = (
       return updated;
     });
 
-    // مزامنة فورية ومباشرة لبيانات الشركة النشطة في CompanyContext و localStorage
-    if (newSettings.geminiApiKey !== undefined) {
-      localStorage.setItem('custom_gemini_key', newSettings.geminiApiKey);
-      localStorage.setItem('custom_gemini_api_key', newSettings.geminiApiKey);
-    }
+    // Gemini API key is server-managed only and is not persisted client-side.
 
     if (
       newSettings.companyNameAr ||

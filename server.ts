@@ -39,7 +39,7 @@ const PORT = 3000;
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, apikey, prefer, range, x-gemini-key, x-gemini-api-key, x-api-key");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, apikey, prefer, range, x-api-key");
   if (req.method === "OPTIONS") {
     return res.sendStatus(200);
   }
@@ -146,11 +146,9 @@ function getAdminAuth(): ReturnType<typeof getAuth> | null {
 
 app.use(express.json({ limit: "25mb" }));
 
-// Initialize Gemini Client safely with optional custom key override
-function getGeminiClient(customKey?: string) {
-  const apiKey = (customKey && typeof customKey === 'string' && customKey.trim() !== '' && !customKey.includes('YOUR_'))
-    ? customKey.trim()
-    : (process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.VITE_GEMINI_API_KEY);
+// Initialize Gemini client strictly from server environment only.
+function getGeminiClient() {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.VITE_GEMINI_API_KEY;
 
   if (!apiKey || apiKey.trim() === "" || apiKey.includes("YOUR_")) {
     return null;
@@ -180,6 +178,73 @@ function getSupabaseAdmin() {
     },
   });
   return supabaseAdminClient;
+}
+
+const OCR_RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const OCR_RATE_LIMIT_MAX_REQUESTS = 12;
+const OCR_RATE_LIMIT_BLOCK_MS = 5 * 60 * 1000;
+const OCR_MAX_TOTAL_FILE_BYTES = 15 * 1024 * 1024;
+const OCR_MAX_SINGLE_PAGE_BYTES = 8 * 1024 * 1024;
+const ALLOWED_OCR_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+]);
+
+const ocrRateLimitStore = new Map<string, { windowStart: number; count: number; blockedUntil?: number }>();
+
+function getClientIpAddress(req: any): string {
+  const forwarded = req.headers?.["x-forwarded-for"];
+  if (typeof forwarded === "string" && forwarded.trim()) {
+    return forwarded.split(",")[0].trim();
+  }
+  return req.ip || req.socket?.remoteAddress || "unknown";
+}
+
+function logOcrAudit(event: string, data: Record<string, unknown>) {
+  console.warn(`[OCR Audit] ${event}`, {
+    timestamp: new Date().toISOString(),
+    ...data,
+  });
+}
+
+function enforceOcrRateLimit(req: any, res: any): boolean {
+  const ip = getClientIpAddress(req);
+  const now = Date.now();
+  const entry = ocrRateLimitStore.get(ip);
+
+  if (entry?.blockedUntil && now < entry.blockedUntil) {
+    const retryAfterSeconds = Math.max(1, Math.ceil((entry.blockedUntil - now) / 1000));
+    res.setHeader("Retry-After", String(retryAfterSeconds));
+    logOcrAudit("rate_limit_blocked", { ip, retryAfterSeconds });
+    res.status(429).json({
+      error: "تم تجاوز الحد المسموح لطلبات OCR من هذا الجهاز مؤقتاً.",
+      details: `يرجى الانتظار ${retryAfterSeconds} ثانية ثم إعادة المحاولة.`,
+    });
+    return false;
+  }
+
+  if (!entry || now - entry.windowStart >= OCR_RATE_LIMIT_WINDOW_MS) {
+    ocrRateLimitStore.set(ip, { windowStart: now, count: 1 });
+    return true;
+  }
+
+  entry.count += 1;
+  if (entry.count > OCR_RATE_LIMIT_MAX_REQUESTS) {
+    entry.blockedUntil = now + OCR_RATE_LIMIT_BLOCK_MS;
+    const retryAfterSeconds = Math.ceil(OCR_RATE_LIMIT_BLOCK_MS / 1000);
+    res.setHeader("Retry-After", String(retryAfterSeconds));
+    logOcrAudit("rate_limit_exceeded", { ip, count: entry.count, windowMs: OCR_RATE_LIMIT_WINDOW_MS });
+    res.status(429).json({
+      error: "تم تجاوز الحد المسموح لطلبات OCR.",
+      details: "لحماية الخدمة، تم إيقاف الطلبات مؤقتاً لهذا المصدر.",
+    });
+    return false;
+  }
+
+  ocrRateLimitStore.set(ip, entry);
+  return true;
 }
 
 // API Routes
@@ -446,12 +511,11 @@ app.get("/api/system/env-health", async (req, res) => {
 // Test Gemini API Key endpoint for Settings / Admin Panel
 app.post("/api/ai/test-key", async (req, res) => {
   try {
-    const { apiKey } = req.body;
-    const client = getGeminiClient(apiKey);
+    const client = getGeminiClient();
     if (!client) {
       return res.status(400).json({ 
         success: false, 
-        error: "لم يتم توفير مفتاح Gemini API صالح. يرجى إدخال المفتاح وإعادة المحاولة." 
+        error: "مفتاح Gemini API غير مهيأ على الخادم. يرجى ضبط GEMINI_API_KEY في بيئة التشغيل." 
       });
     }
 
@@ -482,7 +546,7 @@ app.post("/api/ai/test-key", async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      error: "تعذر الاتصال بمحرك الذكاء الاصطناعي بالمفتاح المزود.",
+      error: "تعذر الاتصال بمحرك الذكاء الاصطناعي بمفتاح الخادم.",
       details: lastError?.message || String(lastError)
     });
   } catch (err: any) {
@@ -774,12 +838,100 @@ function normalizeOcrDataServer(parsed: any) {
 }
 
 app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
-  const { imageBase64, mimeType, docType, customApiKey } = req.body;
-  const headerKey = (req.headers['x-gemini-api-key'] || req.headers['x-gemini-key']) as string | undefined;
-  const effectiveKey = customApiKey || headerKey;
+  if (!enforceOcrRateLimit(req, res)) {
+    return;
+  }
 
-  if (!imageBase64) {
+  const { imageBase64, imageBase64Pages, mimeType, docType } = req.body;
+  const clientIp = getClientIpAddress(req);
+
+  const normalizePageInputs = (input: any): string[] => {
+    if (!Array.isArray(input)) return [];
+    return input
+      .filter((v) => typeof v === 'string' && v.trim() !== '')
+      .map((v) => v.trim())
+      .slice(0, 4);
+  };
+
+  const pageInputs = normalizePageInputs(imageBase64Pages);
+  if (!imageBase64 && pageInputs.length === 0) {
+    logOcrAudit("invalid_request_empty_payload", { ip: clientIp, docType: docType || "unknown" });
     return res.status(400).json({ error: "يرجى اختيار ورفع صورة المستند الحقيقي أولاً قبل إجراء الماسح الضوئي OCR" });
+  }
+
+  const rawInputs = pageInputs.length > 0 ? pageInputs : [imageBase64];
+  const stripDataUrl = (value: string) => value.replace(/^data:.*?;base64,/, "").replace(/\s/g, "");
+  const extractMimeFromDataUrl = (value: string) => {
+    const match = value.match(/^data:(.*?);base64,/i);
+    return match?.[1] || '';
+  };
+
+  const firstRaw = stripDataUrl(rawInputs[0] || '');
+  let resolvedMimeType = "image/jpeg";
+  if (firstRaw.startsWith("JVBERi")) {
+    resolvedMimeType = "application/pdf";
+  } else if (firstRaw.startsWith("/9j/")) {
+    resolvedMimeType = "image/jpeg";
+  } else if (firstRaw.startsWith("iVBORw")) {
+    resolvedMimeType = "image/png";
+  } else if (firstRaw.startsWith("UklGR")) {
+    resolvedMimeType = "image/webp";
+  } else {
+    resolvedMimeType = extractMimeFromDataUrl(rawInputs[0] || '') || mimeType || "image/jpeg";
+  }
+
+  resolvedMimeType = (resolvedMimeType || "").toLowerCase().trim();
+  if (!ALLOWED_OCR_MIME_TYPES.has(resolvedMimeType)) {
+    logOcrAudit("invalid_mime_type", {
+      ip: clientIp,
+      mimeType: resolvedMimeType,
+      docType: docType || "unknown",
+      pages: rawInputs.length,
+    });
+    return res.status(415).json({
+      error: "صيغة الملف غير مدعومة للماسح الضوئي.",
+      details: "الصيغ المسموح بها: JPG, PNG, WEBP, PDF.",
+    });
+  }
+
+  const normalizedPages = rawInputs.map((payload) => {
+    const payloadMime = extractMimeFromDataUrl(payload) || resolvedMimeType;
+    return {
+      data: stripDataUrl(payload),
+      mimeType: payloadMime
+    };
+  });
+
+  const pageBytes = normalizedPages.map((page) => {
+    try {
+      return Buffer.byteLength(page.data, "base64");
+    } catch {
+      return Number.NaN;
+    }
+  });
+  const hasInvalidBase64 = pageBytes.some((size) => !Number.isFinite(size) || size <= 0);
+  if (hasInvalidBase64) {
+    logOcrAudit("invalid_base64_payload", { ip: clientIp, docType: docType || "unknown", pages: normalizedPages.length });
+    return res.status(400).json({
+      error: "الملف المرفوع غير صالح.",
+      details: "تعذر قراءة ترميز الملف (Base64). يرجى إعادة الرفع والمحاولة مرة أخرى.",
+    });
+  }
+
+  const totalBytes = pageBytes.reduce((sum, size) => sum + size, 0);
+  const tooLargePageIndex = pageBytes.findIndex((size) => size > OCR_MAX_SINGLE_PAGE_BYTES);
+  if (tooLargePageIndex >= 0 || totalBytes > OCR_MAX_TOTAL_FILE_BYTES) {
+    logOcrAudit("payload_too_large", {
+      ip: clientIp,
+      docType: docType || "unknown",
+      pages: normalizedPages.length,
+      totalBytes,
+      pageBytes,
+    });
+    return res.status(413).json({
+      error: "حجم الملف يتجاوز الحد المسموح للماسح الضوئي.",
+      details: "الحد الأقصى لكل صفحة 8MB وبإجمالي 15MB للطلب الواحد.",
+    });
   }
 
   const systemPrompt = `أنت نظام خبير في القراءة الضوئية واستخراج بيانات البطاقة المدنية وجواز السفر والإقامة والمستندات الرسمية الكويتية (Kuwait OCR Vision Engine).
@@ -830,10 +982,16 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
 
   // 1. Check if OPENAI_API_KEY is available and use OpenAI Vision API
   const openaiApiKey = process.env.OPENAI_API_KEY;
-  const isPdfFile = mimeType === 'application/pdf' || mimeType?.includes('pdf');
+  const isPdfFile = resolvedMimeType === 'application/pdf' || resolvedMimeType?.includes('pdf');
   if (openaiApiKey && openaiApiKey.trim() !== "" && !openaiApiKey.includes("YOUR_") && !isPdfFile) {
     try {
-      const base64Data = imageBase64.includes(",") ? imageBase64 : `data:${mimeType || "image/jpeg"};base64,${imageBase64}`;
+      const userImageParts = normalizedPages.map((page) => ({
+        type: "image_url",
+        image_url: {
+          url: `data:${page.mimeType || resolvedMimeType};base64,${page.data}`,
+          detail: "high"
+        }
+      }));
       const oaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -851,8 +1009,8 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
             {
               role: "user",
               content: [
-                { type: "text", text: `قم بتحليل صورة المستند (${docType || 'بطاقة مدنية/جواز سفر'}) واستخراج كافة الحقول وخاصة (تاريخ الميلاد، الجنسية، نوع الجنس، رقم الجواز، ونوع الإقامة).` },
-                { type: "image_url", image_url: { url: base64Data, detail: "high" } }
+                { type: "text", text: `قم بتحليل المستند (${docType || 'بطاقة مدنية/جواز سفر'}) عبر جميع الصفحات/الأوجه المرفقة واستخراج كافة الحقول وخاصة (تاريخ الميلاد، الجنسية، نوع الجنس، رقم الجواز، ونوع الإقامة).` },
+                ...userImageParts
               ]
             }
           ],
@@ -874,32 +1032,25 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
       }
     } catch (oaiErr) {
       console.error("OpenAI Vision error:", oaiErr);
+      logOcrAudit("openai_vision_failure", {
+        ip: clientIp,
+        docType: docType || "unknown",
+        mimeType: resolvedMimeType,
+        pages: normalizedPages.length,
+      });
     }
   }
 
-  const ai = getGeminiClient(effectiveKey);
+  const ai = getGeminiClient();
   if (!ai) {
-    return res.status(400).json({ 
-      error: "مفتاح الذكاء الاصطناعي (GEMINI_API_KEY أو OPENAI_API_KEY) غير متوفر. يرجى إدخال المفتاح في إعدادات النظام أو إدخال البيانات يدوياً." 
+    logOcrAudit("missing_server_ai_key", {
+      ip: clientIp,
+      docType: docType || "unknown",
+      mimeType: resolvedMimeType,
     });
-  }
-
-  let rawBase64 = imageBase64.replace(/^data:.*?;base64,/, "").replace(/\s/g, "");
-  let resolvedMimeType = "image/jpeg";
-  
-  if (rawBase64.startsWith("JVBERi")) {
-    resolvedMimeType = "application/pdf";
-  } else if (rawBase64.startsWith("/9j/")) {
-    resolvedMimeType = "image/jpeg";
-  } else if (rawBase64.startsWith("iVBORw")) {
-    resolvedMimeType = "image/png";
-  } else if (rawBase64.startsWith("UklGR")) {
-    resolvedMimeType = "image/webp";
-  } else {
-    resolvedMimeType = mimeType || "image/jpeg";
-    if (resolvedMimeType.includes('bdf') || resolvedMimeType === '' || !resolvedMimeType) {
-      resolvedMimeType = 'application/pdf';
-    }
+    return res.status(400).json({ 
+      error: "مفتاح الذكاء الاصطناعي على الخادم غير متوفر (GEMINI_API_KEY أو OPENAI_API_KEY). يرجى تهيئة متغيرات البيئة." 
+    });
   }
 
   const modelsToTry = ["gemini-3.6-flash", "gemini-3.1-pro-preview"];
@@ -911,13 +1062,13 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
         model: modelName,
         contents: {
           parts: [
-            {
+            ...normalizedPages.map((page) => ({
               inlineData: {
-                data: rawBase64,
-                mimeType: resolvedMimeType,
+                data: page.data,
+                mimeType: page.mimeType || resolvedMimeType,
               },
-            },
-            { text: systemPrompt },
+            })),
+            { text: systemPrompt + "\nاعتمد جميع الصفحات/الأوجه المرفقة معاً قبل الإخراج." },
           ],
         },
         config: {
@@ -979,13 +1130,13 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
         model: modelName,
         contents: {
           parts: [
-            {
+            ...normalizedPages.map((page) => ({
               inlineData: {
-                data: rawBase64,
-                mimeType: resolvedMimeType,
+                data: page.data,
+                mimeType: page.mimeType || resolvedMimeType,
               },
-            },
-            { text: systemPrompt + "\nأرجع النتيجة بصيغة JSON فقط." },
+            })),
+            { text: systemPrompt + "\nاعتمد جميع الصفحات/الأوجه المرفقة معاً قبل الإخراج. أرجع النتيجة بصيغة JSON فقط." },
           ],
         },
         config: {
@@ -1034,6 +1185,15 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
     cause = errorMessage;
   }
 
+  logOcrAudit("ocr_processing_failure", {
+    ip: clientIp,
+    docType: docType || "unknown",
+    mimeType: resolvedMimeType,
+    pages: normalizedPages.length,
+    totalBytes,
+    providerError: errorMessage || "unknown",
+  });
+
   return res.status(500).json({
     error: friendlyError,
     details: cause
@@ -1043,15 +1203,13 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
 // Odoo Enterprise AI Copilot Chat Endpoint
 app.post("/api/ai-chat", async (req, res) => {
   try {
-    const { prompt, contextSummary, conversationHistory, customApiKey } = req.body;
-    const headerKey = (req.headers['x-gemini-api-key'] || req.headers['x-gemini-key']) as string | undefined;
-    const effectiveKey = customApiKey || headerKey;
+    const { prompt, contextSummary, conversationHistory } = req.body;
 
     if (!prompt) {
       return res.status(400).json({ error: "الرجاء كتابة السؤال أو الطلب للمساعد الذكي" });
     }
 
-    const ai = getGeminiClient(effectiveKey);
+    const ai = getGeminiClient();
     
     // System instruction for Odoo Enterprise Kuwait HR Assistant
     const systemInstruction = `أنت المساعد البرمجي الرسمي لنظام "Aysed S HR 2026". 

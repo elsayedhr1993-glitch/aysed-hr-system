@@ -51,7 +51,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   // -------------------------------------------------------------
   // System Integration & API Keys Management State
   // -------------------------------------------------------------
-  const [geminiApiKey, setGeminiApiKey] = useState('');
+  const [geminiApiKey] = useState('');
   const [firebaseConfigState, setFirebaseConfigState] = useState({
     apiKey: '',
     authDomain: '',
@@ -61,7 +61,6 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     appId: ''
   });
 
-  const [showGeminiKey, setShowGeminiKey] = useState(false);
   const [showFirebaseApiKey, setShowFirebaseApiKey] = useState(false);
 
   // Testing States
@@ -83,7 +82,6 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         const docSnap = await getDoc(doc(db, 'system_config', 'keys'));
         if (docSnap.exists()) {
           const data = docSnap.data();
-          if (data.geminiApiKey) setGeminiApiKey(data.geminiApiKey);
           setFirebaseConfigState({
             apiKey: data.apiKey || firebaseConfig.apiKey || '',
             authDomain: data.authDomain || firebaseConfig.authDomain || '',
@@ -93,8 +91,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
             appId: data.appId || firebaseConfig.appId || ''
           });
         } else {
-          // fallback to localStorage & imported config
-          setGeminiApiKey(localStorage.getItem('custom_gemini_key') || localStorage.getItem('custom_gemini_api_key') || '');
+          // fallback to imported firebase config only
           setFirebaseConfigState({
             apiKey: firebaseConfig.apiKey || '',
             authDomain: firebaseConfig.authDomain || '',
@@ -106,7 +103,6 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         }
       } catch (err) {
         console.warn('Error loading system keys from firestore:', err);
-        setGeminiApiKey(localStorage.getItem('custom_gemini_key') || localStorage.getItem('custom_gemini_api_key') || '');
         setFirebaseConfigState({
           apiKey: firebaseConfig.apiKey || '',
           authDomain: firebaseConfig.authDomain || '',
@@ -123,22 +119,22 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   }, [activeNav]);
 
   const testGeminiConnection = async () => {
-    if (!geminiApiKey.trim()) {
-      toast.error('يرجى إدخال مفتاح Gemini API أولاً لإجراء الفحص');
-      return;
-    }
     setIsTestingGemini(true);
     setGeminiStatus('idle');
     setGeminiErrorMessage('');
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${geminiApiKey}`);
+      const response = await fetch('/api/ai/test-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
       const data = await response.json();
       if (response.ok) {
         setGeminiStatus('valid');
-        toast.success('تم التحقق بنجاح! مفتاح Gemini API صالح ومفعّل بنجاح.');
+        toast.success('تم التحقق بنجاح! محرك Gemini على الخادم صالح ومفعّل.');
       } else {
         setGeminiStatus('invalid');
-        const errMsg = data.error?.message || 'المفتاح غير صالح أو غير مصرح به';
+        const errMsg = data.error || data.details || 'مفتاح الخادم غير صالح أو غير مهيأ';
         setGeminiErrorMessage(errMsg);
         toast.error(`فشل التحقق: ${errMsg}`);
       }
@@ -181,19 +177,9 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     e.preventDefault();
     setIsSavingSystemKeys(true);
     try {
-      // 1. Sync local storage for immediate Client-Side OCR / AI use
-      const trimmedGemini = geminiApiKey.trim();
-      if (trimmedGemini) {
-        localStorage.setItem('custom_gemini_key', trimmedGemini);
-        localStorage.setItem('custom_gemini_api_key', trimmedGemini);
-      } else {
-        localStorage.removeItem('custom_gemini_key');
-        localStorage.removeItem('custom_gemini_api_key');
-      }
-
-      // 2. Save to Firestore for durability
+      // Save non-sensitive integration config only.
       await setDoc(doc(db, 'system_config', 'keys'), {
-        geminiApiKey: trimmedGemini,
+        geminiApiKey: '',
         ...firebaseConfigState,
         updatedAt: new Date().toISOString(),
         updatedBy: currentUserEmail || 'Super Admin'
@@ -1526,41 +1512,26 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                       </div>
 
                       <p className="text-xs text-gray-500 leading-relaxed">
-                        يُستخدم مفتاح Gemini لتشغيل خدمات المسح التلقائي وقراءة صور الهويات المدنية الكويتية، رخص القيادة ورخص وزارة الصحة ومطابقة البيانات دون تأخير.
+                        تعمل خدمات Gemini وOCR الآن بمفتاح الخادم فقط. تم إيقاف إدخال أو حفظ المفاتيح من واجهة النظام بالكامل.
                       </p>
 
                       <div className="space-y-2">
                         <div className="flex justify-between items-center">
-                          <label className="text-xs font-bold text-gray-700">مفتاح API الخاص بـ Google Gemini (Gemini API Key)</label>
-                          <a 
-                            href="https://aistudio.google.com/" 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
-                            className="text-[10px] text-indigo-600 font-bold hover:underline flex items-center gap-0.5"
-                          >
-                            <span>احصل على مفتاح مجاني</span>
-                            <span>🔗</span>
-                          </a>
+                          <label className="text-xs font-bold text-gray-700">مفتاح Gemini (Managed by Server)</label>
                         </div>
                         
                         <div className="relative">
                           <Key className="w-4 h-4 text-gray-400 absolute right-3 top-3" />
                           <input
-                            type={showGeminiKey ? 'text' : 'password'}
-                            value={geminiApiKey}
-                            onChange={(e) => setGeminiApiKey(e.target.value)}
-                            placeholder="AIzaSy..."
+                            type="text"
+                            value="SERVER_MANAGED"
+                            readOnly
+                            placeholder="SERVER_MANAGED"
                             dir="ltr"
-                            className="w-full bg-slate-50 border border-gray-300 rounded-lg pr-9 pl-10 py-2.5 text-xs font-mono text-gray-800 focus:border-[#71639e] focus:bg-white outline-none shadow-2xs transition-colors"
+                            className="w-full bg-slate-100 border border-gray-300 rounded-lg pr-9 py-2.5 text-xs font-mono text-gray-700 outline-none shadow-2xs transition-colors cursor-not-allowed"
                           />
-                          <button
-                            type="button"
-                            onClick={() => setShowGeminiKey(!showGeminiKey)}
-                            className="absolute left-3 top-3 text-gray-400 hover:text-gray-600 transition-colors"
-                          >
-                            {showGeminiKey ? <EyeOff size={14} /> : <Eye size={14} />}
-                          </button>
                         </div>
+                        <p className="text-[11px] text-gray-500">لا يتم تخزين مفاتيح AI في LocalStorage أو Firestore من خلال الواجهة.</p>
                       </div>
 
                       {/* Gemini Status Alert */}
@@ -1579,8 +1550,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                             </p>
                             <p className="text-[11px] mt-0.5 leading-relaxed opacity-90">
                               {geminiStatus === 'valid' 
-                                ? 'تم الاتصال بالخادم المركزي لـ Google Gemini بنجاح، المفتاح جاهز للعمل مع OCR.'
-                                : geminiErrorMessage || 'الرجاء فحص المفتاح والتأكد من عدم وجود قيود على الاستخدام.'}
+                                ? 'تم الاتصال بمحرك Gemini على الخادم بنجاح وجاهز للعمل مع OCR.'
+                                : geminiErrorMessage || 'الرجاء فحص إعدادات GEMINI_API_KEY على الخادم.'}
                             </p>
                           </div>
                         </div>
@@ -1588,7 +1559,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                     </div>
 
                     <div className="pt-4 border-t border-gray-100 flex items-center justify-between gap-3">
-                      <span className="text-[11px] text-gray-400">آخر فحص: لحظي ومباشر عبر خادم Google</span>
+                      <span className="text-[11px] text-gray-400">آخر فحص: عبر خادم التطبيق (Server-side)</span>
                       <button
                         type="button"
                         onClick={testGeminiConnection}

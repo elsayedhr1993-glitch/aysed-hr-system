@@ -9,6 +9,8 @@ import {
 import { processAnyDocument, ScannedData } from '../utils/ocrService';
 import { parseKuwaitCivilId, validateKuwaitCivilId } from '../utils/kuwaitLaw';
 import { DocumentPreviewModal } from '../components/documents/DocumentPreviewModal';
+import { storage } from '../lib/firebase';
+import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import toast from 'react-hot-toast';
 
 interface ScannerAppProps {
@@ -21,57 +23,31 @@ interface ScannerAppProps {
   onNavigateToApp?: (app: any) => void;
 }
 
-// ضغط وتجهيز الصورة للعرض والحفظ الرقمي
-function compressImage(file: File): Promise<string> {
-  return new Promise((resolve) => {
-    if (!file.type.startsWith('image/')) {
-      // PDF or non-image
-      const reader = new FileReader();
-      reader.onload = (e) => resolve(e.target?.result as string || '');
-      reader.onerror = () => resolve('');
-      reader.readAsDataURL(file);
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 1200;
-        const MAX_HEIGHT = 1200;
-        let width = img.width;
-        let height = img.height;
+type ScanFileSide = 'single' | 'front' | 'back';
 
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width;
-            width = MAX_WIDTH;
-          }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height;
-            height = MAX_HEIGHT;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-          resolve(dataUrl);
-        } else {
-          resolve(event.target?.result as string || '');
-        }
-      };
-      img.onerror = () => resolve(event.target?.result as string || '');
-      img.src = event.target?.result as string;
-    };
-    reader.onerror = () => resolve('');
-    reader.readAsDataURL(file);
-  });
+interface ScanFileEntry {
+  side: ScanFileSide;
+  file: File;
+  previewUrl: string;
 }
+
+const mergeCivilFrontBackData = (front: ScannedData, back: ScannedData): ScannedData => ({
+  ...back,
+  ...front,
+  // Front side priority: identity core fields
+  civilId: front.civilId || back.civilId || '',
+  fullNameAr: front.fullNameAr || front.fullName || back.fullNameAr || back.fullName || '',
+  fullNameEn: front.fullNameEn || back.fullNameEn || '',
+  birthDate: front.birthDate || front.dob || back.birthDate || back.dob || '',
+  dob: front.dob || front.birthDate || back.dob || back.birthDate || '',
+  nationality: front.nationality || back.nationality || '',
+  // Back side priority: address, blood group, PACI ref
+  bloodGroup: back.bloodGroup || front.bloodGroup || '',
+  address: back.address || front.address,
+  paciBuildingRef: back.paciBuildingRef || front.paciBuildingRef || '',
+  expiryDate: front.expiryDate || back.expiryDate || '',
+  issueDate: front.issueDate || back.issueDate || ''
+});
 
 export const ScannerApp: React.FC<ScannerAppProps> = ({
   documents,
@@ -95,7 +71,11 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
     fileName: string;
     isManualFallback: boolean;
     imagePreviewUrl: string;
+    sourceSides?: ScanFileSide[];
   } | null>(null);
+  const [scanFiles, setScanFiles] = useState<ScanFileEntry[]>([]);
+  const [civilScanMode, setCivilScanMode] = useState<'single' | 'front_back'>('single');
+  const [pendingCivilScans, setPendingCivilScans] = useState<Partial<Record<'front' | 'back', { data: ScannedData; file: File; previewUrl: string }>>>({});
 
   // Inspector Viewer State (Zoom & Rotation)
   const [zoomLevel, setZoomLevel] = useState<number>(1);
@@ -146,21 +126,61 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
   }, [companyDocuments]);
 
   // Handle File Upload & Processing
-  const handleProcessFile = async (file: File) => {
+  const handleProcessFile = async (file: File, side: ScanFileSide = 'single') => {
     setIsScanning(true);
     setZoomLevel(1);
     setRotationAngle(0);
-
-    let base64Preview = '';
-    try {
-      base64Preview = await compressImage(file);
-    } catch (err) {
-      console.warn('Image compression failed:', err);
-    }
+    const previewUrl = URL.createObjectURL(file);
 
     try {
-      const result = await processAnyDocument(file, undefined, selectedDocType);
-      
+      const ocrDocType = selectedDocType === 'CIVIL_ID' && civilScanMode === 'front_back'
+        ? (side === 'front' ? 'CIVIL_ID_FRONT' : side === 'back' ? 'CIVIL_ID_BACK' : 'CIVIL_ID')
+        : selectedDocType;
+
+      const result = await processAnyDocument(file, undefined, ocrDocType);
+
+      if (selectedDocType === 'CIVIL_ID' && civilScanMode === 'front_back' && (side === 'front' || side === 'back')) {
+        const nextSides = {
+          ...pendingCivilScans,
+          [side]: { data: result, file, previewUrl }
+        };
+        setPendingCivilScans(nextSides);
+
+        const hasFront = Boolean(nextSides.front);
+        const hasBack = Boolean(nextSides.back);
+        if (hasFront && hasBack) {
+          const merged = mergeCivilFrontBackData(nextSides.front!.data, nextSides.back!.data);
+          const cleanCivil = (merged.civilId || '').replace(/\D/g, '');
+          const existing = employees.find(e => cleanCivil && (e.civilId === cleanCivil || (e as any).civil_id === cleanCivil));
+          if (existing) {
+            setRoutingMode('EXISTING_EMP');
+            setTargetEmployeeId(existing.id);
+          } else {
+            setRoutingMode('NEW_EMP');
+            setTargetEmployeeId('');
+          }
+
+          setScanFiles([
+            { side: 'front', file: nextSides.front!.file, previewUrl: nextSides.front!.previewUrl },
+            { side: 'back', file: nextSides.back!.file, previewUrl: nextSides.back!.previewUrl }
+          ]);
+
+          setScanResult({
+            docType: 'CIVIL_ID',
+            extractedData: merged,
+            fileName: `${nextSides.front!.file.name} + ${nextSides.back!.file.name}`,
+            isManualFallback: false,
+            imagePreviewUrl: nextSides.front!.previewUrl,
+            sourceSides: ['front', 'back']
+          });
+          setPendingCivilScans({});
+          toast.success('تم دمج الوجه الأمامي والخلفي للبطاقة المدنية واستخراج الحقول بنجاح');
+        } else {
+          toast.success(side === 'front' ? 'تم مسح الوجه الأمامي. يرجى رفع الوجه الخلفي لإكمال الدمج.' : 'تم مسح الوجه الخلفي. يرجى رفع الوجه الأمامي لإكمال الدمج.');
+        }
+        return;
+      }
+
       // Check if Civil ID belongs to an existing employee automatically
       const cleanCivil = (result.civilId || '').replace(/\D/g, '');
       const existing = employees.find(e => cleanCivil && (e.civilId === cleanCivil || (e as any).civil_id === cleanCivil));
@@ -172,17 +192,22 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
         setTargetEmployeeId('');
       }
 
+      setScanFiles([{ side: 'single', file, previewUrl }]);
+
       setScanResult({
         docType: selectedDocType || result.documentType || 'CIVIL_ID',
         extractedData: result,
         fileName: file.name,
         isManualFallback: false,
-        imagePreviewUrl: base64Preview
+        imagePreviewUrl: previewUrl,
+        sourceSides: ['single']
       });
       toast.success('تمت قراءة وتحليل المستند بالذكاء الاصطناعي بنجاح');
     } catch (error: any) {
       console.error("Scanner OCR Error:", error);
       toast.error('تعذر القراءة التلقائية الكاملة للمستند. تم فتح نمط التدقيق اليدوي.');
+
+      setScanFiles([{ side, file, previewUrl }]);
       
       setScanResult({
         docType: selectedDocType || 'CIVIL_ID',
@@ -195,7 +220,8 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
         },
         fileName: file.name,
         isManualFallback: true,
-        imagePreviewUrl: base64Preview
+        imagePreviewUrl: previewUrl,
+        sourceSides: [side]
       });
     } finally {
       setIsScanning(false);
@@ -242,9 +268,40 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
       if (blob) {
         const file = new File([blob], `scan_capture_${Date.now()}.jpg`, { type: 'image/jpeg' });
         stopCamera();
-        handleProcessFile(file);
+        handleProcessFile(file, 'single');
       }
     }, 'image/jpeg', 0.9);
+  };
+
+  const uploadFilesToStorage = async (filesToUpload: ScanFileEntry[], employeeId: string, docType: string) => {
+    const companyId = activeCompany?.id || 'default_company';
+    const now = Date.now();
+
+    const uploaded = await Promise.all(filesToUpload.map(async (item, idx) => {
+      const cleanName = item.file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const storagePath = `documents/${companyId}/${employeeId || 'company'}/${docType}/${now}_${idx}_${item.side}_${cleanName}`;
+      const fileRef = storageRef(storage, storagePath);
+      await uploadBytes(fileRef, item.file, {
+        contentType: item.file.type || 'application/octet-stream',
+        customMetadata: {
+          companyId,
+          employeeId: employeeId || '',
+          docType,
+          side: item.side
+        }
+      });
+      const downloadUrl = await getDownloadURL(fileRef);
+      return {
+        side: item.side,
+        storagePath,
+        downloadUrl,
+        sizeBytes: item.file.size,
+        mimeType: item.file.type || 'application/octet-stream',
+        fileName: item.file.name
+      };
+    }));
+
+    return uploaded;
   };
 
   // Cleanup camera stream on unmount
@@ -296,6 +353,16 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
       toast.success('تمت أرشفة المستند ضمن وثائق المنشأة العامة');
     }
 
+    const filesForArchive = scanFiles.length > 0 ? scanFiles : [];
+    if (filesForArchive.length === 0) {
+      toast.error('تعذر الأرشفة: لا يوجد ملف مرفوع للحفظ.');
+      return;
+    }
+
+    const uploadedFiles = await uploadFilesToStorage(filesForArchive, employeeId, scanResult.docType);
+    const primaryFile = uploadedFiles[0];
+    const totalSizeBytes = uploadedFiles.reduce((acc, item) => acc + Number(item.sizeBytes || 0), 0);
+
     const docNumber = data.civilId || data.passportNo || data.documentNumber || data.mohLicenseNo || '';
     const newDoc: DocumentItem = {
       id: `doc-${Date.now()}`,
@@ -303,17 +370,32 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
       employeeId: employeeId,
       title: `${scanResult.docType} - ${data.fullNameAr || data.fullNameEn || scanResult.fileName}`,
       category: scanResult.docType,
-      fileUrl: scanResult.imagePreviewUrl || '#',
+      fileUrl: primaryFile?.downloadUrl || '#',
+      storagePath: primaryFile?.storagePath || '',
+      mimeType: primaryFile?.mimeType || 'application/octet-stream',
+      sizeBytes: totalSizeBytes,
       fileName: scanResult.fileName,
-      fileSize: '1.4 MB',
+      fileSize: `${(totalSizeBytes / (1024 * 1024)).toFixed(2)} MB`,
       uploadDate: new Date().toISOString().split('T')[0],
       expiryDate: data.expiryDate || '',
       issueDate: data.issueDate || '',
       documentNumber: docNumber,
-      status: 'active'
+      status: 'active',
+      ocrExtractedData: {
+        ...data,
+        sourceSides: scanResult.sourceSides || ['single'],
+        storageFiles: uploadedFiles
+      }
     };
 
     onSaveDocument(newDoc);
+    scanFiles.forEach(item => {
+      try {
+        URL.revokeObjectURL(item.previewUrl);
+      } catch {}
+    });
+    setScanFiles([]);
+    setPendingCivilScans({});
     setScanResult(null);
 
     if (routingMode === 'NEW_EMP' && onNavigateToApp) {
@@ -390,7 +472,10 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                   return (
                     <button
                       key={item.id}
-                      onClick={() => setSelectedDocType(item.id)}
+                      onClick={() => {
+                        setSelectedDocType(item.id);
+                        setPendingCivilScans({});
+                      }}
                       className={`p-3 rounded-xl border text-center transition flex flex-col items-center gap-1.5 cursor-pointer ${
                         isSelected 
                           ? 'border-[#714B67] bg-purple-50/70 text-[#714B67] shadow-xs' 
@@ -404,6 +489,37 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                 })}
               </div>
             </div>
+
+            {selectedDocType === 'CIVIL_ID' && (
+              <div className="p-3 rounded-xl border border-slate-200 bg-slate-50/80">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <span className="text-xs font-bold text-slate-700">نمط مسح البطاقة المدنية:</span>
+                  <div className="flex items-center gap-1 text-xs font-bold">
+                    <button
+                      type="button"
+                      onClick={() => { setCivilScanMode('single'); setPendingCivilScans({}); }}
+                      className={`px-3 py-1.5 rounded-lg border transition ${civilScanMode === 'single' ? 'bg-[#714B67] text-white border-[#714B67]' : 'bg-white text-slate-700 border-slate-200'}`}
+                    >
+                      صفحة واحدة
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setCivilScanMode('front_back'); setPendingCivilScans({}); }}
+                      className={`px-3 py-1.5 rounded-lg border transition ${civilScanMode === 'front_back' ? 'bg-[#714B67] text-white border-[#714B67]' : 'bg-white text-slate-700 border-slate-200'}`}
+                    >
+                      وجه أمامي + خلفي
+                    </button>
+                  </div>
+                </div>
+
+                {civilScanMode === 'front_back' && (
+                  <div className="text-[11px] text-slate-600 font-medium">
+                    {pendingCivilScans.front ? 'تم مسح الوجه الأمامي.' : 'الوجه الأمامي: غير مرفوع بعد.'} {' | '}
+                    {pendingCivilScans.back ? 'تم مسح الوجه الخلفي.' : 'الوجه الخلفي: غير مرفوع بعد.'}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Dropzone & Actions */}
             <div className="border-2 border-dashed border-purple-200 bg-purple-50/30 rounded-2xl p-8 text-center space-y-4 hover:border-[#714B67] transition">
@@ -421,27 +537,62 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
               </div>
 
               <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-                <label className="bg-[#714B67] hover:bg-[#5a3a51] text-white font-bold py-2.5 px-6 rounded-xl cursor-pointer transition shadow-xs flex items-center gap-2 text-xs">
-                  <Upload className="w-4 h-4" />
-                  <span>اختيار ملف من الجهاز</span>
-                  <input
-                    type="file"
-                    accept="image/*,.pdf"
-                    className="hidden"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        handleProcessFile(e.target.files[0]);
-                      }
-                    }}
-                  />
-                </label>
+                {selectedDocType === 'CIVIL_ID' && civilScanMode === 'front_back' ? (
+                  <>
+                    <label className="bg-[#714B67] hover:bg-[#5a3a51] text-white font-bold py-2.5 px-5 rounded-xl cursor-pointer transition shadow-xs flex items-center gap-2 text-xs">
+                      <Upload className="w-4 h-4" />
+                      <span>رفع الوجه الأمامي</span>
+                      <input
+                        type="file"
+                        accept="image/*,.pdf"
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            void handleProcessFile(e.target.files[0], 'front');
+                          }
+                        }}
+                      />
+                    </label>
+
+                    <label className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-5 rounded-xl cursor-pointer transition shadow-xs flex items-center gap-2 text-xs">
+                      <Upload className="w-4 h-4" />
+                      <span>رفع الوجه الخلفي</span>
+                      <input
+                        type="file"
+                        accept="image/*,.pdf"
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            void handleProcessFile(e.target.files[0], 'back');
+                          }
+                        }}
+                      />
+                    </label>
+                  </>
+                ) : (
+                  <label className="bg-[#714B67] hover:bg-[#5a3a51] text-white font-bold py-2.5 px-6 rounded-xl cursor-pointer transition shadow-xs flex items-center gap-2 text-xs">
+                    <Upload className="w-4 h-4" />
+                    <span>اختيار ملف من الجهاز</span>
+                    <input
+                      type="file"
+                      accept="image/*,.pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          void handleProcessFile(e.target.files[0], 'single');
+                        }
+                      }}
+                    />
+                  </label>
+                )}
 
                 <button
                   onClick={startCamera}
+                  disabled={selectedDocType === 'CIVIL_ID' && civilScanMode === 'front_back'}
                   className="bg-white hover:bg-slate-50 text-slate-800 font-bold py-2.5 px-6 rounded-xl border border-slate-300 transition shadow-xs flex items-center gap-2 text-xs cursor-pointer"
                 >
                   <Camera className="w-4 h-4 text-[#714B67]" />
-                  <span>تصوير مباشر بالكاميرا</span>
+                  <span>{selectedDocType === 'CIVIL_ID' && civilScanMode === 'front_back' ? 'الكاميرا متاحة في نمط الصفحة الواحدة' : 'تصوير مباشر بالكاميرا'}</span>
                 </button>
               </div>
 
@@ -538,7 +689,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
 
                 {/* Canvas / Image Display Container */}
                 <div className="flex-1 w-full flex items-center justify-center overflow-auto rounded-xl bg-slate-900/5 p-4 max-h-[500px]">
-                  {scanResult.imagePreviewUrl?.startsWith('data:image') || scanResult.imagePreviewUrl?.includes('.jpg') || scanResult.imagePreviewUrl?.includes('.png') ? (
+                  {scanResult.imagePreviewUrl?.startsWith('data:image') || scanResult.imagePreviewUrl?.startsWith('blob:') || scanResult.imagePreviewUrl?.includes('.jpg') || scanResult.imagePreviewUrl?.includes('.png') ? (
                     <img
                       src={scanResult.imagePreviewUrl}
                       alt="Scanned Preview"

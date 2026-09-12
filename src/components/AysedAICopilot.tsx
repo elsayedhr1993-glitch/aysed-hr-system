@@ -96,8 +96,7 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
       const response = await fetch('/api/ai-chat', {
         method: 'POST',
         headers: { 
-          'Content-Type': 'application/json',
-          'x-gemini-api-key': localStorage.getItem('gemini_api_key') || ''
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           prompt: queryText,

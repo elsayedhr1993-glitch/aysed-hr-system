@@ -1,4 +1,4 @@
-import { getStoredGeminiKey } from '../utils/ocrService';
+import { normalizeScannedData } from '../utils/ocrService';
 
 export interface ExtractedEmployeeData {
   nameAr?: string;
@@ -24,20 +24,13 @@ export const parseKuwaitCivilCardOCR = async (imageBase64: string, docTypeContex
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 25000); // 25s timeout
 
-    const effectiveApiKey = getStoredGeminiKey();
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (effectiveApiKey) {
-      headers['x-gemini-key'] = effectiveApiKey;
-    }
-
     const res = await fetch('/api/ocr-scan', {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         imageBase64,
         mimeType: 'image/jpeg',
-        docType: docTypeContext,
-        customApiKey: effectiveApiKey || undefined
+        docType: docTypeContext
       }),
       signal: controller.signal
     });
@@ -45,31 +38,32 @@ export const parseKuwaitCivilCardOCR = async (imageBase64: string, docTypeContex
 
     const json = await res.json();
     if (json.success && json.data) {
+      const normalized = normalizeScannedData(json.data);
       let genderStr = '';
-      if (json.data.gender) {
-         genderStr = json.data.gender.toLowerCase().includes('female') || json.data.gender.includes('أنثى') ? 'أنثى - Female' : 'ذكر - Male';
+      if (normalized.gender) {
+         genderStr = normalized.gender.toLowerCase().includes('female') || normalized.gender.includes('أنثى') ? 'أنثى - Female' : 'ذكر - Male';
       }
 
       return {
-        nameAr: json.data.fullNameAr || json.data.nameAr || '',
-        nameEn: json.data.fullNameEn || json.data.nameEn || '',
-        civilId: json.data.civilId || '',
-        passportNo: json.data.passportNo || '',
-        birthDate: json.data.birthDate || json.data.dob || '',
-        expiryDate: json.data.expiryDate || '',
-        nationality: json.data.nationality || '',
+        nameAr: normalized.fullNameAr || normalized.fullName || '',
+        nameEn: normalized.fullNameEn || '',
+        civilId: normalized.civilId || '',
+        passportNo: normalized.passportNo || '',
+        birthDate: normalized.birthDate || normalized.dob || '',
+        expiryDate: normalized.expiryDate || '',
+        nationality: normalized.nationality || '',
         gender: genderStr,
-        mohLicense: json.data.mohLicenseNo || json.data.mohLicense || '',
-        mohLicenseExpiry: json.data.mohLicenseExpiryDate || '',
-        residencyType: json.data.residencyType || '',
-        pamStartDate: json.data.pamStartDate || '',
-        pamEndDate: json.data.pamEndDate || '',
-        basicSalary: json.data.basicSalary || '',
-        profession: json.data.profession || ''
+        mohLicense: normalized.mohLicenseNo || '',
+        mohLicenseExpiry: normalized.mohLicenseExpiryDate || '',
+        residencyType: normalized.residencyType || '',
+        pamStartDate: (normalized as any).pamStartDate || '',
+        pamEndDate: (normalized as any).pamEndDate || '',
+        basicSalary: String((normalized as any).basicSalary || ''),
+        profession: normalized.profession || ''
       };
     }
   } catch (err) {
-    console.warn('OCR Service API error or timeout, using intelligent fallback:', err);
+    console.warn('OCR Service API error or timeout:', err);
   }
   
   // Fallback / smart extraction if API fails or times out

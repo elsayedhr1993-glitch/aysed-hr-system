@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { parseKuwaitCivilCardOCR } from '../services/ocrService';
 import { validateKuwaitCivilId } from '../utils/kuwaitLaw';
 import OdooPamContractModal from './OdooPamContractModal';
 import { TabDocumentScanner } from './TabDocumentScanner';
@@ -257,7 +256,8 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave, existin
           });
           const data = await res.json();
           if (data.error) throw new Error(data.error);
-          handleOcrResult(data, docType);
+          const extracted = data.data || data;
+          handleOcrResult(extracted, docType);
           alert('تم قراءة البيانات وتعبئة الحقول بنجاح بواسطة الذكاء الاصطناعي');
         } catch (error: any) {
           alert('فشل التعرف الضوئي: ' + error.message);

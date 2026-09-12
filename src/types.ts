@@ -569,6 +569,9 @@ export interface DocumentItem {
   documentType?: 'COMPANY_LICENSE' | 'EMPLOYEE_PASSPORT' | 'CIVIL_ID' | 'CONTRACT' | 'MOH_LICENSE' | 'COMPANY_DEED' | 'OTHER' | string;
   documentNumber?: string; // رقم المستند/الترخيص
   fileUrl: string;
+  storagePath?: string;
+  mimeType?: string;
+  sizeBytes?: number;
   fileName?: string;
   fileSize?: string;
   uploadDate?: string;
