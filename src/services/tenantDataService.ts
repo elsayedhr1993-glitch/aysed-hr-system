@@ -359,8 +359,8 @@ export function fromLeaveDbRow(row: any): LeaveRequest {
 // 10 TEST EMPLOYEES CANONICAL DATASET (Offline-First Guaranteed)
 // -------------------------------------------------------------
 
-export function getTenProfessionalTestEmployees(targetCompanyId: string = 'comp-almanar'): Employee[] {
-  const companyId = targetCompanyId || 'comp-almanar';
+export function getTenProfessionalTestEmployees(targetCompanyId: string = 'comp-1788442584841'): Employee[] {
+  const companyId = targetCompanyId || 'comp-1788442584841';
   return [
     {
       id: 'emp-kwt-doc-old',
@@ -837,7 +837,7 @@ export const TenantDatabaseService = {
   /**
    * Zero out all employees in Firestore and local storage without seeding any mock data
    */
-  async clearAllEmployeesAndSeedOne(activeCompanyId: string = 'comp-almanar'): Promise<{ success: boolean; testEmployee: any; message: string }> {
+  async clearAllEmployeesAndSeedOne(activeCompanyId: string = 'comp-1788442584841'): Promise<{ success: boolean; testEmployee: any; message: string }> {
     try {
       // 1. Delete all existing employee documents in Firestore
       const snap = await getDocs(collection(db, 'employees'));
@@ -1162,7 +1162,7 @@ export const TenantDatabaseService = {
       const authSession = localStorage.getItem('aysed_hr_auth') || localStorage.getItem('aysed_token');
       const currentUser = localStorage.getItem('current_user') || localStorage.getItem('aysed_user');
       const devMode = localStorage.getItem('aysed_dev_mode') || localStorage.getItem('aysed_debug');
-      const activeCompanyId = localStorage.getItem('activeCompanyId') || 'comp-almanar';
+      const activeCompanyId = localStorage.getItem('activeCompanyId') || 'comp-1788442584841';
 
       // Clear all items in localStorage and sessionStorage
       try {
@@ -1201,9 +1201,9 @@ export const TenantDatabaseService = {
   /**
    * Seed 10 professional test employees with complete profiles, contracts, and test cases
    */
-  async seedTenProfessionalTestEmployees(activeCompanyId: string = 'comp-almanar'): Promise<boolean> {
+  async seedTenProfessionalTestEmployees(activeCompanyId: string = 'comp-1788442584841'): Promise<boolean> {
     try {
-      const companyId = activeCompanyId || 'comp-almanar';
+      const companyId = activeCompanyId || 'comp-1788442584841';
 
       // 10 Employee definitions
       const emps: Employee[] = [

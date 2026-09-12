@@ -53,7 +53,7 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
   onEmployeeCreated 
 }) => {
   const { activeCompany } = useCompany();
-  const companyId = activeCompany?.id || 'comp-almanar';
+  const companyId = activeCompany?.id || 'comp-1788442584841';
 
   const [plans, setPlans] = useState<OnboardingPlan[]>([]);
   const [isWizardOpen, setIsWizardOpen] = useState(false);

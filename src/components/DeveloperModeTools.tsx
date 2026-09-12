@@ -234,7 +234,7 @@ Storage Keys: ${Object.keys(localStorage).filter(k => k.startsWith('aysed_') || 
                 onClick={async () => {
                   setIsSeeding(true);
                   try {
-                    const activeCompanyId = localStorage.getItem('activeCompanyId') || 'comp-almanar';
+                    const activeCompanyId = localStorage.getItem('activeCompanyId') || 'comp-1788442584841';
                     const success = await TenantDatabaseService.seedTenProfessionalTestEmployees(activeCompanyId);
                     if (success) {
                       toast.success('🎉 تم زرع الـ 10 موظفين ومستنداتهم وعقودهم بنجاح! جاري تحديث الصفحة...');

@@ -4,6 +4,9 @@ import { db, createTenantUserSafely } from '../lib/firebase';
 import { collection, doc, setDoc, deleteDoc, updateDoc, onSnapshot, query , documentId, where } from 'firebase/firestore';
 import { useAuth } from './AuthContext';
 
+const ALMANAR_COMPANY_ID = 'comp-1788442584841';
+const ALMANAR_COMPANY_NAME_AR = 'مستوصف المنار الطبي (Almanar Clinic)';
+
 interface TenantContextType {
   isSuperAdmin: boolean;
   isActualSuperAdmin: boolean;
@@ -24,6 +27,7 @@ const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
 export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
+  const authCompanyId = user?.companyId || null;
   
   const isActualSuperAdmin = user?.role === 'SUPER_ADMIN';
   const [isTenantViewEnabled, setIsTenantViewEnabledState] = useState(() => {
@@ -54,12 +58,22 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
+    const fallbackCompany: TenantCompany | null = !isActualSuperAdmin && authCompanyId ? {
+      id: authCompanyId,
+      nameAr: user.name || ALMANAR_COMPANY_NAME_AR,
+      nameEn: 'Almanar Clinic',
+      name: user.name || ALMANAR_COMPANY_NAME_AR,
+      adminUsername: user.email || '',
+      isActive: true,
+      createdAt: new Date().toISOString()
+    } as TenantCompany : null;
+
     // Listen to companies collection
     let q;
     if (isActualSuperAdmin) {
       q = query(collection(db, collectionName));
-    } else if (user.companyId) {
-      q = query(collection(db, collectionName), where(documentId(), '==', user.companyId));
+    } else if (authCompanyId) {
+      q = query(collection(db, collectionName), where(documentId(), '==', authCompanyId));
     } else {
       setCompanies([]);
       setIsLoading(false);
@@ -71,15 +85,24 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       snapshot.forEach((doc) => {
         fetchedCompanies.push({ id: doc.id, ...doc.data() } as TenantCompany);
       });
-      setCompanies(fetchedCompanies);
+      if (fetchedCompanies.length > 0) {
+        setCompanies(fetchedCompanies);
+      } else if (fallbackCompany) {
+        setCompanies([fallbackCompany]);
+      } else {
+        setCompanies([]);
+      }
       setIsLoading(false);
     }, (error) => {
       console.error("Error fetching companies: ", error);
+      if (fallbackCompany) {
+        setCompanies([fallbackCompany]);
+      }
       setIsLoading(false);
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, authCompanyId, isActualSuperAdmin, collectionName]);
 
   useEffect(() => {
     if (impersonatingCompanyId) {
@@ -91,7 +114,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const activeCompany = impersonatingCompanyId 
     ? companies.find(c => c.id === impersonatingCompanyId) || null 
-    : (isActualSuperAdmin ? null : companies.find(c => c.id === user?.companyId) || null);
+    : (isActualSuperAdmin ? null : companies.find(c => c.id === authCompanyId) || companies[0] || null);
 
   const addCompany = async (compData: Omit<TenantCompany, 'id' | 'createdAt' | 'isActive'>) => {
     try {

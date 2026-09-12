@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 import { getDeterministicCompanyId } from './CompanyContext.tsx';
 
 test('getDeterministicCompanyId resolves the same id for the same company name regardless of hostname', () => {
-  assert.equal(getDeterministicCompanyId('مستوصف المنار الطبي'), 'comp-almanar');
-  assert.equal(getDeterministicCompanyId({ nameAr: 'مستوصف المنار الطبي' }), 'comp-almanar');
+  assert.equal(getDeterministicCompanyId('مستوصف المنار الطبي'), 'comp-1788442584841');
+  assert.equal(getDeterministicCompanyId({ nameAr: 'مستوصف المنار الطبي' }), 'comp-1788442584841');
   assert.equal(getDeterministicCompanyId({ name: 'شركة الفنار' }), 'comp-alfanar');
   assert.equal(getDeterministicCompanyId({ nameAr: 'إيليت للخدمات' }), 'comp-elite');
 });

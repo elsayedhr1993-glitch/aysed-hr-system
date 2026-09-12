@@ -18,7 +18,7 @@ export interface ShiftConfig {
 
 export interface AttendancePolicyData {
   // Multi-Company & Facility Scoping
-  company_id: string; // 'comp-almanar'
+  company_id: string; // 'comp-1788442584841'
   facility_id: string; // 'facility-almanar-clinic'
   facility_name: string; // 'المنار كلينك'
 
@@ -76,18 +76,18 @@ export const isAlmanarClinic = (company?: any): boolean => {
   const nameAr = String(company.nameAr || '');
   const name = String(company.name || '');
   const nameEn = String(company.nameEn || '').toLowerCase();
-  return id === 'comp-almanar' || id.includes('almanar') || nameAr.includes('المنار') || name.includes('المنار') || nameEn.includes('almanar');
+  return id === 'comp-1788442584841' || id.includes('almanar') || nameAr.includes('المنار') || name.includes('المنار') || nameEn.includes('almanar');
 };
 
 export const getAttendancePolicyStorageKey = (companyId?: string): string => {
-  if (!companyId || companyId === 'comp-almanar' || companyId.includes('almanar')) {
+  if (!companyId || companyId === 'comp-1788442584841' || companyId.includes('almanar')) {
     return 'attendance_master_policy_v1';
   }
   return `attendance_master_policy_${companyId}`;
 };
 
 export const defaultAttendancePolicy: AttendancePolicyData = {
-  company_id: 'comp-almanar',
+  company_id: 'comp-1788442584841',
   facility_id: 'facility-almanar-clinic',
   facility_name: 'المنار كلينك',
 
@@ -139,7 +139,7 @@ export const defaultAttendancePolicy: AttendancePolicyData = {
 
 export const getAttendanceMasterPolicy = (company?: any): AttendancePolicyData => {
   const isTargetAlmanar = isAlmanarClinic(company) || (!company && true);
-  const companyId = company?.id || (typeof company === 'string' ? company : 'comp-almanar');
+  const companyId = company?.id || (typeof company === 'string' ? company : 'comp-1788442584841');
   const storageKey = getAttendancePolicyStorageKey(companyId);
 
   try {
@@ -150,7 +150,7 @@ export const getAttendanceMasterPolicy = (company?: any): AttendancePolicyData =
         return { 
           ...defaultAttendancePolicy, 
           ...parsed,
-          company_id: 'comp-almanar',
+          company_id: 'comp-1788442584841',
           facility_id: 'facility-almanar-clinic',
           facility_name: 'المنار كلينك',
           biometricDeviceName: parsed.biometricDeviceName || 'ماكينة الدوام الرئيسية (U350)',
@@ -202,8 +202,8 @@ export const getAttendanceMasterPolicy = (company?: any): AttendancePolicyData =
 
 export const saveAttendanceMasterPolicy = (policy: AttendancePolicyData, companyId?: string): AttendancePolicyData => {
   try {
-    const targetCompId = companyId || policy.company_id || 'comp-almanar';
-    const isTargetAlmanar = targetCompId === 'comp-almanar' || targetCompId.includes('almanar');
+    const targetCompId = companyId || policy.company_id || 'comp-1788442584841';
+    const isTargetAlmanar = targetCompId === 'comp-1788442584841' || targetCompId.includes('almanar');
     const storageKey = getAttendancePolicyStorageKey(targetCompId);
     
     const updated: AttendancePolicyData = { 
@@ -219,7 +219,7 @@ export const saveAttendanceMasterPolicy = (policy: AttendancePolicyData, company
 
     // Also sync to master key if Almanar
     if (isTargetAlmanar) {
-      localStorage.setItem(getAttendancePolicyStorageKey('comp-almanar'), JSON.stringify(updated));
+      localStorage.setItem(getAttendancePolicyStorageKey('comp-1788442584841'), JSON.stringify(updated));
     }
 
     window.dispatchEvent(new CustomEvent('attendance_policy_updated', { detail: { companyId: targetCompId } }));
@@ -510,7 +510,7 @@ export const AttendanceSetupWizardModal: React.FC<AttendanceSetupWizardModalProp
                   </div>
                   <div className="flex items-center gap-2 font-mono text-[10px] text-emerald-900 shrink-0">
                     <span className="bg-white/80 border border-emerald-200 px-2 py-0.5 rounded">facility_id: facility-almanar-clinic</span>
-                    <span className="bg-white/80 border border-emerald-200 px-2 py-0.5 rounded">company_id: comp-almanar</span>
+                    <span className="bg-white/80 border border-emerald-200 px-2 py-0.5 rounded">company_id: comp-1788442584841</span>
                   </div>
                 </div>
               ) : (
@@ -703,7 +703,7 @@ export const AttendanceSetupWizardModal: React.FC<AttendanceSetupWizardModalProp
                           </span>
                         </div>
                         <span className="font-mono text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-[10px]">
-                          company_id: {policy.company_id || (isAlmanar ? 'comp-almanar' : activeCompany?.id)}
+                          company_id: {policy.company_id || (isAlmanar ? 'comp-1788442584841' : activeCompany?.id)}
                         </span>
                       </div>
                     </div>
@@ -912,7 +912,7 @@ export const AttendanceSetupWizardModal: React.FC<AttendanceSetupWizardModalProp
                           facility_id: {policy.facility_id || (isAlmanar ? 'facility-almanar-clinic' : `facility-${activeCompany?.id}`)}
                         </span>
                         <span className="text-[10px] bg-slate-100 text-slate-700 font-mono font-bold px-2 py-0.5 rounded border border-slate-200">
-                          company_id: {policy.company_id || (isAlmanar ? 'comp-almanar' : activeCompany?.id)}
+                          company_id: {policy.company_id || (isAlmanar ? 'comp-1788442584841' : activeCompany?.id)}
                         </span>
                       </div>
                     </div>

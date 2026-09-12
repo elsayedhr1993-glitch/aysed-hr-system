@@ -66,7 +66,7 @@ export const isAlmanarClinic = (company?: any): boolean => {
   const nameAr = String(company.nameAr || '');
   const name = String(company.name || '');
   const nameEn = String(company.nameEn || '').toLowerCase();
-  return id === 'comp-almanar' || id.includes('almanar') || nameAr.includes('المنار') || name.includes('المنار') || nameEn.includes('almanar');
+  return id === 'comp-1788442584841' || id.includes('almanar') || nameAr.includes('المنار') || name.includes('المنار') || nameEn.includes('almanar');
 };
 
 const getDefaultAlmanarDevices = (): BiometricDevice[] => [
@@ -86,7 +86,7 @@ const getDefaultAlmanarDevices = (): BiometricDevice[] => [
     totalLogsCount: 142,
     location: 'الفرع الرئيسي - بوابة الموظفين (المنار كلينك)',
     enabled: true,
-    company_id: 'comp-almanar',
+    company_id: 'comp-1788442584841',
     facility_id: 'facility-almanar-clinic',
     facility_name: 'المنار كلينك'
   },
@@ -106,7 +106,7 @@ const getDefaultAlmanarDevices = (): BiometricDevice[] => [
     totalLogsCount: 88,
     location: 'الدور الثاني - ممر الأطباء والتمريض',
     enabled: true,
-    company_id: 'comp-almanar',
+    company_id: 'comp-1788442584841',
     facility_id: 'facility-almanar-clinic',
     facility_name: 'المنار كلينك'
   }
@@ -144,7 +144,7 @@ export const BiometricDevicesModal: React.FC<BiometricDevicesModalProps> = ({
       if (saved) {
         const parsed: BiometricDevice[] = JSON.parse(saved);
         const filtered = parsed.filter(d => {
-          const isAlmanarMachine = d.ipAddress === '192.168.0.7' || d.company_id === 'comp-almanar' || d.facility_id === 'facility-almanar-clinic';
+          const isAlmanarMachine = d.ipAddress === '192.168.0.7' || d.company_id === 'comp-1788442584841' || d.facility_id === 'facility-almanar-clinic';
           if (isAlmanarMachine) return isAlmanar;
           return !d.company_id || d.company_id === targetCompId;
         });
@@ -156,7 +156,7 @@ export const BiometricDevicesModal: React.FC<BiometricDevicesModalProps> = ({
           } else {
             filtered.forEach(d => {
               if (d.ipAddress === '192.168.0.7') {
-                d.company_id = 'comp-almanar';
+                d.company_id = 'comp-1788442584841';
                 d.facility_id = 'facility-almanar-clinic';
                 d.facility_name = 'المنار كلينك';
               }
@@ -308,7 +308,7 @@ export const BiometricDevicesModal: React.FC<BiometricDevicesModalProps> = ({
       totalLogsCount: editingDevice.totalLogsCount || 0,
       location: editingDevice.location || '',
       enabled: editingDevice.enabled !== false,
-      company_id: isAlmanarTarget ? 'comp-almanar' : activeCompId,
+      company_id: isAlmanarTarget ? 'comp-1788442584841' : activeCompId,
       facility_id: isAlmanarTarget ? 'facility-almanar-clinic' : `facility-${activeCompId}`,
       facility_name: isAlmanarTarget ? 'المنار كلينك' : (activeCompany?.nameAr || activeCompany?.name || 'المنشأة الحالية')
     };
@@ -364,7 +364,7 @@ export const BiometricDevicesModal: React.FC<BiometricDevicesModalProps> = ({
         type: 'حضور (Check-In)',
         verifyType: 'بصمة إصبع (Fingerprint)',
         status: 'on_time',
-        company_id: isTargetAlmanar ? 'comp-almanar' : activeCompId,
+        company_id: isTargetAlmanar ? 'comp-1788442584841' : activeCompId,
         facility_id: isTargetAlmanar ? 'facility-almanar-clinic' : `facility-${activeCompId}`,
         facility_name: isTargetAlmanar ? 'المنار كلينك' : (activeCompany?.nameAr || activeCompany?.name || 'المنشأة الحالية')
       };
@@ -767,7 +767,7 @@ while True:
                     <span className="font-bold block text-sm">نظام العزل المؤسسي متعدد الشركات (Multi-Company Scoping Active):</span>
                     <p className="text-amber-800 mt-1 leading-relaxed">
                       أنت تتصفح حالياً نطاق منشأة <strong>"{activeCompany?.nameAr || activeCompany?.name || 'شركة أخرى'}"</strong>. 
-                      ماكينة البصمة الرئيسية (IP: 192.168.0.7 / ZKTeco U350) مربوطة ومحصورة حصرياً بمنشأة <strong>"المنار كلينك"</strong> (facility_id: facility-almanar-clinic / company_id: comp-almanar)، وهي معزولة تماماً ولا تظهر هنا لحماية بيانات الحضور والانصراف واستقلالية الفروع.
+                      ماكينة البصمة الرئيسية (IP: 192.168.0.7 / ZKTeco U350) مربوطة ومحصورة حصرياً بمنشأة <strong>"المنار كلينك"</strong> (facility_id: facility-almanar-clinic / company_id: comp-1788442584841), وهي معزولة تماماً ولا تظهر هنا لحماية بيانات الحضور والانصراف واستقلالية الفروع.
                     </p>
                   </div>
                 </div>
@@ -784,7 +784,7 @@ while True:
                   </div>
                   <div className="flex items-center gap-1.5 font-mono text-[10px] shrink-0">
                     <span className="bg-white px-2 py-0.5 rounded border border-emerald-200 text-emerald-900 font-bold">facility-almanar-clinic</span>
-                    <span className="bg-white px-2 py-0.5 rounded border border-emerald-200 text-emerald-900 font-bold">comp-almanar</span>
+                    <span className="bg-white px-2 py-0.5 rounded border border-emerald-200 text-emerald-900 font-bold">comp-1788442584841</span>
                   </div>
                 </div>
               )}
@@ -860,15 +860,15 @@ while True:
                           <Building2 size={12} className="text-emerald-700 shrink-0" />
                           <span className="text-[11px] font-bold">التبعية الحصرية:</span>
                           <span className="text-slate-900 font-semibold text-[11px]">
-                            {dev.facility_name || (dev.company_id === 'comp-almanar' || dev.ipAddress === '192.168.0.7' ? 'المنار كلينك' : activeCompany?.nameAr || 'المنشأة')}
+                            {dev.facility_name || (dev.company_id === 'comp-1788442584841' || dev.ipAddress === '192.168.0.7' ? 'المنار كلينك' : activeCompany?.nameAr || 'المنشأة')}
                           </span>
                         </div>
                         <div className="flex items-center gap-1 font-mono text-[9px]">
                           <span className="bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded border border-emerald-200">
-                            facility_id: {dev.facility_id || (dev.company_id === 'comp-almanar' || dev.ipAddress === '192.168.0.7' ? 'facility-almanar-clinic' : `facility-${activeCompId}`)}
+                            facility_id: {dev.facility_id || (dev.company_id === 'comp-1788442584841' || dev.ipAddress === '192.168.0.7' ? 'facility-almanar-clinic' : `facility-${activeCompId}`)}
                           </span>
                           <span className="bg-slate-200/80 text-slate-800 font-bold px-1.5 py-0.5 rounded">
-                            company_id: {dev.company_id || (dev.facility_id === 'facility-almanar-clinic' || dev.ipAddress === '192.168.0.7' ? 'comp-almanar' : activeCompId)}
+                            company_id: {dev.company_id || (dev.facility_id === 'facility-almanar-clinic' || dev.ipAddress === '192.168.0.7' ? 'comp-1788442584841' : activeCompId)}
                           </span>
                         </div>
                       </div>
@@ -1297,7 +1297,7 @@ while True:
                   <tbody className="divide-y divide-slate-100">
                     {liveLogs
                       .filter(log => {
-                        const isAlmanarLog = log.deviceName?.includes('U350') || log.facility_id === 'facility-almanar-clinic' || log.company_id === 'comp-almanar';
+                        const isAlmanarLog = log.deviceName?.includes('U350') || log.facility_id === 'facility-almanar-clinic' || log.company_id === 'comp-1788442584841';
                         if (isAlmanarLog) return isTargetAlmanar;
                         return !log.company_id || log.company_id === activeCompId;
                       })

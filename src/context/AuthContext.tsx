@@ -4,6 +4,10 @@ import { auth, db, isTenantPurged } from '../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 
+const ALMANAR_ADMIN_EMAIL = 'admin@almanar.com';
+const ALMANAR_COMPANY_ID = 'comp-1788442584841';
+const ALMANAR_COMPANY_NAME_AR = 'مستوصف المنار الطبي (Almanar Clinic)';
+
 export interface User {
   id: string;
   name: string;
@@ -94,9 +98,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           // Fetch user role and company info from Firestore if needed
           const isSuper = ['admin@aysed.com', 'elsayedhr1993@gmail.com', 'admin@aysed-hr.com'].includes(userEmail);
+          const isAlmanarAdmin = userEmail === ALMANAR_ADMIN_EMAIL;
           let role = isSuper ? 'SUPER_ADMIN' : 'COMPANY_ADMIN';
           let name = isSuper ? 'مدير النظام (Super Admin)' : 'مسؤول الشركة';
-          let companyId = undefined;
+          let companyId: string | undefined = isAlmanarAdmin ? ALMANAR_COMPANY_ID : undefined;
           let photoURL = firebaseUser.photoURL || localStorage.getItem('aysed_user_avatar') || '';
 
           // Attempt to fetch profile & check account status with timeout
@@ -122,6 +127,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               name = data.name || name;
               companyId = data.companyId;
               photoURL = data.photoURL || data.avatar || photoURL;
+              if (isAlmanarAdmin) {
+                companyId = data.companyId || ALMANAR_COMPANY_ID;
+              }
             } else {
               if (isSuper) {
                 // Auto-seed for the first time login if it's the known admin
@@ -135,6 +143,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }).catch(() => {});
                 role = 'SUPER_ADMIN';
                 name = 'مدير النظام المركزية';
+              } else if (isAlmanarAdmin) {
+                const { setDoc } = await import('firebase/firestore');
+                const collectionName = (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies');
+                await setDoc(doc(db, 'users', firebaseUser.uid), {
+                  email: firebaseUser.email,
+                  name: ALMANAR_COMPANY_NAME_AR,
+                  role: 'COMPANY_ADMIN',
+                  companyId: ALMANAR_COMPANY_ID,
+                  photoURL: photoURL,
+                  createdAt: new Date().toISOString()
+                }).catch(() => {});
+                await setDoc(doc(db, collectionName, ALMANAR_COMPANY_ID), {
+                  id: ALMANAR_COMPANY_ID,
+                  nameAr: ALMANAR_COMPANY_NAME_AR,
+                  nameEn: 'Almanar Clinic',
+                  name: ALMANAR_COMPANY_NAME_AR,
+                  ownerName: ALMANAR_COMPANY_NAME_AR,
+                  adminUsername: firebaseUser.email,
+                  email: firebaseUser.email,
+                  isActive: true,
+                  createdAt: new Date().toISOString()
+                }, { merge: true }).catch(() => {});
+                role = 'COMPANY_ADMIN';
+                name = ALMANAR_COMPANY_NAME_AR;
+                companyId = ALMANAR_COMPANY_ID;
               } else {
                 // Not a super admin. Look up if this email is registered in 'companies'
                 const { getDocs, collection, query, where, setDoc } = await import('firebase/firestore');
@@ -184,6 +217,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           } catch (e) {
              console.warn("Could not fetch or seed user profile from firestore:", e);
+          }
+
+          if (isAlmanarAdmin && !companyId) {
+            companyId = ALMANAR_COMPANY_ID;
           }
 
           let jwt = 'session-token';

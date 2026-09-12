@@ -1,5 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Company } from '../types';
+import { useAuth } from './AuthContext';
+
+const ALMANAR_COMPANY_ID = 'comp-1788442584841';
+const ALMANAR_COMPANY_NAME_AR = 'مستوصف المنار الطبي (Almanar Clinic)';
 
 const defaultMasterCompany: Company = {
   id: 'comp-super-admin',
@@ -30,7 +34,7 @@ export function getDeterministicCompanyId(companyOrName: string | Partial<Compan
 
   let baseId = '';
   if (nameStr.includes('المنار')) {
-    baseId = 'comp-almanar';
+    baseId = ALMANAR_COMPANY_ID;
   } else if (nameStr.includes('الفنار')) {
     baseId = 'comp-alfanar';
   } else if (nameStr.includes('إيليت') || nameStr.includes('Elite')) {
@@ -66,6 +70,9 @@ interface CompanyContextType {
 const CompanyContext = createContext<CompanyContextType | undefined>(undefined);
 
 export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  const authCompanyId = user?.companyId || null;
+
   // Master Company State (Persisted) - Default strictly to Almanar Clinic
   const [masterCompany, setMasterCompany] = useState<Company>(() => {
     try {
@@ -73,7 +80,7 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (savedMaster) {
         const parsed = JSON.parse(savedMaster);
         if (parsed && (parsed.nameAr || parsed.name)) {
-          return { ...defaultMasterCompany, ...parsed, id: 'comp-almanar' };
+          return { ...defaultMasterCompany, ...parsed, id: parsed.id || authCompanyId || ALMANAR_COMPANY_ID };
         }
       }
     } catch (e) {
@@ -81,10 +88,10 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
     return {
       ...defaultMasterCompany,
-      id: 'comp-almanar',
-      nameAr: 'مستوصف المنار الطبي (Almanar Clinic)',
+      id: authCompanyId || ALMANAR_COMPANY_ID,
+      nameAr: ALMANAR_COMPANY_NAME_AR,
       nameEn: 'Almanar Clinic',
-      name: 'مستوصف المنار الطبي (Almanar Clinic)'
+      name: ALMANAR_COMPANY_NAME_AR
     };
   });
 
@@ -103,10 +110,10 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
       console.error('Error loading impersonated company:', e);
     }
     return {
-      id: 'comp-almanar',
-      nameAr: 'مستوصف المنار الطبي (Almanar Clinic)',
+      id: authCompanyId || ALMANAR_COMPANY_ID,
+      nameAr: ALMANAR_COMPANY_NAME_AR,
       nameEn: 'Almanar Clinic',
-      name: 'مستوصف المنار الطبي (Almanar Clinic)',
+      name: ALMANAR_COMPANY_NAME_AR,
       crNumber: '301122',
       pifssNumber: 'KUW-554433',
       commercialRegNo: '301122',
@@ -177,11 +184,16 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Active company: if impersonating, use impersonatedCompany, else use masterCompany
   const rawActive = isImpersonating && impersonatedCompany ? impersonatedCompany : masterCompany;
-  const activeCompany = { ...rawActive, id: getDeterministicCompanyId(rawActive) };
-  const activeCompanyId = activeCompany.id;
+  const activeCompanyId = authCompanyId || (isImpersonating && impersonatedCompany ? getDeterministicCompanyId(impersonatedCompany) : getDeterministicCompanyId(rawActive));
+  const activeCompany = { ...rawActive, id: activeCompanyId };
 
   // Strict SaaS Isolation: The accessible companies in dropdown is strictly the active context
   const companies = [activeCompany];
+
+  useEffect(() => {
+    if (!authCompanyId) return;
+    localStorage.setItem('activeCompanyId', authCompanyId);
+  }, [authCompanyId]);
 
   // Sync state to local storage
   useEffect(() => {
