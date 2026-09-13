@@ -17,25 +17,11 @@ import { createEmployeeOnboardingBundle, EmployeeOnboardingValidationError } fro
 import { TenantDatabaseService } from '../services/tenantDataService';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { getPersistentData } from '../utils/persistentStorage';
-import { get_aysed_official_balance, getCarriedOverBalance, getGlobalCompensatoryDays } from '../utils/kuwaitLaw';
 import { checkDocumentExpiry } from '../utils/dateUtils';
 import { getEmployeeUnifiedSummary, matchesEmployeeIdentity } from '../utils/leaveEngine';
 import { collection, deleteDoc, doc, getDocs, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { cleanFirestoreData, db } from '../lib/firebase';
 import { changeEmployeeStatus } from '../services/employeeLifecycleService';
-
-const normalizeLeaveAllocations = (allocations: any[] = []) => allocations.map((allocation: any) => ({
-  ...allocation,
-  numberOfDays: Number(allocation.numberOfDays ?? allocation.days ?? 0) || 0,
-  consumedDays: Number(allocation.consumedDays || 0) || 0,
-  remainingDays: allocation.remainingDays !== undefined
-    ? Number(allocation.remainingDays) || 0
-    : Math.max(0, (Number(allocation.numberOfDays ?? allocation.days ?? 0) || 0) - (Number(allocation.consumedDays || 0) || 0)),
-  allocationType: allocation.allocationType || 'regular',
-  state: allocation.state || 'validate',
-  name: allocation.name || allocation.notes,
-  dateFrom: allocation.dateFrom || allocation.allocationDate || '2026-01-01'
-}));
 
 export const safePrintA4Document = (htmlContent: string) => {
   try {
@@ -77,22 +63,21 @@ const generateLeavePrintHtml = (printData: any, companyName: string, companyName
   const odooRequests = getPersistentData<any[]>('odoo_leave_requests_v2', []);
   const companyLeaves = (leaveRequests.length > 0 ? leaveRequests : [...manaraLeaves, ...odooRequests]);
   const employeeLeaves = companyLeaves.filter((l: any) => matchesEmployeeIdentity(l, printData));
-  const employeeAllocations = normalizeLeaveAllocations(leaveAllocations).filter((a: any) => matchesEmployeeIdentity(a, printData));
-  const summary = getEmployeeUnifiedSummary(printData as any, employeeAllocations as any, employeeLeaves as any);
+  const summary = getEmployeeUnifiedSummary(printData as any, leaveAllocations as any, employeeLeaves as any);
   const empLeaves = employeeLeaves.filter((l: any) => {
     const matchEmp = matchesEmployeeIdentity(l, printData);
     if (!matchEmp) return false;
 
     const normType = String(l.leaveType || '').toUpperCase();
     const normStatus = String(l.status || '').toUpperCase();
-    const isApproved = ['APPROVED', 'VALIDATED', 'RETURNED', 'APPROVE', 'APPROVED', 'معتمد', 'validate'].includes(normStatus);
+    const isApproved = ['APPROVED', 'VALIDATED', 'RETURNED', 'APPROVE', 'معتمد', 'validate'].includes(normStatus);
     return normType === 'ANNUAL' && isApproved;
   });
 
   const totalTaken = Number(summary.usedLeaveDays || 0);
-  const carriedOver = Number(summary.carriedOverDays || getCarriedOverBalance(printData));
-  const accrued2026 = Number(summary.accruedAnnualDays || get_aysed_official_balance(printData));
-  const compensatory = Number(summary.holidayCompensationDays || getGlobalCompensatoryDays(printData));
+  const carriedOver = Number(summary.carriedOverDays || 0);
+  const accrued2026 = Number(summary.accruedAnnualDays || 0);
+  const compensatory = Number(summary.holidayCompensationDays || 0);
   const netAvailable = Number(summary.totalAvailableDays || 0);
   const fifoBreakdown = summary.fifoBreakdown || {
     consumedFromCarried: Number(summary.consumedFromCarried || 0),
@@ -2379,9 +2364,8 @@ export function EmployeesApp(props?: any) {
                 (() => {
                   const isLeaveReport = printTitle.includes('كشف رصيد إجازات');
                   if (isLeaveReport) {
-                    const effectiveAllocations = normalizeLeaveAllocations(leaveAllocations).filter((a: any) => matchesEmployeeIdentity(a, printData));
                     const normalizedLeaveRequests = leaveRequests.filter((l: any) => matchesEmployeeIdentity(l, printData));
-                    const summary = getEmployeeUnifiedSummary(printData as any, effectiveAllocations as any, normalizedLeaveRequests as any);
+                    const summary = getEmployeeUnifiedSummary(printData as any, leaveAllocations as any, normalizedLeaveRequests as any);
                     const empLeaves = normalizedLeaveRequests.filter((l: any) => {
                       const matchEmp = matchesEmployeeIdentity(l, printData);
                       if (!matchEmp) return false;
