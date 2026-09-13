@@ -137,17 +137,6 @@ export const OdooTimeOffApp: React.FC = () => {
     };
   }, [companyId]);
 
-  useEffect(() => {
-    requests.forEach(request => {
-      void setDoc(doc(db, 'leave_requests', request.id), cleanFirestoreData({ ...request, companyId }), { merge: true });
-    });
-  }, [companyId, requests]);
-
-  useEffect(() => {
-    allocations.forEach(allocation => {
-      void setDoc(doc(db, 'leave_allocations', allocation.id), cleanFirestoreData({ ...allocation, companyId }), { merge: true });
-    });
-  }, [companyId, allocations]);
 
   const handleDeleteRequest = async (id: string, empName: string) => {
     if (window.confirm(`هل أنت متأكد من حذف طلب الإجازة للموظف (${empName}) نهائياً؟`)) {
@@ -424,7 +413,9 @@ export const OdooTimeOffApp: React.FC = () => {
       settlementDone: false
     };
 
-    setRequests([created, ...requests]);
+    const nextRequests = [created, ...requests];
+    setRequests(nextRequests);
+    void setDoc(doc(db, 'leave_requests', created.id), cleanFirestoreData({ ...created, companyId }), { merge: true });
     setShowApplyModal(false);
     toast.success('تم تقديم طلب الإجازة بنجاح، بانتظار موافقة المدير المباشر (المرحلة الأولى).');
   };
@@ -452,6 +443,7 @@ export const OdooTimeOffApp: React.FC = () => {
 
     const updatedAllocations = [createdAlloc, ...allocations];
     setAllocations(updatedAllocations);
+    void setDoc(doc(db, 'leave_allocations', createdAlloc.id), cleanFirestoreData({ ...createdAlloc, companyId }), { merge: true });
 
     // Sync with Odoo Hierarchy Context if employee exists
     if (newAllocation.employeeId && updateLeaveAccrual) {
@@ -541,7 +533,7 @@ export const OdooTimeOffApp: React.FC = () => {
 
   // 2-Step Approval Workflow:
   // Step 1: Manager approves -> status becomes pending_hr
-  const handleManagerApprove = (id: string) => {
+  const handleManagerApprove = async (id: string) => {
     const targetReq = requests.find(r => r.id === id);
     if (!targetReq) return;
 
@@ -551,17 +543,16 @@ export const OdooTimeOffApp: React.FC = () => {
     }
 
     const todayStr = new Date().toISOString().split('T')[0];
-    setRequests(requests.map(req => {
-      if (req.id === id) {
-        return {
-          ...req,
-          status: normalizeLeaveStatus('PENDING_HR') as LeaveRequest['status'],
-          managerApprovedBy: 'مدير القسم المباشر',
-          managerApprovedAt: todayStr
-        };
-      }
-      return req;
-    }));
+    const updatedRequest = {
+      ...targetReq,
+      status: normalizeLeaveStatus('PENDING_HR') as LeaveRequest['status'],
+      managerApprovedBy: 'مدير القسم المباشر',
+      managerApprovedAt: todayStr,
+      companyId
+    };
+
+    setRequests(previous => previous.map(req => req.id === id ? updatedRequest : req));
+    await setDoc(doc(db, 'leave_requests', id), cleanFirestoreData(updatedRequest), { merge: true });
     toast.success('تمت موافقة المدير المباشر بنجاح، وأحيل الطلب إلى إدارة الموارد البشرية للاعتماد النهائي.');
   };
 
@@ -603,15 +594,19 @@ export const OdooTimeOffApp: React.FC = () => {
           Number(current.excludedServiceDays) || 0
         );
       }
-      setRequests(previous => previous.map(req => req.id === id ? {
-        ...req,
+      const approvedRequest = {
+        ...targetReq,
+        companyId,
         status: normalizeLeaveStatus('APPROVED') as LeaveRequest['status'],
         totalDays: targetReq.daysCount,
         paidDays: result.paidDays,
         unpaidDays: result.unpaidDays,
         hrApprovedBy: 'إدارة الموارد البشرية والشؤون القانونية',
         hrApprovedAt: new Date().toISOString().split('T')[0]
-      } : req));
+      };
+
+      setRequests(previous => previous.map(req => req.id === id ? approvedRequest : req));
+      await setDoc(doc(db, 'leave_requests', id), cleanFirestoreData(approvedRequest), { merge: true });
       toast.success(`تم الاعتماد والخصم بنجاح (${result.paidDays} يوم مدفوع، ${result.unpaidDays} يوم غير مدفوع).`);
     } catch (error) {
       console.error('Failed to approve leave request:', error);
@@ -620,7 +615,7 @@ export const OdooTimeOffApp: React.FC = () => {
   };
 
   // Rejection with reason modal confirm
-  const handleConfirmRejection = (requestId: string, reason: string) => {
+  const handleConfirmRejection = async (requestId: string, reason: string) => {
     const targetReq = requests.find(r => r.id === requestId);
     if (!targetReq) return;
 
@@ -629,24 +624,34 @@ export const OdooTimeOffApp: React.FC = () => {
       return;
     }
 
-    setRequests(requests.map(r => r.id === requestId ? { ...r, status: normalizeLeaveStatus('REJECTED') as LeaveRequest['status'], rejectionReason: reason } : r));
+    const rejectedRequest = {
+      ...targetReq,
+      companyId,
+      status: normalizeLeaveStatus('REJECTED') as LeaveRequest['status'],
+      rejectionReason: reason
+    };
+
+    setRequests(previous => previous.map(r => r.id === requestId ? rejectedRequest : r));
+    await setDoc(doc(db, 'leave_requests', requestId), cleanFirestoreData(rejectedRequest), { merge: true });
     setRejectionModalState(null);
     toast.success('تم تسجيل قرار الرفض وتوثيق الأسباب في سجل الطلب.');
   };
 
   // Return to work confirm
-  const handleConfirmReturnToWork = (requestId: string, returnDate: string, notes: string, diffDays: number) => {
-    setRequests(requests.map(r => {
-      if (r.id === requestId) {
-        return {
-          ...r,
-          status: normalizeLeaveStatus('RETURNED') as LeaveRequest['status'],
-          returnedToWorkDate: returnDate,
-          returnedToWorkNotes: notes
-        };
-      }
-      return r;
-    }));
+  const handleConfirmReturnToWork = async (requestId: string, returnDate: string, notes: string, diffDays: number) => {
+    const targetReq = requests.find(r => r.id === requestId);
+    if (!targetReq) return;
+
+    const returnedRequest = {
+      ...targetReq,
+      companyId,
+      status: normalizeLeaveStatus('RETURNED') as LeaveRequest['status'],
+      returnedToWorkDate: returnDate,
+      returnedToWorkNotes: notes
+    };
+
+    setRequests(previous => previous.map(r => r.id === requestId ? returnedRequest : r));
+    await setDoc(doc(db, 'leave_requests', requestId), cleanFirestoreData(returnedRequest), { merge: true });
 
     setSelectedReturnReq(null);
     if (diffDays > 0) {
