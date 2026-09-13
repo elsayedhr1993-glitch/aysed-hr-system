@@ -132,12 +132,30 @@ export function buildUnifiedLeaveSummary(
   const holidayCompensationDays = Number(getGlobalCompensatoryDays(employee) ?? 0);
   const manualAdjustments = 0;
   const usedLeaveDays = approvedLeaves.reduce((sum, leave) => sum + Number(leave.totalDays ?? leave.daysCount ?? leave.numberOfDays ?? leave.days ?? 0), 0);
-  const consumedFromCarried = Number(fifo.breakdown.reduce((sum, item) => sum + (item.allocationUsages.filter(use => use.allocationType === 'regular' || use.allocationType === 'carried_over').reduce((bucket, use) => bucket + Number(use.daysUsed || 0), 0)), 0));
-  const consumedFromAccrued = Number(fifo.breakdown.reduce((sum, item) => sum + (item.allocationUsages.filter(use => use.allocationType === 'accrual').reduce((bucket, use) => bucket + Number(use.daysUsed || 0), 0)), 0));
-  const consumedFromComp = Number(fifo.breakdown.reduce((sum, item) => sum + (item.allocationUsages.filter(use => use.allocationType === 'compensatory_off' || use.allocationType === 'compensatory').reduce((bucket, use) => bucket + Number(use.daysUsed || 0), 0)), 0));
-  const remainingCarried = Math.max(0, carriedOverDays - consumedFromCarried);
-  const remainingAccrued = Math.max(0, accruedAnnualDays - consumedFromAccrued);
-  const remainingComp = Math.max(0, holidayCompensationDays - consumedFromComp);
+
+  const waterfallUsage = fifo.breakdown.reduce((bucket, item) => {
+    item.allocationUsages.forEach((usage) => {
+      const allocation = fifo.allocations.find((candidate) => candidate.id === usage.allocationId);
+      const allocationType = String((allocation?.allocationType ?? usage.allocationType ?? '').toLowerCase());
+      const daysUsed = Number(usage.daysUsed || 0);
+
+      if (allocationType === 'regular' || allocationType === 'carried_over') {
+        bucket.carried += daysUsed;
+      } else if (allocationType === 'accrual') {
+        bucket.accrued += daysUsed;
+      } else if (allocationType === 'compensatory_off' || allocationType === 'compensatory') {
+        bucket.comp += daysUsed;
+      }
+    });
+    return bucket;
+  }, { carried: 0, accrued: 0, comp: 0 });
+
+  const consumedFromCarried = Number(waterfallUsage.carried.toFixed(2));
+  const consumedFromAccrued = Number(waterfallUsage.accrued.toFixed(2));
+  const consumedFromComp = Number(waterfallUsage.comp.toFixed(2));
+  const remainingCarried = Number(Math.max(0, carriedOverDays - consumedFromCarried).toFixed(2));
+  const remainingAccrued = Number(Math.max(0, accruedAnnualDays - consumedFromAccrued).toFixed(2));
+  const remainingComp = Number(Math.max(0, holidayCompensationDays - consumedFromComp).toFixed(2));
   const totalAvailableDays = Number((carriedOverDays + accruedAnnualDays + holidayCompensationDays + manualAdjustments - usedLeaveDays).toFixed(2));
   const basicSalaryValue = Number(contract?.basicSalary ?? (employee as any).basicSalary ?? (employee as any).basic_salary ?? (employee as any).salary ?? 0) || 0;
   const dailyWageRate = basicSalaryValue > 0 ? (basicSalaryValue / 26) : 0;

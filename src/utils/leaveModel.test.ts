@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { normalizeLeaveType, normalizeLeaveStatus, isLeaveRequestInConflict, canTransitionLeaveStatus } from './leaveModel.ts';
 import { isApprovedLeaveStatus } from './leaveEngine.ts';
 import { computeFifoLeaveAllocations } from '../services/leaveService.ts';
+import { calculateUniversalLeaveSettlement } from '../services/leaveSettlementService.ts';
 
 test('normalizeLeaveType accepts the mixed leave-type variants used across the app', () => {
   assert.equal(normalizeLeaveType('annual'), 'ANNUAL');
@@ -123,4 +124,46 @@ test('computeFifoLeaveAllocations uses allocation order and leaves deduction cor
   assert.equal(result.breakdown.length, 2);
   assert.equal(result.breakdown[0].paidDays, 5);
   assert.equal(result.breakdown[1].paidDays, 7);
+});
+
+test('encashment liquidation uses net available balance after approved leave consumption', () => {
+  const result = calculateUniversalLeaveSettlement({
+    companyId: 'comp-main',
+    employeeId: 'emp-1',
+    settlementDate: '2026-09-13',
+    settlementMode: 'ENCASHMENT_LIQUIDATION',
+    basicSalary: 800,
+    allowances: 0,
+    grossSalary: 800,
+    dailyWage: 30.769,
+    hourlyWage: 3.846,
+    carriedOverBalance: 19.50,
+    accruedBalance: 11.00,
+    totalAvailableBalance: 30.50,
+    requestedLeaveDays: 21,
+    statutoryLeaveDays: 0,
+    consumedLeaveDays: 21,
+    unpaidLeaveDays: 0,
+    includeProratedSalary: false,
+    workedDaysInMonth: 0,
+    proratedSalaryDivisor: 26,
+    includeOvertime: false,
+    overtimeHours: 0,
+    overtimeMultiplier: 1.25,
+    includeEncashment: true,
+    encashmentDays: 0,
+    ticketAllowance: 0,
+    housingAllowance: 0,
+    loanDeduction: 0,
+    salaryAdvanceDeduction: 0,
+    adminDeduction: 0,
+    customItems: [],
+    paymentMethod: 'BANK_TRANSFER',
+  });
+
+  assert.equal(result.totalAvailableBefore, 30.5);
+  assert.equal(result.consumedLeaveDays, 21);
+  assert.equal(result.encashedLeaveDays, 9.5);
+  assert.equal(result.remainingBalanceAfter, 0);
+  assert.equal(result.netSettlementPayout, 292.306);
 });

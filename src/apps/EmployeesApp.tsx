@@ -2388,12 +2388,12 @@ export function EmployeesApp(props?: any) {
                       remainingAccrued: Number(summary.remainingAccrued || 0),
                       remainingComp: Number(summary.remainingComp || 0),
                     };
-                    const consumedFromCarried = Number(fifoBreakdown.consumedFromCarried || 0);
-                    const consumedFromAccrued = Number(fifoBreakdown.consumedFromAccrued || 0);
-                    const consumedFromComp = Number(fifoBreakdown.consumedFromComp || 0);
-                    const remainingCarried = Number(fifoBreakdown.remainingCarried || 0);
-                    const remainingAccrued = Number(fifoBreakdown.remainingAccrued || 0);
-                    const remainingComp = Number(fifoBreakdown.remainingComp || 0);
+                    const consumedFromCarried = Number((summary.consumedFromCarried ?? fifoBreakdown.consumedFromCarried ?? 0).toFixed(2));
+                    const consumedFromAccrued = Number((summary.consumedFromAccrued ?? fifoBreakdown.consumedFromAccrued ?? 0).toFixed(2));
+                    const consumedFromComp = Number((summary.consumedFromComp ?? fifoBreakdown.consumedFromComp ?? 0).toFixed(2));
+                    const remainingCarried = Number((summary.remainingCarried ?? fifoBreakdown.remainingCarried ?? 0).toFixed(2));
+                    const remainingAccrued = Number((summary.remainingAccrued ?? fifoBreakdown.remainingAccrued ?? 0).toFixed(2));
+                    const remainingComp = Number((summary.remainingComp ?? fifoBreakdown.remainingComp ?? 0).toFixed(2));
 
                     return (
                       <div className="space-y-6">

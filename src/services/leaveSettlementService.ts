@@ -316,20 +316,23 @@ export function calculateUniversalLeaveSettlement(input: UniversalSettlementInpu
   // Statutory Days (e.g. Bereavement Art. 77 - 3 days paid, 0 deducted from annual balance)
   const statutoryDays = cleanDayDecimals(Math.max(0, input.statutoryLeaveDays));
 
-  let consumedDays = 0;
+  const approvedConsumedDays = cleanDayDecimals(Math.max(0, input.consumedLeaveDays));
+  let consumedDays = approvedConsumedDays;
   let encashedDays = 0;
   let balanceAfterConsumption = totalAvailableBefore;
 
   if (mode === 'ENCASHMENT_LIQUIDATION') {
-    // وضع تسييل وتصفية الرصيد الموحد: تُدمج كافة الأيام المصفاة في بند موحد غير مجزأ
-    const targetEncash = cleanDayDecimals(input.encashmentDays > 0 ? input.encashmentDays : totalAvailableBefore);
-    encashedDays = cleanDayDecimals(Math.max(0, targetEncash));
-    consumedDays = 0; // منع توليد بند مستهلك مكرر
-    balanceAfterConsumption = cleanDayDecimals(Math.max(0, totalAvailableBefore - encashedDays));
+    const netEncashableBalance = cleanDayDecimals(Math.max(0, totalAvailableBefore - approvedConsumedDays));
+    const targetEncash = cleanDayDecimals(
+      input.encashmentDays > 0 ? input.encashmentDays : netEncashableBalance
+    );
+    encashedDays = cleanDayDecimals(Math.min(Math.max(0, targetEncash), netEncashableBalance));
+    consumedDays = approvedConsumedDays;
+    balanceAfterConsumption = cleanDayDecimals(Math.max(0, totalAvailableBefore - approvedConsumedDays - encashedDays));
   } else {
     // وضع تسوية الإجازة الفعلية مع السفر:
     // 1. أيام الإجازة السنوية الفعلية المصروفة مقدماً من الطلب
-    consumedDays = cleanDayDecimals(Math.max(0, input.consumedLeaveDays));
+    consumedDays = approvedConsumedDays;
     balanceAfterConsumption = cleanDayDecimals(Math.max(0, totalAvailableBefore - consumedDays));
 
     // 2. أيام التسييل الإضافية غير المتداخلة إن وجدت
@@ -339,7 +342,7 @@ export function calculateUniversalLeaveSettlement(input: UniversalSettlementInpu
   }
 
   const remainingBalanceAfter = cleanDayDecimals(
-    Math.max(0, totalAvailableBefore - (mode === 'ENCASHMENT_LIQUIDATION' ? encashedDays : (consumedDays + encashedDays)))
+    Math.max(0, totalAvailableBefore - (consumedDays + encashedDays))
   );
   const unpaidDays = cleanDayDecimals(Math.max(0, input.unpaidLeaveDays));
 

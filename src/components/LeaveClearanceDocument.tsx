@@ -59,17 +59,21 @@ export const LeaveClearanceDocument: React.FC<Props> = ({
   // Core 4 Leave Variables (Single Source of Truth)
   const carriedOver = Number(((settlement as any).carriedOverBalance ?? settlement.aysed_carried_over ?? 0).toFixed(2));
   const accrued = Number(((settlement as any).accruedBalance ?? settlement.aysed_accrued_2026 ?? 0).toFixed(2));
-  const totalAvailable = Number(
-    ((carriedOver + accrued) > 0 
-      ? (carriedOver + accrued) 
-      : ((settlement as any).totalAvailableBalance ?? (settlement as any).totalAvailableBefore ?? settlement.aysed_total_available ?? 0)
+  const grossAvailableBefore = Number(
+    (((settlement as any).totalAvailableBefore ?? (carriedOver + accrued)) > 0
+      ? ((settlement as any).totalAvailableBefore ?? (carriedOver + accrued))
+      : ((settlement as any).totalAvailableBalance ?? settlement.aysed_total_available ?? 0)
     ).toFixed(2)
   );
   const paidLeaveDays = Number(((settlement as any).consumedLeaveDays ?? numberOfDays ?? settlement.aysed_paid_days ?? 0).toFixed(2));
   const statutoryDays = Number(((settlement as any).statutoryLeaveDays ?? 0).toFixed(2));
-  const encashedDays = Number(((settlement as any).encashedLeaveDays ?? 0).toFixed(2));
+  const inferredNetEncashableBalance = Number(Math.max(0, grossAvailableBefore - paidLeaveDays).toFixed(2));
+  const encashedDays = Number(
+    (((settlement as any).encashedLeaveDays ?? (settlement as any).encashmentDays ?? inferredNetEncashableBalance) ?? inferredNetEncashableBalance).toFixed(2)
+  );
   const unpaidDays = Number(((settlement as any).unpaidLeaveDays ?? settlement.aysed_unpaid_days ?? 0).toFixed(2));
-  const remainingBalance = Number(((settlement as any).remainingBalanceAfter ?? Math.max(0, totalAvailable - paidLeaveDays - encashedDays)).toFixed(2));
+  const totalAvailable = Number((Math.max(0, grossAvailableBefore - paidLeaveDays)).toFixed(2));
+  const remainingBalance = Number(((settlement as any).remainingBalanceAfter ?? Math.max(0, totalAvailable - encashedDays)).toFixed(2));
 
   return (
     <div className="w-full max-w-4xl mx-auto bg-white p-8 sm:p-10 border border-gray-300 shadow-sm print:shadow-none print:border-none print:p-0 font-['Tajawal','Cairo',sans-serif] text-slate-800 text-right leading-normal" dir="rtl">

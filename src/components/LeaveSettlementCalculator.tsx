@@ -193,7 +193,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
   const carriedOverBal = Number(leaveBalanceSnapshot?.carriedForwardDays || 0);
   const accruedBalance = Number(((leaveBalanceSnapshot?.accruedDays || 0) + (leaveBalanceSnapshot?.holidayCompensationDays || 0) + (leaveBalanceSnapshot?.manualAdjustmentDays || 0)).toFixed(2));
   const totalTaken = Number(leaveBalanceSnapshot?.approvedLeaveDeductionDays || 0);
-  const netAvailable = totalAvailableBalance;
+  const netAvailable = Math.max(0, Number((totalAvailableBalance - totalTaken).toFixed(2)));
 
   const clampToAvailable = (value: number) => Number(Math.max(0, Math.min(Number(value || 0), netAvailable)).toFixed(2));
 
@@ -239,12 +239,13 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
   // Auto-sync encashment days when employee or mode changes
   useEffect(() => {
     if (settlementMode === 'ENCASHMENT_LIQUIDATION') {
-      setEncashmentDays(netAvailable);
+      const netEncashableBalance = Math.max(0, Number(netAvailable || 0));
+      setEncashmentDays(netEncashableBalance);
       setIncludeEncashment(true);
       setIncludeProratedSalary(false);
       setWorkedDaysInMonth(0);
       setTicketAllowance(0);
-      setConsumedLeaveDays(0);
+      setConsumedLeaveDays(Number(leaveBalanceSnapshot?.approvedLeaveDeductionDays || consumedLeaveDays || 0));
       setStatutoryLeaveDays(0);
       setUnpaidLeaveDays(0);
     } else if (settlementMode === 'LEAVE_WITH_TRAVEL' && selectedLeaveId === 'custom' && departureDate && returnDate) {
