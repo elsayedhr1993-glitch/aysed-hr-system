@@ -19,7 +19,7 @@ import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { getPersistentData } from '../utils/persistentStorage';
 import { get_aysed_official_balance, getCarriedOverBalance, getGlobalCompensatoryDays } from '../utils/kuwaitLaw';
 import { checkDocumentExpiry } from '../utils/dateUtils';
-import { getEmployeeUnifiedSummary } from '../utils/leaveEngine';
+import { getEmployeeUnifiedSummary, matchesEmployeeIdentity } from '../utils/leaveEngine';
 import { collection, deleteDoc, doc, getDocs, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { cleanFirestoreData, db } from '../lib/firebase';
 import { changeEmployeeStatus } from '../services/employeeLifecycleService';
@@ -72,32 +72,15 @@ export const safePrintA4Document = (htmlContent: string) => {
   safePrintAction('طباعة المستند');
 };
 
-const getEmployeeMatchKey = (value: any) => String(value ?? '').trim();
-
-const matchesEmployeeRecord = (candidate: any, employee: any) => {
-  if (!candidate || !employee) return false;
-
-  const employeeId = getEmployeeMatchKey(employee?.id ?? employee?.employeeId);
-  const employeeCivil = getEmployeeMatchKey(employee?.civilId ?? employee?.civil_id_number ?? employee?.civil_id).replace(/\D/g, '');
-  const candidateId = getEmployeeMatchKey(candidate?.employeeId ?? candidate?.employee_id);
-  const candidateCivil = getEmployeeMatchKey(candidate?.civilId ?? candidate?.civil_id ?? candidate?.civil_id_number).replace(/\D/g, '');
-
-  if (employeeId && candidateId && employeeId === candidateId) return true;
-  if (employeeCivil && candidateCivil && employeeCivil === candidateCivil) return true;
-  if (employeeId && candidateCivil && employeeId === candidateCivil) return true;
-  if (candidateId && employeeCivil && candidateId === employeeCivil) return true;
-  return false;
-};
-
 const generateLeavePrintHtml = (printData: any, companyName: string, companyNameEn: string, leaveRequests: any[] = [], leaveAllocations: any[] = []) => {
   const manaraLeaves = getPersistentData<any[]>('manara_leaves_data', []);
   const odooRequests = getPersistentData<any[]>('odoo_leave_requests_v2', []);
   const companyLeaves = (leaveRequests.length > 0 ? leaveRequests : [...manaraLeaves, ...odooRequests]);
-  const employeeLeaves = companyLeaves.filter((l: any) => matchesEmployeeRecord(l, printData));
-  const employeeAllocations = normalizeLeaveAllocations(leaveAllocations).filter((a: any) => matchesEmployeeRecord(a, printData));
+  const employeeLeaves = companyLeaves.filter((l: any) => matchesEmployeeIdentity(l, printData));
+  const employeeAllocations = normalizeLeaveAllocations(leaveAllocations).filter((a: any) => matchesEmployeeIdentity(a, printData));
   const summary = getEmployeeUnifiedSummary(printData as any, employeeAllocations as any, employeeLeaves as any);
   const empLeaves = employeeLeaves.filter((l: any) => {
-    const matchEmp = matchesEmployeeRecord(l, printData);
+    const matchEmp = matchesEmployeeIdentity(l, printData);
     if (!matchEmp) return false;
 
     const normType = String(l.leaveType || '').toUpperCase();
@@ -2396,11 +2379,11 @@ export function EmployeesApp(props?: any) {
                 (() => {
                   const isLeaveReport = printTitle.includes('كشف رصيد إجازات');
                   if (isLeaveReport) {
-                    const effectiveAllocations = normalizeLeaveAllocations(leaveAllocations).filter((a: any) => matchesEmployeeRecord(a, printData));
-                    const normalizedLeaveRequests = leaveRequests.filter((l: any) => matchesEmployeeRecord(l, printData));
+                    const effectiveAllocations = normalizeLeaveAllocations(leaveAllocations).filter((a: any) => matchesEmployeeIdentity(a, printData));
+                    const normalizedLeaveRequests = leaveRequests.filter((l: any) => matchesEmployeeIdentity(l, printData));
                     const summary = getEmployeeUnifiedSummary(printData as any, effectiveAllocations as any, normalizedLeaveRequests as any);
                     const empLeaves = normalizedLeaveRequests.filter((l: any) => {
-                      const matchEmp = matchesEmployeeRecord(l, printData);
+                      const matchEmp = matchesEmployeeIdentity(l, printData);
                       if (!matchEmp) return false;
 
                       const normType = String(l.leaveType || '').toUpperCase();

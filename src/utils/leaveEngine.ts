@@ -503,7 +503,7 @@ export function buildLeaveRecordsFromEmployee(
 /**
  * حساب الملخص الموحد الشامل للموظف
  */
-export function getEmployeeUnifiedSummary(
+export function buildUnifiedLeaveSummary(
   employee: Employee,
   allocations: HrLeaveAllocation[] = [],
   leaves: LeaveRequest[] = [],
@@ -538,6 +538,15 @@ export function getEmployeeUnifiedSummary(
     basicSalary: snapshot.basicSalary,
     comprehensiveSalary: snapshot.comprehensiveSalary
   };
+}
+
+export function getEmployeeUnifiedSummary(
+  employee: Employee,
+  allocations: HrLeaveAllocation[] = [],
+  leaves: LeaveRequest[] = [],
+  contract?: Contract
+): EmployeeLeaveSummary {
+  return buildUnifiedLeaveSummary(employee, allocations, leaves, contract);
 }
 
 /**
