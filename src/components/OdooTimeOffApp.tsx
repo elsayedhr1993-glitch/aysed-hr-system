@@ -231,16 +231,24 @@ export const OdooTimeOffApp: React.FC = () => {
     const contractStartStr = empAny?.joinDate || empAny?.contractStartDate || empAny?.date_start || empAny?.startDate || '2026-01-01';
     const contractEndStr = empAny?.contractEndDate || empAny?.date_end || '2027-12-31';
 
-    const mappedAllocations = allocations.map(a => ({
-      ...a,
-      numberOfDays: Number(a.days) || 0,
-      consumedDays: Number((a as any).consumedDays) || 0,
-      remainingDays: (a as any).remainingDays ?? Math.max(0, (Number(a.days) || 0) - (Number((a as any).consumedDays) || 0)),
-      allocationType: 'regular',
-      state: 'validate',
-      name: a.notes,
-      dateFrom: a.allocationDate
-    }));
+    const mappedAllocations = allocations.map(a => {
+      const rawNumberOfDays = Number((a as any).numberOfDays ?? (a as any).days ?? 0) || 0;
+      const rawConsumedDays = Number((a as any).consumedDays ?? 0) || 0;
+      const rawEncashedDays = Number((a as any).encashedDays ?? 0) || 0;
+      const rawType = String((a as any).allocationType ?? (a as any).type ?? 'regular');
+
+      return {
+        ...a,
+        numberOfDays: rawNumberOfDays,
+        consumedDays: rawConsumedDays,
+        encashedDays: rawEncashedDays,
+        remainingDays: (a as any).remainingDays ?? Math.max(0, rawNumberOfDays - rawConsumedDays - rawEncashedDays),
+        allocationType: rawType,
+        state: (a as any).state || 'validate',
+        name: (a as any).name || (a as any).notes || '',
+        dateFrom: (a as any).dateFrom || (a as any).allocationDate || '2026-01-01'
+      };
+    });
 
     let carried = 0;
     let earned = 0;
@@ -248,9 +256,10 @@ export const OdooTimeOffApp: React.FC = () => {
     let available = 0;
 
     if (emp) {
+      const normalizedAllocations = buildEmployeeBaselineAllocations(emp as any, mappedAllocations as any);
       const snapshot = LeaveBalanceEngine.calculate({
         employee: emp as any,
-        allocations: mappedAllocations as any,
+        allocations: normalizedAllocations as any,
         leaves: requests as any,
       });
       carried = snapshot.carriedForwardDays;

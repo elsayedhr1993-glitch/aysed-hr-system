@@ -23,7 +23,9 @@ export default defineConfig(() => {
             'vendor-icons': ['lucide-react'],
             'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
             'vendor-pdf': ['pdf-lib', 'pdfjs-dist'],
-            'vendor-data': ['xlsx', 'papaparse', 'recharts']
+            'vendor-data': ['xlsx', 'papaparse', 'recharts'],
+            'vendor-ui': ['html2canvas-pro', 'html2pdf.js', 'motion'],
+            'vendor-ocr': ['@google/genai', 'jsqr', 'qrcode']
           }
         }
       }

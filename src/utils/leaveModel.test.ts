@@ -167,3 +167,72 @@ test('encashment liquidation uses net available balance after approved leave con
   assert.equal(result.remainingBalanceAfter, 0);
   assert.equal(result.netSettlementPayout, 292.306);
 });
+
+test('leave balance waterfall distributes actual consumption across carried, accrued and compensatory balances', async () => {
+  const employee = {
+    id: 'emp-1',
+    employeeCode: 'E-1',
+    companyId: 'comp-main',
+    status: 'ACTIVE',
+    isDeleted: false,
+    fullNameAr: 'أحمد علي',
+    carriedOverBalance: 7.5,
+    accruedAnnualLeave: 20,
+  } as any;
+
+  const allocations = [
+    {
+      id: 'alloc-1',
+      employeeId: 'emp-1',
+      companyId: 'comp-main',
+      leaveType: 'ANNUAL',
+      allocationType: 'regular',
+      numberOfDays: 7.5,
+      consumedDays: 0,
+      encashedDays: 0,
+      remainingDays: 7.5,
+      dateFrom: '2025-12-31',
+      state: 'validate',
+      name: 'Opening balance',
+      createdAt: '2025-12-31T00:00:00.000Z',
+    },
+    {
+      id: 'alloc-2',
+      employeeId: 'emp-1',
+      companyId: 'comp-main',
+      leaveType: 'ANNUAL',
+      allocationType: 'accrual',
+      numberOfDays: 20,
+      consumedDays: 0,
+      encashedDays: 0,
+      remainingDays: 20,
+      dateFrom: '2026-01-01',
+      state: 'validate',
+      name: 'Accrued leave',
+      createdAt: '2026-01-01T00:00:00.000Z',
+    },
+  ];
+
+  const leaves = [
+    {
+      id: 'leave-1',
+      employeeId: 'emp-1',
+      companyId: 'comp-main',
+      employeeName: 'أحمد علي',
+      leaveType: 'ANNUAL',
+      startDate: '2026-09-01',
+      endDate: '2026-09-21',
+      totalDays: 21,
+      paidDays: 21,
+      status: 'APPROVED',
+      isHistorical: false,
+    }
+  ] as any;
+
+  const summary = (await import('./leaveEngine.ts')).LeaveBalanceEngine.calculate({ employee, allocations, leaves } as any);
+
+  assert.equal(summary.approvedLeaveDeductionDays, 21);
+  assert.equal(summary.consumedFromCarried + summary.consumedFromAccrued + summary.consumedFromComp, 21);
+  assert.equal(summary.remainingCarried + summary.remainingAccrued + summary.remainingComp, 9.5);
+  assert.ok(summary.consumedFromCarried > 0 || summary.consumedFromAccrued > 0);
+});

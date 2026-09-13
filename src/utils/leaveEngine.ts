@@ -150,9 +150,28 @@ export function buildUnifiedLeaveSummary(
     return bucket;
   }, { carried: 0, accrued: 0, comp: 0 });
 
-  const consumedFromCarried = Number(waterfallUsage.carried.toFixed(2));
-  const consumedFromAccrued = Number(waterfallUsage.accrued.toFixed(2));
-  const consumedFromComp = Number(waterfallUsage.comp.toFixed(2));
+  let consumedFromCarried = Number(waterfallUsage.carried.toFixed(2));
+  let consumedFromAccrued = Number(waterfallUsage.accrued.toFixed(2));
+  let consumedFromComp = Number(waterfallUsage.comp.toFixed(2));
+
+  if (usedLeaveDays > 0 && (consumedFromCarried + consumedFromAccrued + consumedFromComp) <= 0) {
+    let remainingNeeded = Number(usedLeaveDays.toFixed(2));
+    const fallbackBuckets = [
+      { key: 'carried', available: Number(carriedOverDays.toFixed(2)) },
+      { key: 'accrued', available: Number(accruedAnnualDays.toFixed(2)) },
+      { key: 'comp', available: Number(holidayCompensationDays.toFixed(2)) },
+    ] as const;
+
+    fallbackBuckets.forEach(bucket => {
+      if (remainingNeeded <= 0) return;
+      const take = Math.min(remainingNeeded, bucket.available);
+      if (bucket.key === 'carried') consumedFromCarried = Number(take.toFixed(2));
+      if (bucket.key === 'accrued') consumedFromAccrued = Number(take.toFixed(2));
+      if (bucket.key === 'comp') consumedFromComp = Number(take.toFixed(2));
+      remainingNeeded = Number((remainingNeeded - take).toFixed(2));
+    });
+  }
+
   const remainingCarried = Number(Math.max(0, carriedOverDays - consumedFromCarried).toFixed(2));
   const remainingAccrued = Number(Math.max(0, accruedAnnualDays - consumedFromAccrued).toFixed(2));
   const remainingComp = Number(Math.max(0, holidayCompensationDays - consumedFromComp).toFixed(2));
