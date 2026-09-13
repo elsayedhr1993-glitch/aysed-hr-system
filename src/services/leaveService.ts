@@ -129,7 +129,7 @@ export function computeFifoLeaveAllocations(
   // Mandatory waterfall buckets: carried (regular) -> accrued -> compensatory.
   const getWaterfallPriority = (alloc: HrLeaveAllocation): number => {
     if (isCompensatoryAlloc(alloc)) return 2;
-    if (alloc.allocationType === 'regular' || alloc.allocationType === 'carried_over') return 0;
+    if ((alloc.allocationType as string) === 'regular' || (alloc.allocationType as string) === 'carried_over') return 0;
     return 1;
   };
 
@@ -167,7 +167,7 @@ export function computeFifoLeaveAllocations(
       if (l.isHistorical) return false;
       const lAny = l as any;
       const empAny = employee as any;
-      const empName = String(employee.fullNameAr || (employee as any).nameAr || employee.name || '').trim();
+      const empName = String(empAny.fullNameAr || empAny.nameAr || empAny.name || '').trim();
       const leaveName = String(lAny.employeeName || lAny.employee_name || lAny.nameAr || lAny.name || '').trim();
       
       const matchEmp = l.employeeId === employee.id || 
