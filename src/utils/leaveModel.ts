@@ -43,6 +43,16 @@ const LEAVE_STATUS_MAP: Record<string, CanonicalLeaveStatus> = {
   REJECTED: 'REJECTED',
   RETURNED: 'RETURNED',
   VALIDATED: 'APPROVED',
+  VALIDATE: 'APPROVED',
+  APPROVAL: 'APPROVED',
+  'معتمدة_نهائياً': 'APPROVED',
+  'معتمدة': 'APPROVED',
+  'موافقة_نهائية': 'APPROVED',
+  'موافقة_المدير': 'PENDING_HR',
+  'قيد_الاعتماد': 'PENDING_MANAGER',
+  'قيد_المراجعة': 'PENDING_MANAGER',
+  'بانتظار_موافقة_المدير': 'PENDING_MANAGER',
+  'بانتظار_اعتماد_الموارد_البشرية': 'PENDING_HR',
 };
 
 export function normalizeLeaveType(value: unknown): CanonicalLeaveType {
@@ -53,7 +63,29 @@ export function normalizeLeaveType(value: unknown): CanonicalLeaveType {
 
 export function normalizeLeaveStatus(value: unknown): CanonicalLeaveStatus {
   const raw = String(value ?? 'DRAFT').trim();
-  const normalized = raw.toUpperCase().replace(/[-\s]/g, '_');
+  const normalized = raw
+    .normalize('NFKC')
+    .replace(/[\u0640\u200C\u200D\s\-_]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .toUpperCase();
+
+  if (LEAVE_STATUS_MAP[normalized]) return LEAVE_STATUS_MAP[normalized];
+
+  const arabicApprovedAliases = ['معتمدة', 'معتمدة_نهائياً', 'موافقة_نهائية', 'مؤكد', 'مؤكدة'];
+  if (arabicApprovedAliases.some(alias => normalized.includes(alias.replace(/_/g, '')) || normalized.includes(alias))) {
+    return 'APPROVED';
+  }
+
+  if (normalized.includes('PENDING') || normalized.includes('قيد') || normalized.includes('بانتظار')) {
+    if (normalized.includes('HR') || normalized.includes('موارد') || normalized.includes('البشرية')) return 'PENDING_HR';
+    return 'PENDING_MANAGER';
+  }
+
+  if (normalized.includes('APPROVE') || normalized.includes('VALIDAT') || normalized.includes('اعتمد')) return 'APPROVED';
+  if (normalized.includes('REJECT') || normalized.includes('رفض')) return 'REJECTED';
+  if (normalized.includes('RETURN') || normalized.includes('مباشرة') || normalized.includes('عودة')) return 'RETURNED';
+
   return LEAVE_STATUS_MAP[normalized] ?? 'DRAFT';
 }
 

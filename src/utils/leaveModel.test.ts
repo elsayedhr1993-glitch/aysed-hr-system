@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { normalizeLeaveType, normalizeLeaveStatus, isLeaveRequestInConflict, canTransitionLeaveStatus } from './leaveModel.ts';
+import { isApprovedLeaveStatus } from './leaveEngine.ts';
 import { computeFifoLeaveAllocations } from '../services/leaveService.ts';
 
 test('normalizeLeaveType accepts the mixed leave-type variants used across the app', () => {
@@ -36,6 +37,15 @@ test('canTransitionLeaveStatus permits only valid workflow transitions', () => {
   assert.equal(canTransitionLeaveStatus('PENDING_HR', 'APPROVED'), true);
   assert.equal(canTransitionLeaveStatus('APPROVED', 'PENDING_HR'), false);
   assert.equal(canTransitionLeaveStatus('DRAFT', 'APPROVED'), false);
+});
+
+test('Arabic approved leave states are normalized and treated as approved for summary calculation', () => {
+  assert.equal(normalizeLeaveStatus('معتمدة نهائياً'), 'APPROVED');
+  assert.equal(normalizeLeaveStatus('معتمدة'), 'APPROVED');
+  assert.equal(normalizeLeaveStatus('موافقة نهائية'), 'APPROVED');
+  assert.equal(isApprovedLeaveStatus('معتمدة نهائياً'), true);
+  assert.equal(isApprovedLeaveStatus('معتمدة'), true);
+  assert.equal(isApprovedLeaveStatus('موافقة نهائية'), true);
 });
 
 test('computeFifoLeaveAllocations uses allocation order and leaves deduction correctly', () => {

@@ -158,7 +158,11 @@ export function matchesEmployeeIdentity(record: any, employee: any): boolean {
 export function isApprovedLeaveStatus(status?: string): boolean {
   if (!status) return false;
   const normalized = String(status).trim().toLowerCase();
-  return ['approved', 'معتمد', 'validate', 'validated', 'returned'].includes(normalized) || normalized === 'approved';
+  const canonical = normalizeLeaveStatus(status);
+
+  if (canonical === 'APPROVED' || canonical === 'RETURNED') return true;
+
+  return ['approved', 'معتمد', 'validate', 'validated', 'returned', 'معتمدة', 'معتمدة نهائياً', 'موافقة نهائية'].includes(normalized) || normalized === 'approved';
 }
 
 export function getApprovedEmployeeLeaveRequests(employee: any, leaves: any[] = []): any[] {
