@@ -3,6 +3,11 @@ import { getGlobalOpeningBalance, getGlobalAccrued2026, getGlobalCompensatoryDay
 import { computeFifoLeaveAllocations, buildEmployeeBaselineAllocations } from '../services/leaveService';
 import { normalizeLeaveStatus, normalizeLeaveType } from './leaveModel';
 
+function cleanDayDecimals(days: number | undefined | null): number {
+  if (days === undefined || days === null || isNaN(days)) return 0;
+  return Number((Math.round((days + Number.EPSILON) * 100) / 100).toFixed(2));
+}
+
 export interface LeaveRecord {
   type: 'annual' | 'unpaid' | 'sick' | 'compensation_holiday' | 'manual_adjustment';
   days: number;
@@ -32,6 +37,7 @@ export interface EmployeeLeaveSummary {
     remainingComp: number;
   };
   totalAvailableDays: number;
+  netBalance?: number;
   cashSettlementAmount: number;
   dailyWageRate?: number;
   basicSalary?: number;
@@ -111,6 +117,7 @@ export function calculateUnifiedLeaveBalance(
     remainingAccrued: totalAvailableDays,
     remainingComp: holidayCompensationDays,
     totalAvailableDays,
+    netBalance: Number(totalAvailableDays.toFixed(2)),
     cashSettlementAmount,
     dailyWageRate: Number(dailyWageRate.toFixed(3)),
     basicSalary: basicSalaryOnly,
@@ -215,6 +222,7 @@ export function buildUnifiedLeaveSummary(
       remainingComp: Number(remainingComp.toFixed(2))
     },
     totalAvailableDays: Number(totalAvailableDays.toFixed(2)),
+    netBalance: Number(totalAvailableDays.toFixed(2)),
     cashSettlementAmount,
     dailyWageRate: Number(dailyWageRate.toFixed(3)),
     basicSalary: basicSalaryValue,
@@ -333,6 +341,8 @@ export function buildLeaveRecordsFromEmployee(
 
 export function calculateLeaveBalanceSnapshot(input: { employee: Employee; allocations?: HrLeaveAllocation[]; leaves?: LeaveRequest[]; contract?: Contract }) {
   const summary = buildUnifiedLeaveSummary(input.employee, input.allocations || [], input.leaves || [], input.contract);
+  const netBalance = cleanDayDecimals(Math.max(0, Number(summary.totalAvailableDays ?? 0)));
+
   return {
     entries: [],
     carriedForwardDays: summary.carriedOverDays ?? 0,
@@ -346,7 +356,8 @@ export function calculateLeaveBalanceSnapshot(input: { employee: Employee; alloc
     remainingCarried: summary.remainingCarried ?? 0,
     remainingAccrued: summary.remainingAccrued ?? 0,
     remainingComp: summary.remainingComp ?? 0,
-    totalBalance: summary.totalAvailableDays ?? 0,
+    totalBalance: Number(summary.totalAvailableDays ?? 0),
+    netBalance,
     dailyWage: summary.dailyWageRate ?? 0,
     cashLiability: summary.cashSettlementAmount ?? 0,
     basicSalary: summary.basicSalary ?? 0,

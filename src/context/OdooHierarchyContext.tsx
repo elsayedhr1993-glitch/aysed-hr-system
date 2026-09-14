@@ -12,6 +12,10 @@ export interface EmployeeContract {
   id: string;
   companyId?: string;
   name: string;
+  fullNameAr?: string;
+  fullNameEn?: string;
+  nameAr?: string;
+  nameEn?: string;
   civilId: string;
   jobTitle: string;
   department: string;

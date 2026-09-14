@@ -265,7 +265,7 @@ export const OdooTimeOffApp: React.FC = () => {
       carried = snapshot.carriedForwardDays;
       earned = snapshot.accruedDays + snapshot.holidayCompensationDays + snapshot.manualAdjustmentDays;
       consumed = snapshot.approvedLeaveDeductionDays;
-      available = snapshot.totalBalance;
+      available = Number(snapshot.netBalance ?? snapshot.totalBalance ?? 0);
     }
 
     const startYear = contractStartStr ? contractStartStr.slice(0, 4) : '2025';

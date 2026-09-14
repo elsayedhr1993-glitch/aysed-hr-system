@@ -52,13 +52,15 @@ export const LeaveBalanceCard: React.FC<LeaveBalanceCardProps> = ({
     );
   }
 
+  const visibleNetBalance = Number(summary.netBalance ?? summary.totalAvailableDays ?? 0);
+
   if (compact) {
     return (
       <div className={`p-3 bg-white rounded-xl border border-slate-200 shadow-sm text-right ${className}`} dir="rtl">
         <div className="flex items-center justify-between gap-2 mb-2">
           <span className="text-xs font-bold text-slate-700">رصيد الإجازات الموحد</span>
           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
-            {summary.totalAvailableDays} يوم متاح
+            {visibleNetBalance.toFixed(2)} يوم متاح
           </span>
         </div>
         <div className="grid grid-cols-3 gap-1.5 text-[11px] text-slate-600 bg-slate-50 p-2 rounded-lg">
@@ -112,7 +114,7 @@ export const LeaveBalanceCard: React.FC<LeaveBalanceCardProps> = ({
             </span>
             <div className="flex items-baseline gap-1.5">
               <span className="text-3xl font-black text-blue-700 tabular-nums">
-                {summary.totalAvailableDays}
+                {visibleNetBalance.toFixed(2)}
               </span>
               <span className="text-sm font-bold text-blue-900">يوم</span>
             </div>

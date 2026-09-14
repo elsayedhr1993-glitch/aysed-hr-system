@@ -210,16 +210,30 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
     });
   }, [selectedEmp, allocations, leaves, selectedContract, ledgerVersion]);
 
-  const totalAvailableBalance = Number(leaveBalanceSnapshot?.totalBalance || 0);
+  const engineNetBalance = Number(leaveBalanceSnapshot?.netBalance ?? leaveBalanceSnapshot?.totalBalance ?? 0);
+  const totalAvailableBalance = cleanDayDecimals(Math.max(0, engineNetBalance));
   const carriedOverBal = Number(leaveBalanceSnapshot?.carriedForwardDays || 0);
   const accruedBalance = Number(((leaveBalanceSnapshot?.accruedDays || 0) + (leaveBalanceSnapshot?.holidayCompensationDays || 0) + (leaveBalanceSnapshot?.manualAdjustmentDays || 0)).toFixed(2));
   const totalTaken = Number(leaveBalanceSnapshot?.approvedLeaveDeductionDays || 0);
-  const netAvailable = resolveNetAvailableLeaveBalance({
+  const netAvailable = cleanDayDecimals(Math.max(0, engineNetBalance));
+
+  // Important: the authoritative balance must be read from the leave engine netBalance,
+  // not from the raw carried-over + accrued totals that ignore approved leave deductions.
+  const effectiveLeaveSummary = leaveBalanceSnapshot ? {
     totalBalance: totalAvailableBalance,
     approvedLeaveDeductionDays: totalTaken,
-    remainingBalanceAfter: leaveBalanceSnapshot ? Number((leaveBalanceSnapshot as any).remainingBalanceAfter ?? 0) : 0,
-    netAvailable: leaveBalanceSnapshot ? Number((leaveBalanceSnapshot as any).netAvailable ?? 0) : 0,
+    remainingBalanceAfter: totalAvailableBalance,
+    netAvailable,
+  } : { totalBalance: 0, approvedLeaveDeductionDays: 0, remainingBalanceAfter: 0, netAvailable: 0 };
+
+  const safeNetAvailable = resolveNetAvailableLeaveBalance({
+    totalBalance: effectiveLeaveSummary.totalBalance,
+    approvedLeaveDeductionDays: effectiveLeaveSummary.approvedLeaveDeductionDays,
+    remainingBalanceAfter: effectiveLeaveSummary.remainingBalanceAfter,
+    netAvailable: effectiveLeaveSummary.netAvailable,
   });
+
+  const finalNetAvailable = cleanDayDecimals(Math.max(0, safeNetAvailable));
 
   // Wages calculation (Kuwait Labor Law 26-day basis on Basic Salary only)
   const basicSalary = selectedContract?.basicSalary || (selectedEmp as any)?.basicSalary || 0;
@@ -265,14 +279,14 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
   const [encashmentDays, setEncashmentDays] = useState<number>(0);
 
   const requestedSettlementDays = cleanDayDecimals(consumedLeaveDays + (includeEncashment ? encashmentDays : 0));
-  const maxEncashmentAllowed = cleanDayDecimals(Math.max(0, netAvailable - consumedLeaveDays));
-  const clampToAvailable = (value: number) => Number(Math.max(0, Math.min(Number(value || 0), netAvailable)).toFixed(2));
+  const maxEncashmentAllowed = cleanDayDecimals(Math.max(0, finalNetAvailable - consumedLeaveDays));
+  const clampToAvailable = (value: number) => Number(Math.max(0, Math.min(Number(value || 0), finalNetAvailable)).toFixed(2));
   const clampEncashmentToAvailable = (value: number) => Number(Math.max(0, Math.min(Number(value || 0), maxEncashmentAllowed)).toFixed(2));
 
   // Auto-sync encashment days when employee or mode changes
   useEffect(() => {
     if (settlementMode === 'ENCASHMENT_LIQUIDATION') {
-      const netEncashableBalance = Math.max(0, Number(netAvailable || 0));
+      const netEncashableBalance = Math.max(0, Number(finalNetAvailable || 0));
       setEncashmentDays(netEncashableBalance);
       setIncludeEncashment(true);
       setIncludeProratedSalary(false);
@@ -282,14 +296,14 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
       setStatutoryLeaveDays(0);
       setUnpaidLeaveDays(0);
     }
-  }, [selectedEmpId, netAvailable, settlementMode]);
+  }, [selectedEmpId, finalNetAvailable, settlementMode]);
 
-  // Additional safety check to keep encashmentDays in sync with netAvailable during liquidation
+  // Additional safety check to keep encashmentDays in sync with finalNetAvailable during liquidation
   useEffect(() => {
-    if (settlementMode === 'ENCASHMENT_LIQUIDATION' && netAvailable > 0 && encashmentDays !== netAvailable) {
-      setEncashmentDays(netAvailable);
+    if (settlementMode === 'ENCASHMENT_LIQUIDATION' && finalNetAvailable > 0 && encashmentDays !== finalNetAvailable) {
+      setEncashmentDays(finalNetAvailable);
     }
-  }, [netAvailable, settlementMode]);
+  }, [finalNetAvailable, settlementMode]);
 
   // Auto-sync requested/approved leave days when employee changes
   useEffect(() => {
@@ -325,13 +339,13 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
   };
 
   useEffect(() => {
-    if (consumedLeaveDays > netAvailable) {
+    if (consumedLeaveDays > finalNetAvailable) {
       setConsumedLeaveDays(clampToAvailable(consumedLeaveDays));
     }
     if (includeEncashment) {
       setEncashmentDays(clampEncashmentToAvailable(encashmentDays));
     }
-  }, [netAvailable, consumedLeaveDays, includeEncashment, encashmentDays]);
+  }, [finalNetAvailable, consumedLeaveDays, includeEncashment, encashmentDays]);
 
   const handleReturnDateChange = (newDateStr: string) => {
     setReturnDate(newDateStr);
@@ -923,10 +937,10 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
               <div className={`bg-purple-50/70 border border-purple-200 rounded-xl p-3 ${textAlignClass}`}>
                 <span className="block text-[11px] font-bold text-[#714B67]">{t('leave_balance')}</span>
                 <span className="block text-base font-black font-mono text-purple-950 mt-0.5">
-                  {netAvailable.toFixed(2)} يوم
+                  {finalNetAvailable.toFixed(2)} يوم
                 </span>
                 <span className="block text-[9px] text-purple-700 font-medium mt-0.5">
-                  (مرحل {carriedOverBal.toFixed(1)} + صافي مكتسب/تعويضي {accruedBalance.toFixed(1)})
+                  (الصافي من محرك الإجازات: {finalNetAvailable.toFixed(2)} يوم)
                 </span>
               </div>
 
@@ -953,7 +967,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
               <div className={`bg-teal-50/70 border border-teal-200 rounded-xl p-3 ${textAlignClass}`}>
                 <span className="block text-[11px] font-bold text-teal-800">{t('remaining_days')}</span>
                 <span className="block text-base font-black font-mono text-teal-950 mt-0.5">
-                  {(netAvailable - consumedLeaveDays - (includeEncashment ? encashmentDays : 0)).toFixed(2)} يوم
+                  {(finalNetAvailable - consumedLeaveDays - (includeEncashment ? encashmentDays : 0)).toFixed(2)} يوم
                 </span>
                 <span className="block text-[9px] text-teal-700 font-medium mt-0.5">
                   (الرصيد المتاح - المصروف)

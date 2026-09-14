@@ -476,6 +476,48 @@ export const OdooPublicHolidaysApp: React.FC = () => {
   const totalHolidaysDays = holidays.reduce((acc, h) => acc + h.daysCount, 0);
   const totalDutiesAmount = duties.reduce((acc, d) => acc + d.calculatedAmount, 0);
 
+  const getDutyEmployeeMeta = (duty: HolidayDutyAssignment) => {
+    const fallbackEmployee = companyEmployees.find((emp: any) => {
+      const empId = String(emp?.id || '').trim();
+      const empCode = String(emp?.employeeCode || '').trim();
+      const empCivil = String(emp?.civilId || emp?.civil_id_number || '').trim();
+      const dutyEmpId = String(duty.employeeId || '').trim();
+      const dutyCivil = String(duty.civilId || '').trim();
+      return (
+        (!!dutyEmpId && (empId === dutyEmpId || empCode === dutyEmpId)) ||
+        (!!dutyCivil && empCivil && dutyCivil === empCivil)
+      );
+    });
+
+    const rawName = String(duty.employeeName || '').trim();
+    const safeName = rawName && !['موظف', 'موظف / موظف', 'employee'].includes(rawName) ? rawName : (
+      fallbackEmployee ? (fallbackEmployee.fullNameAr || fallbackEmployee.nameAr || fallbackEmployee.name || 'موظف') : 'موظف'
+    );
+
+    const safeJobTitle = String(duty.jobTitle || fallbackEmployee?.jobTitle || 'موظف').trim() || 'موظف';
+    const safeCivil = String(duty.civilId || fallbackEmployee?.civilId || '').trim();
+
+    return { safeName, safeJobTitle, safeCivil };
+  };
+
+  const getDutyDisplayAmount = (duty: HolidayDutyAssignment) => {
+    const baseSalary = Number(duty.totalSalary || duty.basicSalary || 0) || 0;
+    const computedDoublePay = duty.compensationType === 'double_pay' && baseSalary > 0
+      ? Number(((baseSalary / 26) * 2).toFixed(3))
+      : 0;
+
+    const value = duty.calculatedAmount > 0 ? duty.calculatedAmount : computedDoublePay;
+    if (duty.compensationType === 'double_pay') {
+      return value > 0 ? `+${value.toFixed(3)} د.ك` : '0.000 د.ك';
+    }
+
+    if (duty.compensationType === 'comp_day_off' || duty.compensationType === 'add_to_annual_leave') {
+      return 'بدون بدل نقدي';
+    }
+
+    return value > 0 ? `+${value.toFixed(3)} د.ك` : '---';
+  };
+
   return (
     <div className="space-y-5 font-sans dir-rtl text-right text-slate-800 animate-fade-in" dir="rtl">
       
@@ -805,13 +847,17 @@ export const OdooPublicHolidaysApp: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {duties.map((d, idx) => (
+                  {duties.map((d, idx) => {
+                    const dutyMeta = getDutyEmployeeMeta(d);
+                    const dutyAmount = getDutyDisplayAmount(d);
+
+                    return (
                     <tr key={d.id} className={`hover:bg-purple-50/40 transition ${idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
                       <td className="p-3.5 font-mono font-bold text-[#714B67]">{d.id}</td>
                       <td className="p-3.5">
-                        <div className="font-bold text-slate-900">{d.employeeName}</div>
+                        <div className="font-bold text-slate-900">{dutyMeta.safeName}</div>
                         <div className="text-[10px] text-slate-400 font-mono">
-                          {d.civilId} - {d.jobTitle} {d.department ? `(${d.department})` : ''}
+                          {dutyMeta.safeCivil || d.civilId || '---'} - {dutyMeta.safeJobTitle} {d.department ? `(${d.department})` : ''}
                         </div>
                       </td>
                       <td className="p-3.5 font-semibold text-slate-800">{d.holidayName}</td>
@@ -832,7 +878,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
                         )}
                       </td>
                       <td className="p-3.5 font-mono font-black text-emerald-700 text-sm text-left">
-                        {d.calculatedAmount > 0 ? `+${d.calculatedAmount.toFixed(3)} د.ك` : '---'}
+                        {dutyAmount}
                       </td>
                       <td className="p-3.5 text-center">
                         <div className="flex items-center justify-center gap-1.5 flex-wrap">
@@ -874,7 +920,8 @@ export const OdooPublicHolidaysApp: React.FC = () => {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                   {duties.length === 0 && (
                     <tr>
                       <td colSpan={7} className="p-8 text-center text-slate-400 font-bold">

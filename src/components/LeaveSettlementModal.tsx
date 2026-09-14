@@ -85,7 +85,7 @@ export const LeaveSettlementModal: React.FC<LeaveSettlementModalProps> = ({
 
   const carriedOver = Number(employeeData?.carriedOver !== undefined ? employeeData.carriedOver : (summary.carriedOverDays || 0));
   const accrued = Number(employeeData?.accrued !== undefined ? employeeData.accrued : (summary.accruedAnnualDays || 0));
-  const totalAvailable = Number((summary.totalAvailableDays || (carriedOver + accrued)).toFixed(2));
+  const totalAvailable = Number(((summary.netBalance ?? summary.totalAvailableDays ?? (carriedOver + accrued))).toFixed(2));
 
   // Determine initial requested days (defaulting to approved leave days or request days)
   const initialApprovedDays = useMemo(() => {
