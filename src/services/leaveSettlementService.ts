@@ -313,6 +313,12 @@ export function calculateUniversalLeaveSettlement(input: UniversalSettlementInpu
   const accrued = cleanDayDecimals(input.accruedBalance || 0);
   const totalAvailableBefore = cleanDayDecimals(carriedOver + accrued);
 
+  // Strict FIFO consumption order: carried-over balance first, then current year accrual, then compensatory balance.
+  const buckets = [
+    { key: 'carriedOver', available: carriedOver },
+    { key: 'accrued', available: accrued },
+  ] as const;
+
   // Statutory Days (e.g. Bereavement Art. 77 - 3 days paid, 0 deducted from annual balance)
   const statutoryDays = cleanDayDecimals(Math.max(0, input.statutoryLeaveDays));
 
@@ -332,12 +338,13 @@ export function calculateUniversalLeaveSettlement(input: UniversalSettlementInpu
   } else {
     // وضع تسوية الإجازة الفعلية مع السفر:
     // 1. أيام الإجازة السنوية الفعلية المصروفة مقدماً من الطلب
-    consumedDays = approvedConsumedDays;
+    consumedDays = Math.min(approvedConsumedDays, totalAvailableBefore);
     balanceAfterConsumption = cleanDayDecimals(Math.max(0, totalAvailableBefore - consumedDays));
 
     // 2. أيام التسييل الإضافية غير المتداخلة إن وجدت
     if (input.includeEncashment && input.encashmentDays > 0) {
-      encashedDays = cleanDayDecimals(Math.max(0, input.encashmentDays));
+      const remainingForEncashment = cleanDayDecimals(Math.max(0, totalAvailableBefore - consumedDays));
+      encashedDays = cleanDayDecimals(Math.min(Math.max(0, input.encashmentDays), remainingForEncashment));
     }
   }
 
@@ -345,6 +352,19 @@ export function calculateUniversalLeaveSettlement(input: UniversalSettlementInpu
     Math.max(0, totalAvailableBefore - (consumedDays + encashedDays))
   );
   const unpaidDays = cleanDayDecimals(Math.max(0, input.unpaidLeaveDays));
+
+  // Explicit FIFO allocation plan used for settlement UI validation and approval gating.
+  const fifoPlan = buckets.reduce((plan, bucket) => {
+    const remainingNeeded = Math.max(0, Math.min(plan.remaining, bucket.available));
+    plan.remaining -= remainingNeeded;
+    plan.usedByBucket[bucket.key] = remainingNeeded;
+    return plan;
+  }, { remaining: Math.max(0, consumedDays + encashedDays), usedByBucket: { carriedOver: 0, accrued: 0 } as Record<string, number> });
+
+  if (fifoPlan.remaining > 0.001) {
+    const overflow = cleanDayDecimals(fifoPlan.remaining);
+    throw new Error(`FIFO settlement cap exceeded: remaining demand ${overflow} days exceeds net available balance.`);
+  }
 
   // Build Dynamic Line Items
   const items: UniversalSettlementItem[] = [];

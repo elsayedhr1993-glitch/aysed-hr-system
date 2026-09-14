@@ -214,8 +214,11 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
   const accruedBalance = Number(((leaveBalanceSnapshot?.accruedDays || 0) + (leaveBalanceSnapshot?.holidayCompensationDays || 0) + (leaveBalanceSnapshot?.manualAdjustmentDays || 0)).toFixed(2));
   const totalTaken = Number(leaveBalanceSnapshot?.approvedLeaveDeductionDays || 0);
   const netAvailable = Math.max(0, Number((totalAvailableBalance - totalTaken).toFixed(2)));
+  const requestedSettlementDays = cleanDayDecimals(consumedLeaveDays + (includeEncashment ? encashmentDays : 0));
+  const maxEncashmentAllowed = cleanDayDecimals(Math.max(0, netAvailable - consumedLeaveDays));
 
   const clampToAvailable = (value: number) => Number(Math.max(0, Math.min(Number(value || 0), netAvailable)).toFixed(2));
+  const clampEncashmentToAvailable = (value: number) => Number(Math.max(0, Math.min(Number(value || 0), maxEncashmentAllowed)).toFixed(2));
 
   // Wages calculation (Kuwait Labor Law 26-day basis on Basic Salary only)
   const basicSalary = selectedContract?.basicSalary || (selectedEmp as any)?.basicSalary || 0;
@@ -310,6 +313,15 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
       }
     }
   };
+
+  useEffect(() => {
+    if (consumedLeaveDays > netAvailable) {
+      setConsumedLeaveDays(clampToAvailable(consumedLeaveDays));
+    }
+    if (includeEncashment) {
+      setEncashmentDays(clampEncashmentToAvailable(encashmentDays));
+    }
+  }, [netAvailable, consumedLeaveDays, includeEncashment, encashmentDays]);
 
   const handleReturnDateChange = (newDateStr: string) => {
     setReturnDate(newDateStr);
@@ -575,6 +587,12 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
       return;
     }
 
+    const totalRequestedDays = cleanDayDecimals(consumedLeaveDays + (includeEncashment ? encashmentDays : 0));
+    if (totalRequestedDays > cleanDayDecimals(netAvailable) + 0.001) {
+      toast.error(`لا يمكن اعتماد الطلب لأن مجموع الأيام المطلوبة (${totalRequestedDays} يوم) يتجاوز الرصيد FIFO الصافي المتاح (${cleanDayDecimals(netAvailable)} يوم).`);
+      return;
+    }
+
     setIsSavingVoucher(true);
 
     try {
@@ -664,9 +682,14 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
       return;
     }
 
+    const safeEncashmentDays = clampEncashmentToAvailable(encashmentDays);
+    if (safeEncashmentDays !== encashmentDays) {
+      setEncashmentDays(safeEncashmentDays);
+    }
+
     const res = liquidateLeaveBalanceInAllocations(
       selectedEmp.id,
-      encashmentDays,
+      safeEncashmentDays,
       allocations,
       onUpdateAllocations,
       selectedEmp,
@@ -1408,9 +1431,9 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                         <div className="flex items-center gap-2">
                           <DecimalInput
                             min={0}
-                            max={netAvailable}
+                            max={maxEncashmentAllowed}
                             value={encashmentDays}
-                            onChange={setEncashmentDays}
+                            onChange={(value) => setEncashmentDays(clampEncashmentToAvailable(value))}
                             className="w-full bg-white border border-amber-300 rounded-xl p-2.5 font-mono font-black text-amber-950 outline-none focus:border-amber-600 shadow-2xs"
                           />
                           <span className="text-xs font-bold text-slate-600 min-w-[30px]">يوم</span>
