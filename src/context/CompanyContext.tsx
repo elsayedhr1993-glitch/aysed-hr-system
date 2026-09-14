@@ -69,6 +69,20 @@ interface CompanyContextType {
 
 const CompanyContext = createContext<CompanyContextType | undefined>(undefined);
 
+const getPreferredCompanyId = (authCompanyId: string | null) => {
+  if (typeof window !== 'undefined') {
+    const params = new URLSearchParams(window.location.search);
+    const urlCompanyId = params.get('companyId') || params.get('company_id') || '';
+    if (urlCompanyId) return urlCompanyId;
+  }
+
+  try {
+    return localStorage.getItem('lastActiveCompanyId') || localStorage.getItem('activeCompanyId') || authCompanyId || '';
+  } catch {
+    return authCompanyId || '';
+  }
+};
+
 export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const authCompanyId = user?.companyId || null;
@@ -126,6 +140,8 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
       status: 'active'
     };
   });
+
+  const preferredCompanyId = getPreferredCompanyId(authCompanyId);
 
   // Automatically listen to auth session or active company changes in localStorage
   useEffect(() => {
@@ -186,8 +202,12 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Active company: if impersonating, use impersonatedCompany, else use masterCompany
   const rawActive = isImpersonating && impersonatedCompany ? impersonatedCompany : masterCompany;
   const activeCompanyId = isActualSuperAdmin
-    ? (isImpersonating && impersonatedCompany ? getDeterministicCompanyId(impersonatedCompany) : 'SAAS_PLATFORM')
-    : (authCompanyId || getDeterministicCompanyId(rawActive));
+    ? (
+        isImpersonating && impersonatedCompany
+          ? getDeterministicCompanyId(impersonatedCompany)
+          : (preferredCompanyId || getDeterministicCompanyId(rawActive) || 'SAAS_PLATFORM')
+      )
+    : (preferredCompanyId || authCompanyId || getDeterministicCompanyId(rawActive));
   const activeCompany = {
     ...rawActive,
     id: activeCompanyId,
@@ -286,7 +306,17 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const switchCompany = (companyId: string) => {
-    // If switching back to master
+    if (!companyId) return;
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      params.set('companyId', companyId);
+      window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+    }
+    try {
+      localStorage.setItem('lastActiveCompanyId', companyId);
+      localStorage.setItem('activeCompanyId', companyId);
+    } catch {}
+
     if (companyId === masterCompany.id) {
       exitImpersonation();
     }

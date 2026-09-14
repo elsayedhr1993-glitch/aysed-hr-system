@@ -25,6 +25,36 @@ interface TenantContextType {
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
+const getStoredPreferredCompanyId = () => {
+  try {
+    return localStorage.getItem('lastActiveCompanyId') || localStorage.getItem('saas_impersonating_id') || localStorage.getItem('activeCompanyId') || '';
+  } catch {
+    return '';
+  }
+};
+
+const syncCompanySelectionInUrl = (companyId: string | null) => {
+  if (typeof window === 'undefined') return;
+
+  const nextParams = new URLSearchParams(window.location.search);
+  if (!companyId) {
+    nextParams.delete('companyId');
+    nextParams.delete('company_id');
+  } else {
+    nextParams.set('companyId', companyId);
+  }
+
+  const queryString = nextParams.toString();
+  const nextUrl = `${window.location.pathname}${queryString ? `?${queryString}` : ''}`;
+  window.history.replaceState({}, '', nextUrl);
+
+  if (companyId) {
+    try {
+      localStorage.setItem('lastActiveCompanyId', companyId);
+    } catch {}
+  }
+};
+
 export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const authCompanyId = user?.companyId || null;
@@ -124,9 +154,23 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [isActualSuperAdmin]);
 
-  const activeCompany = impersonatingCompanyId 
-    ? companies.find(c => c.id === impersonatingCompanyId) || null
-    : (isActualSuperAdmin ? null : companies.find(c => c.id === authCompanyId) || companies[0] || null);
+  const preferredCompanyId = (() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlCompanyId = params.get('companyId') || params.get('company_id') || '';
+      if (urlCompanyId) return urlCompanyId;
+    }
+
+    const storedCompanyId = getStoredPreferredCompanyId();
+    if (storedCompanyId) return storedCompanyId;
+    if (authCompanyId) return authCompanyId;
+    if (companies.length > 0) return companies[0].id;
+    return null;
+  })();
+
+  const activeCompany = impersonatingCompanyId
+    ? companies.find(c => c.id === impersonatingCompanyId) || companies.find(c => c.id === preferredCompanyId) || companies[0] || null
+    : (preferredCompanyId ? companies.find(c => c.id === preferredCompanyId) || companies[0] || null : null);
 
   const addCompany = async (compData: Omit<TenantCompany, 'id' | 'createdAt' | 'isActive'>) => {
     try {
@@ -191,10 +235,12 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const impersonateCompany = (companyId: string) => {
     if (!isActualSuperAdmin || !companies.some(company => company.id === companyId)) return;
     setImpersonatingCompanyId(companyId);
+    syncCompanySelectionInUrl(companyId);
   };
 
   const exitImpersonation = () => {
     setImpersonatingCompanyId(null);
+    syncCompanySelectionInUrl(null);
   };
 
   return (

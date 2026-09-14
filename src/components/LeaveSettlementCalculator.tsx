@@ -214,11 +214,6 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
   const accruedBalance = Number(((leaveBalanceSnapshot?.accruedDays || 0) + (leaveBalanceSnapshot?.holidayCompensationDays || 0) + (leaveBalanceSnapshot?.manualAdjustmentDays || 0)).toFixed(2));
   const totalTaken = Number(leaveBalanceSnapshot?.approvedLeaveDeductionDays || 0);
   const netAvailable = Math.max(0, Number((totalAvailableBalance - totalTaken).toFixed(2)));
-  const requestedSettlementDays = cleanDayDecimals(consumedLeaveDays + (includeEncashment ? encashmentDays : 0));
-  const maxEncashmentAllowed = cleanDayDecimals(Math.max(0, netAvailable - consumedLeaveDays));
-
-  const clampToAvailable = (value: number) => Number(Math.max(0, Math.min(Number(value || 0), netAvailable)).toFixed(2));
-  const clampEncashmentToAvailable = (value: number) => Number(Math.max(0, Math.min(Number(value || 0), maxEncashmentAllowed)).toFixed(2));
 
   // Wages calculation (Kuwait Labor Law 26-day basis on Basic Salary only)
   const basicSalary = selectedContract?.basicSalary || (selectedEmp as any)?.basicSalary || 0;
@@ -258,6 +253,15 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
     const phys = calculatePhysicalWorkedDays(today.toISOString().split('T')[0]);
     return phys.workingDays > 0 ? phys.workingDays : Math.min(26, Math.max(1, today.getDate() - 1));
   });
+
+  // 3. Leave Encashment (البدل النقدي لرصيد الإجازات المتبقي / تسييل وتصفية الرصيد)
+  const [includeEncashment, setIncludeEncashment] = useState<boolean>(false);
+  const [encashmentDays, setEncashmentDays] = useState<number>(0);
+
+  const requestedSettlementDays = cleanDayDecimals(consumedLeaveDays + (includeEncashment ? encashmentDays : 0));
+  const maxEncashmentAllowed = cleanDayDecimals(Math.max(0, netAvailable - consumedLeaveDays));
+  const clampToAvailable = (value: number) => Number(Math.max(0, Math.min(Number(value || 0), netAvailable)).toFixed(2));
+  const clampEncashmentToAvailable = (value: number) => Number(Math.max(0, Math.min(Number(value || 0), maxEncashmentAllowed)).toFixed(2));
 
   // Auto-sync encashment days when employee or mode changes
   useEffect(() => {
@@ -337,10 +341,6 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
   const [includeOvertime, setIncludeOvertime] = useState<boolean>(false);
   const [overtimeHours, setOvertimeHours] = useState<number>(0);
   const [overtimeMultiplier, setOvertimeMultiplier] = useState<number>(1.25);
-
-  // 3. Leave Encashment (البدل النقدي لرصيد الإجازات المتبقي / تسييل وتصفية الرصيد)
-  const [includeEncashment, setIncludeEncashment] = useState<boolean>(false);
-  const [encashmentDays, setEncashmentDays] = useState<number>(0);
 
   // Handle switching settlement modes cleanly
   const handleModeChange = (mode: 'LEAVE_WITH_TRAVEL' | 'ENCASHMENT_LIQUIDATION' | 'CUSTOM') => {
