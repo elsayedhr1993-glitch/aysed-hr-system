@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Company, Employee, Contract, LeaveRequest } from '../types';
+import { useAuth } from '../context/AuthContext';
 import { 
   Sparkles, Send, Bot, User, RefreshCw, Copy, Check, 
   HelpCircle, Scale, FileText, Calculator, ShieldCheck, Zap,
@@ -32,6 +33,7 @@ export const AICopilotApp: React.FC<AICopilotAppProps> = ({
   const companyContracts = (contracts || []).filter(c => !activeCompany || activeCompany.id === 'comp-super-admin' || c.companyId === activeCompany.id);
   const companyLeaves = (leaves || []).filter(l => !activeCompany || activeCompany.id === 'comp-super-admin' || l.companyId === activeCompany.id);
 
+  const { token } = useAuth();
   const [inputPrompt, setInputPrompt] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -115,7 +117,10 @@ ${empListPreview}`;
 
       const res = await fetch('/api/ai-chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           prompt: textToSend,
           contextSummary: getContextSummary(),

@@ -38,6 +38,10 @@ function normalizeCivilId(value: unknown): string {
   return String(value || '').trim();
 }
 
+function isValidCivilId(value: unknown): boolean {
+  return /^\d{12}$/.test(normalizeCivilId(value));
+}
+
 function normalizeContractType(value: unknown): 'FIXED_TERM' | 'INDEFINITE' {
   const text = String(value || '').toLowerCase();
   if (text.includes('غير محدد') || text.includes('indefinite')) {
@@ -111,20 +115,26 @@ export function validateEmployeeOnboardingInput(input: EmployeeOnboardingInput):
   const draft = normalizeEmployeeDraft(input.employee, companyId);
   const companyEmployees = (input.existingEmployees || []).filter(existing => String(existing.companyId || existing.company_id || '').trim() === companyId && String(existing.id || '') !== String(draft.id || ''));
 
-  if (!draft.fullNameAr) {
+  if (!draft.fullNameAr || !String(draft.fullNameAr).trim()) {
     throw new EmployeeOnboardingValidationError('اسم الموظف مطلوب لإتمام التسجيل.');
   }
-  if (!draft.civilId) {
-    throw new EmployeeOnboardingValidationError('الرقم المدني مطلوب لإتمام التسجيل.');
+  if (!isValidCivilId(draft.civilId)) {
+    throw new EmployeeOnboardingValidationError('الرقم المدني يجب أن يكون 12 رقمًا صحيحًا داخل نفس الشركة.');
   }
-  if (!draft.email) {
+  if (!draft.email || !String(draft.email).trim()) {
     throw new EmployeeOnboardingValidationError('البريد الوظيفي مطلوب لإتمام التسجيل.');
   }
-  if (!draft.bankName || !draft.iban) {
+  if (!draft.bankName || !String(draft.bankName).trim() || !draft.iban || !String(draft.iban).trim()) {
     throw new EmployeeOnboardingValidationError('بيانات البنك والآيبان مطلوبة لإخراج الموظف جاهزاً للرواتب.');
   }
+  if (!draft.joinDate || Number.isNaN(Date.parse(String(draft.joinDate)))) {
+    throw new EmployeeOnboardingValidationError('تاريخ المباشرة غير صحيح.');
+  }
+  if (Number(draft.basicSalary) <= 0 || Number(draft.totalSalary) <= 0) {
+    throw new EmployeeOnboardingValidationError('الراتب الأساسي والإجمالي يجب أن يكونا أرقامًا موجبة.');
+  }
 
-  const duplicateCivilId = companyEmployees.some(existing => normalizeCivilId(existing.civilId || existing.civil_id_number || existing.civil_id) === draft.civilId);
+  const duplicateCivilId = companyEmployees.some(existing => isValidCivilId(existing.civilId || existing.civil_id_number || existing.civil_id) && normalizeCivilId(existing.civilId || existing.civil_id_number || existing.civil_id) === draft.civilId);
   if (duplicateCivilId) {
     throw new EmployeeOnboardingValidationError('الرقم المدني مكرر داخل نفس الشركة.');
   }

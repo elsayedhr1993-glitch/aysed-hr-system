@@ -905,6 +905,7 @@ export interface OnboardingTask {
 
 export interface OnboardingPlan {
   id: string;
+  companyId?: string;
   employeeId?: string;
   employeeName: string;
   jobTitle: string;

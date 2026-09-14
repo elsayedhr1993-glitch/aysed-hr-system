@@ -27,6 +27,8 @@ import {
 import { toast } from 'react-hot-toast';
 import { processAnyDocument } from '../../utils/ocrService';
 import { OnboardingPlan, OnboardingTask } from '../../types';
+import { useCompany } from '../../context/CompanyContext';
+import { createDraftEmployee, validateDraftEmployee } from '../../lib/onboardingStateMachine';
 
 const KUWAIT_BANK_OPTIONS = [
   'بنك الكويت الوطني (NBK)',
@@ -52,6 +54,8 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
   onConfirmLaunch,
   existingEmployees = []
 }) => {
+  const { activeCompany } = useCompany();
+
   // Wizard active step (1 to 4)
   const [currentStep, setCurrentStep] = useState<number>(1);
 
@@ -319,16 +323,40 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
   };
 
   const handleConfirmFinish = () => {
-    if (!employeeName.trim()) {
-      alert('يرجى إدخال اسم الموظف لاستكمال خطة التهيئة');
+    if (!activeCompany?.id) {
+      toast.error('يجب تحديد شركة نشطة قبل إنشاء خطة التهيئة.');
       return;
     }
-    if (!civilId.trim()) {
-      alert('يرجى إدخال الرقم المدني قبل تفعيل خطة التهيئة.');
+
+    const cleanedCivilId = civilId.trim();
+    const cleanedName = employeeName.trim();
+    const draft = createDraftEmployee(activeCompany.id);
+    const finalDraft = {
+      ...draft,
+      civilId: cleanedCivilId,
+      nameAr: cleanedName,
+      nameEn: cleanedName,
+      birthDate: scannedData?.dob || undefined,
+      nationality: scannedData?.nationality || undefined,
+      civilIdExpiry: scannedData?.civilIdExpiry || undefined,
+      jobTitle: jobTitle.trim() || 'موظف جديد',
+      department: department || 'الأطباء',
+      joinDate: expectedStartDate || new Date().toISOString().split('T')[0],
+      basicSalary: Number(basicSalary) || 0,
+      housingAllowance: Number(housingAllowance) || 0,
+      transportAllowance: Number(transportAllowance) || 0,
+      otherAllowance: Number(otherAllowances) || 0,
+      onboardingStep: 'REVIEW' as const,
+    };
+
+    const validation = validateDraftEmployee(finalDraft);
+    if (!validation.valid) {
+      toast.error(validation.errors[0]);
       return;
     }
+
     if (!workEmail.trim() || !bankName.trim() || !iban.trim()) {
-      alert('يرجى استكمال البريد الوظيفي وبيانات البنك والآيبان قبل التفعيل.');
+      toast.error('يرجى استكمال البريد الوظيفي وبيانات البنك والآيبان قبل التفعيل.');
       return;
     }
 
@@ -338,11 +366,12 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
 
     const createdPlan: OnboardingPlan = {
       id: `ONB-${Date.now().toString().slice(-6)}`,
+      companyId: activeCompany.id,
       employeeId: selectedEmpId !== 'new' ? selectedEmpId : undefined,
-      employeeName: employeeName.trim(),
+      employeeName: cleanedName,
       jobTitle: jobTitle.trim() || 'موظف جديد',
       department: department || 'الأطباء',
-      civilId: civilId.trim() || 'غير محدد',
+      civilId: cleanedCivilId || 'غير محدد',
       expectedStartDate: expectedStartDate || new Date().toISOString().split('T')[0],
       templateType,
       status: 'active',

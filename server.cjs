@@ -1423,6 +1423,10 @@ app.get("/api/system/env-health", async (req, res) => {
 });
 app.post("/api/ai/test-key", async (req, res) => {
   try {
+    const authCheck = await requireFirebaseAuth(req, res);
+    if (!authCheck.ok) {
+      return res.status(401).json({ success: false, error: authCheck.error });
+    }
     const client = getGeminiClient();
     if (!client) {
       return res.status(400).json({
@@ -1724,6 +1728,10 @@ function normalizeOcrDataServer(parsed) {
   };
 }
 app.post("/api/ocr-scan", import_express.default.json({ limit: "50mb" }), async (req, res) => {
+  const authCheck = await requireFirebaseAuth(req, res);
+  if (!authCheck.ok) {
+    return res.status(401).json({ success: false, error: authCheck.error });
+  }
   if (!enforceOcrRateLimit(req, res)) {
     return;
   }
@@ -2055,8 +2063,36 @@ app.post("/api/ocr-scan", import_express.default.json({ limit: "50mb" }), async 
     details: cause
   });
 });
+async function requireFirebaseAuth(req, res) {
+  const authHeader = req?.headers?.authorization || req?.headers?.Authorization;
+  if (!authHeader || typeof authHeader !== "string") {
+    return { ok: false, error: "Missing Authorization header" };
+  }
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
+  if (!match) {
+    return { ok: false, error: "Invalid Authorization format" };
+  }
+  const token = match[1].trim();
+  if (!token || token.length < 20) {
+    return { ok: false, error: "Invalid token format" };
+  }
+  const auth = getAdminAuth();
+  if (!auth) {
+    return { ok: false, error: "Firebase admin not configured" };
+  }
+  try {
+    const decoded = await auth.verifyIdToken(token);
+    return { ok: true, token, uid: decoded.uid };
+  } catch {
+    return { ok: false, error: "Invalid Firebase ID token" };
+  }
+}
 app.post("/api/ai-chat", async (req, res) => {
   try {
+    const authCheck = await requireFirebaseAuth(req, res);
+    if (!authCheck.ok) {
+      return res.status(401).json({ success: false, error: authCheck.error });
+    }
     const { prompt, contextSummary, conversationHistory } = req.body;
     if (!prompt) {
       return res.status(400).json({ error: "\u0627\u0644\u0631\u062C\u0627\u0621 \u0643\u062A\u0627\u0628\u0629 \u0627\u0644\u0633\u0624\u0627\u0644 \u0623\u0648 \u0627\u0644\u0637\u0644\u0628 \u0644\u0644\u0645\u0633\u0627\u0639\u062F \u0627\u0644\u0630\u0643\u064A" });

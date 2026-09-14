@@ -697,6 +697,11 @@ app.get("/api/system/env-health", async (req, res) => {
 // Test Gemini API Key endpoint for Settings / Admin Panel
 app.post("/api/ai/test-key", async (req, res) => {
   try {
+    const authCheck = await requireFirebaseAuth(req, res);
+    if (!authCheck.ok) {
+      return res.status(401).json({ success: false, error: authCheck.error });
+    }
+
     const client = getGeminiClient();
     if (!client) {
       return res.status(400).json({ 
@@ -1045,6 +1050,11 @@ function normalizeOcrDataServer(parsed: any) {
 }
 
 app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
+  const authCheck = await requireFirebaseAuth(req, res);
+  if (!authCheck.ok) {
+    return res.status(401).json({ success: false, error: authCheck.error });
+  }
+
   if (!enforceOcrRateLimit(req, res)) {
     return;
   }
@@ -1408,8 +1418,42 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
 });
 
 // Odoo Enterprise AI Copilot Chat Endpoint
+async function requireFirebaseAuth(req: any, res: any) {
+  const authHeader = req?.headers?.authorization || req?.headers?.Authorization;
+  if (!authHeader || typeof authHeader !== 'string') {
+    return { ok: false, error: 'Missing Authorization header' };
+  }
+
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
+  if (!match) {
+    return { ok: false, error: 'Invalid Authorization format' };
+  }
+
+  const token = match[1].trim();
+  if (!token || token.length < 20) {
+    return { ok: false, error: 'Invalid token format' };
+  }
+
+  const auth = getAdminAuth();
+  if (!auth) {
+    return { ok: false, error: 'Firebase admin not configured' };
+  }
+
+  try {
+    const decoded = await auth.verifyIdToken(token);
+    return { ok: true, token, uid: decoded.uid };
+  } catch {
+    return { ok: false, error: 'Invalid Firebase ID token' };
+  }
+}
+
 app.post("/api/ai-chat", async (req, res) => {
   try {
+    const authCheck = await requireFirebaseAuth(req, res);
+    if (!authCheck.ok) {
+      return res.status(401).json({ success: false, error: authCheck.error });
+    }
+
     const { prompt, contextSummary, conversationHistory } = req.body;
 
     if (!prompt) {

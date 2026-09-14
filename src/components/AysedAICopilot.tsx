@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Send, Bot, User, Sparkles, RefreshCw, ChevronLeft, ArrowLeft, ShieldCheck, Zap } from 'lucide-react';
 import { Employee, Contract } from '../types';
+import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { downloadKuwaitWPSFile } from '../utils/kuwaitLaw';
 import { addDirectEmployeeViaAi } from '../services/tenantDataService';
@@ -46,6 +47,7 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
   contracts = [],
   onQuickAction,
 }) => {
+  const { token } = useAuth();
   const [messages, setMessages] = useState<CopilotMessage[]>([
     {
       id: '1',
@@ -95,13 +97,14 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
     try {
       const response = await fetch('/api/ai-chat', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json'
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           prompt: queryText,
-          userQuery: queryText,
-          messages: messages.map(m => ({ sender: m.sender, text: m.text }))
+          contextSummary: 'Aysed HR Copilot session',
+          conversationHistory: messages.map(m => ({ role: m.sender === 'user' ? 'user' : 'assistant', content: m.text }))
         })
       });
 
