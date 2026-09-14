@@ -127,8 +127,9 @@ export const computeAttendanceAndOvertime = (
   }
 
   const actualInTotalMin = inH * 60 + inM;
-  if (actualInTotalMin > expectedInTotalMin + graceMinutes) {
-    delayMinutes = actualInTotalMin - expectedInTotalMin;
+  const lateAfterGrace = expectedInTotalMin + graceMinutes;
+  if (actualInTotalMin > lateAfterGrace) {
+    delayMinutes = actualInTotalMin - lateAfterGrace;
   }
 
   // نسبة البدل للإضافي حسب قانون العمل الكويتي

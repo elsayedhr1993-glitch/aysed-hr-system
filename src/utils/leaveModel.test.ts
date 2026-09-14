@@ -168,6 +168,23 @@ test('encashment liquidation uses net available balance after approved leave con
   assert.equal(result.netSettlementPayout, 292.306);
 });
 
+test('settlement validation blocks encashment beyond the net available balance', async () => {
+  const { validateSettlementConstraints } = await import('../services/leaveSettlementService.ts');
+
+  const validation = validateSettlementConstraints({
+    carriedOverBalance: 10,
+    accruedBalance: 5,
+    totalAvailableBalance: 15,
+    consumedLeaveDays: 0,
+    encashedLeaveDays: 18,
+    remainingBalanceAfter: 0,
+    basicSalary: 900,
+  });
+
+  assert.equal(validation.isValid, false);
+  assert.ok(validation.errors.some(error => error.includes('تجاوز الرصيد المتاح') || error.includes('exceeds')));
+});
+
 test('leave balance waterfall distributes actual consumption across carried, accrued and compensatory balances', async () => {
   const employee = {
     id: 'emp-1',
@@ -210,6 +227,21 @@ test('leave balance waterfall distributes actual consumption across carried, acc
       state: 'validate',
       name: 'Accrued leave',
       createdAt: '2026-01-01T00:00:00.000Z',
+    },
+    {
+      id: 'alloc-3',
+      employeeId: 'emp-1',
+      companyId: 'comp-main',
+      leaveType: 'COMPENSATORY',
+      allocationType: 'compensatory_off',
+      numberOfDays: 3,
+      consumedDays: 0,
+      encashedDays: 0,
+      remainingDays: 3,
+      dateFrom: '2026-09-10',
+      state: 'validate',
+      name: 'Compensatory leave',
+      createdAt: '2026-09-10T00:00:00.000Z',
     },
   ];
 

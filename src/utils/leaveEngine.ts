@@ -129,7 +129,21 @@ export function buildUnifiedLeaveSummary(
   const approvedLeaves = getApprovedEmployeeLeaveRequests(employee, leaves);
   const carriedOverDays = Number((employee as any).carriedOverBalance ?? (employee as any).carriedOverLeave2025 ?? getGlobalOpeningBalance(employee) ?? 0);
   const accruedAnnualDays = Number((employee as any).accruedAnnualLeave ?? getGlobalAccrued2026(employee) ?? 0);
-  const holidayCompensationDays = Number(getGlobalCompensatoryDays(employee) ?? 0);
+  const ledgerCompDays = Number(getGlobalCompensatoryDays(employee) ?? 0);
+  const allocationCompDays = (allocations || [])
+    .filter((allocation: any) => {
+      if (!matchesEmployeeIdentity(allocation, employee)) return false;
+      const state = String(allocation.state || allocation.status || '').toLowerCase();
+      const allowedState = ['approved', 'validate', 'validated', 'confirm', 'done', ''];
+      if (!allowedState.includes(state)) return false;
+      const allocationType = String(allocation.allocationType || '').toLowerCase();
+      const notes = String(allocation.name || allocation.notes || '').toLowerCase();
+      const isCompType = allocationType === 'compensatory_off' || allocationType === 'compensatory';
+      const isCompLabel = /تعويضي|عطلة|compensatory|comp_off|day in lieu/i.test(notes);
+      return isCompType || isCompLabel;
+    })
+    .reduce((sum, allocation: any) => sum + Number(allocation.numberOfDays ?? allocation.days ?? 0), 0);
+  const holidayCompensationDays = Math.max(ledgerCompDays, Number(allocationCompDays || 0));
   const manualAdjustments = 0;
   const usedLeaveDays = approvedLeaves.reduce((sum, leave) => sum + Number(leave.totalDays ?? leave.daysCount ?? leave.numberOfDays ?? leave.days ?? 0), 0);
 

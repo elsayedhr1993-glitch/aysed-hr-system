@@ -728,7 +728,6 @@ export function validateSettlementConstraints(voucherOrInput: any): SettlementVa
 
   // 3. معادلة التحقق البرمجي (Validation Rule):
   // الرصيد المتبقي = (الرصيد المرحل + الرصيد المكتسب) - أيام الإجازة المصروفة مقدماً
-  // السماح بالرصيد السالب لعدم حظر العمليات الإدارية الخاصة
   const expectedRemaining = cleanDayDecimals(totalAvailable - totalDeductedDays);
   
   const recordedRemaining = cleanDayDecimals(
@@ -736,6 +735,9 @@ export function validateSettlementConstraints(voucherOrInput: any): SettlementVa
     voucherOrInput.balanceAfter ?? 
     expectedRemaining
   );
+
+  const exceedsAvailableBalance = totalDeductedDays > totalAvailable + 0.001;
+  const encashmentExceedsBalance = encashedDays > totalAvailable + 0.001;
 
   const basicSalary = Number(voucherOrInput.basicSalary ?? voucherOrInput.salary ?? 0);
   const dailyWage = basicSalary > 0 
@@ -745,10 +747,17 @@ export function validateSettlementConstraints(voucherOrInput: any): SettlementVa
 
   // 4. سلوك الحارس البرمجي:
   // أ. الحماية من الرصيد السالب (Negative Balance Protection)
-  if (totalDeductedDays > totalAvailable + 0.001) {
+  if (exceedsAvailableBalance) {
     const excess = cleanDayDecimals(totalDeductedDays - totalAvailable);
-    warnings.push(
-      `تنبيه تجاوز الرصيد المتاح (Negative Balance): أيام الإجازة والتسييل المصروفة (${totalDeductedDays} يوم) تتجاوز إجمالي الرصيد المتاح حالياً (${totalAvailable} يوم) بمقدار ${excess} يوم. تم السماح بالعملية كاستثناء إداري.`
+    errors.push(
+      `تجاوز الرصيد المتاح: أيام الإجازة والتسييل المصروفة (${totalDeductedDays} يوم) تتجاوز إجمالي الرصيد المتاح (${totalAvailable} يوم) بمقدار ${excess} يوم.`
+    );
+  }
+
+  if (encashmentExceedsBalance) {
+    const excess = cleanDayDecimals(encashedDays - totalAvailable);
+    errors.push(
+      `تجاوز رصيد التسييل النقدي: أيام التسييل (${encashedDays} يوم) تتجاوز الرصيد المتاح (${totalAvailable} يوم) بمقدار ${excess} يوم.`
     );
   }
 
