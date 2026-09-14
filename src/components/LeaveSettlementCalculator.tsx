@@ -308,9 +308,12 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
   // Auto-sync requested/approved leave days when employee changes
   useEffect(() => {
     if (selectedEmp && settlementMode === 'LEAVE_WITH_TRAVEL') {
-      const activeLeaves = leaves.filter(l => l.employeeId === selectedEmp.id && ['APPROVED', 'SUBMITTED', 'PENDING_MANAGER', 'PENDING_HR'].includes(l.status));
+      const activeLeaves = leaves.filter(l => {
+        const normalizedStatus = String(l?.status ?? '').toUpperCase();
+        return l?.employeeId === selectedEmp.id && ['APPROVED', 'SUBMITTED', 'PENDING_MANAGER', 'PENDING_HR'].includes(normalizedStatus);
+      });
       if (activeLeaves.length > 0) {
-        const target = activeLeaves.find(l => l.status === 'APPROVED') || activeLeaves[0];
+        const target = activeLeaves.find(l => String(l?.status ?? '').toUpperCase() === 'APPROVED') || activeLeaves[0];
         handleSelectLeave(target.id);
       } else {
         setSelectedLeaveId('custom');
@@ -437,7 +440,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
   const employeeLeavesForSettlement = useMemo(() => {
     if (!selectedEmp) return [];
     return leaves.filter(l => {
-      const status = String(l.status || '').toUpperCase();
+      const status = String(l?.status ?? '').toUpperCase();
       return matchesSelectedEmployee(l) && ['APPROVED', 'VALIDATED', 'SUBMITTED', 'PENDING_MANAGER', 'PENDING_HR'].includes(status);
     });
   }, [leaves, selectedEmp]);
