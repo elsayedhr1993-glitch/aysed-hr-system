@@ -36,7 +36,7 @@ import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { exportToExcel } from '../utils/exportUtils';
 import { toast } from 'react-hot-toast';
 import { saveHolidayWorkRecord, WorkOnHolidayRecord } from '../services/holidayWorkService';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore';
 import { cleanFirestoreData, db } from '../lib/firebase';
 
 // Subcomponents
@@ -182,6 +182,68 @@ export const OdooPublicHolidaysApp: React.FC = () => {
   const companyId = activeCompany?.id || 'comp-master';
   const holidayConfigId = `public_holidays_${companyId}`;
 
+  const normalizeCompanyKey = (value?: string | null) => String(value || '').trim().toLowerCase();
+
+  const resolveDutiesForCompany = async (): Promise<HolidayDutyAssignment[]> => {
+    const companyKeys = new Set([
+      normalizeCompanyKey(companyId),
+      'comp-01',
+      'comp-1',
+      'comp-master',
+      'comp-super-admin',
+      'comp-1788442584841',
+      'comp-1788442584841',
+      'almanar'
+    ]);
+
+    try {
+      const q = query(collection(db, 'work_on_holidays'));
+      const snapshot = await getDocs(q);
+      const records = snapshot.docs.map((docRef) => ({ id: docRef.id, ...(docRef.data() as any) })) as any[];
+
+      return records.filter((record) => {
+        const recordCompanyId = normalizeCompanyKey(record.companyId || record.company_id || '');
+        const recordCivilId = String(record.civilId || '').trim();
+        const recordEmployeeId = String(record.employeeId || '').trim();
+
+        if (!recordCompanyId && !recordCivilId && !recordEmployeeId) return false;
+
+        if (recordCompanyId && companyKeys.has(recordCompanyId)) return true;
+
+        if (!recordCompanyId) {
+          return companyEmployees.some((employee: any) => {
+            const empId = String(employee?.id || '').trim();
+            const empCivilId = String(employee?.civilId || employee?.civil_id_number || '').trim();
+            return (
+              (recordEmployeeId && empId && recordEmployeeId === empId) ||
+              (recordCivilId && empCivilId && recordCivilId === empCivilId)
+            );
+          });
+        }
+
+        return false;
+      }).map((record) => ({
+        id: String(record.id || record.dutyId || `DUTY-${Date.now()}-${Math.random().toString(36).slice(2,8)}`),
+        employeeId: record.employeeId,
+        employeeName: record.employeeName || record.employee?.name || 'موظف',
+        civilId: record.civilId || record.employeeCivilId || '',
+        jobTitle: record.jobTitle || record.employeeJobTitle || 'موظف',
+        department: record.department || '',
+        holidayName: record.holidayName || record.name || 'عطلة رسمية',
+        dutyDate: record.date || record.dutyDate || '',
+        basicSalary: Number(record.basicSalary || 0),
+        totalSalary: Number(record.totalSalary || record.basicSalary || 0),
+        compensationType: (record.compensationType || 'double_pay') as 'double_pay' | 'comp_day_off' | 'add_to_annual_leave',
+        calculatedAmount: Number(record.calculatedAmount || 0),
+        status: (record.status || 'approved') as 'approved' | 'settled',
+        settledAt: record.settledAt,
+      }));
+    } catch (error) {
+      console.error('Failed to load holiday duty assignments from Firestore', error);
+      return [];
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
     const loadHolidayState = async () => {
@@ -194,16 +256,15 @@ export const OdooPublicHolidaysApp: React.FC = () => {
         } else {
           setHolidays(kuwaitOfficialHolidaysList);
         }
-        if (data?.duties && Array.isArray(data.duties)) {
-          setDuties(data.duties);
-        } else {
-          setDuties([]);
-        }
+
+        const companyDuties = await resolveDutiesForCompany();
+        const mergedDuties = Array.isArray(data?.duties) ? [...companyDuties, ...data.duties.filter((d) => !companyDuties.some((item) => item.id === d.id))] : companyDuties;
+        if (mounted) setDuties(mergedDuties);
       } catch (error) {
         console.error('Failed to load holidays config from Firestore', error);
         if (mounted) {
           setHolidays(kuwaitOfficialHolidaysList);
-          setDuties([]);
+          setDuties(await resolveDutiesForCompany());
         }
       }
     };
@@ -211,7 +272,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
     return () => {
       mounted = false;
     };
-  }, [holidayConfigId]);
+  }, [holidayConfigId, companyId, companyEmployees]);
 
   useEffect(() => {
     void setDoc(
