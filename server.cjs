@@ -880,6 +880,55 @@ function validateSettlementConstraints(voucherOrInput) {
   };
 }
 
+// src/lib/aiEmployeeActionParser.ts
+function parseEmployeeCreationPrompt(prompt) {
+  const text = String(prompt || "").trim();
+  if (!text) return null;
+  const hasCreateIntent = /(ضيف|أضف|أنشئ|إنشاء|create|add|new employee|hire|employee)/i.test(text);
+  const hasEmployeeKeyword = /(موظف|employee|staff|hire|توظيف)/i.test(text);
+  if (!hasCreateIntent || !hasEmployeeKeyword) {
+    return null;
+  }
+  const nameFromPrompt = (() => {
+    const direct = text.match(/(?:اسم|اسمه|name|named)[\s:]+([\u0600-\u06FFa-zA-Z\s.'-]{2,40})/i);
+    if (direct) {
+      return direct[1].replace(/(?:رقم|civil|job|وظيفة|department|قسم|راتب|salary|مدني|مسمى|الرقم|الوظيفة|القسم).*/i, "").trim();
+    }
+    const employeeName = text.match(/(?:\b(?:employee|موظف)\b[\s\S]{0,60}?\b(?:named|اسمه|اسم)\b[\s:]+)([\u0600-\u06FFa-zA-Z\s.'-]{2,40})/i);
+    if (employeeName) {
+      return employeeName[1].trim();
+    }
+    const implicit = text.match(/([\u0600-\u06FF]{2,20}\s+[\u0600-\u06FF]{2,20}(?:\s+[\u0600-\u06FF]{2,20})?)/);
+    if (implicit) {
+      return implicit[1].replace(/(?:رقم|مدني|وظيفة|القسم|الراتب|salary|department|section).*/i, "").trim();
+    }
+    return void 0;
+  })();
+  const civilId = text.match(/(?:رقم\s*مدني|civil\s*id|civilId|national\s*id|id\s*number)[\s:]*([0-9]{12})/i)?.[1] || text.match(/(?:مدني|civil)[\s:]*([0-9]{12})/i)?.[1];
+  const jobTitle = text.match(/(?:وظيفة|job\s*title|position|المسمى|مسمى)[\s:]*([\u0600-\u06FFa-zA-Z\s.'-]{2,40})/i)?.[1]?.trim();
+  const department = text.match(/(?:قسم|department|dept)[\s:]*([\u0600-\u06FFa-zA-Z\s.'-]{2,40})/i)?.[1]?.trim();
+  const basicSalary = text.match(/(?:راتب|راتبه|salary|basic\s*salary|monthly\s*salary)[\s:]*([0-9]{2,9}(?:[.,][0-9]{1,2})?)/i)?.[1] || text.match(/(?:وراتبه|وعلى\s*راتبه|و\s*راتبه|راتبه\s*)([0-9]{2,9}(?:[.,][0-9]{1,2})?)/i)?.[1];
+  const phone = text.match(/(?:هاتف|phone|mobile|tel)[\s:]*([0-9+\s-]{8,20})/i)?.[1]?.trim();
+  const nationality = text.match(/(?:جنسية|nationality)[\s:]*([\u0600-\u06FFa-zA-Z\s.'-]{2,30})/i)?.[1]?.trim();
+  const email = text.match(/(?:بريد|email)[\s:]*([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/i)?.[1];
+  const iban = text.match(/(?:iban|آيبان|IBAN)[\s:]*([A-Za-z0-9]{10,34})/i)?.[1];
+  const bankName = text.match(/(?:بنك|bank)[\s:]*([\u0600-\u06FFa-zA-Z\s.'-]{2,40})/i)?.[1]?.trim();
+  const fallbackName = nameFromPrompt || text.match(/[\u0600-\u06FFa-zA-Z][\u0600-\u06FFa-zA-Z\s.'-]{2,30}/)?.[0]?.trim();
+  return {
+    nameAr: fallbackName,
+    nameEn: fallbackName,
+    civilId,
+    jobTitle,
+    department,
+    basicSalary,
+    phone,
+    nationality,
+    email,
+    iban,
+    bankName
+  };
+}
+
 // server.ts
 import_dotenv.default.config();
 import_dotenv.default.config({ path: ".env.local", override: true });
@@ -2087,6 +2136,27 @@ async function requireFirebaseAuth(req, res) {
     return { ok: false, error: "Invalid Firebase ID token" };
   }
 }
+function buildCreateEmployeeAction(prompt) {
+  const parsed = parseEmployeeCreationPrompt(prompt);
+  if (!parsed) return null;
+  return {
+    type: "CREATE_EMPLOYEE",
+    title: "Create employee via onboarding workflow",
+    employeeData: {
+      nameAr: parsed.nameAr,
+      nameEn: parsed.nameEn || parsed.nameAr,
+      civilId: parsed.civilId,
+      jobTitle: parsed.jobTitle,
+      department: parsed.department,
+      basicSalary: parsed.basicSalary,
+      phone: parsed.phone,
+      nationality: parsed.nationality,
+      email: parsed.email,
+      iban: parsed.iban,
+      bankName: parsed.bankName
+    }
+  };
+}
 app.post("/api/ai-chat", async (req, res) => {
   try {
     const authCheck = await requireFirebaseAuth(req, res);
@@ -2098,6 +2168,7 @@ app.post("/api/ai-chat", async (req, res) => {
       return res.status(400).json({ error: "\u0627\u0644\u0631\u062C\u0627\u0621 \u0643\u062A\u0627\u0628\u0629 \u0627\u0644\u0633\u0624\u0627\u0644 \u0623\u0648 \u0627\u0644\u0637\u0644\u0628 \u0644\u0644\u0645\u0633\u0627\u0639\u062F \u0627\u0644\u0630\u0643\u064A" });
     }
     const ai = getGeminiClient();
+    const createEmployeeAction = buildCreateEmployeeAction(prompt);
     const systemInstruction = `\u0623\u0646\u062A \u0627\u0644\u0645\u0633\u0627\u0639\u062F \u0627\u0644\u0628\u0631\u0645\u062C\u064A \u0627\u0644\u0631\u0633\u0645\u064A \u0644\u0646\u0638\u0627\u0645 "Aysed S HR 2026". 
 \u0647\u0648\u064A\u062A\u0643 \u0648\u0645\u0647\u0627\u0645\u0643:
 1. \u062E\u0628\u064A\u0631 \u0641\u064A \u062A\u0637\u0648\u064A\u0631 \u0648\u0628\u0631\u0645\u062C\u0629 \u0646\u0638\u0627\u0645 \u0623\u0648\u062F\u0648 (Odoo Framework) \u0648\u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0648\u0627\u0631\u062F \u0627\u0644\u0628\u0634\u0631\u064A\u0629.
@@ -2159,7 +2230,8 @@ ${contextSummary || "\u0627\u0644\u0645\u0624\u0633\u0633\u0629 \u0627\u0644\u06
       return res.json({
         success: true,
         reply: simulatedReply,
-        source: "simulated_copilot"
+        source: "simulated_copilot",
+        action: createEmployeeAction
       });
     }
     let contents = [];
@@ -2209,7 +2281,8 @@ ${contextSummary}` });
     return res.json({
       success: true,
       reply: replyText,
-      source: usedModel
+      source: usedModel,
+      action: createEmployeeAction
     });
   } catch (error) {
     return res.json({
@@ -2220,7 +2293,8 @@ ${contextSummary}` });
 
 - **\u0648\u0641\u0642\u0627\u064B \u0644\u0642\u0627\u0646\u0648\u0646 \u0627\u0644\u0639\u0645\u0644 \u0627\u0644\u0643\u0648\u064A\u062A\u064A \u0631\u0642\u0645 6/2010:** \u064A\u062A\u0645 \u0627\u062D\u062A\u0633\u0627\u0628 \u0645\u0643\u0627\u0641\u0623\u0629 \u0646\u0647\u0627\u064A\u0629 \u0627\u0644\u062E\u062F\u0645\u0629\u060C \u0627\u0644\u0625\u062C\u0627\u0632\u0627\u062A\u060C \u0648\u0627\u0644\u0631\u0648\u0627\u062A\u0628 \u0628\u062F\u0642\u0629 \u062A\u0627\u0645\u0629.
 - **\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A:** \u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0646\u062C\u0627\u062D \u0648\u062C\u0627\u0647\u0632\u0629 \u0644\u0645\u0639\u0627\u0644\u062C\u0629 \u0643\u0627\u0641\u0629 \u0627\u0644\u0645\u0639\u0627\u0645\u0644\u0627\u062A \u0627\u0644\u0625\u062F\u0627\u0631\u064A\u0629 \u0648\u0627\u0644\u0645\u0627\u0644\u064A\u0629.`,
-      source: "fallback_simulated_copilot"
+      source: "fallback_simulated_copilot",
+      action: buildCreateEmployeeAction(req.body?.prompt || "")
     });
   }
 });

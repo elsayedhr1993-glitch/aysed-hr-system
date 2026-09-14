@@ -39,17 +39,40 @@ html, body, #root {
 
 @layer base {
   html {
-    direction: rtl;
-    font-family: 'Cairo', 'Tajawal', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    direction: ltr;
+    font-family: 'Inter', 'Cairo', 'Tajawal', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     scroll-behavior: smooth;
+  }
+
+  html[dir='rtl'] {
+    direction: rtl;
   }
   
   body {
-    font-family: 'Cairo', 'Tajawal', 'Inter', sans-serif !important;
+    font-family: 'Inter', 'Cairo', 'Tajawal', sans-serif !important;
     background-color: #F9FAFB;
     color: var(--odoo-dark);
     line-height: 1.6;
     overflow-x: hidden;
+    direction: inherit;
+  }
+
+  html[dir='ltr'] [dir='rtl'],
+  html[dir='ltr'] .dir-rtl {
+    direction: ltr !important;
+    text-align: left !important;
+  }
+
+  html[dir='ltr'] .text-right {
+    text-align: left !important;
+  }
+
+  html[dir='ltr'] .justify-end {
+    justify-content: flex-start !important;
+  }
+
+  html[dir='ltr'] .justify-start {
+    justify-content: flex-start !important;
   }
 }
 

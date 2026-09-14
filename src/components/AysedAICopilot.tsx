@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { downloadKuwaitWPSFile } from '../utils/kuwaitLaw';
 import { addDirectEmployeeViaAi } from '../services/tenantDataService';
+import { useLang } from '../lib/i18n';
 
 export interface CopilotAction {
   type: 'NAVIGATE' | 'OPEN_MODAL' | 'TRIGGER_FUNCTION' | 'CREATE_EMPLOYEE';
@@ -48,25 +49,36 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
   onQuickAction,
 }) => {
   const { token } = useAuth();
+  const { lang } = useLang();
+  const isArabic = lang === 'ar';
   const [messages, setMessages] = useState<CopilotMessage[]>([
     {
       id: '1',
       sender: 'bot',
-      text: 'أهلاً بك! أنا مساعد Aysed S HR 2026 الذكي والخاص بإدارة الموارد البشرية الكويتي.\nأنا قادر على تنفيذ الأوامر المباشرة، فتح الشاشات، تنزيل ملفات WPS للبنوك، وإضافة الموظفين بالذكاء الاصطناعي مباشرة إلى النظام.\n\nكيف يمكنني مساعدتك اليوم؟',
-      timestamp: new Date().toLocaleTimeString('ar-KW', { hour: '2-digit', minute: '2-digit' })
+      text: isArabic
+        ? 'أهلاً بك! أنا مساعد Aysed S HR 2026 الذكي والخاص بإدارة الموارد البشرية الكويتي.\nأنا قادر على تنفيذ الأوامر المباشرة، فتح الشاشات، تنزيل ملفات WPS للبنوك، وإضافة الموظفين بالذكاء الاصطناعي مباشرة إلى النظام.\n\nكيف يمكنني مساعدتك اليوم؟'
+        : 'Welcome! I am the Aysed S HR 2026 copilot for Kuwait HR operations.\nI can execute direct actions, open screens, export WPS files, and add employees with AI guidance directly into the system.\n\nHow can I help you today?',
+      timestamp: new Date().toLocaleTimeString(isArabic ? 'ar-KW' : 'en-US', { hour: '2-digit', minute: '2-digit' })
     }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  const quickPrompts = [
+  const quickPrompts = isArabic ? [
     'افتح شاشة تسوية الموظف ونهاية الخدمة',
     'ضيف موظف اسمه أحمد الكندري رقم مدني 290010112345 ووظيفته محامي وراتبه 850',
     'تحميل ملف حماية الأجور للبنوك (WPS)',
     'استخراج عقد عمل حكومي PAM Form 2',
     'سجلات الحضور والدوام والبصمة',
     'عرض كشوف الرواتب وحماية الأجور'
+  ] : [
+    'Open the employee settlement and end-of-service screen',
+    'Create an employee named Ahmed Al-Kandari with civil ID 290010112345 and salary 850',
+    'Export the WPS bank payroll protection file',
+    'Generate a PAM government employment contract',
+    'Show attendance, time tracking and biometric logs',
+    'Display payroll and wage protection reports'
   ];
 
   useEffect(() => {
@@ -87,7 +99,7 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
       id: Date.now().toString(),
       sender: 'user',
       text: queryText,
-      timestamp: new Date().toLocaleTimeString('ar-KW', { hour: '2-digit', minute: '2-digit' })
+      timestamp: new Date().toLocaleTimeString(isArabic ? 'ar-KW' : 'en-US', { hour: '2-digit', minute: '2-digit' })
     };
 
     setMessages(prev => [...prev, userMsg]);
@@ -114,12 +126,18 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
       const botMsg: CopilotMessage = {
         id: (Date.now() + 1).toString(),
         sender: 'bot',
-        text: data.reply || 'عذراً، لم أستطع معالجة الإجابة حالياً.',
-        timestamp: new Date().toLocaleTimeString('ar-KW', { hour: '2-digit', minute: '2-digit' }),
+        text: data.reply || (isArabic ? 'عذراً، لم أستطع معالجة الإجابة حالياً.' : 'Sorry, I could not process the response right now.'),
+        timestamp: new Date().toLocaleTimeString(isArabic ? 'ar-KW' : 'en-US', { hour: '2-digit', minute: '2-digit' }),
         action: data.action || null
       };
 
       setMessages(prev => [...prev, botMsg]);
+
+      if (data.action && data.action.type === 'CREATE_EMPLOYEE') {
+        setTimeout(() => {
+          handleExecuteAction(data.action);
+        }, 250);
+      }
     } catch (err) {
       console.error('Copilot Chat Error:', err);
       setMessages(prev => [
@@ -127,8 +145,8 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
         {
           id: (Date.now() + 1).toString(),
           sender: 'bot',
-          text: 'حدث خطأ أثناء الاتصال بالمساعد الذكي. يرجى المحاولة مرة أخرى.',
-          timestamp: new Date().toLocaleTimeString('ar-KW', { hour: '2-digit', minute: '2-digit' })
+          text: isArabic ? 'حدث خطأ أثناء الاتصال بالمساعد الذكي. يرجى المحاولة مرة أخرى.' : 'The AI assistant connection failed. Please try again.',
+          timestamp: new Date().toLocaleTimeString(isArabic ? 'ar-KW' : 'en-US', { hour: '2-digit', minute: '2-digit' })
         }
       ]);
     } finally {
@@ -187,20 +205,21 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
       console.log('👤 [Copilot Direct Employee Creation]:', action.employeeData);
       try {
         const activeCompanyId = localStorage.getItem('active_company_id') || 'company_1';
-        await addDirectEmployeeViaAi(activeCompanyId, action.employeeData);
-        toast.success(`تم إضافة الموظف (${action.employeeData.nameAr || 'الجديد'}) بنجاح إلى قاعدة البيانات!`);
+        const createdEmployee = await addDirectEmployeeViaAi(activeCompanyId, action.employeeData, employees);
+        toast.success(`تم إضافة الموظف (${createdEmployee.fullNameAr || action.employeeData.nameAr || 'الجديد'}) بنجاح إلى قاعدة البيانات!`);
         if (onQuickAction) {
           onQuickAction('navigate', 'employees');
         }
       } catch (err) {
-        toast.error('حدث خطأ أثناء إضافة الموظف');
+        const message = err instanceof Error ? err.message : 'حدث خطأ أثناء إضافة الموظف';
+        toast.error(message);
       }
       onClose();
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden dir-rtl">
+    <div className="fixed inset-0 z-50 overflow-hidden" dir={isArabic ? 'rtl' : 'ltr'}>
       {/* Backdrop for closing drawer */}
       <div 
         className="fixed inset-0 bg-black/40 backdrop-blur-[1px] transition-opacity animate-in fade-in duration-200"
@@ -217,17 +236,17 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
             </div>
             <div>
               <h3 className="font-bold text-sm text-white flex items-center gap-1.5">
-                <span>Aysed HR Copilot</span>
-                <span className="text-[9px] bg-amber-400 text-purple-950 px-1.5 py-0.5 rounded-full font-black">Executive AI</span>
+                <span>{isArabic ? 'Aysed HR Copilot' : 'Aysed HR Copilot'}</span>
+                <span className="text-[9px] bg-amber-400 text-purple-950 px-1.5 py-0.5 rounded-full font-black">{isArabic ? 'ذكاء تنفيذي' : 'Executive AI'}</span>
               </h3>
-              <p className="text-[10px] text-purple-200">مساعدك الذكي لتنفيذ الأوامر وإضافة الموظفين بالذكاء الاصطناعي</p>
+              <p className="text-[10px] text-purple-200">{isArabic ? 'مساعدك الذكي لتنفيذ الأوامر وإضافة الموظفين بالذكاء الاصطناعي' : 'Your smart assistant for actions, HR workflows, and AI-powered employee creation'}</p>
             </div>
           </div>
           
           <button 
             onClick={onClose}
             className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
-            title="إغلاق النافذة الجانبية"
+            title={isArabic ? 'إغلاق النافذة الجانبية' : 'Close side panel'}
           >
             <X size={18} />
           </button>
@@ -263,7 +282,7 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
                       </div>
                       <div>
                         <div className="text-[9px] text-amber-300 font-bold uppercase tracking-wider">
-                          {msg.action.type === 'CREATE_EMPLOYEE' ? 'إضافة موظف جديد آلياً' : 'إجراء تنفيذي آلي جاهز'}
+                          {msg.action.type === 'CREATE_EMPLOYEE' ? (isArabic ? 'إضافة موظف جديد آلياً' : 'Add new employee automatically') : (isArabic ? 'إجراء تنفيذي آلي جاهز' : 'Ready-to-run automated action')}
                         </div>
                         <div className="text-xs font-bold text-white">{msg.action.title}</div>
                       </div>
@@ -271,11 +290,11 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
 
                     {msg.action.employeeData && (
                       <div className="w-full bg-black/30 rounded-lg p-2.5 text-[11px] space-y-1 border border-white/10 my-1">
-                        <div className="flex justify-between"><span className="text-purple-300">الاسم:</span> <span className="font-bold">{msg.action.employeeData.nameAr || 'غير محدد'}</span></div>
-                        {msg.action.employeeData.civilId && <div className="flex justify-between"><span className="text-purple-300">الرقم المدني:</span> <span className="font-mono text-amber-300 font-bold">{msg.action.employeeData.civilId}</span></div>}
-                        {msg.action.employeeData.jobTitle && <div className="flex justify-between"><span className="text-purple-300">الوظيفة:</span> <span>{msg.action.employeeData.jobTitle}</span></div>}
-                        {msg.action.employeeData.department && <div className="flex justify-between"><span className="text-purple-300">القسم:</span> <span>{msg.action.employeeData.department}</span></div>}
-                        {msg.action.employeeData.basicSalary && <div className="flex justify-between"><span className="text-purple-300">الراتب الأساسي:</span> <span className="text-emerald-400 font-bold">{msg.action.employeeData.basicSalary} د.ك</span></div>}
+                        <div className="flex justify-between"><span className="text-purple-300">{isArabic ? 'الاسم:' : 'Name:'}</span> <span className="font-bold">{msg.action.employeeData.nameAr || msg.action.employeeData.nameEn || (isArabic ? 'غير محدد' : 'Not set')}</span></div>
+                        {msg.action.employeeData.civilId && <div className="flex justify-between"><span className="text-purple-300">{isArabic ? 'الرقم المدني:' : 'Civil ID:'}</span> <span className="font-mono text-amber-300 font-bold">{msg.action.employeeData.civilId}</span></div>}
+                        {msg.action.employeeData.jobTitle && <div className="flex justify-between"><span className="text-purple-300">{isArabic ? 'الوظيفة:' : 'Job title:'}</span> <span>{msg.action.employeeData.jobTitle}</span></div>}
+                        {msg.action.employeeData.department && <div className="flex justify-between"><span className="text-purple-300">{isArabic ? 'القسم:' : 'Department:'}</span> <span>{msg.action.employeeData.department}</span></div>}
+                        {msg.action.employeeData.basicSalary && <div className="flex justify-between"><span className="text-purple-300">{isArabic ? 'الراتب الأساسي:' : 'Basic salary:'}</span> <span className="text-emerald-400 font-bold">{msg.action.employeeData.basicSalary} {isArabic ? 'د.ك' : 'KWD'}</span></div>}
                       </div>
                     )}
 
@@ -285,7 +304,7 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
                       className="w-full px-3.5 py-2 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-purple-950 font-extrabold text-xs rounded-lg shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer mt-1"
                     >
                       <span>
-                        {msg.action.type === 'CREATE_EMPLOYEE' ? '👤 اعتماد وإضافة الموظف للنظام الآن' : '🚀 تنفيذ الإجراء وإغلاق المساعد'}
+                        {msg.action.type === 'CREATE_EMPLOYEE' ? (isArabic ? '👤 اعتماد وإضافة الموظف للنظام الآن' : '👤 Approve and add employee to the system now') : (isArabic ? '🚀 تنفيذ الإجراء وإغلاق المساعد' : '🚀 Execute action and close assistant')}
                       </span>
                     </button>
                   </div>
@@ -301,7 +320,7 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
           {isLoading && (
             <div className="flex items-center gap-2 text-slate-500 text-xs bg-white p-3 rounded-xl border border-slate-200 w-fit">
               <span className="animate-spin text-amber-600">⏳</span>
-              <span>جاري المعالجة وتنفيذ الذكاء الاصطناعي...</span>
+              <span>{isArabic ? 'جاري المعالجة وتنفيذ الذكاء الاصطناعي...' : 'Processing with the AI assistant...'}</span>
             </div>
           )}
 
@@ -311,7 +330,7 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
         {/* Quick Commands Bar */}
         <div className="p-2.5 bg-purple-50/50 border-t border-purple-100 overflow-x-auto whitespace-nowrap scrollbar-thin">
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] text-purple-800 font-bold shrink-0">أوامر سريعة:</span>
+            <span className="text-[10px] text-purple-800 font-bold shrink-0">{isArabic ? 'أوامر سريعة:' : 'Quick commands:'}</span>
             {quickPrompts.map((prompt, idx) => (
               <button
                 key={idx}
@@ -338,7 +357,7 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="اكتب أمرك هنا (مثال: ضيف موظف اسمه أحمد الكندري...)"
+              placeholder={isArabic ? 'اكتب أمرك هنا (مثال: ضيف موظف اسمه أحمد الكندري...)' : 'Type your request here (for example: add an employee named Ahmed Al-Kandari...)'}
               className="flex-1 text-xs bg-slate-100 border border-slate-300 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-600 font-sans"
             />
             <button

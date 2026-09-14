@@ -3,7 +3,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { CompanyProvider } from './CompanyContext';
 import { SystemSettingsProvider } from './SystemSettingsContext';
-import { LanguageProvider } from '../lib/i18n';
+import { LanguageProvider, useLang } from '../lib/i18n';
 export { CompanyProvider, useCompany } from './CompanyContext';
 export { SystemSettingsProvider, useSystemSettings } from './SystemSettingsContext';
 export { useIsolatedData } from '../hooks/useIsolatedData';
@@ -18,7 +18,8 @@ interface AysedContextType {
 
 const AysedContext = createContext<AysedContextType | undefined>(undefined);
 
-export const AysedCoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const AysedCoreShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { lang } = useLang();
   const [systemState, setSystemState] = useState<any>({
     user: { id: '', name: '', email: '', role: '' },
     company: { id: '', name: '', currency: 'KWD' },
@@ -41,7 +42,7 @@ export const AysedCoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return () => unsubscribe();
   }, []);
 
-  if (loading) return <div className="starting-server flex items-center justify-center min-h-screen bg-slate-900 text-white font-bold text-lg">جاري تشغيل محرك Aysed S HR 2026...</div>;
+  if (loading) return <div className="starting-server flex items-center justify-center min-h-screen bg-slate-900 text-white font-bold text-lg" dir={lang === 'ar' ? 'rtl' : 'ltr'}>{lang === 'ar' ? 'جاري تشغيل محرك Aysed S HR 2026...' : 'Starting the Aysed S HR 2026 engine...'}</div>;
 
   return (
     <AysedContext.Provider value={{ ...systemState, refreshSystem: initializeSystem }}>
@@ -56,18 +57,22 @@ export const AysedCoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         body { font-family: 'Tajawal', sans-serif; background-color: #f8f9fa; }
       `}</style>
       <CompanyProvider>
-        <LanguageProvider>
-          <SystemSettingsProvider>
-            {children}
-          </SystemSettingsProvider>
-        </LanguageProvider>
+        <SystemSettingsProvider>
+          {children}
+        </SystemSettingsProvider>
       </CompanyProvider>
     </AysedContext.Provider>);
 };
 
 // هوك (Hook) لاستدعاء النظام في أي صفحة
+export const AysedCoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <LanguageProvider>
+    <AysedCoreShell>{children}</AysedCoreShell>
+  </LanguageProvider>
+);
+
 export const useAysedSystem = () => {
   const context = useContext(AysedContext);
-  if (!context) throw new Error("يجب استخدام useAysedSystem داخل AysedCoreProvider");
+  if (!context) throw new Error("useAysedSystem must be used inside AysedCoreProvider");
   return context;
 };

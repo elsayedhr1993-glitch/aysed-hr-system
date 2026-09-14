@@ -168,7 +168,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
       gradient: 'from-emerald-500 to-teal-700 text-white',
       badgeBg: 'bg-emerald-500',
       badge: `${stats.employeesCount}`,
-      description: 'السجلات الشخصية، المباشرة، والشهادات الرسمية',
+      description: lang === 'ar' ? 'السجلات الشخصية، المباشرة، والشهادات الرسمية' : 'Personal records, onboarding, and official documents',
     },
     {
       id: 'RECRUITMENT' as ActiveApp,
@@ -179,7 +179,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
       gradient: 'from-indigo-500 to-purple-700 text-white',
       badgeBg: 'bg-indigo-500',
       badge: `${stats.candidatesCount}`,
-      description: 'إدارة طلبات التوظيف والمقابلات والسير الذاتية',
+      description: lang === 'ar' ? 'إدارة طلبات التوظيف والمقابلات والسير الذاتية' : 'Manage hiring requests, interviews, and CVs',
     },
     {
       id: 'CONTRACTS' as ActiveApp,
@@ -222,8 +222,8 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
       category: 'ATTENDANCE_TIME',
       gradient: 'from-blue-600 to-indigo-800 text-white',
       badgeBg: 'bg-blue-600',
-      badge: 'بصمة ZK',
-      description: 'البصمة البيومترية، التأخير، والاستئذان اليومي',
+      badge: 'ZK',
+      description: lang === 'ar' ? 'البصمة البيومترية، التأخير، والاستئذان اليومي' : 'Biometric clocking, lateness, and daily approvals',
     },
     {
       id: 'PAYROLL' as ActiveApp,
@@ -234,7 +234,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
       gradient: 'from-[#714B67] to-[#4A2E44] text-white',
       badgeBg: 'bg-[#714B67]',
       badge: 'WPS',
-      description: 'كشوف أجور البنوك وحاسبة مكافأة نهاية الخدمة (مادة 51)',
+      description: lang === 'ar' ? 'كشوف أجور البنوك وحاسبة مكافأة نهاية الخدمة (مادة 51)' : 'Bank payroll slips and end-of-service calculator',
     },
     {
       id: 'REPORTS' as ActiveApp,
@@ -245,7 +245,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
       gradient: 'from-violet-600 to-purple-900 text-white',
       badgeBg: 'bg-violet-600',
       badge: 'Pivot',
-      description: 'الجدول المحوري والرسوم البيانية والتحليلات',
+      description: lang === 'ar' ? 'الجدول المحوري والرسوم البيانية والتحليلات' : 'Pivot tables, charts, and executive reporting',
     },
     {
       id: 'DOCUMENTS' as ActiveApp,
@@ -256,7 +256,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
       gradient: 'from-sky-500 to-blue-700 text-white',
       badgeBg: 'bg-sky-600',
       badge: `${stats.documentsCount}`,
-      description: 'الأرشيف الإلكتروني، الهويات، وتنبيهات الانتهاء',
+      description: lang === 'ar' ? 'الأرشيف الإلكتروني، الهويات، وتنبيهات الانتهاء' : 'Document archive, IDs, and expiry alerts',
     },
     {
       id: 'SCANNER_APP' as ActiveApp,
@@ -267,7 +267,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
       gradient: 'from-teal-600 to-emerald-800 text-white',
       badgeBg: 'bg-teal-600',
       badge: 'OCR',
-      description: 'مسح الوثائق، استخراج البيانات، والأرشفة الفورية',
+      description: lang === 'ar' ? 'مسح الوثائق، استخراج البيانات، والأرشفة الفورية' : 'Scan documents, extract data, and archive instantly',
     },
     {
       id: 'CUSTODY_LOANS' as ActiveApp,

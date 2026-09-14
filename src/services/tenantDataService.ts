@@ -17,6 +17,7 @@ import { normalizeEmployeeRecord, toEmployeeFirestoreData } from '../utils/emplo
 import { normalizeContractStatus } from '../utils/contractStatus';
 import { requireCompanyId } from '../utils/tenantGuards';
 import { saveHolidayWorkRecord, approveHolidayWork, WorkOnHolidayRecord } from './holidayWorkService';
+import { createEmployeeOnboardingBundle } from './employeeOnboardingService';
 
 export enum OperationType {
   CREATE = 'create',
@@ -2245,36 +2246,52 @@ export const TenantDatabaseService = {
   }
 };
 
-export async function addDirectEmployeeViaAi(tenantId: string, empData: any): Promise<Employee> {
-  const companyId = tenantId || 'company_1';
-  const newEmp: Employee = {
-    id: 'emp_' + Date.now(),
-    companyId: companyId,
-    employeeCode: 'EMP-' + Math.floor(1000 + Math.random() * 9000),
-    fullNameAr: empData.nameAr || 'موظف جديد',
-    fullNameEn: empData.nameEn || empData.nameAr || 'New Employee',
-    civilId: empData.civilId || '290' + Math.floor(100000000 + Math.random() * 900000000),
-    civilIdExpiry: '2028-12-31',
-    passportNo: 'P' + Math.floor(10000000 + Math.random() * 90000000),
-    passportExpiry: '2030-12-31',
+export async function addDirectEmployeeViaAi(tenantId: string, empData: any, existingEmployees: Array<any> = []): Promise<Employee> {
+  const companyId = requireCompanyId(tenantId || 'company_1');
+
+  const normalizedEmployee = {
+    id: `emp_ai_${Date.now()}`,
+    companyId,
+    employeeCode: `EMP-AI-${Date.now().toString().slice(-6)}`,
+    fullNameAr: empData.nameAr || empData.fullNameAr || empData.name || 'موظف جديد',
+    fullNameEn: empData.nameEn || empData.fullNameEn || '',
+    civilId: empData.civilId || empData.civil_id || '',
+    civilIdExpiry: empData.civilIdExpiry || empData.civil_id_expiry || '2035-12-31',
+    passportNo: empData.passportNo || '',
+    passportExpiry: empData.passportExpiry || '',
     nationality: empData.nationality || 'كويتي',
-    isKuwaiti: (empData.nationality || '').includes('كويتي'),
-    residencyType: 'مادة 18 - قطاع أهلي',
-    gender: 'MALE',
-    dob: '1990-01-01',
+    isKuwaiti: String(empData.nationality || '').includes('كويتي') || String(empData.nationality || '').toLowerCase() === 'kuwaiti',
+    residencyType: empData.residencyType || 'مادة 18 - قطاع أهلي',
+    gender: empData.gender || 'MALE',
+    dob: empData.dob || '',
     department: empData.department || 'الإدارة العامة',
     jobTitle: empData.jobTitle || empData.job || 'موظف',
-    email: empData.email || 'employee' + Math.floor(100 + Math.random() * 900) + '@company.com',
-    phone: empData.phone || '96590000000',
-    joinDate: new Date().toISOString().split('T')[0],
+    email: empData.email || '',
+    phone: empData.phone || '',
+    joinDate: empData.joinDate || new Date().toISOString().split('T')[0],
     status: 'ACTIVE',
-    bankName: 'بيت التمويل الكويتي (KFH)',
-    iban: 'KW12KFH000000000000112233',
+    bankName: empData.bankName || 'بيت التمويل الكويتي (KFH)',
+    iban: empData.iban || '',
+    basicSalary: Number(empData.basicSalary ?? empData.salary ?? 0) || 0,
+    housingAllowance: Number(empData.housingAllowance ?? 0) || 0,
+    transportAllowance: Number(empData.transportAllowance ?? 0) || 0,
+    otherAllowance: Number(empData.otherAllowance ?? empData.otherAllowances ?? 0) || 0,
+    totalSalary: Number(empData.totalSalary ?? empData.basicSalary ?? empData.salary ?? 0) || 0,
+    notes: empData.notes || `مضاف عبر AI Copilot (الراتب: ${empData.basicSalary || empData.salary || 850} د.ك)`,
     tags: ['الذكاء الاصطناعي'],
-    notes: `مضاف عبر AI Copilot (الراتب: ${empData.basicSalary || empData.salary || 850} د.ك)`
-  };
-  await TenantDatabaseService.saveEmployee(newEmp, companyId);
-  console.log('✅ [TenantDataService] Employee added directly via AI:', newEmp);
-  return newEmp;
+    isCommenced: true,
+    leaveAccrualActivated: true,
+    contractStatus: 'running',
+    contractType: 'FIXED_TERM'
+  } as Employee;
+
+  const bundle = await createEmployeeOnboardingBundle({
+    companyId,
+    employee: normalizedEmployee as any,
+    existingEmployees: existingEmployees as any
+  });
+
+  console.log('✅ [TenantDataService] Employee added through onboarding state machine via AI:', bundle.employee);
+  return bundle.employee as Employee;
 }
 

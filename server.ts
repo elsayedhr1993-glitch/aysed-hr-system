@@ -28,6 +28,7 @@ import {
   calculateServerWorkingDays,
   validateSettlementConstraints
 } from "./server/leaveCalculatorServer.ts";
+import { parseEmployeeCreationPrompt } from "./src/lib/aiEmployeeActionParser.ts";
 
 dotenv.config();
 dotenv.config({ path: ".env.local", override: true });
@@ -1447,6 +1448,29 @@ async function requireFirebaseAuth(req: any, res: any) {
   }
 }
 
+function buildCreateEmployeeAction(prompt: string) {
+  const parsed = parseEmployeeCreationPrompt(prompt);
+  if (!parsed) return null;
+
+  return {
+    type: "CREATE_EMPLOYEE",
+    title: "Create employee via onboarding workflow",
+    employeeData: {
+      nameAr: parsed.nameAr,
+      nameEn: parsed.nameEn || parsed.nameAr,
+      civilId: parsed.civilId,
+      jobTitle: parsed.jobTitle,
+      department: parsed.department,
+      basicSalary: parsed.basicSalary,
+      phone: parsed.phone,
+      nationality: parsed.nationality,
+      email: parsed.email,
+      iban: parsed.iban,
+      bankName: parsed.bankName,
+    }
+  };
+}
+
 app.post("/api/ai-chat", async (req, res) => {
   try {
     const authCheck = await requireFirebaseAuth(req, res);
@@ -1461,7 +1485,8 @@ app.post("/api/ai-chat", async (req, res) => {
     }
 
     const ai = getGeminiClient();
-    
+    const createEmployeeAction = buildCreateEmployeeAction(prompt);
+
     // System instruction for Odoo Enterprise Kuwait HR Assistant
     const systemInstruction = `أنت المساعد البرمجي الرسمي لنظام "Aysed S HR 2026". 
 هويتك ومهامك:
@@ -1529,6 +1554,7 @@ ${contextSummary || 'المؤسسة الحالية'}
         success: true,
         reply: simulatedReply,
         source: "simulated_copilot",
+        action: createEmployeeAction,
       });
     }
 
@@ -1581,12 +1607,14 @@ ${contextSummary || 'المؤسسة الحالية'}
       success: true,
       reply: replyText,
       source: usedModel,
+      action: createEmployeeAction,
     });
   } catch (error: any) {
     return res.json({
       success: true,
       reply: `### 🤖 مساعد أودو الذكي (وضع الاستجابة الاحتياطية)\n\nأهلاً بك! النظام يعمل بكامل طاقته الاحتياطية للتعامل مع طلباتك بدقة تامة.\n\n- **وفقاً لقانون العمل الكويتي رقم 6/2010:** يتم احتساب مكافأة نهاية الخدمة، الإجازات، والرواتب بدقة تامة.\n- **قاعدة البيانات:** مرتبطة بنجاح وجاهزة لمعالجة كافة المعاملات الإدارية والمالية.`,
       source: "fallback_simulated_copilot",
+      action: buildCreateEmployeeAction(req.body?.prompt || ""),
     });
   }
 });

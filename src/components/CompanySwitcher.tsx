@@ -10,10 +10,12 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
+import { useLang } from '../lib/i18n';
 import { toast } from 'react-hot-toast';
 
 export const CompanySwitcher: React.FC<{ onOpenSaasPortal?: () => void }> = ({ onOpenSaasPortal }) => {
   const { activeCompany, isImpersonating, exitImpersonation } = useCompany();
+  const { lang } = useLang();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -31,14 +33,17 @@ export const CompanySwitcher: React.FC<{ onOpenSaasPortal?: () => void }> = ({ o
   const handleExitImpersonation = () => {
     exitImpersonation();
     setIsOpen(false);
-    toast.success('تم إنهاء وضع المحاكاة والعودة إلى البيئة المركزية للسوبر أدمن');
+    toast.success(lang === 'ar' ? 'تم إنهاء وضع المحاكاة والعودة إلى البيئة المركزية للسوبر أدمن' : 'Impersonation ended and you returned to the central super-admin environment');
     if (onOpenSaasPortal) {
       onOpenSaasPortal();
     }
   };
 
+  const isArabic = lang === 'ar';
+  const companyLabel = activeCompany?.nameAr || activeCompany?.name || (isArabic ? 'المنشأة' : 'Company');
+
   return (
-    <div className="relative font-sans dir-rtl" ref={dropdownRef} dir="rtl">
+    <div className="relative font-sans" ref={dropdownRef} dir={isArabic ? 'rtl' : 'ltr'}>
       {/* Trigger Button - Odoo 18 Slim Style */}
       <button
         type="button"
@@ -48,15 +53,15 @@ export const CompanySwitcher: React.FC<{ onOpenSaasPortal?: () => void }> = ({ o
             ? 'bg-amber-500 hover:bg-amber-600 text-slate-950 border-amber-300 font-bold' 
             : 'bg-white/15 hover:bg-white/25 text-white border-white/20'
         }`}
-        title={isImpersonating ? "وضع المحاكاة كمسؤول على الشركة المشتركة" : "المنشأة النشطة"}
+        title={isImpersonating ? (isArabic ? 'وضع المحاكاة كمسؤول على الشركة المشتركة' : 'Super-admin impersonation mode for the active company') : (isArabic ? 'المنشأة النشطة' : 'Active company')}
       >
         <div className={`w-4 h-4 rounded flex items-center justify-center font-bold text-[10px] flex-shrink-0 ${
           isImpersonating ? 'bg-slate-950 text-amber-300' : 'bg-white/20 text-white'
         }`}>
-          {isImpersonating ? '⚠️' : (activeCompany?.nameAr || activeCompany?.name || 'المنشأة').charAt(0)}
+          {isImpersonating ? '⚠️' : companyLabel.charAt(0)}
         </div>
         <span className="text-right max-w-[140px] truncate text-[11px] font-bold leading-none">
-          {activeCompany?.nameAr || activeCompany?.name || 'المنشأة'}
+          {companyLabel}
         </span>
         <ChevronDown size={12} className={`transition-transform ${isImpersonating ? 'text-slate-950' : 'text-white/70'} ${isOpen ? 'rotate-180' : ''}`} />
       </button>
@@ -76,7 +81,7 @@ export const CompanySwitcher: React.FC<{ onOpenSaasPortal?: () => void }> = ({ o
                 <ShieldCheck size={15} className="text-[#714B67]" />
               )}
               <span className="text-[11px] font-bold text-slate-800">
-                {isImpersonating ? 'وضع المحاكاة كمسؤول (Impersonation)' : 'البيئة النشطة (Master Context)'}
+                {isImpersonating ? (isArabic ? 'وضع المحاكاة كمسؤول (Impersonation)' : 'Super-admin impersonation') : (isArabic ? 'البيئة النشطة (Master Context)' : 'Active environment (Master Context)')}
               </span>
             </div>
             <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
@@ -84,7 +89,7 @@ export const CompanySwitcher: React.FC<{ onOpenSaasPortal?: () => void }> = ({ o
                 ? 'bg-amber-200 text-amber-900' 
                 : 'bg-[#714B67]/15 text-[#714B67]'
             }`}>
-              {isImpersonating ? 'جلسة مشتركة' : 'معزولة كلياً'}
+              {isImpersonating ? (isArabic ? 'جلسة مشتركة' : 'Shared session') : (isArabic ? 'معزولة كلياً' : 'Fully isolated')}
             </span>
           </div>
 
@@ -98,18 +103,18 @@ export const CompanySwitcher: React.FC<{ onOpenSaasPortal?: () => void }> = ({ o
               </div>
               <div className="min-w-0 text-right">
                 <div className="text-xs font-bold text-slate-900 truncate">
-                  {activeCompany?.nameAr || activeCompany?.name || 'المنشأة'}
+                  {companyLabel}
                 </div>
                 <div className="text-[10px] text-slate-500 font-mono">
-                  رقم ملف الشركة: {activeCompany?.crNumber || activeCompany?.commercialRegNo || '---'}
+                  {isArabic ? 'رقم ملف الشركة:' : 'Company file number:'} {activeCompany?.crNumber || activeCompany?.commercialRegNo || '---'}
                 </div>
               </div>
             </div>
 
             <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 text-[11px] text-slate-600 space-y-1">
               <div className="flex justify-between">
-                <span>العملة الافتراضية:</span>
-                <span className="font-bold text-slate-800">دينار كويتي (0.000 KWD)</span>
+                <span>{isArabic ? 'العملة الافتراضية:' : 'Default currency:'}</span>
+                <span className="font-bold text-slate-800">{isArabic ? 'دينار كويتي (0.000 KWD)' : 'Kuwaiti Dinar (0.000 KWD)'}</span>
               </div>
             </div>
           </div>
@@ -123,11 +128,11 @@ export const CompanySwitcher: React.FC<{ onOpenSaasPortal?: () => void }> = ({ o
                 className="w-full py-2 px-3 bg-slate-900 hover:bg-black text-amber-300 hover:text-white rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition shadow-xs cursor-pointer"
               >
                 <LogOut size={14} />
-                <span>إنهاء المحاكاة والعودة للوحة السوبر أدمن</span>
+                <span>{isArabic ? 'إنهاء المحاكاة والعودة للوحة السوبر أدمن' : 'End impersonation and return to super-admin'}</span>
               </button>
             ) : (
               <p className="text-[10px] text-slate-500 text-center leading-relaxed">
-                🛡️ تطبق المنظومة عزلاً صارماً لقواعد بيانات المشتركين (Strict SaaS Isolation). تصفح المشتركين متاح فقط عبر لوحة المشتركين.
+                {isArabic ? '🛡️ تطبق المنظومة عزلاً صارماً لقواعد بيانات المشتركين (Strict SaaS Isolation). تصفح المشتركين متاح فقط عبر لوحة المشتركين.' : '🛡️ The system applies strict tenant data isolation. Tenant browsing is available only through the SaaS admin panel.'}
               </p>
             )}
           </div>

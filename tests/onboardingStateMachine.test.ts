@@ -5,8 +5,10 @@ import {
   validateDraftEmployee,
   ONBOARDING_STEPS,
   type DraftEmployee,
-} from '../src/lib/onboardingStateMachine';
-import { validateEmployeeOnboardingInput, EmployeeOnboardingValidationError } from '../src/services/employeeOnboardingService';
+} from '../src/lib/onboardingStateMachine.ts';
+import { validateEmployeeOnboardingInput, EmployeeOnboardingValidationError } from '../src/services/employeeOnboardingService.ts';
+import { addDirectEmployeeViaAi } from '../src/services/tenantDataService.ts';
+import { parseEmployeeCreationPrompt, shouldGenerateEmployeeAction } from '../src/lib/aiEmployeeActionParser.ts';
 
 const draft = createDraftEmployee('comp-1788442584841');
 assert.equal(draft.companyId, 'comp-1788442584841');
@@ -82,5 +84,29 @@ assert.throws(() => {
     }],
   });
 }, EmployeeOnboardingValidationError);
+
+await assert.rejects(() => addDirectEmployeeViaAi('comp-1788442584841', {
+  nameAr: 'حسين علي',
+  civilId: '288010101234',
+  email: 'saad2@example.com',
+  bankName: 'بنك الكويت الوطني',
+  iban: 'KW81CBKU0000000000000000000004',
+  basicSalary: 820,
+  department: 'المالية',
+  jobTitle: 'محاسب',
+}, [{
+  id: 'EMP-DUPLICATE-1',
+  companyId: 'comp-1788442584841',
+  civilId: '288010101234',
+  email: 'old@example.com',
+  iban: 'KW81CBKU0000000000000000000003',
+}]), EmployeeOnboardingValidationError);
+
+const parsed = parseEmployeeCreationPrompt('ضيف موظف اسمه أحمد الكندري رقم مدني 290010112345 ووظيفته محامي وراتبه 850');
+assert.ok(parsed);
+assert.equal(parsed?.nameAr?.includes('أحمد') || parsed?.nameEn?.includes('Ahmed') || false, true);
+assert.equal(parsed?.civilId, '290010112345');
+assert.equal(parsed?.basicSalary, '850');
+assert.equal(shouldGenerateEmployeeAction('أضف موظف جديد'), true);
 
 console.log('Onboarding state machine test passed');

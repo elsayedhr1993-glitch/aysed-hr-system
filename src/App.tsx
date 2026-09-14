@@ -601,9 +601,9 @@ function MainAppLayout() {
   // Authentication Guard (Gateway)
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#F9FAFB] flex flex-col justify-center items-center font-sans">
+      <div className="min-h-screen bg-[#F9FAFB] flex flex-col justify-center items-center font-sans" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
         <div className="w-12 h-12 border-4 border-slate-200 border-t-[#714B67] rounded-full animate-spin"></div>
-        <p className="mt-4 text-slate-500 text-sm font-medium">جاري التحقق من الهوية...</p>
+        <p className="mt-4 text-slate-500 text-sm font-medium">{lang === 'ar' ? 'جاري التحقق من الهوية...' : 'Verifying identity...'}</p>
       </div>
     );
   }

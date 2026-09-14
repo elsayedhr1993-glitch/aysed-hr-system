@@ -112,8 +112,9 @@ export function getInitialLang(): 'ar' | 'en' {
   if (typeof window !== 'undefined') {
     const saved = localStorage.getItem('aysed_res_lang') || localStorage.getItem('res_lang_code');
     if (saved === 'en_US' || saved === 'en') return 'en';
+    if (saved === 'ar_001' || saved === 'ar') return 'ar';
   }
-  return 'ar';
+  return 'en';
 }
 
 type LanguageContextValue = {
@@ -139,9 +140,11 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       localStorage.setItem('aysed_res_lang', newLang);
       localStorage.setItem('res_lang_code', langCode);
       localStorage.setItem('res_lang_direction', direction);
-      
+
       document.documentElement.lang = newLang;
       document.documentElement.dir = direction;
+      document.body.dir = direction;
+      document.body.setAttribute('dir', direction);
     }
   };
 
