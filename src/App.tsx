@@ -69,7 +69,7 @@ import { LegalDocumentBotModal } from './components/LegalDocumentBotModal';
 import { DataPayrollAnalystBotModal } from './components/DataPayrollAnalystBotModal';
 import { FacilityLicensingWizardModal } from './components/facility/FacilityLicensingWizardModal';
 import { createEmployeeOnboardingBundle } from './services/employeeOnboardingService';
-import { collection, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
+import { collection, doc, getDocs, onSnapshot, query, setDoc, where, writeBatch } from 'firebase/firestore';
 import { cleanFirestoreData, db } from './lib/firebase';
 import { useLang } from './lib/i18n';
 
@@ -119,6 +119,167 @@ function MainAppLayout() {
   const [debugMode, setDebugMode] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
 
+  const seedDemoDataForActiveCompany = async (companyId: string) => {
+    if (!companyId || companyId === 'comp-super-admin') return;
+
+    try {
+      const employeesQuery = query(collection(db, 'employees'), where('companyId', '==', companyId));
+      const employeesSnapshot = await getDocs(employeesQuery);
+
+      if (!employeesSnapshot.empty) return;
+
+      const demoEmployees = [
+        {
+          id: 'EMP-DEMO-101',
+          companyId,
+          fullNameAr: 'أحمد خالد المنصور',
+          nameAr: 'أحمد خالد المنصور',
+          fullNameEn: 'Ahmed Khaled Al-Mansoor',
+          nameEn: 'Ahmed Khaled Al-Mansoor',
+          civilId: '290121501234',
+          employeeCode: 'EMP-101',
+          jobTitle: 'استشاري جراحة عامة',
+          department: 'الأطباء',
+          dept: 'الأطباء',
+          nationality: 'كويتي',
+          joinDate: '2024-01-15',
+          status: 'active',
+          email: 'ahmed.demo@aysed.local',
+          phone: '+96550000001',
+          basicSalary: 1200,
+          housingAllowance: 180,
+          transportAllowance: 80,
+          otherAllowance: 70,
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: 'EMP-DEMO-102',
+          companyId,
+          fullNameAr: 'سارة عبد الله العتيبي',
+          nameAr: 'سارة عبد الله العتيبي',
+          fullNameEn: 'Sarah Abdullah Al-Otaibi',
+          nameEn: 'Sarah Abdullah Al-Otaibi',
+          civilId: '293041205678',
+          employeeCode: 'EMP-102',
+          jobTitle: 'رئيسة التمريض',
+          department: 'التمريض',
+          dept: 'التمريض',
+          nationality: 'كويتي',
+          joinDate: '2023-05-10',
+          status: 'active',
+          email: 'sara.demo@aysed.local',
+          phone: '+96550000002',
+          basicSalary: 850,
+          housingAllowance: 120,
+          transportAllowance: 70,
+          otherAllowance: 40,
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: 'EMP-DEMO-103',
+          companyId,
+          fullNameAr: 'محمد فوزي الصباح',
+          nameAr: 'محمد فوزي الصباح',
+          fullNameEn: 'Mohammad Fawzi Al-Sabah',
+          nameEn: 'Mohammad Fawzi Al-Sabah',
+          civilId: '288090209988',
+          employeeCode: 'EMP-103',
+          jobTitle: 'أخصائي الأشعة',
+          department: 'الفنيين',
+          dept: 'الفنيين',
+          nationality: 'مصري',
+          joinDate: '2025-02-01',
+          status: 'active',
+          email: 'mohammad.demo@aysed.local',
+          phone: '+96550000003',
+          basicSalary: 650,
+          housingAllowance: 90,
+          transportAllowance: 60,
+          otherAllowance: 30,
+          createdAt: new Date().toISOString(),
+        }
+      ];
+
+      const demoContracts = [
+        {
+          id: 'CTR-DEMO-101',
+          companyId,
+          employeeId: 'EMP-DEMO-101',
+          basicSalary: 1200,
+          housingAllowance: 180,
+          transportAllowance: 80,
+          otherAllowance: 70,
+          contractStatus: 'ACTIVE',
+          startDate: '2024-01-15',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: 'CTR-DEMO-102',
+          companyId,
+          employeeId: 'EMP-DEMO-102',
+          basicSalary: 850,
+          housingAllowance: 120,
+          transportAllowance: 70,
+          otherAllowance: 40,
+          contractStatus: 'ACTIVE',
+          startDate: '2023-05-10',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: 'CTR-DEMO-103',
+          companyId,
+          employeeId: 'EMP-DEMO-103',
+          basicSalary: 650,
+          housingAllowance: 90,
+          transportAllowance: 60,
+          otherAllowance: 30,
+          contractStatus: 'ACTIVE',
+          startDate: '2025-02-01',
+          createdAt: new Date().toISOString(),
+        }
+      ];
+
+      const demoLeaves = [
+        {
+          id: 'LEAVE-DEMO-101',
+          companyId,
+          employeeId: 'EMP-DEMO-101',
+          status: 'APPROVED',
+          startDate: new Date().toISOString().slice(0, 10),
+          endDate: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
+          leaveType: 'annual',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: 'LEAVE-DEMO-102',
+          companyId,
+          employeeId: 'EMP-DEMO-102',
+          status: 'PENDING',
+          startDate: new Date(Date.now() + 86400000 * 2).toISOString().slice(0, 10),
+          endDate: new Date(Date.now() + 86400000 * 4).toISOString().slice(0, 10),
+          leaveType: 'annual',
+          createdAt: new Date().toISOString(),
+        }
+      ];
+
+      const batch = writeBatch(db);
+      demoEmployees.forEach(emp => {
+        batch.set(doc(db, 'employees', emp.id), cleanFirestoreData(emp));
+      });
+      demoContracts.forEach(contract => {
+        batch.set(doc(db, 'contracts', contract.id), cleanFirestoreData(contract));
+      });
+      demoLeaves.forEach(leave => {
+        batch.set(doc(db, 'leave_requests', leave.id), cleanFirestoreData(leave));
+      });
+
+      await batch.commit();
+      console.info('[DemoSeed] Created demo HR data for active company', companyId);
+    } catch (error) {
+      console.warn('[DemoSeed] Demo data seeding skipped or failed:', error);
+    }
+  };
+
   // User Avatar & Profile state
   const [userAvatar, setUserAvatar] = useState<string>(
     user?.photoURL || localStorage.getItem('aysed_user_avatar') || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'
@@ -148,11 +309,14 @@ function MainAppLayout() {
   const [isFacilityWizardOpen, setIsFacilityWizardOpen] = useState(false);
 
   useEffect(() => {
-    const companyId = activeCompany?.id;
-    if (!companyId) {
+    if (!activeCompany?.id) {
       setLeaveStats({ pending: 0, onLeaveToday: 0 });
       return;
     }
+
+    void seedDemoDataForActiveCompany(activeCompany.id);
+
+    const companyId = activeCompany.id;
     const leavesQuery = query(collection(db, 'leave_requests'), where('companyId', '==', companyId));
     return onSnapshot(leavesQuery, snapshot => {
       const today = new Date().toISOString().slice(0, 10);

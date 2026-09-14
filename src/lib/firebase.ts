@@ -16,10 +16,7 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 let firestoreInstance;
 try {
   const dbId = (firebaseConfig as any).firestoreDatabaseId || undefined;
-  firestoreInstance = initializeFirestore(app, {
-    localCache: memoryLocalCache(),
-    experimentalAutoDetectLongPolling: true,
-  }, dbId);
+  firestoreInstance = initializeFirestore(app, {}, dbId);
 } catch {
   try {
     if (firebaseConfig.firestoreDatabaseId) {
