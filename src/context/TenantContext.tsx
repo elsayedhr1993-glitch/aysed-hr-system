@@ -118,8 +118,14 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [impersonatingCompanyId]);
 
+  useEffect(() => {
+    if (!isActualSuperAdmin) {
+      setImpersonatingCompanyId(null);
+    }
+  }, [isActualSuperAdmin]);
+
   const activeCompany = impersonatingCompanyId 
-    ? companies.find(c => c.id === impersonatingCompanyId) || null 
+    ? companies.find(c => c.id === impersonatingCompanyId) || null
     : (isActualSuperAdmin ? null : companies.find(c => c.id === authCompanyId) || companies[0] || null);
 
   const addCompany = async (compData: Omit<TenantCompany, 'id' | 'createdAt' | 'isActive'>) => {
@@ -183,6 +189,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const impersonateCompany = (companyId: string) => {
+    if (!isActualSuperAdmin || !companies.some(company => company.id === companyId)) return;
     setImpersonatingCompanyId(companyId);
   };
 

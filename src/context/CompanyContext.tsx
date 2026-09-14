@@ -72,11 +72,12 @@ const CompanyContext = createContext<CompanyContextType | undefined>(undefined);
 export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const authCompanyId = user?.companyId || null;
+  const isActualSuperAdmin = user?.role === 'SUPER_ADMIN';
 
   // Master Company State (Persisted) - Default strictly to Almanar Clinic
   const [masterCompany, setMasterCompany] = useState<Company>(() => {
     try {
-      const savedMaster = localStorage.getItem('master_company_profile') || localStorage.getItem('active_company_profile');
+      const savedMaster = localStorage.getItem('master_company_profile');
       if (savedMaster) {
         const parsed = JSON.parse(savedMaster);
         if (parsed && (parsed.nameAr || parsed.name)) {
@@ -184,8 +185,16 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Active company: if impersonating, use impersonatedCompany, else use masterCompany
   const rawActive = isImpersonating && impersonatedCompany ? impersonatedCompany : masterCompany;
-  const activeCompanyId = authCompanyId || (isImpersonating && impersonatedCompany ? getDeterministicCompanyId(impersonatedCompany) : getDeterministicCompanyId(rawActive));
-  const activeCompany = { ...rawActive, id: activeCompanyId };
+  const activeCompanyId = isActualSuperAdmin
+    ? (isImpersonating && impersonatedCompany ? getDeterministicCompanyId(impersonatedCompany) : 'SAAS_PLATFORM')
+    : (authCompanyId || getDeterministicCompanyId(rawActive));
+  const activeCompany = {
+    ...rawActive,
+    id: activeCompanyId,
+    nameAr: isActualSuperAdmin && !isImpersonating ? 'منصة الإدارة المركزية' : rawActive.nameAr,
+    nameEn: isActualSuperAdmin && !isImpersonating ? 'SaaS Platform' : rawActive.nameEn,
+    name: isActualSuperAdmin && !isImpersonating ? 'منصة الإدارة المركزية' : rawActive.name
+  };
 
   // Strict SaaS Isolation: The accessible companies in dropdown is strictly the active context
   const companies = [activeCompany];
@@ -195,12 +204,21 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
     localStorage.setItem('activeCompanyId', authCompanyId);
   }, [authCompanyId]);
 
+  useEffect(() => {
+    if (!isActualSuperAdmin && isImpersonating) {
+      setIsImpersonating(false);
+      setImpersonatedCompany(null);
+      localStorage.removeItem('aysed_is_impersonating');
+      localStorage.removeItem('aysed_impersonated_comp');
+    }
+  }, [isActualSuperAdmin, isImpersonating]);
+
   // Sync state to local storage
   useEffect(() => {
     if (!isImpersonating) {
       localStorage.setItem('master_company_profile', JSON.stringify(masterCompany));
       localStorage.setItem('active_company_profile', JSON.stringify(masterCompany));
-      localStorage.setItem('activeCompanyId', masterCompany.id);
+      localStorage.setItem('activeCompanyId', isActualSuperAdmin ? 'SAAS_PLATFORM' : masterCompany.id);
       localStorage.setItem('aysed_is_impersonating', 'false');
     } else if (impersonatedCompany) {
       localStorage.setItem('aysed_impersonated_comp', JSON.stringify(impersonatedCompany));
@@ -208,7 +226,7 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
       localStorage.setItem('activeCompanyId', impersonatedCompany.id);
       localStorage.setItem('aysed_is_impersonating', 'true');
     }
-  }, [masterCompany, impersonatedCompany, isImpersonating]);
+  }, [masterCompany, impersonatedCompany, isImpersonating, isActualSuperAdmin]);
 
   // Start Impersonation Mode
   const startImpersonation = (companyOrName: string | Partial<Company>) => {
