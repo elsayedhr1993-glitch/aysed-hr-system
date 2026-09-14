@@ -1568,28 +1568,34 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                     </div>
 
                     <div className="space-y-2 text-xs">
-                      {settlementResult?.items.map((item, idx) => (
-                        <div 
-                          key={item.id || idx} 
-                          className={`flex items-center justify-between p-2.5 rounded-xl border transition ${
-                            item.type === 'EARNING' 
-                              ? 'bg-emerald-50/40 border-emerald-100 hover:bg-emerald-50/80' 
-                              : 'bg-rose-50/40 border-rose-100 hover:bg-rose-50/80'
-                          }`}
-                        >
-                          <div className="space-y-0.5 max-w-[70%]">
-                            <span className="font-bold text-slate-800 block text-xs">{item.name}</span>
-                            <span className="text-[10px] text-slate-500 font-mono block">
-                              {Number((item.quantity || 0).toFixed(2))} {item.unit === 'days' ? 'أيام' : item.unit === 'hours' ? 'ساعات' : 'وحدة'} × {item.rate.toFixed(3)}
-                            </span>
+                      {(settlementResult?.items || []).map((item, idx) => {
+                        const safeQuantity = Number.isFinite(Number(item?.quantity)) ? Number(item.quantity) : 0;
+                        const safeRate = Number.isFinite(Number(item?.rate)) ? Number(item.rate) : 0;
+                        const safeAmount = Number.isFinite(Number(item?.amount)) ? Number(item.amount) : 0;
+
+                        return (
+                          <div 
+                            key={item.id || idx} 
+                            className={`flex items-center justify-between p-2.5 rounded-xl border transition ${
+                              item.type === 'EARNING' 
+                                ? 'bg-emerald-50/40 border-emerald-100 hover:bg-emerald-50/80' 
+                                : 'bg-rose-50/40 border-rose-100 hover:bg-rose-50/80'
+                            }`}
+                          >
+                            <div className="space-y-0.5 max-w-[70%]">
+                              <span className="font-bold text-slate-800 block text-xs">{item.name || 'بند مالي'}</span>
+                              <span className="text-[10px] text-slate-500 font-mono block">
+                                {Number(safeQuantity.toFixed(2))} {item.unit === 'days' ? 'أيام' : item.unit === 'hours' ? 'ساعات' : 'وحدة'} × {safeRate.toFixed(3)}
+                              </span>
+                            </div>
+                            <div className="text-left font-mono font-black">
+                              <span className={item.type === 'EARNING' ? 'text-emerald-800' : 'text-rose-700'}>
+                                {item.type === 'EARNING' ? '+' : '-'}{safeAmount.toFixed(3)} د.ك
+                              </span>
+                            </div>
                           </div>
-                          <div className="text-left font-mono font-black">
-                            <span className={item.type === 'EARNING' ? 'text-emerald-800' : 'text-rose-700'}>
-                              {item.type === 'EARNING' ? '+' : '-'}{item.amount.toFixed(3)} د.ك
-                            </span>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
 
                     {/* Subtotals & Net Payout Box */}
