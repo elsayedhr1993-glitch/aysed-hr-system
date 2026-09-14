@@ -3,6 +3,7 @@ import { EditableSelect, EditableField } from '../../EditableField';
 import { TabDocumentScanner } from '../../TabDocumentScanner';
 import { 
   getHolidayWorkRecords, 
+  normalizeCompensationType,
   saveHolidayWorkRecord, 
   approveHolidayWork, 
   deleteHolidayWorkRecord, 
@@ -90,6 +91,13 @@ export const EmployeeHRTab: React.FC<Props> = ({
 
   useEffect(() => {
     fetchRecords();
+    const handleLedgerUpdate = () => { void fetchRecords(); };
+    window.addEventListener('leave_balance_ledger_updated', handleLedgerUpdate);
+    window.addEventListener('storage', handleLedgerUpdate);
+    return () => {
+      window.removeEventListener('leave_balance_ledger_updated', handleLedgerUpdate);
+      window.removeEventListener('storage', handleLedgerUpdate);
+    };
   }, [employee.id, employee.civil_id_number, employee.civilId]);
 
   useEffect(() => {
@@ -123,7 +131,7 @@ export const EmployeeHRTab: React.FC<Props> = ({
 
   // Approved Holiday Work days count
   const approvedHolidayDays = holidayRecords
-    .filter(r => r.state === 'approved')
+    .filter(r => r.state === 'approved' && normalizeCompensationType(r.compensationType) === 'COMP_OFF')
     .reduce((sum, r) => sum + (r.hoursWorked >= 4 ? 1 : Number((r.hoursWorked / 8).toFixed(2))), 0);
 
   // Approved leave consumption comes from the canonical Firestore request collection.

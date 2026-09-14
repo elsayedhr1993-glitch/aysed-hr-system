@@ -1,4 +1,5 @@
 export { calculateKuwaitEOS } from './kuwaitPayrollEngine';
+import { getApprovedCompensatoryDays, getApprovedLedgerTransactions } from '../services/leaveBalanceLedgerService';
 
 /**
  * Validate Kuwait Civil ID using MOD 11 algorithm
@@ -624,6 +625,13 @@ export function getGlobalOpeningBalance(emp: any): number {
 export function getGlobalCompensatoryDays(emp: any): number {
   if (!emp) return 0.0;
   try {
+    const ledgerEmployeeId = String(emp.id || emp.employeeId || '').trim();
+    const ledgerCompanyId = String(emp.companyId || emp.company_id || '').trim();
+    const ledgerTransactions = getApprovedLedgerTransactions(ledgerEmployeeId, ledgerCompanyId || undefined);
+    if (ledgerTransactions.length > 0) {
+      return getApprovedCompensatoryDays(ledgerEmployeeId, ledgerCompanyId || undefined);
+    }
+
     if (typeof window !== 'undefined' && window.localStorage) {
       const targetEmpId = String(emp.id || '');
       const targetEmpCode = String(emp.employeeCode || '');
@@ -643,7 +651,8 @@ export function getGlobalCompensatoryDays(emp: any): number {
             if (!matchesEmp) return false;
 
             // Work during holidays and weekly rests is calculated as Compensatory Leave (Day in Lieu)
-            const isDayComp = h.compensationType !== 'CASH' || h.compensationType === 'COMP_OFF' || h.compensationType === 'day' || h.compensationType === 'ANNUAL_ACCRUAL' || !h.compensationType;
+            const normalizedCompensationType = String(h.compensationType || '').toUpperCase();
+            const isDayComp = normalizedCompensationType === 'COMP_OFF' || normalizedCompensationType === 'DAY' || !normalizedCompensationType;
             const isApproved = h.state === 'approved' || h.state === 'done' || !h.state;
             return isDayComp && isApproved;
           });

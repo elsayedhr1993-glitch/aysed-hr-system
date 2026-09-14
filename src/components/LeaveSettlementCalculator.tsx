@@ -23,6 +23,7 @@ import {
   cleanKwdAmount,
   validateSettlementConstraints
 } from '../services/leaveSettlementService';
+import { syncLedgerFromFirestore } from '../services/leaveBalanceLedgerService';
 import { LeaveClearanceDocument } from './LeaveClearanceDocument';
 import { LeaveBalanceEngine } from '../utils/leaveEngine';
 import { normalizeContractStatus } from '../utils/contractStatus';
@@ -120,6 +121,20 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
   const textAlignClass = lang === 'ar' ? 'text-right' : 'text-left';
   const [selectedEmpId, setSelectedEmpId] = useState<string>(preSelectedEmployeeId || (employees[0]?.id ?? ''));
   const [activeTab, setActiveTab] = useState<'settlement_calculator' | 'vouchers_archive' | 'employee_history'>('settlement_calculator');
+  const [ledgerVersion, setLedgerVersion] = useState(0);
+
+  useEffect(() => {
+    let mounted = true;
+    const refreshLedger = () => setLedgerVersion(version => version + 1);
+    void syncLedgerFromFirestore(activeCompany?.id).then(() => {
+      if (mounted) refreshLedger();
+    });
+    window.addEventListener('leave_balance_ledger_updated', refreshLedger);
+    return () => {
+      mounted = false;
+      window.removeEventListener('leave_balance_ledger_updated', refreshLedger);
+    };
+  }, [activeCompany?.id]);
 
   useEffect(() => {
     if (preSelectedEmployeeId) {
@@ -192,7 +207,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
       leaves: normalizedLeaves as any,
       contract: selectedContract || undefined
     });
-  }, [selectedEmp, allocations, leaves, selectedContract]);
+  }, [selectedEmp, allocations, leaves, selectedContract, ledgerVersion]);
 
   const totalAvailableBalance = Number(leaveBalanceSnapshot?.totalBalance || 0);
   const carriedOverBal = Number(leaveBalanceSnapshot?.carriedForwardDays || 0);
@@ -253,11 +268,6 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
       setConsumedLeaveDays(Number(leaveBalanceSnapshot?.approvedLeaveDeductionDays || consumedLeaveDays || 0));
       setStatutoryLeaveDays(0);
       setUnpaidLeaveDays(0);
-    } else if (settlementMode === 'LEAVE_WITH_TRAVEL' && selectedLeaveId === 'custom' && departureDate && returnDate) {
-      const working = calculateWorkingLeaveDays(departureDate, returnDate);
-      if (working.workingDays > 0) {
-        setConsumedLeaveDays(clampToAvailable(working.workingDays));
-      }
     }
   }, [selectedEmpId, netAvailable, settlementMode]);
 
@@ -277,10 +287,9 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
         handleSelectLeave(target.id);
       } else {
         setSelectedLeaveId('custom');
-        const working = calculateWorkingLeaveDays(departureDate, returnDate);
-        if (working.workingDays > 0) {
-          setConsumedLeaveDays(clampToAvailable(working.workingDays));
-        }
+        // Do not treat a date-range default as paid leave when no leave request exists.
+        // Manual/custom settlements can still enter the days explicitly below.
+        setConsumedLeaveDays(0);
       }
     }
   }, [selectedEmpId]);
@@ -1369,11 +1378,11 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                           type="button"
                           onClick={() => {
                             setIncludeEncashment(true);
-                            setEncashmentDays(netAvailable);
+                            setEncashmentDays(Number(Math.max(0, netAvailable - consumedLeaveDays).toFixed(2)));
                           }}
                           className="text-[11px] bg-amber-600 hover:bg-amber-700 text-white px-3 py-1 rounded-xl font-bold shadow-2xs transition cursor-pointer flex items-center gap-1.5"
                         >
-                          <span>💰 تسييل كامل الرصيد ({netAvailable} يوم) لتصفيره</span>
+                          <span>💰 تسييل كامل الرصيد المتبقي ({Math.max(0, netAvailable - consumedLeaveDays).toFixed(2)} يوم) لتصفيره</span>
                         </button>
                         <span className="text-[11px] font-mono font-bold text-amber-900 bg-amber-100 px-2.5 py-1 rounded-lg border border-amber-300">
                           +{includeEncashment ? ((encashmentDays * dailyWage).toFixed(3)) : '0.000'} د.ك

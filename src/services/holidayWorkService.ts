@@ -3,6 +3,7 @@ import { db } from '../lib/firebase';
 import { collection, setDoc, deleteDoc, doc, getDocs, query, orderBy } from 'firebase/firestore';
 import { MANARA_STORAGE_KEYS, getPersistentData, setPersistentData } from '../utils/persistentStorage';
 import { HrLeaveAllocation } from '../types';
+import { cancelLeaveBalanceTransaction, upsertLeaveBalanceTransaction } from './leaveBalanceLedgerService';
 
 export interface LeaveType {
   id?: string;
@@ -187,6 +188,8 @@ export async function deleteHolidayWorkRecord(recordId: string, employeeId?: str
       window.localStorage.setItem('manara_leave_allocations_data', JSON.stringify(filteredAllocs));
     }
 
+    await cancelLeaveBalanceTransaction(`holiday-work-${recordId}`);
+
     // 3. حذف السجل ومخصصاته من Firestore
     try {
       if (db) {
@@ -277,6 +280,19 @@ export async function approveHolidayWork(
         : `إضافة لرصيد الإجازات السنوية عن العمل في (${record.holidayName || 'عطلة رسمية'}) بتاريخ ${record.date} (+${addedDays} يوم)`,
       createdAt: new Date().toISOString()
     };
+
+    await upsertLeaveBalanceTransaction({
+      id: `holiday-work-${updatedRecord.id}`,
+      companyId: record.companyId || '',
+      employeeId: record.employeeId,
+      type: isCompOff ? 'COMP_OFF' : 'ANNUAL_ACCRUAL',
+      source: 'HOLIDAY_WORK',
+      sourceId: updatedRecord.id || allocId,
+      days: addedDays,
+      status: 'APPROVED',
+      effectiveDate: record.date || new Date().toISOString().split('T')[0],
+      notes: createdAlloc.notes
+    });
 
     const existingAllocs = getPersistentData<HrLeaveAllocation[]>(MANARA_STORAGE_KEYS.LEAVE_ALLOCATIONS, []);
     const filteredExisting = existingAllocs.filter(

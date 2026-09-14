@@ -33,6 +33,7 @@ export const MANARA_STORAGE_KEYS = {
   EMPLOYEE_NOTIFICATIONS: 'manara_employee_notifications_data',
   DAILY_MOVEMENTS: 'manara_daily_movements_data',
   LEAVE_SETTLEMENT_VOUCHERS: 'manara_leave_settlement_vouchers_data',
+  LEAVE_BALANCE_TRANSACTIONS: 'manara_leave_balance_transactions',
   HOLIDAY_WORK_RECORDS: 'manara_holiday_work_records',
   ACTIVE_COMPANY_ID: 'activeCompanyId',
   BG_THEME: 'manara_bg_theme',

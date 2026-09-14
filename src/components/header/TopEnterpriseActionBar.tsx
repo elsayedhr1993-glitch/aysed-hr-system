@@ -304,7 +304,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
         )}
 
         {/* 🏢 مبدل المنشآت السريع (Quick Company Switcher Popover) */}
-        {!isDevPreview && (
+        {(isSuperAdmin || !isDevPreview) && (
           <div className="relative shrink-0" ref={companyMenuRef}>
             <button
               onClick={() => setShowCompanyMenu(!showCompanyMenu)}
