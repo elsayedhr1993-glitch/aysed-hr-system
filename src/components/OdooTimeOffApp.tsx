@@ -689,16 +689,18 @@ export const OdooTimeOffApp: React.FC = () => {
   const filteredRequests = requests.filter(req => {
     const reqStatus = normalizeLeaveStatus(req.status);
     const isPending = reqStatus === 'PENDING_MANAGER' || reqStatus === 'PENDING_HR' || reqStatus === 'SUBMITTED';
-    const matchesFilter = 
-      selectedFilter === 'all' || 
+    const matchesFilter =
+      selectedFilter === 'all' ||
       reqStatus === normalizeLeaveStatus(selectedFilter) ||
       (selectedFilter === 'pending' && isPending);
 
-    const matchesSearch = 
-      req.employeeName.includes(searchQuery) || 
-      req.id.includes(searchQuery) || 
-      req.reason.includes(searchQuery) ||
-      (req.department && req.department.includes(searchQuery));
+    const normalizedQuery = String(searchQuery ?? '').trim().toLowerCase();
+    const matchesSearch =
+      !normalizedQuery ||
+      String(req.employeeName ?? '').toLowerCase().includes(normalizedQuery) ||
+      String(req.id ?? '').toLowerCase().includes(normalizedQuery) ||
+      String(req.reason ?? '').toLowerCase().includes(normalizedQuery) ||
+      String(req.department ?? '').toLowerCase().includes(normalizedQuery);
 
     return matchesFilter && matchesSearch;
   });
