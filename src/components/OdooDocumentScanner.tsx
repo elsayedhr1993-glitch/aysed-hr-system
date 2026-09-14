@@ -140,8 +140,23 @@ export const OdooDocumentScanner: React.FC<OdooDocumentScannerProps> = ({ onAppl
             </select>
           </div>
 
-          <label className="border-2 border-dashed border-slate-300 hover:border-[#714B67] rounded-2xl p-6 flex flex-col items-center justify-center gap-3 cursor-pointer bg-slate-50 min-h-[200px] transition">
-            <input type="file" accept="image/*,application/pdf" className="hidden" onChange={handleUpload} />
+          <label
+            className="border-2 border-dashed border-slate-300 hover:border-[#714B67] rounded-2xl p-6 flex flex-col items-center justify-center gap-3 cursor-pointer bg-slate-50 min-h-[200px] transition"
+            onDragOver={(e) => {
+              e.preventDefault();
+              setScanning(true);
+            }}
+            onDragLeave={() => setScanning(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setScanning(false);
+              const file = e.dataTransfer.files?.[0];
+              if (file) {
+                void handleUpload({ target: { files: [file] } } as any);
+              }
+            }}
+          >
+            <input type="file" accept="image/*,application/pdf,.jpg,.jpeg,.png,.pdf" className="hidden" onChange={handleUpload} />
             {preview ? (
               <img src={preview} alt="Doc" className="max-h-44 object-contain rounded-lg border shadow-xs" />
             ) : (

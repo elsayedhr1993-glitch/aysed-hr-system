@@ -92,11 +92,22 @@ export const TabDocumentScanner: React.FC<TabDocumentScannerProps> = ({
           </span>
         )}
       </div>
-      <label className={`cursor-pointer ${loading ? 'bg-slate-400' : 'bg-blue-600 hover:bg-blue-700'} text-white text-xs font-semibold px-4 py-2 rounded-lg transition-all flex items-center gap-2`}>
+      <label
+        className={`cursor-pointer ${loading ? 'bg-slate-400' : 'bg-blue-600 hover:bg-blue-700'} text-white text-xs font-semibold px-4 py-2 rounded-lg transition-all flex items-center gap-2`}
+        onDragOver={(e) => { e.preventDefault(); }}
+        onDrop={(e) => {
+          e.preventDefault();
+          const file = e.dataTransfer.files?.[0];
+          if (file && !loading) {
+            const fakeEvent = { target: { files: [file], value: '' } } as any;
+            void handleUpload(fakeEvent);
+          }
+        }}
+      >
         <span>{loading ? '⏳ جاري المسح والاستخراج...' : '📁 رفع ومسح المستند'}</span>
         <input 
           type="file" 
-          accept="image/*,application/pdf" 
+          accept="image/*,application/pdf,.jpg,.jpeg,.png,.pdf" 
           onChange={handleUpload} 
           disabled={loading} 
           className="hidden" 

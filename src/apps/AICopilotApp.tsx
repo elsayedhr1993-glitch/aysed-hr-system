@@ -375,6 +375,14 @@ ${empListPreview}`;
               onClick={() => fileInputRef.current?.click()}
               className="text-[#71639e] hover:text-[#008784] transition-colors p-1"
               title="إرفاق ملف (صورة مدنية، جواز، الخ)"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                const file = e.dataTransfer.files?.[0];
+                if (file) {
+                  handleFileUpload({ target: { files: [file] } } as any);
+                }
+              }}
             >
               <PlusCircle className="w-6 h-6" />
             </button>
@@ -382,7 +390,7 @@ ${empListPreview}`;
               type="file"
               ref={fileInputRef}
               className="hidden"
-              accept="image/*,application/pdf"
+              accept="image/*,application/pdf,.jpg,.jpeg,.png,.pdf"
               onChange={handleFileUpload}
             />
             <input

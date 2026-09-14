@@ -218,7 +218,7 @@ export const OdooDocScannerModal: React.FC<ScannerProps> = ({ isOpen, onClose, o
               type="file"
               ref={fileInputRef}
               onChange={(e) => e.target.files?.[0] && handleFileProcess(e.target.files[0])}
-              accept="image/*,application/pdf"
+              accept="image/*,application/pdf,.jpg,.jpeg,.png,.pdf"
               className="hidden"
             />
 
