@@ -9,6 +9,7 @@ import {
 } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { motion } from 'motion/react';
+import { useLang } from '../lib/i18n';
 
 const REMEMBER_ME_KEY = 'aysed_remember_me';
 
@@ -126,7 +127,7 @@ const UI_TEXT: Record<UiLanguage, UiText> = {
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const OdooLoginPage: React.FC = () => {
-  const [language, setLanguage] = useState<UiLanguage>('ar');
+  const { lang, setLang } = useLang();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState<boolean>(() => {
@@ -145,14 +146,8 @@ export const OdooLoginPage: React.FC = () => {
   const [isLocked, setIsLocked] = useState(false);
   const [lockoutTime, setLockoutTime] = useState(0);
 
-  useEffect(() => {
-    const htmlLang = (document.documentElement.lang || '').toLowerCase();
-    if (htmlLang.startsWith('en')) {
-      setLanguage('en');
-    }
-  }, []);
-
-  const isArabic = language === 'ar';
+  const language: UiLanguage = lang;
+  const isArabic = lang === 'ar';
   const dir = isArabic ? 'rtl' : 'ltr';
   const t = UI_TEXT[language];
   const isBusy = isLoading || isResettingPassword;
@@ -334,7 +329,7 @@ export const OdooLoginPage: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => setLanguage((prev) => (prev === 'ar' ? 'en' : 'ar'))}
+              onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}
               disabled={isBusy}
               className="shrink-0 px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
               aria-label="Toggle language"

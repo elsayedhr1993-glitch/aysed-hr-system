@@ -3,6 +3,7 @@ import React from 'react';
 import { AysedSettlementOutput } from '../services/leaveSettlementService';
 import { UniversalSettlementResult, UniversalSettlementItem, Company } from '../types';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
+import { useLang } from '../lib/i18n';
 
 export interface EmployeeInfo {
   name: string;
@@ -34,6 +35,9 @@ export const LeaveClearanceDocument: React.FC<Props> = ({
   settlementDate,
   items: propItems
 }) => {
+  const { lang, t } = useLang();
+  const direction = lang === 'ar' ? 'rtl' : 'ltr';
+  const textAlignClass = lang === 'ar' ? 'text-right' : 'text-left';
   const isUniversal = 'items' in settlement || (propItems && propItems.length > 0);
   const items: UniversalSettlementItem[] = (settlement as any).items || propItems || [];
 
@@ -76,7 +80,7 @@ export const LeaveClearanceDocument: React.FC<Props> = ({
   const remainingBalance = Number(((settlement as any).remainingBalanceAfter ?? Math.max(0, totalAvailable - encashedDays)).toFixed(2));
 
   return (
-    <div className="w-full max-w-4xl mx-auto bg-white p-8 sm:p-10 border border-gray-300 shadow-sm print:shadow-none print:border-none print:p-0 font-['Tajawal','Cairo',sans-serif] text-slate-800 text-right leading-normal" dir="rtl">
+    <div className={`w-full max-w-4xl mx-auto bg-white p-8 sm:p-10 border border-gray-300 shadow-sm print:shadow-none print:border-none print:p-0 font-['Tajawal','Cairo',sans-serif] text-slate-800 ${textAlignClass} leading-normal`} dir={direction}>
       
       {/* 1. ترويسة السند والشركة */}
       <div className="border-b-2 border-[#71639e] pb-4 mb-6">
@@ -117,7 +121,7 @@ export const LeaveClearanceDocument: React.FC<Props> = ({
       {/* 2. بيانات الموظف والتعاقد */}
       <div className="border border-slate-300 rounded-lg overflow-hidden mb-6 text-xs">
         <div className="bg-slate-100 px-3 py-1.5 font-bold text-slate-800 border-b border-slate-300">
-          بيانات الموظف المستفيد (Employee Information)
+          {t('employee_info')}
         </div>
         <table className="w-full border-collapse">
           <tbody>
@@ -146,20 +150,20 @@ export const LeaveClearanceDocument: React.FC<Props> = ({
       {/* 3. جدول الأرصدة وحركة الإجازات */}
       <div className="mb-6">
         <h3 className="text-xs font-black text-slate-900 border-r-3 border-[#71639e] pr-2 mb-2">
-          ١. كشف حركة وأرصدة الإجازات (Leave Balance Ledger - FIFO)
+          ١. {t('approved_balances')} (Leave Balance Ledger - FIFO)
         </h3>
         <div className="border border-slate-300 rounded-lg overflow-hidden text-xs">
           <table className="w-full text-center border-collapse">
             <thead>
               <tr className="bg-slate-100 font-bold text-slate-800 border-b border-slate-300">
-                <th className="p-2 border-l border-slate-300">الرصيد المرحل</th>
-                <th className="p-2 border-l border-slate-300">المكتسب 2026</th>
-                <th className="p-2 border-l border-slate-300 bg-purple-50 text-[#71639e]">إجمالي الرصيد المتاح</th>
-                <th className="p-2 border-l border-slate-300 text-blue-800">أيام الإجازة المصروفة مقدماً / Paid Leave Days</th>
+                <th className="p-2 border-l border-slate-300">{lang === 'ar' ? 'الرصيد المرحل' : 'Carried Balance'}</th>
+                <th className="p-2 border-l border-slate-300">{lang === 'ar' ? 'المكتسب 2026' : 'Accrued 2026'}</th>
+                <th className="p-2 border-l border-slate-300 bg-purple-50 text-[#71639e]">{t('leave_balance')}</th>
+                <th className="p-2 border-l border-slate-300 text-blue-800">{t('advance_settlement')} / Paid Leave Days</th>
                 <th className="p-2 border-l border-slate-300 text-emerald-800">إجازة عزاء (م77)</th>
                 <th className="p-2 border-l border-slate-300 text-amber-800">تصفية نقدية</th>
                 <th className="p-2 border-l border-slate-300 text-rose-700">بدون راتب</th>
-                <th className="p-2 bg-teal-50 text-teal-900 font-black">الرصيد المتبقي</th>
+                <th className="p-2 bg-teal-50 text-teal-900 font-black">{t('remaining_days')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 bg-white font-mono">
@@ -341,7 +345,7 @@ export const LeaveClearanceDocument: React.FC<Props> = ({
           onClick={() => safePrintAction('طباعة التقرير')}
           className="bg-[#71639e] hover:bg-[#5d5182] text-white px-6 py-2.5 rounded-md font-bold text-sm shadow transition-colors inline-flex items-center gap-2 cursor-pointer"
         >
-          <span>طباعة نموذج التسوية الرسمي (PDF / Print)</span>
+          <span>{lang === 'ar' ? 'طباعة نموذج التسوية الرسمي (PDF)' : 'Print Official Settlement Form (PDF)'}</span>
         </button>
       </div>
 

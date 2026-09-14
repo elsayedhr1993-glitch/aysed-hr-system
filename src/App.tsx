@@ -71,6 +71,7 @@ import { FacilityLicensingWizardModal } from './components/facility/FacilityLice
 import { createEmployeeOnboardingBundle } from './services/employeeOnboardingService';
 import { collection, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { cleanFirestoreData, db } from './lib/firebase';
+import { useLang } from './lib/i18n';
 
 type AppId = 
   | 'switcher' 
@@ -110,6 +111,7 @@ function MainAppLayout() {
   const { employees, attendance, computedPayslips, addEmployee, updateEmployee } = useOdooHierarchy();
 
   const { logout, user, isLoading, updateAvatar } = useAuth();
+  const { lang } = useLang();
 
 
   const [shifts, setShifts] = useState<any[]>([]);
@@ -577,22 +579,22 @@ function MainAppLayout() {
   const getActiveAppTitle = () => {
     switch (activeApp) {
       case 'switcher': return 'التطبيقات الرئيسية (App Launcher)';
-      case 'employees': return 'شؤون الموظفين (Employees Directory)';
-      case 'recruitment': return 'التوظيف والمقابلات الذكية (Recruitment & ATS)';
-      case 'contracts': return 'عقود العمل والبدلات الرسمية (Odoo Contracts & PAM)';
-      case 'attendance': return 'الحضور والانصراف (Time & Attendance)';
-      case 'leaves': return 'الإجازات والغياب (Time Off & Leaves)';
-      case 'payroll': return 'الرواتب وحماية الأجور (Payroll & WPS)';
-      case 'custody': return 'العهد والممتلكات (Assets & Custodies)';
-      case 'archive': return 'أرشيف المستندات (Documents Archive)';
-      case 'scanner': return 'الماسح الضوئي الذكي (Odoo Document Scanner)';
-      case 'letters': return 'النماذج والخطابات (Templates & Letters)';
-      case 'holidays': return 'العطلات الرسمية (Public Holidays)';
-      case 'reports': return 'التقارير والتحليلات (Reports & Analytics)';
-      case 'moh': return 'إدارة التراخيص الطبية والكادر الصحي (MOH Medical Hub)';
-      case 'audit': return 'سجل الرقابة وتتبع العمليات (Audit Logs & Diagnostic Center)';
-      case 'settings': return isSuperAdmin ? 'الإعدادات والمشتركين (Settings & SaaS Tenants)' : 'بيانات المنشأة والإعدادات (Company Profile & Settings)';
-      default: return 'نظام Aysed S HR 2026';
+      case 'employees': return lang === 'ar' ? 'شؤون الموظفين (Employees Directory)' : 'Employees Directory';
+      case 'recruitment': return lang === 'ar' ? 'التوظيف والمقابلات الذكية (Recruitment & ATS)' : 'Recruitment & ATS';
+      case 'contracts': return lang === 'ar' ? 'عقود العمل والبدلات الرسمية (Odoo Contracts & PAM)' : 'Contracts & PAM';
+      case 'attendance': return lang === 'ar' ? 'الحضور والانصراف (Time & Attendance)' : 'Time & Attendance';
+      case 'leaves': return lang === 'ar' ? 'الإجازات والغياب (Time Off & Leaves)' : 'Time Off & Leaves';
+      case 'payroll': return lang === 'ar' ? 'الرواتب وحماية الأجور (Payroll & WPS)' : 'Payroll & WPS';
+      case 'custody': return lang === 'ar' ? 'العهد والممتلكات (Assets & Custodies)' : 'Assets & Custodies';
+      case 'archive': return lang === 'ar' ? 'أرشيف المستندات (Documents Archive)' : 'Documents Archive';
+      case 'scanner': return lang === 'ar' ? 'الماسح الضوئي الذكي (Odoo Document Scanner)' : 'Smart Document Scanner';
+      case 'letters': return lang === 'ar' ? 'النماذج والخطابات (Templates & Letters)' : 'Templates & Letters';
+      case 'holidays': return lang === 'ar' ? 'العطلات الرسمية (Public Holidays)' : 'Public Holidays';
+      case 'reports': return lang === 'ar' ? 'التقارير والتحليلات (Reports & Analytics)' : 'Reports & Analytics';
+      case 'moh': return lang === 'ar' ? 'إدارة التراخيص الطبية والكادر الصحي (MOH Medical Hub)' : 'MOH Medical Hub';
+      case 'audit': return lang === 'ar' ? 'سجل الرقابة وتتبع العمليات (Audit Logs & Diagnostic Center)' : 'Audit Logs & Diagnostic Center';
+      case 'settings': return lang === 'ar' ? (isSuperAdmin ? 'الإعدادات والمشتركين (Settings & SaaS Tenants)' : 'بيانات المنشأة والإعدادات (Company Profile & Settings)') : (isSuperAdmin ? 'Settings & SaaS Tenants' : 'Company Profile & Settings');
+      default: return lang === 'ar' ? 'نظام Aysed S HR 2026' : 'Aysed S HR 2026';
     }
   };
 
@@ -611,7 +613,7 @@ function MainAppLayout() {
   }
 
   return (
-    <div className="h-screen w-full flex flex-col font-sans overflow-hidden bg-slate-100 dir-rtl text-right text-slate-800" dir="rtl">
+    <div className="h-screen w-full flex flex-col font-sans overflow-hidden bg-slate-100 text-slate-800" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       <Toaster position="top-center" containerStyle={{ zIndex: 99999 }} reverseOrder={false} />
 
       {/* شريط تنبيه الدخول كمسؤول (Strict Impersonation Banner) */}

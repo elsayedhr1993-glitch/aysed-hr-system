@@ -673,36 +673,45 @@ export const OdooPayrollApp: React.FC = () => {
       });
   }, [employees, filteredPayslips]);
 
-  // EOS employee dataset
+  const normalizeSettlementEmployee = (emp: any, empLoan?: any) => {
+    const basicSalary = Number(emp?.basicSalary || emp?.salary || 0);
+    const housingAllowance = Number(emp?.housingAllowance || 0);
+    const transportAllowance = Number(emp?.transportAllowance || 0);
+    const medicalAllowance = Number(emp?.medicalAllowance || 0);
+
+    return {
+      id: emp?.id || '',
+      name: emp?.name || (emp as any)?.fullNameAr || (emp as any)?.nameAr || 'موظف',
+      fullNameAr: (emp as any)?.fullNameAr || (emp as any)?.nameAr || emp?.name || 'موظف',
+      nameAr: (emp as any)?.nameAr || (emp as any)?.fullNameAr || emp?.name || 'موظف',
+      employeeCode: (emp as any)?.employeeCode || emp?.id || '',
+      companyId: (emp as any)?.companyId || activeCompany?.id || '',
+      civilId: emp?.civilId || '',
+      jobTitle: emp?.jobTitle || 'موظف',
+      department: emp?.department || 'إدارة',
+      joinDate: emp?.joinDate || '2022-01-01',
+      basicSalary,
+      salary: Number((emp as any)?.salary || basicSalary),
+      carriedOverBalance: (emp as any)?.carriedOverBalance,
+      carriedOverLeave2025: (emp as any)?.carriedOverLeave2025,
+      openingBalance: (emp as any)?.openingBalance,
+      openingLeaveBalance: (emp as any)?.openingLeaveBalance,
+      accruedAnnualLeave: (emp as any)?.accruedAnnualLeave,
+      allowances: (emp as any)?.allowances ?? (basicSalary + housingAllowance + transportAllowance + medicalAllowance),
+      housingAllowance,
+      transportAllowance,
+      medicalAllowance,
+      activeLoanRemaining: empLoan ? empLoan.remainingAmount : 0
+    };
+  };
+
+  // EOS employee dataset - single source of truth for settlement and payroll computations
   const settlementEmployees = useMemo(() => {
     return employees.map(emp => {
       const empLoan = loans.find(l => l.employeeId === emp.id && l.remainingAmount > 0);
-      return {
-        id: emp.id,
-        name: emp.name,
-        fullNameAr: (emp as any).fullNameAr,
-        nameAr: (emp as any).nameAr,
-        employeeCode: (emp as any).employeeCode,
-        companyId: (emp as any).companyId,
-        civilId: emp.civilId || '',
-        jobTitle: emp.jobTitle || 'موظف',
-        department: emp.department || 'إدارة',
-        joinDate: emp.joinDate || '2022-01-01',
-        basicSalary: emp.basicSalary || 0,
-        salary: (emp as any).salary || emp.basicSalary || 0,
-        carriedOverBalance: (emp as any).carriedOverBalance,
-        carriedOverLeave2025: (emp as any).carriedOverLeave2025,
-        openingBalance: (emp as any).openingBalance,
-        openingLeaveBalance: (emp as any).openingLeaveBalance,
-        accruedAnnualLeave: (emp as any).accruedAnnualLeave,
-        allowances: (emp as any).allowances,
-        housingAllowance: emp.housingAllowance || 0,
-        transportAllowance: emp.transportAllowance || 0,
-        medicalAllowance: emp.medicalAllowance || 0,
-        activeLoanRemaining: empLoan ? empLoan.remainingAmount : 0
-      };
+      return normalizeSettlementEmployee(emp, empLoan);
     });
-  }, [employees, loans]);
+  }, [employees, loans, activeCompany?.id]);
 
   return (
     <div className="space-y-5 font-sans dir-rtl text-right text-slate-800 animate-fade-in" dir="rtl">

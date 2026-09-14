@@ -10,6 +10,7 @@ import { ActiveApp, Company } from '../types';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from 'recharts';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { useLang } from '../lib/i18n';
 
 interface OdooAppLauncherProps {
   onSelectApp: (app: ActiveApp) => void;
@@ -43,8 +44,9 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
   activeCompany, 
   stats 
 }) => {
+  const { lang } = useLang();
   const isSuperAdmin = currentUserRole === 'SUPER_ADMIN' || currentUserEmail.toLowerCase() === 'admin@aysed.com'.toLowerCase() || currentUserEmail.toLowerCase() === 'elsayedhr1993@gmail.com'.toLowerCase();
-  const companyDisplayName = activeCompany?.nameAr || activeCompany?.nameEn || 'Aysed HR S 2026';
+  const companyDisplayName = lang === 'ar' ? (activeCompany?.nameAr || activeCompany?.nameEn || 'Aysed HR S 2026') : (activeCompany?.nameEn || activeCompany?.nameAr || 'Aysed HR S 2026');
   const currentCompanyId = activeCompany?.id || 'comp-super-admin';
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -336,7 +338,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
   }, [allApps, currentUserRole, selectedCategory, searchQuery]);
 
   return (
-    <div className="dashboard-container w-full h-full bg-transparent flex flex-col items-center relative z-10 space-y-4 pb-8 px-2 sm:px-4" dir="rtl">
+    <div className="dashboard-container w-full h-full bg-transparent flex flex-col items-center relative z-10 space-y-4 pb-8 px-2 sm:px-4" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       
       {/* 🔍 Top Search & View Mode Header */}
       <div className="w-full max-w-[1700px] mx-auto space-y-2.5 pt-1">
@@ -351,7 +353,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="بحث سريع في المنظومة (شؤون الموظفين، الرواتب، الإجازات، العقود، المستندات...)"
+              placeholder={lang === 'ar' ? 'بحث سريع في المنظومة (شؤون الموظفين، الرواتب، الإجازات، العقود، المستندات...)' : 'Search the system (employees, payroll, time off, contracts, documents...)'}
               className="w-full pr-10 pl-20 py-2.5 bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-xl text-xs sm:text-sm font-bold text-slate-800 placeholder-slate-400 shadow-xs focus:border-[#714B67] focus:bg-white focus:outline-none transition-all"
             />
             {searchQuery && (
@@ -359,7 +361,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
                 onClick={() => setSearchQuery('')}
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-2.5 py-0.5 rounded-lg font-bold transition cursor-pointer"
               >
-                مسح
+                {lang === 'ar' ? 'مسح' : 'Clear'}
               </button>
             )}
             {!searchQuery && (
@@ -381,7 +383,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
               title="لوحة التطبيقات الذكية (أيقونات Launchpad الحديثة)"
             >
               <LayoutGrid size={14} />
-              <span className="hidden sm:inline">لوحة التطبيقات</span>
+              <span className="hidden sm:inline">{lang === 'ar' ? 'لوحة التطبيقات' : 'App Launcher'}</span>
             </button>
             <button
               onClick={() => setLauncherStyle('cards')}
@@ -393,7 +395,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
               title="بطاقات تفصيلية مع إحصائيات لكل تطبيق"
             >
               <Layers size={14} />
-              <span className="hidden sm:inline">بطاقات تفصيلية</span>
+              <span className="hidden sm:inline">{lang === 'ar' ? 'بطاقات تفصيلية' : 'Detailed Cards'}</span>
             </button>
           </div>
         </div>
@@ -408,7 +410,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
                 : 'bg-white/85 hover:bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
             }`}
           >
-            🌐 جميع التطبيقات ({allApps.length})
+            {lang === 'ar' ? `🌐 جميع التطبيقات (${allApps.length})` : `🌐 All Apps (${allApps.length})`}
           </button>
 
           <button
@@ -419,7 +421,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
                 : 'bg-white/85 hover:bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
             }`}
           >
-            👥 الموارد والرواتب
+            {lang === 'ar' ? '👥 الموارد والرواتب' : '👥 HR & Payroll'}
           </button>
 
           <button
@@ -430,7 +432,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
                 : 'bg-white/85 hover:bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
             }`}
           >
-            ⏰ الحضور والدوام
+            {lang === 'ar' ? '⏰ الحضور والدوام' : '⏰ Attendance & Time'}
           </button>
 
           <button
@@ -441,7 +443,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
                 : 'bg-white/85 hover:bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
             }`}
           >
-            📁 الوثائق والتشغيل
+            {lang === 'ar' ? '📁 الوثائق والتشغيل' : '📁 Documents & Operations'}
           </button>
         </div>
 
@@ -546,7 +548,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
                   {/* App Text Info */}
                   <div className="w-full space-y-0.5">
                     <h3 className="font-extrabold text-xs sm:text-[13px] text-slate-800 group-hover:text-[#714B67] leading-tight transition-colors line-clamp-1">
-                      {app.titleAr}
+                      {lang === 'ar' ? app.titleAr : app.titleEn}
                     </h3>
                     <p className="text-[10px] text-slate-400 group-hover:text-slate-600 font-medium leading-tight line-clamp-1 transition-colors">
                       {app.description}
@@ -576,7 +578,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
                   <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex items-center justify-between gap-1">
                       <h3 className="font-extrabold text-xs sm:text-sm text-slate-900 group-hover:text-[#714B67] leading-tight truncate transition-colors">
-                        {app.titleAr}
+                        {lang === 'ar' ? app.titleAr : app.titleEn}
                       </h3>
                       {app.badge && (
                         <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">

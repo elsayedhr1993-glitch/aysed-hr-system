@@ -3,6 +3,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { CompanyProvider } from './CompanyContext';
 import { SystemSettingsProvider } from './SystemSettingsContext';
+import { LanguageProvider } from '../lib/i18n';
 export { CompanyProvider, useCompany } from './CompanyContext';
 export { SystemSettingsProvider, useSystemSettings } from './SystemSettingsContext';
 export { useIsolatedData } from '../hooks/useIsolatedData';
@@ -55,9 +56,11 @@ export const AysedCoreProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         body { font-family: 'Tajawal', sans-serif; background-color: #f8f9fa; }
       `}</style>
       <CompanyProvider>
-        <SystemSettingsProvider>
-          {children}
-        </SystemSettingsProvider>
+        <LanguageProvider>
+          <SystemSettingsProvider>
+            {children}
+          </SystemSettingsProvider>
+        </LanguageProvider>
       </CompanyProvider>
     </AysedContext.Provider>);
 };

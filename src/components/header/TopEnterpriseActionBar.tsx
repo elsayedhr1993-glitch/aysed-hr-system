@@ -92,7 +92,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
       const data = await getFacilityMasterData(companyId);
       setFacilityData(data);
     };
-    loadFacilityData();
+    void loadFacilityData();
   }, [activeCompany?.id]);
 
   useEffect(() => {
@@ -256,7 +256,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
   };
 
   return (
-    <header className="h-12 bg-[#714B67] text-white flex items-center justify-between px-2 sm:px-3 md:px-4 z-40 select-none shadow-md shrink-0 border-b border-white/10 dir-rtl w-full relative" dir="rtl">
+    <header className="h-12 bg-[#714B67] text-white flex items-center justify-between px-2 sm:px-3 md:px-4 z-40 select-none shadow-md shrink-0 border-b border-white/10 w-full relative" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       
       {/* 🧭 الجانب الأيمن: التنقل وهوية المنشأة */}
       <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
@@ -269,7 +269,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
             title="العودة لشاشة التطبيقات الرئيسية"
           >
             <ArrowRight size={14} />
-            <span className="hidden sm:inline">لوحة التطبيقات</span>
+            <span className="hidden sm:inline">{lang === 'ar' ? 'لوحة التطبيقات' : 'App Launcher'}</span>
           </button>
         )}
 
@@ -284,7 +284,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
           title="عرض لوحة التطبيقات والخدمات"
         >
           <span className="text-sm font-black select-none">▦</span>
-          <span className="hidden sm:inline">لوحة التطبيقات</span>
+          <span className="hidden sm:inline">{lang === 'ar' ? 'لوحة التطبيقات' : 'App Launcher'}</span>
         </button>
 
         {/* زر لوحة الإدارة العليا (Super Admin Dashboard) */}
@@ -299,7 +299,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
             title="لوحة الإدارة العليا والتحكم في النظام"
           >
             <Shield size={13} className="text-amber-400 shrink-0" />
-            <span className="hidden md:inline">الإدارة العليا</span>
+            <span className="hidden md:inline">{lang === 'ar' ? 'الإدارة العليا' : 'Super Admin'}</span>
           </button>
         )}
 
@@ -387,7 +387,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
 
         {/* عنوان الشاشة الحالية - معروض فقط على الشاشات العريضة جداً لتوفير المساحة */}
         <div className="hidden 2xl:flex items-center gap-2 text-white/90 text-xs font-bold border-r border-white/20 pr-2.5 mr-1">
-          <span className="text-white/70 font-normal">المسار:</span>
+          <span className="text-white/70 font-normal">{lang === 'ar' ? 'المسار:' : 'Path:'}</span>
           <span className="text-white font-black truncate max-w-[200px]">{getActiveAppTitle()}</span>
         </div>
 
@@ -402,8 +402,8 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
         >
           <div className="flex items-center gap-1.5 truncate">
             <Search size={13} className="text-white/70 group-hover:text-white shrink-0" />
-            <span className="text-[11px] truncate font-medium hidden lg:inline">بحث في الموظفين، العقود، أو التطبيقات...</span>
-            <span className="text-[11px] truncate font-medium lg:hidden">بحث سريع...</span>
+            <span className="text-[11px] truncate font-medium hidden lg:inline">{lang === 'ar' ? 'بحث في الموظفين، العقود، أو التطبيقات...' : 'Search employees, contracts, or apps...'}</span>
+            <span className="text-[11px] truncate font-medium lg:hidden">{lang === 'ar' ? 'بحث سريع...' : 'Quick search...'}</span>
           </div>
           <div className="hidden md:flex items-center gap-0.5 text-[9px] font-mono bg-white/20 px-1 py-0.2 rounded text-white/90 border border-white/10 shrink-0">
             Ctrl+K

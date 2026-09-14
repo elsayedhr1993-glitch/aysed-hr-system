@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { ResLang } from '../types';
 
 export const ODOO_LANGUAGES: ResLang[] = [
@@ -78,6 +78,15 @@ export const DICTIONARY: Record<string, { ar: string; en: string }> = {
   reports: { ar: 'التقارير المتقدمة', en: 'Reports' },
   automation: { ar: 'الأتمتة وسير العمل', en: 'Automation' },
 
+  // Operational settlement screens
+  leave_balance: { ar: 'رصيد الإجازات', en: 'Leave Balance' },
+  advance_settlement: { ar: 'التسوية المقدمة', en: 'Advance Settlement' },
+  remaining_days: { ar: 'الأيام المتبقية', en: 'Remaining Days' },
+  approved_balances: { ar: 'الأرصدة المعتمدة', en: 'Approved Balances' },
+  employee_info: { ar: 'بيانات الموظف', en: 'Employee Info' },
+  preview_print: { ar: 'معاينة وطباعة', en: 'Preview & Print' },
+  close: { ar: 'إغلاق', en: 'Close' },
+
   // Leaves & Balances
   leave: { ar: 'الإجازات', en: 'Leaves' },
   leave_balances: { ar: 'أرصدة الإجازات', en: 'Leave Balances' },
@@ -107,7 +116,18 @@ export function getInitialLang(): 'ar' | 'en' {
   return 'ar';
 }
 
-export function useLang() {
+type LanguageContextValue = {
+  lang: 'ar' | 'en';
+  setLang: (newLang: 'ar' | 'en') => void;
+  t: (key: string) => string;
+  isRtl: boolean;
+  currentLangCode: string;
+  languages: ResLang[];
+};
+
+const LanguageContext = createContext<LanguageContextValue | undefined>(undefined);
+
+export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [lang, setLangState] = useState<'ar' | 'en'>(getInitialLang);
 
   const applyLang = (newLang: 'ar' | 'en') => {
@@ -135,7 +155,7 @@ export function useLang() {
     return DICTIONARY[key] ? (lang === 'ar' ? DICTIONARY[key].ar : DICTIONARY[key].en) : key;
   };
 
-  return { 
+  const value = { 
     lang, 
     setLang: applyLang, 
     t,
@@ -143,4 +163,12 @@ export function useLang() {
     currentLangCode: lang === 'ar' ? 'ar_001' : 'en_US',
     languages: ODOO_LANGUAGES 
   };
+
+  return React.createElement(LanguageContext.Provider, { value }, children);
+};
+
+export function useLang(): LanguageContextValue {
+  const context = useContext(LanguageContext);
+  if (!context) throw new Error('useLang must be used inside LanguageProvider');
+  return context;
 }

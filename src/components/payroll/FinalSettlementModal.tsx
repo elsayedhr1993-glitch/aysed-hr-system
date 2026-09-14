@@ -50,6 +50,18 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
   const [otherDeductions, setOtherDeductions] = useState<number>(0);
   const [otherAllowances, setOtherAllowances] = useState<number>(0);
 
+  useEffect(() => {
+    if (!employees.length) {
+      setSelectedEmpId('');
+      return;
+    }
+
+    const selectedStillExists = employees.some((e) => e.id === selectedEmpId);
+    if (!selectedStillExists) {
+      setSelectedEmpId(employees[0].id);
+    }
+  }, [employees, selectedEmpId]);
+
   const currentEmp = employees.find((e) => e.id === selectedEmpId) || employees[0];
 
   const liveLeaveSnapshot = useMemo(() => {

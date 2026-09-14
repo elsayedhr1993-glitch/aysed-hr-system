@@ -27,6 +27,7 @@ import { LeaveClearanceDocument } from './LeaveClearanceDocument';
 import { LeaveBalanceEngine } from '../utils/leaveEngine';
 import { normalizeContractStatus } from '../utils/contractStatus';
 import toast from 'react-hot-toast';
+import { useLang } from '../lib/i18n';
 
 interface DecimalInputProps {
   value: number;
@@ -60,6 +61,7 @@ const DecimalInput: React.FC<DecimalInputProps> = ({
     <input
       type="text"
       inputMode="decimal"
+      dir="ltr"
       placeholder={placeholder}
       value={text}
       onChange={(e) => {
@@ -113,6 +115,9 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
   onUpdateAllocations,
   onUpdateEmployee,
 }) => {
+  const { lang, t } = useLang();
+  const direction = lang === 'ar' ? 'rtl' : 'ltr';
+  const textAlignClass = lang === 'ar' ? 'text-right' : 'text-left';
   const [selectedEmpId, setSelectedEmpId] = useState<string>(preSelectedEmployeeId || (employees[0]?.id ?? ''));
   const [activeTab, setActiveTab] = useState<'settlement_calculator' | 'vouchers_archive' | 'employee_history'>('settlement_calculator');
 
@@ -733,7 +738,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
   };
 
   return (
-    <div className="space-y-6 font-['Tajawal','Cairo',sans-serif]" dir="rtl">
+    <div className={`space-y-6 font-['Tajawal','Cairo',sans-serif] ${textAlignClass}`} dir={direction}>
       
       {/* 1. Odoo Enterprise Form Card */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -877,8 +882,8 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
 
             {/* Quick KPI Cards Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 w-full lg:w-auto">
-              <div className="bg-purple-50/70 border border-purple-200 rounded-xl p-3 text-right">
-                <span className="block text-[11px] font-bold text-[#714B67]">إجمالي الرصيد المتاح</span>
+              <div className={`bg-purple-50/70 border border-purple-200 rounded-xl p-3 ${textAlignClass}`}>
+                <span className="block text-[11px] font-bold text-[#714B67]">{t('leave_balance')}</span>
                 <span className="block text-base font-black font-mono text-purple-950 mt-0.5">
                   {(totalAvailableBalance).toFixed(2)} يوم
                 </span>
@@ -887,8 +892,8 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                 </span>
               </div>
 
-              <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-3 text-right">
-                <span className="block text-[11px] font-bold text-blue-800">أيام الإجازة المصروفة مقدماً</span>
+              <div className={`bg-blue-50/70 border border-blue-200 rounded-xl p-3 ${textAlignClass}`}>
+                <span className="block text-[11px] font-bold text-blue-800">{t('advance_settlement')}</span>
                 <span className="block text-base font-black font-mono text-blue-950 mt-0.5">
                   {consumedLeaveDays.toFixed(2)} يوم
                 </span>
@@ -897,8 +902,8 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                 </span>
               </div>
 
-              <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3 text-right">
-                <span className="block text-[11px] font-bold text-emerald-800">المستحق للصرف مقدماً</span>
+              <div className={`bg-emerald-50/70 border border-emerald-200 rounded-xl p-3 ${textAlignClass}`}>
+                <span className="block text-[11px] font-bold text-emerald-800">{t('approved_balances')}</span>
                 <span className="block text-base font-black font-mono text-emerald-900 mt-0.5">
                   {(consumedLeaveDays * dailyWage).toFixed(3)} د.ك
                 </span>
@@ -907,8 +912,8 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                 </span>
               </div>
 
-              <div className="bg-teal-50/70 border border-teal-200 rounded-xl p-3 text-right">
-                <span className="block text-[11px] font-bold text-teal-800">الأيام المتبقية بعد الصرف</span>
+              <div className={`bg-teal-50/70 border border-teal-200 rounded-xl p-3 ${textAlignClass}`}>
+                <span className="block text-[11px] font-bold text-teal-800">{t('remaining_days')}</span>
                 <span className="block text-base font-black font-mono text-teal-950 mt-0.5">
                   {((totalAvailableBalance) - consumedLeaveDays - (includeEncashment ? encashmentDays : 0)).toFixed(2)} يوم
                 </span>
@@ -1643,7 +1648,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
               </div>
 
               <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
-                <table className="w-full text-right text-xs">
+                <table className={`w-full ${textAlignClass} text-xs`}>
                   <thead className="bg-[#714B67] text-white font-bold">
                     <tr>
                       <th className="p-3.5">رقم السند</th>
@@ -1740,7 +1745,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
               </div>
 
               <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
-                <table className="w-full text-right text-xs">
+                <table className={`w-full ${textAlignClass} text-xs`}>
                   <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
                     <tr>
                       <th className="p-3.5">نوع الإجازة</th>
@@ -1951,7 +1956,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
 
       {/* Modal 3: Printable Document & PDF Export */}
       {showPrintModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 font-['Tajawal'] overflow-y-auto" dir="rtl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 font-['Tajawal'] overflow-y-auto" dir={direction}>
           <div className="bg-white rounded-2xl max-w-4xl w-full p-6 shadow-2xl border border-slate-200 max-h-[92vh] flex flex-col">
             
             {/* Modal Header */}
@@ -1959,7 +1964,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
               <div className="flex items-center gap-2">
                 <Printer size={20} className="text-[#714B67]" />
                 <h3 className="font-bold text-base text-slate-900">
-                  سند تصفية وتسوية إجازة موظف (Leave Clearance & Settlement Document)
+                  {t('preview_print')} - Leave Clearance & Settlement Document
                 </h3>
               </div>
               
@@ -1970,7 +1975,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                   className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 transition cursor-pointer shadow-xs disabled:opacity-50"
                 >
                   {isExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                  <span>تحميل PDF</span>
+                  <span>{lang === 'ar' ? 'تحميل PDF' : 'Download PDF'}</span>
                 </button>
 
                 <button
@@ -1978,14 +1983,14 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                   className="bg-[#714B67] hover:bg-[#5a3b52] text-white text-xs font-bold px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 transition cursor-pointer shadow-xs"
                 >
                   <Printer className="w-3.5 h-3.5 text-amber-300" />
-                  <span>طباعة فورية</span>
+                  <span>{lang === 'ar' ? 'طباعة فورية' : 'Print Now'}</span>
                 </button>
 
                 <button 
                   onClick={() => setShowPrintModal(false)}
                   className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg cursor-pointer mr-2"
                 >
-                  <X size={20} />
+                  <X size={20} aria-label={t('close')} />
                 </button>
               </div>
             </div>
