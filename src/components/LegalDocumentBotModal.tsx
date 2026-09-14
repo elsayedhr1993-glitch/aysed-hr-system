@@ -3,6 +3,8 @@ import {
   FileText, Upload, CheckCircle2, AlertTriangle, Scale, X, 
   FileSignature, Search, ShieldCheck, Download, Loader2, Sparkles, Building
 } from 'lucide-react';
+import { processAnyDocument } from '../utils/ocrService';
+import { parseKuwaitCivilCardOCR } from '../services/ocrService';
 
 interface LegalDocumentBotModalProps {
   isOpen: boolean;
@@ -29,23 +31,21 @@ export const LegalDocumentBotModal: React.FC<LegalDocumentBotModalProps> = ({ is
       reader.onload = async () => {
         const base64String = reader.result as string;
         if (activeTab === 'PAM_AUDIT' || activeTab === 'CONTRACTS') {
-           const { processAnyDocument } = await import('../utils/ocrService');
-           const docType = activeTab === 'PAM_AUDIT' ? 'PAM_CONTRACT_AUDIT' : 'LEGAL_CONTRACT';
-           const result = await processAnyDocument(file, undefined, docType);
-           
-           setIsScanning(false);
-           setScanResult({
-              type: 'PAM_CONTRACT',
-              score: (result as any).score || Math.floor(Math.random() * 20) + 75,
-              findings: (result as any).findings || [
-                { type: 'success', text: 'تمت قراءة العقد بنجاح بواسطة الذكاء الاصطناعي.' },
-                { type: 'warning', text: 'يرجى مراجعة البنود لضمان التوافق مع الشؤون.' }
-              ]
-           });
+          const docType = activeTab === 'PAM_AUDIT' ? 'PAM_CONTRACT_AUDIT' : 'LEGAL_CONTRACT';
+          const result = await processAnyDocument(file, undefined, docType);
+
+          setIsScanning(false);
+          setScanResult({
+            type: 'PAM_CONTRACT',
+            score: (result as any).score || Math.floor(Math.random() * 20) + 75,
+            findings: (result as any).findings || [
+              { type: 'success', text: 'تمت قراءة العقد بنجاح بواسطة الذكاء الاصطناعي.' },
+              { type: 'warning', text: 'يرجى مراجعة البنود لضمان التوافق مع الشؤون.' }
+            ]
+          });
         } else if (activeTab === 'OCR_EXTRACTION') {
-          const { parseKuwaitCivilCardOCR } = await import('../services/ocrService');
           const extractedData = await parseKuwaitCivilCardOCR(base64String, 'بطاقة مدنية كويتية');
-          
+
           setIsScanning(false);
           setScanResult({
             type: 'ID_CARD',
