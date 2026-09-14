@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { normalizeLeaveType, normalizeLeaveStatus, isLeaveRequestInConflict, canTransitionLeaveStatus } from './leaveModel.ts';
 import { isApprovedLeaveStatus } from './leaveEngine.ts';
 import { computeFifoLeaveAllocations } from '../services/leaveService.ts';
-import { calculateUniversalLeaveSettlement } from '../services/leaveSettlementService.ts';
+import { calculateUniversalLeaveSettlement, resolveNetAvailableLeaveBalance } from '../services/leaveSettlementService.ts';
 
 test('normalizeLeaveType accepts the mixed leave-type variants used across the app', () => {
   assert.equal(normalizeLeaveType('annual'), 'ANNUAL');
@@ -166,6 +166,18 @@ test('encashment liquidation uses net available balance after approved leave con
   assert.equal(result.encashedLeaveDays, 9.5);
   assert.equal(result.remainingBalanceAfter, 0);
   assert.equal(result.netSettlementPayout, 292.306);
+});
+
+test('resolveNetAvailableLeaveBalance returns the authoritative net balance instead of double-subtracting approved leave', () => {
+  const netAvailable = resolveNetAvailableLeaveBalance({
+    totalBalance: 27.5,
+    approvedLeaveDeductionDays: 21,
+    carriedForwardDays: 10,
+    accruedDays: 15,
+    holidayCompensationDays: 2.5,
+  } as any);
+
+  assert.equal(netAvailable, 6.5);
 });
 
 test('settlement validation blocks encashment beyond the net available balance', async () => {

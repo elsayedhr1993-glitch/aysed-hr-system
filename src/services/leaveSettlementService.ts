@@ -112,6 +112,24 @@ export function cleanKwdAmount(amount: number | undefined | null): number {
   return Number((Math.round((amount + Number.EPSILON) * 1000) / 1000).toFixed(3));
 }
 
+export function resolveNetAvailableLeaveBalance(input: {
+  totalBalance?: number;
+  totalAvailableBalance?: number;
+  approvedLeaveDeductionDays?: number;
+  usedLeaveDays?: number;
+  remainingBalanceAfter?: number;
+  netAvailable?: number;
+} = {}): number {
+  const totalBalance = Number(input.totalBalance ?? input.totalAvailableBalance ?? 0) || 0;
+  const approvedLeaveDays = Number(input.approvedLeaveDeductionDays ?? input.usedLeaveDays ?? 0) || 0;
+  const fallbackNet = Number(input.remainingBalanceAfter ?? input.netAvailable ?? 0) || 0;
+
+  const rawNet = cleanDayDecimals(Math.max(0, totalBalance - approvedLeaveDays));
+  if (approvedLeaveDays > 0 && rawNet > 0) return rawNet;
+  if (fallbackNet > 0) return cleanDayDecimals(fallbackNet);
+  return cleanDayDecimals(Math.max(0, totalBalance));
+}
+
 /**
  * 1. حساب أيام الإجازة الفعلية باستبعاد أيام الجمعة (المادة 70 - قانون العمل الكويتي)
  */

@@ -21,7 +21,8 @@ import {
   calculateWorkingLeaveDays,
   cleanDayDecimals,
   cleanKwdAmount,
-  validateSettlementConstraints
+  validateSettlementConstraints,
+  resolveNetAvailableLeaveBalance
 } from '../services/leaveSettlementService';
 import { syncLedgerFromFirestore } from '../services/leaveBalanceLedgerService';
 import { LeaveClearanceDocument } from './LeaveClearanceDocument';
@@ -213,7 +214,12 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
   const carriedOverBal = Number(leaveBalanceSnapshot?.carriedForwardDays || 0);
   const accruedBalance = Number(((leaveBalanceSnapshot?.accruedDays || 0) + (leaveBalanceSnapshot?.holidayCompensationDays || 0) + (leaveBalanceSnapshot?.manualAdjustmentDays || 0)).toFixed(2));
   const totalTaken = Number(leaveBalanceSnapshot?.approvedLeaveDeductionDays || 0);
-  const netAvailable = Math.max(0, Number((totalAvailableBalance - totalTaken).toFixed(2)));
+  const netAvailable = resolveNetAvailableLeaveBalance({
+    totalBalance: totalAvailableBalance,
+    approvedLeaveDeductionDays: totalTaken,
+    remainingBalanceAfter: leaveBalanceSnapshot ? Number((leaveBalanceSnapshot as any).remainingBalanceAfter ?? 0) : 0,
+    netAvailable: leaveBalanceSnapshot ? Number((leaveBalanceSnapshot as any).netAvailable ?? 0) : 0,
+  });
 
   // Wages calculation (Kuwait Labor Law 26-day basis on Basic Salary only)
   const basicSalary = selectedContract?.basicSalary || (selectedEmp as any)?.basicSalary || 0;
@@ -917,7 +923,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
               <div className={`bg-purple-50/70 border border-purple-200 rounded-xl p-3 ${textAlignClass}`}>
                 <span className="block text-[11px] font-bold text-[#714B67]">{t('leave_balance')}</span>
                 <span className="block text-base font-black font-mono text-purple-950 mt-0.5">
-                  {(totalAvailableBalance).toFixed(2)} يوم
+                  {netAvailable.toFixed(2)} يوم
                 </span>
                 <span className="block text-[9px] text-purple-700 font-medium mt-0.5">
                   (مرحل {carriedOverBal.toFixed(1)} + صافي مكتسب/تعويضي {accruedBalance.toFixed(1)})
@@ -947,7 +953,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
               <div className={`bg-teal-50/70 border border-teal-200 rounded-xl p-3 ${textAlignClass}`}>
                 <span className="block text-[11px] font-bold text-teal-800">{t('remaining_days')}</span>
                 <span className="block text-base font-black font-mono text-teal-950 mt-0.5">
-                  {((totalAvailableBalance) - consumedLeaveDays - (includeEncashment ? encashmentDays : 0)).toFixed(2)} يوم
+                  {(netAvailable - consumedLeaveDays - (includeEncashment ? encashmentDays : 0)).toFixed(2)} يوم
                 </span>
                 <span className="block text-[9px] text-teal-700 font-medium mt-0.5">
                   (الرصيد المتاح - المصروف)

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { TenantCompany } from '../types';
-import { db, createTenantUserSafely } from '../lib/firebase';
-import { collection, doc, setDoc, deleteDoc, updateDoc, onSnapshot, query , documentId, where } from 'firebase/firestore';
+import { db, createTenantUserSafely, getCompaniesCollectionName } from '../lib/firebase';
+import { collection, doc, setDoc, deleteDoc, updateDoc, onSnapshot, query, documentId, where } from 'firebase/firestore';
 import { useAuth } from './AuthContext';
 
 const ALMANAR_COMPANY_ID = 'comp-1788442584841';
@@ -78,8 +78,29 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return localStorage.getItem('saas_impersonating_id') || null;
   });
 
-  // Real tenant records live in the production collection even when the app runs locally.
-  const collectionName = 'companies';
+  const collectionName = getCompaniesCollectionName();
+
+  const buildFallbackCompany = (companyId?: string | null, nameHint?: string | null): TenantCompany | null => {
+    const preferredId = companyId || getStoredPreferredCompanyId() || authCompanyId || ALMANAR_COMPANY_ID;
+    if (!preferredId && !nameHint) return null;
+
+    const resolvedName = nameHint || (user?.name ? String(user.name) : ALMANAR_COMPANY_NAME_AR);
+    return {
+      id: preferredId,
+      nameAr: resolvedName,
+      nameEn: resolvedName,
+      adminUsername: user?.email || '',
+      adminPassword: '',
+      contactPhone: '',
+      pamFileNumber: '',
+      commercialReg: '',
+      mohLicense: '',
+      iban: '',
+      bankName: '',
+      isActive: true,
+      createdAt: new Date().toISOString()
+    };
+  };
 
   useEffect(() => {
     if (!user) {
@@ -104,6 +125,11 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       createdAt: new Date().toISOString()
     } : null;
 
+    const urlCompanyId = typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('companyId') || new URLSearchParams(window.location.search).get('company_id') || ''
+      : '';
+    const fallbackFromUrl = buildFallbackCompany(urlCompanyId, null);
+
     // Listen to companies collection
     let q;
     if (isActualSuperAdmin) {
@@ -111,7 +137,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } else if (authCompanyId) {
       q = query(collection(db, collectionName), where(documentId(), '==', authCompanyId));
     } else {
-      setCompanies([]);
+      setCompanies(fallbackFromUrl ? [fallbackFromUrl] : []);
       setIsLoading(false);
       return;
     }
@@ -123,16 +149,16 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
       if (fetchedCompanies.length > 0) {
         setCompanies(fetchedCompanies);
-      } else if (fallbackCompany) {
-        setCompanies([fallbackCompany]);
+      } else if (fallbackCompany || fallbackFromUrl) {
+        setCompanies([fallbackCompany || fallbackFromUrl!]);
       } else {
         setCompanies([]);
       }
       setIsLoading(false);
     }, (error) => {
       console.error("Error fetching companies: ", error);
-      if (fallbackCompany) {
-        setCompanies([fallbackCompany]);
+      if (fallbackCompany || fallbackFromUrl) {
+        setCompanies([fallbackCompany || fallbackFromUrl!]);
       }
       setIsLoading(false);
     });
