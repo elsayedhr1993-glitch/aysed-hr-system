@@ -39,13 +39,25 @@ export const AICopilotApp: React.FC<AICopilotAppProps> = ({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const isAllowedDocumentFile = (file: File) => {
+    const fileName = file.name.toLowerCase();
+    const isImage = file.type.startsWith('image/') || /(\.(png|jpg|jpeg|gif|bmp|webp|tif|tiff))$/i.test(fileName);
+    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(fileName);
+    return isImage || isPdf;
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      console.log("جاري معالجة الملف في نظام Aysed S HR 2026...", file.name);
-      toast.success(`جاري قراءة الملف: ${file.name} عبر تقنية OCR`);
-      // Future processing logic for OCR
+    if (!file) return;
+
+    if (!isAllowedDocumentFile(file)) {
+      toast.error('يُسمح فقط بملفات الصور أو PDF.');
+      return;
     }
+
+    console.log("جاري معالجة الملف في نظام Aysed S HR 2026...", file.name);
+    toast.success(`جاري قراءة الملف: ${file.name} عبر تقنية OCR`);
+    // Future processing logic for OCR
   };
 
   // Initial greeting message
@@ -390,7 +402,6 @@ ${empListPreview}`;
               type="file"
               ref={fileInputRef}
               className="hidden"
-              accept="image/*,application/pdf,.jpg,.jpeg,.png,.pdf"
               onChange={handleFileUpload}
             />
             <input

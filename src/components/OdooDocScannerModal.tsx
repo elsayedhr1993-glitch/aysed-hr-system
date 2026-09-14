@@ -121,6 +121,24 @@ export const OdooDocScannerModal: React.FC<ScannerProps> = ({ isOpen, onClose, o
     }
   };
 
+  const isAllowedDocumentFile = (file: File) => {
+    const fileName = file.name.toLowerCase();
+    const isImage = file.type.startsWith('image/') || /(\.(png|jpg|jpeg|gif|bmp|webp|tif|tiff))$/i.test(fileName);
+    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(fileName);
+    return isImage || isPdf;
+  };
+
+  const handleFileSelection = (file?: File | null) => {
+    if (!file) return;
+
+    if (!isAllowedDocumentFile(file)) {
+      toast.error('يُسمح فقط بملفات الصور أو PDF.');
+      return;
+    }
+
+    void handleFileProcess(file);
+  };
+
   const handleApplyData = () => {
     if (!extractedData) return;
 
@@ -207,7 +225,10 @@ export const OdooDocScannerModal: React.FC<ScannerProps> = ({ isOpen, onClose, o
             onDrop={(e) => {
               e.preventDefault();
               setIsDragging(false);
-              if (e.dataTransfer.files?.[0]) handleFileProcess(e.dataTransfer.files[0]);
+              const file = e.dataTransfer.files?.[0];
+              if (file) {
+                handleFileSelection(file);
+              }
             }}
             onClick={() => !isProcessing && fileInputRef.current?.click()}
             className={`border-2 border-dashed rounded-2xl p-8 text-center transition flex flex-col items-center justify-center gap-3 cursor-pointer ${
@@ -217,8 +238,7 @@ export const OdooDocScannerModal: React.FC<ScannerProps> = ({ isOpen, onClose, o
             <input
               type="file"
               ref={fileInputRef}
-              onChange={(e) => e.target.files?.[0] && handleFileProcess(e.target.files[0])}
-              accept="image/*,application/pdf,.jpg,.jpeg,.png,.pdf"
+              onChange={(e) => handleFileSelection(e.target.files?.[0])}
               className="hidden"
             />
 

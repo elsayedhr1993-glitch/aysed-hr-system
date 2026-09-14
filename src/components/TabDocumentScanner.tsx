@@ -16,9 +16,21 @@ export const TabDocumentScanner: React.FC<TabDocumentScannerProps> = ({
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error', msg: string } | null>(null);
 
+  const isAllowedDocumentFile = (file: File) => {
+    const fileName = file.name.toLowerCase();
+    const isImage = file.type.startsWith('image/') || /(\.(png|jpg|jpeg|gif|bmp|webp|tif|tiff))$/i.test(fileName);
+    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(fileName);
+    return isImage || isPdf;
+  };
+
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (!isAllowedDocumentFile(file)) {
+      toast.error('يُسمح فقط بملفات الصور أو PDF.');
+      return;
+    }
 
     setLoading(true);
     setStatus(null);
@@ -99,6 +111,10 @@ export const TabDocumentScanner: React.FC<TabDocumentScannerProps> = ({
           e.preventDefault();
           const file = e.dataTransfer.files?.[0];
           if (file && !loading) {
+            if (!isAllowedDocumentFile(file)) {
+              toast.error('يُسمح فقط بملفات الصور أو PDF.');
+              return;
+            }
             const fakeEvent = { target: { files: [file], value: '' } } as any;
             void handleUpload(fakeEvent);
           }
@@ -107,7 +123,6 @@ export const TabDocumentScanner: React.FC<TabDocumentScannerProps> = ({
         <span>{loading ? '⏳ جاري المسح والاستخراج...' : '📁 رفع ومسح المستند'}</span>
         <input 
           type="file" 
-          accept="image/*,application/pdf,.jpg,.jpeg,.png,.pdf" 
           onChange={handleUpload} 
           disabled={loading} 
           className="hidden" 

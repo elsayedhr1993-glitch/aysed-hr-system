@@ -42,9 +42,22 @@ export const OdooDocumentScanner: React.FC<OdooDocumentScannerProps> = ({ onAppl
   const [preview, setPreview] = useState<string | null>(null);
   const [docType, setDocType] = useState<'civil_id' | 'passport' | 'medical_license' | 'pam_permit'>('civil_id');
 
+  const isAllowedDocumentFile = (file: File) => {
+    const fileName = file.name.toLowerCase();
+    const isImage = file.type.startsWith('image/') || /(\.(png|jpg|jpeg|gif|bmp|webp|tif|tiff))$/i.test(fileName);
+    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(fileName);
+    return isImage || isPdf;
+  };
+
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (!isAllowedDocumentFile(file)) {
+      toast.error('يُسمح فقط بملفات الصور أو PDF.');
+      return;
+    }
+
     setPreview(URL.createObjectURL(file));
     setScanning(true);
 
@@ -152,11 +165,15 @@ export const OdooDocumentScanner: React.FC<OdooDocumentScannerProps> = ({ onAppl
               setScanning(false);
               const file = e.dataTransfer.files?.[0];
               if (file) {
+                if (!isAllowedDocumentFile(file)) {
+                  toast.error('يُسمح فقط بملفات الصور أو PDF.');
+                  return;
+                }
                 void handleUpload({ target: { files: [file] } } as any);
               }
             }}
           >
-            <input type="file" accept="image/*,application/pdf,.jpg,.jpeg,.png,.pdf" className="hidden" onChange={handleUpload} />
+            <input type="file" className="hidden" onChange={handleUpload} />
             {preview ? (
               <img src={preview} alt="Doc" className="max-h-44 object-contain rounded-lg border shadow-xs" />
             ) : (
