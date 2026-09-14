@@ -5,7 +5,7 @@ import {
   Edit3, Save, X, Lock, Building, Phone, Mail, User, Plus, Key, EyeOff, Sliders, Cpu, Layers, Wifi, Settings,
   Download, Upload, HardDrive, FileJson, CheckCheck, RefreshCcw, Sparkles, FolderDown
 } from 'lucide-react';
-import { db, auth, provisionTenantAuth, cleanFirestoreData, purgeTenantCascading, isTenantPurged } from '../lib/firebase';
+import { db, auth, provisionTenantAuth, cleanFirestoreData, purgeTenantCascading, isTenantPurged, getCompaniesCollectionName } from '../lib/firebase';
 import { collection, getDocs, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import firebaseConfig from '../../firebase-applet-config.json';
@@ -39,6 +39,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   onSwitchToApps 
 }) => {
   const isDevPreview = typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost'));
+  const companiesCollection = getCompaniesCollectionName();
 
   const [activeNav, setActiveNav] = useState<'SUBSCRIPTIONS' | 'SERVER_STATS' | 'AUDIT_LOGS' | 'SYSTEM_INTEGRATION' | 'BACKUP_RESTORE'>(
     isDevPreview ? 'SYSTEM_INTEGRATION' : 'SUBSCRIPTIONS'
@@ -225,7 +226,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
       // 1. Fetch Firestore collections
       try {
-        const compSnap = await getDocs(collection(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies')));
+        const compSnap = await getDocs(collection(db, companiesCollection));
         backupData.companies = compSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       } catch (e) {}
 
@@ -284,7 +285,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       if (backupImportData.companies && Array.isArray(backupImportData.companies)) {
         for (const comp of backupImportData.companies) {
           if (comp.id) {
-            await setDoc(doc(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies'), comp.id), cleanFirestoreData(comp), { merge: true });
+            await setDoc(doc(db, companiesCollection, comp.id), cleanFirestoreData(comp), { merge: true });
           }
         }
       }
@@ -407,7 +408,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
-      await setDoc(doc(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies'), compId), cleanFirestoreData(companyDocData), { merge: true });
+      await setDoc(doc(db, companiesCollection, compId), cleanFirestoreData(companyDocData), { merge: true });
 
       // 3. Create document in subscriptions collection
       const subscriptionData = {
@@ -566,7 +567,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
       // 3. Update in Firebase companies collection
       try {
-        await setDoc(doc(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies'), updatedReq.id), {
+        await setDoc(doc(db, companiesCollection, updatedReq.id), {
           nameAr: updatedReq.name,
           email: updatedReq.email,
           adminUsername: updatedReq.email,
@@ -577,11 +578,11 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           updatedAt: new Date().toISOString()
         }, { merge: true });
 
-        const compSnap = await getDocs(collection(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies')));
+        const compSnap = await getDocs(collection(db, companiesCollection));
         for (const d of compSnap.docs) {
           const comp = d.data();
           if (d.id === updatedReq.id || comp.nameAr === updatedReq.name || comp.nameEn === updatedReq.name || comp.email === updatedReq.email || comp.adminUsername === updatedReq.email) {
-            await setDoc(doc(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies'), d.id), {
+            await setDoc(doc(db, companiesCollection, d.id), {
               nameAr: updatedReq.name,
               email: updatedReq.email,
               adminUsername: updatedReq.email,
@@ -620,11 +621,6 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   };
 
   const fetchRequests = async () => {
-    if (isDevPreview) {
-      setLoading(false);
-      setRequests([]);
-      return;
-    }
     setLoading(true);
     let allRequests: SubscriptionRequest[] = [];
 
@@ -658,7 +654,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       });
 
       // Also check Firestore companies collection
-      const compSnap = await getDocs(collection(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies')));
+      const compSnap = await getDocs(collection(db, companiesCollection));
       compSnap.forEach(d => {
         const val = d.data();
         const compName = val.companyName || val.nameAr || val.name || '';
@@ -720,7 +716,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       }, (err) => {
         console.warn('Subscription requests listener warning:', err);
       });
-      unsubscribeComp = onSnapshot(collection(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies')), () => {
+      unsubscribeComp = onSnapshot(collection(db, companiesCollection), () => {
         fetchRequests();
       }, (err) => {
         console.warn('Companies listener warning:', err);
@@ -782,7 +778,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         isActive: true,
         updatedAt: new Date().toISOString()
       };
-      await setDoc(doc(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies'), compId), cleanFirestoreData(companyDocData), { merge: true });
+      await setDoc(doc(db, companiesCollection, compId), cleanFirestoreData(companyDocData), { merge: true });
 
       // 3. Ensure user doc exists
       await setDoc(doc(db, 'users', userUid), {

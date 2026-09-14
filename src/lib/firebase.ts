@@ -36,6 +36,19 @@ export const db = firestoreInstance;
 export const auth = getAuth(app);
 export const storage = getStorage(app);
 
+export function getCompaniesCollectionName(): string {
+  if (typeof window === 'undefined') return 'companies';
+
+  const host = window.location.hostname.toLowerCase();
+
+  // Only explicit dev hosts use the dev collection; localhost should read the real tenant data.
+  if (host.includes('ais-dev') && !host.includes('localhost')) {
+    return 'dev_companies';
+  }
+
+  return 'companies';
+}
+
 /**
  * Creates a secondary isolated Firebase App instance so creating accounts
  * on the client-side DOES NOT log out or overwrite the current Super Admin session.
@@ -332,7 +345,7 @@ export async function purgeTenantCascading(params: {
 
   // 2. Discover all associated IDs from companies & subscriptions first
   try {
-    const compSnap = await getDocs(collection(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies')));
+    const compSnap = await getDocs(collection(db, getCompaniesCollectionName()));
     for (const d of compSnap.docs) {
       const val = d.data();
       if (isMatch(val, d.id)) {

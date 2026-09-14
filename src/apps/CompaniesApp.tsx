@@ -6,7 +6,7 @@ import {
 import { Company } from '../types';
 import toast from 'react-hot-toast';
 import { doc, setDoc, deleteDoc } from 'firebase/firestore';
-import { db, cleanFirestoreData } from '../lib/firebase';
+import { db, cleanFirestoreData, getCompaniesCollectionName } from '../lib/firebase';
 
 interface CompaniesAppProps {
   companies: Company[];
@@ -96,7 +96,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
       };
 
       const cleaned = cleanFirestoreData(completeCompany) as Company;
-      await setDoc(doc(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies'), compId), {
+      await setDoc(doc(db, getCompaniesCollectionName(), compId), {
         ...cleaned,
         companyId: compId,
         companyName: completeCompany.nameAr,
@@ -158,7 +158,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
   const confirmDelete = async () => {
     if (!companyToDelete) return;
     try {
-      await deleteDoc(doc(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies'), companyToDelete.id));
+      await deleteDoc(doc(db, getCompaniesCollectionName(), companyToDelete.id));
       await deleteDoc(doc(db, 'subscriptions', `sub-${companyToDelete.id}`));
       onDeleteCompany(companyToDelete.id);
       

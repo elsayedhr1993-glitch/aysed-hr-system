@@ -9,7 +9,7 @@
  * - `contracts`
  */
 
-import { db, auth, cleanFirestoreData } from '../lib/firebase';
+import { db, auth, cleanFirestoreData, getCompaniesCollectionName } from '../lib/firebase';
 import { collection, doc, setDoc, deleteDoc, getDocs, query, where, getDoc } from 'firebase/firestore';
 import { Company, Employee, LeaveRequest, AttendanceRecord, Payslip, Contract } from '../types';
 import { triggerContractRunningLeaveAllocation } from '../utils/contractLeaveTrigger';
@@ -913,7 +913,7 @@ export const TenantDatabaseService = {
   async saveTenant(company: Company): Promise<boolean> {
     try {
       const cleanDoc = cleanFirestoreData({ ...company, updatedAt: new Date().toISOString() });
-      await setDoc(doc(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies'), company.id), cleanDoc, { merge: true });
+      await setDoc(doc(db, getCompaniesCollectionName(), company.id), cleanDoc, { merge: true });
       return true;
     } catch (fsErr) {
       console.error('[TenantDatabaseService] Firestore company save error:', fsErr);

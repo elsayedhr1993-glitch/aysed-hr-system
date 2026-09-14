@@ -156,7 +156,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             } else {
               // Look up if this email is registered in company collections
               const { getDocs, collection, query, where, setDoc } = await import('firebase/firestore');
-              const collectionName = (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies');
+              const collectionName = 'companies';
               const compQuery = query(collection(db, collectionName), where('adminUsername', '==', firebaseUser.email));
               const compSnap = await getDocs(compQuery).catch(() => null);
 

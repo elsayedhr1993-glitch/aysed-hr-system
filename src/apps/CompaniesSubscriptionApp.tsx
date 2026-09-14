@@ -6,7 +6,7 @@ import {
 import { CompanySubscription, Company } from '../types';
 import toast from 'react-hot-toast';
 import { doc, setDoc, deleteDoc, getDocs, collection, updateDoc, onSnapshot } from 'firebase/firestore';
-import { db, cleanFirestoreData, auth, provisionTenantAuth, purgeTenantCascading, isTenantPurged } from '../lib/firebase';
+import { db, cleanFirestoreData, auth, provisionTenantAuth, purgeTenantCascading, isTenantPurged, getCompaniesCollectionName } from '../lib/firebase';
 import { sendPasswordResetEmail } from 'firebase/auth';
 
 
@@ -249,7 +249,7 @@ export const CompaniesSubscriptionApp: React.FC<CompaniesSubscriptionAppProps> =
         subscriptionPlan: 'Monthly',
         settings: {}
       };
-      await setDoc(doc(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies'), compId), cleanFirestoreData(newCompany));
+      await setDoc(doc(db, getCompaniesCollectionName(), compId), cleanFirestoreData(newCompany));
 
       // 3. Create initial user doc so they can login (fallback if using our local system, or just instruct)
       await setDoc(doc(db, 'users', `usr-${Date.now()}`), {
@@ -393,7 +393,7 @@ export const CompaniesSubscriptionApp: React.FC<CompaniesSubscriptionAppProps> =
         isActive: updatedSub.status === 'active',
         updatedAt: new Date().toISOString()
       };
-      await setDoc(doc(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies'), compId), cleanFirestoreData(companyDocData), { merge: true });
+      await setDoc(doc(db, getCompaniesCollectionName(), compId), cleanFirestoreData(companyDocData), { merge: true });
 
       // If this is a new company creation with an email, provision auth safely
       if (email.includes('@')) {
@@ -482,9 +482,9 @@ export const CompaniesSubscriptionApp: React.FC<CompaniesSubscriptionAppProps> =
         await deleteDoc(doc(db, 'subscriptions', d.id));
       }
 
-      const compsSnap = await getDocs(collection(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies')));
+      const compsSnap = await getDocs(collection(db, getCompaniesCollectionName()));
       for (const d of compsSnap.docs) {
-        await deleteDoc(doc(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies'), d.id));
+        await deleteDoc(doc(db, getCompaniesCollectionName(), d.id));
       }
 
       for (const sub of subscriptions) {

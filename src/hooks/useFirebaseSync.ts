@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { collection, onSnapshot, query, where, doc, setDoc, getDoc } from 'firebase/firestore';
-import { db, auth, cleanFirestoreData } from '../lib/firebase';
+import { db, auth, cleanFirestoreData, getCompaniesCollectionName } from '../lib/firebase';
 import { Employee, Contract, LeaveRequest, AttendanceRecord, Payslip, DocumentItem, CustodyItem, LoanAdvance, DisciplinaryWarning, EmployeeNote, EmployeeNotification, Company, EmploymentCommencement } from '../types';
 import { MANARA_STORAGE_KEYS, setPersistentData } from '../utils/persistentStorage';
 
@@ -361,7 +361,7 @@ export const useFirebaseSync = (
     }
 
     // Companies & Subscriptions are available for tenant selection and platform administration
-    const unsubCompanies = onSnapshot(collection(db, (typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost')) ? 'dev_companies' : 'companies')), 
+    const unsubCompanies = onSnapshot(collection(db, getCompaniesCollectionName()), 
         snap => {
             if (setCompanies) {
                 const docs = snap.docs.map(d => ({ ...d.data(), id: d.id })) as Company[];

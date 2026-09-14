@@ -48,8 +48,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return localStorage.getItem('saas_impersonating_id') || null;
   });
 
-  const isDevPreview = typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost'));
-  const collectionName = isDevPreview ? 'dev_companies' : 'companies';
+  // Real tenant records live in the production collection even when the app runs locally.
+  const collectionName = 'companies';
 
   useEffect(() => {
     if (!user) {
