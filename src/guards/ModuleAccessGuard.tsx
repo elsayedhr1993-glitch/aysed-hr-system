@@ -4,13 +4,23 @@ import { ShieldOff } from 'lucide-react';
 interface GuardProps {
   userRole?: string;
   allowedRoles?: string[];
+  permissions?: string[];
   children: React.ReactNode;
 }
 
-export const ModuleAccessGuard: React.FC<GuardProps> = ({ userRole, allowedRoles, children }) => {
-  const safeRole = userRole ?? '';
-  const safeAllowedRoles = Array.isArray(allowedRoles) ? allowedRoles : [];
-  const isAuthorized = safeAllowedRoles.includes(safeRole);
+const normalizeRoleList = (value?: string[] | null): string[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+    .map(entry => entry.trim());
+};
+
+export const ModuleAccessGuard: React.FC<GuardProps> = ({ userRole, allowedRoles, permissions, children }) => {
+  const safeRole = typeof userRole === 'string' ? userRole.trim() : '';
+  const safeAllowedRoles = normalizeRoleList(allowedRoles);
+  const safePermissions = normalizeRoleList(permissions);
+  const hasPermissionAccess = safePermissions.length > 0 ? safePermissions.some(permission => permission === safeRole || safeAllowedRoles.includes(permission)) : true;
+  const isAuthorized = safeAllowedRoles.includes(safeRole) || hasPermissionAccess;
 
   if (!isAuthorized) {
     return (
