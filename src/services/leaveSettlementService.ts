@@ -112,12 +112,6 @@ export function cleanKwdAmount(amount: number | undefined | null): number {
   return Number((Math.round((amount + Number.EPSILON) * 1000) / 1000).toFixed(3));
 }
 
-export function normalizeNumericValue(value: unknown, fallback = 0): number {
-  if (value === undefined || value === null || value === '') return fallback;
-  const numericValue = Number(value);
-  return Number.isFinite(numericValue) ? numericValue : fallback;
-}
-
 export function resolveNetAvailableLeaveBalance(input: {
   totalBalance?: number;
   totalAvailableBalance?: number;
@@ -851,64 +845,18 @@ export function getSavedSettlementVouchers(companyId?: string): LeaveSettlementV
     []
   );
 
-  const normalizedVouchers = (Array.isArray(vouchers) ? vouchers : [])
-    .filter(Boolean)
-    .map((voucher: Partial<LeaveSettlementVoucher> | any) => {
-      const items = Array.isArray(voucher?.items) ? voucher.items.filter(Boolean).map((item: any) => ({
-        ...item,
-        quantity: normalizeNumericValue(item?.quantity, 0),
-        rate: normalizeNumericValue(item?.rate, 0),
-        amount: normalizeNumericValue(item?.amount, 0),
-      })) : [];
-
-      return {
-        ...voucher,
-        voucherNumber: voucher?.voucherNumber || voucher?.id || 'LST-UNKNOWN',
-        companyId: voucher?.companyId || '',
-        employeeId: voucher?.employeeId || '',
-        employeeName: voucher?.employeeName || 'غير معروف',
-        employeeCode: voucher?.employeeCode || '',
-        civilId: voucher?.civilId || '',
-        jobTitle: voucher?.jobTitle || '',
-        department: voucher?.department || '',
-        joinDate: voucher?.joinDate || '',
-        settlementDate: voucher?.settlementDate || new Date().toISOString().split('T')[0],
-        status: voucher?.status || 'draft',
-        basicSalary: normalizeNumericValue(voucher?.basicSalary, 0),
-        grossSalary: normalizeNumericValue(voucher?.grossSalary, 0),
-        dailyWage: normalizeNumericValue(voucher?.dailyWage, 0),
-        hourlyWage: normalizeNumericValue(voucher?.hourlyWage, 0),
-        carriedOverBalance: normalizeNumericValue(voucher?.carriedOverBalance, 0),
-        accruedBalance: normalizeNumericValue(voucher?.accruedBalance, 0),
-        totalAvailableBefore: normalizeNumericValue(voucher?.totalAvailableBefore, 0),
-        consumedLeaveDays: normalizeNumericValue(voucher?.consumedLeaveDays, 0),
-        statutoryLeaveDays: normalizeNumericValue(voucher?.statutoryLeaveDays, 0),
-        encashedLeaveDays: normalizeNumericValue(voucher?.encashedLeaveDays, 0),
-        unpaidLeaveDays: normalizeNumericValue(voucher?.unpaidLeaveDays, 0),
-        remainingBalanceAfter: normalizeNumericValue(voucher?.remainingBalanceAfter, 0),
-        items,
-        totalEarnings: normalizeNumericValue(voucher?.totalEarnings, 0),
-        totalDeductions: normalizeNumericValue(voucher?.totalDeductions, 0),
-        netSettlementPayout: normalizeNumericValue(voucher?.netSettlementPayout, 0),
-        paymentMethod: voucher?.paymentMethod || 'BANK_TRANSFER',
-        createdAt: voucher?.createdAt || new Date().toISOString(),
-      } as LeaveSettlementVoucher;
-    });
-
   // Automatic deduplication by voucherNumber or id
   const seenMap = new Map<string, LeaveSettlementVoucher>();
   const cleaned: LeaveSettlementVoucher[] = [];
-  for (const v of normalizedVouchers) {
+  for (const v of vouchers) {
     const key = v.voucherNumber || v.id;
     if (key && !seenMap.has(key)) {
       seenMap.set(key, v);
       cleaned.push(v);
     }
   }
-  if (cleaned.length !== normalizedVouchers.length) {
+  if (cleaned.length !== vouchers.length) {
     setPersistentData(MANARA_STORAGE_KEYS.LEAVE_SETTLEMENT_VOUCHERS, cleaned);
-    vouchers = cleaned;
-  } else {
     vouchers = cleaned;
   }
 

@@ -4,15 +4,7 @@ import assert from 'node:assert/strict';
 import { normalizeLeaveType, normalizeLeaveStatus, isLeaveRequestInConflict, canTransitionLeaveStatus } from './leaveModel.ts';
 import { isApprovedLeaveStatus } from './leaveEngine.ts';
 import { computeFifoLeaveAllocations } from '../services/leaveService.ts';
-import { calculateUniversalLeaveSettlement, resolveNetAvailableLeaveBalance, normalizeNumericValue } from '../services/leaveSettlementService.ts';
-
-test('normalizeNumericValue coerces invalid settlement figures to zero instead of crashing', () => {
-  assert.equal(normalizeNumericValue(undefined), 0);
-  assert.equal(normalizeNumericValue(null), 0);
-  assert.equal(normalizeNumericValue(''), 0);
-  assert.equal(normalizeNumericValue('125.50'), 125.5);
-  assert.equal(normalizeNumericValue('abc'), 0);
-});
+import { calculateUniversalLeaveSettlement, resolveNetAvailableLeaveBalance } from '../services/leaveSettlementService.ts';
 
 test('normalizeLeaveType accepts the mixed leave-type variants used across the app', () => {
   assert.equal(normalizeLeaveType('annual'), 'ANNUAL');

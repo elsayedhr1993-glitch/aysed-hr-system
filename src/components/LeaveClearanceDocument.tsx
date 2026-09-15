@@ -39,31 +39,24 @@ export const LeaveClearanceDocument: React.FC<Props> = ({
   const direction = lang === 'ar' ? 'rtl' : 'ltr';
   const textAlignClass = lang === 'ar' ? 'text-right' : 'text-left';
   const isUniversal = 'items' in settlement || (propItems && propItems.length > 0);
-  const items: UniversalSettlementItem[] = (Array.isArray((settlement as any)?.items) ? (settlement as any).items : (Array.isArray(propItems) ? propItems : []))
-    .filter(Boolean)
-    .map((item: any) => ({
-      ...item,
-      quantity: Number.isFinite(Number(item?.quantity)) ? Number(item.quantity) : 0,
-      rate: Number.isFinite(Number(item?.rate)) ? Number(item.rate) : 0,
-      amount: Number.isFinite(Number(item?.amount)) ? Number(item.amount) : 0,
-    }));
+  const items: UniversalSettlementItem[] = (settlement as any).items || propItems || [];
 
   const earnings = items.filter(i => i.type === 'EARNING');
   const deductions = items.filter(i => i.type === 'DEDUCTION');
 
-  const totalEarnings = (settlement as any)?.totalEarnings !== undefined && (settlement as any)?.totalEarnings !== null
-    ? Number((settlement as any).totalEarnings || 0)
-    : Number((settlement as any)?.aysed_leave_cash || 0) + Number((settlement as any)?.aysed_ticket_allowance || 0) + Number((settlement as any)?.aysed_allowances || 0);
+  const totalEarnings = (settlement as any).totalEarnings !== undefined
+    ? (settlement as any).totalEarnings
+    : (settlement.aysed_leave_cash || 0) + (settlement.aysed_ticket_allowance || 0) + (settlement.aysed_allowances || 0);
 
-  const totalDeductions = (settlement as any)?.totalDeductions !== undefined && (settlement as any)?.totalDeductions !== null
-    ? Number((settlement as any).totalDeductions || 0)
-    : Number((settlement as any)?.aysed_deductions || 0);
+  const totalDeductions = (settlement as any).totalDeductions !== undefined
+    ? (settlement as any).totalDeductions
+    : (settlement.aysed_deductions || 0);
 
-  const netPayable = (settlement as any)?.netSettlementPayout !== undefined && (settlement as any)?.netSettlementPayout !== null
-    ? Number((settlement as any).netSettlementPayout || 0)
-    : Number((settlement as any)?.aysed_net_payable || 0);
+  const netPayable = (settlement as any).netSettlementPayout !== undefined
+    ? (settlement as any).netSettlementPayout
+    : (settlement.aysed_net_payable || 0);
 
-  const dailyWage = Number((settlement as any)?.dailyWage ?? (settlement as any)?.aysed_daily_wage ?? 0);
+  const dailyWage = (settlement as any).dailyWage || settlement.aysed_daily_wage || 0;
   const vNum = voucherNumber || (settlement as any).voucherNumber || `LST-${new Date().getFullYear()}-001`;
   const sDate = settlementDate || (settlement as any).settlementDate || new Date().toISOString().split('T')[0];
 
