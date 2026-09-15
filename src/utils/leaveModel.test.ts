@@ -197,6 +197,27 @@ test('settlement validation blocks encashment beyond the net available balance',
   assert.ok(validation.errors.some(error => error.includes('تجاوز الرصيد المتاح') || error.includes('exceeds')));
 });
 
+test('settlement items are normalized before displaying or formatting values', async () => {
+  const { normalizeSettlementItem } = await import('../services/leaveSettlementService.ts');
+
+  const item = normalizeSettlementItem({
+    id: 'broken-item',
+    name: undefined,
+    quantity: undefined,
+    rate: undefined,
+    amount: undefined,
+    type: undefined,
+    unit: undefined,
+  } as any);
+
+  assert.equal(item.name, 'بند مالي غير محدد');
+  assert.equal(item.quantity, 0);
+  assert.equal(item.rate, 0);
+  assert.equal(item.amount, 0);
+  assert.equal(item.type, 'EARNING');
+  assert.equal(item.unit, 'fixed');
+});
+
 test('leave balance waterfall distributes actual consumption across carried, accrued and compensatory balances', async () => {
   const employee = {
     id: 'emp-1',
