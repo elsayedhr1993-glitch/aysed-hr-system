@@ -1,3 +1,4 @@
+import { buildAuthedJsonHeaders } from '../lib/clientAuth';
 import { normalizeScannedData } from '../utils/ocrService';
 
 export interface ExtractedEmployeeData {
@@ -24,9 +25,15 @@ export const parseKuwaitCivilCardOCR = async (imageBase64: string, docTypeContex
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 25000); // 25s timeout
 
+    const headers = await buildAuthedJsonHeaders();
+    if (!headers.Authorization) {
+      console.warn('OCR skipped: user not authenticated');
+      return {};
+    }
+
     const res = await fetch('/api/ocr-scan', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         imageBase64,
         mimeType: 'image/jpeg',

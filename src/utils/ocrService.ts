@@ -1,6 +1,7 @@
 import * as pdfjsLib from 'pdfjs-dist';
 // Vite will statically analyze this and serve the file correctly
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import { buildAuthedJsonHeaders } from '../lib/clientAuth';
 import { parseKuwaitCivilId } from './kuwaitLaw';
 
 if (typeof window !== 'undefined') {
@@ -138,15 +139,17 @@ export async function processAnyDocument(file: File, _apiKey?: string, docType?:
     docData = await convertImageToBase64(file);
   }
 
-  // إرسال البيانات لمعالج الرؤية البصرية في السيرفر
+  const headers = await buildAuthedJsonHeaders();
+  if (!headers.Authorization) {
+    throw new Error('يجب تسجيل الدخول أولاً لتفعيل الماسح الضوئي الذكي (OCR).');
+  }
+
   let response;
 
   try {
     response = await fetch('/api/ocr-scan', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
         imageBase64: docData.base64,
         imageBase64Pages: pdfPages.length > 0 ? pdfPages : undefined,
@@ -157,9 +160,13 @@ export async function processAnyDocument(file: File, _apiKey?: string, docType?:
 
     if (!response.ok) {
       const errJson = await response.json().catch(() => ({}));
-      throw new Error((errJson.error || 'فشل نظام القراءة الضوئية (OCR) في تحليل المستند.') + (errJson.details ? '\nالسبب: ' + errJson.details : ''));
+      const errMsg = errJson.error || errJson.message || 'فشل نظام القراءة الضوئية (OCR) في تحليل المستند.';
+      throw new Error(errMsg + (errJson.details ? '\nالسبب: ' + errJson.details : ''));
     }
   } catch (netErr: any) {
+    if (netErr?.message?.includes('تسجيل الدخول') || netErr?.message?.includes('OCR')) {
+      throw netErr;
+    }
     throw new Error('فشل الاتصال بخدمة OCR على الخادم. يرجى المحاولة لاحقاً.\n' + (netErr?.message || ''));
   }
 

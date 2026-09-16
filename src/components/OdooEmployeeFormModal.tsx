@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { buildAuthedJsonHeaders } from '../lib/clientAuth';
 import { validateKuwaitCivilId } from '../utils/kuwaitLaw';
 import OdooPamContractModal from './OdooPamContractModal';
 import { TabDocumentScanner } from './TabDocumentScanner';
@@ -245,9 +246,13 @@ export default function OdooEmployeeFormModal({ isOpen, onClose, onSave, existin
       reader.onload = async (evt) => {
         const base64Data = evt.target?.result as string;
         try {
+          const headers = await buildAuthedJsonHeaders();
+          if (!headers.Authorization) {
+            throw new Error('يجب تسجيل الدخول أولاً لتفعيل الماسح الضوئي.');
+          }
           const res = await fetch('/api/ocr-scan', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({
               imageBase64: base64Data,
               mimeType: file.type,
