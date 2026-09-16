@@ -19,7 +19,8 @@
     "leaves:purge-legacy": "tsx scripts/purge-legacy-leaves-collection.ts",
     "qa:seed": "tsx scripts/seed-qa-master-employee.ts",
     "qa:leave": "tsx scripts/submit-qa-leave-request.ts",
-    "qa:onboarding": "tsx scripts/seed-qa-onboarding-plan.ts"
+    "qa:onboarding": "tsx scripts/seed-qa-onboarding-plan.ts",
+    "qa:approve": "tsx scripts/approve-qa-leave-request.ts"
   },
   "dependencies": {
     "@fontsource/cairo": "^5.3.0",
