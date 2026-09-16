@@ -1,0 +1,375 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { X, Send, Bot, User, Sparkles, RefreshCw, ChevronLeft, ArrowLeft, ShieldCheck, Zap } from 'lucide-react';
+import { Employee, Contract } from '../types';
+import { useAuth } from '../context/AuthContext';
+import toast from 'react-hot-toast';
+import { downloadKuwaitWPSFile } from '../utils/kuwaitLaw';
+import { addDirectEmployeeViaAi } from '../services/tenantDataService';
+import { useLang } from '../lib/i18n';
+
+export interface CopilotAction {
+  type: 'NAVIGATE' | 'OPEN_MODAL' | 'TRIGGER_FUNCTION' | 'CREATE_EMPLOYEE';
+  appId?: string;
+  modal?: 'new_employee' | 'pam_contract' | 'upload_doc';
+  functionName?: 'export_wps' | 'export_report';
+  employeeData?: {
+    nameAr?: string;
+    nameEn?: string;
+    civilId?: string;
+    jobTitle?: string;
+    department?: string;
+    basicSalary?: string;
+    phone?: string;
+    nationality?: string;
+  };
+  title: string;
+}
+
+export interface CopilotMessage {
+  id: string;
+  sender: 'user' | 'bot';
+  text: string;
+  timestamp: string;
+  action?: CopilotAction | null;
+}
+
+interface AysedAICopilotProps {
+  isOpen: boolean;
+  onClose: () => void;
+  employees: Employee[];
+  contracts: Contract[];
+  onQuickAction?: (actionType: string, payload?: any) => void;
+}
+
+export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
+  isOpen,
+  onClose,
+  employees = [],
+  contracts = [],
+  onQuickAction,
+}) => {
+  const { token } = useAuth();
+  const { lang } = useLang();
+  const isArabic = lang === 'ar';
+  const [messages, setMessages] = useState<CopilotMessage[]>([
+    {
+      id: '1',
+      sender: 'bot',
+      text: isArabic
+        ? 'أهلاً بك! أنا مساعد Aysed S HR 2026 الذكي والخاص بإدارة الموارد البشرية الكويتي.\nأنا قادر على تنفيذ الأوامر المباشرة، فتح الشاشات، تنزيل ملفات WPS للبنوك، وإضافة الموظفين بالذكاء الاصطناعي مباشرة إلى النظام.\n\nكيف يمكنني مساعدتك اليوم؟'
+        : 'Welcome! I am the Aysed S HR 2026 copilot for Kuwait HR operations.\nI can execute direct actions, open screens, export WPS files, and add employees with AI guidance directly into the system.\n\nHow can I help you today?',
+      timestamp: new Date().toLocaleTimeString(isArabic ? 'ar-KW' : 'en-US', { hour: '2-digit', minute: '2-digit' })
+    }
+  ]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const quickPrompts = isArabic ? [
+    'افتح شاشة تسوية الموظف ونهاية الخدمة',
+    'ضيف موظف اسمه أحمد الكندري رقم مدني 290010112345 ووظيفته محامي وراتبه 850',
+    'تحميل ملف حماية الأجور للبنوك (WPS)',
+    'استخراج عقد عمل حكومي PAM Form 2',
+    'سجلات الحضور والدوام والبصمة',
+    'عرض كشوف الرواتب وحماية الأجور'
+  ] : [
+    'Open the employee settlement and end-of-service screen',
+    'Create an employee named Ahmed Al-Kandari with civil ID 290010112345 and salary 850',
+    'Export the WPS bank payroll protection file',
+    'Generate a PAM government employment contract',
+    'Show attendance, time tracking and biometric logs',
+    'Display payroll and wage protection reports'
+  ];
+
+  useEffect(() => {
+    if (isOpen) {
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, isOpen]);
+
+  if (!isOpen) return null;
+
+  const handleSend = async (customText?: string) => {
+    const queryText = customText || input;
+    if (!queryText.trim() || isLoading) return;
+
+    console.log('💬 [Aysed Copilot Query Input]:', queryText);
+
+    const userMsg: CopilotMessage = {
+      id: Date.now().toString(),
+      sender: 'user',
+      text: queryText,
+      timestamp: new Date().toLocaleTimeString(isArabic ? 'ar-KW' : 'en-US', { hour: '2-digit', minute: '2-digit' })
+    };
+
+    setMessages(prev => [...prev, userMsg]);
+    if (!customText) setInput('');
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('/api/ai-chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          prompt: queryText,
+          contextSummary: 'Aysed HR Copilot session',
+          conversationHistory: messages.map(m => ({ role: m.sender === 'user' ? 'user' : 'assistant', content: m.text }))
+        })
+      });
+
+      const data = await response.json();
+      console.log('🤖 [Aysed Copilot AI Response]:', data);
+
+      const botMsg: CopilotMessage = {
+        id: (Date.now() + 1).toString(),
+        sender: 'bot',
+        text: data.reply || (isArabic ? 'عذراً، لم أستطع معالجة الإجابة حالياً.' : 'Sorry, I could not process the response right now.'),
+        timestamp: new Date().toLocaleTimeString(isArabic ? 'ar-KW' : 'en-US', { hour: '2-digit', minute: '2-digit' }),
+        action: data.action || null
+      };
+
+      setMessages(prev => [...prev, botMsg]);
+
+      if (data.action && data.action.type === 'CREATE_EMPLOYEE') {
+        setTimeout(() => {
+          handleExecuteAction(data.action);
+        }, 250);
+      }
+    } catch (err) {
+      console.error('Copilot Chat Error:', err);
+      setMessages(prev => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          sender: 'bot',
+          text: isArabic ? 'حدث خطأ أثناء الاتصال بالمساعد الذكي. يرجى المحاولة مرة أخرى.' : 'The AI assistant connection failed. Please try again.',
+          timestamp: new Date().toLocaleTimeString(isArabic ? 'ar-KW' : 'en-US', { hour: '2-digit', minute: '2-digit' })
+        }
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleExecuteAction = async (action: CopilotAction) => {
+    console.log('⚡ [Aysed Copilot Action Execution Triggered]:', action);
+
+    if (action.type === 'NAVIGATE' && action.appId) {
+      console.log(`🚀 [Copilot Navigation] Switching activeApp to: "${action.appId}"`);
+      if (onQuickAction) {
+        onQuickAction('navigate', action.appId);
+      }
+      onClose();
+    } else if (action.type === 'OPEN_MODAL') {
+      console.log(`📂 [Copilot Modal Trigger] Opening modal: "${action.modal}"`);
+      if (action.modal === 'new_employee' && onQuickAction) {
+        onQuickAction('new_employee');
+      } else if (onQuickAction) {
+        onQuickAction(action.modal || 'new_employee');
+      }
+      onClose();
+    } else if (action.type === 'TRIGGER_FUNCTION') {
+      console.log(`📥 [Copilot Function Execution] Executing: "${action.functionName}"`);
+      if (action.functionName === 'export_wps' || !action.functionName) {
+        const wpsEmployees = employees
+          .filter(e => e.civilId && e.iban)
+          .map(e => ({
+            civil_id: e.civilId,
+            bank_code: 'KFH',
+            iban: e.iban,
+            basic_salary: Number((e as any).basicSalary || (e as any).salary) || 0,
+            allowances: 0,
+            deductions: 0,
+            net_salary: Number((e as any).basicSalary || (e as any).salary) || 0
+          }));
+        if (wpsEmployees.length === 0) {
+          toast.error('لا يمكن إنشاء ملف WPS قبل توفر الرقم المدني وIBAN الفعلي للموظفين.');
+          onClose();
+          return;
+        }
+        downloadKuwaitWPSFile(
+          {
+            companyMOSALId: '301122',
+            employerBankCode: 'KFH',
+            payrollMonthYear: new Date().toISOString().slice(0, 7)
+          },
+          wpsEmployees
+        );
+        toast.success('تم تنزيل واستخراج ملف حماية الأجور (WPS SIF) للبنوك بنجاح');
+      }
+      onClose();
+    } else if (action.type === 'CREATE_EMPLOYEE' && action.employeeData) {
+      console.log('👤 [Copilot Direct Employee Creation]:', action.employeeData);
+      try {
+        const activeCompanyId = localStorage.getItem('active_company_id') || 'company_1';
+        const createdEmployee = await addDirectEmployeeViaAi(activeCompanyId, action.employeeData, employees);
+        toast.success(`تم إضافة الموظف (${createdEmployee.fullNameAr || action.employeeData.nameAr || 'الجديد'}) بنجاح إلى قاعدة البيانات!`);
+        if (onQuickAction) {
+          onQuickAction('navigate', 'employees');
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'حدث خطأ أثناء إضافة الموظف';
+        toast.error(message);
+      }
+      onClose();
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-hidden" dir={isArabic ? 'rtl' : 'ltr'}>
+      {/* Backdrop for closing drawer */}
+      <div 
+        className="fixed inset-0 bg-black/40 backdrop-blur-[1px] transition-opacity animate-in fade-in duration-200"
+        onClick={onClose}
+      />
+
+      {/* Sliding Side Drawer Container */}
+      <div className="fixed inset-y-0 left-0 w-full sm:w-[440px] bg-white shadow-2xl flex flex-col z-50 animate-in slide-in-from-left duration-300 border-r border-slate-200">
+        {/* Drawer Header */}
+        <div className="bg-gradient-to-r from-[#261928] via-[#714B67] to-[#3a2234] text-white p-4 flex items-center justify-between border-b border-purple-900/50 shadow-md">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-amber-400 text-purple-950 font-black flex items-center justify-center shadow-md">
+              ✨
+            </div>
+            <div>
+              <h3 className="font-bold text-sm text-white flex items-center gap-1.5">
+                <span>{isArabic ? 'Aysed HR Copilot' : 'Aysed HR Copilot'}</span>
+                <span className="text-[9px] bg-amber-400 text-purple-950 px-1.5 py-0.5 rounded-full font-black">{isArabic ? 'ذكاء تنفيذي' : 'Executive AI'}</span>
+              </h3>
+              <p className="text-[10px] text-purple-200">{isArabic ? 'مساعدك الذكي لتنفيذ الأوامر وإضافة الموظفين بالذكاء الاصطناعي' : 'Your smart assistant for actions, HR workflows, and AI-powered employee creation'}</p>
+            </div>
+          </div>
+          
+          <button 
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
+            title={isArabic ? 'إغلاق النافذة الجانبية' : 'Close side panel'}
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Chat Messages List */}
+        <div className="flex-1 p-4 overflow-y-auto space-y-3.5 bg-slate-50/50">
+          {messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={`flex items-start gap-2.5 ${msg.sender === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
+            >
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 shadow-sm ${
+                msg.sender === 'user' ? 'bg-[#714B67] text-white' : 'bg-amber-400 text-purple-950'
+              }`}>
+                {msg.sender === 'user' ? <User size={14} /> : <Bot size={14} />}
+              </div>
+
+              <div className={`max-w-[85%] rounded-2xl p-3 shadow-xs text-xs ${
+                msg.sender === 'user'
+                  ? 'bg-[#714B67] text-white rounded-tr-none'
+                  : 'bg-white border border-slate-200 text-slate-800 rounded-tl-none'
+              }`}>
+                <p className="text-xs leading-relaxed whitespace-pre-wrap font-sans">
+                  {msg.text}
+                </p>
+
+                {msg.action && (
+                  <div className="mt-3 p-3 bg-gradient-to-r from-purple-900 via-[#714B67] to-slate-900 text-white rounded-xl border border-amber-400/50 shadow-lg flex flex-col items-start gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-amber-400 text-purple-950 font-black flex items-center justify-center text-xs shrink-0 shadow-md">
+                        {msg.action.type === 'CREATE_EMPLOYEE' ? '👤' : '⚡'}
+                      </div>
+                      <div>
+                        <div className="text-[9px] text-amber-300 font-bold uppercase tracking-wider">
+                          {msg.action.type === 'CREATE_EMPLOYEE' ? (isArabic ? 'إضافة موظف جديد آلياً' : 'Add new employee automatically') : (isArabic ? 'إجراء تنفيذي آلي جاهز' : 'Ready-to-run automated action')}
+                        </div>
+                        <div className="text-xs font-bold text-white">{msg.action.title}</div>
+                      </div>
+                    </div>
+
+                    {msg.action.employeeData && (
+                      <div className="w-full bg-black/30 rounded-lg p-2.5 text-[11px] space-y-1 border border-white/10 my-1">
+                        <div className="flex justify-between"><span className="text-purple-300">{isArabic ? 'الاسم:' : 'Name:'}</span> <span className="font-bold">{msg.action.employeeData.nameAr || msg.action.employeeData.nameEn || (isArabic ? 'غير محدد' : 'Not set')}</span></div>
+                        {msg.action.employeeData.civilId && <div className="flex justify-between"><span className="text-purple-300">{isArabic ? 'الرقم المدني:' : 'Civil ID:'}</span> <span className="font-mono text-amber-300 font-bold">{msg.action.employeeData.civilId}</span></div>}
+                        {msg.action.employeeData.jobTitle && <div className="flex justify-between"><span className="text-purple-300">{isArabic ? 'الوظيفة:' : 'Job title:'}</span> <span>{msg.action.employeeData.jobTitle}</span></div>}
+                        {msg.action.employeeData.department && <div className="flex justify-between"><span className="text-purple-300">{isArabic ? 'القسم:' : 'Department:'}</span> <span>{msg.action.employeeData.department}</span></div>}
+                        {msg.action.employeeData.basicSalary && <div className="flex justify-between"><span className="text-purple-300">{isArabic ? 'الراتب الأساسي:' : 'Basic salary:'}</span> <span className="text-emerald-400 font-bold">{msg.action.employeeData.basicSalary} {isArabic ? 'د.ك' : 'KWD'}</span></div>}
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => handleExecuteAction(msg.action!)}
+                      className="w-full px-3.5 py-2 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-purple-950 font-extrabold text-xs rounded-lg shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer mt-1"
+                    >
+                      <span>
+                        {msg.action.type === 'CREATE_EMPLOYEE' ? (isArabic ? '👤 اعتماد وإضافة الموظف للنظام الآن' : '👤 Approve and add employee to the system now') : (isArabic ? '🚀 تنفيذ الإجراء وإغلاق المساعد' : '🚀 Execute action and close assistant')}
+                      </span>
+                    </button>
+                  </div>
+                )}
+
+                <span className={`text-[9px] block mt-1 font-medium ${msg.sender === 'user' ? 'text-purple-200' : 'text-slate-400'}`}>
+                  {msg.timestamp}
+                </span>
+              </div>
+            </div>
+          ))}
+
+          {isLoading && (
+            <div className="flex items-center gap-2 text-slate-500 text-xs bg-white p-3 rounded-xl border border-slate-200 w-fit">
+              <span className="animate-spin text-amber-600">⏳</span>
+              <span>{isArabic ? 'جاري المعالجة وتنفيذ الذكاء الاصطناعي...' : 'Processing with the AI assistant...'}</span>
+            </div>
+          )}
+
+          <div ref={chatEndRef} />
+        </div>
+
+        {/* Quick Commands Bar */}
+        <div className="p-2.5 bg-purple-50/50 border-t border-purple-100 overflow-x-auto whitespace-nowrap scrollbar-thin">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-purple-800 font-bold shrink-0">{isArabic ? 'أوامر سريعة:' : 'Quick commands:'}</span>
+            {quickPrompts.map((prompt, idx) => (
+              <button
+                key={idx}
+                onClick={() => handleSend(prompt)}
+                disabled={isLoading}
+                className="px-2.5 py-1 bg-white hover:bg-purple-700 hover:text-white text-purple-900 border border-purple-200 rounded-full text-[10px] font-semibold transition cursor-pointer shadow-2xs shrink-0"
+              >
+                + {prompt}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Drawer Footer Input */}
+        <div className="p-3 bg-white border-t border-slate-200">
+          <form 
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSend();
+            }}
+            className="flex items-center gap-2"
+          >
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={isArabic ? 'اكتب أمرك هنا (مثال: ضيف موظف اسمه أحمد الكندري...)' : 'Type your request here (for example: add an employee named Ahmed Al-Kandari...)'}
+              className="flex-1 text-xs bg-slate-100 border border-slate-300 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-600 font-sans"
+            />
+            <button
+              type="submit"
+              disabled={isLoading || !input.trim()}
+              className="px-3.5 py-2.5 bg-[#714B67] hover:bg-[#5a3a52] text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 shadow-md"
+            >
+              <Send size={15} />
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};

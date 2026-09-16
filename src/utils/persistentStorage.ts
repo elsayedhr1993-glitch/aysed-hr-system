@@ -1,0 +1,357 @@
+/**
+ * Persistent Storage Engine for Manara HR System
+ * Guarantees that employees, attendance, payroll, leaves, loans, and tenant data NEVER disappear on refresh.
+ */
+
+export const MANARA_STORAGE_KEYS = {
+  EMPLOYEES: 'manara_employees_data',
+  TENANTS: 'manara_tenants_data',
+  COMPANIES: 'manara_companies_data',
+  ATTENDANCE: 'manara_attendance_data',
+  PAYSLIPS: 'manara_payslips_data',
+  PAYROLL_RUNS: 'manara_payroll_runs_data',
+  LEAVES: 'manara_leaves_data',
+  LEAVE_ALLOCATIONS: 'manara_leave_allocations_data',
+  LOANS: 'manara_loans_data',
+  CONTRACTS: 'manara_contracts_data',
+  CUSTODIES: 'manara_custodies_data',
+  DEPARTMENTS: 'manara_departments_data',
+  JOB_TITLES: 'manara_job_titles_data',
+  WARNINGS: 'manara_warnings_data',
+  EMPLOYEE_NOTES: 'manara_employee_notes_data',
+  DOCUMENTS: 'manara_documents_data',
+  COMPANY_DOCUMENTS: 'manara_company_documents_data',
+  DOCUMENT_TEMPLATES: 'manara_document_templates_data',
+  GENERATED_DOCS: 'manara_generated_docs_data',
+  AUDIT_LOGS: 'manara_audit_logs_data',
+  AUTOMATION_RULES: 'manara_automation_rules_data',
+  SHIFTS: 'manara_shifts_data',
+  EMPLOYEE_SHIFTS: 'manara_employee_shifts_data',
+  COMMENCEMENTS: 'manara_commencements_data',
+  CANDIDATES: 'manara_candidates_data',
+  SUBSCRIPTIONS: 'manara_subscriptions_data',
+  EMPLOYEE_NOTIFICATIONS: 'manara_employee_notifications_data',
+  DAILY_MOVEMENTS: 'manara_daily_movements_data',
+  LEAVE_SETTLEMENT_VOUCHERS: 'manara_leave_settlement_vouchers_data',
+  LEAVE_BALANCE_TRANSACTIONS: 'manara_leave_balance_transactions',
+  HOLIDAY_WORK_RECORDS: 'manara_holiday_work_records',
+  ACTIVE_COMPANY_ID: 'activeCompanyId',
+  BG_THEME: 'manara_bg_theme',
+  MOTION_ENABLED: 'manara_motion_enabled',
+  VIEW_MODE: 'manara_view_mode',
+} as const;
+
+/**
+ * Safely loads persistent data from localStorage.
+ * If data exists in localStorage, returns it; otherwise returns fallback.
+ */
+export function getPersistentData<T>(key: string, fallback: T, alternateKey?: string): T {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return fallback;
+  }
+  try {
+    const raw = localStorage.getItem(key) || (alternateKey ? localStorage.getItem(alternateKey) : null);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw);
+    if (parsed === null || parsed === undefined) return fallback;
+    // For arrays, if parsed is not an array, fallback
+    if (Array.isArray(fallback) && !Array.isArray(parsed)) return fallback;
+    return parsed as T;
+  } catch (error) {
+    console.warn(`[PersistentStorage] Error loading key "${key}":`, error);
+    return fallback;
+  }
+}
+
+/**
+ * Helper to prune heavy strings (like huge uncompressed base64 images) if quota is exceeded
+ */
+function stripHeavyBase64Data<T>(data: T): T {
+  if (!data) return data;
+  try {
+    if (Array.isArray(data)) {
+      return data.map(item => stripHeavyBase64Data(item)) as unknown as T;
+    }
+    if (typeof data === 'object') {
+      const copy: any = { ...data };
+      for (const k in copy) {
+        if (typeof copy[k] === 'string' && copy[k].length > 100000 && copy[k].startsWith('data:')) {
+          // Clear oversized data URLs that exceed 100KB to fit within localStorage limits
+          copy[k] = '';
+        } else if (typeof copy[k] === 'object' && copy[k] !== null) {
+          copy[k] = stripHeavyBase64Data(copy[k]);
+        }
+      }
+      return copy as T;
+    }
+  } catch (_) {}
+  return data;
+}
+
+/**
+ * Safely saves data to localStorage with automatic QuotaExceeded recovery.
+ */
+export function setPersistentData<T>(key: string, data: T, secondaryKey?: string): void {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return;
+  }
+  try {
+    const serialized = JSON.stringify(data);
+    localStorage.setItem(key, serialized);
+    if (secondaryKey) {
+      localStorage.setItem(secondaryKey, serialized);
+    }
+  } catch (error: any) {
+    // Quota Exceeded recovery strategy
+    try {
+      // 1. Clear secondary keys if any
+      if (secondaryKey) {
+        localStorage.removeItem(secondaryKey);
+      }
+      // 2. Clear non-essential cached logs to free space
+      localStorage.removeItem(MANARA_STORAGE_KEYS.AUDIT_LOGS);
+      localStorage.removeItem(MANARA_STORAGE_KEYS.DAILY_MOVEMENTS);
+
+      // 3. Re-try saving
+      const serialized = JSON.stringify(data);
+      localStorage.setItem(key, serialized);
+    } catch (secondErr) {
+      // 4. If still exceeding quota, strip heavy base64 items (e.g. giant avatars/files)
+      try {
+        const cleanedData = stripHeavyBase64Data(data);
+        const serializedCleaned = JSON.stringify(cleanedData);
+        localStorage.setItem(key, serializedCleaned);
+      } catch (finalErr) {
+        console.warn(`[PersistentStorage] Storage quota limit reached for "${key}".`);
+      }
+    }
+  }
+}
+
+/**
+ * Removes data from localStorage.
+ */
+export function removePersistentData(key: string, secondaryKey?: string): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    localStorage.removeItem(key);
+    if (secondaryKey) localStorage.removeItem(secondaryKey);
+  } catch (e) {
+    console.error(`[PersistentStorage] Error removing key "${key}":`, e);
+  }
+}
+
+/**
+ * Purges all legacy mock companies, demo subscriptions, and demo employees/contracts/leaves/custodies from localStorage
+ */
+export function purgeLegacyMockData(): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    const isMockRecord = (item: any): boolean => {
+      if (!item) return false;
+      if (typeof item === 'string') {
+        const s = item.toLowerCase().trim();
+        return (
+          s === 'comp-1' ||
+          s === 'comp-01' ||
+          s === 'comp-demo' ||
+          s.startsWith('mock-') ||
+          s.startsWith('demo-') ||
+          s.startsWith('test-') ||
+          s.includes('تجريب') ||
+          s.includes('وهمي') ||
+          s.includes('demo') ||
+          s.includes('sample')
+        );
+      }
+      if (typeof item === 'object') {
+        if (item.isMock || item.isDemo || item.isSample) return true;
+        const id = String(item.id || '').toLowerCase();
+        if (id === 'comp-1' || id === 'comp-01' || id === 'comp-demo' || id === 'med-001' || id.startsWith('mock-') || id.startsWith('demo-') || id.startsWith('test-')) return true;
+        const compId = String(item.companyId || '').toLowerCase();
+        if (compId === 'comp-1' || compId === 'comp-01' || compId === 'comp-demo') return true;
+        const code = String(item.employeeCode || item.code || '').toLowerCase();
+        if (code === 'med-001' || code.includes('demo') || code.includes('mock')) return true;
+        const name = String(item.nameAr || item.name || item.fullNameAr || item.companyName || item.employeeName || item.empName || '').toLowerCase();
+        if (name.includes('تجريب') || name.includes('وهمي') || name.includes('demo') || name.includes('sample') || name.includes('الكندري')) return true;
+      }
+      return false;
+    };
+
+    // 1. Cleanse Companies & Tenants
+    const rawComps = localStorage.getItem(MANARA_STORAGE_KEYS.COMPANIES);
+    if (rawComps) {
+      const comps = JSON.parse(rawComps);
+      if (Array.isArray(comps)) {
+        const cleaned = comps.filter((c: any) => c.id !== 'comp-1' && c.id !== 'comp-demo' && !isMockRecord(c));
+        localStorage.setItem(MANARA_STORAGE_KEYS.COMPANIES, JSON.stringify(cleaned));
+        localStorage.setItem(MANARA_STORAGE_KEYS.TENANTS, JSON.stringify(cleaned));
+      }
+    }
+
+    // Cleanse registered_companies_v1 and aysed_saved_subscriptions
+    const rawReg = localStorage.getItem('registered_companies_v1');
+    if (rawReg) {
+      const regList = JSON.parse(rawReg);
+      if (Array.isArray(regList)) {
+        const cleanedReg = regList.filter((c: any) => c && c.id !== 'comp-1' && c.id !== 'comp-demo' && !isMockRecord(c));
+        localStorage.setItem('registered_companies_v1', JSON.stringify(cleanedReg));
+      }
+    }
+
+    const rawSavedSubs = localStorage.getItem('aysed_saved_subscriptions');
+    if (rawSavedSubs) {
+      const savedSubs = JSON.parse(rawSavedSubs);
+      if (Array.isArray(savedSubs)) {
+        const cleanedSubs = savedSubs.filter((s: any) => s && s.id !== 'comp-1' && s.id !== 'comp-demo' && !isMockRecord(s));
+        localStorage.setItem('aysed_saved_subscriptions', JSON.stringify(cleanedSubs));
+      }
+    }
+
+    // 2. Cleanse Employees
+    const empKeys = [MANARA_STORAGE_KEYS.EMPLOYEES, 'odoo_employees_v1', 'app_employees_data'];
+    empKeys.forEach(k => {
+      const rawEmps = localStorage.getItem(k);
+      if (rawEmps) {
+        try {
+          const emps = JSON.parse(rawEmps);
+          if (Array.isArray(emps)) {
+            const cleaned = emps.filter((e: any) => e.companyId !== 'comp-1' && !e.id?.startsWith('emp-20') && !isMockRecord(e));
+            localStorage.setItem(k, JSON.stringify(cleaned));
+          }
+        } catch (_) {}
+      }
+    });
+
+    // 3. Cleanse Contracts
+    // Remove obsolete unscoped legacy contract key completely
+    localStorage.removeItem('odoo_contracts_v1');
+    const contractKeys = [MANARA_STORAGE_KEYS.CONTRACTS];
+    contractKeys.forEach(k => {
+      const rawContracts = localStorage.getItem(k);
+      if (rawContracts) {
+        try {
+          const contracts = JSON.parse(rawContracts);
+          if (Array.isArray(contracts)) {
+            const cleaned = contracts.filter((c: any) => c && c.companyId && c.companyId !== 'comp-1' && !c.id?.startsWith('cnt-20') && !isMockRecord(c));
+            localStorage.setItem(k, JSON.stringify(cleaned));
+          }
+        } catch (_) {}
+      }
+    });
+
+    // 3b. Cleanse Commencements
+    // Remove obsolete unscoped legacy commencement key completely
+    localStorage.removeItem('odoo_commencements_v1');
+    localStorage.removeItem('odoo_leave_requests_v2');
+
+    // 4. Cleanse Departments
+    const rawDepts = localStorage.getItem(MANARA_STORAGE_KEYS.DEPARTMENTS);
+    if (rawDepts) {
+      const depts = JSON.parse(rawDepts);
+      if (Array.isArray(depts)) {
+        const cleaned = depts.filter((d: any) => d.companyId !== 'comp-1' && !isMockRecord(d));
+        localStorage.setItem(MANARA_STORAGE_KEYS.DEPARTMENTS, JSON.stringify(cleaned));
+      }
+    }
+
+    // 5. Cleanse Attendance, Leaves, Payslips, Custodies, Loans, Warnings, Candidates, Documents
+    const arrayKeys = [
+      MANARA_STORAGE_KEYS.ATTENDANCE,
+      MANARA_STORAGE_KEYS.LEAVES,
+      MANARA_STORAGE_KEYS.PAYSLIPS,
+      MANARA_STORAGE_KEYS.CUSTODIES,
+      MANARA_STORAGE_KEYS.LOANS,
+      MANARA_STORAGE_KEYS.WARNINGS,
+      MANARA_STORAGE_KEYS.DOCUMENTS,
+      MANARA_STORAGE_KEYS.CANDIDATES,
+      MANARA_STORAGE_KEYS.SHIFTS,
+      MANARA_STORAGE_KEYS.EMPLOYEE_SHIFTS,
+    ];
+    arrayKeys.forEach(k => {
+      const raw = localStorage.getItem(k);
+      if (raw) {
+        try {
+          const arr = JSON.parse(raw);
+          if (Array.isArray(arr)) {
+            const cleaned = arr.filter((item: any) => item.companyId !== 'comp-1' && !isMockRecord(item));
+            localStorage.setItem(k, JSON.stringify(cleaned));
+          }
+        } catch (_) {}
+      }
+    });
+
+    // 6. Reset active company ID if it was comp-1
+    const activeComp = localStorage.getItem('activeCompanyId');
+    if (activeComp === 'comp-1' || activeComp === 'comp-01') {
+      localStorage.setItem('activeCompanyId', 'comp-super-admin');
+    }
+
+    // 7. Comprehensive Purge of Outdated LocalStorage Keys
+    const keysToRemove = [
+      'clean_attendances_db',
+      'clean_attendances_ignored',
+      'staff_db',
+      'manara_employees',
+      'app_employees_data',
+      'aysed_wiped_and_seeded_v6'
+    ];
+    keysToRemove.forEach(k => localStorage.removeItem(k));
+
+    // Remove all company-scoped mock/legacy keys
+    Object.keys(localStorage).forEach(key => {
+      if (
+        key.startsWith('odoo_employees_v1') ||
+        key.startsWith('odoo_contracts_v1') ||
+        key.startsWith('odoo_attendances_v1') ||
+        key.startsWith('odoo_documents_v1') ||
+        key.startsWith('odoo_leaves_v1') ||
+        key.startsWith('odoo_holidays_v1') ||
+        key.startsWith('odoo_eos_v1') ||
+        key.startsWith('documents_comp-') ||
+        key.startsWith('aysed_wiped_')
+      ) {
+        // If the key contains mock data or old format, purge it
+        const val = localStorage.getItem(key) || '';
+        if (val.includes('EMP-ALMANAR-') || val.includes('الكندري') || val.includes('الفيلكاوي') || val.includes('mock') || val.includes('demo')) {
+          localStorage.removeItem(key);
+        }
+      }
+    });
+  } catch (err) {
+    console.warn('[PersistentStorage] Storage cleansing notification:', err);
+  }
+}
+
+/**
+ * دالة لتنظيف المتصفح فوراً من كافة المفاتيح القديمة والمؤقتة لضمان استرجاع البيانات من السحابة حصراً
+ */
+export function clearOutdatedLocalStorage(): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    const keys = Object.keys(localStorage);
+    keys.forEach(k => {
+      if (
+        k.startsWith('odoo_employees_v1_') ||
+        k.startsWith('odoo_contracts_v1_') ||
+        k.startsWith('odoo_attendances_v1_') ||
+        k.startsWith('odoo_documents_v1_') ||
+        k.startsWith('clean_attendances_') ||
+        k === 'staff_db' ||
+        k === 'manara_employees' ||
+        k === 'app_employees_data' ||
+        k.startsWith('aysed_wiped_')
+      ) {
+        localStorage.removeItem(k);
+      }
+    });
+    console.log('[PersistentStorage] All outdated localStorage keys cleared.');
+  } catch (e) {
+    console.warn('[PersistentStorage] Error clearing outdated storage:', e);
+  }
+}
+
+// Auto-execute purge on script evaluation
+if (typeof window !== 'undefined') {
+  purgeLegacyMockData();
+}

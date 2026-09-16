@@ -1,0 +1,738 @@
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { KUWAIT_LABOR_CONFIG } from '../config/kuwaitLaborConfig';
+import { useCompany } from './CompanyContext';
+import { TenantDatabaseService } from '../services/tenantDataService';
+import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
+import { db, cleanFirestoreData } from '../lib/firebase';
+import { normalizeEmployeeRecord } from '../utils/employeeMapper';
+import { normalizeContractStatus } from '../utils/contractStatus';
+
+// 1. المستوى الأول: العقد والبيانات الثابتة (hr.contract & hr.employee)
+export interface EmployeeContract {
+  id: string;
+  companyId?: string;
+  name: string;
+  fullNameAr?: string;
+  fullNameEn?: string;
+  nameAr?: string;
+  nameEn?: string;
+  civilId: string;
+  jobTitle: string;
+  department: string;
+  basicSalary: number;
+  housingAllowance: number;
+  transportAllowance: number;
+  medicalAllowance?: number;
+  isKuwaiti: boolean;
+  nationality?: string;
+  joinDate?: string;
+  bankName: string;
+  iban: string;
+  contractStatus: 'running' | 'expired' | 'draft' | 'cancelled' | string;
+  status?: string;
+  commencementDate?: string;
+  resignationDate?: string;
+  terminationDate?: string;
+  eosReason?: string;
+  eosSettlementAmount?: number;
+  
+  // ترقية نموذج عقد العمل: نوع العقد والدوام والجداول المخصصة
+  employmentType?: 'full_time' | 'part_time'; // دوام كامل (راتب شهري) أو دوام جزئي / استشاري زائر (أجر الساعة)
+  hasCustomSchedule?: boolean; // تفعيل جدول ساعات مخصصة
+  dailyHours?: number; // ساعات العمل اليومية المتفق عليها (Default: 8)
+  shiftStartTime?: string; // وقت الحضور المتوقع e.g. "08:00"
+  shiftEndTime?: string; // وقت الانصراف المتوقع e.g. "16:00"
+  gracePeriodMinutes?: number; // دقائق السماح الصباحية (Default: 15)
+  hourlyRate?: number; // أجر الساعة التعاقدي بالدينار (في حالة الدوام الجزئي)
+}
+
+// 2. المستوى الثاني: حركات التشغيل اليومية (Daily Operations)
+export interface ShiftSchedule {
+  expectedDailyHours: number; // 8 ساعات
+  startTime: string;          // 08:00
+  endTime: string;            // 16:00
+  gracePeriodMinutes: number; // فترة سماح 15 دقيقة
+}
+
+export interface AttendanceLog {
+  companyId?: string;
+  employeeId: string;
+  date?: string;
+  delayMinutes: number; // دقائق التأخير
+  unpaidAbsenceDays: number; // أيام الغياب بدون إذن
+  overtimeHours: number; // ساعات العمل الإضافي
+  actualHours?: number; // إجمالي ساعات البصمة الفعلية
+  checkIn?: string; // e.g. "08:00"
+  checkOut?: string; // e.g. "18:00"
+  isHoliday?: boolean;
+}
+
+// دالة احتساب الإضافي والتأخير التلقائي مع مراعاة خصائص العقد الفردية
+export const computeAttendanceAndOvertime = (
+  checkIn: string,   // "08:00"
+  checkOut: string,  // "18:00"
+  grossSalary: number,
+  isHoliday: boolean = false,
+  contractSchedule?: {
+    dailyHours?: number;
+    shiftStartTime?: string;
+    shiftEndTime?: string;
+    gracePeriodMinutes?: number;
+    employmentType?: 'full_time' | 'part_time';
+    hourlyRate?: number;
+    workdayType?: 'regular' | 'rest_day' | 'holiday';
+  }
+) => {
+  if (!checkIn || !checkOut || typeof checkIn !== 'string' || typeof checkOut !== 'string') {
+    return {
+      actualHours: 0,
+      overtimeHours: 0,
+      overtimeAmount: 0,
+      delayMinutes: 0,
+      delayDeduction: 0
+    };
+  }
+
+  // حساب الساعات الفعلية من البصمة
+  const [inH, inM] = checkIn.split(':').map(Number);
+  const [outH, outM] = checkOut.split(':').map(Number);
+  
+  const actualMinutes = Math.max(0, (outH * 60 + outM) - (inH * 60 + inM));
+  const actualHours = actualMinutes / 60;
+  
+  // معايير العقد المخصص
+  const standardHours = contractSchedule?.dailyHours && contractSchedule.dailyHours > 0 
+    ? contractSchedule.dailyHours 
+    : 8; // الافتراضي 8 ساعات
+
+  let startTimeStr = contractSchedule?.shiftStartTime || '08:00';
+  if (typeof startTimeStr !== 'string') startTimeStr = '08:00';
+  const [expectedInH, expectedInM] = startTimeStr.split(':').map(Number);
+  const expectedInTotalMin = (expectedInH || 8) * 60 + (expectedInM || 0);
+
+  const graceMinutes = contractSchedule?.gracePeriodMinutes !== undefined 
+    ? contractSchedule.gracePeriodMinutes 
+    : 15; // فترة السماح الافتراضية 15 دقيقة
+
+  // احتساب أجر الساعة
+  let hourRate = 0;
+  if (contractSchedule?.employmentType === 'part_time' && (contractSchedule.hourlyRate || 0) > 0) {
+    hourRate = contractSchedule.hourlyRate || 0;
+  } else {
+    hourRate = (grossSalary / 26) / standardHours; // أجر الساعة (أساس 26 يوم)
+  }
+
+  let overtimeHours = 0;
+  let delayMinutes = 0;
+
+  // للموظف دوام كامل: ما زاد عن الساعات القياسية يحسب كإضافي
+  if (actualHours > standardHours) {
+    overtimeHours = actualHours - standardHours;
+  }
+
+  const actualInTotalMin = inH * 60 + inM;
+  const lateAfterGrace = expectedInTotalMin + graceMinutes;
+  if (actualInTotalMin > lateAfterGrace) {
+    delayMinutes = actualInTotalMin - lateAfterGrace;
+  }
+
+  // نسبة البدل للإضافي حسب قانون العمل الكويتي
+  const isRestDay = contractSchedule?.workdayType === 'rest_day';
+  const multiplier = isHoliday
+    ? KUWAIT_LABOR_CONFIG.payroll.overtimeRateHoliday
+    : isRestDay
+      ? KUWAIT_LABOR_CONFIG.payroll.overtimeRateRestDay
+      : KUWAIT_LABOR_CONFIG.payroll.overtimeRateRegular;
+  const overtimeAmount = overtimeHours * hourRate * multiplier;
+  const delayDeduction = (delayMinutes / 60) * hourRate;
+
+  return {
+    actualHours: Math.round(actualHours * 100) / 100,
+    overtimeHours: Math.round(overtimeHours * 100) / 100,
+    overtimeAmount: Math.round(overtimeAmount * 1000) / 1000,
+    delayMinutes: Math.round(delayMinutes),
+    delayDeduction: Math.round(delayDeduction * 1000) / 1000
+  };
+};
+
+export interface EmployeeLoan {
+  id: string;
+  companyId?: string;
+  employeeId: string;
+  totalAmount: number;
+  monthlyInstallment: number;
+  remainingAmount: number;
+}
+
+export interface LeaveAccrual {
+  employeeId: string;
+  carriedFrom2025: number;
+  earned2026: number;
+  consumedDays: number;
+  prepaidLeaveDays: number; // إجازات تم صرف راتبها مقدماً (مادة 71)
+  excludedServiceDays?: number; // أيام الإجازة الزائدة عن الرصيد غير المحسوبة في الخدمة
+  unpaidExcessDays?: number; // أيام التجاوز غير المدفوعة
+}
+
+// 3. المستوى الثالث: مسير الرواتب المحسوب تلقائياً (hr.payslip)
+export interface PayslipComputation {
+  employeeId: string;
+  name: string;
+  civilId: string;
+  iban: string;
+  basic: number;
+  allowances: number;
+  grossSalary: number;
+  attendanceDeduction: number;
+  loanDeduction: number;
+  pifssDeduction: number; // التأمينات الاجتماعية
+  overtimeAmount: number;
+  prepaidDeduction: number; // خصم ما تم صرفه مقدماً
+  netSalary: number;
+}
+
+interface OdooHierarchyContextType {
+  employees: EmployeeContract[];
+  attendance: Record<string, AttendanceLog>;
+  getAttendanceForEmployee: (empId: string, date?: string) => AttendanceLog | undefined;
+  loans: EmployeeLoan[];
+  leaveAccruals: Record<string, LeaveAccrual>;
+  computedPayslips: PayslipComputation[];
+  updateContractSalary: (empId: string, newBasic: number, newHousing: number) => void;
+  updateContractDetails: (contractData: Partial<EmployeeContract> & { id: string }) => void;
+  recordAttendanceShift: (empId: string, delayMin: number, overtimeHr: number, date?: string) => Promise<void>;
+  recordAttendanceTimes: (empId: string, checkIn: string, checkOut?: string, delayMinutes?: number, overtimeHours?: number, isHoliday?: boolean, date?: string) => Promise<void>;
+  addLoan: (empId: string, amount: number, installment: number) => Promise<void>;
+  deleteLoan: (loanId: string) => Promise<void>;
+  registerLoanPayment: (loanId: string, amountToPay: number) => Promise<void>;
+  addEmployee: (emp: EmployeeContract) => void;
+  updateEmployee: (id: string, partial: Partial<EmployeeContract>) => void;
+  recordUnpaidAbsence: (empId: string, days: number, date?: string) => Promise<void>;
+  updateLeaveAccrual: (empId: string, carried: number, earned: number, consumed: number, excludedServiceDays?: number) => void;
+  processMonthlyAccruals: () => void;
+  calculateEmployeeServiceYearsWithExclusions: (empId: string, joinDateStr: string, endDateStr?: string) => {
+    grossYears: number;
+    excludedDays: number;
+    netServiceYears: number;
+    actualServiceDays: number;
+  };
+  processMonthlyBatch: () => void;
+}
+
+const OdooHierarchyContext = createContext<OdooHierarchyContextType | undefined>(undefined);
+
+const getAttendanceDate = (date?: string) => date || new Date().toISOString().split('T')[0];
+const getAttendanceKey = (companyId: string, employeeId: string, date: string) => `${companyId}_${employeeId}_${date}`;
+
+export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { activeCompany, activeCompanyId } = useCompany();
+  const currentCompanyId = activeCompanyId || activeCompany?.id || 'comp-super-admin';
+
+  // بيانات العقود المركزية
+  const [employees, setEmployees] = useState<EmployeeContract[]>([]);
+
+  // مزامنة الموظفين حياً من قاعدة البيانات للشركة النشطة (Real-time Sync)
+  useEffect(() => {
+    if (!currentCompanyId) return;
+    setEmployees([]); // Clear immediately on company change to prevent cross-company bleed
+
+    const q = query(collection(db, 'employees'), where('companyId', '==', currentCompanyId));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (!snapshot.empty) {
+        const mapped: EmployeeContract[] = snapshot.docs.map(docSnap => {
+              const emp = normalizeEmployeeRecord({ ...docSnap.data(), id: docSnap.id }, currentCompanyId) as any;
+              const civilExpiry = emp.civilIdExpiry || emp.civilIdExpiryDate || emp.civil_id_expiry || emp.raw_payload?.civilIdExpiry || emp.raw_payload?.civilIdExpiryDate || emp.raw_payload?.civil_id_expiry || '';
+              return {
+                ...emp,
+                id: emp.id,
+                companyId: emp.companyId || currentCompanyId,
+                name: emp.fullNameAr,
+                civilId: emp.civilId,
+                civilIdExpiry: civilExpiry,
+                civilIdExpiryDate: civilExpiry,
+                civil_id_expiry: civilExpiry,
+                jobTitle: emp.jobTitle || 'موظف',
+                department: emp.department || emp.dept || 'العموم',
+                basicSalary: emp.basicSalary,
+                housingAllowance: emp.housingAllowance,
+                transportAllowance: emp.transportAllowance,
+                medicalAllowance: emp.medicalAllowance,
+                otherAllowance: emp.otherAllowance,
+                otherAllowances: emp.otherAllowance,
+                allowances: Number(emp.allowances || (emp.housingAllowance + emp.transportAllowance + emp.medicalAllowance + emp.otherAllowance)),
+                totalSalary: Number(emp.totalSalary || (emp.basicSalary + emp.housingAllowance + emp.transportAllowance + emp.medicalAllowance + emp.otherAllowance)),
+                isKuwaiti: Boolean(emp.isKuwaiti),
+                bankName: emp.bankName || 'بيت التمويل الكويتي (KFH)',
+                iban: emp.iban || '',
+                contractStatus: normalizeContractStatus(emp.contractStatus || emp.status || (['TERMINATED', 'RESIGNED', 'مستقيل', 'منتهي'].includes(emp.status) ? 'expired' : 'running')),
+                status: normalizeContractStatus(emp.contractStatus || emp.status || 'running'),
+                commencementDate: emp.commencementDate || emp.joinDate || '',
+                terminationDate: emp.terminationDate || '',
+                resignationDate: emp.resignationDate || '',
+                eosReason: emp.eosReason || '',
+                eosSettlementAmount: emp.eosSettlementAmount || 0
+              };
+        });
+        setEmployees(mapped);
+      } else {
+        setEmployees([]);
+      }
+    }, (error) => {
+      console.error('Error in realtime employee sync:', error);
+    });
+
+    return () => unsubscribe();
+  }, [currentCompanyId]);
+
+  // حركات البصمة
+  const [attendance, setAttendance] = useState<Record<string, AttendanceLog>>({});
+
+  useEffect(() => {
+    const attendanceQuery = query(collection(db, 'attendance'), where('companyId', '==', currentCompanyId));
+    return onSnapshot(attendanceQuery, snapshot => {
+      const records: Record<string, AttendanceLog> = {};
+      snapshot.docs.forEach(item => {
+        const data = item.data() as AttendanceLog & { employeeId?: string };
+        if (data.employeeId) {
+          const date = getAttendanceDate(data.date);
+          records[item.id] = { ...data, date, companyId: data.companyId || currentCompanyId };
+        }
+      });
+      setAttendance(records);
+    }, error => console.error('Error in realtime attendance sync:', error));
+  }, [currentCompanyId]);
+
+  // السلف المالية
+  const [loans, setLoans] = useState<EmployeeLoan[]>([]);
+
+  useEffect(() => {
+    const loansQuery = query(collection(db, 'loans'), where('companyId', '==', currentCompanyId));
+    return onSnapshot(loansQuery, snapshot => {
+      setLoans(snapshot.docs.map(item => ({ ...item.data(), id: item.id } as EmployeeLoan)));
+    }, error => console.error('Error in realtime loan sync:', error));
+  }, [currentCompanyId]);
+
+  // أرصدة الإجازات
+  const [leaveAccruals, setLeaveAccruals] = useState<Record<string, LeaveAccrual>>({});
+
+  const [computedPayslips, setComputedPayslips] = useState<PayslipComputation[]>([]);
+
+  const getAttendanceForEmployee = (empId: string, date?: string) => {
+    const targetDate = getAttendanceDate(date);
+    return attendance[getAttendanceKey(currentCompanyId, empId, targetDate)] || attendance[empId];
+  };
+
+  // تفريغ وتصفير كافة البيانات الفرعية تلقائياً عند تغيير المنشأة النشطة لمنع تداخل البيانات
+  useEffect(() => {
+    setAttendance({});
+    setLoans([]);
+    setLeaveAccruals({});
+    setComputedPayslips([]);
+  }, [currentCompanyId]);
+
+  // محرك الحساب الهرمي التلقائي (Compute Sheet)
+  const computeAllPayslips = () => {
+    // استبعاد الموظفين المنتهية خدمتهم أو عقودهم المنتهية من مسير الرواتب النشط
+    const activeEmployees = employees.filter(emp => {
+      const st = String(emp.status || '').toUpperCase();
+      const cst = String(emp.contractStatus || '').toLowerCase();
+      return !['TERMINATED', 'RESIGNED'].includes(st) && cst !== 'expired' && cst !== 'cancelled';
+    });
+
+    const results: PayslipComputation[] = activeEmployees.map(emp => {
+      const att = getAttendanceForEmployee(emp.id) || { employeeId: emp.id, delayMinutes: 0, unpaidAbsenceDays: 0, overtimeHours: 0 };
+      const empLoan = loans.find(l => l.employeeId === emp.id);
+
+      // 1. الراتب الشامل والدوام
+      const isPartTime = emp.employmentType === 'part_time';
+      const contractHourlyRate = emp.hourlyRate || 0;
+      const allowances = (emp.housingAllowance || 0) + (emp.transportAllowance || 0) + (emp.medicalAllowance || 0);
+
+      // حساب البصمة التلقائي المعتمد على ساعات وأوقات العقد
+      let calculatedDelayMinutes = att.delayMinutes;
+      let calculatedOvertimeHours = att.overtimeHours;
+      let calculatedOtAmount = 0;
+      let calculatedDelayDeduction = 0;
+      let actualHours = att.actualHours || 0;
+
+      const scheduleConfig = {
+        dailyHours: emp.dailyHours,
+        shiftStartTime: emp.shiftStartTime,
+        shiftEndTime: emp.shiftEndTime,
+        gracePeriodMinutes: emp.gracePeriodMinutes,
+        employmentType: emp.employmentType,
+        hourlyRate: emp.hourlyRate
+      };
+
+      if (att.checkIn && att.checkOut) {
+        const result = computeAttendanceAndOvertime(
+          att.checkIn, 
+          att.checkOut, 
+          isPartTime ? (contractHourlyRate * (emp.dailyHours || 4) * 26) : (emp.basicSalary + allowances), 
+          att.isHoliday,
+          scheduleConfig
+        );
+        calculatedDelayMinutes = result.delayMinutes;
+        calculatedOvertimeHours = result.overtimeHours;
+        calculatedOtAmount = result.overtimeAmount;
+        calculatedDelayDeduction = result.delayDeduction;
+        actualHours = result.actualHours;
+      }
+
+      // 2. معادلة احتساب الراتب الإجمالي:
+      // لموظفي الدوام الجزئي: (إجمالي ساعات البصمة الفعلية × أجر الساعة التعاقدي) + البدلات
+      const gross = emp.basicSalary + allowances;
+      const basicDisplay = emp.basicSalary;
+
+      // 3. معادلة اليوم والساعة وفق القطاع الخاص الكويتي (القسمة على 26 يوم)
+      const dayHours = emp.dailyHours || 8;
+      const dayRate = isPartTime ? (contractHourlyRate * dayHours) : KUWAIT_LABOR_CONFIG.helpers.getDayRate(gross);
+      const hourRate = isPartTime ? contractHourlyRate : (dayRate / dayHours);
+      const minRate = hourRate / 60;
+
+      // 4. الاستقطاعات والإضافات
+      const finalDelayMinutes = att.checkIn && att.checkOut ? calculatedDelayMinutes : att.delayMinutes;
+      const finalOvertimeHours = att.checkIn && att.checkOut ? calculatedOvertimeHours : att.overtimeHours;
+
+      const attDeduction = isPartTime 
+        ? (finalDelayMinutes * minRate)
+        : ((finalDelayMinutes * minRate) + (att.unpaidAbsenceDays * dayRate));
+
+      const otAmount = Math.round(calculatedOtAmount * 1000) / 1000;
+        
+      const loanDed = empLoan && empLoan.remainingAmount > 0 
+        ? Math.min(empLoan.monthlyInstallment, empLoan.remainingAmount) 
+        : 0;
+      const pifssDed = 0.000;
+
+      // 5. صافي الراتب المستحق
+      const totalDeductions = attDeduction + loanDed + pifssDed;
+      const net = Math.max(0, gross + otAmount - totalDeductions);
+
+      return {
+        employeeId: emp.id,
+        name: emp.name,
+        civilId: emp.civilId,
+        iban: emp.iban,
+        basic: Math.round(basicDisplay * 1000) / 1000,
+        allowances,
+        grossSalary: Math.round((emp.basicSalary + allowances) * 1000) / 1000,
+        attendanceDeduction: Math.round(attDeduction * 1000) / 1000,
+        loanDeduction: loanDed,
+        pifssDeduction: 0.000, // صفر تأمينات
+        overtimeAmount: otAmount,
+        prepaidDeduction: 0,
+        netSalary: Math.round(net * 1000) / 1000
+      };
+    });
+
+    setComputedPayslips(results);
+  };
+
+  useEffect(() => {
+    computeAllPayslips();
+  }, [employees, attendance, loans, leaveAccruals]);
+
+  const updateContractSalary = (empId: string, newBasic: number, newHousing: number) => {
+    setEmployees(prev => prev.map(e => {
+      if (e.id === empId) {
+        const updated = { ...e, basicSalary: newBasic, housingAllowance: newHousing };
+        TenantDatabaseService.saveEmployee(updated as any, currentCompanyId).catch(err => console.error(err));
+        return updated;
+      }
+      return e;
+    }));
+  };
+
+  const updateContractDetails = (contractData: Partial<EmployeeContract> & { id: string }) => {
+    setEmployees(prev => prev.map(e => {
+      if (e.id === contractData.id) {
+        const updated = { ...e, ...contractData };
+        TenantDatabaseService.saveEmployee(updated as any, currentCompanyId).catch(err => console.error(err));
+        return updated;
+      }
+      return e;
+    }));
+  };
+
+  const recordAttendanceShift = async (empId: string, delayMin: number, overtimeHr: number, date?: string) => {
+    const targetDate = getAttendanceDate(date);
+    const attendanceId = getAttendanceKey(currentCompanyId, empId, targetDate);
+    const record = {
+      ...(getAttendanceForEmployee(empId, targetDate) || { employeeId: empId, unpaidAbsenceDays: 0 }),
+      delayMinutes: delayMin,
+      overtimeHours: overtimeHr,
+      companyId: currentCompanyId,
+      date: targetDate
+    };
+    setAttendance(prev => ({
+      ...prev,
+      [attendanceId]: record
+    }));
+    await setDoc(doc(db, 'attendance', attendanceId), cleanFirestoreData(record), { merge: true });
+  };
+
+  const recordAttendanceTimes = async (
+    empId: string, 
+    checkIn: string, 
+    checkOut?: string, 
+    delayMinutes?: number, 
+    overtimeHours?: number, 
+    isHoliday?: boolean,
+    date?: string
+  ) => {
+    const targetDate = getAttendanceDate(date);
+    const attendanceId = getAttendanceKey(currentCompanyId, empId, targetDate);
+    const current = getAttendanceForEmployee(empId, targetDate) || { employeeId: empId, unpaidAbsenceDays: 0, delayMinutes: 0, overtimeHours: 0 };
+    const record = {
+      ...current,
+      checkIn,
+      checkOut: checkOut || current.checkOut,
+      delayMinutes: delayMinutes !== undefined ? delayMinutes : current.delayMinutes,
+      overtimeHours: overtimeHours !== undefined ? overtimeHours : current.overtimeHours,
+      isHoliday: isHoliday !== undefined ? !!isHoliday : !!current.isHoliday,
+      companyId: currentCompanyId,
+      date: targetDate
+    };
+    setAttendance(prev => ({ ...prev, [attendanceId]: record }));
+    await setDoc(doc(db, 'attendance', attendanceId), cleanFirestoreData(record), { merge: true });
+  };
+
+  const addLoan = async (empId: string, amount: number, installment: number) => {
+    const loanId = `LN-${currentCompanyId}-${empId}-${Date.now()}`;
+    const loan: EmployeeLoan = {
+      id: loanId,
+      companyId: currentCompanyId,
+      employeeId: empId,
+      totalAmount: amount,
+      monthlyInstallment: installment,
+      remainingAmount: amount
+    };
+    await setDoc(doc(db, 'loans', loanId), cleanFirestoreData(loan));
+    setLoans(prev => [...prev.filter(item => item.id !== loanId), loan]);
+  };
+
+  const deleteLoan = async (loanId: string) => {
+    await deleteDoc(doc(db, 'loans', loanId));
+    setLoans(prev => prev.filter(loan => loan.id !== loanId));
+  };
+
+  const registerLoanPayment = async (loanId: string, amountToPay: number) => {
+    const loan = loans.find(item => item.id === loanId);
+    if (!loan) return;
+    const updatedLoan = {
+      ...loan,
+      remainingAmount: Math.max(0, loan.remainingAmount - amountToPay),
+      companyId: currentCompanyId
+    };
+    await setDoc(doc(db, 'loans', loanId), cleanFirestoreData(updatedLoan), { merge: true });
+    setLoans(prev => prev.map(item => item.id === loanId ? updatedLoan : item));
+  };
+
+  const addEmployee = async (emp: EmployeeContract) => {
+    const activeCompanyId = currentCompanyId;
+    const civilId = ((emp as any).civil_id_number || emp.civilId || '').trim();
+
+    // 1. منع التكرار برقم البطاقة المدنية (Unique Civil ID)
+    if (civilId) {
+      const isDuplicate = employees.some(
+        e => (e.companyId === activeCompanyId || activeCompanyId === 'comp-super-admin') &&
+        (((e as any).civil_id_number && (e as any).civil_id_number.trim() === civilId) ||
+         (e.civilId && e.civilId.trim() === civilId))
+      );
+      if (isDuplicate) {
+        alert('خطأ: الموظف مسجل بالفعل! الرقم المدني مكرر في هذه الشركة.');
+        return false;
+      }
+    }
+
+    // 2. إدراج companyId إجبارياً في الـ Payload
+    const newEmployee: EmployeeContract = {
+      ...emp,
+      companyId: activeCompanyId, // الربط الصارم بالشركة النشطة
+      civilId: civilId,
+    };
+    (newEmployee as any).civil_id_number = civilId;
+    (newEmployee as any).createdAt = (emp as any).createdAt || new Date().toISOString();
+
+    setEmployees(prev => [newEmployee, ...prev]);
+
+    // Save to Firestore with explicit companyId
+    await TenantDatabaseService.saveEmployee({
+      ...newEmployee,
+      id: newEmployee.id,
+      fullNameAr: newEmployee.name || (newEmployee as any).fullNameAr || '',
+      fullNameEn: (newEmployee as any).fullNameEn || (newEmployee as any).nameEn || '',
+      civilId: civilId,
+      civil_id_number: civilId,
+      civilIdExpiry: (newEmployee as any).civilIdExpiry || (newEmployee as any).civilIdExpiryDate || (newEmployee as any).expiryDate || '',
+      civilIdExpiryDate: (newEmployee as any).civilIdExpiry || (newEmployee as any).civilIdExpiryDate || (newEmployee as any).expiryDate || '',
+      civil_id_expiry: (newEmployee as any).civilIdExpiry || (newEmployee as any).civilIdExpiryDate || (newEmployee as any).expiryDate || '',
+      passportNo: (newEmployee as any).passportNo || '',
+      passportExpiry: (newEmployee as any).passportExpiry || '',
+      nationality: (newEmployee as any).nationality || 'كويتي',
+      gender: (newEmployee as any).gender || 'MALE',
+      dob: (newEmployee as any).birthDate || (newEmployee as any).dob || '',
+      birthDate: (newEmployee as any).birthDate || (newEmployee as any).dob || '',
+      residencyType: (newEmployee as any).residencyType || '',
+      jobTitle: newEmployee.jobTitle,
+      department: newEmployee.department,
+      bankName: newEmployee.bankName,
+      iban: newEmployee.iban,
+      contractSalary: newEmployee.basicSalary,
+      basicSalary: newEmployee.basicSalary,
+      companyId: activeCompanyId,
+      createdAt: new Date().toISOString()
+    } as any, activeCompanyId);
+
+    // Create default attendance
+    setAttendance(prev => ({
+      ...prev,
+      [newEmployee.id]: { employeeId: newEmployee.id, delayMinutes: 0, unpaidAbsenceDays: 0, overtimeHours: 0 }
+    }));
+    // Create default leave accrual
+    setLeaveAccruals(prev => ({
+      ...prev,
+      [newEmployee.id]: { employeeId: newEmployee.id, carriedFrom2025: 0, earned2026: 0, consumedDays: 0, prepaidLeaveDays: 0 }
+    }));
+    return true;
+  };
+
+  const updateEmployee = (id: string, partial: Partial<EmployeeContract>) => {
+    setEmployees(prev => prev.map(e => e.id === id ? { ...e, ...partial } : e));
+  };
+
+  const recordUnpaidAbsence = async (empId: string, days: number, date?: string) => {
+    const targetDate = getAttendanceDate(date);
+    const attendanceId = getAttendanceKey(currentCompanyId, empId, targetDate);
+    const record = {
+      ...(getAttendanceForEmployee(empId, targetDate) || { employeeId: empId, delayMinutes: 0, overtimeHours: 0 }),
+      unpaidAbsenceDays: days,
+      companyId: currentCompanyId,
+      date: targetDate
+    };
+    setAttendance(prev => ({ ...prev, [attendanceId]: record }));
+    await setDoc(doc(db, 'attendance', attendanceId), cleanFirestoreData(record), { merge: true });
+  };
+
+  const updateLeaveAccrual = (
+    empId: string, 
+    carried: number, 
+    earned: number, 
+    consumed: number, 
+    excludedServiceDays?: number
+  ) => {
+    setLeaveAccruals(prev => {
+      const existing = prev[empId];
+      const totalAvailable = carried + earned;
+      // إذا تجاوزت الإجازة المستهلكة الرصيد المتاح، تحسب الأيام الزائدة كأيام غير محسوبة بالخدمة
+      const excessDays = Math.max(0, consumed - totalAvailable);
+      const finalExcluded = excludedServiceDays !== undefined ? excludedServiceDays : excessDays;
+
+      return {
+        ...prev,
+        [empId]: {
+          employeeId: empId,
+          carriedFrom2025: carried,
+          earned2026: earned,
+          consumedDays: consumed,
+          prepaidLeaveDays: existing?.prepaidLeaveDays || 0,
+          excludedServiceDays: finalExcluded,
+          unpaidExcessDays: excessDays
+        }
+      };
+    });
+  };
+
+  // استمرار إضافة 2.5 يوم تلقائياً في يوم 30 من كل شهر ميلادي لرصيد الإجازات السنوية لكل موظف نشط
+  const processMonthlyAccruals = () => {
+    setLeaveAccruals(prev => {
+      const updated: Record<string, LeaveAccrual> = { ...prev };
+      employees.forEach(emp => {
+        if (normalizeContractStatus(emp.contractStatus) === 'running') {
+          const current = updated[emp.id] || {
+            employeeId: emp.id,
+            carriedFrom2025: 0,
+            earned2026: 0,
+            consumedDays: 0,
+            prepaidLeaveDays: 0
+          };
+          const newEarned = Math.round((current.earned2026 + 2.5) * 100) / 100;
+          const totalAvailable = current.carriedFrom2025 + newEarned;
+          const excessDays = Math.max(0, current.consumedDays - totalAvailable);
+
+          updated[emp.id] = {
+            ...current,
+            earned2026: newEarned,
+            excludedServiceDays: excessDays,
+            unpaidExcessDays: excessDays
+          };
+        }
+      });
+      return updated;
+    });
+  };
+
+  // حساب مدة الخدمة الفعلية مع طرح أيام التجاوز الزائدة (Excluded Service Days)
+  const calculateEmployeeServiceYearsWithExclusions = (
+    empId: string, 
+    joinDateStr: string, 
+    endDateStr: string = new Date().toISOString().split('T')[0]
+  ) => {
+    const start = new Date(joinDateStr);
+    const end = new Date(endDateStr);
+    const diffTime = Math.max(0, end.getTime() - start.getTime());
+    const grossTotalDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    const accrual = leaveAccruals[empId];
+    const excludedDays = accrual?.excludedServiceDays || accrual?.unpaidExcessDays || 0;
+    const actualServiceDays = Math.max(0, grossTotalDays - excludedDays);
+    
+    const grossYears = grossTotalDays / 365.25;
+    const netServiceYears = actualServiceDays / 365.25;
+
+    return {
+      grossYears: Math.round(grossYears * 100) / 100,
+      excludedDays,
+      netServiceYears: Math.round(netServiceYears * 100) / 100,
+      actualServiceDays
+    };
+  };
+
+  const processMonthlyBatch = () => {
+    computeAllPayslips();
+  };
+
+  return (
+    <OdooHierarchyContext.Provider value={{
+      employees,
+      attendance,
+      getAttendanceForEmployee,
+      loans,
+      leaveAccruals,
+      computedPayslips,
+      updateContractSalary,
+      updateContractDetails,
+      recordAttendanceShift,
+      recordAttendanceTimes,
+      addLoan,
+      deleteLoan,
+      registerLoanPayment,
+      addEmployee,
+      updateEmployee,
+      recordUnpaidAbsence,
+      updateLeaveAccrual,
+      processMonthlyAccruals,
+      calculateEmployeeServiceYearsWithExclusions,
+      processMonthlyBatch
+    }}>
+      {children}
+    </OdooHierarchyContext.Provider>
+  );
+};
+
+export const useOdooHierarchy = () => {
+  const context = useContext(OdooHierarchyContext);
+  if (!context) throw new Error('useOdooHierarchy must be used within OdooHierarchyProvider');
+  return context;
+};

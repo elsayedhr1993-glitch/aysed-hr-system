@@ -1,0 +1,11 @@
+{
+  "name": "Aysed S HR 2026 - Kuwait",
+  "description": "Professional Odoo-Style HRMS for Kuwait Private Sector (Article 51/53)",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

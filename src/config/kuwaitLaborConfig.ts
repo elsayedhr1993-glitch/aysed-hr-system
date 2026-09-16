@@ -1,0 +1,41 @@
+import {
+  calculateKuwaitDailyRate,
+  calculateKuwaitHourlyRate,
+  cleanKwdAmount,
+  DAILY_WAGE_DIVISOR,
+} from '../utils/kuwaitPayrollMath';
+
+// إعدادات النظام الموحدة - دولة الكويت (القطاع الخاص)
+export const KUWAIT_LABOR_CONFIG = {
+  // 1. التوقيت والمنطقة
+  timeZone: 'Asia/Kuwait', // GMT+3
+  countryCode: 'KW',
+  currency: 'KWD',
+  currencyDecimals: 3, // الفلس الكويتي (3 خانات عشرية)
+
+  // 2. نوع القطاع واللوائح
+  sectorType: 'private_sector' as const, // قطاع خاص
+  laborLaw: 'Kuwait Labor Law No. 6 of 2010',
+
+  // 3. محرك الحسابات المالية (مادة 55 و 67)
+  payroll: {
+    monthlyWorkingDaysBasis: DAILY_WAGE_DIVISOR, // الحساب على 26 يوم عمل شهرياً
+    dailyHoursBasis: 8,          // ساعات العمل اليومية القياسية
+    pifssEnabled: false,         // التأمينات الاجتماعية معطلة (0%)
+    pifssDeductionRate: 0.0,
+    overtimeRateRegular: 1.25,   // 125% في الأيام العادية
+    overtimeRateRestDay: 1.50,   // 150% في أيام الراحة الأسبوعية
+    overtimeRateHoliday: 2.00,   // 200% في العطلات الرسمية (مادة 68)
+  },
+
+  // دوال الحساب السريعة (الراتب الأساسي ÷ 26 — معيار الإجازات)
+  helpers: {
+    getDayRate: (basicSalary: number) => calculateKuwaitDailyRate(basicSalary),
+    getHourRate: (basicSalary: number) =>
+      calculateKuwaitHourlyRate(calculateKuwaitDailyRate(basicSalary)),
+    getMinuteRate: (basicSalary: number) =>
+      calculateKuwaitHourlyRate(calculateKuwaitDailyRate(basicSalary)) / 60,
+    formatKWD: (amount: number) => cleanKwdAmount(amount).toFixed(3) + ' د.ك',
+    dailyWageDivisor: DAILY_WAGE_DIVISOR,
+  },
+};

@@ -1,0 +1,190 @@
+-- =====================================================================
+-- Supabase SQL Schema for Aysed S HR 2026 (Odoo Pattern Architecture)
+-- Tables: system_settings, document_templates, generated_documents, 
+--         audit_logs, user_otp_codes
+-- =====================================================================
+
+-- حذف الجدول المكرر القديم لضمان تثبيت نمط أودو الصحيح
+DROP TABLE IF EXISTS public.system_settings CASCADE;
+
+-- 1. Table: system_settings (Odoo Core System Settings - Singleton Pattern)
+CREATE TABLE public.system_settings (
+    id INT PRIMARY KEY DEFAULT 1,
+    company_name_ar VARCHAR(255) NOT NULL DEFAULT 'مستوصف المنار كلينك',
+    company_name_en VARCHAR(255) NOT NULL DEFAULT 'Al-Manar Clinic',
+    commercial_reg_no VARCHAR(100) DEFAULT '107914',
+    civil_id_org VARCHAR(100) DEFAULT '201934',
+    pasi_number VARCHAR(100) DEFAULT 'KUW-884920',
+    currency VARCHAR(10) DEFAULT 'KWD',
+    official_email VARCHAR(255) DEFAULT 'elsayedhr1993@gmail.com',
+    phone VARCHAR(50) DEFAULT '+965 22000000',
+    address TEXT DEFAULT 'الكويت - حولي - شارع تونس',
+
+    enable_kuwait_wps BOOLEAN DEFAULT TRUE,
+    wps_bank_code VARCHAR(50) DEFAULT 'KFH',
+    enable_biometric_api BOOLEAN DEFAULT TRUE,
+    biometric_device_ip VARCHAR(50) DEFAULT '192.168.1.200',
+    biometric_port VARCHAR(10) DEFAULT '4370',
+    enable_email_smtp BOOLEAN DEFAULT TRUE,
+    smtp_host VARCHAR(255) DEFAULT 'smtp.gmail.com',
+    smtp_port VARCHAR(10) DEFAULT '587',
+    smtp_user VARCHAR(255) DEFAULT 'elsayedhr1993@gmail.com',
+
+    auto_backup_enabled BOOLEAN DEFAULT TRUE,
+    backup_frequency VARCHAR(20) DEFAULT 'daily',
+    backup_time VARCHAR(10) DEFAULT '02:00',
+    retain_backups_days INT DEFAULT 30,
+    export_format VARCHAR(50) DEFAULT 'sql_zip',
+
+    enable_email_2fa BOOLEAN DEFAULT TRUE,
+    otp_expiry_minutes INT DEFAULT 5,
+    session_timeout_minutes INT DEFAULT 60,
+    enforce_strong_password BOOLEAN DEFAULT TRUE,
+    trust_device_days INT DEFAULT 30,
+
+    system_theme VARCHAR(20) DEFAULT 'light',
+    primary_color VARCHAR(20) DEFAULT '#714B67',
+    sidebar_style VARCHAR(50) DEFAULT 'odoo-compact',
+    show_company_logo_on_print BOOLEAN DEFAULT TRUE,
+    header_margin_top INT DEFAULT 48,
+
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    CONSTRAINT single_row_check CHECK (id = 1)
+);
+
+-- إدراج صف الإعدادات الأساسي الوحيد (Singleton ID = 1)
+INSERT INTO public.system_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
+-- 2. Table: document_templates
+CREATE TABLE IF NOT EXISTS public.document_templates (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    company_id UUID NOT NULL,
+    template_code VARCHAR(50) NOT NULL,
+    title_ar VARCHAR(255) NOT NULL,
+    title_en VARCHAR(255) NOT NULL,
+    category VARCHAR(50) NOT NULL DEFAULT 'GENERAL',
+    content_html TEXT NOT NULL,
+    variables JSONB DEFAULT '[]'::jsonb,
+    is_default BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    CONSTRAINT unique_template_code_company UNIQUE (company_id, template_code)
+);
+
+CREATE INDEX IF NOT EXISTS idx_doc_templates_company ON public.document_templates(company_id);
+
+-- 3. Table: generated_documents (Snapshot Archive)
+CREATE TABLE IF NOT EXISTS public.generated_documents (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    company_id UUID NOT NULL,
+    employee_id UUID NOT NULL,
+    template_id UUID REFERENCES public.document_templates(id) ON DELETE SET NULL,
+    template_title VARCHAR(255) NOT NULL,
+    document_number VARCHAR(100) NOT NULL UNIQUE,
+    issue_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    content_html TEXT NOT NULL,
+    snapshot_data JSONB NOT NULL DEFAULT '{}'::jsonb,
+    pdf_url TEXT,
+    issued_by VARCHAR(255) DEFAULT 'HR System Admin',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_gen_docs_company ON public.generated_documents(company_id);
+CREATE INDEX IF NOT EXISTS idx_gen_docs_employee ON public.generated_documents(employee_id);
+
+-- 4. Table: audit_logs (Audit Trail System)
+CREATE TABLE IF NOT EXISTS public.audit_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    company_id UUID NOT NULL,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    user_id VARCHAR(100) NOT NULL,
+    user_name VARCHAR(255) NOT NULL,
+    action VARCHAR(50) NOT NULL,
+    entity VARCHAR(50) NOT NULL,
+    entity_id VARCHAR(100),
+    details TEXT NOT NULL,
+    ip_address VARCHAR(45)
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_company ON public.audit_logs(company_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON public.audit_logs(timestamp DESC);
+
+-- 5. Table: user_otp_codes (Email 2FA OTPs)
+CREATE TABLE IF NOT EXISTS public.user_otp_codes (
+    id SERIAL PRIMARY KEY,
+    user_id VARCHAR(100) NOT NULL,
+    otp_code VARCHAR(6) NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    is_used BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_otp ON public.user_otp_codes(user_id, otp_code);
+
+-- =====================================================================
+-- تفعيل الحماية والأمان (Row Level Security - RLS)
+-- =====================================================================
+ALTER TABLE public.system_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.document_templates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.generated_documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_otp_codes ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Enable all access for system settings" ON public.system_settings;
+CREATE POLICY "Enable all access for system settings" ON public.system_settings
+    FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Enable all access for company users" ON public.document_templates;
+CREATE POLICY "Enable all access for company users" ON public.document_templates
+    FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Enable all access for company users" ON public.generated_documents;
+CREATE POLICY "Enable all access for company users" ON public.generated_documents
+    FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Enable all access for company users" ON public.audit_logs;
+CREATE POLICY "Enable all access for company users" ON public.audit_logs
+    FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Enable all access for otp codes" ON public.user_otp_codes;
+CREATE POLICY "Enable all access for otp codes" ON public.user_otp_codes
+    FOR ALL USING (true) WITH CHECK (true);
+
+-- =====================================================================
+-- النماذج الافتراضية للمستندات الكويتية المعتمدة
+-- =====================================================================
+INSERT INTO public.document_templates (company_id, template_code, title_ar, title_en, category, content_html, variables, is_default)
+VALUES 
+(
+  'a0000000-0000-0000-0000-000000000001',
+  'TPL-EXP-01',
+  'شهادة خبرة رسمية',
+  'Official Experience Certificate',
+  'EXPERIENCE_CERTIFICATE',
+  '<div style="line-height:2.0; font-family: Cairo, sans-serif; text-align: justify;">
+    <h2 style="text-align: center; color: #714B67;">شهادة خبرة واستمرار عمل</h2>
+    <p>تشهد شركة <strong>{{company_name_ar}}</strong> (سجل تجاري رقم: {{commercial_reg_no}}) بأن السيد/ <strong>{{full_name}}</strong>، يحمل البطاقة المدنية رقم (<strong>{{civil_id}}</strong>) وجنسيته {{nationality}}.</p>
+    <p>قد عمل لدينا بمسمى وظيفي: <strong>{{job_title}}</strong> بقسم <strong>{{department}}</strong> وذلك اعتباراً من تاريخ <strong>{{join_date}}</strong> وحتى تاريخه.</p>
+    <p>وخلال فترة عمله معنا، كان مثالاً للموظف المجتهد الملتزم باللوائح والنظم الداخلية وقانون العمل الكويتي رقم 6 لسنة 2010. وقد أُعطيت له هذه الشهادة بناءً على طلبه دون أدنى مسؤولية على الشركة تجاه حقوق الغير.</p>
+  </div>',
+  '["full_name", "civil_id", "job_title", "department", "company_name_ar", "commercial_reg_no", "join_date", "nationality", "date_today"]'::jsonb,
+  true
+),
+(
+  'a0000000-0000-0000-0000-000000000001',
+  'TPL-SAL-01',
+  'شهادة راتب واستمرارية تحويل',
+  'Salary Certificate & Transfer Undertaking',
+  'SALARY_CERTIFICATE',
+  '<div style="line-height:2.0; font-family: Cairo, sans-serif; text-align: justify;">
+    <h2 style="text-align: center; color: #714B67;">شهادة إشعار بالراتب وتعهد تحويل</h2>
+    <p>إلى من يهمه الأمر / المحترمين،</p>
+    <p>تحية طيبة وبعد،،،</p>
+    <p>نفيدكم علماً بأن السيد/ <strong>{{full_name}}</strong>، كويتي/مقيم يحمل بطاقة مدنية رقم (<strong>{{civil_id}}</strong>)، يعمل لدينا في شركة <strong>{{company_name_ar}}</strong> بمسمى <strong>{{job_title}}</strong>.</p>
+    <p>ويتقاضى راتباً شهرياً مقداره: <strong>{{basic_salary}} د.ك</strong> ويتم تحويل راتبه شهرياً عبر نظام حماية الأجور (WPS) على حسابه لدى بنك <strong>{{bank_name}}</strong> بالحساب (IBAN: <strong>{{iban}}</strong>).</p>
+    <p>وتتعهد الشركة باستمرار تحويل راتبه الشهري طيلة فترة خدمته لدينا، وهذه الشهادة لا تعتبر ضماناً مالياً للغير.</p>
+  </div>',
+  '["full_name", "civil_id", "job_title", "basic_salary", "bank_name", "iban", "company_name_ar", "date_today"]'::jsonb,
+  true
+)
+ON CONFLICT (company_id, template_code) DO NOTHING;
