@@ -35,7 +35,12 @@ import { useOdooHierarchy } from '../context/OdooHierarchyContext';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { exportToExcel } from '../utils/exportUtils';
 import { toast } from 'react-hot-toast';
-import { saveHolidayWorkRecord, WorkOnHolidayRecord } from '../services/holidayWorkService';
+import {
+  approveHolidayWork,
+  persistHolidayDutyRecord,
+  settleHolidayDutyToPayroll,
+  WorkOnHolidayRecord,
+} from '../services/holidayWorkService';
 import { collection, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore';
 import { cleanFirestoreData, db } from '../lib/firebase';
 
@@ -179,50 +184,22 @@ export const OdooPublicHolidaysApp: React.FC = () => {
   const [holidays, setHolidays] = useState<PublicHoliday[]>(kuwaitOfficialHolidaysList);
   const [duties, setDuties] = useState<HolidayDutyAssignment[]>([]);
 
-  const companyId = activeCompany?.id || 'comp-master';
+  const companyId = activeCompany?.id || '';
   const holidayConfigId = `public_holidays_${companyId}`;
 
   const normalizeCompanyKey = (value?: string | null) => String(value || '').trim().toLowerCase();
 
   const resolveDutiesForCompany = async (): Promise<HolidayDutyAssignment[]> => {
-    const companyKeys = new Set([
-      normalizeCompanyKey(companyId),
-      'comp-01',
-      'comp-1',
-      'comp-master',
-      'comp-super-admin',
-      'comp-1788442584841',
-      'comp-1788442584841',
-      'almanar'
-    ]);
+    if (!companyId) return [];
 
     try {
-      const q = query(collection(db, 'work_on_holidays'));
+      const q = query(collection(db, 'work_on_holidays'), where('companyId', '==', companyId));
       const snapshot = await getDocs(q);
       const records = snapshot.docs.map((docRef) => ({ id: docRef.id, ...(docRef.data() as any) })) as any[];
 
-      return records.filter((record) => {
-        const recordCompanyId = normalizeCompanyKey(record.companyId || record.company_id || '');
-        const recordCivilId = String(record.civilId || '').trim();
-        const recordEmployeeId = String(record.employeeId || '').trim();
-
-        if (!recordCompanyId && !recordCivilId && !recordEmployeeId) return false;
-
-        if (recordCompanyId && companyKeys.has(recordCompanyId)) return true;
-
-        if (!recordCompanyId) {
-          return companyEmployees.some((employee: any) => {
-            const empId = String(employee?.id || '').trim();
-            const empCivilId = String(employee?.civilId || employee?.civil_id_number || '').trim();
-            return (
-              (recordEmployeeId && empId && recordEmployeeId === empId) ||
-              (recordCivilId && empCivilId && recordCivilId === empCivilId)
-            );
-          });
-        }
-
-        return false;
-      }).map((record) => ({
+      return records
+        .filter((record) => record.recordType === 'holiday_duty' || record.employeeName || record.calculatedAmount !== undefined)
+        .map((record) => ({
         id: String(record.id || record.dutyId || `DUTY-${Date.now()}-${Math.random().toString(36).slice(2,8)}`),
         employeeId: record.employeeId,
         employeeName: record.employeeName || record.employee?.name || 'موظف',
@@ -375,11 +352,16 @@ export const OdooPublicHolidaysApp: React.FC = () => {
   // Handle Create Duty Assignment
   const handleCreateDuty = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!companyId) {
+      toast.error('لا يمكن إنشاء تكليف بدون سياق شركة نشط');
+      return;
+    }
     const salary = parseFloat(dutyForm.totalSalary) || 0;
     const amount = calculateDutyCompensation(salary, dutyForm.compensationType);
+    const basicSalary = salary * 0.7;
 
     const created: HolidayDutyAssignment = {
-      id: `DUTY-2026-0${duties.length + 1}`,
+      id: `DUTY-${Date.now().toString(36)}`,
       employeeId: dutyForm.employeeId,
       employeeName: dutyForm.employeeName,
       civilId: dutyForm.civilId,
@@ -387,43 +369,64 @@ export const OdooPublicHolidaysApp: React.FC = () => {
       department: dutyForm.department,
       holidayName: dutyForm.holidayName,
       dutyDate: dutyForm.dutyDate,
-      basicSalary: salary * 0.7,
+      basicSalary,
       totalSalary: salary,
       compensationType: dutyForm.compensationType,
       calculatedAmount: amount,
       status: 'approved'
     };
 
-    setDuties([created, ...duties]);
+    try {
+      await persistHolidayDutyRecord(created, companyId);
 
-    // If compensatory day off or annual leave, automatically credit using holidayWorkService
-    if (dutyForm.compensationType === 'comp_day_off' || dutyForm.compensationType === 'add_to_annual_leave') {
-      try {
-        await saveHolidayWorkRecord({
+      if (dutyForm.compensationType === 'comp_day_off' || dutyForm.compensationType === 'add_to_annual_leave') {
+        const workRecord: WorkOnHolidayRecord = {
+          id: `hwr-${created.id}`,
           employeeId: dutyForm.employeeId,
-          companyId: activeCompany?.id || 'comp-master',
+          companyId,
           date: dutyForm.dutyDate,
           holidayName: dutyForm.holidayName,
           hoursWorked: 8,
           compensationType: dutyForm.compensationType === 'add_to_annual_leave' ? 'ANNUAL_ACCRUAL' : 'COMP_OFF',
-          state: 'approved'
-        });
-        toast.success(`تم اعتماد التكليف وإضافة (+1 يوم) لرصيد ${dutyForm.compensationType === 'comp_day_off' ? 'الراحات البديلة' : 'الإجازة السنوية'} للموظف تلقائياً.`);
-      } catch (err) {
-        console.warn('Failed to sync holiday work record', err);
+          state: 'draft',
+        };
+        const approval = await approveHolidayWork(workRecord, basicSalary);
+        if (!approval.success) {
+          toast.error(approval.message || 'فشل إضافة الرصيد التعويضي');
+          return;
+        }
+        toast.success(approval.message);
+      } else {
+        toast.success(`تم اعتماد التكليف وإدراج بدل نقدي (+${amount.toFixed(3)} د.ك) جاهز للترحيل للرواتب.`);
       }
-    } else {
-      toast.success(`تم اعتماد التكليف وإدراج بدل نقدي (+${amount.toFixed(3)} د.ك) جاهز للترحيل للرواتب.`);
-    }
 
-    setShowDutyModal(false);
+      setDuties([created, ...duties]);
+      setShowDutyModal(false);
+    } catch (err: any) {
+      console.warn('Failed to create holiday duty', err);
+      toast.error(err?.message || 'فشل حفظ تكليف العطلة');
+    }
   };
 
-  // Mark duty as settled to payroll WPS
-  const handleSettleDutyToPayroll = (dutyId: string) => {
+  // Mark duty as settled to payroll WPS (writes to Firestore payslips)
+  const handleSettleDutyToPayroll = async (dutyId: string) => {
+    if (!companyId) {
+      toast.error('لا يمكن الترحيل بدون سياق شركة نشط');
+      return;
+    }
+    const duty = duties.find(d => d.id === dutyId);
+    if (!duty) {
+      toast.error('التكليف غير موجود');
+      return;
+    }
+    const result = await settleHolidayDutyToPayroll(duty, companyId);
+    if (!result.success) {
+      toast.error(result.message);
+      return;
+    }
     const todayStr = new Date().toISOString().split('T')[0];
     setDuties(duties.map(d => d.id === dutyId ? { ...d, status: 'settled', settledAt: todayStr } : d));
-    toast.success('تم ترحيل بدل العمل أثناء العطلة لملف مسير الرواتب (WPS) بنجاح.');
+    toast.success(result.message);
   };
 
   // Export to Excel

@@ -1004,13 +1004,13 @@ export function liquidateLeaveBalanceInAllocations(
 
   const successfullyEncashed = encashedDays - Math.max(0, remainingToEncash);
 
-  // Odoo 18 logic: Automatically create an administrative leave deduction record in hr.leave (MANARA_STORAGE_KEYS.LEAVES)
+  // Record encashment deduction in canonical leave_requests (Firestore)
   if (successfullyEncashed > 0 && employee) {
     try {
-      const existingLeaves = getPersistentData<LeaveRequest[]>(MANARA_STORAGE_KEYS.LEAVES, []);
       const todayStr = new Date().toISOString().split('T')[0];
+      const leaveId = `encash-leave-${Date.now()}`;
       const newLeaveReq: LeaveRequest = {
-        id: `encash-leave-${Date.now()}`,
+        id: leaveId,
         employeeId: employee.id,
         companyId: employee.companyId || '',
         leaveType: 'ANNUAL',
@@ -1018,13 +1018,17 @@ export function liquidateLeaveBalanceInAllocations(
         endDate: todayStr,
         totalDays: Number(successfullyEncashed.toFixed(2)),
         reason: `تصفية نقدية لرصيد الإجازة: ${successfullyEncashed.toFixed(2)} يوم (Encashment & Liquidation)`,
-        status: 'APPROVED', // Odoo 'validate' state
-        validatedBy: 'System HR Engine (Odoo 18)',
+        status: 'APPROVED',
+        validatedBy: 'System HR Engine',
         validatedAt: new Date().toISOString(),
         hrNote: 'خصم تلقائي ناتج عن اعتماد تسييل ورصد البدل النقدي',
         createdAt: new Date().toISOString(),
       };
-      setPersistentData(MANARA_STORAGE_KEYS.LEAVES, [newLeaveReq, ...existingLeaves]);
+      void setDoc(
+        doc(db, 'leave_requests', leaveId),
+        cleanFirestoreData(newLeaveReq),
+        { merge: true }
+      ).catch((err) => console.error('Firestore encashment leave write failed:', err));
     } catch (e) {
       console.error('Error creating encashment leave record:', e);
     }

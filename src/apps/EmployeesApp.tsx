@@ -502,56 +502,37 @@ export function EmployeesApp(props?: any) {
     }
   }, [props?.selectedEmployeeId, employees]);
 
-  // 2. مزامنة قاعدة البيانات الحية للمؤسسة أو الشركة النشطة (Single Source of Truth)
+  // 2. مزامنة الموظفين حياً من Firestore (نفس مصدر OdooHierarchy)
   useEffect(() => {
-    let isMounted = true;
-
-    // Reset list immediately when company changes to prevent cross-company leak
-    setEmployees([]);
-
-    async function syncTenantEmployees() {
-      if (!currentCompanyId) return;
-      setIsLoadingDb(true);
-      try {
-        const dbEmps = await TenantDatabaseService.getEmployeesByTenant(currentCompanyId);
-        if (isMounted) {
-          if (dbEmps && dbEmps.length > 0) {
-            const mapped = dbEmps.map(emp => mapEmployeeForEmployeesAppView(emp, currentCompanyId));
-            setEmployees(mapped);
-          } else {
-            setEmployees([]);
-          }
-        }
-      } catch (e) {
-        console.error("Error syncing tenant employees:", e);
-      } finally {
-        if (isMounted) setIsLoadingDb(false);
-      }
+    if (!currentCompanyId) {
+      setEmployees([]);
+      return;
     }
-    syncTenantEmployees();
-    return () => { isMounted = false; };
-  }, [currentCompanyId]);
 
-  // Listen for real-time employee updates dispatched from ScannerApp, Onboarding, or other components
-  useEffect(() => {
-    const handleSyncEvent = () => {
-      if (currentCompanyId) {
-        TenantDatabaseService.getEmployeesByTenant(currentCompanyId).then(dbEmps => {
-          if (dbEmps && dbEmps.length > 0) {
-            setEmployees(dbEmps.map(emp => mapEmployeeForEmployeesAppView(emp, currentCompanyId)));
-          } else {
-            setEmployees([]);
-          }
-        }).catch(() => {});
+    setEmployees([]);
+    setIsLoadingDb(true);
+
+    const employeesQuery = query(
+      collection(db, 'employees'),
+      where('companyId', '==', currentCompanyId)
+    );
+
+    const unsubscribe = onSnapshot(
+      employeesQuery,
+      (snapshot) => {
+        const mapped = snapshot.docs.map((docSnap) =>
+          mapEmployeeForEmployeesAppView({ ...docSnap.data(), id: docSnap.id }, currentCompanyId)
+        );
+        setEmployees(mapped);
+        setIsLoadingDb(false);
+      },
+      (error) => {
+        console.error('Error syncing tenant employees:', error);
+        setIsLoadingDb(false);
       }
-    };
+    );
 
-    window.addEventListener('manara_employees_updated', handleSyncEvent);
-    window.addEventListener('storage', handleSyncEvent);
-    return () => {
-      window.removeEventListener('manara_employees_updated', handleSyncEvent);
-      window.removeEventListener('storage', handleSyncEvent);
-    };
+    return () => unsubscribe();
   }, [currentCompanyId]);
 
   const [contracts, setContracts] = useState<any[]>([]);

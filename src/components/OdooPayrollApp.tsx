@@ -241,8 +241,9 @@ export const OdooPayrollApp: React.FC = () => {
       const pifssDeduction = 0;
 
       const grossSalary = totalBase;
+      const bonusAmount = 0;
       const totalDeductions = round3(absenceDeduction + delayDeduction + loanDeduction);
-      const netSalary = Math.max(0, round3(grossSalary + overtimeAmount - totalDeductions));
+      const netSalary = Math.max(0, round3(grossSalary + overtimeAmount + bonusAmount - totalDeductions));
 
       return {
         id: `SLIP-${selectedMonth}-${emp.id}`,
@@ -261,6 +262,7 @@ export const OdooPayrollApp: React.FC = () => {
         medicalAllowance: emp.medicalAllowance || 0,
         overtimeHours,
         overtimeAmount,
+        bonusAmount,
         absenceDays,
         absenceDeduction,
         delayMinutes,

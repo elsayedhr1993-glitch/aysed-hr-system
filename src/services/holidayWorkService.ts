@@ -1,9 +1,46 @@
 // src/services/holidayWorkService.ts
-import { db } from '../lib/firebase';
-import { collection, setDoc, deleteDoc, doc, getDocs, query, orderBy } from 'firebase/firestore';
+import { db, cleanFirestoreData } from '../lib/firebase';
+import { collection, setDoc, deleteDoc, doc, getDocs, getDoc, query, orderBy, where } from 'firebase/firestore';
 import { MANARA_STORAGE_KEYS, getPersistentData, setPersistentData } from '../utils/persistentStorage';
 import { HrLeaveAllocation } from '../types';
 import { cancelLeaveBalanceTransaction, upsertLeaveBalanceTransaction } from './leaveBalanceLedgerService';
+
+const round3 = (value: number) => Math.round((Number(value) || 0) * 1000) / 1000;
+
+/** Canonical Firestore collection for leave balance buckets (all apps read this). */
+const LEAVE_ALLOCATIONS_COLLECTION = 'leave_allocations';
+
+export interface HolidayDutyPayrollInput {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  civilId?: string;
+  jobTitle?: string;
+  department?: string;
+  holidayName: string;
+  dutyDate: string;
+  basicSalary?: number;
+  totalSalary?: number;
+  compensationType: 'double_pay' | 'comp_day_off' | 'add_to_annual_leave';
+  calculatedAmount: number;
+  status?: 'approved' | 'settled';
+  settledAt?: string;
+}
+
+export async function persistHolidayDutyRecord(
+  duty: HolidayDutyPayrollInput,
+  companyId: string
+): Promise<void> {
+  if (!db || !duty.id) return;
+  const payload = cleanFirestoreData({
+    ...duty,
+    companyId,
+    date: duty.dutyDate,
+    recordType: 'holiday_duty',
+    updatedAt: new Date().toISOString(),
+  });
+  await setDoc(doc(db, 'work_on_holidays', duty.id), payload, { merge: true });
+}
 
 export interface LeaveType {
   id?: string;
@@ -212,12 +249,35 @@ export async function deleteHolidayWorkRecord(recordId: string, employeeId?: str
           }
         }
 
-        const allocSnap = await getDocs(collection(db, 'allocations'));
+        const allocIds = [
+          `alloc-holiday-${recordId}`,
+          `alloc-holiday-${targetRecord?.id}`,
+          `alloc-comp-${recordId}`,
+          `alloc-annual-${recordId}`,
+        ].filter(Boolean);
+        for (const allocId of allocIds) {
+          try { await deleteDoc(doc(db, LEAVE_ALLOCATIONS_COLLECTION, allocId)); } catch (_) {}
+        }
+        const allocSnap = await getDocs(
+          query(collection(db, LEAVE_ALLOCATIONS_COLLECTION), where('employeeId', '==', targetEmpId || '__none__'))
+        );
         for (const d of allocSnap.docs) {
           const data = d.data() as any;
-          const isTargetAlloc = data.id?.includes(recordId) || 
-                                (targetRecord?.id && data.id?.includes(targetRecord.id)) ||
-                                (targetEmpId && data.employeeId === targetEmpId && targetDate && data.dateFrom === targetDate);
+          const isTargetAlloc =
+            data.id?.includes(recordId) ||
+            (targetRecord?.id && data.id?.includes(targetRecord.id)) ||
+            (targetEmpId && targetDate && data.dateFrom === targetDate);
+          if (isTargetAlloc) {
+            try { await deleteDoc(doc(db, LEAVE_ALLOCATIONS_COLLECTION, d.id)); } catch (_) {}
+          }
+        }
+        // Legacy collection cleanup
+        const legacySnap = await getDocs(collection(db, 'allocations'));
+        for (const d of legacySnap.docs) {
+          const data = d.data() as any;
+          const isTargetAlloc =
+            data.id?.includes(recordId) ||
+            (targetRecord?.id && data.id?.includes(targetRecord.id));
           if (isTargetAlloc) {
             try { await deleteDoc(doc(db, 'allocations', d.id)); } catch (_) {}
           }
@@ -312,10 +372,14 @@ export async function approveHolidayWork(
 
     try {
       if (db) {
-        await setDoc(doc(db, 'allocations', allocId), createdAlloc as any);
+        await setDoc(
+          doc(db, LEAVE_ALLOCATIONS_COLLECTION, allocId),
+          cleanFirestoreData({ ...createdAlloc, companyId: record.companyId || '' }),
+          { merge: true }
+        );
       }
     } catch (fe) {
-      console.warn('[HolidayWorkService] Firestore allocation sync notice:', fe);
+      console.warn('[HolidayWorkService] Firestore leave_allocations sync notice:', fe);
     }
 
     const msg = isCompOff
@@ -332,4 +396,106 @@ export async function approveHolidayWork(
   }
 }
 
+/**
+ * ترحيل بدل العمل أثناء العطلة (دفع مضاعف) إلى مسير الرواتب في Firestore.
+ */
+export async function settleHolidayDutyToPayroll(
+  duty: HolidayDutyPayrollInput,
+  companyId: string
+): Promise<{ success: boolean; message: string; payslipId?: string }> {
+  if (!db) {
+    return { success: false, message: 'قاعدة البيانات غير متاحة' };
+  }
+  if (duty.compensationType !== 'double_pay') {
+    return { success: false, message: 'الترحيل للرواتب متاح فقط لبدل الدفع المضاعف (مادة 68)' };
+  }
+  if (duty.status === 'settled') {
+    return { success: false, message: 'تم ترحيل هذا التكليف مسبقاً' };
+  }
+  if (!duty.employeeId || !duty.dutyDate) {
+    return { success: false, message: 'بيانات التكليف غير مكتملة (موظف/تاريخ)' };
+  }
+
+  const period = duty.dutyDate.slice(0, 7);
+  const slipId = `SLIP-${period}-${duty.employeeId}`;
+  const bonusAdd = round3(duty.calculatedAmount || 0);
+  const settledAt = new Date().toISOString().split('T')[0];
+
+  try {
+    const snap = await getDoc(doc(db, 'payslips', slipId));
+    let payslip: Record<string, unknown>;
+
+    if (snap.exists()) {
+      const existing = snap.data() as Record<string, unknown>;
+      const bonusAmount = round3(Number(existing.bonusAmount || 0) + bonusAdd);
+      const grossSalary = round3(Number(existing.grossSalary || 0));
+      const overtimeAmount = round3(Number(existing.overtimeAmount || 0));
+      const totalDeductions = round3(Number(existing.totalDeductions || 0));
+      const netSalary = Math.max(0, round3(grossSalary + overtimeAmount + bonusAmount - totalDeductions));
+      const noteLine = `بدل عطلة: ${duty.holidayName} (${duty.dutyDate}) +${bonusAdd.toFixed(3)} د.ك`;
+      payslip = {
+        ...existing,
+        id: slipId,
+        companyId,
+        bonusAmount,
+        netSalary,
+        notes: [existing.notes, noteLine].filter(Boolean).join(' | '),
+        updatedAt: new Date().toISOString(),
+      };
+    } else {
+      const basicSalary = round3(duty.basicSalary || (duty.totalSalary || 0) * 0.7);
+      const housingAllowance = round3((duty.totalSalary || 0) * 0.15);
+      const transportAllowance = round3((duty.totalSalary || 0) * 0.1);
+      const medicalAllowance = round3((duty.totalSalary || 0) * 0.05);
+      const grossSalary = round3(basicSalary + housingAllowance + transportAllowance + medicalAllowance);
+      payslip = {
+        id: slipId,
+        payslipNumber: `PAY/${period.replace('-', '/')}/HOL`,
+        employeeId: duty.employeeId,
+        employeeName: duty.employeeName,
+        civilId: duty.civilId || '',
+        jobTitle: duty.jobTitle || 'موظف',
+        department: duty.department || 'الإدارة العامة',
+        bankName: 'بنك الكويت الوطني (NBK)',
+        iban: '',
+        period,
+        basicSalary,
+        housingAllowance,
+        transportAllowance,
+        medicalAllowance,
+        overtimeHours: 0,
+        overtimeAmount: 0,
+        bonusAmount: bonusAdd,
+        absenceDays: 0,
+        absenceDeduction: 0,
+        delayMinutes: 0,
+        delayDeduction: 0,
+        loanDeduction: 0,
+        pifssDeduction: 0,
+        grossSalary,
+        totalDeductions: 0,
+        netSalary: round3(grossSalary + bonusAdd),
+        status: 'draft',
+        notes: `بدل عطلة رسمية: ${duty.holidayName} (${duty.dutyDate}) — مادة 68`,
+        companyId,
+        createdAt: new Date().toISOString(),
+      };
+    }
+
+    await setDoc(doc(db, 'payslips', slipId), cleanFirestoreData(payslip), { merge: true });
+
+    await persistHolidayDutyRecord(
+      { ...duty, status: 'settled', settledAt },
+      companyId
+    );
+
+    return {
+      success: true,
+      message: `تم ترحيل بدل العطلة (+${bonusAdd.toFixed(3)} د.ك) إلى مسير ${period} بنجاح`,
+      payslipId: slipId,
+    };
+  } catch (error: any) {
+    return { success: false, message: error.message || 'فشل ترحيل بدل العطلة للرواتب' };
+  }
+}
 

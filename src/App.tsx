@@ -106,7 +106,18 @@ function MainAppLayout() {
     deleteCompany
   } = useTenant();
 
-  const { isImpersonating, startImpersonation, exitImpersonation: exitCompanyImpersonation } = useCompany();
+  const {
+    isImpersonating,
+    startImpersonation,
+    exitImpersonation: exitCompanyImpersonation,
+    activeCompanyId: companyContextId,
+  } = useCompany();
+
+  /** Align launcher stats with Odoo modules (CompanyContext is canonical for app data). */
+  const effectiveCompanyId =
+    companyContextId && companyContextId !== 'SAAS_PLATFORM'
+      ? companyContextId
+      : activeCompany?.id;
 
   const { employees, attendance, computedPayslips, addEmployee, updateEmployee } = useOdooHierarchy();
 
@@ -307,15 +318,14 @@ function MainAppLayout() {
   const [isFacilityWizardOpen, setIsFacilityWizardOpen] = useState(false);
 
   useEffect(() => {
-    if (!activeCompany?.id) {
+    if (!effectiveCompanyId || effectiveCompanyId === 'SAAS_PLATFORM') {
       setLeaveStats({ pending: 0, onLeaveToday: 0 });
       return;
     }
 
-    void seedDemoDataForActiveCompany(activeCompany.id);
+    void seedDemoDataForActiveCompany(effectiveCompanyId);
 
-    const companyId = activeCompany.id;
-    const leavesQuery = query(collection(db, 'leave_requests'), where('companyId', '==', companyId));
+    const leavesQuery = query(collection(db, 'leave_requests'), where('companyId', '==', effectiveCompanyId));
     return onSnapshot(leavesQuery, snapshot => {
       const today = new Date().toISOString().slice(0, 10);
       const requests = snapshot.docs.map(item => item.data() as any);
@@ -324,7 +334,7 @@ function MainAppLayout() {
         onLeaveToday: requests.filter(request => ['approved', 'APPROVED'].includes(request.status) && request.startDate <= today && request.endDate >= today).length
       });
     }, error => console.error('Failed to load leave statistics from Firestore:', error));
-  }, [activeCompany?.id]);
+  }, [effectiveCompanyId]);
   const [contracts, setContracts] = useState<any[]>(() => {
     return getPersistentData<any[]>(MANARA_STORAGE_KEYS.CONTRACTS, []);
   });
