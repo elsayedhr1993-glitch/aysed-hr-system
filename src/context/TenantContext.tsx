@@ -125,11 +125,6 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       createdAt: new Date().toISOString()
     } : null;
 
-    const urlCompanyId = typeof window !== 'undefined'
-      ? new URLSearchParams(window.location.search).get('companyId') || new URLSearchParams(window.location.search).get('company_id') || ''
-      : '';
-    const fallbackFromUrl = buildFallbackCompany(urlCompanyId, null);
-
     // Listen to companies collection
     let q;
     if (isActualSuperAdmin) {
@@ -137,7 +132,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } else if (authCompanyId) {
       q = query(collection(db, collectionName), where(documentId(), '==', authCompanyId));
     } else {
-      setCompanies(fallbackFromUrl ? [fallbackFromUrl] : []);
+      setCompanies(fallbackCompany ? [fallbackCompany] : []);
       setIsLoading(false);
       return;
     }
@@ -149,16 +144,16 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
       if (fetchedCompanies.length > 0) {
         setCompanies(fetchedCompanies);
-      } else if (fallbackCompany || fallbackFromUrl) {
-        setCompanies([fallbackCompany || fallbackFromUrl!]);
+      } else if (fallbackCompany) {
+        setCompanies([fallbackCompany]);
       } else {
         setCompanies([]);
       }
       setIsLoading(false);
     }, (error) => {
       console.error("Error fetching companies: ", error);
-      if (fallbackCompany || fallbackFromUrl) {
-        setCompanies([fallbackCompany || fallbackFromUrl!]);
+      if (fallbackCompany) {
+        setCompanies([fallbackCompany]);
       }
       setIsLoading(false);
     });
@@ -181,6 +176,11 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [isActualSuperAdmin]);
 
   const preferredCompanyId = (() => {
+    // Non–Super Admin: always bind to profile companyId
+    if (!isActualSuperAdmin) {
+      return authCompanyId || (companies[0]?.id ?? null);
+    }
+
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const urlCompanyId = params.get('companyId') || params.get('company_id') || '';

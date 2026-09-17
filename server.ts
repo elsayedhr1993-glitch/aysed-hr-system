@@ -166,6 +166,15 @@ function getAdminAuth(): ReturnType<typeof getAuth> | null {
   return null;
 }
 
+function getAdminFirestore() {
+  if (!getAdminAuth() || !adminApp) return null;
+  try {
+    return getFirestore(adminApp);
+  } catch {
+    return null;
+  }
+}
+
 app.use(express.json({ limit: "25mb" }));
 
 // Initialize Gemini client strictly from server environment only.
@@ -1419,33 +1428,104 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
 });
 
 // Odoo Enterprise AI Copilot Chat Endpoint
-async function requireFirebaseAuth(req: any, res: any) {
+async function requireFirebaseAuth(req: any, _res?: any) {
   const authHeader = req?.headers?.authorization || req?.headers?.Authorization;
   if (!authHeader || typeof authHeader !== 'string') {
-    return { ok: false, error: 'Missing Authorization header' };
+    return { ok: false, error: 'Missing Authorization header', status: 401 };
   }
 
   const match = authHeader.match(/^Bearer\s+(.+)$/i);
   if (!match) {
-    return { ok: false, error: 'Invalid Authorization format' };
+    return { ok: false, error: 'Invalid Authorization format', status: 401 };
   }
 
   const token = match[1].trim();
   if (!token || token.length < 20) {
-    return { ok: false, error: 'Invalid token format' };
+    return { ok: false, error: 'Invalid token format', status: 401 };
   }
 
   const auth = getAdminAuth();
   if (!auth) {
-    return { ok: false, error: 'Firebase admin not configured' };
+    return { ok: false, error: 'Firebase admin not configured', status: 503 };
   }
 
   try {
     const decoded = await auth.verifyIdToken(token);
-    return { ok: true, token, uid: decoded.uid };
+    return {
+      ok: true,
+      token,
+      uid: decoded.uid,
+      email: String(decoded.email || '').toLowerCase(),
+      claims: decoded,
+      status: 200,
+    };
   } catch {
-    return { ok: false, error: 'Invalid Firebase ID token' };
+    return { ok: false, error: 'Invalid Firebase ID token', status: 401 };
   }
+}
+
+async function resolveCallerRole(authCheck: {
+  uid: string;
+  email?: string;
+  claims?: Record<string, any>;
+}): Promise<{ role: string; companyId?: string }> {
+  const claimRole = String(authCheck.claims?.role || '').toUpperCase();
+  const claimCompanyId = authCheck.claims?.companyId
+    ? String(authCheck.claims.companyId)
+    : undefined;
+
+  if (claimRole === 'SUPER_ADMIN' || claimRole === 'COMPANY_ADMIN' || claimRole === 'TENANT_ADMIN') {
+    return { role: claimRole === 'TENANT_ADMIN' ? 'COMPANY_ADMIN' : claimRole, companyId: claimCompanyId };
+  }
+
+  try {
+    const dbAdmin = getAdminFirestore();
+    if (dbAdmin) {
+      const snap = await dbAdmin.collection('users').doc(authCheck.uid).get();
+      if (snap.exists) {
+        const data = snap.data() || {};
+        const role = String(data.role || 'COMPANY_ADMIN').toUpperCase();
+        return {
+          role: role === 'TENANT_ADMIN' ? 'COMPANY_ADMIN' : role,
+          companyId: data.companyId ? String(data.companyId) : claimCompanyId,
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('[Auth] Failed to resolve role from Firestore users doc:', err);
+  }
+
+  return { role: 'COMPANY_ADMIN', companyId: claimCompanyId };
+}
+
+async function requireSuperAdmin(req: any, _res?: any) {
+  const authCheck = await requireFirebaseAuth(req);
+  if (!authCheck.ok) {
+    return authCheck;
+  }
+
+  const resolved = await resolveCallerRole(authCheck as any);
+  if (resolved.role !== 'SUPER_ADMIN') {
+    return {
+      ok: false,
+      error: 'Super Admin privileges required',
+      status: 403,
+      uid: (authCheck as any).uid,
+    };
+  }
+
+  return {
+    ...authCheck,
+    role: 'SUPER_ADMIN',
+    companyId: resolved.companyId,
+  };
+}
+
+function rejectUnauthorized(res: any, authCheck: { error?: string; status?: number }) {
+  return res.status(authCheck.status || 401).json({
+    success: false,
+    error: authCheck.error || 'Unauthorized',
+  });
 }
 
 function buildCreateEmployeeAction(prompt: string) {
@@ -2222,6 +2302,9 @@ async function executeSystemBackupCore(clientSnapshot?: any, triggerSource = 'MA
 // 1. Manual or Client-triggered Backup Run
 app.post("/api/backup/run", express.json({ limit: "50mb" }), async (req, res) => {
   try {
+    const authCheck = await requireSuperAdmin(req);
+    if (!authCheck.ok) return rejectUnauthorized(res, authCheck);
+
     const { snapshot } = req.body || {};
     const result = await executeSystemBackupCore(snapshot, 'MANUAL_TRIGGER');
     if (result.success) {
@@ -2248,6 +2331,9 @@ app.post("/api/backup/run", express.json({ limit: "50mb" }), async (req, res) =>
 // 2. Test Failure Alert Simulation Route
 app.post("/api/backup/test-failure-alert", express.json(), async (req, res) => {
   try {
+    const authCheck = await requireSuperAdmin(req);
+    if (!authCheck.ok) return rejectUnauthorized(res, authCheck);
+
     const { error, failedStep, errorStack } = req.body || {};
     const systemEmail = getSystemDefaultEmail();
     const result = await sendDailyBackupFailureAlert({
@@ -2275,7 +2361,9 @@ app.post("/api/backup/test-failure-alert", express.json(), async (req, res) => {
 });
 
 // 3. Backup Engine Status & History API
-app.get("/api/backup/status", (req, res) => {
+app.get("/api/backup/status", async (req, res) => {
+  const authCheck = await requireSuperAdmin(req);
+  if (!authCheck.ok) return rejectUnauthorized(res, authCheck);
   const systemEmail = getSystemDefaultEmail();
   const formatBytes = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -2314,7 +2402,10 @@ app.get("/api/backup/status", (req, res) => {
 });
 
 // 4. Download Latest Backup Dump File API
-app.get("/api/backup/download-latest", (req, res) => {
+app.get("/api/backup/download-latest", async (req, res) => {
+  const authCheck = await requireSuperAdmin(req);
+  if (!authCheck.ok) return rejectUnauthorized(res, authCheck);
+
   if (!latestBackupBuffer) {
     return res.status(404).json({ success: false, error: "لا توجد نسخة احتياطية محفوظة حالياً في الذاكرة. يرجى تشغيل النسخ أولاً." });
   }
@@ -2462,6 +2553,9 @@ app.post("/api/subscription/register", express.json(), async (req, res) => {
 
 
 app.post("/api/admin/force-password", express.json(), async (req, res) => {
+  const authCheck = await requireSuperAdmin(req);
+  if (!authCheck.ok) return rejectUnauthorized(res, authCheck);
+
   const { email, newPassword } = req.body;
   const admin = getAdminAuth();
   if (!admin) {
@@ -2483,6 +2577,9 @@ app.post("/api/admin/force-password", express.json(), async (req, res) => {
 
 // Admin Route to Create or Sync Tenant Account seamlessly without overriding Super Admin session
 app.post("/api/admin/create-tenant", express.json(), async (req, res) => {
+  const authCheck = await requireSuperAdmin(req);
+  if (!authCheck.ok) return rejectUnauthorized(res, authCheck);
+
   const { email, password, companyName, companyId, ownerName, phone, planType } = req.body;
   
   if (!email || !companyName) {
@@ -2553,6 +2650,9 @@ app.post("/api/admin/create-tenant", express.json(), async (req, res) => {
 
 // Admin Route to Hard Delete a Tenant User from Firebase Authentication
 app.post("/api/admin/delete-tenant", express.json(), async (req, res) => {
+  const authCheck = await requireSuperAdmin(req);
+  if (!authCheck.ok) return rejectUnauthorized(res, authCheck);
+
   const { email, uid, companyId } = req.body;
   const admin = getAdminAuth();
 
@@ -2597,6 +2697,9 @@ app.post("/api/admin/delete-tenant", express.json(), async (req, res) => {
 });
 
 app.post("/api/admin/update-user-email", express.json(), async (req, res) => {
+  const authCheck = await requireFirebaseAuth(req);
+  if (!authCheck.ok) return rejectUnauthorized(res, authCheck);
+
   const { currentEmail, newEmail } = req.body;
   const admin = getAdminAuth();
   if (!admin) {
@@ -2604,6 +2707,13 @@ app.post("/api/admin/update-user-email", express.json(), async (req, res) => {
       success: false, 
       error: "Firebase Admin is not configured" 
     });
+  }
+
+  const resolved = await resolveCallerRole(authCheck as any);
+  const callerEmail = String((authCheck as any).email || '').toLowerCase();
+  const targetCurrent = String(currentEmail || '').trim().toLowerCase();
+  if (resolved.role !== 'SUPER_ADMIN' && callerEmail !== targetCurrent) {
+    return res.status(403).json({ success: false, error: 'يمكنك تعديل بريد حسابك فقط' });
   }
   
   try {
@@ -2671,8 +2781,15 @@ const userOtpCodesStore: UserOtpRecord[] = [];
 let otpIdCounter = 1;
 
 // 1. GET Settings
-app.get("/api/settings", (req, res) => {
-  const companyId = (req.headers["x-company-id"] as string) || "default";
+app.get("/api/settings", async (req, res) => {
+  const authCheck = await requireFirebaseAuth(req);
+  if (!authCheck.ok) return rejectUnauthorized(res, authCheck);
+  const resolved = await resolveCallerRole(authCheck as any);
+  const headerCompanyId = (req.headers["x-company-id"] as string) || "";
+  const companyId =
+    resolved.role === "SUPER_ADMIN"
+      ? headerCompanyId || resolved.companyId || "default"
+      : resolved.companyId || "default";
   if (!multiCompanySettings[companyId]) {
     multiCompanySettings[companyId] = {
       ...systemSettingsStore,
@@ -2682,9 +2799,16 @@ app.get("/api/settings", (req, res) => {
 });
 
 // 2. PUT Settings
-app.put("/api/settings", express.json(), (req, res) => {
+app.put("/api/settings", express.json(), async (req, res) => {
   try {
-    const companyId = (req.headers["x-company-id"] as string) || "default";
+    const authCheck = await requireFirebaseAuth(req);
+    if (!authCheck.ok) return rejectUnauthorized(res, authCheck);
+    const resolved = await resolveCallerRole(authCheck as any);
+    const headerCompanyId = (req.headers["x-company-id"] as string) || "";
+    const companyId =
+      resolved.role === "SUPER_ADMIN"
+        ? headerCompanyId || resolved.companyId || "default"
+        : resolved.companyId || "default";
     const data = req.body;
     if (!multiCompanySettings[companyId]) {
       multiCompanySettings[companyId] = { ...systemSettingsStore };
@@ -2906,7 +3030,10 @@ app.post("/api/auth/verify-2fa-otp", express.json(), (req, res) => {
 });
 
 // 5. Download Backup Dump Endpoint
-app.get("/api/settings/backup/download", (req, res) => {
+app.get("/api/settings/backup/download", async (req, res) => {
+  const authCheck = await requireSuperAdmin(req);
+  if (!authCheck.ok) return rejectUnauthorized(res, authCheck);
+
   const dump = {
     settings: systemSettingsStore,
     timestamp: new Date().toISOString(),

@@ -211,12 +211,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setToken(jwt);
           persistAuthStorage(fullUser, jwt);
         } else {
-          // If no firebaseUser, only clear if there is no locally saved active master session
-          const saved = localStorage.getItem(AUTH_USER_KEY) || sessionStorage.getItem(AUTH_USER_KEY);
-          if (!saved) {
-            setUser(null);
-            setToken(null);
-          }
+          // No Firebase session — clear any storage-only forged auth
+          setUser(null);
+          setToken(null);
+          clearAuthStorage();
         }
       } catch (err) {
         console.warn('Auth state processing failed.');

@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "ai-studio-remixaysedshr202-98c882d5-9491-4f4b-a838-c6b0b10a0472"
-  }
+    "default": "gen-lang-client-0326692360"
+  },
+  "targets": {},
+  "etags": {}
 }

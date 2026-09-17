@@ -8,6 +8,8 @@ import toast from 'react-hot-toast';
 import { doc, setDoc, deleteDoc, getDocs, collection, updateDoc, onSnapshot } from 'firebase/firestore';
 import { db, cleanFirestoreData, auth, provisionTenantAuth, purgeTenantCascading, isTenantPurged, getCompaniesCollectionName } from '../lib/firebase';
 import { sendPasswordResetEmail } from 'firebase/auth';
+import { buildAuthedJsonHeaders } from '../lib/clientAuth';
+import { useAuth } from '../context/AuthContext';
 
 
 export interface SubscriptionRequest {
@@ -38,6 +40,7 @@ export const CompaniesSubscriptionApp: React.FC<CompaniesSubscriptionAppProps> =
   onImpersonateCompany,
   companies = [],
 }) => {
+  const { user: authUser } = useAuth();
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'active' | 'suspended'>('ALL');
@@ -97,7 +100,7 @@ export const CompaniesSubscriptionApp: React.FC<CompaniesSubscriptionAppProps> =
     try {
       const res = await fetch('/api/admin/force-password', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await buildAuthedJsonHeaders(),
         body: JSON.stringify({ email: passwordModalSub.email, newPassword })
       });
       const text = await res.text();
@@ -114,8 +117,8 @@ export const CompaniesSubscriptionApp: React.FC<CompaniesSubscriptionAppProps> =
   };
 
 
-  // Super Admin security check
-  const isSuperAdmin = currentUserEmail.toLowerCase() === 'admin@aysed.com' || currentUserEmail.toLowerCase() === 'elsayedhr1993@gmail.com';
+  // Super Admin security check — role from AuthContext (not email allowlist)
+  const isSuperAdmin = authUser?.role === 'SUPER_ADMIN';
 
   useEffect(() => {
     toast.dismiss();

@@ -69,7 +69,15 @@ interface CompanyContextType {
 
 const CompanyContext = createContext<CompanyContextType | undefined>(undefined);
 
-const getPreferredCompanyId = (authCompanyId: string | null) => {
+const getPreferredCompanyId = (
+  authCompanyId: string | null,
+  isSuperAdmin: boolean
+) => {
+  // Non–Super Admin: never trust URL or stale localStorage — bind to profile companyId only
+  if (!isSuperAdmin) {
+    return authCompanyId || '';
+  }
+
   if (typeof window !== 'undefined') {
     const params = new URLSearchParams(window.location.search);
     const urlCompanyId = params.get('companyId') || params.get('company_id') || '';
@@ -141,13 +149,19 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
   });
 
-  const preferredCompanyId = getPreferredCompanyId(authCompanyId);
+  const preferredCompanyId = getPreferredCompanyId(authCompanyId, !!isActualSuperAdmin);
 
   // Automatically listen to auth session or active company changes in localStorage
   useEffect(() => {
     const syncFromStorage = () => {
       try {
-        const authUserRaw = localStorage.getItem('aysed_auth_user');
+        // Impersonation is Super Admin only — ignore forged local flags for tenants
+        if (!isActualSuperAdmin) {
+          setIsImpersonating(false);
+          setImpersonatedCompany(null);
+          return;
+        }
+
         const isImpersonatingFlag = localStorage.getItem('aysed_is_impersonating') === 'true';
         const savedImpersonated = localStorage.getItem('aysed_impersonated_comp');
 
@@ -156,33 +170,6 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
           setIsImpersonating(true);
           setImpersonatedCompany(parsedComp);
           return;
-        }
-
-        if (authUserRaw) {
-          const authUser = JSON.parse(authUserRaw);
-          if (authUser && authUser.role !== 'SUPER_ADMIN' && (authUser.companyId || authUser.name)) {
-            // Tenant Company user logged in
-            const compName = authUser.name || 'شركة المنشأة المستقلة';
-            const compId = authUser.companyId || getDeterministicCompanyId(compName);
-            const tenantComp: Company = {
-              id: compId,
-              nameAr: compName,
-              nameEn: compName,
-              name: compName,
-              crNumber: '301122',
-              pifssNumber: 'KUW-554433',
-              commercialRegNo: '301122',
-              civilIdCompany: '203344',
-              bankName: 'بنك الكويت الوطني (NBK)',
-              iban: 'KW12NBOK000000000000301122',
-              wsiCode: 'WSI-TENANT',
-              currency: 'KWD',
-              status: 'active'
-            };
-            setIsImpersonating(true);
-            setImpersonatedCompany(tenantComp);
-            return;
-          }
         }
       } catch (e) {
         console.warn('Error syncing company context from storage:', e);
@@ -197,7 +184,7 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
       window.removeEventListener('storage', syncFromStorage);
       window.removeEventListener('aysed_auth_changed', syncFromStorage);
     };
-  }, []);
+  }, [isActualSuperAdmin]);
 
   // Active company: if impersonating, use impersonatedCompany, else use masterCompany
   const rawActive = isImpersonating && impersonatedCompany ? impersonatedCompany : masterCompany;
@@ -207,7 +194,7 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
           ? getDeterministicCompanyId(impersonatedCompany)
           : (preferredCompanyId || getDeterministicCompanyId(rawActive) || 'SAAS_PLATFORM')
       )
-    : (preferredCompanyId || authCompanyId || getDeterministicCompanyId(rawActive));
+    : (authCompanyId || preferredCompanyId || getDeterministicCompanyId(rawActive));
   const activeCompany = {
     ...rawActive,
     id: activeCompanyId,
@@ -223,6 +210,14 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (!authCompanyId) return;
     localStorage.setItem('activeCompanyId', authCompanyId);
   }, [authCompanyId]);
+
+  // Bind master company id to authenticated tenant company (ignore stale Almanar/local defaults)
+  useEffect(() => {
+    if (isActualSuperAdmin || !authCompanyId) return;
+    setMasterCompany((prev) =>
+      prev.id === authCompanyId ? prev : { ...prev, id: authCompanyId }
+    );
+  }, [authCompanyId, isActualSuperAdmin]);
 
   useEffect(() => {
     if (!isActualSuperAdmin && isImpersonating) {
@@ -248,8 +243,12 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [masterCompany, impersonatedCompany, isImpersonating, isActualSuperAdmin]);
 
-  // Start Impersonation Mode
+  // Start Impersonation Mode (Super Admin only)
   const startImpersonation = (companyOrName: string | Partial<Company>) => {
+    if (!isActualSuperAdmin) {
+      console.warn('Impersonation blocked: caller is not SUPER_ADMIN');
+      return;
+    }
     let target: Company;
     const deterministicId = getDeterministicCompanyId(companyOrName);
     if (typeof companyOrName === 'string') {
@@ -307,6 +306,14 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const switchCompany = (companyId: string) => {
     if (!companyId) return;
+    // Tenant users cannot switch company via URL/localStorage
+    if (!isActualSuperAdmin) {
+      if (authCompanyId && companyId !== authCompanyId) {
+        console.warn('Company switch blocked for non–Super Admin');
+        return;
+      }
+      return;
+    }
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       params.set('companyId', companyId);

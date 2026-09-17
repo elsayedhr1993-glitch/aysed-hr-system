@@ -288,7 +288,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
         </button>
 
         {/* زر لوحة الإدارة العليا (Super Admin Dashboard) */}
-        {(isSuperAdmin || (isDevPreview && !isTenantViewEnabled)) && (
+        {(isSuperAdmin) && (
           <button 
             onClick={() => setActiveApp('saas_admin')} 
             className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg text-xs font-black transition cursor-pointer border shrink-0 ${
@@ -303,8 +303,8 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
           </button>
         )}
 
-        {/* 🏢 مبدل المنشآت السريع (Quick Company Switcher Popover) */}
-        {(isSuperAdmin || !isDevPreview) && (
+        {/* 🏢 مبدل المنشآت السريع — Super Admin only (tenant company is bound to profile) */}
+        {isSuperAdmin && (
           <div className="relative shrink-0" ref={companyMenuRef}>
             <button
               onClick={() => setShowCompanyMenu(!showCompanyMenu)}

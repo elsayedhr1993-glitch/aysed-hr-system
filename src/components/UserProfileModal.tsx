@@ -5,6 +5,7 @@ import { updateProfile, updateEmail, verifyBeforeUpdateEmail, updatePassword, Em
 import { doc, setDoc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { useLang } from '../lib/i18n';
+import { buildAuthedJsonHeaders } from '../lib/clientAuth';
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -78,7 +79,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
             try {
               const res = await fetch('/api/admin/update-user-email', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await buildAuthedJsonHeaders(),
                 body: JSON.stringify({ currentEmail: user.email, newEmail: cleanNewEmail })
               });
               const resJson = await res.json();

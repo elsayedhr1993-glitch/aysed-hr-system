@@ -21,6 +21,7 @@ import {
   executeAutomatedDatabaseBackup, 
   triggerTestFailureAlert, 
   fetchBackupEngineStatus, 
+  downloadLatestBackup,
   BackupEngineStatus, 
   BackupJobResult 
 } from '../services/backupService';
@@ -95,8 +96,13 @@ export const AutomatedBackupCenter: React.FC = () => {
     }
   };
 
-  const handleDownloadLatest = () => {
-    window.location.href = '/api/backup/download-latest';
+  const handleDownloadLatest = async () => {
+    const result = await downloadLatestBackup();
+    if (result.success) {
+      toast.success('تم تنزيل أحدث نسخة احتياطية');
+    } else {
+      toast.error(result.error || 'فشل تنزيل النسخة الاحتياطية');
+    }
   };
 
   const systemEmail = statusData?.systemDefaultEmail || 'elsayedhr1993@gmail.com';

@@ -9,6 +9,7 @@ import { db, auth, provisionTenantAuth, cleanFirestoreData, purgeTenantCascading
 import { collection, getDocs, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import firebaseConfig from '../../firebase-applet-config.json';
+import { buildAuthedJsonHeaders } from '../lib/clientAuth';
 
 interface SubscriptionRequest {
   id: string;
@@ -601,7 +602,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         try {
           await fetch('/api/admin/force-password', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: await buildAuthedJsonHeaders(),
             body: JSON.stringify({ email: cleanEmail, newPassword: editPassword })
           });
         } catch (e) {}

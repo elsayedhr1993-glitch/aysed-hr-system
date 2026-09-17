@@ -93,9 +93,15 @@ export async function provisionTenantAuth(params: {
   const pass = params.password || 'Aysed2026#Secure';
 
   try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    try {
+      const token = auth.currentUser ? await auth.currentUser.getIdToken(false) : null;
+      if (token) headers.Authorization = `Bearer ${token}`;
+    } catch { /* proceed; server will reject if unauthenticated */ }
+
     const res = await fetch('/api/admin/create-tenant', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         email: cleanEmail,
         password: pass,
@@ -321,9 +327,15 @@ export async function purgeTenantCascading(params: {
   // 1. Firebase Auth Hard Delete via Backend Admin Route
   if (targetEmail) {
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      try {
+        const token = auth.currentUser ? await auth.currentUser.getIdToken(false) : null;
+        if (token) headers.Authorization = `Bearer ${token}`;
+      } catch { /* server enforces auth */ }
+
       const res = await fetch('/api/admin/delete-tenant', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           email: targetEmail,
           companyId: params.companyId || params.id

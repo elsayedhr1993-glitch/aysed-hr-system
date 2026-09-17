@@ -1,8 +1,188 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isSuperAdmin() {
+      return signedIn() && (
+        request.auth.token.role == 'SUPER_ADMIN' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid))
+          && userDoc().role == 'SUPER_ADMIN')
+      );
+    }
+
+    function tokenCompanyId() {
+      return request.auth.token.companyId;
+    }
+
+    function profileCompanyId() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? userDoc().companyId
+        : null;
+    }
+
+    function callerCompanyId() {
+      return tokenCompanyId() != null ? tokenCompanyId() : profileCompanyId();
+    }
+
+    function sameTenantResource() {
+      return resource.data.companyId != null
+        && callerCompanyId() != null
+        && resource.data.companyId == callerCompanyId();
+    }
+
+    function sameTenantIncoming() {
+      return request.resource.data.companyId != null
+        && callerCompanyId() != null
+        && request.resource.data.companyId == callerCompanyId();
+    }
+
+    function canReadTenantDoc() {
+      return isSuperAdmin() || sameTenantResource();
+    }
+
+    function canWriteTenantDoc() {
+      return isSuperAdmin() || (sameTenantResource() && sameTenantIncoming());
+    }
+
+    function canCreateTenantDoc() {
+      return isSuperAdmin() || sameTenantIncoming();
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow read: if signedIn() && (request.auth.uid == userId || isSuperAdmin());
+      allow create: if isSuperAdmin()
+        || (signedIn()
+            && request.auth.uid == userId
+            && request.resource.data.role != 'SUPER_ADMIN');
+      allow update: if isSuperAdmin()
+        || (signedIn()
+            && request.auth.uid == userId
+            && (!('role' in request.resource.data)
+                || request.resource.data.role == resource.data.role));
+      allow delete: if isSuperAdmin();
+    }
+
+    // Company master records
+    match /companies/{companyId} {
+      allow read: if isSuperAdmin() || (signedIn() && callerCompanyId() == companyId);
+      allow write: if isSuperAdmin();
+    }
+
+    match /dev_companies/{companyId} {
+      allow read: if isSuperAdmin() || (signedIn() && callerCompanyId() == companyId);
+      allow write: if isSuperAdmin();
+    }
+
+    // SaaS / platform collections — Super Admin only
+    match /subscriptions/{docId} {
+      allow read, write: if isSuperAdmin();
+    }
+    match /subscription_requests/{docId} {
+      allow read, write: if isSuperAdmin();
+    }
+    match /system_config/{docId} {
+      allow read, write: if isSuperAdmin();
+    }
+    match /company_templates/{docId} {
+      allow read: if signedIn() && (isSuperAdmin() || sameTenantResource() || !('companyId' in resource.data));
+      allow create: if signedIn() && (isSuperAdmin() || sameTenantIncoming());
+      allow update, delete: if isSuperAdmin() || canWriteTenantDoc();
+    }
+
+    // Tenant-scoped operational collections
+    match /employees/{docId} {
+      allow read: if canReadTenantDoc();
+      allow create: if canCreateTenantDoc();
+      allow update, delete: if canWriteTenantDoc();
+    }
+    match /contracts/{docId} {
+      allow read: if canReadTenantDoc();
+      allow create: if canCreateTenantDoc();
+      allow update, delete: if canWriteTenantDoc();
+    }
+    match /commencements/{docId} {
+      allow read: if canReadTenantDoc();
+      allow create: if canCreateTenantDoc();
+      allow update, delete: if canWriteTenantDoc();
+    }
+    match /leave_requests/{docId} {
+      allow read: if canReadTenantDoc();
+      allow create: if canCreateTenantDoc();
+      allow update, delete: if canWriteTenantDoc();
+    }
+    match /leave_allocations/{docId} {
+      allow read: if canReadTenantDoc();
+      allow create: if canCreateTenantDoc();
+      allow update, delete: if canWriteTenantDoc();
+    }
+    match /leave_settlements/{docId} {
+      allow read: if canReadTenantDoc();
+      allow create: if canCreateTenantDoc();
+      allow update, delete: if canWriteTenantDoc();
+    }
+    match /onboarding_plans/{docId} {
+      allow read: if canReadTenantDoc();
+      allow create: if canCreateTenantDoc();
+      allow update, delete: if canWriteTenantDoc();
+    }
+    match /documents/{docId} {
+      allow read: if canReadTenantDoc();
+      allow create: if canCreateTenantDoc();
+      allow update, delete: if canWriteTenantDoc();
+    }
+    match /company_documents/{docId} {
+      allow read: if canReadTenantDoc();
+      allow create: if canCreateTenantDoc();
+      allow update, delete: if canWriteTenantDoc();
+    }
+    match /payslips/{docId} {
+      allow read: if canReadTenantDoc();
+      allow create: if canCreateTenantDoc();
+      allow update, delete: if canWriteTenantDoc();
+    }
+    match /attendance_records/{docId} {
+      allow read: if canReadTenantDoc();
+      allow create: if canCreateTenantDoc();
+      allow update, delete: if canWriteTenantDoc();
+    }
+    match /work_on_holidays/{docId} {
+      allow read: if canReadTenantDoc();
+      allow create: if canCreateTenantDoc();
+      allow update, delete: if canWriteTenantDoc();
+    }
+    match /loans/{docId} {
+      allow read: if canReadTenantDoc();
+      allow create: if canCreateTenantDoc();
+      allow update, delete: if canWriteTenantDoc();
+    }
+    match /custodies/{docId} {
+      allow read: if canReadTenantDoc();
+      allow create: if canCreateTenantDoc();
+      allow update, delete: if canWriteTenantDoc();
+    }
+    match /candidates/{docId} {
+      allow read: if canReadTenantDoc();
+      allow create: if canCreateTenantDoc();
+      allow update, delete: if canWriteTenantDoc();
+    }
+    match /facility_alerts/{docId} {
+      allow read: if canReadTenantDoc() || isSuperAdmin();
+      allow create: if canCreateTenantDoc() || isSuperAdmin();
+      allow update, delete: if canWriteTenantDoc() || isSuperAdmin();
+    }
+
+    // Deny everything else by default
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if isSuperAdmin();
     }
   }
 }

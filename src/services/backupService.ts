@@ -7,6 +7,7 @@
 import { db, cleanFirestoreData } from '../lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
 import { BackupMetadata } from './emailService';
+import { buildAuthedJsonHeaders, getClientAuthToken } from '../lib/clientAuth';
 
 export interface BackupJobResult {
   success: boolean;
@@ -137,7 +138,7 @@ export async function executeAutomatedDatabaseBackup(customSnapshot?: any): Prom
 
     const response = await fetch('/api/backup/run', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await buildAuthedJsonHeaders(),
       body: JSON.stringify({
         snapshot: snapshotPayload,
         clientTimestamp: new Date().toISOString(),
@@ -153,7 +154,7 @@ export async function executeAutomatedDatabaseBackup(customSnapshot?: any): Prom
     try {
       await fetch('/api/backup/test-failure-alert', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await buildAuthedJsonHeaders(),
         body: JSON.stringify({
           error: error.message || 'Client-side snapshot generation failure',
           failedStep: 'Client-side snapshot extraction & dispatch',
@@ -179,7 +180,7 @@ export async function triggerTestFailureAlert(customErrorMsg?: string): Promise<
   try {
     const response = await fetch('/api/backup/test-failure-alert', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await buildAuthedJsonHeaders(),
       body: JSON.stringify({
         error: customErrorMsg || 'اختبار تجريبي: تعذر الاتصال بقرص تخزين النسخ الاحتياطي (Simulated Database Storage IO Error)',
         failedStep: 'محاكاة فحص أمان وتنبيه الأعطال البرمجية',
@@ -196,7 +197,8 @@ export async function triggerTestFailureAlert(customErrorMsg?: string): Promise<
  */
 export async function fetchBackupEngineStatus(): Promise<BackupEngineStatus | null> {
   try {
-    const res = await fetch('/api/backup/status');
+    const headers = await buildAuthedJsonHeaders();
+    const res = await fetch('/api/backup/status', { headers });
     if (res.ok) {
       const data = await res.json();
       return data;
@@ -205,4 +207,33 @@ export async function fetchBackupEngineStatus(): Promise<BackupEngineStatus | nu
     console.warn('[Backup Status Fetch Warning]:', err);
   }
   return null;
+}
+
+/** Download latest in-memory backup with Bearer auth (cannot use window.location). */
+export async function downloadLatestBackup(): Promise<{ success: boolean; error?: string }> {
+  try {
+    const token = await getClientAuthToken();
+    const res = await fetch('/api/backup/download-latest', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      return { success: false, error: (errBody as any).error || `HTTP ${res.status}` };
+    }
+    const blob = await res.blob();
+    const disposition = res.headers.get('Content-Disposition') || '';
+    const match = disposition.match(/filename="?([^"]+)"?/i);
+    const filename = match?.[1] || `aysed-backup-${Date.now()}.json.gz`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'فشل تنزيل النسخة الاحتياطية' };
+  }
 }

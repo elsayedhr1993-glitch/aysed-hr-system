@@ -294,10 +294,8 @@ function MainAppLayout() {
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [newAvatarUrl, setNewAvatarUrl] = useState('');
 
-  const isDevPreview = window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost');
-  
   const [activeApp, setActiveApp] = useState<AppId>(() => {
-    return isDevPreview ? 'saas_admin' : 'switcher';
+    return 'switcher';
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [documents, setDocuments] = useState<any[]>([]);
@@ -712,13 +710,12 @@ function MainAppLayout() {
 
   // Guard against unauthorized access to Super Admin screens
   useEffect(() => {
-    if (isDevPreview) return; // Allow dev preview to stay on saas_admin
     if (user && !isSuperAdmin) {
       if (activeApp === 'saas_admin') {
         setActiveApp('switcher');
       }
     }
-  }, [activeApp, isSuperAdmin, user, isDevPreview]);
+  }, [activeApp, isSuperAdmin, user]);
 
   const appsList = [
     { id: 'employees', name: 'شؤون الموظفين', subtitle: 'Employees Directory', icon: Users, color: 'bg-rose-500' },
