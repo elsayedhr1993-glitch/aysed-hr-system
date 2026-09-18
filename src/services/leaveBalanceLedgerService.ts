@@ -61,6 +61,19 @@ export function getApprovedCompensatoryDays(employeeId: string, companyId?: stri
   );
 }
 
+/** أيام ممنوحة من تكليفات العطلات (مادة 68): Comp-Off أو إضافة للرصيد السنوي */
+export function getApprovedHolidayWorkBalanceDays(employeeId: string, companyId?: string): number {
+  return roundDays(
+    getApprovedLedgerTransactions(employeeId, companyId)
+      .filter(
+        transaction =>
+          transaction.source === 'HOLIDAY_WORK' &&
+          (transaction.type === 'COMP_OFF' || transaction.type === 'ANNUAL_ACCRUAL')
+      )
+      .reduce((sum, transaction) => sum + transaction.days, 0)
+  );
+}
+
 export async function upsertLeaveBalanceTransaction(
   transaction: Omit<LeaveBalanceTransaction, 'createdAt' | 'updatedAt'>
 ): Promise<LeaveBalanceTransaction> {

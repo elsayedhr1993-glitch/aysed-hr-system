@@ -1,5 +1,6 @@
 import { Employee, Contract, LeaveRequest, HrLeaveAllocation } from '../types';
 import { getGlobalOpeningBalance, getGlobalAccrued2026, getGlobalCompensatoryDays } from './kuwaitLaw';
+import { getApprovedHolidayWorkBalanceDays } from '../services/leaveBalanceLedgerService';
 import { computeFifoLeaveAllocations, buildEmployeeBaselineAllocations } from '../services/leaveService';
 import { normalizeLeaveStatus, normalizeLeaveType } from './leaveModel';
 import { calculateKuwaitDailyRate, cleanKwdAmount } from './kuwaitPayrollMath';
@@ -110,6 +111,66 @@ export function resolveLeaveBalancePoolHint(leave: any): number {
   return 0;
 }
 
+function distributePaidLeaveAcrossBuckets(
+  paidDays: number,
+  carriedOverDays: number,
+  accruedAnnualDays: number,
+  holidayCompensationDays: number
+): { consumedFromCarried: number; consumedFromAccrued: number; consumedFromComp: number } {
+  let remaining = Number(paidDays.toFixed(2));
+  let consumedFromCarried = 0;
+  let consumedFromAccrued = 0;
+  let consumedFromComp = 0;
+
+  const buckets = [
+    { available: carriedOverDays, apply: (take: number) => { consumedFromCarried += take; } },
+    { available: accruedAnnualDays, apply: (take: number) => { consumedFromAccrued += take; } },
+    { available: holidayCompensationDays, apply: (take: number) => { consumedFromComp += take; } },
+  ];
+
+  buckets.forEach((bucket) => {
+    if (remaining <= 0) return;
+    const take = Math.min(remaining, Math.max(0, Number(bucket.available.toFixed(2))));
+    if (take <= 0) return;
+    bucket.apply(Number(take.toFixed(2)));
+    remaining = Number((remaining - take).toFixed(2));
+  });
+
+  return {
+    consumedFromCarried: cleanDayDecimals(consumedFromCarried),
+    consumedFromAccrued: cleanDayDecimals(consumedFromAccrued),
+    consumedFromComp: cleanDayDecimals(consumedFromComp),
+  };
+}
+
+function resolveHolidayCompensationDays(
+  employee: Employee,
+  allocations: HrLeaveAllocation[] = []
+): number {
+  const employeeId = String((employee as any).id || (employee as any).employeeId || '').trim();
+  const companyId = String((employee as any).companyId || (employee as any).company_id || '').trim();
+  const fromLedger = employeeId ? getApprovedHolidayWorkBalanceDays(employeeId, companyId || undefined) : 0;
+  const ledgerCompDays = Number(getGlobalCompensatoryDays(employee) ?? 0);
+  const allocationCompDays = (allocations || [])
+    .filter((allocation: any) => {
+      if (!matchesEmployeeIdentity(allocation, employee)) return false;
+      const state = String(allocation.state || allocation.status || '').toLowerCase();
+      const allowedState = ['approved', 'validate', 'validated', 'confirm', 'done', ''];
+      if (!allowedState.includes(state)) return false;
+      const allocationType = String(allocation.allocationType || '').toLowerCase();
+      const notes = String(allocation.name || allocation.notes || '').toLowerCase();
+      const isCompType = allocationType === 'compensatory_off' || allocationType === 'compensatory';
+      const isHolidayAccrual =
+        allocationType === 'accrual' &&
+        /عطلة|تعويض|مادة\s*68|holiday|إضافة للرصيد|comp[- ]?off/i.test(notes);
+      const isCompLabel = /تعويضي|عطلة|compensatory|comp_off|day in lieu/i.test(notes);
+      return isCompType || isCompLabel || isHolidayAccrual;
+    })
+    .reduce((sum, allocation: any) => sum + Number(allocation.numberOfDays ?? allocation.days ?? 0), 0);
+
+  return Math.max(fromLedger, ledgerCompDays, Number(allocationCompDays || 0));
+}
+
 export function aggregateAnnualLeaveDeductions(
   employee: Employee,
   leaves: LeaveRequest[] = [],
@@ -217,68 +278,23 @@ export function buildUnifiedLeaveSummary(
   leaves: LeaveRequest[] = [],
   contract?: Contract
 ): EmployeeLeaveSummary {
-  const normalizedAllocations = buildEmployeeBaselineAllocations(employee, allocations);
-  const fifo = computeFifoLeaveAllocations(employee, normalizedAllocations, leaves);
   const approvedLeaves = getApprovedEmployeeLeaveRequests(employee, leaves);
   const carriedOverDays = Number((employee as any).carriedOverBalance ?? (employee as any).carriedOverLeave2025 ?? getGlobalOpeningBalance(employee) ?? 0);
   const accruedAnnualDays = Number((employee as any).accruedAnnualLeave ?? getGlobalAccrued2026(employee) ?? 0);
-  const ledgerCompDays = Number(getGlobalCompensatoryDays(employee) ?? 0);
-  const allocationCompDays = (allocations || [])
-    .filter((allocation: any) => {
-      if (!matchesEmployeeIdentity(allocation, employee)) return false;
-      const state = String(allocation.state || allocation.status || '').toLowerCase();
-      const allowedState = ['approved', 'validate', 'validated', 'confirm', 'done', ''];
-      if (!allowedState.includes(state)) return false;
-      const allocationType = String(allocation.allocationType || '').toLowerCase();
-      const notes = String(allocation.name || allocation.notes || '').toLowerCase();
-      const isCompType = allocationType === 'compensatory_off' || allocationType === 'compensatory';
-      const isCompLabel = /تعويضي|عطلة|compensatory|comp_off|day in lieu/i.test(notes);
-      return isCompType || isCompLabel;
-    })
-    .reduce((sum, allocation: any) => sum + Number(allocation.numberOfDays ?? allocation.days ?? 0), 0);
-  const holidayCompensationDays = Math.max(ledgerCompDays, Number(allocationCompDays || 0));
+  const holidayCompensationDays = resolveHolidayCompensationDays(employee, allocations);
   const manualAdjustments = 0;
   const grossPool = Number((carriedOverDays + accruedAnnualDays + holidayCompensationDays + manualAdjustments).toFixed(2));
   const { usedLeaveDays, unpaidLeaveDays } = aggregateAnnualLeaveDeductions(employee, leaves, grossPool);
 
-  const waterfallUsage = fifo.breakdown.reduce((bucket, item) => {
-    item.allocationUsages.forEach((usage) => {
-      const allocation = fifo.allocations.find((candidate) => candidate.id === usage.allocationId);
-      const allocationType = String((allocation?.allocationType ?? usage.allocationType ?? '').toLowerCase());
-      const daysUsed = Number(usage.daysUsed || 0);
-
-      if (allocationType === 'regular' || allocationType === 'carried_over') {
-        bucket.carried += daysUsed;
-      } else if (allocationType === 'accrual') {
-        bucket.accrued += daysUsed;
-      } else if (allocationType === 'compensatory_off' || allocationType === 'compensatory') {
-        bucket.comp += daysUsed;
-      }
-    });
-    return bucket;
-  }, { carried: 0, accrued: 0, comp: 0 });
-
-  let consumedFromCarried = Number(waterfallUsage.carried.toFixed(2));
-  let consumedFromAccrued = Number(waterfallUsage.accrued.toFixed(2));
-  let consumedFromComp = Number(waterfallUsage.comp.toFixed(2));
-
-  if (usedLeaveDays > 0 && (consumedFromCarried + consumedFromAccrued + consumedFromComp) <= 0) {
-    let remainingNeeded = Number(usedLeaveDays.toFixed(2));
-    const fallbackBuckets = [
-      { key: 'carried', available: Number(carriedOverDays.toFixed(2)) },
-      { key: 'accrued', available: Number(accruedAnnualDays.toFixed(2)) },
-      { key: 'comp', available: Number(holidayCompensationDays.toFixed(2)) },
-    ] as const;
-
-    fallbackBuckets.forEach(bucket => {
-      if (remainingNeeded <= 0) return;
-      const take = Math.min(remainingNeeded, bucket.available);
-      if (bucket.key === 'carried') consumedFromCarried = Number(take.toFixed(2));
-      if (bucket.key === 'accrued') consumedFromAccrued = Number(take.toFixed(2));
-      if (bucket.key === 'comp') consumedFromComp = Number(take.toFixed(2));
-      remainingNeeded = Number((remainingNeeded - take).toFixed(2));
-    });
-  }
+  const bucketUsage = distributePaidLeaveAcrossBuckets(
+    usedLeaveDays,
+    carriedOverDays,
+    accruedAnnualDays,
+    holidayCompensationDays
+  );
+  const consumedFromCarried = bucketUsage.consumedFromCarried;
+  const consumedFromAccrued = bucketUsage.consumedFromAccrued;
+  const consumedFromComp = bucketUsage.consumedFromComp;
 
   const remainingCarried = Number(Math.max(0, carriedOverDays - consumedFromCarried).toFixed(2));
   const remainingAccrued = Number(Math.max(0, accruedAnnualDays - consumedFromAccrued).toFixed(2));

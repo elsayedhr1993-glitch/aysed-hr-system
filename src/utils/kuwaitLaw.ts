@@ -1,5 +1,9 @@
 export { calculateKuwaitEOS } from './kuwaitPayrollEngine';
-import { getApprovedCompensatoryDays, getApprovedLedgerTransactions } from '../services/leaveBalanceLedgerService';
+import {
+  getApprovedCompensatoryDays,
+  getApprovedHolidayWorkBalanceDays,
+  getApprovedLedgerTransactions
+} from '../services/leaveBalanceLedgerService';
 import { computeAccrual2026Unified, extractEmployeeJoinDate } from './leaveAccrual2026';
 
 /**
@@ -598,9 +602,17 @@ export function getGlobalCompensatoryDays(emp: any): number {
   try {
     const ledgerEmployeeId = String(emp.id || emp.employeeId || '').trim();
     const ledgerCompanyId = String(emp.companyId || emp.company_id || '').trim();
+    const ledgerHolidayDays = getApprovedHolidayWorkBalanceDays(
+      ledgerEmployeeId,
+      ledgerCompanyId || undefined
+    );
+    if (ledgerHolidayDays > 0) {
+      return ledgerHolidayDays;
+    }
     const ledgerTransactions = getApprovedLedgerTransactions(ledgerEmployeeId, ledgerCompanyId || undefined);
     if (ledgerTransactions.length > 0) {
-      return getApprovedCompensatoryDays(ledgerEmployeeId, ledgerCompanyId || undefined);
+      const compOnly = getApprovedCompensatoryDays(ledgerEmployeeId, ledgerCompanyId || undefined);
+      if (compOnly > 0) return compOnly;
     }
 
     if (typeof window !== 'undefined' && window.localStorage) {
