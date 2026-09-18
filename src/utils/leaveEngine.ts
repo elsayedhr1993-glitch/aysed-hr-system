@@ -83,22 +83,31 @@ export function resolveLeavePaidUnpaidSplit(
   const leaveType = normalizeLeaveType(leave?.leaveType);
   if (leaveType === 'BEREAVEMENT' || leaveType === 'COMPASSIONATE') {
     const annualPart = Number(leave?.annualDeductedDays ?? Math.max(0, total - 3));
-    const paid = Math.min(Math.max(0, annualPart), Math.max(0, balancePoolBeforeLeave));
-    return { paid: cleanDayDecimals(paid), unpaid: 0, total };
-  }
-
-  if (leave?.paidDays !== undefined && leave?.paidDays !== null && !Number.isNaN(Number(leave.paidDays))) {
-    const paid = cleanDayDecimals(Math.min(total, Math.max(0, Number(leave.paidDays))));
-    const unpaid = cleanDayDecimals(
-      Number(leave.unpaidDays ?? leave.excessDays ?? Math.max(0, total - paid))
-    );
+    const pool = Math.max(0, balancePoolBeforeLeave);
+    const paid = cleanDayDecimals(Math.min(Math.max(0, annualPart), pool));
+    const unpaid = cleanDayDecimals(Math.max(0, total - paid));
     return { paid, unpaid, total };
   }
 
+  // Always consume available balance first (never trust stored paidDays=0 with full unpaid).
   const pool = Math.max(0, balancePoolBeforeLeave);
   const paid = cleanDayDecimals(Math.min(total, pool));
   const unpaid = cleanDayDecimals(Math.max(0, total - paid));
   return { paid, unpaid, total };
+}
+
+/** Balance available immediately before this leave (for print/display when pool not passed). */
+export function resolveLeaveBalancePoolHint(leave: any): number {
+  const snapshot = Number(leave?.totalAvailableBalance ?? leave?.total_available_balance ?? NaN);
+  if (!Number.isNaN(snapshot) && snapshot >= 0) return snapshot;
+  const total = Number(leave?.totalDays ?? leave?.daysCount ?? leave?.numberOfDays ?? leave?.days ?? 0) || 0;
+  const storedUnpaid = Number(leave?.unpaidDays ?? leave?.excessDays ?? leave?.aysed_unpaid_days ?? NaN);
+  if (!Number.isNaN(storedUnpaid) && storedUnpaid >= 0 && total > storedUnpaid) {
+    return cleanDayDecimals(total - storedUnpaid);
+  }
+  const storedPaid = Number(leave?.paidDays ?? leave?.aysed_paid_days ?? NaN);
+  if (!Number.isNaN(storedPaid) && storedPaid > 0) return storedPaid;
+  return 0;
 }
 
 export function aggregateAnnualLeaveDeductions(

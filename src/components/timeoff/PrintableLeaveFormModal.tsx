@@ -2,6 +2,7 @@ import React from 'react';
 import { Printer, X, ShieldCheck, Calendar, User, FileText, CheckCircle2 } from 'lucide-react';
 import { LeaveRequest } from '../OdooTimeOffApp';
 import { safePrintAction } from '../../guards/SystemIntegrityGuard';
+import { resolveLeaveBalancePoolHint, resolveLeavePaidUnpaidSplit } from '../../utils/leaveEngine';
 
 interface PrintableLeaveFormModalProps {
   request: LeaveRequest | null;
@@ -9,6 +10,8 @@ interface PrintableLeaveFormModalProps {
   activeCompanyName?: string;
   pamFileNumber?: string;
   civilIdCompany?: string;
+  /** الرصيد المتاح قبل هذا الطلب (لتقسيم paid/unpaid عند غياب snapshot) */
+  balancePoolBeforeLeave?: number;
 }
 
 export const PrintableLeaveFormModal: React.FC<PrintableLeaveFormModalProps> = ({
@@ -16,7 +19,8 @@ export const PrintableLeaveFormModal: React.FC<PrintableLeaveFormModalProps> = (
   onClose,
   activeCompanyName = 'المنشأة المركزية المتكاملة',
   pamFileNumber = '12345678',
-  civilIdCompany = '123456789012'
+  civilIdCompany = '123456789012',
+  balancePoolBeforeLeave = 0
 }) => {
   if (!request) return null;
 
@@ -33,14 +37,16 @@ export const PrintableLeaveFormModal: React.FC<PrintableLeaveFormModalProps> = (
   const formRef = `PAM-LV-${request.id || '2026-001'}`;
   const todayStr = new Date().toISOString().split('T')[0];
   const totalWorkingDays = Number(request.daysCount ?? request.totalDays ?? 0);
-  const unpaidExcessDays = Number(
-    request.unpaidDays ?? request.excessDays ?? 0
-  );
-  const paidFromBalanceDays =
-    request.paidDays !== undefined && request.paidDays !== null
-      ? Number(request.paidDays)
-      : Math.max(0, totalWorkingDays - unpaidExcessDays);
   const isAnnualLeave = request.leaveType === 'annual';
+  const balancePoolHint = Math.max(
+    resolveLeaveBalancePoolHint(request),
+    Number(balancePoolBeforeLeave ?? 0) + Number(request.paidDays ?? 0)
+  );
+  const annualSplit = isAnnualLeave
+    ? resolveLeavePaidUnpaidSplit(request, balancePoolHint)
+    : { paid: totalWorkingDays, unpaid: 0, total: totalWorkingDays };
+  const paidFromBalanceDays = annualSplit.paid;
+  const unpaidExcessDays = annualSplit.unpaid;
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-2xs flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">

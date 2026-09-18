@@ -198,9 +198,10 @@ export function computeFifoLeaveAllocations(
     if (normalizedType === 'BEREAVEMENT' || normalizedType === 'COMPASSIONATE') {
       daysToConsume = leave.annualDeductedDays !== undefined ? leave.annualDeductedDays : Math.max(0, (leave.totalDays || 0) - 3);
     } else {
-      daysToConsume = leave.paidDays !== undefined ? leave.paidDays : (leave.totalDays || 1);
+      daysToConsume =
+        Number(leave.totalDays ?? leave.daysCount ?? leave.numberOfDays ?? leave.days ?? 0) || 0;
     }
-    const leaveTotalDays = leave.totalDays || 1;
+    const leaveTotalDays = Number(leave.totalDays ?? leave.daysCount ?? leave.numberOfDays ?? 0) || 0;
     const leaveBreakdown: FifoAllocationResult['breakdown'][0] = {
       leaveId: leave.id,
       leaveStartDate: leave.startDate,

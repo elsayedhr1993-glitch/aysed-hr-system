@@ -2230,15 +2230,23 @@ export const OdooTimeOffApp: React.FC = () => {
       {/* ======================================================== */}
       {/* MODAL 4: PRINTABLE OFFICIAL LEAVE APPLICATION FORM (A4) */}
       {/* ======================================================== */}
-      {selectedPrintReq && (
+      {selectedPrintReq && (() => {
+        const { available } = getEmployeeContractBalance(selectedPrintReq.employeeId);
+        const poolBeforeLeave =
+          Number(selectedPrintReq.totalAvailableBalance ?? 0) > 0
+            ? Number(selectedPrintReq.totalAvailableBalance)
+            : available + Number(selectedPrintReq.paidDays ?? 0);
+        return (
         <PrintableLeaveFormModal
           request={selectedPrintReq}
           onClose={() => setSelectedPrintReq(null)}
           activeCompanyName={activeCompany?.nameAr || 'المنشأة المركزية المتكاملة'}
           pamFileNumber={activeCompany?.wsiCode || '12345678'}
           civilIdCompany={activeCompany?.civilIdCompany || '123456789012'}
+          balancePoolBeforeLeave={poolBeforeLeave}
         />
-      )}
+        );
+      })()}
 
       {/* ======================================================== */}
       {/* MODAL 5: RETURN TO WORK VERIFICATION MODAL */}
