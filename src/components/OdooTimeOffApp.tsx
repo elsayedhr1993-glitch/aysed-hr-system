@@ -88,6 +88,11 @@ export interface LeaveRequest {
   returnedToWorkNotes?: string;
   advanceSalarySettled?: boolean;
   advanceSalaryAmount?: number;
+  paidDays?: number;
+  unpaidDays?: number;
+  excessDays?: number;
+  totalAvailableBalance?: number;
+  balanceOverrideApproved?: boolean;
 }
 
 export interface LeaveAllocation {
@@ -381,6 +386,35 @@ export const OdooTimeOffApp: React.FC = () => {
     return calculateActualLeaveDays(newRequest.startDate, newRequest.endDate);
   }, [newRequest.startDate, newRequest.endDate]);
 
+  const newRequestWorkingDays = useMemo(
+    () => (newRequest.excludeHolidays ? requestDurationBreakdown.actualDays : requestDurationBreakdown.totalDays),
+    [newRequest.excludeHolidays, requestDurationBreakdown]
+  );
+
+  const annualRequestBalanceImpact = useMemo(() => {
+    if (!isAnnualLeaveType(newRequest.leaveType)) return null;
+    const employeeId = newRequest.employeeId || companyEmployees[0]?.id || '';
+    const { available } = getEmployeeContractBalance(employeeId);
+    const count = newRequestWorkingDays;
+    const paidDays = Math.min(count, available);
+    const excessDays = Math.max(0, count - available);
+    return {
+      available,
+      count,
+      paidDays,
+      excessDays,
+      unpaidDays: excessDays,
+      hasExcess: excessDays > 0
+    };
+  }, [
+    newRequest.leaveType,
+    newRequest.employeeId,
+    newRequestWorkingDays,
+    allocations,
+    requests,
+    companyEmployees
+  ]);
+
   // Check overlaps for new request
   const newRequestOverlaps = useMemo(() => {
     if (!newRequest.startDate || !newRequest.endDate) return { teamOverlaps: [], replacementOverlap: false };
@@ -442,7 +476,7 @@ export const OdooTimeOffApp: React.FC = () => {
   // Handlers for Request Creation
   const handleCreateRequest = (e: React.FormEvent) => {
     e.preventDefault();
-    const count = newRequest.excludeHolidays ? requestDurationBreakdown.actualDays : requestDurationBreakdown.totalDays;
+    const count = newRequestWorkingDays;
 
     if (count <= 0) {
       toast.error('يرجى اختيار تواريخ صحيحة بحيث تتضمن أيام عمل محتسبة.');
@@ -465,16 +499,25 @@ export const OdooTimeOffApp: React.FC = () => {
       return;
     }
 
-    // Check available balance for Annual Leave
+    let paidDays = count;
+    let unpaidDays = 0;
+    let excessDays = 0;
+    let totalAvailableBalance: number | undefined;
+    let balanceOverrideApproved = false;
+
     if (isAnnualLeaveType(newRequest.leaveType)) {
       const { available } = getEmployeeContractBalance(employeeId);
+      totalAvailableBalance = available;
+      paidDays = Math.min(count, available);
+      unpaidDays = Math.max(0, count - available);
+      excessDays = unpaidDays;
 
-      if (count > available) {
-        const excess = count - available;
+      if (unpaidDays > 0) {
         const confirmOverride = window.confirm(
-          `الرصيد غير كافٍ!\nرصيد الموظف المتاح وفق استحقاق العقد هو ${available.toFixed(2)} يوم فقط، بينما المطلوب ${count} أيام.\n\nهل ترغب بالسماح بتجاوز الرصيد بمقدار (${excess.toFixed(2)} يوم) على أن يتم إدراج الأيام الزائدة كأيام غير مدفوعة تُخصم من مدة الخدمة عند النهاية؟`
+          `الرصيد غير كافٍ!\nرصيد الموظف المتاح وفق استحقاق العقد هو ${available.toFixed(2)} يوم، ومدة الإجازة ${count} يوم عمل.\n\n• يُخصم من الرصيد: ${paidDays.toFixed(2)} يوم\n• تجاوز (بدون رصيد): ${unpaidDays.toFixed(2)} يوم\n\nهل ترغب بالمتابعة وإدراج الأيام الزائدة كأيام غير مغطاة بالرصيد؟`
         );
         if (!confirmOverride) return;
+        balanceOverrideApproved = true;
       }
     }
 
@@ -495,7 +538,16 @@ export const OdooTimeOffApp: React.FC = () => {
       replacementEmployee: newRequest.replacementEmployee,
       basicSalary: newRequest.basicSalary,
       totalSalary: newRequest.totalSalary,
-      settlementDone: false
+      settlementDone: false,
+      ...(isAnnualLeaveType(newRequest.leaveType)
+        ? {
+            paidDays,
+            unpaidDays,
+            excessDays,
+            totalAvailableBalance,
+            balanceOverrideApproved
+          }
+        : {})
     };
 
     const nextRequests = [created, ...requests];
@@ -654,11 +706,14 @@ export const OdooTimeOffApp: React.FC = () => {
     // Balance check
     if (normalizeLeaveType(targetReq.leaveType) === 'ANNUAL') {
       const { available } = getEmployeeContractBalance(targetReq.employeeId);
+      const paidFromBalance =
+        targetReq.paidDays ?? Math.min(targetReq.daysCount, available);
+      const excess =
+        targetReq.unpaidDays ?? targetReq.excessDays ?? Math.max(0, targetReq.daysCount - available);
 
-      if (targetReq.daysCount > available) {
-        const excess = targetReq.daysCount - available;
+      if (excess > 0) {
         const confirmOverride = window.confirm(
-          `تنبيه تجاوز الرصيد!\n\nالرصيد المتاح للموظف (${available.toFixed(2)} يوم) أقل من الإجازة المطلوبة (${targetReq.daysCount}).\n\nهل أنت متأكد من اعتماد الإجازة والموافقة على تجاوز الرصيد بمقدار (${excess.toFixed(2)} يوم)؟ سيتم خصم هذه الأيام الزائدة تلقائياً من أيام خدمة الموظف.`
+          `تنبيه تجاوز الرصيد!\n\nمدة الإجازة: ${targetReq.daysCount} يوم — الرصيد المتاح: ${available.toFixed(2)} يوم.\n• يُخصم من الرصيد: ${paidFromBalance.toFixed(2)} يوم\n• تجاوز: ${excess.toFixed(2)} يوم\n\nهل أنت متأكد من الاعتماد النهائي؟`
         );
         if (!confirmOverride) return;
       }
@@ -1774,13 +1829,31 @@ export const OdooTimeOffApp: React.FC = () => {
                 </div>
 
                 {/* Duration Breakdown Badge */}
-                <div className="p-2.5 bg-purple-50/70 border border-purple-200 rounded-xl text-xs space-y-1">
+                <div className="p-2.5 bg-purple-50/70 border border-purple-200 rounded-xl text-xs space-y-1.5">
                   <div className="flex items-center justify-between font-bold text-purple-950">
-                    <span>المدة الفعلية المعتمدة المستقطعة من الرصيد:</span>
+                    <span>مدة الإجازة المحتسبة (أيام عمل):</span>
                     <span className="font-mono text-purple-900 font-black text-sm">
-                      {newRequest.excludeHolidays ? requestDurationBreakdown.actualDays : requestDurationBreakdown.totalDays} يوم عمل
+                      {newRequestWorkingDays} يوم
                     </span>
                   </div>
+                  {isAnnualLeaveType(newRequest.leaveType) && annualRequestBalanceImpact && (
+                    <div className="space-y-1 pt-1 border-t border-purple-200/60">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-emerald-800 font-bold">يُخصم من رصيد الإجازة السنوية:</span>
+                        <span className="font-mono font-black text-emerald-900">
+                          {annualRequestBalanceImpact.paidDays.toFixed(2)} يوم
+                        </span>
+                      </div>
+                      {annualRequestBalanceImpact.hasExcess && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-rose-800 font-bold">تجاوز الرصيد (غير مغطى بالرصيد):</span>
+                          <span className="font-mono font-black text-rose-900">
+                            {annualRequestBalanceImpact.excessDays.toFixed(2)} يوم
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {newRequest.excludeHolidays && (
                     <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono pt-1 border-t border-purple-200/60">
                       <span>إجمالي أيام الفترة: {requestDurationBreakdown.totalDays} يوم</span>
@@ -1790,6 +1863,21 @@ export const OdooTimeOffApp: React.FC = () => {
                     </div>
                   )}
                 </div>
+
+                {isAnnualLeaveType(newRequest.leaveType) && annualRequestBalanceImpact?.hasExcess && (
+                  <div className="p-2.5 bg-rose-50 border border-rose-300 rounded-xl text-xs text-rose-950 flex items-start gap-2">
+                    <AlertTriangle size={15} className="text-rose-600 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="block">تجاوز الرصيد المتاح</strong>
+                      <span className="text-[11px] leading-relaxed">
+                        الرصيد المتاح {annualRequestBalanceImpact.available.toFixed(2)} يوم فقط، بينما مدة الطلب{' '}
+                        {annualRequestBalanceImpact.count} يوم عمل. سيتم خصم {annualRequestBalanceImpact.paidDays.toFixed(2)} يوم من
+                        الرصيد، والباقي ({annualRequestBalanceImpact.excessDays.toFixed(2)} يوم) يُعامل كتجاوز — يتطلب تأكيداً عند
+                        الإرسال.
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Overlap & Conflict Warnings */}
