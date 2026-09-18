@@ -161,6 +161,23 @@ export const OdooTimeOffApp: React.FC = () => {
   // Unified Employees List
   const companyEmployees = (employees && employees.length > 0) ? employees : [];
 
+  const resolveLeaveRequestFinancials = (req: LeaveRequest) => {
+    const emp = companyEmployees.find(e => e.id === req.employeeId);
+    const empAny = emp as any;
+    const basicSalary = Number(req.basicSalary ?? empAny?.basicSalary ?? 0) || 0;
+    const totalSalary =
+      Number(req.totalSalary ?? empAny?.totalSalary ?? empAny?.salary ?? basicSalary) || 0;
+    const daysCount = Number(req.daysCount ?? req.totalDays ?? 0) || 0;
+    return {
+      basicSalary,
+      totalSalary,
+      daysCount,
+      employeeName: req.employeeName || empAny?.name || empAny?.fullNameAr || 'موظف',
+      civilId: req.civilId || empAny?.civilId || '',
+      department: req.department || empAny?.department || 'الإدارة العامة',
+    };
+  };
+
   const mappedAllocations = useMemo(
     () =>
       allocations.map((allocation: any) => ({
@@ -1549,22 +1566,23 @@ export const OdooTimeOffApp: React.FC = () => {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {requests.filter(r => normalizeLeaveStatus(r.status) === 'APPROVED' && isAnnualLeaveType(r.leaveType)).map((req) => {
-                      const advanceSalary = calculateKuwaitLeaveCashAmount(req.daysCount, req.basicSalary);
+                      const fin = resolveLeaveRequestFinancials(req);
+                      const advanceSalary = calculateKuwaitLeaveCashAmount(fin.daysCount, fin.basicSalary);
                       const ticketAllowance = 120.000;
                       const totalPayable = advanceSalary + ticketAllowance;
 
                       return (
                         <tr key={req.id} className="hover:bg-slate-50/70 transition">
                           <td className="p-3.5">
-                            <div className="font-bold text-slate-900">{req.employeeName}</div>
-                            <div className="text-[10px] text-slate-400">{req.department}</div>
+                            <div className="font-bold text-slate-900">{fin.employeeName}</div>
+                            <div className="text-[10px] text-slate-400">{fin.department}</div>
                           </td>
-                          <td className="p-3.5 font-mono">{req.civilId}</td>
+                          <td className="p-3.5 font-mono">{fin.civilId}</td>
                           <td className="p-3.5 font-mono">
                             <div>{req.startDate}</div>
-                            <div className="text-[10px] text-slate-400 font-bold">{req.daysCount} يوم عمل</div>
+                            <div className="text-[10px] text-slate-400 font-bold">{fin.daysCount} يوم عمل</div>
                           </td>
-                          <td className="p-3.5 font-mono font-bold text-slate-800">{req.totalSalary.toFixed(3)} د.ك</td>
+                          <td className="p-3.5 font-mono font-bold text-slate-800">{fin.totalSalary.toFixed(3)} د.ك</td>
                           <td className="p-3.5 font-mono font-bold text-purple-900">{advanceSalary.toFixed(3)} د.ك</td>
                           <td className="p-3.5 font-mono text-slate-600">{ticketAllowance.toFixed(3)} د.ك</td>
                           <td className="p-3.5 font-mono font-black text-emerald-700 text-sm">{totalPayable.toFixed(3)} د.ك</td>
@@ -2015,7 +2033,9 @@ export const OdooTimeOffApp: React.FC = () => {
       {/* ======================================================== */}
       {/* MODAL 3: LEAVE ADVANCE SALARY SETTLEMENT (KUWAIT LAW ART 71) */}
       {/* ======================================================== */}
-      {selectedSettlementReq && (
+      {selectedSettlementReq && (() => {
+        const settlementFin = resolveLeaveRequestFinancials(selectedSettlementReq);
+        return (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-2xs flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border text-xs my-8">
             <div className="flex justify-between items-center border-b pb-3 mb-4">
@@ -2035,19 +2055,19 @@ export const OdooTimeOffApp: React.FC = () => {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-slate-50 p-3 rounded-xl border">
                 <div>
                   <span className="text-slate-400 block text-[10px]">الموظف المسافر:</span>
-                  <span className="font-bold text-slate-900">{selectedSettlementReq.employeeName}</span>
+                  <span className="font-bold text-slate-900">{settlementFin.employeeName}</span>
                 </div>
                 <div>
                   <span className="text-slate-400 block text-[10px]">الرقم المدني:</span>
-                  <span className="font-mono font-bold">{selectedSettlementReq.civilId}</span>
+                  <span className="font-mono font-bold">{settlementFin.civilId}</span>
                 </div>
                 <div>
                   <span className="text-slate-400 block text-[10px]">فترة الإجازة:</span>
-                  <span className="font-bold text-slate-800">{selectedSettlementReq.startDate} ({selectedSettlementReq.daysCount} يوم)</span>
+                  <span className="font-bold text-slate-800">{selectedSettlementReq.startDate} ({settlementFin.daysCount} يوم)</span>
                 </div>
                 <div>
                   <span className="text-slate-400 block text-[10px]">الراتب الشامل:</span>
-                  <span className="font-mono font-bold text-emerald-700">{selectedSettlementReq.totalSalary.toFixed(3)} د.ك</span>
+                  <span className="font-mono font-bold text-emerald-700">{settlementFin.totalSalary.toFixed(3)} د.ك</span>
                 </div>
               </div>
 
@@ -2062,9 +2082,9 @@ export const OdooTimeOffApp: React.FC = () => {
                 <tbody className="divide-y">
                   <tr>
                     <td className="p-2.5 font-bold">راتب الإجازة السنوية مقدماً</td>
-                    <td className="p-2.5 text-slate-500">أجر {selectedSettlementReq.daysCount} يوماً مدفوعة الأجر مقدماً (مادة 71)</td>
+                    <td className="p-2.5 text-slate-500">أجر {settlementFin.daysCount} يوماً مدفوعة الأجر مقدماً (مادة 71)</td>
                     <td className="p-2.5 font-mono font-bold text-left text-purple-900">
-                      {calculateKuwaitLeaveCashAmount(selectedSettlementReq.daysCount, selectedSettlementReq.basicSalary).toFixed(3)}
+                      {calculateKuwaitLeaveCashAmount(settlementFin.daysCount, settlementFin.basicSalary).toFixed(3)}
                     </td>
                   </tr>
                   <tr>
@@ -2078,7 +2098,7 @@ export const OdooTimeOffApp: React.FC = () => {
                     <td className="p-3 text-sm">صافي المبلغ المستحق للتحويل البنكي (WPS):</td>
                     <td></td>
                     <td className="p-3 text-base font-mono text-left">
-                      {(calculateKuwaitLeaveCashAmount(selectedSettlementReq.daysCount, selectedSettlementReq.basicSalary) + 120).toFixed(3)} د.ك
+                      {(calculateKuwaitLeaveCashAmount(settlementFin.daysCount, settlementFin.basicSalary) + 120).toFixed(3)} د.ك
                     </td>
                   </tr>
                 </tfoot>
@@ -2116,7 +2136,8 @@ export const OdooTimeOffApp: React.FC = () => {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* ======================================================== */}
       {/* MODAL 4: PRINTABLE OFFICIAL LEAVE APPLICATION FORM (A4) */}

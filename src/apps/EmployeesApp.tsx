@@ -1148,76 +1148,6 @@ export function EmployeesApp(props?: any) {
     return matchDept && matchStatus && matchSearch && matchesKpi;
   });
 
-  // توليد موظفين تجريبيين
-  const generateMockEmployees = () => {
-    if (!isSuperAdmin) {
-      toast.error('هذه الأداة متاحة للسوبر أدمن فقط');
-      return;
-    }
-    const mockEmployees = [
-      {
-        id: `EMP-${Math.floor(1000 + Math.random() * 9000)}`,
-        nameAr: 'د. أحمد خالد المنصور',
-        fullNameAr: 'د. أحمد خالد المنصور',
-        civilId: '290121501234',
-        jobTitle: 'استشاري جراحة عامة',
-        specialty: 'جراحة عامة وتجميلية',
-        dept: 'الأطباء',
-        department: 'الأطباء',
-        basicSalary: 1200,
-        allowances: 150,
-        nationality: 'كويتي',
-        hireDate: '2024-01-15',
-        status: 'على رأس العمل',
-        mohLicense: 'MOH-DOC-9821',
-        companyId: currentCompanyId
-      },
-      {
-        id: `EMP-${Math.floor(1000 + Math.random() * 9000)}`,
-        nameAr: 'سارة عبد الله العتيبي',
-        fullNameAr: 'سارة عبد الله العتيبي',
-        civilId: '293041205678',
-        jobTitle: 'رئيسة هيئة التمريض',
-        specialty: 'رعاية حرجة وعناية مركزة',
-        dept: 'التمريض',
-        department: 'التمريض',
-        basicSalary: 850,
-        allowances: 100,
-        nationality: 'كويتي',
-        hireDate: '2023-05-10',
-        status: 'على رأس العمل',
-        mohLicense: 'MOH-NUR-4412',
-        companyId: currentCompanyId
-      },
-      {
-        id: `EMP-${Math.floor(1000 + Math.random() * 9000)}`,
-        nameAr: 'محمد فوزي الصباح',
-        fullNameAr: 'محمد فوزي الصباح',
-        civilId: '288090209988',
-        jobTitle: 'أخصائي أشعة وتشخيص طبي',
-        specialty: 'رنين مغناطيسي وسونار',
-        dept: 'الفنيين',
-        department: 'الفنيين',
-        basicSalary: 650,
-        allowances: 80,
-        nationality: 'مصري',
-        hireDate: '2025-02-01',
-        status: 'على رأس العمل',
-        mohLicense: 'MOH-TEC-1190',
-        companyId: currentCompanyId
-      }
-    ];
-    
-    const updatedList = [...mockEmployees, ...employees];
-    setEmployees(updatedList);
-    if (currentCompanyId) {
-      TenantDatabaseService.saveEmployee(mockEmployees[0] as any, currentCompanyId);
-      TenantDatabaseService.saveEmployee(mockEmployees[1] as any, currentCompanyId);
-      TenantDatabaseService.saveEmployee(mockEmployees[2] as any, currentCompanyId);
-    }
-    toast.success('تم توليد 3 موظفين تجريبيين بنجاح!');
-  };
-
   // تصدير Excel حقيقي
   const exportToExcel = () => {
     const headers = ['المعرف', 'اسم الموظف', 'الرقم المدني', 'المسمى الوظيفي', 'القسم', 'الهاتف', 'تاريخ التعيين', 'ترخيص MOH', 'الراتب الأساسي', 'البدلات', 'إجمالي الراتب', 'الحالة'];
@@ -1409,20 +1339,6 @@ export function EmployeesApp(props?: any) {
                   </button>
 
                   <div className="border-t border-slate-100 my-1"></div>
-
-                  {isSuperAdmin && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowActionsDropdown(false);
-                        generateMockEmployees();
-                      }}
-                      className="w-full text-right px-3 py-2 hover:bg-slate-50 rounded-lg text-xs font-medium text-slate-700 flex items-center gap-2 cursor-pointer"
-                    >
-                      <span>⚡</span>
-                      <span>توليد موظفين تجريبيين</span>
-                    </button>
-                  )}
 
                   <button
                     type="button"
