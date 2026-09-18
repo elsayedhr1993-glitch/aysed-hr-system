@@ -3,22 +3,30 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 let browserClient: SupabaseClient | null = null;
 let adminClient: SupabaseClient | null = null;
 
-function readSupabaseUrl(): string | undefined {
-  if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) {
-    return import.meta.env.VITE_SUPABASE_URL;
+function readViteEnv(key: 'VITE_SUPABASE_URL' | 'VITE_SUPABASE_ANON_KEY'): string | undefined {
+  if (typeof import.meta !== 'undefined' && import.meta.env?.[key]) {
+    return String(import.meta.env[key]);
   }
-  return process.env.VITE_SUPABASE_URL;
+  if (typeof process !== 'undefined' && process.env?.[key]) {
+    return String(process.env[key]);
+  }
+  return undefined;
+}
+
+function readSupabaseUrl(): string | undefined {
+  return readViteEnv('VITE_SUPABASE_URL');
 }
 
 function readSupabaseAnonKey(): string | undefined {
-  if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) {
-    return import.meta.env.VITE_SUPABASE_ANON_KEY;
-  }
-  return process.env.VITE_SUPABASE_ANON_KEY;
+  return readViteEnv('VITE_SUPABASE_ANON_KEY');
 }
 
 function readSupabaseServiceKey(): string | undefined {
-  return process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (typeof window !== 'undefined') return undefined;
+  if (typeof process !== 'undefined' && process.env?.SUPABASE_SERVICE_ROLE_KEY) {
+    return String(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  }
+  return undefined;
 }
 
 export function isSupabaseConfigured(preferServiceRole = false): boolean {
