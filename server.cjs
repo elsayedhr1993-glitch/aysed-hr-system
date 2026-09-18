@@ -26,7 +26,7 @@ var import_express = __toESM(require("express"), 1);
 var import_path = __toESM(require("path"), 1);
 var import_crypto = __toESM(require("crypto"), 1);
 var import_zlib2 = __toESM(require("zlib"), 1);
-var import_genai = require("@google/genai");
+var import_genai2 = require("@google/genai");
 var import_supabase_js = require("@supabase/supabase-js");
 var import_dotenv = __toESM(require("dotenv"), 1);
 var import_nodemailer2 = __toESM(require("nodemailer"), 1);
@@ -978,6 +978,43 @@ function validateSettlementConstraints(voucherOrInput) {
   };
 }
 
+// server/aiChat.ts
+var import_genai = require("@google/genai");
+
+// src/config/aiConfig.ts
+var AI_MODELS = {
+  chat: process.env.AI_CHAT_MODEL || "gemini-2.5-flash",
+  ocr: process.env.AI_OCR_MODEL || "gemini-2.5-flash",
+  fallback: process.env.AI_FALLBACK_MODEL || "gemini-2.5-pro"
+};
+function uniqueModels(candidates) {
+  const seen = /* @__PURE__ */ new Set();
+  const out = [];
+  for (const raw of candidates) {
+    const m = String(raw || "").trim();
+    if (!m || seen.has(m)) continue;
+    seen.add(m);
+    out.push(m);
+  }
+  return out;
+}
+function getChatModelCandidates() {
+  const extra = (process.env.AI_CHAT_MODEL_FALLBACKS || "").split(",").map((s) => s.trim()).filter(Boolean);
+  return uniqueModels([
+    AI_MODELS.chat,
+    ...extra,
+    "gemini-2.0-flash",
+    AI_MODELS.fallback
+  ]);
+}
+function getOcrModelCandidates() {
+  const extra = (process.env.AI_OCR_MODEL_FALLBACKS || "").split(",").map((s) => s.trim()).filter(Boolean);
+  return uniqueModels([AI_MODELS.ocr, ...extra, AI_MODELS.fallback, "gemini-2.0-flash"]);
+}
+function getConnectivityTestModels() {
+  return uniqueModels([AI_MODELS.chat, AI_MODELS.fallback, "gemini-2.0-flash"]);
+}
+
 // src/lib/aiEmployeeActionParser.ts
 function parseEmployeeCreationPrompt(prompt) {
   const text = String(prompt || "").trim();
@@ -1025,6 +1062,273 @@ function parseEmployeeCreationPrompt(prompt) {
     iban,
     bankName
   };
+}
+
+// src/lib/aiCopilotTypes.ts
+var COPILOT_APP_IDS = [
+  "switcher",
+  "employees",
+  "attendance",
+  "leaves",
+  "payroll",
+  "custody",
+  "archive",
+  "scanner",
+  "letters",
+  "holidays",
+  "reports",
+  "moh",
+  "audit",
+  "contracts",
+  "recruitment"
+];
+var COPILOT_MODAL_IDS = ["new_employee", "pam_contract", "upload_doc"];
+var COPILOT_FUNCTION_NAMES = ["export_wps", "export_report"];
+
+// src/lib/aiCopilotActions.ts
+var ACTION_TYPES = [
+  "NAVIGATE",
+  "OPEN_MODAL",
+  "TRIGGER_FUNCTION",
+  "CREATE_EMPLOYEE",
+  "OPEN_CALCULATOR"
+];
+function buildCreateEmployeeActionFromPrompt(prompt) {
+  const parsed = parseEmployeeCreationPrompt(prompt);
+  if (!parsed) return null;
+  return {
+    type: "CREATE_EMPLOYEE",
+    title: "\u0625\u0646\u0634\u0627\u0621 \u0645\u0648\u0638\u0641 \u0639\u0628\u0631 \u0645\u0633\u0627\u0631 \u0627\u0644\u062A\u0639\u064A\u064A\u0646",
+    employeeData: {
+      nameAr: parsed.nameAr,
+      nameEn: parsed.nameEn || parsed.nameAr,
+      civilId: parsed.civilId,
+      jobTitle: parsed.jobTitle,
+      department: parsed.department,
+      basicSalary: parsed.basicSalary,
+      phone: parsed.phone,
+      nationality: parsed.nationality,
+      email: parsed.email,
+      iban: parsed.iban,
+      bankName: parsed.bankName
+    }
+  };
+}
+function sanitizeCopilotAction(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw;
+  const type = String(o.type || "").toUpperCase();
+  if (!ACTION_TYPES.includes(type)) return null;
+  const title = String(o.title || "").trim() || "\u0625\u062C\u0631\u0627\u0621 \u0645\u0646 \u0627\u0644\u0645\u0633\u0627\u0639\u062F";
+  if (type === "NAVIGATE") {
+    const appId = String(o.appId || "").trim();
+    if (!COPILOT_APP_IDS.includes(appId)) return null;
+    return { type, title, appId };
+  }
+  if (type === "OPEN_MODAL") {
+    const modal = String(o.modal || "").trim();
+    if (!COPILOT_MODAL_IDS.includes(modal)) return null;
+    return { type, title, modal };
+  }
+  if (type === "TRIGGER_FUNCTION") {
+    const functionName = String(o.functionName || o.function || "").trim();
+    if (!COPILOT_FUNCTION_NAMES.includes(functionName)) return null;
+    return { type, title, functionName };
+  }
+  if (type === "OPEN_CALCULATOR") {
+    return { type, title };
+  }
+  if (type === "CREATE_EMPLOYEE") {
+    const ed = o.employeeData && typeof o.employeeData === "object" ? o.employeeData : o;
+    const nameAr = String(ed.nameAr || ed.name || "").trim();
+    if (!nameAr && !ed.civilId) return null;
+    return {
+      type,
+      title,
+      employeeData: {
+        nameAr: nameAr || void 0,
+        nameEn: String(ed.nameEn || "").trim() || void 0,
+        civilId: String(ed.civilId || ed.civil_id || "").replace(/\D/g, "") || void 0,
+        jobTitle: String(ed.jobTitle || ed.job || "").trim() || void 0,
+        department: String(ed.department || ed.dept || "").trim() || void 0,
+        basicSalary: ed.basicSalary != null ? String(ed.basicSalary) : void 0,
+        phone: String(ed.phone || "").trim() || void 0,
+        nationality: String(ed.nationality || "").trim() || void 0,
+        email: String(ed.email || "").trim() || void 0,
+        iban: String(ed.iban || "").trim() || void 0,
+        bankName: String(ed.bankName || "").trim() || void 0
+      }
+    };
+  }
+  return null;
+}
+function parseModelCopilotPayload(text) {
+  const cleaned = text.replace(/```json/gi, "").replace(/```/g, "").trim();
+  try {
+    const parsed = JSON.parse(cleaned);
+    if (parsed && typeof parsed === "object") {
+      const reply = String(parsed.reply || parsed.message || "").trim();
+      const action = sanitizeCopilotAction(parsed.action ?? parsed);
+      if (reply) return { reply, action };
+    }
+  } catch {
+  }
+  return { reply: cleaned, action: null };
+}
+
+// src/lib/aiCopilotContext.ts
+function assertClientCompanyAccess(requestedCompanyId, callerCompanyId, isSuperAdmin) {
+  const req = String(requestedCompanyId || "").trim();
+  const caller = String(callerCompanyId || "").trim();
+  if (!req) {
+    return { ok: false, reason: "companyId \u0645\u0637\u0644\u0648\u0628 \u0641\u064A \u0637\u0644\u0628 \u0627\u0644\u0645\u0633\u0627\u0639\u062F" };
+  }
+  if (req === "SAAS_PLATFORM" || req === "comp-super-admin") {
+    return { ok: false, reason: "\u0627\u062E\u062A\u0631 \u0634\u0631\u0643\u0629 \u0645\u0633\u062A\u0623\u062C\u0631 \u0642\u0628\u0644 \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0627\u0644\u0645\u0633\u0627\u0639\u062F" };
+  }
+  if (isSuperAdmin) {
+    return { ok: true, companyId: req };
+  }
+  if (!caller || caller !== req) {
+    return { ok: false, reason: "\u0644\u0627 \u064A\u0645\u0643\u0646 \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0627\u0644\u0645\u0633\u0627\u0639\u062F \u0644\u0634\u0631\u0643\u0629 \u063A\u064A\u0631 \u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u062D\u0633\u0627\u0628\u0643" };
+  }
+  return { ok: true, companyId: req };
+}
+
+// server/aiChat.ts
+var COPILOT_SYSTEM = `\u0623\u0646\u062A \u0645\u0633\u0627\u0639\u062F Aysed S HR 2026 \u0644\u0644\u0645\u0648\u0627\u0631\u062F \u0627\u0644\u0628\u0634\u0631\u064A\u0629 \u0641\u064A \u0627\u0644\u0643\u0648\u064A\u062A.
+- \u0623\u062C\u0628 \u0628\u0627\u0644\u0639\u0631\u0628\u064A\u0629 \u0627\u0644\u0645\u0647\u0646\u064A\u0629 \u0645\u0639 Markdown \u0639\u0646\u062F \u0627\u0644\u062D\u0627\u062C\u0629.
+- \u0627\u0633\u062A\u0634\u0627\u0631\u0627\u062A \u0642\u0627\u0646\u0648\u0646 \u0627\u0644\u0639\u0645\u0644 6/2010\u060C \u0627\u0644\u0625\u062C\u0627\u0632\u0627\u062A\u060C EOS\u060C \u0627\u0644\u0631\u0648\u0627\u062A\u0628 \u0628\u0640 KWD (\u062B\u0644\u0627\u062B \u062E\u0627\u0646\u0627\u062A).
+- \u0644\u0627 \u062A\u062E\u062A\u0644\u0642 \u0623\u0633\u0645\u0627\u0621 \u0645\u0648\u0638\u0641\u064A\u0646 \u0623\u0648 \u0623\u0631\u0642\u0627\u0645\u0627\u064B \u0645\u0646 \u0627\u0644\u0633\u064A\u0627\u0642\u061B \u0627\u0644\u0633\u064A\u0627\u0642 \u0625\u062D\u0635\u0627\u0626\u064A \u0641\u0642\u0637.
+
+\u0639\u0646\u062F \u0637\u0644\u0628 \u062A\u0646\u0641\u064A\u0630 \u062F\u0627\u062E\u0644 \u0627\u0644\u0646\u0638\u0627\u0645\u060C \u0623\u062E\u0631\u062C JSON \u0641\u0642\u0637 \u0628\u0627\u0644\u0634\u0643\u0644:
+{"reply":"\u0646\u0635 \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645","action":{...} \u0623\u0648 null}
+
+action.type \u0627\u0644\u0645\u0633\u0645\u0648\u062D:
+- NAVIGATE + appId \u0645\u0646: ${COPILOT_APP_IDS.join(", ")}
+- OPEN_MODAL + modal \u0645\u0646: ${COPILOT_MODAL_IDS.join(", ")}
+- TRIGGER_FUNCTION + functionName \u0645\u0646: ${COPILOT_FUNCTION_NAMES.join(", ")}
+- OPEN_CALCULATOR (\u062D\u0627\u0633\u0628\u0629 HR \u0633\u0631\u064A\u0639\u0629)
+- CREATE_EMPLOYEE + employeeData (nameAr, civilId, jobTitle, department, basicSalary, ...)
+
+\u0625\u0630\u0627 \u0643\u0627\u0646 \u0627\u0644\u0633\u0624\u0627\u0644 \u0627\u0633\u062A\u0634\u0627\u0631\u0629 \u0641\u0642\u0637\u060C action = null.
+\u0644\u0627 \u062A\u064F\u0631\u062C\u0639 \u0646\u0635\u0627\u064B \u062E\u0627\u0631\u062C JSON.`;
+function registerAiChatRoute(app2, deps) {
+  app2.post("/api/ai-chat", async (req, res) => {
+    try {
+      const authCheck = await deps.requireFirebaseAuth(req, res);
+      if (!authCheck.ok) {
+        return res.status(authCheck.status || 401).json({ success: false, error: authCheck.error });
+      }
+      const { prompt, contextSummary, conversationHistory, companyId: bodyCompanyId } = req.body || {};
+      if (!prompt || !String(prompt).trim()) {
+        return res.status(400).json({
+          success: false,
+          error: "\u0627\u0644\u0631\u062C\u0627\u0621 \u0643\u062A\u0627\u0628\u0629 \u0627\u0644\u0633\u0624\u0627\u0644 \u0623\u0648 \u0627\u0644\u0637\u0644\u0628 \u0644\u0644\u0645\u0633\u0627\u0639\u062F \u0627\u0644\u0630\u0643\u064A",
+          code: "VALIDATION_ERROR"
+        });
+      }
+      const resolved = await deps.resolveCallerRole(authCheck);
+      const isSuperAdmin = resolved.role === "SUPER_ADMIN";
+      const access = assertClientCompanyAccess(
+        bodyCompanyId ? String(bodyCompanyId) : resolved.companyId,
+        resolved.companyId,
+        isSuperAdmin
+      );
+      if (!access.ok) {
+        const denied = access;
+        return res.status(403).json({
+          success: false,
+          error: denied.reason,
+          code: "COMPANY_MISMATCH"
+        });
+      }
+      const regexAction = buildCreateEmployeeActionFromPrompt(String(prompt));
+      const ai = deps.getGeminiClient();
+      if (!ai) {
+        return res.status(503).json({
+          success: false,
+          error: "\u0645\u062D\u0631\u0643 \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A \u063A\u064A\u0631 \u0645\u0647\u064A\u0623 \u0639\u0644\u0649 \u0627\u0644\u062E\u0627\u062F\u0645 (GEMINI_API_KEY).",
+          code: "AI_NOT_CONFIGURED",
+          action: regexAction
+        });
+      }
+      const parts = [];
+      parts.push({
+        text: `[\u0633\u064A\u0627\u0642 \u0627\u0644\u0634\u0631\u0643\u0629 \u2014 \u0628\u064A\u0627\u0646\u0627\u062A \u0645\u062C\u0645\u0651\u0639\u0629 \u0641\u0642\u0637]
+${contextSummary || "\u0644\u0627 \u064A\u0648\u062C\u062F \u0633\u064A\u0627\u0642 \u0625\u0636\u0627\u0641\u064A."}
+companyId=${access.companyId}`
+      });
+      if (Array.isArray(conversationHistory)) {
+        for (const msg of conversationHistory.slice(-12)) {
+          parts.push({
+            text: `${msg.role === "user" ? "\u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645" : "\u0627\u0644\u0645\u0633\u0627\u0639\u062F"}: ${String(msg.content || "").slice(0, 4e3)}`
+          });
+        }
+      }
+      parts.push({ text: `\u0633\u0624\u0627\u0644 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${String(prompt).trim()}` });
+      const models = getChatModelCandidates();
+      let lastErr = null;
+      for (const modelName of models) {
+        try {
+          const response = await ai.models.generateContent({
+            model: modelName,
+            contents: { parts },
+            config: {
+              systemInstruction: COPILOT_SYSTEM,
+              temperature: 0.35,
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: import_genai.Type.OBJECT,
+                properties: {
+                  reply: { type: import_genai.Type.STRING },
+                  action: {
+                    type: import_genai.Type.OBJECT,
+                    nullable: true,
+                    properties: {
+                      type: { type: import_genai.Type.STRING },
+                      title: { type: import_genai.Type.STRING },
+                      appId: { type: import_genai.Type.STRING },
+                      modal: { type: import_genai.Type.STRING },
+                      functionName: { type: import_genai.Type.STRING },
+                      employeeData: { type: import_genai.Type.OBJECT }
+                    }
+                  }
+                },
+                required: ["reply"]
+              }
+            }
+          });
+          const rawText = response.text || "{}";
+          const { reply, action: parsedAction } = parseModelCopilotPayload(rawText);
+          const action = parsedAction || regexAction;
+          return res.json({
+            success: true,
+            reply: reply || "\u062A\u0645\u062A \u0627\u0644\u0645\u0639\u0627\u0644\u062C\u0629.",
+            source: `gemini:${modelName}`,
+            action: action ? sanitizeCopilotAction(action) : null
+          });
+        } catch (err) {
+          lastErr = err;
+          console.warn(`[ai-chat] model ${modelName} failed:`, err);
+        }
+      }
+      console.error("[ai-chat] all models failed", lastErr);
+      return res.status(503).json({
+        success: false,
+        error: "\u062A\u0639\u0630\u0631 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0645\u062D\u0631\u0643 \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A. \u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u0644\u0631\u0635\u064A\u062F \u0648\u0623\u0633\u0645\u0627\u0621 \u0627\u0644\u0646\u0645\u0627\u0630\u062C.",
+        code: "AI_UNAVAILABLE",
+        action: regexAction
+      });
+    } catch (error) {
+      console.error("[ai-chat] unexpected", error);
+      return res.status(500).json({
+        success: false,
+        error: error?.message || "\u062E\u0637\u0623 \u062F\u0627\u062E\u0644\u064A \u0641\u064A \u0645\u0633\u0627\u0639\u062F \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A",
+        code: "AI_UNAVAILABLE"
+      });
+    }
+  });
 }
 
 // server.ts
@@ -1128,13 +1432,21 @@ function getAdminAuth() {
   }
   return null;
 }
+function getAdminFirestore() {
+  if (!getAdminAuth() || !adminApp) return null;
+  try {
+    return (0, import_firestore.getFirestore)(adminApp);
+  } catch {
+    return null;
+  }
+}
 app.use(import_express.default.json({ limit: "25mb" }));
 function getGeminiClient() {
   const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.VITE_GEMINI_API_KEY;
   if (!apiKey || apiKey.trim() === "" || apiKey.includes("YOUR_")) {
     return null;
   }
-  return new import_genai.GoogleGenAI({
+  return new import_genai2.GoogleGenAI({
     apiKey: apiKey.trim(),
     httpOptions: {
       headers: {
@@ -1581,7 +1893,7 @@ app.post("/api/ai/test-key", async (req, res) => {
         error: "\u0645\u0641\u062A\u0627\u062D Gemini API \u063A\u064A\u0631 \u0645\u0647\u064A\u0623 \u0639\u0644\u0649 \u0627\u0644\u062E\u0627\u062F\u0645. \u064A\u0631\u062C\u0649 \u0636\u0628\u0637 GEMINI_API_KEY \u0641\u064A \u0628\u064A\u0626\u0629 \u0627\u0644\u062A\u0634\u063A\u064A\u0644."
       });
     }
-    const modelsToTry = ["gemini-3.6-flash", "gemini-3.1-pro-preview"];
+    const modelsToTry = getConnectivityTestModels();
     let lastError = null;
     const startTime = Date.now();
     for (const modelName of modelsToTry) {
@@ -2076,7 +2388,7 @@ app.post("/api/ocr-scan", import_express.default.json({ limit: "50mb" }), async 
       error: "\u0645\u0641\u062A\u0627\u062D \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A \u0639\u0644\u0649 \u0627\u0644\u062E\u0627\u062F\u0645 \u063A\u064A\u0631 \u0645\u062A\u0648\u0641\u0631 (GEMINI_API_KEY \u0623\u0648 OPENAI_API_KEY). \u064A\u0631\u062C\u0649 \u062A\u0647\u064A\u0626\u0629 \u0645\u062A\u063A\u064A\u0631\u0627\u062A \u0627\u0644\u0628\u064A\u0626\u0629."
     });
   }
-  const modelsToTry = ["gemini-3.6-flash", "gemini-3.1-pro-preview"];
+  const modelsToTry = getOcrModelCandidates();
   let lastError = null;
   for (const modelName of modelsToTry) {
     try {
@@ -2097,30 +2409,30 @@ app.post("/api/ocr-scan", import_express.default.json({ limit: "50mb" }), async 
           temperature: 0,
           responseMimeType: "application/json",
           responseSchema: {
-            type: import_genai.Type.OBJECT,
+            type: import_genai2.Type.OBJECT,
             properties: {
-              civilId: { type: import_genai.Type.STRING },
-              fullNameAr: { type: import_genai.Type.STRING },
-              fullNameEn: { type: import_genai.Type.STRING },
-              nationality: { type: import_genai.Type.STRING },
-              gender: { type: import_genai.Type.STRING },
-              birthDate: { type: import_genai.Type.STRING },
-              unifiedNo: { type: import_genai.Type.STRING },
-              passportNo: { type: import_genai.Type.STRING },
-              profession: { type: import_genai.Type.STRING },
-              expiryDate: { type: import_genai.Type.STRING },
-              issueDate: { type: import_genai.Type.STRING },
-              mohLicenseNo: { type: import_genai.Type.STRING },
-              mohLicenseExpiryDate: { type: import_genai.Type.STRING },
-              residencyType: { type: import_genai.Type.STRING },
-              bloodGroup: { type: import_genai.Type.STRING },
+              civilId: { type: import_genai2.Type.STRING },
+              fullNameAr: { type: import_genai2.Type.STRING },
+              fullNameEn: { type: import_genai2.Type.STRING },
+              nationality: { type: import_genai2.Type.STRING },
+              gender: { type: import_genai2.Type.STRING },
+              birthDate: { type: import_genai2.Type.STRING },
+              unifiedNo: { type: import_genai2.Type.STRING },
+              passportNo: { type: import_genai2.Type.STRING },
+              profession: { type: import_genai2.Type.STRING },
+              expiryDate: { type: import_genai2.Type.STRING },
+              issueDate: { type: import_genai2.Type.STRING },
+              mohLicenseNo: { type: import_genai2.Type.STRING },
+              mohLicenseExpiryDate: { type: import_genai2.Type.STRING },
+              residencyType: { type: import_genai2.Type.STRING },
+              bloodGroup: { type: import_genai2.Type.STRING },
               address: {
-                type: import_genai.Type.OBJECT,
+                type: import_genai2.Type.OBJECT,
                 properties: {
-                  block: { type: import_genai.Type.STRING },
-                  street: { type: import_genai.Type.STRING },
-                  building: { type: import_genai.Type.STRING },
-                  area: { type: import_genai.Type.STRING }
+                  block: { type: import_genai2.Type.STRING },
+                  street: { type: import_genai2.Type.STRING },
+                  building: { type: import_genai2.Type.STRING },
+                  area: { type: import_genai2.Type.STRING }
                 }
               }
             }
@@ -2210,191 +2522,91 @@ app.post("/api/ocr-scan", import_express.default.json({ limit: "50mb" }), async 
     details: cause
   });
 });
-async function requireFirebaseAuth(req, res) {
+async function requireFirebaseAuth(req, _res) {
   const authHeader = req?.headers?.authorization || req?.headers?.Authorization;
   if (!authHeader || typeof authHeader !== "string") {
-    return { ok: false, error: "Missing Authorization header" };
+    return { ok: false, error: "Missing Authorization header", status: 401 };
   }
   const match = authHeader.match(/^Bearer\s+(.+)$/i);
   if (!match) {
-    return { ok: false, error: "Invalid Authorization format" };
+    return { ok: false, error: "Invalid Authorization format", status: 401 };
   }
   const token = match[1].trim();
   if (!token || token.length < 20) {
-    return { ok: false, error: "Invalid token format" };
+    return { ok: false, error: "Invalid token format", status: 401 };
   }
   const auth = getAdminAuth();
   if (!auth) {
-    return { ok: false, error: "Firebase admin not configured" };
+    return { ok: false, error: "Firebase admin not configured", status: 503 };
   }
   try {
     const decoded = await auth.verifyIdToken(token);
-    return { ok: true, token, uid: decoded.uid };
+    return {
+      ok: true,
+      token,
+      uid: decoded.uid,
+      email: String(decoded.email || "").toLowerCase(),
+      claims: decoded,
+      status: 200
+    };
   } catch {
-    return { ok: false, error: "Invalid Firebase ID token" };
+    return { ok: false, error: "Invalid Firebase ID token", status: 401 };
   }
 }
-function buildCreateEmployeeAction(prompt) {
-  const parsed = parseEmployeeCreationPrompt(prompt);
-  if (!parsed) return null;
-  return {
-    type: "CREATE_EMPLOYEE",
-    title: "Create employee via onboarding workflow",
-    employeeData: {
-      nameAr: parsed.nameAr,
-      nameEn: parsed.nameEn || parsed.nameAr,
-      civilId: parsed.civilId,
-      jobTitle: parsed.jobTitle,
-      department: parsed.department,
-      basicSalary: parsed.basicSalary,
-      phone: parsed.phone,
-      nationality: parsed.nationality,
-      email: parsed.email,
-      iban: parsed.iban,
-      bankName: parsed.bankName
+async function resolveCallerRole(authCheck) {
+  const claimRole = String(authCheck.claims?.role || "").toUpperCase();
+  const claimCompanyId = authCheck.claims?.companyId ? String(authCheck.claims.companyId) : void 0;
+  if (claimRole === "SUPER_ADMIN" || claimRole === "COMPANY_ADMIN" || claimRole === "TENANT_ADMIN") {
+    return { role: claimRole === "TENANT_ADMIN" ? "COMPANY_ADMIN" : claimRole, companyId: claimCompanyId };
+  }
+  try {
+    const dbAdmin = getAdminFirestore();
+    if (dbAdmin) {
+      const snap = await dbAdmin.collection("users").doc(authCheck.uid).get();
+      if (snap.exists) {
+        const data = snap.data() || {};
+        const role = String(data.role || "COMPANY_ADMIN").toUpperCase();
+        return {
+          role: role === "TENANT_ADMIN" ? "COMPANY_ADMIN" : role,
+          companyId: data.companyId ? String(data.companyId) : claimCompanyId
+        };
+      }
     }
+  } catch (err) {
+    console.warn("[Auth] Failed to resolve role from Firestore users doc:", err);
+  }
+  return { role: "COMPANY_ADMIN", companyId: claimCompanyId };
+}
+async function requireSuperAdmin(req, _res) {
+  const authCheck = await requireFirebaseAuth(req);
+  if (!authCheck.ok) {
+    return authCheck;
+  }
+  const resolved = await resolveCallerRole(authCheck);
+  if (resolved.role !== "SUPER_ADMIN") {
+    return {
+      ok: false,
+      error: "Super Admin privileges required",
+      status: 403,
+      uid: authCheck.uid
+    };
+  }
+  return {
+    ...authCheck,
+    role: "SUPER_ADMIN",
+    companyId: resolved.companyId
   };
 }
-app.post("/api/ai-chat", async (req, res) => {
-  try {
-    const authCheck = await requireFirebaseAuth(req, res);
-    if (!authCheck.ok) {
-      return res.status(401).json({ success: false, error: authCheck.error });
-    }
-    const { prompt, contextSummary, conversationHistory } = req.body;
-    if (!prompt) {
-      return res.status(400).json({ error: "\u0627\u0644\u0631\u062C\u0627\u0621 \u0643\u062A\u0627\u0628\u0629 \u0627\u0644\u0633\u0624\u0627\u0644 \u0623\u0648 \u0627\u0644\u0637\u0644\u0628 \u0644\u0644\u0645\u0633\u0627\u0639\u062F \u0627\u0644\u0630\u0643\u064A" });
-    }
-    const ai = getGeminiClient();
-    const createEmployeeAction = buildCreateEmployeeAction(prompt);
-    const systemInstruction = `\u0623\u0646\u062A \u0627\u0644\u0645\u0633\u0627\u0639\u062F \u0627\u0644\u0628\u0631\u0645\u062C\u064A \u0627\u0644\u0631\u0633\u0645\u064A \u0644\u0646\u0638\u0627\u0645 "Aysed S HR 2026". 
-\u0647\u0648\u064A\u062A\u0643 \u0648\u0645\u0647\u0627\u0645\u0643:
-1. \u062E\u0628\u064A\u0631 \u0641\u064A \u062A\u0637\u0648\u064A\u0631 \u0648\u0628\u0631\u0645\u062C\u0629 \u0646\u0638\u0627\u0645 \u0623\u0648\u062F\u0648 (Odoo Framework) \u0648\u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0648\u0627\u0631\u062F \u0627\u0644\u0628\u0634\u0631\u064A\u0629.
-2. \u0644\u062F\u064A\u0643 \u0635\u0644\u0627\u062D\u064A\u0629 \u0643\u0627\u0645\u0644\u0629 \u0644\u0644\u0642\u0631\u0627\u0621\u0629 \u0648\u0627\u0644\u062A\u0639\u062F\u064A\u0644 \u0639\u0644\u0649 \u0645\u0648\u062F\u064A\u0644\u0627\u062A (hr.employee) \u0648\u0639\u0642\u0648\u062F \u0627\u0644\u0639\u0645\u0644 (hr.version).
-3. \u062A\u0644\u062A\u0632\u0645 \u0628\u0642\u0648\u0627\u0646\u064A\u0646 \u0627\u0644\u0639\u0645\u0644 \u0627\u0644\u0643\u0648\u064A\u062A\u064A\u0629 \u0648\u0646\u0645\u0627\u0630\u062C \u0627\u0644\u0647\u064A\u0626\u0629 \u0627\u0644\u0639\u0627\u0645\u0629 \u0644\u0644\u0642\u0648\u0649 \u0627\u0644\u0639\u0627\u0645\u0644\u0629 \u0639\u0646\u062F \u0635\u064A\u0627\u063A\u0629 \u0627\u0644\u0639\u0642\u0648\u062F.
-4. \u0645\u0647\u0645\u062A\u0643 \u062A\u0646\u0641\u064A\u0630 \u0627\u0644\u0623\u0648\u0627\u0645\u0631 \u0627\u0644\u0628\u0631\u0645\u062C\u064A\u0629\u060C \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0633\u062C\u0644\u0627\u062A\u060C \u0648\u062A\u062D\u0644\u064A\u0644 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0627\u0644\u064A\u0629 \u0648\u0627\u0644\u0631\u0648\u0627\u062A\u0628 \u062F\u0627\u062E\u0644 \u0627\u0644\u0646\u0638\u0627\u0645.
-5. \u0627\u0644\u062A\u0648\u0627\u0635\u0644 \u0628\u0627\u0644\u0644\u063A\u0629 \u0627\u0644\u0639\u0631\u0628\u064A\u0629 \u0627\u0644\u0645\u0647\u0646\u064A\u0629\u060C \u0645\u0639 \u0627\u0644\u062A\u0631\u0643\u064A\u0632 \u0639\u0644\u0649 \u062F\u0642\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0648\u0633\u0631\u0639\u0629 \u0627\u0644\u062A\u0646\u0641\u064A\u0630.
-\u0628\u0627\u0644\u0625\u0636\u0627\u0641\u0629 \u0625\u0644\u0649 \u062A\u062E\u0635\u0635\u0643 \u0627\u0644\u0642\u0648\u064A \u0641\u064A:
-- \u0627\u0644\u0645\u0627\u062F\u0629 51 \u0648 53: \u0645\u0643\u0627\u0641\u0623\u0629 \u0646\u0647\u0627\u064A\u0629 \u0627\u0644\u062E\u062F\u0645\u0629 (15 \u064A\u0648\u0645\u0627\u064B \u0644\u0644\u0623\u0648\u0644\u0649 5 \u0633\u0646\u0648\u0627\u062A\u060C \u062B\u0645 \u0634\u0647\u0631 \u0643\u0627\u0645\u0644 \u0644\u0643\u0644 \u0633\u0646\u0629 \u0628\u0639\u062F \u0630\u0644\u0643).
-- \u0627\u0644\u0625\u062C\u0627\u0632\u0627\u062A \u0627\u0644\u0633\u0646\u0648\u064A\u0629 (2.5 \u064A\u0648\u0645 \u0634\u0647\u0631\u064A\u0627\u064B)\u060C \u0625\u062C\u0627\u0632\u0627\u062A \u0627\u0644\u0648\u0636\u0639 \u0648\u0627\u0644\u0645\u0631\u0636\u064A\u0627\u062A.
-- \u062A\u062F\u0642\u064A\u0642 \u0627\u0644\u0631\u0642\u0645 \u0627\u0644\u0645\u062F\u0646\u064A \u0627\u0644\u0643\u0648\u064A\u062A\u064A \u0644\u0645\u0639\u0627\u062F\u0644\u0629 MOD 11 (12 \u0631\u0642\u0645).
-- \u062D\u0633\u0627\u0628 \u0627\u0644\u0639\u0645\u0644\u0627\u062A \u062F\u0627\u0626\u0645\u0627\u064B \u0628\u0627\u0644\u062F\u064A\u0646\u0627\u0631 \u0627\u0644\u0643\u0648\u064A\u062A\u064A KWD \u0628\u062B\u0644\u0627\u062B \u062E\u0627\u0646\u0627\u062A \u0639\u0634\u0631\u064A\u0629 (0.000 KWD).
-- \u0623\u0641\u0636\u0644 \u0627\u0644\u0645\u0645\u0627\u0631\u0633\u0627\u062A \u0641\u064A \u0646\u0638\u0627\u0645 \u0623\u0648\u062F\u0648 \u0625\u0646\u062A\u0631\u0628\u0631\u0627\u064A\u0632 Odoo 17 HRMS.
-
-\u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062D\u0627\u0644\u064A\u0629 \u0644\u0644\u0634\u0631\u0643\u0629 \u0648\u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062A\u0634\u063A\u064A\u0644\u064A\u0629 \u0627\u0644\u0645\u0642\u062F\u0645\u0629 \u0644\u0643 \u0641\u064A \u0633\u064A\u0627\u0642 \u0627\u0644\u0633\u0624\u0627\u0644 \u0647\u064A \u0642\u0627\u0639\u062F\u0629 \u0628\u064A\u0627\u0646\u0627\u062A\u0643 \u0627\u0644\u062D\u064A\u0629.
-\u0642\u0645 \u0628\u0625\u062C\u0627\u0628\u0629 \u0627\u0644\u0645\u0648\u0638\u0641 \u0623\u0648 \u0645\u062F\u064A\u0631 \u0627\u0644\u0645\u0648\u0627\u0631\u062F \u0627\u0644\u0628\u0634\u0631\u064A\u0629 \u0628\u0623\u0633\u0644\u0648\u0628 \u0627\u062D\u062A\u0631\u0627\u0641\u064A\u060C \u0645\u0646\u0638\u0645 \u062C\u062F\u0627\u064B \u0628\u0627\u0633\u062A\u0639\u0645\u0627\u0644 \u062A\u0646\u0633\u064A\u0642 Markdown\u060C \u0645\u0639 \u0646\u0642\u0627\u0637 \u0648\u0627\u0636\u062D\u0629 \u0648\u0631\u0633\u0648\u0645\u0627\u062A \u062A\u0648\u0636\u064A\u062D\u064A\u0629 \u062E\u0641\u064A\u0641\u0629 \u0648\u0639\u0646\u0627\u0648\u064A\u0646 \u0628\u0627\u0631\u0632\u0629.
-\u0625\u0630\u0627 \u0637\u0644\u0628 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u062D\u0633\u0627\u0628\u0627\u062A (\u0646\u0647\u0627\u064A\u0629 \u062E\u062F\u0645\u0629\u060C \u0625\u062C\u0627\u0632\u0627\u062A\u060C \u0645\u0633\u062A\u062D\u0642\u0627\u062A \u0631\u0648\u0627\u062A\u0628)\u060C \u0642\u0645 \u0628\u0625\u0638\u0647\u0627\u0631 \u062A\u0641\u0627\u0635\u064A\u0644 \u0627\u0644\u0645\u0639\u0627\u062F\u0644\u0629 \u062E\u0637\u0648\u0629 \u0628\u062E\u0637\u0648\u0629 \u0628\u0627\u0644\u062F\u064A\u0646\u0627\u0631 \u0627\u0644\u0643\u0648\u064A\u062A\u064A (KWD).`;
-    if (!ai) {
-      const promptLower = prompt.toLowerCase();
-      let simulatedReply = "";
-      if (promptLower.includes("\u0646\u0647\u0627\u064A\u0629 \u0627\u0644\u062E\u062F\u0645\u0629") || promptLower.includes("\u0645\u0643\u0627\u0641\u0623\u0629") || promptLower.includes("eos")) {
-        simulatedReply = `### \u{1F4CA} \u062D\u0633\u0627\u0628 \u0645\u0643\u0627\u0641\u0623\u0629 \u0646\u0647\u0627\u064A\u0629 \u0627\u0644\u062E\u062F\u0645\u0629 \u0648\u0641\u0642 \u0627\u0644\u0645\u0627\u062F\u0629 51 \u0648 53 \u0645\u0646 \u0642\u0627\u0646\u0648\u0646 \u0627\u0644\u0639\u0645\u0644 \u0627\u0644\u0643\u0648\u064A\u062A\u064A:
-
-1. **\u0627\u0644\u0622\u0644\u064A\u0629 \u0627\u0644\u0642\u0627\u0646\u0648\u0646\u064A\u0629:**
-   - **\u0627\u0644\u0633\u0646\u0648\u0627\u062A \u0627\u0644\u062E\u0645\u0633 \u0627\u0644\u0623\u0648\u0644\u0649:** \u0627\u0633\u062A\u062D\u0642\u0627\u0642 **15 \u064A\u0648\u0645\u0627\u064B** \u0639\u0646 \u0643\u0644 \u0633\u0646\u0629 (\u0627\u0644\u0631\u0627\u062A\u0628 \u0627\u0644\u0634\u0627\u0645\u0644 \xF7 26 \xD7 15 \xD7 \u0639\u062F\u062F \u0627\u0644\u0633\u0646\u0648\u0627\u062A).
-   - **\u0627\u0644\u0633\u0646\u0648\u0627\u062A \u0627\u0644\u0644\u0627\u062D\u0642\u0629 (\u0645\u0646 6 \u0633\u0646\u0648\u0627\u062A \u0641\u0645\u0627 \u0641\u0648\u0642):** \u0627\u0633\u062A\u062D\u0642\u0627\u0642 **\u0634\u0647\u0631 \u0643\u0627\u0645\u0644 (26 \u064A\u0648\u0645\u0627\u064B)** \u0639\u0646 \u0643\u0644 \u0633\u0646\u0629.
-   - **\u0627\u0644\u062D\u062F \u0627\u0644\u0623\u0642\u0635\u0649:** \u0644\u0627 \u064A\u062A\u062C\u0627\u0648\u0632 \u0625\u062C\u0645\u0627\u0644\u064A \u0627\u0644\u0645\u0643\u0627\u0641\u0623\u0629 \u0631\u0627\u062A\u0628 \u0633\u0646\u062A\u064A\u0646 (24 \u0634\u0647\u0631\u0627\u064B).
-
-2. **\u0646\u0633\u0628\u0629 \u0627\u0644\u0627\u0633\u062A\u062D\u0642\u0627\u0642 \u062D\u0633\u0628 \u0633\u0628\u0628 \u0627\u0646\u062A\u0647\u0627\u0621 \u0627\u0644\u062E\u062F\u0645\u0629:**
-   - **\u0625\u0646\u0647\u0627\u0621 \u062E\u062F\u0645\u0629 \u0645\u0646 \u0627\u0644\u0634\u0631\u0643\u0629 / \u0627\u0646\u062A\u0647\u0627\u0621 \u0639\u0642\u062F:** \u0627\u0633\u062A\u062D\u0642\u0627\u0642 **100% \u0643\u0627\u0645\u0644\u0629** \u0641\u0648\u0631\u0627\u064B.
-   - **\u0627\u0633\u062A\u0642\u0627\u0644\u0629 \u0627\u0644\u0645\u0648\u0638\u0641:**
-     - \u0623\u0642\u0644 \u0645\u0646 3 \u0633\u0646\u0648\u0627\u062A: **\u0644\u0627 \u062A\u0633\u062A\u062D\u0642 \u0645\u0643\u0627\u0641\u0623\u0629 (0%)**.
-     - \u0645\u0646 3 \u0625\u0644\u0649 \u0623\u0642\u0644 \u0645\u0646 5 \u0633\u0646\u0648\u0627\u062A: **\u062B\u0644\u062B \u0627\u0644\u0645\u0643\u0627\u0641\u0623\u0629 (33.33%)**.
-     - \u0645\u0646 5 \u0625\u0644\u0649 \u0623\u0642\u0644 \u0645\u0646 10 \u0633\u0646\u0648\u0627\u062A: **\u062B\u0644\u062B\u0627 \u0627\u0644\u0645\u0643\u0627\u0641\u0623\u0629 (66.67%)**.
-     - 10 \u0633\u0646\u0648\u0627\u062A \u0641\u0623\u0643\u062B\u0631: **100% \u0643\u0627\u0645\u0644\u0629**.
-
-\u{1F4A1} *\u064A\u0645\u0643\u0646\u0643 \u0627\u0644\u0627\u0646\u062A\u0642\u0627\u0644 \u0625\u0644\u0649 \u062A\u0637\u0628\u064A\u0642 "\u0646\u0647\u0627\u064A\u0629 \u0627\u0644\u062E\u062F\u0645\u0629 EOS" \u0641\u064A \u0634\u0627\u0634\u0629 \u0627\u0644\u062A\u0637\u0628\u064A\u0642\u0627\u062A \u0644\u0625\u062C\u0631\u0627\u0621 \u0627\u0644\u062D\u0633\u0627\u0628 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u0627\u0644\u0645\u0628\u0627\u0634\u0631 \u0644\u0623\u064A \u0645\u0648\u0638\u0641 \u0628\u0627\u0644\u0634\u0631\u0643\u0629.*`;
-      } else if (promptLower.includes("\u0625\u062C\u0627\u0632\u0629") || promptLower.includes("\u0627\u062C\u0627\u0632\u0629") || promptLower.includes("leave")) {
-        simulatedReply = `### \u{1F334} \u0646\u0638\u0627\u0645 \u0627\u0644\u0625\u062C\u0627\u0632\u0627\u062A \u0627\u0644\u0633\u0646\u0648\u064A\u0629 \u0648\u0627\u0644\u0645\u0633\u062A\u062D\u0642\u0627\u062A \u0644\u0639\u0627\u0645 2026:
-
-- **\u0627\u0633\u062A\u062D\u0642\u0627\u0642 \u0627\u0644\u0625\u062C\u0627\u0632\u0629 \u0627\u0644\u0633\u0646\u0648\u064A\u0629:** 30 \u064A\u0648\u0645\u0627\u064B \u062A\u0642\u0648\u064A\u0645\u064A\u0627\u064B \u0645\u062F\u0641\u0648\u0639\u0629 \u0627\u0644\u0623\u062C\u0631 \u0633\u0646\u0648\u064A\u0627\u064B (\u0628\u0645\u0639\u062F\u0644 **2.5 \u064A\u0648\u0645 \u0634\u0647\u0631\u064A\u0627\u064B**).
-- **\u0627\u062D\u062A\u0633\u0627\u0628 \u0627\u0644\u0645\u0628\u0627\u0634\u0631\u0629 \u0641\u064A 2026:** \u0628\u0627\u0644\u0646\u0633\u0628\u0629 \u0644\u0644\u0645\u0648\u0638\u0641\u064A\u0646 \u0627\u0644\u062C\u062F\u062F \u0627\u0644\u0630\u064A\u0646 \u0628\u0627\u0634\u0631\u0648\u0627 \u062E\u0644\u0627\u0644 \u0639\u0627\u0645 2026\u060C \u064A\u062A\u0645 \u0627\u062D\u062A\u0633\u0627\u0628 \u0631\u0635\u064A\u062F\u0647\u0645 \u0627\u0644\u0645\u0633\u062A\u062D\u0642 \u062A\u0644\u0642\u0627\u0626\u064A\u0627\u064B \u0645\u0646 \u0634\u0647\u0631 \u0627\u0644\u0645\u0628\u0627\u0634\u0631\u0629 \u0627\u0644\u0641\u0639\u0644\u064A\u0629 \u0648\u0644\u064A\u0633 \u0645\u0646 \u064A\u0646\u0627\u064A\u0631.
-- **\u0627\u0644\u062A\u062F\u0648\u064A\u0631 \u0645\u0646 2025:** \u064A\u062A\u064A\u062D \u0627\u0644\u0646\u0638\u0627\u0645 \u0625\u062F\u062E\u0627\u0644 \u0627\u0644\u0631\u0635\u064A\u062F \u0627\u0644\u0645\u062A\u0631\u0627\u0643\u0645 \u0627\u0644\u0645\u062F\u0648\u0651\u0631 \u0645\u0646 \u0646\u0647\u0627\u064A\u0629 \u0639\u0627\u0645 2025 \u064A\u062F\u0648\u064A\u0627\u064B \u0648\u062D\u0641\u0638\u0647 \u0641\u064A \u0633\u062C\u0644 \u0627\u0644\u0645\u0648\u0638\u0641.
-- **\u062A\u0648\u0642\u0641 \u0627\u0644\u0639\u062F\u0627\u062F:** \u0627\u0644\u0625\u062C\u0627\u0632\u0627\u062A \u063A\u064A\u0631 \u0627\u0644\u0645\u062F\u0641\u0648\u0639\u0629 \u062A\u0631\u0641\u0639 \u0645\u0646 \u0623\u064A\u0627\u0645 \u0627\u0644\u062E\u062F\u0645\u0629 \u0648\u062A\u0648\u0642\u0641 \u0627\u062D\u062A\u0633\u0627\u0628 \u0627\u0633\u062A\u062D\u0642\u0627\u0642 \u0627\u0644\u0625\u062C\u0627\u0632\u0629 \u0627\u0644\u0633\u0646\u0648\u064A\u0629 \u062A\u0644\u0642\u0627\u0626\u064A\u0627\u064B.`;
-      } else {
-        simulatedReply = `### \u{1F916} \u0623\u0647\u0644\u0627\u064B \u0628\u0643 \u0641\u064A \u0645\u0633\u0627\u0639\u062F \u0623\u0648\u062F\u0648 \u0627\u0644\u0630\u0643\u064A (Odoo Kuwait HR Copilot)
-
-\u0644\u0642\u062F \u0627\u0633\u062A\u0644\u0645\u062A \u0633\u0624\u0627\u0644\u0643: **"${prompt}"**
-
-**\u0645\u0644\u062E\u0635 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0634\u0631\u0643\u0629 \u0627\u0644\u062D\u0627\u0644\u064A\u0629:**
-${contextSummary || "\u0627\u0644\u0645\u0624\u0633\u0633\u0629 \u0627\u0644\u062D\u0627\u0644\u064A\u0629"}
-
-**\u0643\u064A\u0641 \u064A\u0645\u0643\u0646\u0646\u064A \u0645\u0633\u0627\u0639\u062F\u062A\u0643 \u0627\u0644\u064A\u0648\u0645\u061F**
-1. \u2696\uFE0F **\u0627\u0644\u0627\u0633\u062A\u0634\u0627\u0631\u0627\u062A \u0627\u0644\u0642\u0627\u0646\u0648\u0646\u064A\u0629:** \u0627\u0644\u0627\u0633\u062A\u0641\u0633\u0627\u0631 \u0639\u0646 \u0645\u0648\u0627\u062F \u0642\u0627\u0646\u0648\u0646 \u0627\u0644\u0639\u0645\u0644 \u0627\u0644\u0643\u0648\u064A\u062A\u064A (\u0627\u0644\u0625\u062C\u0627\u0632\u0627\u062A\u060C \u0627\u0644\u0631\u0648\u0627\u062A\u0628\u060C \u0627\u0644\u0633\u0627\u0639\u0627\u062A \u0627\u0644\u0625\u0636\u0627\u0641\u064A\u0629\u060C \u0645\u0643\u0627\u0641\u0623\u0629 \u0646\u0647\u0627\u064A\u0629 \u0627\u0644\u062E\u062F\u0645\u0629).
-2. \u{1F4D1} **\u0625\u062F\u0627\u0631\u0629 \u0627\u0644\u0645\u0633\u062A\u0646\u062F\u0627\u062A \u0627\u0644\u0647\u0648\u064A\u0627\u062A:** \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0635\u0644\u0627\u062D\u064A\u0627\u062A \u0627\u0644\u0628\u0637\u0627\u0642\u0627\u062A \u0627\u0644\u0645\u062F\u0646\u064A\u0629\u060C \u0627\u0644\u062C\u0648\u0627\u0632\u0627\u062A \u0648\u062A\u0631\u062E\u064A\u0635 \u0627\u0644\u0635\u062D\u0629 MOH.
-3. \u{1F4B8} **\u0645\u0633\u064A\u0631 \u0627\u0644\u0631\u0648\u0627\u062A\u0628 \u0648\u062D\u0645\u0627\u064A\u0629 \u0627\u0644\u0623\u062C\u0648\u0631 WSI:** \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u062A\u062D\u0648\u064A\u0644\u0627\u062A \u0627\u0644\u0628\u0646\u0648\u0643 \u0627\u0644\u0643\u0648\u064A\u062A\u064A\u0629 \u0648\u0635\u064A\u063A \u0645\u0644\u0641\u0627\u062A \u062D\u0645\u0627\u064A\u0629 \u0627\u0644\u0623\u062C\u0648\u0631.
-4. \u{1F4CA} **\u0627\u0644\u062A\u0642\u0627\u0631\u064A\u0631 \u0648\u0627\u0644\u0625\u062D\u0635\u0627\u0626\u064A\u0627\u062A:** \u0627\u0633\u062A\u062E\u0631\u0627\u062C \u0645\u0644\u062E\u0635\u0627\u062A \u0627\u0644\u0642\u0648\u0649 \u0627\u0644\u0639\u0627\u0645\u0644\u0629 \u0648\u062A\u0643\u0627\u0644\u064A\u0641 \u0627\u0644\u0623\u062C\u0648\u0631 \u0628\u0627\u0644\u062F\u064A\u0646\u0627\u0631 \u0627\u0644\u0643\u0648\u064A\u062A\u064A (0.000 KWD).`;
-      }
-      return res.json({
-        success: true,
-        reply: simulatedReply,
-        source: "simulated_copilot",
-        action: createEmployeeAction
-      });
-    }
-    let contents = [];
-    if (contextSummary) {
-      contents.push({ text: `[\u0633\u064A\u0627\u0642 \u0627\u0644\u0646\u0638\u0627\u0645 \u0648\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0634\u0631\u0643\u0629 \u0627\u0644\u062D\u0627\u0644\u064A\u0629]:
-${contextSummary}` });
-    }
-    if (Array.isArray(conversationHistory)) {
-      for (const msg of conversationHistory) {
-        contents.push({
-          text: `${msg.role === "user" ? "\u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645" : "\u0627\u0644\u0645\u0633\u0627\u0639\u062F \u0627\u0644\u0630\u0643\u064A"}: ${msg.content}`
-        });
-      }
-    }
-    contents.push({ text: `\u0633\u0624\u0627\u0644 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0627\u0644\u062D\u0627\u0644\u064A: ${prompt}` });
-    const modelsForChat = ["gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-3.6-flash", "gemini-1.5-flash"];
-    let replyText = "";
-    let usedModel = "";
-    for (const modelName of modelsForChat) {
-      try {
-        const response = await ai.models.generateContent({
-          model: modelName,
-          contents: { parts: contents },
-          config: {
-            systemInstruction,
-            temperature: 0.7
-          }
-        });
-        if (response.text) {
-          replyText = response.text;
-          usedModel = modelName;
-          break;
-        }
-      } catch (err) {
-        console.warn(`Chat model ${modelName} failed, trying next...`, err);
-      }
-    }
-    if (!replyText) {
-      replyText = `### \u{1F916} \u0645\u0633\u0627\u0639\u062F \u0623\u0648\u062F\u0648 \u0627\u0644\u0630\u0643\u064A (\u0648\u0636\u0639 \u0627\u0644\u0627\u0633\u062A\u062C\u0627\u0628\u0629 \u0627\u0644\u0627\u062D\u062A\u064A\u0627\u0637\u064A\u0629)
-
-\u0623\u0647\u0644\u0627\u064B \u0628\u0643! \u0644\u0642\u062F \u0627\u0633\u062A\u0644\u0645\u062A \u0633\u0624\u0627\u0644\u0643: **"${prompt}"**
-
-- **\u0648\u0641\u0642\u0627\u064B \u0644\u0642\u0627\u0646\u0648\u0646 \u0627\u0644\u0639\u0645\u0644 \u0627\u0644\u0643\u0648\u064A\u062A\u064A \u0631\u0642\u0645 6/2010:** \u064A\u062A\u0645 \u0627\u062D\u062A\u0633\u0627\u0628 \u0645\u0643\u0627\u0641\u0623\u0629 \u0646\u0647\u0627\u064A\u0629 \u0627\u0644\u062E\u062F\u0645\u0629 \u0648\u0627\u0644\u0625\u062C\u0627\u0632\u0627\u062A \u0648\u0627\u0644\u0631\u0648\u0627\u062A\u0628 \u0628\u062F\u0642\u0629 \u062A\u0627\u0645\u0629.
-- **\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A:** \u0645\u0631\u062A\u0628\u0637\u0629 \u0648\u062C\u0627\u0647\u0632\u0629 \u0644\u0645\u0639\u0627\u0644\u062C\u0629 \u0643\u0627\u0641\u0629 \u0627\u0644\u0645\u0639\u0627\u0645\u0644\u0627\u062A \u0627\u0644\u0625\u062F\u0627\u0631\u064A\u0629.`;
-      usedModel = "fallback_simulated";
-    }
-    return res.json({
-      success: true,
-      reply: replyText,
-      source: usedModel,
-      action: createEmployeeAction
-    });
-  } catch (error) {
-    return res.json({
-      success: true,
-      reply: `### \u{1F916} \u0645\u0633\u0627\u0639\u062F \u0623\u0648\u062F\u0648 \u0627\u0644\u0630\u0643\u064A (\u0648\u0636\u0639 \u0627\u0644\u0627\u0633\u062A\u062C\u0627\u0628\u0629 \u0627\u0644\u0627\u062D\u062A\u064A\u0627\u0637\u064A\u0629)
-
-\u0623\u0647\u0644\u0627\u064B \u0628\u0643! \u0627\u0644\u0646\u0638\u0627\u0645 \u064A\u0639\u0645\u0644 \u0628\u0643\u0627\u0645\u0644 \u0637\u0627\u0642\u062A\u0647 \u0627\u0644\u0627\u062D\u062A\u064A\u0627\u0637\u064A\u0629 \u0644\u0644\u062A\u0639\u0627\u0645\u0644 \u0645\u0639 \u0637\u0644\u0628\u0627\u062A\u0643 \u0628\u062F\u0642\u0629 \u062A\u0627\u0645\u0629.
-
-- **\u0648\u0641\u0642\u0627\u064B \u0644\u0642\u0627\u0646\u0648\u0646 \u0627\u0644\u0639\u0645\u0644 \u0627\u0644\u0643\u0648\u064A\u062A\u064A \u0631\u0642\u0645 6/2010:** \u064A\u062A\u0645 \u0627\u062D\u062A\u0633\u0627\u0628 \u0645\u0643\u0627\u0641\u0623\u0629 \u0646\u0647\u0627\u064A\u0629 \u0627\u0644\u062E\u062F\u0645\u0629\u060C \u0627\u0644\u0625\u062C\u0627\u0632\u0627\u062A\u060C \u0648\u0627\u0644\u0631\u0648\u0627\u062A\u0628 \u0628\u062F\u0642\u0629 \u062A\u0627\u0645\u0629.
-- **\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A:** \u0645\u0631\u062A\u0628\u0637\u0629 \u0628\u0646\u062C\u0627\u062D \u0648\u062C\u0627\u0647\u0632\u0629 \u0644\u0645\u0639\u0627\u0644\u062C\u0629 \u0643\u0627\u0641\u0629 \u0627\u0644\u0645\u0639\u0627\u0645\u0644\u0627\u062A \u0627\u0644\u0625\u062F\u0627\u0631\u064A\u0629 \u0648\u0627\u0644\u0645\u0627\u0644\u064A\u0629.`,
-      source: "fallback_simulated_copilot",
-      action: buildCreateEmployeeAction(req.body?.prompt || "")
-    });
-  }
+function rejectUnauthorized(res, authCheck) {
+  return res.status(authCheck.status || 401).json({
+    success: false,
+    error: authCheck.error || "Unauthorized"
+  });
+}
+registerAiChatRoute(app, {
+  requireFirebaseAuth,
+  resolveCallerRole,
+  getGeminiClient
 });
 var livePunchesCache = [];
 app.post("/api/attendance/live-push", async (req, res) => {
@@ -2896,6 +3108,8 @@ async function executeSystemBackupCore(clientSnapshot, triggerSource = "MANUAL")
 }
 app.post("/api/backup/run", import_express.default.json({ limit: "50mb" }), async (req, res) => {
   try {
+    const authCheck = await requireSuperAdmin(req);
+    if (!authCheck.ok) return rejectUnauthorized(res, authCheck);
     const { snapshot } = req.body || {};
     const result = await executeSystemBackupCore(snapshot, "MANUAL_TRIGGER");
     if (result.success) {
@@ -2920,6 +3134,8 @@ app.post("/api/backup/run", import_express.default.json({ limit: "50mb" }), asyn
 });
 app.post("/api/backup/test-failure-alert", import_express.default.json(), async (req, res) => {
   try {
+    const authCheck = await requireSuperAdmin(req);
+    if (!authCheck.ok) return rejectUnauthorized(res, authCheck);
     const { error, failedStep, errorStack } = req.body || {};
     const systemEmail = getSystemDefaultEmail();
     const result = await sendDailyBackupFailureAlert({
@@ -2944,7 +3160,9 @@ app.post("/api/backup/test-failure-alert", import_express.default.json(), async 
     return res.status(500).json({ success: false, error: err.message });
   }
 });
-app.get("/api/backup/status", (req, res) => {
+app.get("/api/backup/status", async (req, res) => {
+  const authCheck = await requireSuperAdmin(req);
+  if (!authCheck.ok) return rejectUnauthorized(res, authCheck);
   const systemEmail = getSystemDefaultEmail();
   const formatBytes = (bytes) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -2979,7 +3197,9 @@ app.get("/api/backup/status", (req, res) => {
     latestFilename: latestBackupFilename
   });
 });
-app.get("/api/backup/download-latest", (req, res) => {
+app.get("/api/backup/download-latest", async (req, res) => {
+  const authCheck = await requireSuperAdmin(req);
+  if (!authCheck.ok) return rejectUnauthorized(res, authCheck);
   if (!latestBackupBuffer) {
     return res.status(404).json({ success: false, error: "\u0644\u0627 \u062A\u0648\u062C\u062F \u0646\u0633\u062E\u0629 \u0627\u062D\u062A\u064A\u0627\u0637\u064A\u0629 \u0645\u062D\u0641\u0648\u0638\u0629 \u062D\u0627\u0644\u064A\u0627\u064B \u0641\u064A \u0627\u0644\u0630\u0627\u0643\u0631\u0629. \u064A\u0631\u062C\u0649 \u062A\u0634\u063A\u064A\u0644 \u0627\u0644\u0646\u0633\u062E \u0623\u0648\u0644\u0627\u064B." });
   }
@@ -3097,6 +3317,8 @@ app.post("/api/subscription/register", import_express.default.json(), async (req
   });
 });
 app.post("/api/admin/force-password", import_express.default.json(), async (req, res) => {
+  const authCheck = await requireSuperAdmin(req);
+  if (!authCheck.ok) return rejectUnauthorized(res, authCheck);
   const { email, newPassword } = req.body;
   const admin = getAdminAuth();
   if (!admin) {
@@ -3115,6 +3337,8 @@ app.post("/api/admin/force-password", import_express.default.json(), async (req,
   }
 });
 app.post("/api/admin/create-tenant", import_express.default.json(), async (req, res) => {
+  const authCheck = await requireSuperAdmin(req);
+  if (!authCheck.ok) return rejectUnauthorized(res, authCheck);
   const { email, password, companyName, companyId, ownerName, phone, planType } = req.body;
   if (!email || !companyName) {
     return res.status(400).json({ success: false, error: "\u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0648\u0627\u0633\u0645 \u0627\u0644\u0634\u0631\u0643\u0629 \u0645\u0637\u0644\u0648\u0628\u0627\u0646" });
@@ -3175,6 +3399,8 @@ app.post("/api/admin/create-tenant", import_express.default.json(), async (req, 
   }
 });
 app.post("/api/admin/delete-tenant", import_express.default.json(), async (req, res) => {
+  const authCheck = await requireSuperAdmin(req);
+  if (!authCheck.ok) return rejectUnauthorized(res, authCheck);
   const { email, uid, companyId } = req.body;
   const admin = getAdminAuth();
   if (!email && !uid) {
@@ -3214,6 +3440,8 @@ app.post("/api/admin/delete-tenant", import_express.default.json(), async (req, 
   }
 });
 app.post("/api/admin/update-user-email", import_express.default.json(), async (req, res) => {
+  const authCheck = await requireFirebaseAuth(req);
+  if (!authCheck.ok) return rejectUnauthorized(res, authCheck);
   const { currentEmail, newEmail } = req.body;
   const admin = getAdminAuth();
   if (!admin) {
@@ -3221,6 +3449,12 @@ app.post("/api/admin/update-user-email", import_express.default.json(), async (r
       success: false,
       error: "Firebase Admin is not configured"
     });
+  }
+  const resolved = await resolveCallerRole(authCheck);
+  const callerEmail = String(authCheck.email || "").toLowerCase();
+  const targetCurrent = String(currentEmail || "").trim().toLowerCase();
+  if (resolved.role !== "SUPER_ADMIN" && callerEmail !== targetCurrent) {
+    return res.status(403).json({ success: false, error: "\u064A\u0645\u0643\u0646\u0643 \u062A\u0639\u062F\u064A\u0644 \u0628\u0631\u064A\u062F \u062D\u0633\u0627\u0628\u0643 \u0641\u0642\u0637" });
   }
   try {
     const userRecord = await admin.getUserByEmail(currentEmail);
@@ -3271,8 +3505,12 @@ var systemSettingsStore = {
 var multiCompanySettings = {};
 var userOtpCodesStore = [];
 var otpIdCounter = 1;
-app.get("/api/settings", (req, res) => {
-  const companyId = req.headers["x-company-id"] || "default";
+app.get("/api/settings", async (req, res) => {
+  const authCheck = await requireFirebaseAuth(req);
+  if (!authCheck.ok) return rejectUnauthorized(res, authCheck);
+  const resolved = await resolveCallerRole(authCheck);
+  const headerCompanyId = req.headers["x-company-id"] || "";
+  const companyId = resolved.role === "SUPER_ADMIN" ? headerCompanyId || resolved.companyId || "default" : resolved.companyId || "default";
   if (!multiCompanySettings[companyId]) {
     multiCompanySettings[companyId] = {
       ...systemSettingsStore
@@ -3280,9 +3518,13 @@ app.get("/api/settings", (req, res) => {
   }
   res.json({ success: true, data: multiCompanySettings[companyId] });
 });
-app.put("/api/settings", import_express.default.json(), (req, res) => {
+app.put("/api/settings", import_express.default.json(), async (req, res) => {
   try {
-    const companyId = req.headers["x-company-id"] || "default";
+    const authCheck = await requireFirebaseAuth(req);
+    if (!authCheck.ok) return rejectUnauthorized(res, authCheck);
+    const resolved = await resolveCallerRole(authCheck);
+    const headerCompanyId = req.headers["x-company-id"] || "";
+    const companyId = resolved.role === "SUPER_ADMIN" ? headerCompanyId || resolved.companyId || "default" : resolved.companyId || "default";
     const data = req.body;
     if (!multiCompanySettings[companyId]) {
       multiCompanySettings[companyId] = { ...systemSettingsStore };
@@ -3467,7 +3709,9 @@ app.post("/api/auth/verify-2fa-otp", import_express.default.json(), (req, res) =
     res.status(500).json({ success: false, message: "\u0641\u0634\u0644 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u0644\u0631\u0645\u0632", error: error.message });
   }
 });
-app.get("/api/settings/backup/download", (req, res) => {
+app.get("/api/settings/backup/download", async (req, res) => {
+  const authCheck = await requireSuperAdmin(req);
+  if (!authCheck.ok) return rejectUnauthorized(res, authCheck);
   const dump = {
     settings: systemSettingsStore,
     timestamp: (/* @__PURE__ */ new Date()).toISOString(),
