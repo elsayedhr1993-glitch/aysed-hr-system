@@ -982,10 +982,18 @@ function validateSettlementConstraints(voucherOrInput) {
 var import_genai = require("@google/genai");
 
 // src/config/aiConfig.ts
+var import_meta = {};
+function readConfigEnv(key) {
+  if (typeof process !== "undefined" && process.env?.[key]) {
+    return String(process.env[key]);
+  }
+  const viteEnv = import_meta.env;
+  return viteEnv[key] ?? viteEnv[`VITE_${key}`];
+}
 var AI_MODELS = {
-  chat: process.env.AI_CHAT_MODEL || "gemini-2.5-flash",
-  ocr: process.env.AI_OCR_MODEL || "gemini-2.5-flash",
-  fallback: process.env.AI_FALLBACK_MODEL || "gemini-2.5-pro"
+  chat: readConfigEnv("AI_CHAT_MODEL") || "gemini-2.5-flash",
+  ocr: readConfigEnv("AI_OCR_MODEL") || "gemini-2.5-flash",
+  fallback: readConfigEnv("AI_FALLBACK_MODEL") || "gemini-2.5-pro"
 };
 function uniqueModels(candidates) {
   const seen = /* @__PURE__ */ new Set();
@@ -999,7 +1007,7 @@ function uniqueModels(candidates) {
   return out;
 }
 function getChatModelCandidates() {
-  const extra = (process.env.AI_CHAT_MODEL_FALLBACKS || "").split(",").map((s) => s.trim()).filter(Boolean);
+  const extra = (readConfigEnv("AI_CHAT_MODEL_FALLBACKS") || "").split(",").map((s) => s.trim()).filter(Boolean);
   return uniqueModels([
     AI_MODELS.chat,
     ...extra,
@@ -1008,7 +1016,7 @@ function getChatModelCandidates() {
   ]);
 }
 function getOcrModelCandidates() {
-  const extra = (process.env.AI_OCR_MODEL_FALLBACKS || "").split(",").map((s) => s.trim()).filter(Boolean);
+  const extra = (readConfigEnv("AI_OCR_MODEL_FALLBACKS") || "").split(",").map((s) => s.trim()).filter(Boolean);
   return uniqueModels([AI_MODELS.ocr, ...extra, AI_MODELS.fallback, "gemini-2.0-flash"]);
 }
 function getConnectivityTestModels() {
