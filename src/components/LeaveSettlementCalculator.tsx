@@ -26,7 +26,11 @@ import {
 } from '../services/leaveSettlementService';
 import { syncLedgerFromFirestore } from '../services/leaveBalanceLedgerService';
 import { LeaveClearanceDocument } from './LeaveClearanceDocument';
-import { LeaveBalanceEngine } from '../utils/leaveEngine';
+import {
+  LeaveBalanceEngine,
+  resolveLeaveBalancePoolHint,
+  resolveLeavePaidUnpaidSplit
+} from '../utils/leaveEngine';
 import { normalizeContractStatus } from '../utils/contractStatus';
 import toast from 'react-hot-toast';
 import { useLang } from '../lib/i18n';
@@ -460,11 +464,17 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
         setStatutoryLeaveDays(statutory);
         const regularTaken = found.annualDeductedDays ?? Math.max(0, (found.totalDays || 0) - statutory);
         setConsumedLeaveDays(clampToAvailable(regularTaken));
+        setUnpaidLeaveDays(Number(found.unpaidDays ?? found.excessDays ?? 0));
       } else {
-        setConsumedLeaveDays(clampToAvailable(found.paidDays !== undefined ? found.paidDays : (found.totalDays || 0)));
+        const poolBefore =
+          Number(found.totalAvailableBalance ?? 0) > 0
+            ? Number(found.totalAvailableBalance)
+            : Math.max(resolveLeaveBalancePoolHint(found), netAvailable + Number(found.paidDays ?? 0));
+        const split = resolveLeavePaidUnpaidSplit(found, poolBefore);
+        setConsumedLeaveDays(clampToAvailable(split.paid));
+        setUnpaidLeaveDays(split.unpaid);
         setStatutoryLeaveDays(0);
       }
-      setUnpaidLeaveDays(found.unpaidDays || found.excessDays || 0);
     }
   };
 

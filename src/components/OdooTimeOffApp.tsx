@@ -47,7 +47,11 @@ import { computeFifoLeaveAllocations, buildEmployeeBaselineAllocations } from '.
 import { approveLeaveRequest } from '../services/leaveApprovalService';
 import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { db, cleanFirestoreData } from '../lib/firebase';
-import { LeaveBalanceEngine } from '../utils/leaveEngine';
+import {
+  LeaveBalanceEngine,
+  resolveLeaveBalancePoolHint,
+  resolveLeavePaidUnpaidSplit
+} from '../utils/leaveEngine';
 import { normalizeLeaveStatus, normalizeLeaveType, isLeaveRequestInConflict, canTransitionLeaveStatus, isAnnualLeaveType } from '../utils/leaveModel';
 import { calculateKuwaitLeaveCashAmount } from '../utils/kuwaitPayrollMath';
 import { upsertLeaveAllocationToSupabase } from '../services/leaveSupabaseSync';
@@ -165,23 +169,6 @@ export const OdooTimeOffApp: React.FC = () => {
 
   // Unified Employees List
   const companyEmployees = (employees && employees.length > 0) ? employees : [];
-
-  const resolveLeaveRequestFinancials = (req: LeaveRequest) => {
-    const emp = companyEmployees.find(e => e.id === req.employeeId);
-    const empAny = emp as any;
-    const basicSalary = Number(req.basicSalary ?? empAny?.basicSalary ?? 0) || 0;
-    const totalSalary =
-      Number(req.totalSalary ?? empAny?.totalSalary ?? empAny?.salary ?? basicSalary) || 0;
-    const daysCount = Number(req.daysCount ?? req.totalDays ?? 0) || 0;
-    return {
-      basicSalary,
-      totalSalary,
-      daysCount,
-      employeeName: req.employeeName || empAny?.name || empAny?.fullNameAr || 'موظف',
-      civilId: req.civilId || empAny?.civilId || '',
-      department: req.department || empAny?.department || 'الإدارة العامة',
-    };
-  };
 
   const mappedAllocations = useMemo(
     () =>
@@ -362,6 +349,32 @@ export const OdooTimeOffApp: React.FC = () => {
       contractEndStr,
       fiscalYearLabel: `السنة المالية للعقد (${startYear} - ${endYear})`,
       contractRef: (emp as any)?.contractRef || `KW-CNT-${empId}-${startYear}`
+    };
+  };
+
+  const resolveLeaveRequestFinancials = (req: LeaveRequest) => {
+    const emp = companyEmployees.find(e => e.id === req.employeeId);
+    const empAny = emp as any;
+    const basicSalary = Number(req.basicSalary ?? empAny?.basicSalary ?? 0) || 0;
+    const totalSalary =
+      Number(req.totalSalary ?? empAny?.totalSalary ?? empAny?.salary ?? basicSalary) || 0;
+    const daysCount = Number(req.daysCount ?? req.totalDays ?? 0) || 0;
+    const { available } = getEmployeeContractBalance(req.employeeId);
+    const poolBefore =
+      Number(req.totalAvailableBalance ?? 0) > 0
+        ? Number(req.totalAvailableBalance)
+        : Math.max(resolveLeaveBalancePoolHint(req), available + Number(req.paidDays ?? 0));
+    const split = resolveLeavePaidUnpaidSplit(req, poolBefore);
+
+    return {
+      basicSalary,
+      totalSalary,
+      daysCount,
+      paidDays: split.paid,
+      unpaidDays: split.unpaid,
+      employeeName: req.employeeName || empAny?.name || empAny?.fullNameAr || 'موظف',
+      civilId: req.civilId || empAny?.civilId || '',
+      department: req.department || empAny?.department || 'الإدارة العامة',
     };
   };
 
@@ -1622,7 +1635,7 @@ export const OdooTimeOffApp: React.FC = () => {
                   <tbody className="divide-y divide-slate-100">
                     {requests.filter(r => normalizeLeaveStatus(r.status) === 'APPROVED' && isAnnualLeaveType(r.leaveType)).map((req) => {
                       const fin = resolveLeaveRequestFinancials(req);
-                      const advanceSalary = calculateKuwaitLeaveCashAmount(fin.daysCount, fin.basicSalary);
+                      const advanceSalary = calculateKuwaitLeaveCashAmount(fin.paidDays, fin.basicSalary);
                       const ticketAllowance = 120.000;
                       const totalPayable = advanceSalary + ticketAllowance;
 
@@ -1635,7 +1648,9 @@ export const OdooTimeOffApp: React.FC = () => {
                           <td className="p-3.5 font-mono">{fin.civilId}</td>
                           <td className="p-3.5 font-mono">
                             <div>{req.startDate}</div>
-                            <div className="text-[10px] text-slate-400 font-bold">{fin.daysCount} يوم عمل</div>
+                            <div className="text-[10px] text-slate-400 font-bold">
+                              {fin.daysCount} يوم (مدفوع {fin.paidDays} / بدون راتب {fin.unpaidDays})
+                            </div>
                           </td>
                           <td className="p-3.5 font-mono font-bold text-slate-800">{fin.totalSalary.toFixed(3)} د.ك</td>
                           <td className="p-3.5 font-mono font-bold text-purple-900">{advanceSalary.toFixed(3)} د.ك</td>
@@ -2151,7 +2166,9 @@ export const OdooTimeOffApp: React.FC = () => {
                 </div>
                 <div>
                   <span className="text-slate-400 block text-[10px]">فترة الإجازة:</span>
-                  <span className="font-bold text-slate-800">{selectedSettlementReq.startDate} ({settlementFin.daysCount} يوم)</span>
+                  <span className="font-bold text-slate-800">
+                    {selectedSettlementReq.startDate} ({settlementFin.daysCount} يوم — مدفوع {settlementFin.paidDays} / بدون راتب {settlementFin.unpaidDays})
+                  </span>
                 </div>
                 <div>
                   <span className="text-slate-400 block text-[10px]">الراتب الشامل:</span>
@@ -2170,11 +2187,27 @@ export const OdooTimeOffApp: React.FC = () => {
                 <tbody className="divide-y">
                   <tr>
                     <td className="p-2.5 font-bold">راتب الإجازة السنوية مقدماً</td>
-                    <td className="p-2.5 text-slate-500">أجر {settlementFin.daysCount} يوماً مدفوعة الأجر مقدماً (مادة 71)</td>
+                    <td className="p-2.5 text-slate-500">
+                      أجر {settlementFin.paidDays} يوماً مغطاة بالرصيد مقدماً (مادة 71)
+                      {settlementFin.unpaidDays > 0 && (
+                        <span className="block text-[10px] text-orange-800 mt-0.5">
+                          لا يُصرف أجر عن {settlementFin.unpaidDays} يوم تجاوز رصيد (بدون راتب).
+                        </span>
+                      )}
+                    </td>
                     <td className="p-2.5 font-mono font-bold text-left text-purple-900">
-                      {calculateKuwaitLeaveCashAmount(settlementFin.daysCount, settlementFin.basicSalary).toFixed(3)}
+                      {calculateKuwaitLeaveCashAmount(settlementFin.paidDays, settlementFin.basicSalary).toFixed(3)}
                     </td>
                   </tr>
+                  {settlementFin.unpaidDays > 0 && (
+                    <tr className="bg-orange-50/60">
+                      <td className="p-2.5 font-bold text-orange-950">أيام بدون راتب (تجاوز رصيد)</td>
+                      <td className="p-2.5 text-orange-900 text-[11px]">
+                        {settlementFin.unpaidDays} يوم خارج الرصيد — مستثناة من الصرف المقدم ومسير الرواتب لاحقاً.
+                      </td>
+                      <td className="p-2.5 font-mono font-bold text-left text-orange-900">0.000</td>
+                    </tr>
+                  )}
                   <tr>
                     <td className="p-2.5 font-bold">بدل تذاكر السفر السنوية</td>
                     <td className="p-2.5 text-slate-500">استحقاق تذكرة سفر نقدية سنوية</td>
@@ -2186,7 +2219,7 @@ export const OdooTimeOffApp: React.FC = () => {
                     <td className="p-3 text-sm">صافي المبلغ المستحق للتحويل البنكي (WPS):</td>
                     <td></td>
                     <td className="p-3 text-base font-mono text-left">
-                      {(calculateKuwaitLeaveCashAmount(settlementFin.daysCount, settlementFin.basicSalary) + 120).toFixed(3)} د.ك
+                      {(calculateKuwaitLeaveCashAmount(settlementFin.paidDays, settlementFin.basicSalary) + 120).toFixed(3)} د.ك
                     </td>
                   </tr>
                 </tfoot>
