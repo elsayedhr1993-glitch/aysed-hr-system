@@ -63,7 +63,7 @@ export const DataPayrollAnalystBotModal: React.FC<DataPayrollAnalystBotModalProp
   const terminatedCount = employees.filter(e => e.status === 'TERMINATED' || e.status === 'RESIGNED').length;
   const turnoverRate = totalEmpsCount > 0 ? ((terminatedCount / (totalEmpsCount + terminatedCount)) * 100).toFixed(1) : '0.0';
 
-  const aiScore = totalEmpsCount > 0 ? 92 : 100;
+  const dataCoverageScore = totalEmpsCount > 0 ? Math.min(100, 60 + totalEmpsCount * 2) : 0;
 
   const turnoverData = [
     { month: 'يناير', rate: Number(turnoverRate) > 0 ? Number(turnoverRate) : 0 },
@@ -95,9 +95,8 @@ export const DataPayrollAnalystBotModal: React.FC<DataPayrollAnalystBotModalProp
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-xl font-black tracking-tight">محلل البيانات واستراتيجي الرواتب</h2>
-                <span className="text-[10px] bg-emerald-500 text-white px-2 py-0.5 rounded-full font-black uppercase tracking-wider shadow-sm border border-emerald-400 flex items-center gap-1">
-                  <Sparkles size={10} />
-                  AI Data Analyst
+                <span className="text-[10px] bg-emerald-600 text-white px-2 py-0.5 rounded-full font-black uppercase tracking-wider shadow-sm border border-emerald-500">
+                  تحليل إحصائي
                 </span>
               </div>
               <p className="text-xs text-emerald-100 font-medium mt-0.5">
@@ -119,8 +118,8 @@ export const DataPayrollAnalystBotModal: React.FC<DataPayrollAnalystBotModalProp
               <div className="w-24 h-24 border-4 border-emerald-600 rounded-full absolute top-0 left-0 border-t-transparent animate-spin"></div>
               <BarChart3 size={32} className="text-emerald-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
             </div>
-            <h3 className="font-black text-slate-800 text-xl">جاري معالجة البيانات وبناء النماذج التحليلية...</h3>
-            <p className="text-sm font-bold text-slate-500 mt-2">يقوم الذكاء الاصطناعي الآن بربط مسيرات الرواتب بمراكز التكلفة والتنبؤ بالميزانية</p>
+            <h3 className="font-black text-slate-800 text-xl">جاري تجميع البيانات من سجلات الموظفين...</h3>
+            <p className="text-sm font-bold text-slate-500 mt-2">حسابات محلية من الرواتب والأقسام المسجلة (بدون نماذج لغوية).</p>
           </div>
         ) : (
           <>
@@ -198,12 +197,12 @@ export const DataPayrollAnalystBotModal: React.FC<DataPayrollAnalystBotModalProp
 
                 <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
                   <div className="flex items-center justify-between text-slate-500 mb-2">
-                    <span className="text-xs font-bold">كفاءة التكلفة (AI Score)</span>
-                    <Sparkles size={18} className="text-[#714B67]" />
+                    <span className="text-xs font-bold">اكتمال بيانات الرواتب</span>
+                    <BarChart3 size={18} className="text-[#714B67]" />
                   </div>
-                  <div className="text-2xl font-black text-emerald-600">{aiScore}/100</div>
-                  <div className="mt-2 text-[10px] font-bold text-emerald-700 bg-emerald-50 w-fit px-2 py-1 rounded-md">
-                    توزيع ممتاز للموارد البشرية
+                  <div className="text-2xl font-black text-emerald-600">{dataCoverageScore}/100</div>
+                  <div className="mt-2 text-[10px] font-bold text-slate-600 bg-slate-50 w-fit px-2 py-1 rounded-md">
+                    مؤشر تقريبي حسب عدد السجلات النشطة
                   </div>
                 </div>
               </div>
@@ -270,7 +269,7 @@ export const DataPayrollAnalystBotModal: React.FC<DataPayrollAnalystBotModalProp
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 animate-in fade-in duration-500">
                   <div className="flex justify-between items-start mb-6">
                     <div>
-                      <h3 className="text-sm font-black text-slate-900">تحليل وتوقع الاستقالات (Turnover Predictive AI)</h3>
+                      <h3 className="text-sm font-black text-slate-900">معدل الاستقالات من السجلات الحالية</h3>
                       <p className="text-xs text-slate-500 mt-1">توقع استقالات الموظفين بناءً على الرواتب، الإجازات، والغياب</p>
                     </div>
                     <div className="bg-amber-50 text-amber-800 px-3 py-1.5 rounded-lg text-xs font-bold border border-amber-200 flex items-center gap-2">
@@ -304,7 +303,7 @@ export const DataPayrollAnalystBotModal: React.FC<DataPayrollAnalystBotModalProp
                     <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
                       <h4 className="font-bold text-xs text-slate-900 flex items-center gap-2">
                         <BrainCircuit size={16} className="text-[#714B67]" />
-                        <span>رؤية الذكاء الاصطناعي</span>
+                        <span>ملخص إحصائي</span>
                       </h4>
                       <p className="text-xs leading-relaxed text-slate-600">
                         هناك احتمالية 65% لزيادة معدل الاستقالات في قسم "المبيعات" بسبب ثبات الرواتب مقارنة بالسوق المحلي خلال آخر 18 شهراً. 

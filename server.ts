@@ -28,7 +28,8 @@ import {
   calculateServerWorkingDays,
   validateSettlementConstraints
 } from "./server/leaveCalculatorServer.ts";
-import { parseEmployeeCreationPrompt } from "./src/lib/aiEmployeeActionParser.ts";
+import { registerAiChatRoute } from "./server/aiChat.ts";
+import { getConnectivityTestModels, getOcrModelCandidates } from "./src/config/aiConfig.ts";
 
 dotenv.config();
 dotenv.config({ path: ".env.local", override: true });
@@ -720,7 +721,7 @@ app.post("/api/ai/test-key", async (req, res) => {
       });
     }
 
-    const modelsToTry = ["gemini-3.6-flash", "gemini-3.1-pro-preview"];
+    const modelsToTry = getConnectivityTestModels();
     let lastError: any = null;
     const startTime = Date.now();
 
@@ -1280,7 +1281,7 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
     });
   }
 
-  const modelsToTry = ["gemini-3.6-flash", "gemini-3.1-pro-preview"];
+  const modelsToTry = getOcrModelCandidates();
   let lastError: any = null;
 
   for (const modelName of modelsToTry) {
@@ -1528,175 +1529,10 @@ function rejectUnauthorized(res: any, authCheck: { error?: string; status?: numb
   });
 }
 
-function buildCreateEmployeeAction(prompt: string) {
-  const parsed = parseEmployeeCreationPrompt(prompt);
-  if (!parsed) return null;
-
-  return {
-    type: "CREATE_EMPLOYEE",
-    title: "Create employee via onboarding workflow",
-    employeeData: {
-      nameAr: parsed.nameAr,
-      nameEn: parsed.nameEn || parsed.nameAr,
-      civilId: parsed.civilId,
-      jobTitle: parsed.jobTitle,
-      department: parsed.department,
-      basicSalary: parsed.basicSalary,
-      phone: parsed.phone,
-      nationality: parsed.nationality,
-      email: parsed.email,
-      iban: parsed.iban,
-      bankName: parsed.bankName,
-    }
-  };
-}
-
-app.post("/api/ai-chat", async (req, res) => {
-  try {
-    const authCheck = await requireFirebaseAuth(req, res);
-    if (!authCheck.ok) {
-      return res.status(401).json({ success: false, error: authCheck.error });
-    }
-
-    const { prompt, contextSummary, conversationHistory } = req.body;
-
-    if (!prompt) {
-      return res.status(400).json({ error: "الرجاء كتابة السؤال أو الطلب للمساعد الذكي" });
-    }
-
-    const ai = getGeminiClient();
-    const createEmployeeAction = buildCreateEmployeeAction(prompt);
-
-    // System instruction for Odoo Enterprise Kuwait HR Assistant
-    const systemInstruction = `أنت المساعد البرمجي الرسمي لنظام "Aysed S HR 2026". 
-هويتك ومهامك:
-1. خبير في تطوير وبرمجة نظام أودو (Odoo Framework) وإدارة الموارد البشرية.
-2. لديك صلاحية كاملة للقراءة والتعديل على موديلات (hr.employee) وعقود العمل (hr.version).
-3. تلتزم بقوانين العمل الكويتية ونماذج الهيئة العامة للقوى العاملة عند صياغة العقود.
-4. مهمتك تنفيذ الأوامر البرمجية، إنشاء السجلات، وتحليل البيانات المالية والرواتب داخل النظام.
-5. التواصل باللغة العربية المهنية، مع التركيز على دقة البيانات وسرعة التنفيذ.
-بالإضافة إلى تخصصك القوي في:
-- المادة 51 و 53: مكافأة نهاية الخدمة (15 يوماً للأولى 5 سنوات، ثم شهر كامل لكل سنة بعد ذلك).
-- الإجازات السنوية (2.5 يوم شهرياً)، إجازات الوضع والمرضيات.
-- تدقيق الرقم المدني الكويتي لمعادلة MOD 11 (12 رقم).
-- حساب العملات دائماً بالدينار الكويتي KWD بثلاث خانات عشرية (0.000 KWD).
-- أفضل الممارسات في نظام أودو إنتربرايز Odoo 17 HRMS.
-
-البيانات الحالية للشركة والبيانات التشغيلية المقدمة لك في سياق السؤال هي قاعدة بياناتك الحية.
-قم بإجابة الموظف أو مدير الموارد البشرية بأسلوب احترافي، منظم جداً باستعمال تنسيق Markdown، مع نقاط واضحة ورسومات توضيحية خفيفة وعناوين بارزة.
-إذا طلب المستخدم حسابات (نهاية خدمة، إجازات، مستحقات رواتب)، قم بإظهار تفاصيل المعادلة خطوة بخطوة بالدينار الكويتي (KWD).`;
-
-    if (!ai) {
-      // Fallback simulated intelligent response when GEMINI_API_KEY is pending or in offline demo mode
-      const promptLower = prompt.toLowerCase();
-      let simulatedReply = "";
-
-      if (promptLower.includes("نهاية الخدمة") || promptLower.includes("مكافأة") || promptLower.includes("eos")) {
-        simulatedReply = `### 📊 حساب مكافأة نهاية الخدمة وفق المادة 51 و 53 من قانون العمل الكويتي:
-
-1. **الآلية القانونية:**
-   - **السنوات الخمس الأولى:** استحقاق **15 يوماً** عن كل سنة (الراتب الشامل ÷ 26 × 15 × عدد السنوات).
-   - **السنوات اللاحقة (من 6 سنوات فما فوق):** استحقاق **شهر كامل (26 يوماً)** عن كل سنة.
-   - **الحد الأقصى:** لا يتجاوز إجمالي المكافأة راتب سنتين (24 شهراً).
-
-2. **نسبة الاستحقاق حسب سبب انتهاء الخدمة:**
-   - **إنهاء خدمة من الشركة / انتهاء عقد:** استحقاق **100% كاملة** فوراً.
-   - **استقالة الموظف:**
-     - أقل من 3 سنوات: **لا تستحق مكافأة (0%)**.
-     - من 3 إلى أقل من 5 سنوات: **ثلث المكافأة (33.33%)**.
-     - من 5 إلى أقل من 10 سنوات: **ثلثا المكافأة (66.67%)**.
-     - 10 سنوات فأكثر: **100% كاملة**.
-
-💡 *يمكنك الانتقال إلى تطبيق "نهاية الخدمة EOS" في شاشة التطبيقات لإجراء الحساب التلقائي المباشر لأي موظف بالشركة.*`;
-      } else if (promptLower.includes("إجازة") || promptLower.includes("اجازة") || promptLower.includes("leave")) {
-        simulatedReply = `### 🌴 نظام الإجازات السنوية والمستحقات لعام 2026:
-
-- **استحقاق الإجازة السنوية:** 30 يوماً تقويمياً مدفوعة الأجر سنوياً (بمعدل **2.5 يوم شهرياً**).
-- **احتساب المباشرة في 2026:** بالنسبة للموظفين الجدد الذين باشروا خلال عام 2026، يتم احتساب رصيدهم المستحق تلقائياً من شهر المباشرة الفعلية وليس من يناير.
-- **التدوير من 2025:** يتيح النظام إدخال الرصيد المتراكم المدوّر من نهاية عام 2025 يدوياً وحفظه في سجل الموظف.
-- **توقف العداد:** الإجازات غير المدفوعة ترفع من أيام الخدمة وتوقف احتساب استحقاق الإجازة السنوية تلقائياً.`;
-      } else {
-        simulatedReply = `### 🤖 أهلاً بك في مساعد أودو الذكي (Odoo Kuwait HR Copilot)
-
-لقد استلمت سؤالك: **"${prompt}"**
-
-**ملخص بيانات الشركة الحالية:**
-${contextSummary || 'المؤسسة الحالية'}
-
-**كيف يمكنني مساعدتك اليوم؟**
-1. ⚖️ **الاستشارات القانونية:** الاستفسار عن مواد قانون العمل الكويتي (الإجازات، الرواتب، الساعات الإضافية، مكافأة نهاية الخدمة).
-2. 📑 **إدارة المستندات الهويات:** التحقق من صلاحيات البطاقات المدنية، الجوازات وترخيص الصحة MOH.
-3. 💸 **مسير الرواتب وحماية الأجور WSI:** التحقق من تحويلات البنوك الكويتية وصيغ ملفات حماية الأجور.
-4. 📊 **التقارير والإحصائيات:** استخراج ملخصات القوى العاملة وتكاليف الأجور بالدينار الكويتي (0.000 KWD).`;
-      }
-
-      return res.json({
-        success: true,
-        reply: simulatedReply,
-        source: "simulated_copilot",
-        action: createEmployeeAction,
-      });
-    }
-
-    // Build context prompt with history
-    let contents = [];
-    if (contextSummary) {
-      contents.push({ text: `[سياق النظام وبيانات الشركة الحالية]:\n${contextSummary}` });
-    }
-
-    if (Array.isArray(conversationHistory)) {
-      for (const msg of conversationHistory) {
-        contents.push({
-          text: `${msg.role === 'user' ? 'المستخدم' : 'المساعد الذكي'}: ${msg.content}`
-        });
-      }
-    }
-
-    contents.push({ text: `سؤال المستخدم الحالي: ${prompt}` });
-
-    const modelsForChat = ["gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-3.6-flash", "gemini-1.5-flash"];
-    let replyText = "";
-    let usedModel = "";
-
-    for (const modelName of modelsForChat) {
-      try {
-        const response = await ai.models.generateContent({
-          model: modelName,
-          contents: { parts: contents },
-          config: {
-            systemInstruction,
-            temperature: 0.7,
-          },
-        });
-        if (response.text) {
-          replyText = response.text;
-          usedModel = modelName;
-          break;
-        }
-      } catch (err) {
-        console.warn(`Chat model ${modelName} failed, trying next...`, err);
-      }
-    }
-
-    if (!replyText) {
-      replyText = `### 🤖 مساعد أودو الذكي (وضع الاستجابة الاحتياطية)\n\nأهلاً بك! لقد استلمت سؤالك: **"${prompt}"**\n\n- **وفقاً لقانون العمل الكويتي رقم 6/2010:** يتم احتساب مكافأة نهاية الخدمة والإجازات والرواتب بدقة تامة.\n- **قاعدة البيانات:** مرتبطة وجاهزة لمعالجة كافة المعاملات الإدارية.`;
-      usedModel = "fallback_simulated";
-    }
-
-    return res.json({
-      success: true,
-      reply: replyText,
-      source: usedModel,
-      action: createEmployeeAction,
-    });
-  } catch (error: any) {
-    return res.json({
-      success: true,
-      reply: `### 🤖 مساعد أودو الذكي (وضع الاستجابة الاحتياطية)\n\nأهلاً بك! النظام يعمل بكامل طاقته الاحتياطية للتعامل مع طلباتك بدقة تامة.\n\n- **وفقاً لقانون العمل الكويتي رقم 6/2010:** يتم احتساب مكافأة نهاية الخدمة، الإجازات، والرواتب بدقة تامة.\n- **قاعدة البيانات:** مرتبطة بنجاح وجاهزة لمعالجة كافة المعاملات الإدارية والمالية.`,
-      source: "fallback_simulated_copilot",
-      action: buildCreateEmployeeAction(req.body?.prompt || ""),
-    });
-  }
+registerAiChatRoute(app, {
+  requireFirebaseAuth,
+  resolveCallerRole,
+  getGeminiClient,
 });
 
 // ---------------------------------------------------------------------------

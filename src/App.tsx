@@ -487,6 +487,7 @@ function MainAppLayout() {
   // Spotlight Search & Quick HR Calculator modal states
   const [showSpotlight, setShowSpotlight] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
+  const [calculatorTab, setCalculatorTab] = useState<'eos' | 'leave' | 'wage' | 'pifss'>('eos');
   const [employeeAppProps, setEmployeeAppProps] = useState<any>({});
 
   // Global Keyboard Shortcut: Ctrl + K or Cmd + K
@@ -523,6 +524,7 @@ function MainAppLayout() {
         setActiveApp('scanner');
         break;
       case 'calculator':
+        setCalculatorTab('eos');
         setShowCalculator(true);
         break;
       default:
@@ -691,7 +693,10 @@ function MainAppLayout() {
         documents={documents}
         onQuickAction={handleQuickAction}
         onOpenSpotlight={() => setShowSpotlight(true)}
-        onOpenCalculator={() => setShowCalculator(true)}
+        onOpenCalculator={(tab) => {
+          setCalculatorTab(tab || 'eos');
+          setShowCalculator(true);
+        }}
         onOpenCopilot={() => setIsCopilotOpen(true)}
         onOpenSentinel={() => setIsSentinelOpen(true)}
         onOpenLegalBot={() => setIsLegalBotOpen(true)}
@@ -1112,6 +1117,7 @@ function MainAppLayout() {
       {/* Kuwait HR Quick Calculator Modal */}
       <KuwaitHrQuickCalculatorModal
         isOpen={showCalculator}
+        initialTab={calculatorTab}
         onClose={() => setShowCalculator(false)}
       />
 
@@ -1119,14 +1125,18 @@ function MainAppLayout() {
       <AysedAICopilot
         isOpen={isCopilotOpen}
         onClose={() => setIsCopilotOpen(false)}
+        companyId={effectiveCompanyId}
+        activeCompany={activeCompany}
         employees={employees as any}
         contracts={contracts}
+        leaveSummary={leaveStats}
         onQuickAction={(actionType, payload) => {
           if (actionType === 'navigate' && payload) {
             setActiveApp(payload as any);
           } else if (actionType === 'new_employee') {
             setShowAddModal(true);
           } else if (actionType === 'calculator') {
+            setCalculatorTab('eos');
             setShowCalculator(true);
           } else if (actionType === 'employees') {
             setActiveApp('employees');
@@ -1149,6 +1159,9 @@ function MainAppLayout() {
       <LegalDocumentBotModal
         isOpen={isLegalBotOpen}
         onClose={() => setIsLegalBotOpen(false)}
+        companyId={effectiveCompanyId}
+        employees={employees as any}
+        contracts={contracts}
       />
 
       {/* Data & Payroll Analyst Bot Modal */}

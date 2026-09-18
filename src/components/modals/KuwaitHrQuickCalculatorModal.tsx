@@ -1,16 +1,26 @@
-import React, { useState, useMemo } from 'react';
-import { 
-  Calculator, X, Scale, Clock, Calendar, CheckCircle2, 
-  HelpCircle, FileText, ArrowLeft, RefreshCw 
+import React, { useState, useMemo, useEffect } from 'react';
+import {
+  Calculator, X, Scale, Clock, Calendar, CheckCircle2, ShieldCheck,
 } from 'lucide-react';
+import type { QuickCalculatorTab } from '../../utils/kuwaitQuickCalculators';
+import {
+  calculateOvertimeTotals,
+  calculatePifssContributions,
+  PIFSS_SALARY_CAP_KWD,
+} from '../../utils/kuwaitQuickCalculators';
 
 interface KuwaitHrQuickCalculatorModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialTab?: QuickCalculatorTab;
 }
 
-export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModalProps> = ({ isOpen, onClose }) => {
-  const [activeTab, setActiveTab] = useState<'eos' | 'wage' | 'leave'>('eos');
+export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModalProps> = ({
+  isOpen,
+  onClose,
+  initialTab = 'eos',
+}) => {
+  const [activeTab, setActiveTab] = useState<QuickCalculatorTab>(initialTab);
 
   // EOS Calculator state
   const [eosSalary, setEosSalary] = useState<number>(850);
@@ -22,6 +32,9 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
   const [wageSalary, setWageSalary] = useState<number>(750);
   const [wageDivisor, setWageDivisor] = useState<number>(26); // مادة 56
   const [workHoursPerDay, setWorkHoursPerDay] = useState<number>(8);
+  const [otDayHours, setOtDayHours] = useState<number>(0);
+  const [otNightHours, setOtNightHours] = useState<number>(0);
+  const [pifssGross, setPifssGross] = useState<number>(1200);
 
   // Leave Liquidation state
   const [leaveSalary, setLeaveSalary] = useState<number>(800);
@@ -88,21 +101,23 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
     };
   }, [eosSalary, eosYears, eosMonths, eosTerminationType]);
 
-  // Daily & Hourly calculation
-  const wageResult = useMemo(() => {
-    const divisor = wageDivisor > 0 ? wageDivisor : 26;
-    const daily = wageSalary / divisor;
-    const hourly = daily / (workHoursPerDay > 0 ? workHoursPerDay : 8);
-    const overtimeDay = hourly * 1.25; // 125%
-    const overtimeNightHoliday = hourly * 1.5; // 150%
+  const wageResult = useMemo(
+    () =>
+      calculateOvertimeTotals({
+        monthlySalary: wageSalary,
+        divisor: wageDivisor,
+        hoursPerDay: workHoursPerDay,
+        dayOtHours: otDayHours,
+        nightHolidayOtHours: otNightHours,
+      }),
+    [wageSalary, wageDivisor, workHoursPerDay, otDayHours, otNightHours]
+  );
 
-    return {
-      daily: Number(daily.toFixed(3)),
-      hourly: Number(hourly.toFixed(3)),
-      overtimeDay: Number(overtimeDay.toFixed(3)),
-      overtimeNightHoliday: Number(overtimeNightHoliday.toFixed(3))
-    };
-  }, [wageSalary, wageDivisor, workHoursPerDay]);
+  const pifssResult = useMemo(() => calculatePifssContributions(pifssGross), [pifssGross]);
+
+  useEffect(() => {
+    if (isOpen) setActiveTab(initialTab);
+  }, [isOpen, initialTab]);
 
   // Leave liquidation calculation
   const leaveResult = useMemo(() => {
@@ -129,8 +144,8 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
               <Calculator size={18} className="text-white" />
             </div>
             <div>
-              <h3 className="font-bold text-sm">حاسبة قانون العمل الكويتي السريعة (رقم 6 لسنة 2010)</h3>
-              <p className="text-[11px] text-white/80">احتساب فوري لمكافأة نهاية الخدمة، الأجور، وتصفيات الإجازات</p>
+              <h3 className="font-bold text-sm">الحاسبات السريعة — قانون العمل الكويتي</h3>
+              <p className="text-[11px] text-white/80">EOS · الإجازات · الإضافي · التأمينات (PIFSS)</p>
             </div>
           </div>
           <button 
@@ -142,7 +157,7 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-slate-200 bg-slate-50 px-4 pt-2 gap-2 shrink-0">
+        <div className="flex border-b border-slate-200 bg-slate-50 px-2 sm:px-4 pt-2 gap-1 sm:gap-2 shrink-0 overflow-x-auto">
           <button
             onClick={() => setActiveTab('eos')}
             className={`px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all flex items-center gap-1.5 cursor-pointer border-t border-x ${
@@ -176,7 +191,19 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
             }`}
           >
             <Calendar size={15} className="text-[#714B67]" />
-            <span>بدل وتصفية الإجازة (مادة 70)</span>
+            <span>تسييل الإجازات</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('pifss')}
+            className={`px-3 sm:px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all flex items-center gap-1.5 cursor-pointer border-t border-x shrink-0 ${
+              activeTab === 'pifss'
+                ? 'bg-white text-[#714B67] border-slate-200 -mb-px font-black shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 border-transparent hover:bg-slate-100/80'
+            }`}
+          >
+            <ShieldCheck size={15} className="text-[#714B67]" />
+            <span>التأمينات PIFSS</span>
           </button>
         </div>
 
@@ -340,16 +367,48 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
                 <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
                   <span className="text-slate-500 block text-[10px] font-bold">الإضافي النهاري (125%):</span>
                   <div className="text-base font-black text-emerald-700 font-mono mt-1">
-                    {wageResult.overtimeDay.toFixed(3)} <span className="text-[10px] font-normal text-slate-500">د.ك</span>
+                    {wageResult.rate125.toFixed(3)} <span className="text-[10px] font-normal text-slate-500">د.ك/س</span>
                   </div>
                 </div>
 
                 <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
                   <span className="text-slate-500 block text-[10px] font-bold">الإضافي الليلي/العطلات (150%):</span>
                   <div className="text-base font-black text-purple-700 font-mono mt-1">
-                    {wageResult.overtimeNightHoliday.toFixed(3)} <span className="text-[10px] font-normal text-slate-500">د.ك</span>
+                    {wageResult.rate150.toFixed(3)} <span className="text-[10px] font-normal text-slate-500">د.ك/س</span>
                   </div>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">ساعات إضافي نهاري (125%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={otDayHours}
+                    onChange={(e) => setOtDayHours(Math.max(0, Number(e.target.value)))}
+                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold focus:outline-none focus:border-[#714B67] bg-slate-50"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">ساعات إضافي ليلي / عطلة (150%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={otNightHours}
+                    onChange={(e) => setOtNightHours(Math.max(0, Number(e.target.value)))}
+                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold focus:outline-none focus:border-[#714B67] bg-slate-50"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
+                <span className="text-xs font-bold text-indigo-900">إجمالي مستحقات الإضافي:</span>
+                <span className="text-xl font-black text-indigo-800 font-mono">
+                  {wageResult.totalOt.toFixed(3)} <span className="text-xs text-slate-500">د.ك</span>
+                </span>
               </div>
 
               <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl text-[11px] text-blue-900 leading-relaxed font-medium">
@@ -415,6 +474,55 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
 
               <div className="p-3 bg-emerald-50/60 border border-emerald-200 rounded-xl text-[11px] text-emerald-900 leading-relaxed font-medium">
                 💡 <strong>المادة 70 و 71:</strong> يستحق العامل إجازة سنوية مدفوعة الأجر مدتها 30 يوماً عمل عن كل سنة. ويجوز تصفية الإجازة أو صرف بدلها النقدي عند انتهاء العقد على أساس آخر أجر تقاضاه العامل شاملاً جميع البدلات.
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'pifss' && (
+            <div className="space-y-4">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">الراتب الشامل الخاضع للتأمين (د.ك) *</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="10"
+                  value={pifssGross}
+                  onChange={(e) => setPifssGross(Math.max(0, Number(e.target.value)))}
+                  className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold focus:outline-none focus:border-[#714B67] bg-slate-50"
+                />
+                <span className="text-[10px] text-slate-500">
+                  سقف الاشتراك الشهري: {PIFSS_SALARY_CAP_KWD} د.ك (للمواطنين الكويتيين)
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200">
+                  <span className="text-[10px] text-slate-500 font-bold">الأجر الخاضع</span>
+                  <div className="font-black font-mono text-slate-900 mt-1">{pifssResult.insuredSalary.toFixed(3)}</div>
+                </div>
+                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200">
+                  <span className="text-[10px] text-slate-500 font-bold">حصة الموظف 10.5%</span>
+                  <div className="font-black font-mono text-rose-700 mt-1">{pifssResult.employeeShare.toFixed(3)}</div>
+                </div>
+                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200">
+                  <span className="text-[10px] text-slate-500 font-bold">حصة المنشأة 11.5%</span>
+                  <div className="font-black font-mono text-amber-700 mt-1">{pifssResult.employerShare.toFixed(3)}</div>
+                </div>
+                <div className="bg-purple-50 p-3 rounded-2xl border border-purple-200">
+                  <span className="text-[10px] text-purple-700 font-bold">إجمالي الاشتراك</span>
+                  <div className="font-black font-mono text-[#714B67] mt-1">{pifssResult.totalContribution.toFixed(3)}</div>
+                </div>
+              </div>
+
+              {pifssResult.capped && (
+                <div className="text-[11px] text-amber-800 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
+                  تم تطبيق سقف {PIFSS_SALARY_CAP_KWD} د.ك على الراتب الخاضع للاشتراك.
+                </div>
+              )}
+
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-[11px] text-slate-700">
+                الاستقطاع من صافي راتب الموظف الكويتي = <strong className="font-mono">{pifssResult.employeeShare.toFixed(3)}</strong> د.ك شهرياً.
+                تكلفة المنشأة الإضافية = <strong className="font-mono">{pifssResult.employerShare.toFixed(3)}</strong> د.ك.
               </div>
             </div>
           )}

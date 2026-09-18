@@ -1,29 +1,16 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { X, Send, Bot, User, Sparkles, RefreshCw, ChevronLeft, ArrowLeft, ShieldCheck, Zap } from 'lucide-react';
-import { Employee, Contract } from '../types';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { X, Send, Bot, User } from 'lucide-react';
+import { Company, Employee, Contract } from '../types';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { downloadKuwaitWPSFile } from '../utils/kuwaitLaw';
 import { addDirectEmployeeViaAi } from '../services/tenantDataService';
 import { useLang } from '../lib/i18n';
+import { buildAiPayload } from '../config/aiConfig';
+import { buildCompanyContextSummary } from '../lib/aiCopilotContext';
+import type { CopilotAction } from '../lib/aiCopilotTypes';
 
-export interface CopilotAction {
-  type: 'NAVIGATE' | 'OPEN_MODAL' | 'TRIGGER_FUNCTION' | 'CREATE_EMPLOYEE';
-  appId?: string;
-  modal?: 'new_employee' | 'pam_contract' | 'upload_doc';
-  functionName?: 'export_wps' | 'export_report';
-  employeeData?: {
-    nameAr?: string;
-    nameEn?: string;
-    civilId?: string;
-    jobTitle?: string;
-    department?: string;
-    basicSalary?: string;
-    phone?: string;
-    nationality?: string;
-  };
-  title: string;
-}
+export type { CopilotAction };
 
 export interface CopilotMessage {
   id: string;
@@ -31,21 +18,37 @@ export interface CopilotMessage {
   text: string;
   timestamp: string;
   action?: CopilotAction | null;
+  source?: string;
 }
 
 interface AysedAICopilotProps {
   isOpen: boolean;
   onClose: () => void;
+  companyId?: string;
+  activeCompany?: Company | null;
   employees: Employee[];
   contracts: Contract[];
+  leaveSummary?: { pending?: number; onLeaveToday?: number };
   onQuickAction?: (actionType: string, payload?: any) => void;
+}
+
+function formatSourceLabel(source?: string, isArabic?: boolean): string | null {
+  if (!source) return null;
+  if (source.startsWith('gemini:')) {
+    return isArabic ? `Gemini (${source.replace('gemini:', '')})` : `Gemini (${source.replace('gemini:', '')})`;
+  }
+  if (source === 'regex_action') return isArabic ? 'إجراء محلي (تحليل نص)' : 'Local action (text parse)';
+  return source;
 }
 
 export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
   isOpen,
   onClose,
+  companyId,
+  activeCompany,
   employees = [],
   contracts = [],
+  leaveSummary,
   onQuickAction,
 }) => {
   const { token } = useAuth();
@@ -65,11 +68,33 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  const scopedEmployees = useMemo(() => {
+    if (!companyId) return employees;
+    return employees.filter((e) => e.companyId === companyId || !e.companyId);
+  }, [employees, companyId]);
+
+  const scopedContracts = useMemo(() => {
+    if (!companyId) return contracts;
+    return contracts.filter((c) => c.companyId === companyId || !c.companyId);
+  }, [contracts, companyId]);
+
+  const contextSummary = useMemo(
+    () =>
+      buildCompanyContextSummary({
+        company: activeCompany,
+        employees: scopedEmployees,
+        contracts: scopedContracts,
+        companyId,
+        leaveSummary,
+      }),
+    [activeCompany, scopedEmployees, scopedContracts, companyId, leaveSummary]
+  );
+
   const quickPrompts = isArabic ? [
-    'افتح شاشة تسوية الموظف ونهاية الخدمة',
+    'افتح تطبيق الإجازات والمركز المالي',
     'ضيف موظف اسمه أحمد الكندري رقم مدني 290010112345 ووظيفته محامي وراتبه 850',
     'تحميل ملف حماية الأجور للبنوك (WPS)',
-    'استخراج عقد عمل حكومي PAM Form 2',
+    'افتح حاسبة الموارد البشرية السريعة',
     'سجلات الحضور والدوام والبصمة',
     'عرض كشوف الرواتب وحماية الأجور'
   ] : [
@@ -93,6 +118,11 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
     const queryText = customText || input;
     if (!queryText.trim() || isLoading) return;
 
+    if (!companyId) {
+      toast.error(isArabic ? 'اختر شركة نشطة قبل استخدام المساعد.' : 'Select an active company before using the copilot.');
+      return;
+    }
+
     console.log('💬 [Aysed Copilot Query Input]:', queryText);
 
     const userMsg: CopilotMessage = {
@@ -113,31 +143,58 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({
-          prompt: queryText,
-          contextSummary: 'Aysed HR Copilot session',
-          conversationHistory: messages.map(m => ({ role: m.sender === 'user' ? 'user' : 'assistant', content: m.text }))
-        })
+        body: JSON.stringify(
+          buildAiPayload({
+            prompt: queryText,
+            companyId,
+            contextSummary,
+            conversationHistory: messages
+              .filter((m) => m.id !== '1')
+              .map((m) => ({ role: m.sender === 'user' ? 'user' : 'assistant', content: m.text })),
+          })
+        ),
       });
 
       const data = await response.json();
       console.log('🤖 [Aysed Copilot AI Response]:', data);
+
+      if (!response.ok || !data.success) {
+        const errText =
+          data.error ||
+          (isArabic ? 'تعذر الاتصال بالمساعد الذكي.' : 'Could not reach the AI assistant.');
+        const hint =
+          data.code === 'AI_NOT_CONFIGURED'
+            ? isArabic
+              ? '\n\nالمفتاح غير مهيأ على الخادم.'
+              : '\n\nServer API key is not configured.'
+            : '';
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: (Date.now() + 1).toString(),
+            sender: 'bot',
+            text: `⚠️ ${errText}${hint}`,
+            timestamp: new Date().toLocaleTimeString(isArabic ? 'ar-KW' : 'en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+            action: data.action || null,
+            source: data.code || 'unavailable',
+          },
+        ]);
+        return;
+      }
 
       const botMsg: CopilotMessage = {
         id: (Date.now() + 1).toString(),
         sender: 'bot',
         text: data.reply || (isArabic ? 'عذراً، لم أستطع معالجة الإجابة حالياً.' : 'Sorry, I could not process the response right now.'),
         timestamp: new Date().toLocaleTimeString(isArabic ? 'ar-KW' : 'en-US', { hour: '2-digit', minute: '2-digit' }),
-        action: data.action || null
+        action: data.action || null,
+        source: data.source,
       };
 
       setMessages(prev => [...prev, botMsg]);
-
-      if (data.action && data.action.type === 'CREATE_EMPLOYEE') {
-        setTimeout(() => {
-          handleExecuteAction(data.action);
-        }, 250);
-      }
     } catch (err) {
       console.error('Copilot Chat Error:', err);
       setMessages(prev => [
@@ -167,14 +224,21 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
       console.log(`📂 [Copilot Modal Trigger] Opening modal: "${action.modal}"`);
       if (action.modal === 'new_employee' && onQuickAction) {
         onQuickAction('new_employee');
+      } else if (action.modal === 'pam_contract' && onQuickAction) {
+        onQuickAction('navigate', 'contracts');
+      } else if (action.modal === 'upload_doc' && onQuickAction) {
+        onQuickAction('navigate', 'scanner');
       } else if (onQuickAction) {
         onQuickAction(action.modal || 'new_employee');
       }
       onClose();
+    } else if (action.type === 'OPEN_CALCULATOR') {
+      if (onQuickAction) onQuickAction('calculator');
+      onClose();
     } else if (action.type === 'TRIGGER_FUNCTION') {
       console.log(`📥 [Copilot Function Execution] Executing: "${action.functionName}"`);
       if (action.functionName === 'export_wps' || !action.functionName) {
-        const wpsEmployees = employees
+        const wpsEmployees = scopedEmployees
           .filter(e => e.civilId && e.iban)
           .map(e => ({
             civil_id: e.civilId,
@@ -204,8 +268,11 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
     } else if (action.type === 'CREATE_EMPLOYEE' && action.employeeData) {
       console.log('👤 [Copilot Direct Employee Creation]:', action.employeeData);
       try {
-        const activeCompanyId = localStorage.getItem('active_company_id') || 'company_1';
-        const createdEmployee = await addDirectEmployeeViaAi(activeCompanyId, action.employeeData, employees);
+        if (!companyId) {
+          toast.error(isArabic ? 'لا يوجد شركة نشطة.' : 'No active company.');
+          return;
+        }
+        const createdEmployee = await addDirectEmployeeViaAi(companyId, action.employeeData, scopedEmployees);
         toast.success(`تم إضافة الموظف (${createdEmployee.fullNameAr || action.employeeData.nameAr || 'الجديد'}) بنجاح إلى قاعدة البيانات!`);
         if (onQuickAction) {
           onQuickAction('navigate', 'employees');
@@ -310,7 +377,12 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
                   </div>
                 )}
 
-                <span className={`text-[9px] block mt-1 font-medium ${msg.sender === 'user' ? 'text-purple-200' : 'text-slate-400'}`}>
+                {msg.sender === 'bot' && msg.source && (
+                  <span className="text-[9px] block mt-1 font-semibold text-slate-500">
+                    {formatSourceLabel(msg.source, isArabic)}
+                  </span>
+                )}
+                <span className={`text-[9px] block mt-0.5 font-medium ${msg.sender === 'user' ? 'text-purple-200' : 'text-slate-400'}`}>
                   {msg.timestamp}
                 </span>
               </div>

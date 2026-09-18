@@ -250,7 +250,7 @@ export const ComplianceSmartSentinelModal: React.FC<ComplianceSmartSentinelModal
                     <div>
                       <div className="text-xs font-bold text-slate-900">جاهزية العقود للتدقيق الآلي</div>
                       <p className="text-[11px] text-slate-600 mt-0.5">
-                        قم برفع صور العقود لتفعيل <strong>(Legal & Document OCR Bot)</strong> في المرحلة القادمة لمقارنتها آلياً مع PAM Form 2.
+                        استخدم <strong>المستشار القانوني وقارئ العقود</strong> من شريط الإجراءات لتدقيق PAM مقابل سجل الموظف عبر OCR.
                       </p>
                     </div>
                   </div>

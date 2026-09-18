@@ -32,7 +32,7 @@ interface TopEnterpriseActionBarProps {
   documents: any[];
   onQuickAction: (action: string, payload?: any) => void;
   onOpenSpotlight: () => void;
-  onOpenCalculator: () => void;
+  onOpenCalculator: (tab?: 'eos' | 'leave' | 'wage' | 'pifss') => void;
   onOpenCopilot?: () => void;
   onOpenSentinel?: () => void;
   onOpenLegalBot?: () => void;
@@ -80,6 +80,8 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
   const { lang, setLang } = useLang();
   const [showCompanyMenu, setShowCompanyMenu] = useState(false);
   const [showQuickActionsMenu, setShowQuickActionsMenu] = useState(false);
+  const [showCalculatorsMenu, setShowCalculatorsMenu] = useState(false);
+  const calculatorsMenuRef = useRef<HTMLDivElement>(null);
   const [showAlertsMenu, setShowAlertsMenu] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [facilityData, setFacilityData] = useState<FacilityLicenseData>(defaultFacilityData);
@@ -94,6 +96,16 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
     };
     void loadFacilityData();
   }, [activeCompany?.id]);
+
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      if (calculatorsMenuRef.current && !calculatorsMenuRef.current.contains(e.target as Node)) {
+        setShowCalculatorsMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, []);
 
   useEffect(() => {
     const handleFacilityUpdated = async () => {
@@ -568,14 +580,55 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
           </span>
         </button>
 
-        {/* 🧮 حاسبة قانون العمل ونهاية الخدمة السريعة */}
-        <button
-          onClick={onOpenCalculator}
-          className="w-8 h-8 rounded-lg bg-white/15 hover:bg-white/25 border border-white/15 flex items-center justify-center transition cursor-pointer text-white shrink-0 hidden sm:flex"
-          title="حاسبة قانون العمل الكويتي ومكافأة نهاية الخدمة السريعة"
-        >
-          <Calculator size={15} />
-        </button>
+        {/* 🧮 الحاسبات السريعة (أسلوب دفترة) */}
+        <div className="relative shrink-0 flex" ref={calculatorsMenuRef}>
+          <button
+            type="button"
+            onClick={() => setShowCalculatorsMenu((v) => !v)}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-black transition cursor-pointer ${
+              showCalculatorsMenu
+                ? 'bg-white text-[#714B67] border-white shadow-md'
+                : 'bg-white/15 hover:bg-white/25 border-white/15 text-white'
+            }`}
+            title="الحاسبات السريعة — EOS · إجازات · إضافي · PIFSS"
+          >
+            <Calculator size={15} className={showCalculatorsMenu ? 'text-[#714B67]' : 'text-amber-200'} />
+            <span className="hidden md:inline">الحاسبات السريعة</span>
+            <ChevronDown size={14} className={showCalculatorsMenu ? 'text-[#714B67]' : 'opacity-80'} />
+          </button>
+
+          {showCalculatorsMenu && (
+            <div className="absolute top-full left-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 z-[80] overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+              <div className="px-3 py-2.5 bg-gradient-to-r from-[#714B67] to-[#53354c] text-white text-xs font-black">
+                أدوات HR فورية
+              </div>
+              <div className="p-2 space-y-0.5">
+                {[
+                  { tab: 'eos' as const, icon: Scale, title: 'مكافأة نهاية الخدمة (EOS)', sub: 'المادة 51 و 53 — فوري' },
+                  { tab: 'leave' as const, icon: Calendar, title: 'تسييل وبدل رصيد الإجازات', sub: 'المادة 70 — أيام × أجر اليوم' },
+                  { tab: 'wage' as const, icon: Clock, title: 'الإضافي والعطلات', sub: '125% نهاري · 150% ليلي/عطلة' },
+                  { tab: 'pifss' as const, icon: Shield, title: 'اقتطاعات التأمينات (PIFSS)', sub: '10.5% موظف · 11.5% منشأة' },
+                ].map((item) => (
+                  <button
+                    key={item.tab}
+                    type="button"
+                    onClick={() => {
+                      setShowCalculatorsMenu(false);
+                      onOpenCalculator(item.tab);
+                    }}
+                    className="w-full text-right px-3 py-2.5 rounded-xl hover:bg-purple-50 transition flex items-start gap-2.5 cursor-pointer group"
+                  >
+                    <item.icon size={17} className="text-[#714B67] shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                    <div>
+                      <span className="block text-xs font-black text-slate-800">{item.title}</span>
+                      <span className="block text-[10px] text-slate-500 font-medium">{item.sub}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* 🛡️ الحارس الذكي للامتثال */}
         <button
