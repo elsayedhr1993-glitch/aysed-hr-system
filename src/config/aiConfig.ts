@@ -1,7 +1,15 @@
+function readConfigEnv(key: string): string | undefined {
+  if (typeof process !== 'undefined' && process.env?.[key]) {
+    return String(process.env[key]);
+  }
+  const viteEnv = import.meta.env as Record<string, string | undefined>;
+  return viteEnv[key] ?? viteEnv[`VITE_${key}`];
+}
+
 export const AI_MODELS = {
-  chat: process.env.AI_CHAT_MODEL || 'gemini-2.5-flash',
-  ocr: process.env.AI_OCR_MODEL || 'gemini-2.5-flash',
-  fallback: process.env.AI_FALLBACK_MODEL || 'gemini-2.5-pro',
+  chat: readConfigEnv('AI_CHAT_MODEL') || 'gemini-2.5-flash',
+  ocr: readConfigEnv('AI_OCR_MODEL') || 'gemini-2.5-flash',
+  fallback: readConfigEnv('AI_FALLBACK_MODEL') || 'gemini-2.5-pro',
 } as const;
 
 function uniqueModels(candidates: string[]): string[] {
@@ -18,7 +26,7 @@ function uniqueModels(candidates: string[]): string[] {
 
 /** Chat / copilot model rotation (newest first). */
 export function getChatModelCandidates(): string[] {
-  const extra = (process.env.AI_CHAT_MODEL_FALLBACKS || '')
+  const extra = (readConfigEnv('AI_CHAT_MODEL_FALLBACKS') || '')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
@@ -32,7 +40,7 @@ export function getChatModelCandidates(): string[] {
 
 /** Vision OCR model rotation. */
 export function getOcrModelCandidates(): string[] {
-  const extra = (process.env.AI_OCR_MODEL_FALLBACKS || '')
+  const extra = (readConfigEnv('AI_OCR_MODEL_FALLBACKS') || '')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
