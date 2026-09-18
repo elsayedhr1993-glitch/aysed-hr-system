@@ -52,7 +52,8 @@ export const LeaveBalanceCard: React.FC<LeaveBalanceCardProps> = ({
     );
   }
 
-  const visibleNetBalance = Number(summary.netBalance ?? summary.totalAvailableDays ?? 0);
+  const visibleNetBalance = Math.max(0, Number(summary.netBalance ?? summary.totalAvailableDays ?? 0));
+  const unpaidExcess = Number(summary.unpaidLeaveDays ?? 0);
 
   if (compact) {
     return (
@@ -73,10 +74,15 @@ export const LeaveBalanceCard: React.FC<LeaveBalanceCardProps> = ({
             <span className="font-semibold text-emerald-600">+{summary.holidayCompensationDays}</span>
           </div>
           <div>
-            <span className="text-slate-400 block text-[9px]">المستهلك:</span>
+            <span className="text-slate-400 block text-[9px]">من الرصيد:</span>
             <span className="font-semibold text-rose-600">-{summary.usedLeaveDays}</span>
           </div>
         </div>
+        {unpaidExcess > 0 && (
+          <p className="text-[10px] text-orange-800 font-bold mt-2">
+            تجاوز رصيد (بدون راتب): {unpaidExcess.toFixed(2)} يوم
+          </p>
+        )}
       </div>
     );
   }

@@ -38,6 +38,8 @@ export interface EmployeeLeaveSummary {
     remainingComp: number;
   };
   totalAvailableDays: number;
+  /** أيام إجازة معتمدة لا تُخصم من رصيد السنوية (تجاوز رصيد / بدون راتب) */
+  unpaidLeaveDays?: number;
   netBalance?: number;
   cashSettlementAmount: number;
   dailyWageRate?: number;
@@ -70,6 +72,66 @@ export function isApprovedLeaveStatus(status?: string): boolean {
   return ['approved', 'معتمد', 'validate', 'validated', 'returned', 'معتمدة', 'معتمدة نهائياً', 'موافقة نهائية'].includes(normalized) || normalized === 'approved';
 }
 
+/** paid = يُخصم من رصيد الإجازة السنوية فقط؛ unpaid = تجاوز رصيد (مسير رواتب لاحقاً) */
+export function resolveLeavePaidUnpaidSplit(
+  leave: any,
+  balancePoolBeforeLeave: number
+): { paid: number; unpaid: number; total: number } {
+  const total = Number(leave?.totalDays ?? leave?.daysCount ?? leave?.numberOfDays ?? leave?.days ?? 0) || 0;
+  if (total <= 0) return { paid: 0, unpaid: 0, total: 0 };
+
+  const leaveType = normalizeLeaveType(leave?.leaveType);
+  if (leaveType === 'BEREAVEMENT' || leaveType === 'COMPASSIONATE') {
+    const annualPart = Number(leave?.annualDeductedDays ?? Math.max(0, total - 3));
+    const paid = Math.min(Math.max(0, annualPart), Math.max(0, balancePoolBeforeLeave));
+    return { paid: cleanDayDecimals(paid), unpaid: 0, total };
+  }
+
+  if (leave?.paidDays !== undefined && leave?.paidDays !== null && !Number.isNaN(Number(leave.paidDays))) {
+    const paid = cleanDayDecimals(Math.min(total, Math.max(0, Number(leave.paidDays))));
+    const unpaid = cleanDayDecimals(
+      Number(leave.unpaidDays ?? leave.excessDays ?? Math.max(0, total - paid))
+    );
+    return { paid, unpaid, total };
+  }
+
+  const pool = Math.max(0, balancePoolBeforeLeave);
+  const paid = cleanDayDecimals(Math.min(total, pool));
+  const unpaid = cleanDayDecimals(Math.max(0, total - paid));
+  return { paid, unpaid, total };
+}
+
+export function aggregateAnnualLeaveDeductions(
+  employee: Employee,
+  leaves: LeaveRequest[] = [],
+  openingPool: number
+): { usedLeaveDays: number; unpaidLeaveDays: number } {
+  const approved = getApprovedEmployeeLeaveRequests(employee, leaves)
+    .filter((leave) => {
+      const leaveType = normalizeLeaveType(leave.leaveType);
+      if (leaveType === 'ANNUAL') return true;
+      if ((leaveType === 'BEREAVEMENT' || leaveType === 'COMPASSIONATE') && leave.isSplitBereavement) return true;
+      return false;
+    })
+    .sort((a, b) => String(a.startDate || '').localeCompare(String(b.startDate || '')));
+
+  let pool = Math.max(0, openingPool);
+  let usedLeaveDays = 0;
+  let unpaidLeaveDays = 0;
+
+  approved.forEach((leave) => {
+    const split = resolveLeavePaidUnpaidSplit(leave, pool);
+    usedLeaveDays += split.paid;
+    unpaidLeaveDays += split.unpaid;
+    pool = Math.max(0, pool - split.paid);
+  });
+
+  return {
+    usedLeaveDays: cleanDayDecimals(usedLeaveDays),
+    unpaidLeaveDays: cleanDayDecimals(unpaidLeaveDays)
+  };
+}
+
 export function getApprovedEmployeeLeaveRequests(employee: any, leaves: any[] = []): any[] {
   return (leaves || []).filter((req: any) => {
     if (!req) return false;
@@ -94,12 +156,25 @@ export function calculateUnifiedLeaveBalance(
     .filter(r => r.type === 'manual_adjustment' && r.status === 'approved')
     .reduce((sum, r) => sum + Number(r.days || 0), 0);
 
-  const usedLeaveDays = records
+  const grossPool = Number((Number(accruedAnnual || 0) + holidayCompensationDays + manualAdjustments).toFixed(2));
+  let pool = grossPool;
+  let usedLeaveDays = 0;
+  let unpaidLeaveDays = 0;
+  records
     .filter(r => (r.type === 'annual' || (r.type as string) === 'ANNUAL') && r.status === 'approved')
-    .reduce((sum, r) => sum + Number(r.days || 0), 0);
+    .forEach((r) => {
+      const total = Number(r.days || 0);
+      const paid = Math.min(total, pool);
+      const unpaid = Math.max(0, total - paid);
+      usedLeaveDays += paid;
+      unpaidLeaveDays += unpaid;
+      pool = Math.max(0, pool - paid);
+    });
+  usedLeaveDays = Number(usedLeaveDays.toFixed(2));
+  unpaidLeaveDays = Number(unpaidLeaveDays.toFixed(2));
 
-  const totalEarnedAndCarried = Number((Number(accruedAnnual || 0) + holidayCompensationDays + manualAdjustments).toFixed(2));
-  const totalAvailableDays = Number((totalEarnedAndCarried - usedLeaveDays).toFixed(2));
+  const totalEarnedAndCarried = grossPool;
+  const totalAvailableDays = Number(Math.max(0, totalEarnedAndCarried - usedLeaveDays).toFixed(2));
 
   const basicSalaryOnly = Number(basicSalary || 0);
   const dailyWageRate = calculateKuwaitDailyRate(basicSalaryOnly);
@@ -111,6 +186,7 @@ export function calculateUnifiedLeaveBalance(
     holidayCompensationDays,
     manualAdjustments,
     usedLeaveDays,
+    unpaidLeaveDays,
     consumedFromCarried: 0,
     consumedFromAccrued: usedLeaveDays,
     consumedFromComp: 0,
@@ -153,7 +229,8 @@ export function buildUnifiedLeaveSummary(
     .reduce((sum, allocation: any) => sum + Number(allocation.numberOfDays ?? allocation.days ?? 0), 0);
   const holidayCompensationDays = Math.max(ledgerCompDays, Number(allocationCompDays || 0));
   const manualAdjustments = 0;
-  const usedLeaveDays = approvedLeaves.reduce((sum, leave) => sum + Number(leave.totalDays ?? leave.daysCount ?? leave.numberOfDays ?? leave.days ?? 0), 0);
+  const grossPool = Number((carriedOverDays + accruedAnnualDays + holidayCompensationDays + manualAdjustments).toFixed(2));
+  const { usedLeaveDays, unpaidLeaveDays } = aggregateAnnualLeaveDeductions(employee, leaves, grossPool);
 
   const waterfallUsage = fifo.breakdown.reduce((bucket, item) => {
     item.allocationUsages.forEach((usage) => {
@@ -197,7 +274,7 @@ export function buildUnifiedLeaveSummary(
   const remainingCarried = Number(Math.max(0, carriedOverDays - consumedFromCarried).toFixed(2));
   const remainingAccrued = Number(Math.max(0, accruedAnnualDays - consumedFromAccrued).toFixed(2));
   const remainingComp = Number(Math.max(0, holidayCompensationDays - consumedFromComp).toFixed(2));
-  const totalAvailableDays = Number((carriedOverDays + accruedAnnualDays + holidayCompensationDays + manualAdjustments - usedLeaveDays).toFixed(2));
+  const totalAvailableDays = Number(Math.max(0, grossPool - usedLeaveDays).toFixed(2));
   const basicSalaryValue = Number(contract?.basicSalary ?? (employee as any).basicSalary ?? (employee as any).basic_salary ?? (employee as any).salary ?? 0) || 0;
   const dailyWageRate = calculateKuwaitDailyRate(basicSalaryValue);
   const cashSettlementAmount = cleanKwdAmount(totalAvailableDays * dailyWageRate);
@@ -208,6 +285,7 @@ export function buildUnifiedLeaveSummary(
     holidayCompensationDays,
     manualAdjustments,
     usedLeaveDays,
+    unpaidLeaveDays,
     consumedFromCarried,
     consumedFromAccrued,
     consumedFromComp,
@@ -223,8 +301,8 @@ export function buildUnifiedLeaveSummary(
       remainingComp: Number(remainingComp.toFixed(2))
     },
     totalAvailableDays: Number(totalAvailableDays.toFixed(2)),
-    netBalance: Number(totalAvailableDays.toFixed(2)),
-    cashSettlementAmount,
+    netBalance: Number(Math.max(0, totalAvailableDays).toFixed(2)),
+    cashSettlementAmount: cleanKwdAmount(Math.max(0, totalAvailableDays) * dailyWageRate),
     dailyWageRate,
     basicSalary: basicSalaryValue,
     comprehensiveSalary: basicSalaryValue
@@ -351,6 +429,7 @@ export function calculateLeaveBalanceSnapshot(input: { employee: Employee; alloc
     holidayCompensationDays: summary.holidayCompensationDays ?? 0,
     manualAdjustmentDays: summary.manualAdjustments ?? 0,
     approvedLeaveDeductionDays: summary.usedLeaveDays ?? 0,
+    unpaidLeaveExcessDays: summary.unpaidLeaveDays ?? 0,
     consumedFromCarried: summary.consumedFromCarried ?? 0,
     consumedFromAccrued: summary.consumedFromAccrued ?? 0,
     consumedFromComp: summary.consumedFromComp ?? 0,

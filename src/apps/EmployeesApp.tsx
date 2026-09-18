@@ -18,7 +18,7 @@ import { TenantDatabaseService } from '../services/tenantDataService';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { getPersistentData } from '../utils/persistentStorage';
 import { checkDocumentExpiry } from '../utils/dateUtils';
-import { getEmployeeUnifiedSummary, matchesEmployeeIdentity } from '../utils/leaveEngine';
+import { getEmployeeUnifiedSummary, matchesEmployeeIdentity, resolveLeavePaidUnpaidSplit } from '../utils/leaveEngine';
 import { isAnnualLeaveType, normalizeLeaveStatus } from '../utils/leaveModel';
 import { collection, deleteDoc, doc, getDocs, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { cleanFirestoreData, db } from '../lib/firebase';
@@ -71,10 +71,14 @@ const generateLeavePrintHtml = (printData: any, companyName: string, companyName
   });
 
   const totalTaken = Number(summary.usedLeaveDays || 0);
+  const unpaidExcess = Number(summary.unpaidLeaveDays || 0);
   const carriedOver = Number(summary.carriedOverDays || 0);
   const accrued2026 = Number(summary.accruedAnnualDays || 0);
   const compensatory = Number(summary.holidayCompensationDays || 0);
-  const netAvailable = Number(summary.totalAvailableDays || 0);
+  const netAvailable = Math.max(0, Number(summary.totalAvailableDays || 0));
+  const openingPool = carriedOver + accrued2026 + compensatory;
+  let runningPool = openingPool;
+  const empLeavesSorted = [...empLeaves].sort((a, b) => String(a.startDate || '').localeCompare(String(b.startDate || '')));
   const fifoBreakdown = summary.fifoBreakdown || {
     consumedFromCarried: Number(summary.consumedFromCarried || 0),
     consumedFromAccrued: Number(summary.consumedFromAccrued || 0),
@@ -135,11 +139,15 @@ const generateLeavePrintHtml = (printData: any, companyName: string, companyName
               <div style="font-size: 10px; color: #166534; font-weight: bold; margin-bottom: 5px;">أيام تعويضية (العطلات)</div>
               <div style="font-size: 15px; font-weight: bold; color: #15803d;">+${compensatory} يوم</div>
             </td>
-            <td style="background-color: #fef2f2; border: 1px solid #fee2e2; padding: 12px; border-radius: 6px; width: 20%;">
-              <div style="font-size: 10px; color: #991b1b; font-weight: bold; margin-bottom: 5px;">المستهلك الفعلي</div>
+            <td style="background-color: #fef2f2; border: 1px solid #fee2e2; padding: 12px; border-radius: 6px; width: 16%;">
+              <div style="font-size: 10px; color: #991b1b; font-weight: bold; margin-bottom: 5px;">المخصوم من الرصيد (مدفوع)</div>
               <div style="font-size: 15px; font-weight: bold; color: #b91c1c;">-${totalTaken} يوم</div>
             </td>
-            <td style="background-color: #f0fdfa; border: 1px solid #ccfbf1; padding: 12px; border-radius: 6px; width: 20%;">
+            <td style="background-color: #fff7ed; border: 1px solid #fed7aa; padding: 12px; border-radius: 6px; width: 16%;">
+              <div style="font-size: 10px; color: #9a3412; font-weight: bold; margin-bottom: 5px;">إجازة بدون راتب / تجاوز رصيد</div>
+              <div style="font-size: 15px; font-weight: bold; color: #c2410c;">${unpaidExcess} يوم</div>
+            </td>
+            <td style="background-color: #f0fdfa; border: 1px solid #ccfbf1; padding: 12px; border-radius: 6px; width: 16%;">
               <div style="font-size: 10px; color: #115e59; font-weight: bold; margin-bottom: 5px;">الرصيد المتاح الصافي</div>
               <div style="font-size: 16px; font-weight: bold; color: #0f766e;">${netAvailable} يوم</div>
             </td>
@@ -190,20 +198,28 @@ const generateLeavePrintHtml = (printData: any, companyName: string, companyName
                 <th style="padding: 8px; border: 1px solid #e2e8f0;">تاريخ البدء</th>
                 <th style="padding: 8px; border: 1px solid #e2e8f0;">تاريخ الانتهاء</th>
                 <th style="padding: 8px; border: 1px solid #e2e8f0; text-align: center;">المدة الفعلية</th>
+                <th style="padding: 8px; border: 1px solid #e2e8f0; text-align: center;">من الرصيد</th>
+                <th style="padding: 8px; border: 1px solid #e2e8f0; text-align: center;">بدون راتب</th>
                 <th style="padding: 8px; border: 1px solid #e2e8f0;">السبب / البيان</th>
                 <th style="padding: 8px; border: 1px solid #e2e8f0; text-align: center;">الحالة</th>
               </tr>
             </thead>
             <tbody>
-              ${empLeaves.slice(0, 10).map(l => `
+              ${empLeavesSorted.slice(0, 10).map(l => {
+                const split = resolveLeavePaidUnpaidSplit(l, runningPool);
+                runningPool = Math.max(0, runningPool - split.paid);
+                return `
                 <tr style="border-bottom: 1px solid #f1f5f9;">
                   <td style="padding: 8px; border: 1px solid #e2e8f0; font-family: monospace;">${l.startDate}</td>
                   <td style="padding: 8px; border: 1px solid #e2e8f0; font-family: monospace;">${l.endDate}</td>
-                  <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold;">${l.totalDays} يوم</td>
+                  <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold;">${split.total} يوم</td>
+                  <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; color: #b91c1c;">${split.paid} يوم</td>
+                  <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; color: #c2410c;">${split.unpaid} يوم</td>
                   <td style="padding: 8px; border: 1px solid #e2e8f0;">${l.reason || 'إجازة سنوية اعتيادية'}</td>
                   <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center; color: #15803d; font-weight: bold;">معتمد</td>
                 </tr>
-              `).join('')}
+              `;
+              }).join('')}
             </tbody>
           </table>
         `}
@@ -2236,10 +2252,14 @@ export function EmployeesApp(props?: any) {
                       return isAnnualLeaveType(l.leaveType) && (status === 'APPROVED' || status === 'RETURNED');
                     });
                     const totalTaken = Number(summary.usedLeaveDays || 0);
+                    const unpaidExcess = Number(summary.unpaidLeaveDays || 0);
                     const carriedOver = Number(summary.carriedOverDays || 0);
                     const accrued2026 = Number(summary.accruedAnnualDays || 0);
                     const compensatory = Number(summary.holidayCompensationDays || 0);
-                    const netAvailable = Number(summary.totalAvailableDays || 0);
+                    const netAvailable = Math.max(0, Number(summary.totalAvailableDays || 0));
+                    const openingPool = carriedOver + accrued2026 + compensatory;
+                    let runningPool = openingPool;
+                    const empLeavesSorted = [...empLeaves].sort((a, b) => String(a.startDate || '').localeCompare(String(b.startDate || '')));
                     const fifoBreakdown = summary.fifoBreakdown || {
                       consumedFromCarried: Number(summary.consumedFromCarried || 0),
                       consumedFromAccrued: Number(summary.consumedFromAccrued || 0),
@@ -2277,7 +2297,7 @@ export function EmployeesApp(props?: any) {
                           <h4 className="text-xs font-bold text-slate-800 border-b pb-2 mb-3 flex items-center gap-1.5">
                             <span>📊</span> تفاصيل رصيد الإجازات المعتمد (Approved Balances)
                           </h4>
-                          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-center">
+                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 text-center">
                             <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
                               <div className="text-[10px] text-slate-500 font-bold mb-1">الرصيد المرحل</div>
                               <div className="text-base font-black text-slate-800 font-mono">{carriedOver} يوم</div>
@@ -2291,10 +2311,14 @@ export function EmployeesApp(props?: any) {
                               <div className="text-base font-black text-emerald-800 font-mono">+{compensatory} يوم</div>
                             </div>
                             <div className="p-3 rounded-lg bg-rose-50/50 border border-rose-200">
-                              <div className="text-[10px] text-rose-900 font-bold mb-1">المستهلك الفعلي</div>
+                              <div className="text-[10px] text-rose-900 font-bold mb-1">المخصوم من الرصيد (مدفوع)</div>
                               <div className="text-base font-black text-rose-800 font-mono">-{totalTaken} يوم</div>
                             </div>
-                            <div className="p-3 rounded-lg bg-teal-50 border border-teal-200 col-span-2 md:col-span-1">
+                            <div className="p-3 rounded-lg bg-orange-50 border border-orange-200">
+                              <div className="text-[10px] text-orange-950 font-bold mb-1">إجازة بدون راتب / تجاوز رصيد</div>
+                              <div className="text-base font-black text-orange-800 font-mono">{unpaidExcess} يوم</div>
+                            </div>
+                            <div className="p-3 rounded-lg bg-teal-50 border border-teal-200">
                               <div className="text-[10px] text-teal-950 font-bold mb-1">الرصيد المتاح الصافي</div>
                               <div className="text-lg font-black text-teal-900 font-mono">{netAvailable} يوم</div>
                             </div>
@@ -2343,22 +2367,30 @@ export function EmployeesApp(props?: any) {
                                     <th className="p-2 border">تاريخ البدء</th>
                                     <th className="p-2 border">تاريخ الانتهاء</th>
                                     <th className="p-2 border text-center">المدة (أيام)</th>
+                                    <th className="p-2 border text-center">من الرصيد</th>
+                                    <th className="p-2 border text-center">بدون راتب</th>
                                     <th className="p-2 border">السبب / نوع الطلب</th>
                                     <th className="p-2 border text-center">الحالة</th>
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {empLeaves.slice(0, 8).map((l, i) => (
+                                  {empLeavesSorted.slice(0, 8).map((l, i) => {
+                                    const split = resolveLeavePaidUnpaidSplit(l, runningPool);
+                                    runningPool = Math.max(0, runningPool - split.paid);
+                                    return (
                                     <tr key={i} className="hover:bg-slate-50">
                                       <td className="p-2 border font-mono">{l.startDate}</td>
                                       <td className="p-2 border font-mono">{l.endDate}</td>
-                                      <td className="p-2 border text-center font-mono font-bold">{l.totalDays} يوم</td>
+                                      <td className="p-2 border text-center font-mono font-bold">{split.total} يوم</td>
+                                      <td className="p-2 border text-center font-mono font-bold text-rose-800">{split.paid} يوم</td>
+                                      <td className="p-2 border text-center font-mono font-bold text-orange-800">{split.unpaid} يوم</td>
                                       <td className="p-2 border">{l.reason || 'إجازة سنوية اعتيادية'}</td>
                                       <td className="p-2 border text-center">
                                         <span className="bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded text-[10px] font-bold">معتمد</span>
                                       </td>
                                     </tr>
-                                  ))}
+                                  );
+                                  })}
                                 </tbody>
                               </table>
                             </div>

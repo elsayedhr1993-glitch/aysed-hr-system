@@ -32,6 +32,15 @@ export const PrintableLeaveFormModal: React.FC<PrintableLeaveFormModalProps> = (
 
   const formRef = `PAM-LV-${request.id || '2026-001'}`;
   const todayStr = new Date().toISOString().split('T')[0];
+  const totalWorkingDays = Number(request.daysCount ?? request.totalDays ?? 0);
+  const unpaidExcessDays = Number(
+    request.unpaidDays ?? request.excessDays ?? 0
+  );
+  const paidFromBalanceDays =
+    request.paidDays !== undefined && request.paidDays !== null
+      ? Number(request.paidDays)
+      : Math.max(0, totalWorkingDays - unpaidExcessDays);
+  const isAnnualLeave = request.leaveType === 'annual';
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-2xs flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
@@ -137,9 +146,27 @@ export const PrintableLeaveFormModal: React.FC<PrintableLeaveFormModalProps> = (
               </div>
               <div>
                 <span className="text-slate-400 block text-[10px]">المدة الفعلية المعتمدة:</span>
-                <span className="font-black text-emerald-800 text-sm">{request.daysCount}</span> <span className="text-slate-500 font-bold">يوم عمل</span>
+                <span className="font-black text-emerald-800 text-sm">{totalWorkingDays}</span> <span className="text-slate-500 font-bold">يوم عمل</span>
               </div>
             </div>
+            {isAnnualLeave && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3 pt-3 border-t border-slate-100 text-xs">
+                <div className="p-2 rounded-lg bg-rose-50 border border-rose-200">
+                  <span className="text-rose-800 block text-[10px] font-bold">يُخصم من رصيد الإجازة السنوية (paidDays)</span>
+                  <span className="font-black text-rose-900 font-mono">{paidFromBalanceDays.toFixed(2)} يوم</span>
+                </div>
+                <div className="p-2 rounded-lg bg-orange-50 border border-orange-200">
+                  <span className="text-orange-900 block text-[10px] font-bold">إجازة بدون راتب / تجاوز رصيد (unpaidDays)</span>
+                  <span className="font-black text-orange-950 font-mono">{unpaidExcessDays.toFixed(2)} يوم</span>
+                </div>
+                <div className="p-2 rounded-lg bg-slate-50 border border-slate-200 col-span-2 sm:col-span-1">
+                  <span className="text-slate-600 block text-[10px] font-bold">ملاحظة مسير الرواتب</span>
+                  <span className="text-[10px] text-slate-700 leading-snug block">
+                    الأيام غير المغطاة بالرصيد لا تُطرح من الرصيد السنوي وتُرحّل لخصم الراتب في مسير الرواتب.
+                  </span>
+                </div>
+              </div>
+            )}
             {request.reason && (
               <div className="mt-2.5 pt-2 border-t border-slate-100 text-[11px]">
                 <span className="text-slate-500 font-bold">سبب الإجازة: </span>
