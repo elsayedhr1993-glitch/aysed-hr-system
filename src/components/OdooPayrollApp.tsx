@@ -16,7 +16,10 @@ import { FinalSettlementModal } from './payroll/FinalSettlementModal';
 import { PifssInsuranceReportModal } from './payroll/PifssInsuranceReportModal';
 import { PayrollStructureWizardModal } from './payroll/PayrollStructureWizardModal';
 import { EosSetupWizardModal } from './payroll/EosSetupWizardModal';
+import { EOSApp } from '../apps/EOSApp';
+import type { Contract } from '../types';
 import { db, cleanFirestoreData } from '../lib/firebase';
+import { TenantDatabaseService } from '../services/tenantDataService';
 import { calculateKuwaitDailyRate, calculateKuwaitHourlyRate } from '../utils/kuwaitPayrollMath';
 import { collection, doc, getDoc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 
@@ -96,6 +99,7 @@ export const OdooPayrollApp: React.FC = () => {
   const [showPifssModal, setShowPifssModal] = useState(false);
   const [showPayrollWizard, setShowPayrollWizard] = useState(false);
   const [showEosWizard, setShowEosWizard] = useState(false);
+  const [showEosEngineModal, setShowEosEngineModal] = useState(false);
 
   const [payslips, setPayslips] = useState<PayslipItem[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
@@ -716,6 +720,26 @@ export const OdooPayrollApp: React.FC = () => {
     });
   }, [employees, loans, activeCompany?.id]);
 
+  const payrollContracts = useMemo((): Contract[] => {
+    const companyId = activeCompany?.id || '';
+    return employees.map(emp => {
+      const e = emp as Record<string, unknown>;
+      return {
+        id: `payroll-contract-${emp.id}`,
+        employeeId: emp.id,
+        companyId,
+        basicSalary: Number(e.basicSalary ?? 0),
+        housingAllowance: Number(e.housingAllowance ?? 0),
+        transportAllowance: Number(e.transportAllowance ?? 0),
+        otherAllowance: Number(e.medicalAllowance ?? 0),
+        contractType: 'INDEFINITE',
+        startDate: String(e.contractStartDate || e.joinDate || new Date().toISOString().split('T')[0]),
+        noticePeriodDays: 90,
+        status: 'RUNNING'
+      };
+    });
+  }, [employees, activeCompany?.id]);
+
   return (
     <div className="space-y-5 font-sans dir-rtl text-right text-slate-800 animate-fade-in" dir="rtl">
       
@@ -864,6 +888,14 @@ export const OdooPayrollApp: React.FC = () => {
                 title="تثبيت لائحة ومحرك مكافأة نهاية الخدمة (المادتين 51 و 53)"
               >
                 <Scale size={15} className="text-amber-300" /> لائحة نهاية الخدمة والتسويات
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowEosEngineModal(true)}
+                className="bg-indigo-700 hover:bg-indigo-800 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                title="محرك EOS الموحد (leaveEngine + المادتين 51 و53)"
+              >
+                <Calculator size={15} /> محرك نهاية الخدمة (EOS)
               </button>
               <button
                 onClick={() => setShowFinalSettlementModal(true)}
@@ -1415,12 +1447,21 @@ export const OdooPayrollApp: React.FC = () => {
                 احتساب مكافأة نهاية الخدمة طبقاً للمادتين 51 و53 من قانون العمل الكويتي (15 يوماً للسنوات الـ 5 الأولى وشهر عما تلاها)، مع تصفية رصيد الإجازات المتبقية (مادة 70) وتسوية السلف وطباعة استمارة إبراء الذمة الرسمية لتقديمها للقوى العاملة.
               </p>
             </div>
-            <button
-              onClick={() => setShowFinalSettlementModal(true)}
-              className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-            >
-              <Calculator size={14} /> فتح نموذج المخالصة وإبراء الذمة
-            </button>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => setShowFinalSettlementModal(true)}
+                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <Calculator size={14} /> فتح نموذج المخالصة وإبراء الذمة
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowEosEngineModal(true)}
+                className="w-full py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <Scale size={14} /> محرك EOS الكامل (تسوية ومغادرة)
+              </button>
+            </div>
           </div>
 
           {/* Card 2: PIFSS Insurance */}
@@ -1830,6 +1871,33 @@ export const OdooPayrollApp: React.FC = () => {
         isOpen={showEosWizard}
         onClose={() => setShowEosWizard(false)}
       />
+
+      {showEosEngineModal && activeCompany && (
+        <div className="fixed inset-0 z-[120] flex flex-col bg-slate-100">
+          <div className="shrink-0 flex items-center justify-between gap-3 px-4 py-3 bg-white border-b border-slate-200 shadow-xs">
+            <h2 className="text-sm font-black text-slate-900">محرك نهاية الخدمة (EOS) — leaveEngine الموحد</h2>
+            <button
+              type="button"
+              onClick={() => setShowEosEngineModal(false)}
+              className="p-2 rounded-lg hover:bg-slate-100 text-slate-600 cursor-pointer"
+              aria-label="إغلاق"
+            >
+              <X size={20} />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            <EOSApp
+              employees={employees}
+              contracts={payrollContracts}
+              leaves={leaveRequests as any}
+              activeCompany={activeCompany}
+              onSaveEmployee={(emp) => {
+                TenantDatabaseService.saveEmployee(emp as any, activeCompany.id).catch(console.error);
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

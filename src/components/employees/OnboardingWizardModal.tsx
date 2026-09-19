@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   X, 
   ChevronLeft, 
@@ -41,18 +41,30 @@ const KUWAIT_BANK_OPTIONS = [
   'بنك وربة'
 ];
 
+export interface OnboardingWizardPrefill {
+  employeeName?: string;
+  jobTitle?: string;
+  department?: string;
+  expectedStartDate?: string;
+  templateType?: 'standard_admin' | 'medical_specialist' | 'executive' | 'technical';
+  workEmail?: string;
+  basicSalary?: number;
+}
+
 interface OnboardingWizardModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirmLaunch: (plan: OnboardingPlan) => void;
   existingEmployees?: Array<{ id: string; nameAr: string; jobTitle?: string; dept?: string; civilId?: string }>;
+  initialPrefill?: OnboardingWizardPrefill | null;
 }
 
 export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
   isOpen,
   onClose,
   onConfirmLaunch,
-  existingEmployees = []
+  existingEmployees = [],
+  initialPrefill = null
 }) => {
   const { activeCompany } = useCompany();
 
@@ -189,6 +201,19 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
   const [workEmail, setWorkEmail] = useState<string>('');
   const [bankName, setBankName] = useState<string>('بيت التمويل الكويتي (KFH)');
   const [iban, setIban] = useState<string>('');
+
+  useEffect(() => {
+    if (!isOpen || !initialPrefill) return;
+    if (initialPrefill.employeeName) setEmployeeName(initialPrefill.employeeName);
+    if (initialPrefill.jobTitle) setJobTitle(initialPrefill.jobTitle);
+    if (initialPrefill.department) setDepartment(initialPrefill.department);
+    if (initialPrefill.expectedStartDate) setExpectedStartDate(initialPrefill.expectedStartDate);
+    if (initialPrefill.templateType) setTemplateType(initialPrefill.templateType);
+    if (initialPrefill.basicSalary !== undefined) setBasicSalary(initialPrefill.basicSalary);
+    if (initialPrefill.workEmail) setWorkEmail(initialPrefill.workEmail);
+    setSelectedEmpId('new');
+    setCurrentStep(1);
+  }, [isOpen, initialPrefill]);
 
   // Commencement Details State
   const [actualJoiningDate, setActualJoiningDate] = useState<string>(

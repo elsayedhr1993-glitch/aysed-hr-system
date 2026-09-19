@@ -1,8 +1,11 @@
 import { printDocument, exportElementToPdf } from '../utils/printUtils';
 import React, { useState, useMemo, useEffect } from 'react';
 import { Employee, Company, Contract, EOSCalculation, LeaveRequest } from '../types';
-import { formatKWD, get_aysed_official_balance } from '../utils/kuwaitLaw';
+import { formatKWD } from '../utils/kuwaitLaw';
 import { calculateKuwaitEOS } from '../utils/kuwaitPayrollEngine';
+import { getEmployeeUnifiedSummary, matchesEmployeeIdentity } from '../utils/leaveEngine';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 import { Scale, Printer, FileCheck, AlertCircle, Info, Calculator, CheckCircle2, CalendarOff, ShieldAlert, ArrowDownRight, Layers, FileSpreadsheet, Check, Download, Loader2, ShieldCheck, RotateCcw, UserX, AlertTriangle, FileSignature } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { TenantDatabaseService } from '../services/tenantDataService';
@@ -41,6 +44,25 @@ export const EOSApp: React.FC<EOSAppProps> = ({
   const [isProcessingDeparture, setIsProcessingDeparture] = useState<boolean>(false);
   const [departureCompleted, setDepartureCompleted] = useState<boolean>(false);
   const [clearanceConfirmed, setClearanceConfirmed] = useState<boolean>(false);
+  const [leaveAllocations, setLeaveAllocations] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!activeCompId) {
+      setLeaveAllocations([]);
+      return;
+    }
+    const allocationsQuery = query(
+      collection(db, 'leave_allocations'),
+      where('companyId', '==', activeCompId)
+    );
+    return onSnapshot(
+      allocationsQuery,
+      (snapshot) => {
+        setLeaveAllocations(snapshot.docs.map((item) => ({ ...item.data(), id: item.id })));
+      },
+      (error) => console.error('EOSApp: failed to load leave allocations', error)
+    );
+  }, [activeCompId]);
 
   const activeEmp = employees.find(e => e.id === selectedEmpId) || companyEmps[0];
   const activeContract = contracts.find(c => c.employeeId === activeEmp?.id);
@@ -56,23 +78,22 @@ export const EOSApp: React.FC<EOSAppProps> = ({
     setClearanceConfirmed(false);
   }, [selectedEmpId]);
 
-  // Calculate actual unused leave balance for the active employee
+  const employeeLeaveSummary = useMemo(() => {
+    if (!activeEmp) return null;
+    const empLeaves = (leaves || []).filter((l) => matchesEmployeeIdentity(l, activeEmp));
+    try {
+      return getEmployeeUnifiedSummary(activeEmp as any, leaveAllocations as any, empLeaves as any);
+    } catch (err) {
+      console.error('EOSApp: leave summary failed', err);
+      return null;
+    }
+  }, [activeEmp, leaves, leaveAllocations]);
+
+  // رصيد التسييل = نفس leaveEngine (FIFO / paid-unpaid) المستخدم في الدليل
   const calculatedUnusedLeaveDays = useMemo(() => {
-    if (!activeEmp) return 0;
-    const accrued = get_aysed_official_balance(activeEmp);
-    const takenAnnualDays = (leaves || [])
-      .filter(l => !l.isHistorical && l.employeeId === activeEmp.id && (l.status === 'APPROVED' || (l.status as string) === 'VALIDATED') && (l.leaveType === 'ANNUAL' || l.leaveType === 'BEREAVEMENT' || l.leaveType === 'COMPASSIONATE'))
-      .reduce((sum, l) => {
-        if (l.leaveType === 'BEREAVEMENT' || l.leaveType === 'COMPASSIONATE') {
-          const deducted = l.annualDeductedDays !== undefined 
-            ? l.annualDeductedDays 
-            : (l.isSplitBereavement ? Math.max(0, (l.totalDays || 0) - (l.bereavementStatutoryDays ?? 3)) : 0);
-          return sum + deducted;
-        }
-        return sum + (l.totalDays || 0);
-      }, 0);
-    return Math.max(0, accrued - takenAnnualDays);
-  }, [activeEmp, leaves]);
+    if (!employeeLeaveSummary) return 0;
+    return Number(employeeLeaveSummary.totalAvailableDays || 0);
+  }, [employeeLeaveSummary]);
 
   const effectiveUnusedLeaveDays = manualLeaveDaysOverride !== null ? manualLeaveDaysOverride : calculatedUnusedLeaveDays;
 
@@ -87,11 +108,13 @@ export const EOSApp: React.FC<EOSAppProps> = ({
   }, [leaves, activeEmp]);
 
   const calculatedUnpaidDays = useMemo(() => {
-    return employeeUnpaidLeaves.reduce((sum, l) => {
+    const engineExcess = Number(employeeLeaveSummary?.unpaidLeaveDays || 0);
+    const explicitUnpaid = employeeUnpaidLeaves.reduce((sum, l) => {
       const days = l.leaveType === 'UNPAID' ? (l.totalDays || 0) : (l.excessDays || 0);
       return sum + days;
     }, 0);
-  }, [employeeUnpaidLeaves]);
+    return Math.max(engineExcess, explicitUnpaid);
+  }, [employeeUnpaidLeaves, employeeLeaveSummary]);
 
   const effectiveUnpaidDays = manualUnpaidOverride !== null ? manualUnpaidOverride : calculatedUnpaidDays;
 

@@ -68,7 +68,6 @@ import { ComplianceSmartSentinelModal } from './components/ComplianceSmartSentin
 import { LegalDocumentBotModal } from './components/LegalDocumentBotModal';
 import { DataPayrollAnalystBotModal } from './components/DataPayrollAnalystBotModal';
 import { FacilityLicensingWizardModal } from './components/facility/FacilityLicensingWizardModal';
-import { createEmployeeOnboardingBundle } from './services/employeeOnboardingService';
 import { collection, doc, getDocs, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { cleanFirestoreData, db } from './lib/firebase';
 import { useLang } from './lib/i18n';
@@ -210,92 +209,42 @@ function MainAppLayout() {
     toast.success('تم حفظ وتحديث بيانات المرشح بنجاح');
   };
 
-  const handleConvertCandidateToEmployee = async (cand: Candidate) => {
-    const newEmpId = `EMP-${Date.now().toString().slice(-6)}`;
-    const compId = activeCompany?.id || 'comp-super-admin';
-    const todayStr = new Date().toISOString().split('T')[0];
-
-    const newEmployeeRecord = {
-      id: newEmpId,
-      name: cand.fullName,
-      fullNameAr: cand.fullName,
-      nameAr: cand.fullName,
-      fullNameEn: '',
-      nameEn: '',
-      civilId: '',
-      passportNo: '',
-      passportExpiry: '',
-      residencyExpiry: '',
-      jobTitle: cand.appliedPosition,
-      department: cand.department || 'الموارد البشرية والإدارة',
-      dept: cand.department || 'الموارد البشرية والإدارة',
-      basicSalary: cand.expectedSalary || 600,
-      housingAllowance: 100,
-      transportAllowance: 50,
-      medicalAllowance: 0,
-      status: 'ONBOARDING',
-      contractStatus: 'draft',
-      joinDate: todayStr,
-      nationality: 'كويتي',
-      companyId: compId,
-      phone: cand.phone,
-      email: cand.email,
-      bankName: 'بيت التمويل الكويتي (KFH)',
-      iban: '',
-      contractStartDate: todayStr,
-      commencementDate: todayStr,
-      directSupervisor: 'مدير الموارد البشرية',
-      branchLocation: activeCompany?.nameAr ? `${activeCompany.nameAr} - المقر الرئيسي` : 'المقر الرئيسي - مدينة الكويت',
-      isCommenced: false,
-      leaveAccrualActivated: true,
-      notes: `تم التعيين والتحويل من بوابة التوظيف - مرحلة التهيئة والتعاقد الأولية`
-    };
-
-    try {
-      await createEmployeeOnboardingBundle({
-        companyId: compId,
-        employee: newEmployeeRecord as any,
-        existingEmployees: employees as any
-      });
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'تعذر تحويل المرشح إلى موظف.');
-      return;
+  const handleRecruitmentOnboardingHired = (candidateId: string) => {
+    const found = candidates.find(c => c.id === candidateId);
+    if (found) {
+      handleSaveCandidate({ ...found, stage: 'HIRED' });
     }
+    setEmployeeAppProps((prev: Record<string, unknown>) => ({
+      ...prev,
+      recruitmentCandidateId: undefined,
+      onboardingPrefill: undefined,
+      onRecruitmentHired: undefined
+    }));
+  };
 
-    // إنشاء خطة تهيئة واستقبال تلقائية في Firestore
-    try {
-      const newPlan = {
-        id: `ONB-${Date.now().toString().slice(-6)}`,
-        employeeId: newEmpId,
+  const handleConvertCandidateToEmployee = (cand: Candidate) => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const dept = cand.department || 'الموارد البشرية والإدارة';
+    const isMedical = (cand.department || '').includes('أطباء');
+
+    setEmployeeAppProps({
+      initialTab: 'directory',
+      initialOpenOnboarding: true,
+      triggerKey: Date.now(),
+      onboardingPrefill: {
         employeeName: cand.fullName,
         jobTitle: cand.appliedPosition,
-        department: cand.department || 'العموم',
-        civilId: 'غير محدد',
+        department: dept,
         expectedStartDate: todayStr,
-        templateType: (cand.department || '').includes('أطباء') ? 'medical_specialist' : 'general',
-        status: 'active',
-        progressPercentage: 20,
-        tasks: [
-          { id: 't1', title: 'استلام وتدقيق أوراق التعيين والبطاقة المدنية', category: 'legal', assignedToRole: 'الموارد البشرية', completed: false },
-          { id: 't2', title: 'إعداد وتوقيع عقد العمل الرسمي', category: 'legal', assignedToRole: 'مسؤول العقود', completed: false },
-          { id: 't3', title: 'تسجيل الموظف في البصمة وإصدار البريد الإلكتروني', category: 'it', assignedToRole: 'تقنية المعلومات', completed: false },
-          { id: 't4', title: 'توقيع واعتماد إقرار مباشرة العمل وتحديد الدوام', category: 'legal', assignedToRole: 'مدير الموارد البشرية', completed: false }
-        ],
-        custodyItems: ['بطاقة الهوية', 'بريد إلكتروني'],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      await setDoc(doc(db, 'onboarding_plans', newPlan.id), cleanFirestoreData({ ...newPlan, companyId: compId }), { merge: true });
-    } catch (e) {
-      console.error('Error auto-creating onboarding plan:', e);
-    }
-
-    handleSaveCandidate({
-      ...cand,
-      stage: 'HIRED'
+        templateType: isMedical ? 'medical_specialist' : 'standard_admin',
+        basicSalary: cand.expectedSalary || 600,
+        workEmail: cand.email || ''
+      },
+      recruitmentCandidateId: cand.id,
+      onRecruitmentHired: handleRecruitmentOnboardingHired
     });
-
-    toast.success(`🎉 تم نقل المرشح (${cand.fullName}) إلى مرحلة "التهيئة والتعاقد (Onboarding)". بانتظار توثيق وتأكيد مباشرة العمل.`);
+    setActiveApp('employees');
+    toast.success(`افتح معالج التعيين لإكمال بيانات (${cand.fullName}) — سيتم تحديث حالة المرشح إلى «تم التعيين» بعد إتمام المعالج.`);
   };
 
   // Load documents when activeCompany?.id changes (Cloud-First Single Source of Truth)
