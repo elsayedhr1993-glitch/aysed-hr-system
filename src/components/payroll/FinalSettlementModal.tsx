@@ -33,6 +33,7 @@ interface FinalSettlementModalProps {
   companyName: string;
   companyNameEn: string;
   crNumber: string;
+  initialEmployeeId?: string;
   onClose: () => void;
 }
 
@@ -43,6 +44,7 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
   companyName,
   companyNameEn,
   crNumber,
+  initialEmployeeId,
   onClose,
 }) => {
   const [selectedEmpId, setSelectedEmpId] = useState<string>(employees[0]?.id || '');
@@ -60,11 +62,16 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
       return;
     }
 
+    if (initialEmployeeId && employees.some((e) => e.id === initialEmployeeId)) {
+      setSelectedEmpId(initialEmployeeId);
+      return;
+    }
+
     const selectedStillExists = employees.some((e) => e.id === selectedEmpId);
     if (!selectedStillExists) {
       setSelectedEmpId(employees[0].id);
     }
-  }, [employees, selectedEmpId]);
+  }, [employees, selectedEmpId, initialEmployeeId]);
 
   const currentEmp = employees.find((e) => e.id === selectedEmpId) || employees[0];
 
