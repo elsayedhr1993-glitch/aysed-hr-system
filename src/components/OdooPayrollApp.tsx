@@ -67,7 +67,15 @@ interface MonthlyAttendanceRollupEntry {
   actualHours: number;
 }
 
-export const OdooPayrollApp: React.FC = () => {
+export interface OdooPayrollAppProps {
+  initialSettlementEmployeeId?: string;
+  openFinalSettlementTriggerKey?: number;
+}
+
+export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
+  initialSettlementEmployeeId,
+  openFinalSettlementTriggerKey,
+}) => {
   const { activeCompany } = useCompany();
   const { settings } = useSystemSettings();
   const { 
@@ -105,6 +113,12 @@ export const OdooPayrollApp: React.FC = () => {
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [leaveAllocations, setLeaveAllocations] = useState<any[]>([]);
   const [monthlyRollupByEmployee, setMonthlyRollupByEmployee] = useState<Record<string, MonthlyAttendanceRollupEntry>>({});
+
+  useEffect(() => {
+    if (!openFinalSettlementTriggerKey) return;
+    setActiveSubTab('settlements');
+    setShowFinalSettlementModal(true);
+  }, [openFinalSettlementTriggerKey, initialSettlementEmployeeId]);
 
   useEffect(() => {
     const companyId = activeCompany?.id;
@@ -1844,6 +1858,7 @@ export const OdooPayrollApp: React.FC = () => {
           companyName={activeCompany?.nameAr || 'شركة الأفق للتجارة العامة والمقاولات ذ.م.م'}
           companyNameEn={activeCompany?.nameEn || 'Al-Ufuq General Trading & Contracting W.L.L.'}
           crNumber={activeCompany?.crNumber || activeCompany?.commercialRegNo || '104829'}
+          initialEmployeeId={initialSettlementEmployeeId}
           onClose={() => setShowFinalSettlementModal(false)}
         />
       )}

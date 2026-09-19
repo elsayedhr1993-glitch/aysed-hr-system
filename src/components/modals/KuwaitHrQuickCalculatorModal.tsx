@@ -1,32 +1,59 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
-  Calculator, X, Scale, Clock, Calendar, CheckCircle2, ShieldCheck,
+  Calculator, X, Scale, Clock, Calendar, CheckCircle2, ShieldCheck, User, ExternalLink,
 } from 'lucide-react';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
+import { useCompany } from '../../context/CompanyContext';
+import { useOdooHierarchy } from '../../context/OdooHierarchyContext';
 import type { QuickCalculatorTab } from '../../utils/kuwaitQuickCalculators';
 import {
   calculateOvertimeTotals,
   calculatePifssContributions,
   PIFSS_SALARY_CAP_KWD,
 } from '../../utils/kuwaitQuickCalculators';
+import { calculateKuwaitEOS, calculateDailyWage } from '../../utils/kuwaitPayrollEngine';
+import {
+  getEmployeeLeaveEosSnapshot,
+  resolveContractType,
+  resolveEmployeeDisplayName,
+  resolveEmployeeGrossSalary,
+  resolveEmployeeServiceStartDate,
+  type EosTerminationType,
+} from '../../utils/eosEmployeeContext';
 
 interface KuwaitHrQuickCalculatorModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialTab?: QuickCalculatorTab;
+  onOpenPayrollSettlement?: (employeeId: string) => void;
 }
 
 export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModalProps> = ({
   isOpen,
   onClose,
   initialTab = 'eos',
+  onOpenPayrollSettlement,
 }) => {
+  const { activeCompany } = useCompany();
+  const { employees: hierarchyEmployees } = useOdooHierarchy();
+  const companyId = activeCompany?.id || '';
+
   const [activeTab, setActiveTab] = useState<QuickCalculatorTab>(initialTab);
 
-  // EOS Calculator state
+  const [eosMode, setEosMode] = useState<'employee' | 'manual'>('employee');
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
+  const [eosJoinDate, setEosJoinDate] = useState<string>('');
+  const [eosLeaveDate, setEosLeaveDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [eosSalary, setEosSalary] = useState<number>(850);
-  const [eosYears, setEosYears] = useState<number>(4);
-  const [eosMonths, setEosMonths] = useState<number>(6);
-  const [eosTerminationType, setEosTerminationType] = useState<'EMPLOYER_TERMINATION' | 'RESIGNATION'>('EMPLOYER_TERMINATION');
+  const [eosTerminationType, setEosTerminationType] = useState<EosTerminationType>('TERMINATION');
+  const [eosContractType, setEosContractType] = useState<'INDEFINITE' | 'FIXED_TERM'>('INDEFINITE');
+  const [eosUnusedLeaveDays, setEosUnusedLeaveDays] = useState<number>(0);
+  const [eosLeaveDaysTouched, setEosLeaveDaysTouched] = useState(false);
+  const [eosUnpaidLeaveDays, setEosUnpaidLeaveDays] = useState<number>(0);
+  const [contracts, setContracts] = useState<Record<string, unknown>[]>([]);
+  const [leaveRequests, setLeaveRequests] = useState<unknown[]>([]);
+  const [leaveAllocations, setLeaveAllocations] = useState<unknown[]>([]);
 
   // Daily & Hourly Wage state
   const [wageSalary, setWageSalary] = useState<number>(750);
@@ -41,65 +68,111 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
   const [leaveDaysBalance, setLeaveDaysBalance] = useState<number>(24);
   const [leaveDivisor, setLeaveDivisor] = useState<number>(26);
 
-  // EOS calculation based on Kuwait Labor Law Article 51 & 53
-  const eosResult = useMemo(() => {
-    const totalYears = Number(eosYears || 0) + Number(eosMonths || 0) / 12;
-    if (totalYears <= 0 || eosSalary <= 0) {
-      return { totalAmount: 0, firstFiveYearsAmount: 0, nextYearsAmount: 0, resignationFactor: 1, capExceeded: false, legalNote: '' };
+  const companyEmployees = useMemo(() => {
+    return (hierarchyEmployees || []).filter((e) => {
+      if ((e as { isDeleted?: boolean }).isDeleted) return false;
+      if (!companyId) return true;
+      return e.companyId === companyId;
+    });
+  }, [hierarchyEmployees, companyId]);
+
+  const selectedEmployee = useMemo(() => {
+    if (!selectedEmployeeId) return null;
+    const emp = companyEmployees.find((e) => e.id === selectedEmployeeId);
+    return emp ? (emp as Record<string, unknown>) : null;
+  }, [companyEmployees, selectedEmployeeId]);
+
+  const leaveSnapshot = useMemo(() => {
+    if (!selectedEmployee) return null;
+    return getEmployeeLeaveEosSnapshot(selectedEmployee, leaveAllocations, leaveRequests);
+  }, [selectedEmployee, leaveAllocations, leaveRequests]);
+
+  useEffect(() => {
+    if (!isOpen || !companyId) {
+      setContracts([]);
+      setLeaveRequests([]);
+      setLeaveAllocations([]);
+      return;
     }
 
-    // الأجر اليومي لاحتساب نهاية الخدمة = الراتب الشامل / 26
-    const dailyWage = eosSalary / 26;
+    const unsubContracts = onSnapshot(
+      query(collection(db, 'contracts'), where('companyId', '==', companyId)),
+      (snap) => setContracts(snap.docs.map((d) => ({ ...d.data(), id: d.id }))),
+      (err) => console.error('Quick calculator: contracts', err)
+    );
+    const unsubLeaves = onSnapshot(
+      query(collection(db, 'leave_requests'), where('companyId', '==', companyId)),
+      (snap) => setLeaveRequests(snap.docs.map((d) => ({ ...d.data(), id: d.id }))),
+      (err) => console.error('Quick calculator: leave_requests', err)
+    );
+    const unsubAlloc = onSnapshot(
+      query(collection(db, 'leave_allocations'), where('companyId', '==', companyId)),
+      (snap) => setLeaveAllocations(snap.docs.map((d) => ({ ...d.data(), id: d.id }))),
+      (err) => console.error('Quick calculator: leave_allocations', err)
+    );
 
-    // السنوات الخمس الأولى: 15 يوماً عن كل سنة
-    const firstFivePeriod = Math.min(5, totalYears);
-    const firstFiveYearsAmount = firstFivePeriod * (dailyWage * 15);
-
-    // ما زاد عن 5 سنوات: شهر (26 يوماً أو راتب كامل) عن كل سنة
-    const nextPeriod = Math.max(0, totalYears - 5);
-    const nextYearsAmount = nextPeriod * eosSalary;
-
-    let fullEos = firstFiveYearsAmount + nextYearsAmount;
-
-    // الحد الأقصى القانوني: ألا تزيد المكافأة عن أجر سنة ونصف (18 شهراً)
-    const maxCap = eosSalary * 18;
-    const capExceeded = fullEos > maxCap;
-    if (capExceeded) {
-      fullEos = maxCap;
-    }
-
-    // معامل الاستقالة (مادة 53 من قانون العمل الكويتي)
-    let resignationFactor = 1;
-    let legalNote = 'تستحق المكافأة كاملة لانتهاء العقد من طرف المنشأة أو انتهاء مدته';
-
-    if (eosTerminationType === 'RESIGNATION') {
-      if (totalYears < 3) {
-        resignationFactor = 0;
-        legalNote = 'أقل من 3 سنوات خدمة: لا يستحق العامل مكافأة نهاية خدمة في حال الاستقالة (مادة 53)';
-      } else if (totalYears < 5) {
-        resignationFactor = 0.5;
-        legalNote = 'من 3 إلى أقل من 5 سنوات: يستحق نصف المكافأة (50%) في حال الاستقالة (مادة 53)';
-      } else if (totalYears < 10) {
-        resignationFactor = 2 / 3;
-        legalNote = 'من 5 إلى أقل من 10 سنوات: يستحق ثلثي المكافأة (66.67%) في حال الاستقالة (مادة 53)';
-      } else {
-        resignationFactor = 1;
-        legalNote = '10 سنوات خدمة فأكثر: يستحق المكافأة كاملة (100%) حتى في حال الاستقالة (مادة 53)';
-      }
-    }
-
-    const totalAmount = fullEos * resignationFactor;
-
-    return {
-      totalAmount: Number(totalAmount.toFixed(3)),
-      firstFiveYearsAmount: Number(firstFiveYearsAmount.toFixed(3)),
-      nextYearsAmount: Number(nextYearsAmount.toFixed(3)),
-      fullEosBeforeResignation: Number(fullEos.toFixed(3)),
-      resignationFactor,
-      capExceeded,
-      legalNote
+    return () => {
+      unsubContracts();
+      unsubLeaves();
+      unsubAlloc();
     };
-  }, [eosSalary, eosYears, eosMonths, eosTerminationType]);
+  }, [isOpen, companyId]);
+
+  useEffect(() => {
+    if (!isOpen || eosMode !== 'employee') return;
+    if (!selectedEmployeeId && companyEmployees.length > 0) {
+      setSelectedEmployeeId(companyEmployees[0].id);
+    }
+  }, [isOpen, eosMode, selectedEmployeeId, companyEmployees]);
+
+  useEffect(() => {
+    if (!selectedEmployee || eosMode !== 'employee') return;
+    setEosJoinDate(resolveEmployeeServiceStartDate(selectedEmployee));
+    setEosSalary(resolveEmployeeGrossSalary(selectedEmployee, contracts));
+    setEosContractType(resolveContractType(selectedEmployee, contracts));
+    if (!eosLeaveDaysTouched && leaveSnapshot) {
+      setEosUnusedLeaveDays(leaveSnapshot.netAvailable);
+      setEosUnpaidLeaveDays(leaveSnapshot.unpaidExcess);
+    }
+  }, [selectedEmployee, eosMode, contracts, leaveSnapshot, eosLeaveDaysTouched]);
+
+  const eosEngineResult = useMemo(() => {
+    if (!eosJoinDate || !eosLeaveDate || eosSalary <= 0) return null;
+    const join = new Date(eosJoinDate);
+    const leave = new Date(eosLeaveDate);
+    if (Number.isNaN(join.getTime()) || Number.isNaN(leave.getTime()) || leave < join) {
+      return null;
+    }
+
+    return calculateKuwaitEOS({
+      employeeId: selectedEmployeeId || 'manual-estimate',
+      employeeName: selectedEmployee ? resolveEmployeeDisplayName(selectedEmployee) : 'تقدير يدوي',
+      civilId: String(selectedEmployee?.civilId || ''),
+      joinDate: eosJoinDate,
+      leaveDate: eosLeaveDate,
+      grossSalary: eosSalary,
+      terminationType: eosTerminationType,
+      contractType: eosContractType,
+      unusedLeaveDays: Math.max(0, eosUnusedLeaveDays),
+      otherDeductions: 0,
+      totalUnpaidLeaveDays: Math.max(0, eosUnpaidLeaveDays),
+    });
+  }, [
+    eosJoinDate,
+    eosLeaveDate,
+    eosSalary,
+    eosTerminationType,
+    eosContractType,
+    eosUnusedLeaveDays,
+    eosUnpaidLeaveDays,
+    selectedEmployeeId,
+    selectedEmployee,
+  ]);
+
+  const eosDailyWage = eosSalary > 0 ? calculateDailyWage(eosSalary) : 0;
+  const capExceeded =
+    eosEngineResult != null &&
+    eosEngineResult.grossEosAmount >= eosSalary * 18 - 0.001;
 
   const wageResult = useMemo(
     () =>
@@ -119,6 +192,23 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
     if (isOpen) setActiveTab(initialTab);
   }, [isOpen, initialTab]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      setEosLeaveDaysTouched(false);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (activeTab === 'leave' && selectedEmployee && eosMode === 'employee') {
+      const gross = resolveEmployeeGrossSalary(selectedEmployee, contracts);
+      const basic = Number(selectedEmployee.basicSalary ?? gross);
+      setLeaveSalary(basic > 0 ? basic : gross);
+      if (leaveSnapshot) {
+        setLeaveDaysBalance(leaveSnapshot.netAvailable);
+      }
+    }
+  }, [activeTab, selectedEmployee, eosMode, contracts, leaveSnapshot]);
+
   // Leave liquidation calculation
   const leaveResult = useMemo(() => {
     const divisor = leaveDivisor > 0 ? leaveDivisor : 26;
@@ -135,7 +225,7 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 dir-rtl" dir="rtl">
-      <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden border border-slate-200 animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
+      <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden border border-slate-200 animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
         
         {/* Header */}
         <div className="p-4 bg-[#714B67] text-white flex justify-between items-center shrink-0">
@@ -213,95 +303,225 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
           {/* TAB 1: EOS */}
           {activeTab === 'eos' && (
             <div className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEosMode('employee')}
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border cursor-pointer ${
+                    eosMode === 'employee'
+                      ? 'bg-[#714B67] text-white border-[#714B67]'
+                      : 'bg-white text-slate-600 border-slate-200'
+                  }`}
+                >
+                  <User size={12} className="inline ml-1" /> من ملف موظف
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEosMode('manual');
+                    setEosLeaveDaysTouched(false);
+                    if (!eosJoinDate) {
+                      const end = new Date(eosLeaveDate || new Date().toISOString().slice(0, 10));
+                      const start = new Date(end);
+                      start.setFullYear(start.getFullYear() - 4);
+                      setEosJoinDate(start.toISOString().slice(0, 10));
+                    }
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border cursor-pointer ${
+                    eosMode === 'manual'
+                      ? 'bg-slate-800 text-white border-slate-800'
+                      : 'bg-white text-slate-600 border-slate-200'
+                  }`}
+                >
+                  تقدير بدون موظف (تواريخ)
+                </button>
+              </div>
+
+              {eosMode === 'employee' && (
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">الموظف *</label>
+                  <select
+                    value={selectedEmployeeId}
+                    onChange={(e) => {
+                      setSelectedEmployeeId(e.target.value);
+                      setEosLeaveDaysTouched(false);
+                    }}
+                    className="w-full border border-slate-300 rounded-xl p-2.5 text-xs font-bold text-slate-900 focus:outline-none focus:border-[#714B67] bg-slate-50"
+                  >
+                    {companyEmployees.length === 0 ? (
+                      <option value="">لا يوجد موظفون للشركة النشطة</option>
+                    ) : (
+                      companyEmployees.map((emp) => (
+                        <option key={emp.id} value={emp.id}>
+                          {resolveEmployeeDisplayName(emp as Record<string, unknown>)}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                  <span className="text-[10px] text-slate-500">
+                    الراتب من العقد (Firestore) · الإجازة من leaveEngine
+                  </span>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">تاريخ التعيين / المباشرة *</label>
+                  <input
+                    type="date"
+                    value={eosJoinDate}
+                    onChange={(e) => setEosJoinDate(e.target.value)}
+                    disabled={eosMode === 'employee'}
+                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold text-slate-900 focus:outline-none focus:border-[#714B67] bg-slate-50 disabled:opacity-70"
+                  />
+                  <span className="text-[10px] text-slate-500">hireDate → commencement → joinDate</span>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">آخر يوم عمل *</label>
+                  <input
+                    type="date"
+                    value={eosLeaveDate}
+                    onChange={(e) => setEosLeaveDate(e.target.value)}
+                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold text-slate-900 focus:outline-none focus:border-[#714B67] bg-slate-50"
+                  />
+                </div>
+
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">الراتب الشامل الأخير (د.ك) *</label>
                   <input
                     type="number"
                     min="0"
-                    step="10"
+                    step="0.001"
                     value={eosSalary}
                     onChange={(e) => setEosSalary(Math.max(0, Number(e.target.value)))}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold text-slate-900 focus:outline-none focus:border-[#714B67] bg-slate-50 focus:bg-white"
+                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold text-slate-900 focus:outline-none focus:border-[#714B67] bg-slate-50"
                   />
-                  <span className="text-[10px] text-slate-500">يشمل الراتب الأساسي + جميع البدلات الثابتة</span>
+                  <span className="text-[10px] text-slate-500">أساسي + بدلات ثابتة (÷ 26 للأجر اليومي)</span>
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">سبب إنهاء العلاقة العمالية *</label>
+                  <label className="block font-bold text-slate-700 mb-1">سبب إنهاء العلاقة *</label>
                   <select
                     value={eosTerminationType}
-                    onChange={(e) => setEosTerminationType(e.target.value as any)}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 text-xs font-bold text-slate-900 focus:outline-none focus:border-[#714B67] bg-slate-50 focus:bg-white"
+                    onChange={(e) => setEosTerminationType(e.target.value as EosTerminationType)}
+                    className="w-full border border-slate-300 rounded-xl p-2.5 text-xs font-bold text-slate-900 focus:outline-none focus:border-[#714B67] bg-slate-50"
                   >
-                    <option value="EMPLOYER_TERMINATION">إنهاء خدمة من صاحب العمل / انتهاء محدد المدة (كاملة)</option>
-                    <option value="RESIGNATION">استقالة العامل من طرفه (تخضع لجدول المادة 53)</option>
+                    <option value="TERMINATION">إنهاء من صاحب العمل / فصل</option>
+                    <option value="CONTRACT_EXPIRED">انتهاء مدة العقد</option>
+                    <option value="RETIREMENT">تقاعد</option>
+                    <option value="RESIGNATION">استقالة (مادة 53)</option>
                   </select>
-                  <span className="text-[10px] text-slate-500">تحدد نسبة الاستحقاق القانونية</span>
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">سنوات الخدمة المكتملة</label>
+                  <label className="block font-bold text-slate-700 mb-1">أيام إجازة للتسييل</label>
                   <input
                     type="number"
                     min="0"
-                    max="50"
-                    value={eosYears}
-                    onChange={(e) => setEosYears(Math.max(0, Number(e.target.value)))}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold text-slate-900 focus:outline-none focus:border-[#714B67] bg-slate-50 focus:bg-white"
+                    step="0.5"
+                    value={eosUnusedLeaveDays}
+                    onChange={(e) => {
+                      setEosLeaveDaysTouched(true);
+                      setEosUnusedLeaveDays(Math.max(0, Number(e.target.value)));
+                    }}
+                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold text-slate-900 focus:outline-none focus:border-[#714B67] bg-slate-50"
                   />
+                  {leaveSnapshot && eosMode === 'employee' && (
+                    <span className="text-[10px] text-emerald-700">
+                      leaveEngine: {leaveSnapshot.netAvailable.toFixed(2)} يوم متاح
+                    </span>
+                  )}
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">الأشهر الإضافية</label>
+                  <label className="block font-bold text-slate-700 mb-1">أيام إجازة بدون راتب (خصم من الخدمة)</label>
                   <input
                     type="number"
                     min="0"
-                    max="11"
-                    value={eosMonths}
-                    onChange={(e) => setEosMonths(Math.max(0, Math.min(11, Number(e.target.value))))}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold text-slate-900 focus:outline-none focus:border-[#714B67] bg-slate-50 focus:bg-white"
+                    step="0.5"
+                    value={eosUnpaidLeaveDays}
+                    onChange={(e) => setEosUnpaidLeaveDays(Math.max(0, Number(e.target.value)))}
+                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold text-slate-900 focus:outline-none focus:border-[#714B67] bg-slate-50"
                   />
                 </div>
               </div>
 
-              {/* Calculated Result Card */}
-              <div className="bg-gradient-to-br from-purple-50 via-slate-50 to-emerald-50 rounded-2xl p-4 border border-purple-200/80 shadow-xs space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-700 text-xs">صافي مكافأة نهاية الخدمة المستحقة:</span>
-                  <div className="text-xl font-black text-[#714B67] font-mono">
-                    {eosResult.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} <span className="text-xs font-bold text-slate-500">د.ك</span>
-                  </div>
+              {!eosEngineResult && (
+                <div className="text-[11px] text-amber-800 bg-amber-50 p-3 rounded-xl border border-amber-200">
+                  تحقق من التواريخ (آخر يوم ≥ تاريخ التعيين) والراتب الشامل.
                 </div>
+              )}
 
-                <div className="h-px bg-slate-200" />
+              {eosEngineResult && (
+                <div className="bg-gradient-to-br from-purple-50 via-slate-50 to-emerald-50 rounded-2xl p-4 border border-purple-200/80 shadow-xs space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-bold text-slate-700 text-xs">إجمالي التسوية (مكافأة + تسييل إجازة):</span>
+                    <div className="text-xl font-black text-[#714B67] font-mono">
+                      {eosEngineResult.totalSettlement.toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}{' '}
+                      <span className="text-xs font-bold text-slate-500">د.ك</span>
+                    </div>
+                  </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
-                  <div className="bg-white/80 p-2 rounded-xl border border-slate-200">
-                    <span className="text-slate-500 block">السنوات الـ 5 الأولى:</span>
-                    <strong className="font-mono text-slate-800">{eosResult.firstFiveYearsAmount.toFixed(3)} د.ك</strong>
+                  <div className="text-[11px] text-slate-600">
+                    مدة الخدمة الصافية:{' '}
+                    <strong className="font-mono">
+                      {eosEngineResult.totalYears}س {eosEngineResult.totalMonths}ش {eosEngineResult.totalDays}ي
+                    </strong>{' '}
+                    ({eosEngineResult.netServiceDays} يوماً)
+                    {eosEngineResult.totalUnpaidLeaveDays > 0 && (
+                      <span className="text-amber-700"> — بعد خصم {eosEngineResult.totalUnpaidLeaveDays} يوم غير مدفوع</span>
+                    )}
                   </div>
-                  <div className="bg-white/80 p-2 rounded-xl border border-slate-200">
-                    <span className="text-slate-500 block">ما زاد عن 5 سنوات:</span>
-                    <strong className="font-mono text-slate-800">{eosResult.nextYearsAmount.toFixed(3)} د.ك</strong>
+
+                  <div className="h-px bg-slate-200" />
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                    <div className="bg-white/80 p-2 rounded-xl border border-slate-200">
+                      <span className="text-slate-500 block">صافي المكافأة (51+53):</span>
+                      <strong className="font-mono text-slate-800">{eosEngineResult.netEosAmount.toFixed(3)} د.ك</strong>
+                    </div>
+                    <div className="bg-white/80 p-2 rounded-xl border border-slate-200">
+                      <span className="text-slate-500 block">تسييل الإجازة:</span>
+                      <strong className="font-mono text-slate-800">{eosEngineResult.leavePayoutAmount.toFixed(3)} د.ك</strong>
+                    </div>
+                    <div className="bg-white/80 p-2 rounded-xl border border-slate-200">
+                      <span className="text-slate-500 block">المكافأة قبل المادة 53:</span>
+                      <strong className="font-mono text-slate-800">{eosEngineResult.grossEosAmount.toFixed(3)} د.ك</strong>
+                    </div>
+                    <div className="bg-white/80 p-2 rounded-xl border border-slate-200">
+                      <span className="text-slate-500 block">نسبة الاستحقاق:</span>
+                      <strong className="font-mono text-emerald-700">{(eosEngineResult.article53Ratio * 100).toFixed(0)}%</strong>
+                    </div>
                   </div>
-                  <div className="bg-white/80 p-2 rounded-xl border border-slate-200 col-span-2 sm:col-span-1">
-                    <span className="text-slate-500 block">نسبة الاستحقاق:</span>
-                    <strong className="font-mono text-emerald-700">{(eosResult.resignationFactor * 100).toFixed(0)}%</strong>
+
+                  {capExceeded && (
+                    <div className="text-[11px] text-amber-800 bg-amber-50 p-2 rounded-xl border border-amber-200 font-medium">
+                      تم تطبيق سقف 18 شهراً ({(eosSalary * 18).toFixed(3)} د.ك) — المادة 51.
+                    </div>
+                  )}
+
+                  <div className="text-[11px] text-slate-600 bg-white/60 p-2.5 rounded-xl border border-slate-200 font-medium flex items-center gap-1.5">
+                    <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+                    <span>{eosEngineResult.article53Note}</span>
                   </div>
+
+                  <p className="text-[10px] text-slate-500">
+                    نفس محرك <strong>calculateKuwaitEOS</strong> المستخدم في مخالصة الرواتب و EOSApp. الأجر اليومي: {eosDailyWage.toFixed(3)} د.ك.
+                  </p>
+
+                  {eosMode === 'employee' && selectedEmployeeId && onOpenPayrollSettlement && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenPayrollSettlement(selectedEmployeeId)}
+                      className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <ExternalLink size={14} />
+                      فتح مخالصة نهاية الخدمة الكاملة (الرواتب)
+                    </button>
+                  )}
                 </div>
-
-                {eosResult.capExceeded && (
-                  <div className="text-[11px] text-amber-800 bg-amber-50 p-2 rounded-xl border border-amber-200 font-medium">
-                    ⚠️ تم تطبيق الحد الأقصى للمكافأة (18 شهراً = {(eosSalary * 18).toFixed(3)} د.ك) طبقاً للمادة 51.
-                  </div>
-                )}
-
-                <div className="text-[11px] text-slate-600 bg-white/60 p-2.5 rounded-xl border border-slate-200 font-medium flex items-center gap-1.5">
-                  <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
-                  <span>{eosResult.legalNote}</span>
-                </div>
-              </div>
+              )}
             </div>
           )}
 

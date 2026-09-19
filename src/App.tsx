@@ -437,6 +437,10 @@ function MainAppLayout() {
   const [showSpotlight, setShowSpotlight] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
   const [calculatorTab, setCalculatorTab] = useState<'eos' | 'leave' | 'wage' | 'pifss'>('eos');
+  const [payrollSettlementDeepLink, setPayrollSettlementDeepLink] = useState<{
+    employeeId?: string;
+    key: number;
+  } | null>(null);
   const [employeeAppProps, setEmployeeAppProps] = useState<any>({});
 
   // Global Keyboard Shortcut: Ctrl + K or Cmd + K
@@ -818,7 +822,10 @@ function MainAppLayout() {
         {activeApp === 'payroll' && (
           <main className="flex-1 overflow-y-auto w-full">
             <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
-              <OdooPayrollApp />
+              <OdooPayrollApp
+                initialSettlementEmployeeId={payrollSettlementDeepLink?.employeeId}
+                openFinalSettlementTriggerKey={payrollSettlementDeepLink?.key}
+              />
             </div>
           </main>
         )}
@@ -1072,6 +1079,11 @@ function MainAppLayout() {
         isOpen={showCalculator}
         initialTab={calculatorTab}
         onClose={() => setShowCalculator(false)}
+        onOpenPayrollSettlement={(employeeId) => {
+          setShowCalculator(false);
+          setPayrollSettlementDeepLink({ employeeId, key: Date.now() });
+          setActiveApp('payroll');
+        }}
       />
 
       {/* Aysed HR AI Copilot Side Drawer */}
