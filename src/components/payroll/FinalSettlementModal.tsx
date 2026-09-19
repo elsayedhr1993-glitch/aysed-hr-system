@@ -5,7 +5,11 @@ import {
 } from 'lucide-react';
 import { tafqitKuwaiti } from '../../utils/tafqit';
 import { calculateKuwaitEOS, calculateDailyWage } from '../../utils/kuwaitPayrollEngine';
-import { LeaveBalanceEngine } from '../../utils/leaveEngine';
+import {
+  getEmployeeUnifiedSummary,
+  matchesEmployeeIdentity,
+  normalizeLeaveBalanceInputs
+} from '../../utils/leaveEngine';
 
 export interface FinalSettlementEmployee {
   id: string;
@@ -75,81 +79,47 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
       };
     }
 
-    const empId = String(currentEmp.id || '').trim();
-    const empCode = String(currentEmp.employeeCode || '').trim();
-    const empCivilId = String(currentEmp.civilId || '').trim();
-    const empName = String(currentEmp.fullNameAr || currentEmp.nameAr || currentEmp.name || '').trim();
+    const empRecord = {
+      ...currentEmp,
+      id: currentEmp.id,
+      employeeCode: currentEmp.employeeCode || currentEmp.id,
+      fullNameAr: currentEmp.fullNameAr || currentEmp.nameAr || currentEmp.name,
+      nameAr: currentEmp.nameAr || currentEmp.name,
+      name: currentEmp.name,
+      civilId: currentEmp.civilId,
+      joinDate: currentEmp.joinDate,
+      basicSalary: currentEmp.basicSalary,
+      salary: currentEmp.salary || currentEmp.basicSalary
+    };
 
-    const normalizedAllocations = (leaveAllocations || []).map((a: any) => ({
-      ...a,
-      employeeId: a.employeeId || a.employee_id || '',
-      days: Number(a.days ?? a.numberOfDays ?? a.number_of_days ?? 0) || 0,
-      numberOfDays: Number(a.numberOfDays ?? a.number_of_days ?? a.days ?? 0) || 0,
-      allocationDate: a.allocationDate || a.dateFrom || a.date_from || '2026-01-01',
-      notes: a.notes || a.name || ''
-    })).filter((a: any) => {
-      const allocEmpId = String(a.employeeId || '').trim();
-      const allocCivilId = String(a.civilId || '').trim();
-      const allocEmpName = String(a.employeeName || a.employee_name || '').trim();
-      return (
-        (empId && allocEmpId === empId) ||
-        (empCode && allocEmpId === empCode) ||
-        (empCivilId && allocCivilId === empCivilId) ||
-        (empName && allocEmpName && allocEmpName === empName)
-      );
-    });
+    const scopedAllocations = (leaveAllocations || []).filter((a: any) =>
+      matchesEmployeeIdentity(a, empRecord)
+    );
+    const scopedLeaves = (leaveRequests || []).filter((l: any) =>
+      matchesEmployeeIdentity(l, empRecord)
+    );
+    const { allocations, leaves } = normalizeLeaveBalanceInputs(scopedAllocations, scopedLeaves);
+    const summary = getEmployeeUnifiedSummary(empRecord as any, allocations, leaves);
 
-    const normalizedLeaves = (leaveRequests || []).map((l: any) => ({
-      ...l,
-      employeeId: l.employeeId || l.employee_id || '',
-      totalDays: Number(l.totalDays ?? l.daysCount ?? l.numberOfDays ?? l.days ?? 0) || 0,
-      status: String(l.status || '').toUpperCase()
-    })).filter((l: any) => {
-      const leaveEmpId = String(l.employeeId || '').trim();
-      const leaveCivilId = String(l.civilId || '').trim();
-      const leaveEmpName = String(l.employeeName || l.employee_name || '').trim();
-      return (
-        (empId && leaveEmpId === empId) ||
-        (empCode && leaveEmpId === empCode) ||
-        (empCivilId && leaveCivilId === empCivilId) ||
-        (empName && leaveEmpName && leaveEmpName === empName)
-      );
-    });
-
-    const snapshot = LeaveBalanceEngine.calculate({
-      employee: {
-        ...currentEmp,
-        id: currentEmp.id,
-        employeeCode: currentEmp.employeeCode || currentEmp.id,
-        fullNameAr: currentEmp.fullNameAr || currentEmp.nameAr || currentEmp.name,
-        nameAr: currentEmp.nameAr || currentEmp.name,
-        name: currentEmp.name,
-        civilId: currentEmp.civilId,
-        joinDate: currentEmp.joinDate,
-        basicSalary: currentEmp.basicSalary,
-        salary: currentEmp.salary || currentEmp.basicSalary
-      } as any,
-      allocations: normalizedAllocations as any,
-      leaves: normalizedLeaves as any
-    });
-
-    const carried = Number(snapshot.carriedForwardDays || 0);
-    const earned = Number(((snapshot.accruedDays || 0) + (snapshot.manualAdjustmentDays || 0)).toFixed(2));
-    const compensatory = Number(snapshot.holidayCompensationDays || 0);
-    const consumed = Number(snapshot.approvedLeaveDeductionDays || 0);
-    const net = Number(snapshot.totalBalance || 0);
+    const carried = Number(summary.carriedOverDays || 0);
+    const earned = Number(summary.accruedAnnualDays || 0);
+    const compensatory = Number(summary.holidayCompensationDays || 0);
+    const consumed = Number(summary.usedLeaveDays || 0);
+    const net = Number(summary.totalAvailableDays || 0);
+    const unpaidExcess = Number(summary.unpaidLeaveDays || 0);
 
     return {
       carried,
       earned,
       compensatory,
       consumed,
-      consumedFromCarried: Number(snapshot.consumedFromCarried || 0),
-      consumedFromAccrued: Number(snapshot.consumedFromAccrued || 0),
-      consumedFromComp: Number(snapshot.consumedFromComp || 0),
-      remainingCarried: Number(snapshot.remainingCarried || 0),
-      remainingAccrued: Number(snapshot.remainingAccrued || 0),
-      remainingComp: Number(snapshot.remainingComp || 0),
+      consumedFromCarried: Number(summary.consumedFromCarried || 0),
+      consumedFromAccrued: Number(summary.consumedFromAccrued || 0),
+      consumedFromComp: Number(summary.consumedFromComp || 0),
+      remainingCarried: Number(summary.remainingCarried || 0),
+      remainingAccrued: Number(summary.remainingAccrued || 0),
+      remainingComp: Number(summary.remainingComp || 0),
+      unpaidExcess,
       net
     };
   }, [currentEmp, leaveAllocations, leaveRequests]);
@@ -179,6 +149,7 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
 
   const eosDayRate = calculateDailyWage(totalComprehensiveSalary);
   const leaveDayRate = calculateDailyWage(Number(currentEmp?.basicSalary || 0));
+  // EOS core: مكافأة + مدة خدمة فقط — الإجازة والخصومات تُحسب في أسطر المخالصة منفصلة (بدون ازدواجية)
   const eosResult = calculateKuwaitEOS({
     employeeId: currentEmp?.id || '',
     employeeName: currentEmp?.name || '',
@@ -188,8 +159,9 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
     grossSalary: totalComprehensiveSalary,
     terminationType: settlementReasonMap[reason],
     contractType: 'INDEFINITE',
-    unusedLeaveDays: leaveDaysToLiquidate,
-    otherDeductions: (deductLoanAmount || 0) + (otherDeductions || 0),
+    unusedLeaveDays: 0,
+    otherDeductions: 0,
+    totalUnpaidLeaveDays: Number(liveLeaveSnapshot.unpaidExcess || 0),
   });
   const finalEosAward = Math.round(eosResult.netEosAmount * 1000) / 1000;
   const tenureYears = eosResult.totalYears + (eosResult.totalMonths / 12) + (eosResult.totalDays / 365.25);
@@ -308,7 +280,7 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
                   readOnly
                   className="w-full p-1.5 bg-emerald-50 border border-emerald-200 rounded-lg font-mono text-emerald-800 font-bold"
                 />
-                <p className="text-[10px] text-emerald-700 mt-1">يُسحب تلقائياً من LeaveBalanceEngine (رصيد حي موحد).</p>
+                <p className="text-[10px] text-emerald-700 mt-1">يُسحب تلقائياً من leaveEngine (نفس كشف الإجازات في الدليل).</p>
                 <p className="text-[10px] text-slate-600 mt-1 font-mono">
                   (مرحل {liveLeaveSnapshot.carried.toFixed(2)} + مكتسب {liveLeaveSnapshot.earned.toFixed(2)} + تعويضي {liveLeaveSnapshot.compensatory.toFixed(2)} - مستهلك {liveLeaveSnapshot.consumed.toFixed(2)} = صافي {liveLeaveSnapshot.net.toFixed(2)})
                 </p>
@@ -403,7 +375,12 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
               </div>
               <div className="sm:col-span-4 bg-emerald-50 border border-emerald-200 rounded-lg p-2">
                 <span className="text-[10px] text-emerald-800 font-mono font-bold">
-                  تحقق الرصيد (LeaveBalanceEngine): مرحل {liveLeaveSnapshot.carried.toFixed(2)} + مكتسب {liveLeaveSnapshot.earned.toFixed(2)} + تعويضي {liveLeaveSnapshot.compensatory.toFixed(2)} - مستهلك {liveLeaveSnapshot.consumed.toFixed(2)} = صافي {liveLeaveSnapshot.net.toFixed(2)} يوم
+                  تحقق الرصيد (leaveEngine): مرحل {liveLeaveSnapshot.carried.toFixed(2)} + مكتسب {liveLeaveSnapshot.earned.toFixed(2)} + تعويضي {liveLeaveSnapshot.compensatory.toFixed(2)} - مستهلك {liveLeaveSnapshot.consumed.toFixed(2)} = صافي {liveLeaveSnapshot.net.toFixed(2)} يوم
+                  {(liveLeaveSnapshot.unpaidExcess || 0) > 0 && (
+                    <span className="block text-amber-800 mt-1">
+                      أيام زائدة غير مدفوعة (تُخصم من مدة الخدمة في EOS): {Number(liveLeaveSnapshot.unpaidExcess).toFixed(2)} يوم
+                    </span>
+                  )}
                 </span>
                 <div className="text-[10px] text-slate-600 font-mono mt-1">
                   FIFO Waterfall: خصم من المرحل {liveLeaveSnapshot.consumedFromCarried.toFixed(2)} | من المستحق {liveLeaveSnapshot.consumedFromAccrued.toFixed(2)} | من التعويضي {liveLeaveSnapshot.consumedFromComp.toFixed(2)} | المتبقي {liveLeaveSnapshot.remainingCarried.toFixed(2)} / {liveLeaveSnapshot.remainingAccrued.toFixed(2)} / {liveLeaveSnapshot.remainingComp.toFixed(2)}

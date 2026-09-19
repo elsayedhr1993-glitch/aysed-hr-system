@@ -360,6 +360,8 @@ export function EmployeesApp(props?: any) {
     }
   }, [props?.initialTab, props?.initialShowAdd, props?.initialOpenOnboarding, props?.triggerKey]);
 
+  const wizardPrefill = props?.onboardingPrefill ?? null;
+
   const handlePerformFullReset = async () => {
     setIsResetting(true);
     try {
@@ -700,6 +702,10 @@ export function EmployeesApp(props?: any) {
     }), { merge: true });
 
     toast.success(`تم تسجيل الموظف (${plan.employeeName}) وتفعيل خطة التهيئة والتعيين بنجاح!`);
+
+    if (props?.recruitmentCandidateId && typeof props?.onRecruitmentHired === 'function') {
+      props.onRecruitmentHired(props.recruitmentCandidateId);
+    }
   };
 
   const handleSaveEmployee = async (updatedEmp: any) => {
@@ -2651,6 +2657,7 @@ export function EmployeesApp(props?: any) {
         onClose={() => setShowOnboardingWizardModal(false)}
         onConfirmLaunch={handleConfirmOnboardingPlan}
         existingEmployees={employees}
+        initialPrefill={wizardPrefill}
       />
 
       <EmployeeQuickEditModal
