@@ -505,7 +505,7 @@ function MainAppLayout() {
   const handleQuickAction = (action: string) => {
     switch (action) {
       case 'new_employee':
-        setEmployeeAppProps({ initialTab: 'directory', initialShowAdd: true, triggerKey: Date.now() });
+        setEmployeeAppProps({ initialTab: 'directory', initialOpenOnboarding: true, triggerKey: Date.now() });
         setActiveApp('employees');
         break;
       case 'new_contract':
@@ -804,7 +804,11 @@ function MainAppLayout() {
         {activeApp === 'employees' && (
           <main className="flex-1 overflow-y-auto w-full">
             <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
-              <EmployeesApp {...employeeAppProps} isSuperAdmin={isSuperAdmin} />
+              <EmployeesApp
+                {...employeeAppProps}
+                isSuperAdmin={isSuperAdmin}
+                onNavigateToApp={(appId: string) => setActiveApp(appId as typeof activeApp)}
+              />
             </div>
           </main>
         )}

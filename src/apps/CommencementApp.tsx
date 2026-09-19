@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Employee, Contract, ShiftProfile, EmploymentCommencement, Company } from '../types';
+import { applyApprovedCommencementToEmployee } from '../utils/employeeCommencementSync';
 
 interface CommencementAppProps {
   employees: Employee[];
@@ -277,17 +278,16 @@ export const CommencementApp: React.FC<CommencementAppProps> = ({
 
       // If already approved, synchronize updates immediately to Employee Profile and Contract
       if (isApproved) {
-        const updatedEmp: Employee = {
-          ...emp,
+        const updatedEmp = applyApprovedCommencementToEmployee(emp, actualJoiningDate, {
           status: 'ACTIVE',
-          joinDate: emp.joinDate || actualJoiningDate,
+          commencementStatus: 'COMPLETED',
           resourceCalendarId,
           workingSchedule,
           workHoursType,
           shiftId: selectedShiftId,
           dailyWorkHours: dailyHours,
           weeklyWorkHours: weeklyHours,
-        };
+        }) as Employee;
         if (onSaveEmployee) {
           onSaveEmployee(updatedEmp);
         }
@@ -357,11 +357,8 @@ export const CommencementApp: React.FC<CommencementAppProps> = ({
     // 1. Update employee status & link schedule
     const emp = employees.find(e => e.id === comm.employeeId);
     if (emp) {
-      const updatedEmp: Employee = {
-        ...emp,
+      const updatedEmp = applyApprovedCommencementToEmployee(emp, comm.actualJoiningDate, {
         status: 'ACTIVE',
-        joinDate: emp.joinDate || comm.actualJoiningDate,
-        commencementDate: comm.actualJoiningDate,
         commencementStatus: 'COMPLETED',
         resourceCalendarId: comm.resourceCalendarId || 'cal-std-8h-6d',
         workingSchedule: comm.workingSchedule || 'الدوام الصباحي القياسي - 48 ساعة (08:00 - 16:00)',
@@ -369,7 +366,7 @@ export const CommencementApp: React.FC<CommencementAppProps> = ({
         shiftId: comm.shiftId || shifts[0]?.id || 'shift-1',
         dailyWorkHours: comm.dailyHours || 8,
         weeklyWorkHours: comm.weeklyHours || 48,
-      };
+      }) as Employee;
       if (onSaveEmployee) {
         onSaveEmployee(updatedEmp);
       }
@@ -382,7 +379,7 @@ export const CommencementApp: React.FC<CommencementAppProps> = ({
       const updatedContract: Contract = {
         ...empContract,
         status: 'RUNNING',
-        startDate: empContract.startDate || comm.actualJoiningDate,
+        startDate: comm.actualJoiningDate,
         contractType: comm.contractType,
         resourceCalendarId: comm.resourceCalendarId || 'cal-std-8h-6d',
         workingSchedule: comm.workingSchedule || 'الدوام الصباحي القياسي - 48 ساعة (08:00 - 16:00)',

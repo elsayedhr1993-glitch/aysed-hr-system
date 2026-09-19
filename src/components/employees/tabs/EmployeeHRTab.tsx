@@ -33,6 +33,9 @@ interface Props {
   handleOcrResult: (data: any, tab: string) => void;
   calculatedBalance: string | number;
   onRefresh?: () => void;
+  /** عند التوفّر: تسجيل عمل العطل من تطبيق الإجازات فقط */
+  onOpenTimeOffApp?: () => void;
+  holidayWorkReadOnly?: boolean;
 }
 
 export const EmployeeHRTab: React.FC<Props> = ({
@@ -41,7 +44,9 @@ export const EmployeeHRTab: React.FC<Props> = ({
   handleFieldChange,
   handleOcrResult,
   calculatedBalance,
-  onRefresh
+  onRefresh,
+  onOpenTimeOffApp,
+  holidayWorkReadOnly = false
 }) => {
   const [holidayRecords, setHolidayRecords] = useState<WorkOnHolidayRecord[]>([]);
   const [isLoadingRecords, setIsLoadingRecords] = useState(false);
@@ -327,18 +332,34 @@ export const EmployeeHRTab: React.FC<Props> = ({
             </div>
           </div>
           
-          <button
-            type="button"
-            onClick={() => setShowAddForm(!showAddForm)}
-            className="flex items-center gap-1 px-3 py-1.5 bg-[#714B67] hover:bg-[#5a3c52] text-white rounded-lg text-xs font-bold transition-colors"
-          >
-            {showAddForm ? 'إغلاق النموذج' : 'تسجيل تكليف جديد'}
-            <Plus className="w-3.5 h-3.5" />
-          </button>
+          {holidayWorkReadOnly && onOpenTimeOffApp ? (
+            <button
+              type="button"
+              onClick={onOpenTimeOffApp}
+              className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+            >
+              فتح تطبيق الإجازات للتسجيل
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowAddForm(!showAddForm)}
+              className="flex items-center gap-1 px-3 py-1.5 bg-[#714B67] hover:bg-[#5a3c52] text-white rounded-lg text-xs font-bold transition-colors"
+            >
+              {showAddForm ? 'إغلاق النموذج' : 'تسجيل تكليف جديد'}
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
+        {holidayWorkReadOnly && (
+          <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+            عرض السجل فقط من ملف الموظف. إضافة أو اعتماد تكليف عمل عطلة يتم من تطبيق الإجازات لمصدر واحد للبيانات.
+          </p>
+        )}
+
         {/* Form to record a new Holiday Work */}
-        {showAddForm && (
+        {showAddForm && !holidayWorkReadOnly && (
           <form onSubmit={handleAddHolidayWork} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3.5 animate-fade-in">
             <h5 className="text-xs font-bold text-slate-800">تفاصيل التكليف بالعمل خلال العطلة</h5>
             
