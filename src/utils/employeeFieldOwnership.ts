@@ -1,6 +1,6 @@
 /**
- * مصدر الحقيقة لحقول ملف الموظف (دليل الموظفين — EmployeesApp).
- * استخدمه عند إضافة حقول جديدة لتجنب التعديل من أكثر من شاشة.
+ * مصدر الحقيقة لحقول ملف الموظف (دليل الموظفين — EmployeesApp فقط).
+ * مسار OdooEmployeesDirectoryApp / OdooEmployeeFormModal أُزيل في P2.
  */
 export const EMPLOYEE_FIELD_SOURCES = {
   basicSalary: 'OdooContractsApp / contracts',
