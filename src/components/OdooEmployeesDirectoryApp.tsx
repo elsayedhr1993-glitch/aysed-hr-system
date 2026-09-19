@@ -139,6 +139,7 @@ export interface EmployeeProfile {
   civil_id_expiry?: string;
 }
 
+/** @deprecated استخدم EmployeesApp — هذا المسار legacy غير مربوط بالقائمة الرئيسية */
 export const OdooEmployeesDirectoryApp: React.FC = () => {
   const { activeCompany, activeCompanyId } = useCompany();
   const currentCompanyId = activeCompanyId || activeCompany?.id || 'comp-super-admin';

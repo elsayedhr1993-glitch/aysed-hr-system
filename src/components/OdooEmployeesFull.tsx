@@ -73,6 +73,7 @@ interface OdooEmployeesFullProps {
   activeCompany: Company;
 }
 
+/** @deprecated استخدم EmployeesApp — مسار legacy */
 export const OdooEmployeesFull: React.FC<OdooEmployeesFullProps> = ({ activeCompany }) => {
   const [employees, setEmployees] = useState<Employee[]>([]);
 

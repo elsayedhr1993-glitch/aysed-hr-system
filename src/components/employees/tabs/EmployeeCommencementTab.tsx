@@ -1,131 +1,140 @@
 import React from 'react';
+import { ExternalLink } from 'lucide-react';
 
 interface Props {
   employee: any;
-  isEditMode: boolean;
-  handleFieldChange: (field: string, value: any) => void;
+  commencementRecord?: {
+    id?: string;
+    status?: string;
+    actualJoiningDate?: string;
+    approvalDate?: string;
+    workingSchedule?: string;
+    location?: string;
+    notes?: string;
+  } | null;
+  onOpenCommencementApp?: () => void;
 }
 
 export const EmployeeCommencementTab: React.FC<Props> = ({
   employee,
-  isEditMode,
-  handleFieldChange
+  commencementRecord,
+  onOpenCommencementApp
 }) => {
+  const status = commencementRecord?.status || employee.commencementStatus || 'غير مسجل';
+  const joiningDate =
+    commencementRecord?.actualJoiningDate ||
+    employee.commencementDate ||
+    employee.hireDate ||
+    employee.joinDate ||
+    '—';
+
+  const printCommencement = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <html dir="rtl" lang="ar">
+        <head>
+          <title>إقرار مباشرة عمل - ${employee.nameAr || employee.name}</title>
+          <style>
+            body { font-family: 'Arial', sans-serif; padding: 40px; color: #111; line-height: 1.6; }
+            .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
+            .title { font-size: 20px; font-weight: bold; margin-bottom: 10px; }
+            .box { border: 1px solid #ccc; padding: 15px; margin-bottom: 20px; border-radius: 8px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            th, td { text-align: right; padding: 8px; border-bottom: 1px solid #eee; }
+            th { width: 25%; font-size: 14px; color: #555; }
+            td { font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="title">ملخص إقرار مباشرة عمل (من السجل المعتمد)</div>
+          </div>
+          <div class="box">
+            <table>
+              <tr><th>اسم الموظف</th><td>${employee.nameAr || employee.name}</td><th>الرقم المدني</th><td>${employee.civilId || '-'}</td></tr>
+              <tr><th>تاريخ المباشرة</th><td>${joiningDate}</td><th>حالة الإقرار</th><td>${status}</td></tr>
+              <tr><th>المشرف</th><td>${employee.directSupervisor || employee.manager || '-'}</td><th>جدول العمل</th><td>${commencementRecord?.workingSchedule || employee.workingSchedule || '-'}</td></tr>
+            </table>
+          </div>
+          <script>window.print();</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   return (
-    <div className="space-y-8 animate-fade-in text-slate-900">
+    <div className="space-y-6 animate-fade-in text-slate-900">
       <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200">
         <div>
-          <h4 className="font-bold text-slate-900 text-sm">إقرار المباشرة والعهد (Job Commencement & Custody)</h4>
-          <p className="text-xs text-slate-500">إثبات استلام الموظف لمهام عمله والعهد والتجهيزات المسلمة له</p>
+          <h4 className="font-bold text-slate-900 text-sm">ملخص إقرار المباشرة والعهد</h4>
+          <p className="text-xs text-slate-500 max-w-xl">
+            التعديل والاعتماد يتم في تطبيق <strong>إقرارات المباشرة</strong> فقط. هذا التبويب للعرض والطباعة.
+          </p>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            const printWindow = window.open('', '_blank');
-            if (printWindow) {
-              printWindow.document.write(`
-                <html dir="rtl" lang="ar">
-                  <head>
-                    <title>إقرار مباشرة عمل - ${employee.nameAr || employee.name}</title>
-                    <style>
-                      body { font-family: 'Arial', sans-serif; padding: 40px; color: #111; line-height: 1.6; }
-                      .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
-                      .title { font-size: 20px; font-weight: bold; margin-bottom: 10px; }
-                      .box { border: 1px solid #ccc; padding: 15px; margin-bottom: 20px; border-radius: 8px; }
-                      table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-                      th, td { text-align: right; padding: 8px; border-bottom: 1px solid #eee; }
-                      th { width: 25%; font-size: 14px; color: #555; }
-                      td { font-weight: bold; }
-                      .signatures { display: flex; justify-content: space-between; margin-top: 60px; }
-                      .sig-box { text-align: center; width: 45%; }
-                    </style>
-                  </head>
-                  <body>
-                    <div class="header">
-                      <div class="title">نموذج وإقرار مباشرة عمل موظف رسمي (Job Commencement Form)</div>
-                    </div>
-                    <div class="box">
-                      <strong>بيانات الموظف والمباشرة:</strong>
-                      <table>
-                        <tr><th>اسم الموظف</th><td>${employee.nameAr || employee.name}</td><th>الرقم المدني</th><td>${employee.civilId || '-'}</td></tr>
-                        <tr><th>المسمى الوظيفي</th><td>${employee.jobTitle || '-'}</td><th>القسم / الإدارة</th><td>${employee.department || '-'}</td></tr>
-                        <tr><th>تاريخ المباشرة الفعلية</th><td>${employee.commencementDate || employee.hireDate || '-'}</td><th>المشرف المباشر</th><td>${employee.directSupervisor || employee.manager || '-'}</td></tr>
-                      </table>
-                    </div>
-                    <div class="box">
-                      <strong>إقرار استلام العهد والتجهيزات:</strong>
-                      <p style="font-size: 12px; margin-top: 8px;">يقر الموظف المذكور أعلاه بأنه استلم كافة العهد والتجهيزات المبينة أدناه بحالة جيدة وتعهد بالمحافظة عليها:</p>
-                      <ul>
-                        ${(employee.custodyItems || ['لاب توب محمول / جهاز كمبيوتر', 'بريد إلكتروني رسمي (@company.com)', 'بطاقة وبصمة بوابات المبنى']).map((c: string) => `<li>${c}</li>`).join('')}
-                      </ul>
-                    </div>
-                    <div class="signatures">
-                      <div class="sig-box">
-                        <strong>توقيع الموظف المباشر</strong><br/><br/><br/>
-                        <span>التاريخ: ${employee.commencementDate || employee.hireDate || ''}</span>
-                      </div>
-                      <div class="sig-box">
-                        <strong>اعتماد مدير الموارد البشرية</strong><br/><br/><br/>
-                      </div>
-                    </div>
-                    <script>window.print();</script>
-                  </body>
-                </html>
-              `);
-              printWindow.document.close();
-            }
-          }}
-          className="bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-        >
-          <span>🖨️ طباعة إقرار المباشرة</span>
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
-        <div className="py-1">
-          <label className="block text-xs font-semibold text-slate-500 mb-1">تاريخ المباشرة الفعلية</label>
-          {isEditMode ? (
-            <input
-              type="date"
-              value={employee.commencementDate || employee.hireDate || ''}
-              onChange={(e) => handleFieldChange('commencementDate', e.target.value)}
-              className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-900 bg-white focus:outline-none text-sm"
-            />
-          ) : (
-            <div className="font-mono font-semibold text-slate-900 text-sm border-b border-slate-100 pb-1">
-              {employee.commencementDate || employee.hireDate || '—'}
-            </div>
+        <div className="flex flex-wrap gap-2">
+          {onOpenCommencementApp && (
+            <button
+              type="button"
+              onClick={onOpenCommencementApp}
+              className="bg-[#714B67] hover:bg-[#5a3b52] text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+            >
+              <ExternalLink size={13} />
+              فتح سجل المباشرة
+            </button>
           )}
-        </div>
-
-        <div className="py-1">
-          <label className="block text-xs font-semibold text-slate-500 mb-1">المشرف المباشر</label>
-          {isEditMode ? (
-            <input
-              type="text"
-              value={employee.directSupervisor || employee.manager || ''}
-              onChange={(e) => handleFieldChange('directSupervisor', e.target.value)}
-              className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-bold text-slate-900 bg-white focus:outline-none text-sm"
-            />
-          ) : (
-            <div className="font-semibold text-slate-900 text-sm border-b border-slate-100 pb-1">
-              {employee.directSupervisor || employee.manager || 'مدير القسم'}
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={printCommencement}
+            className="bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer"
+          >
+            طباعة الملخص
+          </button>
         </div>
       </div>
 
-      <div className="pt-4 border-t border-slate-200">
-        <label className="block text-xs font-semibold text-slate-500 mb-2">العهد والتجهيزات الرسمية المسلمة للموظف</label>
-        <div className="flex flex-wrap gap-2 pt-1">
+      <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+        <div>
+          <span className="text-slate-500 font-semibold">تاريخ المباشرة المعتمد</span>
+          <p className="font-mono font-bold text-slate-900 mt-1">{joiningDate}</p>
+        </div>
+        <div>
+          <span className="text-slate-500 font-semibold">حالة الإقرار</span>
+          <p className="font-bold text-slate-900 mt-1">{status}</p>
+        </div>
+        <div>
+          <span className="text-slate-500 font-semibold">المشرف المباشر</span>
+          <p className="font-bold text-slate-900 mt-1">{employee.directSupervisor || employee.manager || '—'}</p>
+        </div>
+        <div>
+          <span className="text-slate-500 font-semibold">جدول / موقع العمل</span>
+          <p className="font-bold text-slate-900 mt-1">
+            {commencementRecord?.workingSchedule || employee.workingSchedule || '—'}
+            {commencementRecord?.location ? ` • ${commencementRecord.location}` : ''}
+          </p>
+        </div>
+        {commencementRecord?.id && (
+          <div className="md:col-span-2">
+            <span className="text-slate-500 font-semibold">رقم السجل</span>
+            <p className="font-mono text-[11px] text-slate-700 mt-1">{commencementRecord.id}</p>
+          </div>
+        )}
+      </div>
+
+      <div className="pt-2 border-t border-slate-200">
+        <label className="block text-xs font-semibold text-slate-500 mb-2">العهد والتجهيزات (من ملف الموظف)</label>
+        <div className="flex flex-wrap gap-2">
           {(employee.custodyItems || [
             'لاب توب محمول / جهاز كمبيوتر',
             'بريد إلكتروني رسمي (@company.com)',
             'بطاقة وبصمة بوابات المبنى'
           ]).map((item: string, idx: number) => (
-            <span key={idx} className="bg-slate-50 border border-slate-200 px-3 py-1 rounded-lg text-xs font-semibold text-slate-800 flex items-center gap-1.5">
-              <span className="text-emerald-600 font-bold">✓</span>
-              <span>{item}</span>
+            <span
+              key={idx}
+              className="bg-white border border-slate-200 px-3 py-1 rounded-lg text-xs font-semibold text-slate-800"
+            >
+              ✓ {item}
             </span>
           ))}
         </div>

@@ -46,8 +46,6 @@ interface OnboardingTrackerAppProps {
   onEmployeeCreated?: (emp: any) => void;
 }
 
-const STORAGE_KEY = 'odoo_onboarding_plans_v1';
-
 export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({ 
   existingEmployees = [],
   onEmployeeCreated 
@@ -149,7 +147,7 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
     }
   };
 
-  // Generic updater to keep state, localStorage and permanent employee files in complete sync
+  // Generic updater: Firestore plans + مزامنة ملف الموظف
   const handleUpdatePlan = (updatedPlan: OnboardingPlan) => {
     setSelectedPlan(updatedPlan);
     const updatedPlans = plans.map(p => p.id === updatedPlan.id ? updatedPlan : p);

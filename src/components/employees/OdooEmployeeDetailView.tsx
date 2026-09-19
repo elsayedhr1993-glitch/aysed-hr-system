@@ -69,6 +69,11 @@ interface Props {
   onTriggerPrint: (title: string, data: any) => void;
   onOpenPamModal: () => void;
   onOpenContracts?: () => void;
+  onQuickEdit?: () => void;
+  onOpenCommencement?: () => void;
+  onOpenLeaves?: () => void;
+  onOpenPayroll?: () => void;
+  commencementRecord?: any;
   activeCompany?: any;
 }
 
@@ -80,40 +85,16 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
   onTriggerPrint,
   onOpenPamModal,
   onOpenContracts,
+  onQuickEdit,
+  onOpenCommencement,
+  onOpenLeaves,
+  onOpenPayroll,
+  commencementRecord,
   activeCompany
 }) => {
   const { companies, activeCompany: contextActiveCompany } = useCompany();
   const [employee, setEmployee] = useState<any>(() => {
-    const base = { ...initialEmployee };
-    // محاولة ربط خطة التعيين المحفوظة ديناميكياً إذا لم تكن مسجلة في الموظف مسبقاً
-    try {
-      if (typeof window !== 'undefined') {
-        const savedPlans = localStorage.getItem('odoo_onboarding_plans_v1');
-        if (savedPlans) {
-          const plansList = JSON.parse(savedPlans);
-          const matchedPlan = plansList.find((p: any) => 
-            (base.onboardingPlanId && p.id === base.onboardingPlanId) ||
-            (base.id && p.employeeId === base.id) ||
-            (base.civilId && p.civilId && p.civilId === base.civilId && p.civilId !== 'غير محدد') ||
-            (base.nameAr && p.employeeName && p.employeeName === base.nameAr)
-          );
-          if (matchedPlan) {
-            if (!base.legalChecklist && matchedPlan.legalChecklist) {
-              base.legalChecklist = matchedPlan.legalChecklist;
-            }
-            if (!base.requiredDocuments && matchedPlan.requiredDocuments) {
-              base.requiredDocuments = matchedPlan.requiredDocuments;
-            }
-            if (!base.custodyItems && matchedPlan.custodyItems) {
-              base.custodyItems = matchedPlan.custodyItems;
-            }
-          }
-        }
-      }
-    } catch (e) {
-      console.error('Error auto-syncing onboarding plan with employee:', e);
-    }
-    return base;
+    return { ...initialEmployee };
   });
 
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
@@ -129,6 +110,48 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
       setEmployee({ ...initialEmployee });
     }
   }, [initialEmployee]);
+
+  // ربط خطة التهيئة من Firestore (مصدر موحّد مع OnboardingTrackerApp)
+  useEffect(() => {
+    const employeeId = initialEmployee?.id;
+    const companyId =
+      initialEmployee?.companyId || initialEmployee?.company_id || activeCompany?.id || contextActiveCompany?.id;
+    if (!employeeId || !companyId) return;
+
+    const plansQuery = query(collection(db, 'onboarding_plans'), where('companyId', '==', companyId));
+    const unsubscribe = onSnapshot(plansQuery, (snapshot) => {
+      const plansList = snapshot.docs.map((item) => ({ ...item.data(), id: item.id }));
+      const matchedPlan = plansList.find(
+        (p: any) =>
+          (initialEmployee?.onboardingPlanId && p.id === initialEmployee.onboardingPlanId) ||
+          (p.employeeId && p.employeeId === employeeId) ||
+          (initialEmployee?.civilId &&
+            p.civilId &&
+            p.civilId === initialEmployee.civilId &&
+            p.civilId !== 'غير محدد') ||
+          (initialEmployee?.nameAr && p.employeeName && p.employeeName === initialEmployee.nameAr)
+      );
+      if (!matchedPlan) return;
+      setEmployee((prev: any) => ({
+        ...prev,
+        legalChecklist: prev.legalChecklist || matchedPlan.legalChecklist,
+        requiredDocuments: prev.requiredDocuments || matchedPlan.requiredDocuments,
+        custodyItems: prev.custodyItems || matchedPlan.custodyItems,
+        onboardingPlanId: prev.onboardingPlanId || matchedPlan.id
+      }));
+    }, (error) => console.error('Failed to sync onboarding plan for employee:', error));
+
+    return () => unsubscribe();
+  }, [
+    initialEmployee?.id,
+    initialEmployee?.companyId,
+    initialEmployee?.company_id,
+    initialEmployee?.civilId,
+    initialEmployee?.nameAr,
+    initialEmployee?.onboardingPlanId,
+    activeCompany?.id,
+    contextActiveCompany?.id
+  ]);
 
   useEffect(() => {
     const employeeId = initialEmployee?.id;
@@ -193,24 +216,32 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
   // Daily wage: basic salary ÷ 26 (Kuwait leave standard)
   const dailyWage = calculateKuwaitDailyRate(basicSalary);
 
+  const mapAllocationsForEngine = () =>
+    leaveAllocations.map((a: any) => ({
+      ...a,
+      numberOfDays: Number(a.numberOfDays ?? a.days ?? 0) || 0,
+      consumedDays: Number(a.consumedDays || 0) || 0,
+      remainingDays:
+        a.remainingDays ??
+        Math.max(0, (Number(a.numberOfDays ?? a.days ?? 0) || 0) - (Number(a.consumedDays || 0) || 0)),
+      allocationType: a.allocationType || 'regular',
+      state: a.state || 'validate',
+      name: a.name || a.notes,
+      dateFrom: a.dateFrom || a.allocationDate
+    }));
+
+  const getLeaveEngineSummary = () => {
+    const mappedAllocations = mapAllocationsForEngine();
+    return getEmployeeUnifiedSummary(employee as any, mappedAllocations as any, leaveRequests as any);
+  };
+
   // Dynamic Time Off Balance Calculation using the core Leave Engine and kuwaitLaw
   const getDynamicBalance = () => {
     try {
-      const mappedAllocations = leaveAllocations.map((a: any) => ({
-        ...a,
-        numberOfDays: Number(a.numberOfDays ?? a.days ?? 0) || 0,
-        consumedDays: Number(a.consumedDays || 0) || 0,
-        remainingDays: a.remainingDays ?? Math.max(0, (Number(a.numberOfDays ?? a.days ?? 0) || 0) - (Number(a.consumedDays || 0) || 0)),
-        allocationType: a.allocationType || 'regular',
-        state: a.state || 'validate',
-        name: a.name || a.notes,
-        dateFrom: a.dateFrom || a.allocationDate
-      }));
-      const summary = getEmployeeUnifiedSummary(employee as any, mappedAllocations as any, leaveRequests as any);
+      const summary = getLeaveEngineSummary();
       return Number(summary.totalAvailableDays || 0);
     } catch (err) {
       console.error('Failed to compute dynamic balance in detail view:', err);
-      // Fallback to simpler lookup
       const carriedVal = getCarriedOverBalance(employee);
       const scalarBalance = Number(
         (employee as any).remaining_leaves ??
@@ -219,6 +250,15 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
           0
       );
       return Math.max(0, scalarBalance || carriedVal);
+    }
+  };
+
+  const getCarriedOverForDisplay = () => {
+    try {
+      const summary = getLeaveEngineSummary();
+      return Number(summary.remainingCarried ?? summary.carriedOverDays ?? 0);
+    } catch {
+      return getCarriedOverBalance(employee);
     }
   };
 
@@ -415,7 +455,8 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
     <div className="min-h-screen bg-slate-100/60 p-2 sm:p-4 md:p-6 space-y-4 text-right font-sans text-slate-900 w-full" dir="rtl">
       
       {/* Top Breadcrumbs & Control Bar */}
-      <div className="w-full bg-white border border-slate-200/90 rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
+      <div className="w-full bg-white border border-slate-200/90 rounded-xl px-4 py-3 flex flex-col gap-2 shadow-2xs">
+        <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
           <button 
             type="button"
@@ -430,7 +471,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
           <span className="font-mono bg-purple-50 text-[#714B67] border border-purple-200 px-2 py-0.5 rounded text-xs font-bold">{employee.id}</span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {saveSuccess && (
             <span className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-300 px-3 py-1.5 rounded-lg flex items-center gap-1">
               <Check size={14} /> تم الحفظ بنجاح
@@ -462,14 +503,27 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
               </button>
             </>
           ) : (
-            <button
-              type="button"
-              onClick={() => setIsEditMode(true)}
-              className="bg-[#714B67] hover:bg-[#5a3b52] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
-            >
-              <Edit3 size={15} />
-              <span>تعديل الملف (Edit)</span>
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => setIsEditMode(true)}
+                className="bg-[#714B67] hover:bg-[#5a3b52] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+              >
+                <Edit3 size={15} />
+                <span>تعديل الملف (Edit)</span>
+              </button>
+              {onQuickEdit && (
+                <button
+                  type="button"
+                  onClick={onQuickEdit}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+                  title="تعديل سريع للتواصل والهوية والبنك (بدون الراتب)"
+                >
+                  <Edit3 size={15} />
+                  <span>تعديل سريع</span>
+                </button>
+              )}
+            </>
           )}
 
           <button
@@ -503,6 +557,33 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
             </button>
           )}
         </div>
+        </div>
+
+        {(onOpenContracts || onOpenCommencement || onOpenLeaves || onOpenPayroll) && (
+          <div className="w-full flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">انتقال سريع</span>
+            {onOpenContracts && (
+              <button type="button" onClick={onOpenContracts} className="text-[11px] font-bold text-slate-700 bg-slate-100 hover:bg-purple-50 hover:text-[#714B67] px-2.5 py-1 rounded-lg cursor-pointer">
+                📝 العقود
+              </button>
+            )}
+            {onOpenCommencement && (
+              <button type="button" onClick={onOpenCommencement} className="text-[11px] font-bold text-slate-700 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-800 px-2.5 py-1 rounded-lg cursor-pointer">
+                🏥 المباشرة
+              </button>
+            )}
+            {onOpenLeaves && (
+              <button type="button" onClick={onOpenLeaves} className="text-[11px] font-bold text-slate-700 bg-slate-100 hover:bg-blue-50 hover:text-blue-800 px-2.5 py-1 rounded-lg cursor-pointer">
+                🏖️ الإجازات
+              </button>
+            )}
+            {onOpenPayroll && (
+              <button type="button" onClick={onOpenPayroll} className="text-[11px] font-bold text-slate-700 bg-slate-100 hover:bg-amber-50 hover:text-amber-900 px-2.5 py-1 rounded-lg cursor-pointer">
+                💰 المسير
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Odoo Official Document Sheet (White Paper on bg-slate-100) */}
@@ -1036,6 +1117,9 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
             employee={employee}
             isEditMode={isEditMode}
             handleFieldChange={handleFieldChange}
+            onOpenContracts={onOpenContracts}
+            onOpenLeaveSettings={() => setActiveTab('hr')}
+            displayedCarriedOverDays={getCarriedOverForDisplay()}
           />
         )}
 
@@ -1054,8 +1138,8 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
         {activeTab === 'commencement' && (
           <EmployeeCommencementTab
             employee={employee}
-            isEditMode={isEditMode}
-            handleFieldChange={handleFieldChange}
+            commencementRecord={commencementRecord}
+            onOpenCommencementApp={onOpenCommencement}
           />
         )}
         {activeTab === 'private' && (
@@ -1086,6 +1170,8 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
             handleOcrResult={handleOcrResult}
             calculatedBalance={calculatedBalance}
             onRefresh={() => setEmployee((prev: any) => ({ ...prev, _refreshTrigger: (prev._refreshTrigger || 0) + 1 }))}
+            onOpenTimeOffApp={onOpenLeaves}
+            holidayWorkReadOnly={Boolean(onOpenLeaves)}
           />
         )}
       </div>

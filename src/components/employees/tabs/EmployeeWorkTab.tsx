@@ -1,5 +1,5 @@
 import React from 'react';
-import { DollarSign } from 'lucide-react';
+import { DollarSign, ExternalLink } from 'lucide-react';
 import { EditableField, EditableSelect } from '../../EditableField';
 import { calculateKuwaitDailyRate } from '../../../utils/kuwaitPayrollMath';
 
@@ -7,12 +7,19 @@ interface Props {
   employee: any;
   isEditMode: boolean;
   handleFieldChange: (field: string, value: any) => void;
+  onOpenContracts?: () => void;
+  onOpenLeaveSettings?: () => void;
+  /** عرض مرجعي من تخصيصات الإجازة (إن وُجد) */
+  displayedCarriedOverDays?: number | string;
 }
 
 export const EmployeeWorkTab: React.FC<Props> = ({
   employee,
   isEditMode,
-  handleFieldChange
+  handleFieldChange,
+  onOpenContracts,
+  onOpenLeaveSettings,
+  displayedCarriedOverDays
 }) => {
   const isMedicalStaff = ['الأطباء', 'التمريض'].includes(employee.dept || employee.department) || 
     employee.jobTitle?.includes('طبيب') || employee.jobTitle?.includes('ممرض');
@@ -24,6 +31,15 @@ export const EmployeeWorkTab: React.FC<Props> = ({
   const otherAllowance = parseFloat(employee.otherAllowances !== undefined ? employee.otherAllowances : (employee.otherAllowance || employee.allowances || 0)) || 0;
   const totalSalary = basicSalary + housingAllowance + transportAllowance + medicalAllowance + otherAllowance;
   const dailyWage = calculateKuwaitDailyRate(basicSalary);
+
+  const carriedOverDisplay =
+    displayedCarriedOverDays !== undefined && displayedCarriedOverDays !== ''
+      ? displayedCarriedOverDays
+      : employee.carriedOverLeave2025 !== undefined
+        ? employee.carriedOverLeave2025
+        : employee.carriedOverBalance !== undefined
+          ? employee.carriedOverBalance
+          : 0;
 
   return (
     <div className="space-y-8 animate-fade-in text-slate-900">
@@ -121,27 +137,39 @@ export const EmployeeWorkTab: React.FC<Props> = ({
             placeholder="+965 22000000"
           />
 
-          <EditableField
-            label="تاريخ التعيين والمباشرة (Hire Date)"
-            value={employee.hireDate ? employee.hireDate.slice(0, 10) : ''}
-            onChange={(val) => handleFieldChange('hireDate', val)}
-            isEditMode={isEditMode}
-            type="date"
-          />
+          <div className="py-1">
+            <label className="block text-xs font-semibold text-slate-500 mb-1">
+              تاريخ التعيين والمباشرة (Hire Date) — للعرض فقط
+            </label>
+            <div className="font-mono font-semibold text-slate-900 text-sm border-b border-slate-200/70 pb-1">
+              {(employee.hireDate || employee.joinDate || '—').toString().slice(0, 10)}
+            </div>
+            <p className="text-[10px] text-slate-500 mt-1">
+              يُحدَّث تلقائياً عند اعتماد إقرار المباشرة في تطبيق Commencement — لا يُعدَّل يدوياً من هنا.
+            </p>
+          </div>
 
-          <EditableField
-            label="رصيد الإجازات المرحل (Carried Over Leave Balance)"
-            value={employee.carriedOverLeave2025 !== undefined ? employee.carriedOverLeave2025 : (employee.carriedOverBalance !== undefined ? employee.carriedOverBalance : 0)}
-            onChange={(val) => {
-              const num = parseFloat(val) || 0;
-              handleFieldChange('carriedOverLeave2025', num);
-              handleFieldChange('carriedOverBalance', num);
-              handleFieldChange('openingBalance', num);
-            }}
-            isEditMode={isEditMode}
-            type="number"
-            placeholder="0"
-          />
+          <div className="py-1">
+            <label className="block text-xs font-semibold text-slate-500 mb-1">
+              رصيد الإجازات المرحل (Carried Over) — للعرض فقط
+            </label>
+            <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">
+              {Number(carriedOverDisplay) || 0} يوم
+            </div>
+            <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">
+              يُدار من تخصيصات الإجازة المعتمدة (leave_allocations) وليس من هذا الحقل. للتعديل استخدم تبويب إعدادات الموارد البشرية أو كشف الرصيد.
+            </p>
+            {onOpenLeaveSettings && (
+              <button
+                type="button"
+                onClick={onOpenLeaveSettings}
+                className="mt-2 text-[11px] font-bold text-[#714B67] hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <ExternalLink size={12} />
+                فتح إعدادات الموارد البشرية / كشف الرصيد
+              </button>
+            )}
+          </div>
 
           <EditableSelect
             label="جدول وساعات العمل (Working Schedule)"
@@ -158,101 +186,77 @@ export const EmployeeWorkTab: React.FC<Props> = ({
 
       </div>
 
-      {/* Financial Section: Odoo Open Wage Fields */}
+      {/* Financial Section: read-only — مصدر التعديل = تطبيق العقود */}
       <div className="pt-6 border-t border-slate-200 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-slate-200/80">
           <div className="flex items-center gap-2">
             <DollarSign className="w-4 h-4 text-emerald-700" />
-            <span className="font-bold text-xs text-slate-900">حزمة الأجور والبدلات الشهرية (نظام حماية الأجور WPS)</span>
+            <span className="font-bold text-xs text-slate-900">حزمة الأجور والبدلات الشهرية (عرض من العقد — WPS)</span>
           </div>
-          <div className="text-xs font-mono font-bold flex items-center gap-4 text-slate-700">
-            <span>أجر اليوم (26 يوم): <strong className="text-purple-900">{dailyWage.toFixed(3)} د.ك</strong></span>
-            <span className="text-emerald-700 font-bold">
-              الراتب الإجمالي: {totalSalary.toFixed(3)} د.ك
-            </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="text-xs font-mono font-bold flex items-center gap-4 text-slate-700">
+              <span>أجر اليوم (26 يوم): <strong className="text-purple-900">{dailyWage.toFixed(3)} د.ك</strong></span>
+              <span className="text-emerald-700 font-bold">
+                الراتب الإجمالي: {totalSalary.toFixed(3)} د.ك
+              </span>
+            </div>
+            {onOpenContracts && (
+              <button
+                type="button"
+                onClick={onOpenContracts}
+                className="bg-slate-800 hover:bg-slate-900 text-white px-3 py-1.5 rounded-lg text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0"
+              >
+                <ExternalLink size={12} />
+                تعديل في تطبيق العقود
+              </button>
+            )}
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-1">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          لا يُعدَّل الراتب أو البدلات من «معلومات العمل». التحديث يتم حصرياً عبر سجل العقود المعتمد لضمان توافق WPS والقوى العاملة.
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-6 pt-1">
           <div className="py-1">
             <label className="block text-xs font-semibold text-slate-500 mb-1">الراتب الأساسي (Basic)</label>
-            {isEditMode ? (
-              <input
-                type="number"
-                step="0.001"
-                value={employee.basicSalary !== undefined ? employee.basicSalary : ''}
-                onChange={(e) => handleFieldChange('basicSalary', e.target.value)}
-                placeholder="0.000"
-                className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-900 bg-white focus:outline-none text-sm"
-              />
-            ) : (
-              <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">
-                {(Number(employee.basicSalary) || 0).toFixed(3)} د.ك
-              </div>
-            )}
+            <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">
+              {(Number(employee.basicSalary) || 0).toFixed(3)} د.ك
+            </div>
           </div>
 
           <div className="py-1">
             <label className="block text-xs font-semibold text-slate-500 mb-1">بدل السكن (Housing)</label>
-            {isEditMode ? (
-              <input
-                type="number"
-                step="0.001"
-                value={employee.housingAllowance !== undefined ? employee.housingAllowance : ''}
-                onChange={(e) => handleFieldChange('housingAllowance', e.target.value)}
-                placeholder="0.000"
-                className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-900 bg-white focus:outline-none text-sm"
-              />
-            ) : (
-              <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">
-                {(Number(employee.housingAllowance) || 0).toFixed(3)} د.ك
-              </div>
-            )}
+            <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">
+              {(Number(employee.housingAllowance) || 0).toFixed(3)} د.ك
+            </div>
           </div>
 
           <div className="py-1">
             <label className="block text-xs font-semibold text-slate-500 mb-1">بدل الانتقال (Transport)</label>
-            {isEditMode ? (
-              <input
-                type="number"
-                step="0.001"
-                value={employee.transportAllowance !== undefined ? employee.transportAllowance : ''}
-                onChange={(e) => handleFieldChange('transportAllowance', e.target.value)}
-                placeholder="0.000"
-                className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-900 bg-white focus:outline-none text-sm"
-              />
-            ) : (
-              <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">
-                {(Number(employee.transportAllowance) || 0).toFixed(3)} د.ك
-              </div>
-            )}
+            <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">
+              {(Number(employee.transportAllowance) || 0).toFixed(3)} د.ك
+            </div>
+          </div>
+
+          <div className="py-1">
+            <label className="block text-xs font-semibold text-slate-500 mb-1">بدل طبي (Medical)</label>
+            <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">
+              {(Number(employee.medicalAllowance) || 0).toFixed(3)} د.ك
+            </div>
           </div>
 
           <div className="py-1">
             <label className="block text-xs font-semibold text-slate-500 mb-1">بدلات أخرى وطبيعة عمل</label>
-            {isEditMode ? (
-              <input
-                type="number"
-                step="0.001"
-                value={employee.otherAllowances !== undefined ? employee.otherAllowances : (employee.otherAllowance !== undefined ? employee.otherAllowance : '')}
-                onChange={(e) => {
-                  handleFieldChange('otherAllowances', e.target.value);
-                  handleFieldChange('otherAllowance', e.target.value);
-                }}
-                placeholder="0.000"
-                className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-900 bg-white focus:outline-none text-sm"
-              />
-            ) : (
-              <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">
-                {(Number(employee.otherAllowances !== undefined ? employee.otherAllowances : employee.otherAllowance) || 0).toFixed(3)} د.ك
-              </div>
-            )}
+            <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">
+              {(Number(employee.otherAllowances !== undefined ? employee.otherAllowances : employee.otherAllowance) || 0).toFixed(3)} د.ك
+            </div>
           </div>
         </div>
 
         <p className="text-[11px] text-slate-500 flex items-center gap-1.5 pt-1">
           <span className="text-amber-600 font-bold">●</span>
-          <span>تُسحب البدلات تلقائياً من عقد العمل المعتمد في الهيئة العامة للقوى العاملة وفق قانون العمل الكويتي.</span>
+          <span>تُعرض القيم من عقد العمل المعتمد في الهيئة العامة للقوى العاملة وفق قانون العمل الكويتي.</span>
         </p>
       </div>
 

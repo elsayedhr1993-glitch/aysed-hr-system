@@ -5,13 +5,13 @@ import {
   MoreVertical, Download, UserPlus, ChevronDown, LayoutGrid, List, Search
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import OdooEmployeeFormModal from '../components/OdooEmployeeFormModal';
 import { OdooEmployeeDetailView } from '../components/employees/OdooEmployeeDetailView';
 import OdooContractsApp from "../components/OdooContractsApp";
 import OdooPamContractModal from '../components/OdooPamContractModal';
 import { CommencementApp } from './CommencementApp';
 import { OnboardingTrackerApp } from '../components/employees/OnboardingTrackerApp';
 import { OnboardingWizardModal } from '../components/employees/OnboardingWizardModal';
+import { EmployeeQuickEditModal } from '../components/employees/EmployeeQuickEditModal';
 import { useCompany } from '../context/CompanyContext';
 import { createEmployeeOnboardingBundle, EmployeeOnboardingValidationError } from '../services/employeeOnboardingService';
 import { TenantDatabaseService } from '../services/tenantDataService';
@@ -326,27 +326,39 @@ export function EmployeesApp(props?: any) {
   };
   
   // Modal states
-  const [showAddEmployeeModal, setShowAddEmployeeModal] = useState(false);
-  const [showEmployeeModal, setShowEmployeeModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
-  const [employeeActiveTab, setEmployeeActiveTab] = useState<'work' | 'contract_pam' | 'private' | 'hr' | 'resume'>('work');
-  const [employeeSubModal, setEmployeeSubModal] = useState<'none' | 'contracts' | 'attendance' | 'leave' | 'assets' | 'payslips' | 'documents'>('none');
   const [showPamContractModal, setShowPamContractModal] = useState(false);
   const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
   const [employeePendingDelete, setEmployeePendingDelete] = useState<{ id: string; name: string } | null>(null);
   const [isDeletingEmployee, setIsDeletingEmployee] = useState(false);
-  const [showDevToolsMenu, setShowDevToolsMenu] = useState(false);
   const [showOnboardingWizardModal, setShowOnboardingWizardModal] = useState(false);
+  const [quickEditEmployee, setQuickEditEmployee] = useState<any | null>(null);
   const [isResetting, setIsResetting] = useState(false);
+
+  const openQuickEdit = (emp: any) => {
+    const latest = employees.find((e) => e.id === emp.id) || emp;
+    setQuickEditEmployee(latest);
+  };
+
+  const openCommencementPortal = () => {
+    setActiveTab('commencement');
+    setShowFullCommencementApp(true);
+  };
+
+  const navigateToApp = (appId: string) => {
+    if (typeof props?.onNavigateToApp === 'function') {
+      props.onNavigateToApp(appId);
+    }
+  };
 
   useEffect(() => {
     if (props?.initialTab) {
       setActiveTab(props.initialTab);
     }
-    if (props?.initialShowAdd) {
-      setShowAddEmployeeModal(true);
+    if (props?.initialShowAdd || props?.initialOpenOnboarding) {
+      setShowOnboardingWizardModal(true);
     }
-  }, [props?.initialTab, props?.initialShowAdd, props?.triggerKey]);
+  }, [props?.initialTab, props?.initialShowAdd, props?.initialOpenOnboarding, props?.triggerKey]);
 
   const handlePerformFullReset = async () => {
     setIsResetting(true);
@@ -402,7 +414,6 @@ export function EmployeesApp(props?: any) {
 
       toast.success(`تم حذف الموظف: ${name}`);
       if (selectedEmployee && String(selectedEmployee.id) === String(id)) {
-        setShowEmployeeModal(false);
         setSelectedEmployee(null);
       }
       setEmployeePendingDelete(null);
@@ -513,7 +524,6 @@ export function EmployeesApp(props?: any) {
       const target = employees.find((e: any) => String(e.id) === String(props.selectedEmployeeId));
       if (target) {
         setSelectedEmployee(target);
-        setShowEmployeeModal(false);
       }
     }
   }, [props?.selectedEmployeeId, employees]);
@@ -570,7 +580,6 @@ export function EmployeesApp(props?: any) {
   const openEmployeeModal = (emp: any) => {
     const latest = employees.find(e => e.id === emp.id) || emp;
     setSelectedEmployee(latest);
-    setShowEmployeeModal(false);
   };
 
   // فتح معالج تسجيل موظف جديد عبر خطة التهيئة والتعيين
@@ -1354,19 +1363,22 @@ export function EmployeesApp(props?: any) {
                     <span>خطة التهيئة والتعيين</span>
                   </button>
 
-                  <div className="border-t border-slate-100 my-1"></div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowActionsDropdown(false);
-                      setShowResetConfirmModal(true);
-                    }}
-                    className="w-full text-right px-3 py-2 hover:bg-rose-50 rounded-lg text-xs font-medium text-rose-700 flex items-center gap-2 cursor-pointer"
-                  >
-                    <Trash2 size={14} className="text-rose-600" />
-                    <span>تصفير وحذف الكل</span>
-                  </button>
+                  {isSuperAdmin && (
+                    <>
+                      <div className="border-t border-slate-100 my-1"></div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowActionsDropdown(false);
+                          setShowResetConfirmModal(true);
+                        }}
+                        className="w-full text-right px-3 py-2 hover:bg-rose-50 rounded-lg text-xs font-medium text-rose-700 flex items-center gap-2 cursor-pointer"
+                      >
+                        <Trash2 size={14} className="text-rose-600" />
+                        <span>تصفير وحذف الكل (سوبر أدمن)</span>
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -1513,6 +1525,15 @@ export function EmployeesApp(props?: any) {
               onTriggerPrint={(title, data) => handleTriggerPrint(title, data)}
               onOpenPamModal={() => setShowPamContractModal(true)}
               onOpenContracts={() => setActiveTab('contracts')}
+              onQuickEdit={() => openQuickEdit(selectedEmployee)}
+              onOpenCommencement={openCommencementPortal}
+              onOpenLeaves={() => navigateToApp('leaves')}
+              onOpenPayroll={() => navigateToApp('payroll')}
+              commencementRecord={
+                commencements.find(
+                  (c: any) => String(c.employeeId) === String(selectedEmployee?.id)
+                ) || null
+              }
             />
           ) : (
             <>
@@ -1644,8 +1665,18 @@ export function EmployeesApp(props?: any) {
                                   }}
                                   className="w-full text-right px-2.5 py-1.5 hover:bg-purple-50 hover:text-[#714B67] rounded-lg text-xs font-medium text-slate-700 flex items-center gap-2 cursor-pointer"
                                 >
+                                  <span>📋</span>
+                                  <span>عرض الملف الكامل</span>
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setActiveCardMenuId(null);
+                                    openQuickEdit(emp);
+                                  }}
+                                  className="w-full text-right px-2.5 py-1.5 hover:bg-emerald-50 hover:text-emerald-900 rounded-lg text-xs font-medium text-slate-700 flex items-center gap-2 cursor-pointer"
+                                >
                                   <span>✏️</span>
-                                  <span>عرض وتعديل</span>
+                                  <span>تعديل سريع</span>
                                 </button>
                                 <button
                                   onClick={() => {
@@ -1754,9 +1785,16 @@ export function EmployeesApp(props?: any) {
                               <button
                                 onClick={() => openEmployeeModal(emp)}
                                 className="bg-slate-100 hover:bg-purple-50 hover:text-[#714B67] text-slate-700 px-2.5 py-1 rounded-md font-bold transition text-[11px] flex items-center gap-1 cursor-pointer"
-                                title="عرض وتعديل الملف"
+                                title="عرض الملف الكامل"
                               >
-                                ✏️ عرض
+                                📋 عرض
+                              </button>
+                              <button
+                                onClick={() => openQuickEdit(emp)}
+                                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-md font-bold transition text-[11px] flex items-center gap-1 cursor-pointer"
+                                title="تعديل سريع"
+                              >
+                                ✏️ سريع
                               </button>
                               <button
                                 onClick={(e) => requestDeleteEmployee(emp.id, emp.nameAr, e)}
@@ -1847,6 +1885,16 @@ export function EmployeesApp(props?: any) {
                     .catch(error => console.error('Failed to record employee lifecycle event:', error));
                   toast.success(`تم تحديث حالة الموظف لـ ${newStatus === 'ACTIVE' ? 'نشط' : 'غير نشط'}`);
                 }
+              }}
+              onSaveEmployee={(emp) => handleSaveEmployee(emp)}
+              onSaveContract={(contract) => {
+                void TenantDatabaseService.saveContract(contract as any, currentCompanyId).then((saved) => {
+                  if (!saved) return;
+                  setContracts((prev) => {
+                    const exists = prev.some((c: any) => c.id === contract.id);
+                    return exists ? prev.map((c: any) => (c.id === contract.id ? contract : c)) : [contract, ...prev];
+                  });
+                });
               }}
               onNavigateToApp={(app) => {
                 if (app === 'EMPLOYEES') {
@@ -2605,20 +2653,11 @@ export function EmployeesApp(props?: any) {
         existingEmployees={employees}
       />
 
-      {/* نموذج إضافة وتعديل الموظف المباشر (Odoo Employee Form Modal) */}
-      <OdooEmployeeFormModal
-        isOpen={showAddEmployeeModal || showEmployeeModal}
-        onClose={() => {
-          setShowAddEmployeeModal(false);
-          setShowEmployeeModal(false);
-        }}
-        onSave={(newEmp) => {
-          handleSaveEmployee(newEmp);
-          setShowAddEmployeeModal(false);
-          setShowEmployeeModal(false);
-        }}
-        existingEmployees={employees}
-        activeCompanyId={currentCompanyId}
+      <EmployeeQuickEditModal
+        isOpen={Boolean(quickEditEmployee)}
+        employee={quickEditEmployee}
+        onClose={() => setQuickEditEmployee(null)}
+        onSave={handleSaveEmployee}
       />
 
     </div>
