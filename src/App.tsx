@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { parseKuwaitCivilId, validateKuwaitCivilId } from './utils/kuwaitLaw';
 import { TenantProvider, useTenant } from './context/TenantContext';
+import { LayoutStudioProvider } from './context/LayoutStudioContext';
 import { useCompany } from './context/CompanyContext';
 import { OdooHierarchyProvider, useOdooHierarchy } from './context/OdooHierarchyContext';
 import { useAuth } from './context/AuthContext';
@@ -1149,9 +1150,11 @@ function MainAppLayout() {
 export default function App() {
   return (
     <TenantProvider>
-      <OdooHierarchyProvider>
-        <MainAppLayout />
-      </OdooHierarchyProvider>
+      <LayoutStudioProvider>
+        <OdooHierarchyProvider>
+          <MainAppLayout />
+        </OdooHierarchyProvider>
+      </LayoutStudioProvider>
     </TenantProvider>
   );
 }

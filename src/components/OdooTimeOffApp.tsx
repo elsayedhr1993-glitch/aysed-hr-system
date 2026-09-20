@@ -67,6 +67,9 @@ import { LeavePolicyWizardModal, getLeaveMasterPolicy, LeavePolicyData, TIMEOFF_
 import { loadTenantPolicy } from '../services/hrPolicyStorage';
 import { AbsenceTimelineView } from './timeoff/AbsenceTimelineView';
 import { OperationalAbsencePanel } from './timeoff/OperationalAbsencePanel';
+import { DynamicTabsContainer } from './studio/DynamicTabsContainer';
+import { ScreenLayoutStudioToggle } from './studio/ScreenLayoutStudioToggle';
+import { useScreenLayout } from '../hooks/useScreenLayout';
 
 export interface LeaveRequest {
   id: string;
@@ -289,6 +292,15 @@ export const OdooTimeOffApp: React.FC = () => {
   >('requests');
   const [operationalAbsences, setOperationalAbsences] = useState<Array<Record<string, unknown>>>([]);
   const [financeSubTab, setFinanceSubTab] = useState<'advance_salary' | 'encashment_calculator'>('advance_salary');
+
+  const { layout: leavesLayout, locale: layoutLocale } = useScreenLayout('leaves');
+  const leavesTabSuffix = useMemo(
+    () => ({
+      requests: `(${requests.length})`,
+      allocations: `(${allocations.length})`,
+    }),
+    [requests.length, allocations.length]
+  );
 
   // Filters & Search for Requests
   const [selectedFilter, setSelectedFilter] = useState<string>('all');
@@ -1128,57 +1140,27 @@ export const OdooTimeOffApp: React.FC = () => {
 
       </div>
 
-      {/* Main Four Navigation Tabs */}
-      <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold gap-1 w-full overflow-x-auto">
-        <button
-          type="button"
-          onClick={() => setActiveMainTab('requests')}
-          className={`px-4 py-2.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-            activeMainTab === 'requests' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <CalendarDays size={15} /> طلبات الإجازات والاعتمادات ({requests.length})
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveMainTab('timeline')}
-          className={`px-4 py-2.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-            activeMainTab === 'timeline' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <BarChart size={15} /> مخطط تداخل الغيابات وتغطية الأقسام (Timeline)
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveMainTab('operational_absence')}
-          className={`px-4 py-2.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-            activeMainTab === 'operational_absence' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <AlertTriangle size={15} className="text-amber-600" /> غياب تشغيلي (من الحضور)
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveMainTab('allocations')}
-          className={`px-4 py-2.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-            activeMainTab === 'allocations' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <Layers size={15} /> الأرصدة الافتتاحية والمرحّلة ({allocations.length})
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveMainTab('finance')}
-          className={`px-4 py-2.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-            activeMainTab === 'finance' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <DollarSign size={15} /> المركز المالي لتسويات وبدل الإجازات (Settlements)
-        </button>
+      <div className="flex flex-col sm:flex-row sm:items-stretch gap-2">
+        <DynamicTabsContainer
+          layout={leavesLayout}
+          locale={layoutLocale}
+          activeTabId={activeMainTab}
+          onTabChange={tabId =>
+            setActiveMainTab(
+              tabId as 'requests' | 'timeline' | 'allocations' | 'finance' | 'operational_absence'
+            )
+          }
+          tabSuffix={leavesTabSuffix}
+          icons={{
+            requests: CalendarDays,
+            timeline: BarChart,
+            operational_absence: AlertTriangle,
+            allocations: Layers,
+            finance: DollarSign,
+          }}
+          className="flex-1"
+        />
+        <ScreenLayoutStudioToggle screenId="leaves" layoutVersion={leavesLayout.version} />
       </div>
 
       {/* ======================================================== */}
