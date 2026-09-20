@@ -12,6 +12,8 @@ import { CommencementApp } from './CommencementApp';
 import { OnboardingTrackerApp } from '../components/employees/OnboardingTrackerApp';
 import { OnboardingWizardModal } from '../components/employees/OnboardingWizardModal';
 import { EmployeeQuickEditModal } from '../components/employees/EmployeeQuickEditModal';
+import { ScreenLayoutStudioToggle } from '../components/studio/ScreenLayoutStudioToggle';
+import { useScreenLayout } from '../hooks/useScreenLayout';
 import { useCompany } from '../context/CompanyContext';
 import { createEmployeeOnboardingBundle, EmployeeOnboardingValidationError } from '../services/employeeOnboardingService';
 import { TenantDatabaseService } from '../services/tenantDataService';
@@ -269,6 +271,7 @@ export function EmployeesApp(props?: any) {
   const { activeCompany, activeCompanyId } = useCompany();
   const currentCompanyId = activeCompanyId || activeCompany?.id || 'comp-super-admin';
   const isSuperAdmin = props?.isSuperAdmin === true;
+  const { layout: employeesLayout } = useScreenLayout('employees');
 
   const [activeTab, setActiveTab] = useState<'directory' | 'contracts' | 'commencement' | 'onboarding'>('directory');
   const [showFullCommencementApp, setShowFullCommencementApp] = useState(false);
@@ -1286,6 +1289,7 @@ export function EmployeesApp(props?: any) {
 
           {/* الجانب الأيسر: زر التسجيل الرئيسي + زر الإجراءات + مبدل العرض */}
           <div className="flex items-center gap-2 justify-end shrink-0">
+            <ScreenLayoutStudioToggle screenId="employees" layout={employeesLayout} />
             {/* زر تسجيل موظف جديد الرئيسي */}
             <button 
               onClick={handleCreateNewEmployee}

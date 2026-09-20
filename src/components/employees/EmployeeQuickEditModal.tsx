@@ -1,5 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { X, Save } from 'lucide-react';
+import { EMPLOYEES_QUICK_EDIT_TAB_ID } from '../../config/defaultLayouts/employees';
+import { CustomFieldsFormBlock } from '../studio/DynamicFieldRenderer';
+import { useScreenLayout } from '../../hooks/useScreenLayout';
+import type { CustomDataBag } from '../../types/customLayout';
+import {
+  pickAllowedCustomData,
+  validateCustomFieldValue,
+} from '../../utils/customLayoutUtils';
 
 interface Props {
   isOpen: boolean;
@@ -17,7 +25,18 @@ const STATUS_OPTIONS = [
 
 export const EmployeeQuickEditModal: React.FC<Props> = ({ isOpen, employee, onClose, onSave }) => {
   const [form, setForm] = useState<Record<string, string>>({});
+  const [customData, setCustomData] = useState<CustomDataBag>({});
+  const [customErrors, setCustomErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const { layout, locale } = useScreenLayout('employees');
+
+  const customFieldsForQuickEdit = useMemo(
+    () =>
+      layout.customFields.filter(
+        f => f.tabId === EMPLOYEES_QUICK_EDIT_TAB_ID && !f.hidden
+      ),
+    [layout.customFields]
+  );
 
   useEffect(() => {
     if (!isOpen || !employee) return;
@@ -36,7 +55,11 @@ export const EmployeeQuickEditModal: React.FC<Props> = ({ isOpen, employee, onCl
       mohLicense: employee.mohLicense || employee.mohLicenseNo || '',
       status: employee.status || 'على رأس العمل'
     });
-  }, [isOpen, employee]);
+    setCustomData(
+      pickAllowedCustomData(employee.customData as CustomDataBag, layout.customFields)
+    );
+    setCustomErrors({});
+  }, [isOpen, employee, layout.customFields]);
 
   if (!isOpen || !employee) return null;
 
@@ -46,6 +69,15 @@ export const EmployeeQuickEditModal: React.FC<Props> = ({ isOpen, employee, onCl
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errors: Record<string, string> = {};
+    for (const field of customFieldsForQuickEdit) {
+      const msg = validateCustomFieldValue(field, customData[field.storageKey]);
+      if (msg) errors[field.storageKey] = msg;
+    }
+    if (Object.keys(errors).length) {
+      setCustomErrors(errors);
+      return;
+    }
     setSaving(true);
     try {
       const merged = {
@@ -69,7 +101,8 @@ export const EmployeeQuickEditModal: React.FC<Props> = ({ isOpen, employee, onCl
         iban: form.iban,
         mohLicense: form.mohLicense,
         mohLicenseNo: form.mohLicense,
-        status: form.status
+        status: form.status,
+        customData: pickAllowedCustomData(customData, layout.customFields),
       };
       await onSave(merged);
       onClose();
@@ -220,6 +253,14 @@ export const EmployeeQuickEditModal: React.FC<Props> = ({ isOpen, employee, onCl
               />
             </label>
           </div>
+
+          <CustomFieldsFormBlock
+            fields={customFieldsForQuickEdit}
+            locale={locale}
+            values={customData}
+            errors={customErrors}
+            onChange={setCustomData}
+          />
         </form>
 
         <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-slate-100 bg-slate-50/50">

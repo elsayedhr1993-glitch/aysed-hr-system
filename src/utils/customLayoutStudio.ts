@@ -1,4 +1,10 @@
-import type { ResolvedScreenLayout, ScreenCustomLayout } from '../types/customLayout';
+import type {
+  CustomFieldLayout,
+  CustomFieldType,
+  ResolvedScreenLayout,
+  ScreenCustomLayout,
+} from '../types/customLayout';
+import { slugifyStorageKey } from './customLayoutUtils';
 
 /** Strip resolved-only fields before save or draft editing */
 export function toEditableScreenLayout(resolved: ResolvedScreenLayout): ScreenCustomLayout {
@@ -13,6 +19,40 @@ export function toEditableScreenLayout(resolved: ResolvedScreenLayout): ScreenCu
     updatedBy: resolved.updatedBy,
     publishedAt: resolved.publishedAt,
   };
+}
+
+export function createCustomFieldDraft(
+  tabId: string,
+  order: number,
+  type: CustomFieldType = 'text'
+): CustomFieldLayout {
+  const suffix = Date.now().toString(36);
+  const storageKey = `custom_${suffix}`;
+  return {
+    id: `cf_${suffix}`,
+    kind: 'custom',
+    tabId,
+    order,
+    type,
+    storageKey,
+    label: { ar: 'حقل مخصص جديد', en: 'New custom field' },
+    hidden: false,
+    required: false,
+  };
+}
+
+export function ensureUniqueStorageKey(
+  storageKey: string,
+  fields: CustomFieldLayout[],
+  selfId: string
+): string {
+  let key = slugifyStorageKey(storageKey);
+  if (!key.startsWith('custom_')) key = `custom_${key}`;
+  const taken = new Set(fields.filter(f => f.id !== selfId).map(f => f.storageKey));
+  if (!taken.has(key)) return key;
+  let i = 2;
+  while (taken.has(`${key}_${i}`)) i += 1;
+  return `${key}_${i}`;
 }
 
 export function reorderTabs<T extends { order: number }>(items: T[], fromIndex: number, toIndex: number): T[] {

@@ -3,9 +3,20 @@ import { useAuth } from './AuthContext';
 import { useCompany } from './CompanyContext';
 import { useTenant } from './TenantContext';
 import { saveScreenLayout } from '../services/customLayoutService';
-import type { LayoutTabDefinition, ScreenCustomLayout, ScreenId } from '../types/customLayout';
-import { reorderTabs, toEditableScreenLayout } from '../utils/customLayoutStudio';
-import type { ResolvedScreenLayout } from '../types/customLayout';
+import type {
+  CustomFieldLayout,
+  CustomFieldType,
+  LayoutTabDefinition,
+  ResolvedScreenLayout,
+  ScreenCustomLayout,
+  ScreenId,
+} from '../types/customLayout';
+import {
+  createCustomFieldDraft,
+  ensureUniqueStorageKey,
+  reorderTabs,
+  toEditableScreenLayout,
+} from '../utils/customLayoutStudio';
 import { toast } from 'react-hot-toast';
 
 export interface StudioSession {
@@ -24,6 +35,9 @@ interface LayoutStudioContextValue {
   updateTab: (tabId: string, patch: Partial<LayoutTabDefinition>) => void;
   reorderTab: (fromIndex: number, toIndex: number) => void;
   moveTab: (tabId: string, direction: 'up' | 'down') => void;
+  addCustomField: (tabId?: string, type?: CustomFieldType) => void;
+  updateCustomField: (fieldId: string, patch: Partial<CustomFieldLayout>) => void;
+  removeCustomField: (fieldId: string) => void;
   saveStudio: () => Promise<void>;
   discardStudio: () => void;
 }
@@ -96,6 +110,57 @@ export const LayoutStudioProvider: React.FC<{ children: React.ReactNode }> = ({ 
     []
   );
 
+  const addCustomField = useCallback((tabId?: string, type: CustomFieldType = 'text') => {
+    setStudioSession(prev => {
+      if (!prev) return prev;
+      const tabs = [...prev.draft.tabs].sort((a, b) => a.order - b.order);
+      const targetTab = tabId || tabs[0]?.id;
+      if (!targetTab) {
+        toast.error('أضف تبويباً أولاً قبل إنشاء حقول مخصصة');
+        return prev;
+      }
+      const maxOrder = prev.draft.customFields.reduce((m, f) => Math.max(m, f.order), 0);
+      const field = createCustomFieldDraft(targetTab, maxOrder + 1, type);
+      return {
+        ...prev,
+        draft: { ...prev.draft, customFields: [...prev.draft.customFields, field] },
+        dirty: true,
+      };
+    });
+  }, []);
+
+  const updateCustomField = useCallback((fieldId: string, patch: Partial<CustomFieldLayout>) => {
+    setStudioSession(prev => {
+      if (!prev) return prev;
+      const customFields = prev.draft.customFields.map(field => {
+        if (field.id !== fieldId) return field;
+        const next = { ...field, ...patch };
+        if (patch.storageKey != null) {
+          next.storageKey = ensureUniqueStorageKey(patch.storageKey, prev.draft.customFields, fieldId);
+        }
+        if (patch.label) {
+          next.label = { ...field.label, ...patch.label };
+        }
+        return next;
+      });
+      return { ...prev, draft: { ...prev.draft, customFields }, dirty: true };
+    });
+  }, []);
+
+  const removeCustomField = useCallback((fieldId: string) => {
+    setStudioSession(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        draft: {
+          ...prev.draft,
+          customFields: prev.draft.customFields.filter(f => f.id !== fieldId),
+        },
+        dirty: true,
+      };
+    });
+  }, []);
+
   const discardStudio = useCallback(() => {
     closeStudio();
     toast('تم إلغاء التعديلات على التخطيط', { icon: '↩️' });
@@ -124,6 +189,9 @@ export const LayoutStudioProvider: React.FC<{ children: React.ReactNode }> = ({ 
       updateTab,
       reorderTab,
       moveTab,
+      addCustomField,
+      updateCustomField,
+      removeCustomField,
       saveStudio,
       discardStudio,
     }),
@@ -136,6 +204,9 @@ export const LayoutStudioProvider: React.FC<{ children: React.ReactNode }> = ({ 
       updateTab,
       reorderTab,
       moveTab,
+      addCustomField,
+      updateCustomField,
+      removeCustomField,
       saveStudio,
       discardStudio,
     ]
