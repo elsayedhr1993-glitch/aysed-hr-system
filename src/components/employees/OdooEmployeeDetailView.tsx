@@ -312,7 +312,10 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
       const fileInfo = {
         id: `${employee.id}-${docKey}`,
         employeeId: employee.id,
-        employeeNameAr: employee.fullNameAr || employee.name || '',
+        companyId:
+          employee.companyId || activeCompany?.id || contextActiveCompany?.id || '',
+        docKey,
+        employeeNameAr: employee.fullNameAr || employee.nameAr || employee.name || '',
         civilId: employee.civilId || '',
         category: 'عقود وإقرارات قانونية (Contracts & Declarations)' as const,
         docTitleAr: customTitle || docKey,

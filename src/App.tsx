@@ -150,6 +150,7 @@ function MainAppLayout() {
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [documents, setDocuments] = useState<any[]>([]);
+  const [companyDocumentsCount, setCompanyDocumentsCount] = useState(0);
   const [leaveStats, setLeaveStats] = useState({ pending: 0, onLeaveToday: 0 });
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
   const [isSentinelOpen, setIsSentinelOpen] = useState(false);
@@ -249,39 +250,64 @@ function MainAppLayout() {
     toast.success(`افتح معالج التعيين لإكمال بيانات (${cand.fullName}) — سيتم تحديث حالة المرشح إلى «تم التعيين» بعد إتمام المعالج.`);
   };
 
-  // Load documents when activeCompany?.id changes (Cloud-First Single Source of Truth)
+  // Employee documents — live Firestore SSOT
   useEffect(() => {
-    let isMounted = true;
-    if (activeCompany?.id) {
-      TenantDatabaseService.getDocumentsByTenant(activeCompany.id).then(dbDocs => {
-        if (isMounted) {
-          if (dbDocs && dbDocs.length > 0) {
-            setDocuments(dbDocs);
-          } else {
-            setDocuments([]);
-          }
-        }
-      }).catch(() => {
-        if (isMounted) setDocuments([]);
-      });
-    } else {
+    if (!effectiveCompanyId || effectiveCompanyId === 'SAAS_PLATFORM') {
       setDocuments([]);
+      return;
     }
-    return () => { isMounted = false; };
-  }, [activeCompany?.id]);
+
+    const documentsQuery = query(
+      collection(db, 'documents'),
+      where('companyId', '==', effectiveCompanyId)
+    );
+    return onSnapshot(
+      documentsQuery,
+      snapshot => {
+        setDocuments(snapshot.docs.map(item => ({ ...item.data(), id: item.id })));
+      },
+      error => {
+        console.error('Failed to subscribe to documents:', error);
+        setDocuments([]);
+      }
+    );
+  }, [effectiveCompanyId]);
+
+  useEffect(() => {
+    if (!effectiveCompanyId || effectiveCompanyId === 'SAAS_PLATFORM') {
+      setCompanyDocumentsCount(0);
+      return;
+    }
+
+    const companyDocsQuery = query(
+      collection(db, 'company_documents'),
+      where('companyId', '==', effectiveCompanyId)
+    );
+    return onSnapshot(
+      companyDocsQuery,
+      snapshot => setCompanyDocumentsCount(snapshot.size),
+      error => {
+        console.error('Failed to subscribe to company_documents:', error);
+        setCompanyDocumentsCount(0);
+      }
+    );
+  }, [effectiveCompanyId]);
 
   const handleSaveDocument = async (doc: any) => {
-    setDocuments(prev => [doc, ...prev]);
-    if (activeCompany?.id) {
-      await TenantDatabaseService.saveDocument(doc, activeCompany.id);
+    const companyId = effectiveCompanyId || activeCompany?.id;
+    if (companyId) {
+      await TenantDatabaseService.saveDocument(
+        { ...doc, companyId: doc.companyId || companyId },
+        companyId
+      );
     }
     toast.success('تم حفظ المستند في الأرشيف والسحابة بنجاح');
   };
 
   const handleDeleteDocument = async (docId: string) => {
-    setDocuments(prev => prev.filter(d => d.id !== docId));
-    if (activeCompany?.id) {
-      await TenantDatabaseService.deleteDocument(docId, activeCompany.id);
+    const companyId = effectiveCompanyId || activeCompany?.id;
+    if (companyId) {
+      await TenantDatabaseService.deleteDocument(docId, companyId);
     }
     toast.success('تم حذف المستند');
   };
@@ -737,7 +763,7 @@ function MainAppLayout() {
                 candidatesCount: candidates?.length || 0,
                 contractsCount: contracts?.length || employees?.length || 0,
                 leavesPendingCount: leaveStats.pending,
-                documentsCount: documents?.length || 0,
+                documentsCount: (documents?.length || 0) + companyDocumentsCount,
                 automationsCount: 0,
                 custodiesCount: 0,
                 templatesCount: 0,
@@ -850,7 +876,6 @@ function MainAppLayout() {
                 documents={documents}
                 employees={employees as any}
                 activeCompany={activeCompany}
-                filterTab=""
                 onSaveDocument={handleSaveDocument}
                 onDeleteDocument={handleDeleteDocument}
                 onAutoAddEmpFromOCR={handleAutoAddEmpFromOCR}
