@@ -1,14 +1,16 @@
 import { deleteDoc, doc, setDoc } from 'firebase/firestore';
 import { db, cleanFirestoreData } from '../lib/firebase';
+import { mapEmployeeDocKeyToCategory } from '../utils/documentArchiveUtils';
 
 export interface EmployeeDocument {
   id: string;
   employeeId: string;
   employeeNameAr: string;
   civilId: string;
-  
-  // تصنيف الوثيقة وفق اشتراطات الكويت والقطاع الطبي
-  category: 
+  companyId?: string;
+  docKey?: string;
+
+  category:
     | 'هويات وإقامات (Civil ID & Visa)'
     | 'تراخيص طبية (MOH Licenses)'
     | 'شهادات ومؤهلات علمية (Degrees & Certificates)'
@@ -23,29 +25,69 @@ export interface EmployeeDocument {
   fileType: 'PDF' | 'JPG' | 'PNG';
   fileName: string;
   fileSize: string;
-  fileUrl?: string; // أو base64
-  
-  // حالة الصلاحية والتنبيه التلقائي
+  fileUrl?: string;
+  url?: string;
+  title?: string;
+
   status: 'active' | 'expiring_soon' | 'expired';
   daysLeft?: number;
   notes?: string;
   uploadDate: string;
 }
 
+/** Persist to central `documents` collection (SSOT for archive + scanner). */
 export async function saveEmployeeDocument(document: EmployeeDocument): Promise<void> {
-  await setDoc(
-    doc(db, 'employee_documents', document.id),
-    cleanFirestoreData({ ...document, updatedAt: new Date().toISOString() }),
-    { merge: true }
-  );
+  const docKey =
+    document.docKey ||
+    (document.id.includes('-') ? document.id.slice(document.id.indexOf('-') + 1) : 'OTHER');
+  const companyId = document.companyId || '';
+  if (!companyId) {
+    throw new Error('companyId is required to archive employee documents');
+  }
+
+  const category = mapEmployeeDocKeyToCategory(docKey);
+  const fileUrl = document.fileUrl || document.url || '';
+
+  const centralPayload = {
+    id: document.id,
+    companyId,
+    employeeId: document.employeeId,
+    title: document.docTitleAr || document.title || document.fileName,
+    category,
+    fileUrl,
+    fileName: document.fileName,
+    fileSize: document.fileSize,
+    uploadDate: document.uploadDate,
+    expiryDate: document.expiryDate || '',
+    issueDate: document.issueDate || '',
+    documentNumber: document.documentNumber || document.civilId || '',
+    status: 'active',
+    sourceDocKey: docKey,
+    updatedAt: new Date().toISOString(),
+  };
+
+  await setDoc(doc(db, 'documents', document.id), cleanFirestoreData(centralPayload), { merge: true });
+
+  // Remove legacy duplicate if present
+  try {
+    await deleteDoc(doc(db, 'employee_documents', document.id));
+  } catch {
+    /* ignore */
+  }
 }
 
 export async function deleteEmployeeDocument(documentId: string): Promise<void> {
-  await deleteDoc(doc(db, 'employee_documents', documentId));
+  await deleteDoc(doc(db, 'documents', documentId));
+  try {
+    await deleteDoc(doc(db, 'employee_documents', documentId));
+  } catch {
+    /* ignore */
+  }
 }
 
-// دالة فحص وتحديث حالة صلاحية الوثيقة تلقائياً
-export const checkDocumentExpiryStatus = (expiryDateStr?: string): { status: 'active' | 'expiring_soon' | 'expired'; daysLeft?: number } => {
+export const checkDocumentExpiryStatus = (
+  expiryDateStr?: string
+): { status: 'active' | 'expiring_soon' | 'expired'; daysLeft?: number } => {
   if (!expiryDateStr) return { status: 'active' };
 
   const today = new Date();
@@ -55,9 +97,9 @@ export const checkDocumentExpiryStatus = (expiryDateStr?: string): { status: 'ac
 
   if (diffDays < 0) {
     return { status: 'expired', daysLeft: diffDays };
-  } else if (diffDays <= 60) {
-    return { status: 'expiring_soon', daysLeft: diffDays };
-  } else {
-    return { status: 'active', daysLeft: diffDays };
   }
+  if (diffDays <= 60) {
+    return { status: 'expiring_soon', daysLeft: diffDays };
+  }
+  return { status: 'active', daysLeft: diffDays };
 };

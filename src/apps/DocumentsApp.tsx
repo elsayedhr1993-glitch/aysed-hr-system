@@ -9,6 +9,10 @@ import { DocumentCompliancePrintModal } from '../components/documents/DocumentCo
 import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { cleanFirestoreData, db } from '../lib/firebase';
 import toast from 'react-hot-toast';
+import {
+  employeeMatchesSearchQuery,
+  resolveEmployeeDisplayName,
+} from '../utils/employeeDisplayName';
 import { 
   FolderOpen, FileText, Upload, Trash2, Search, X, CheckCircle2, 
   Scan, AlertTriangle, Download, Calendar, BellRing, Shield, 
@@ -20,7 +24,6 @@ interface DocumentsAppProps {
   documents: DocumentItem[];
   employees: Employee[];
   activeCompany: Company;
-  filterTab: string;
   onSaveDocument: (doc: DocumentItem) => void;
   onDeleteDocument: (docId: string) => void;
   onAutoAddEmpFromOCR: (empData: any, docType?: string) => string | Promise<string>;
@@ -33,7 +36,6 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
   documents,
   employees,
   activeCompany,
-  filterTab,
   onSaveDocument,
   onDeleteDocument,
   onAutoAddEmpFromOCR,
@@ -179,7 +181,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
       if (searchTerm.trim()) {
         const q = searchTerm.toLowerCase();
         const matchesTitle = doc.title?.toLowerCase().includes(q);
-        const matchesEmp = doc.employee?.fullNameAr?.toLowerCase().includes(q) || doc.employee?.fullNameEn?.toLowerCase().includes(q);
+        const matchesEmp = employeeMatchesSearchQuery(doc.employee as Record<string, unknown>, q);
         const matchesCivil = doc.employee?.civilId?.includes(q);
         const matchesDocNum = doc.documentNumber?.toLowerCase().includes(q);
         if (!matchesTitle && !matchesEmp && !matchesCivil && !matchesDocNum) return false;
@@ -201,7 +203,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
       'عنوان المستند': doc.title,
       'التصنيف': doc.category,
       'رقم الوثيقة': doc.documentNumber || '—',
-      'اسم الموظف': doc.employee?.fullNameAr || 'مستند عام',
+      'اسم الموظف': resolveEmployeeDisplayName(doc.employee as Record<string, unknown>) || 'مستند عام',
       'الرقم المدني': doc.employee?.civilId || '—',
       'القسم': doc.employee?.department || '—',
       'المسمى الوظيفي': doc.employee?.jobTitle || '—',
@@ -647,7 +649,11 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
 
                           <div className="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
                             <User className="w-3 h-3 text-slate-400" />
-                            <span className="truncate">{doc.employee ? doc.employee.fullNameAr : 'مستند عام للمنشأة'}</span>
+                            <span className="truncate">
+                              {doc.employee
+                                ? resolveEmployeeDisplayName(doc.employee as Record<string, unknown>)
+                                : 'مستند عام للمنشأة'}
+                            </span>
                           </div>
 
                           {doc.documentNumber && (
@@ -724,7 +730,9 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
                               </div>
                             </td>
                             <td className="p-3.5 text-slate-700">
-                              {doc.employee ? doc.employee.fullNameAr : 'مستند عام'}
+                              {doc.employee
+                                ? resolveEmployeeDisplayName(doc.employee as Record<string, unknown>)
+                                : 'مستند عام'}
                             </td>
                             <td className="p-3.5 font-mono text-slate-600">
                               {doc.employee?.civilId || '—'}
