@@ -1,0 +1,141 @@
+name: Sync leave-attendance PR and follow-up issues
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - refactor/leave-attendance-unify
+    paths:
+      - .github/workflows/sync-leave-attendance-github.yml
+      - docs/github/pr-body-generated.md
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create follow-up issues and open PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            function stripFrontMatter(filePath) {
+              const raw = fs.readFileSync(filePath, 'utf8');
+              if (!raw.startsWith('---')) return raw.trim();
+              const end = raw.indexOf('---', 3);
+              return raw.slice(end + 3).trim();
+            }
+
+            function findOpenIssueByTitle(title) {
+              return github.paginate(github.rest.issues.listForRepo, {
+                owner,
+                repo,
+                state: 'open',
+                per_page: 100,
+              }).then((issues) => issues.find((i) => i.title === title && !i.pull_request));
+            }
+
+            async function ensureIssue(title, body, labels) {
+              const existing = await findOpenIssueByTitle(title);
+              if (existing) {
+                core.info(`Issue already open: #${existing.number} ${title}`);
+                return existing;
+              }
+              const payload = { owner, repo, title, body };
+              let created;
+              try {
+                created = await github.rest.issues.create({ ...payload, labels });
+              } catch (error) {
+                core.warning(`Create with labels failed, retrying without labels: ${error.message}`);
+                created = await github.rest.issues.create(payload);
+              }
+              core.info(`Created issue #${created.data.number}`);
+              return created.data;
+            }
+
+            const migrationTitle = '[Migration] attendance → attendance_records';
+            const p2Title = '[Refactor] Modularize OdooTimeOffApp (P2)';
+
+            const migrationBody = stripFrontMatter(
+              path.join('.github/ISSUE_TEMPLATE/attendance-legacy-migration.md')
+            );
+            const p2Body = stripFrontMatter(
+              path.join('.github/ISSUE_TEMPLATE/timeoff-app-modularization.md')
+            );
+
+            const migrationIssue = await ensureIssue(migrationTitle, migrationBody, ['migration', 'attendance', 'firebase']);
+            const p2Issue = await ensureIssue(p2Title, p2Body, ['refactor', 'leaves', 'tech-debt']);
+
+            const prPath = 'docs/github/pr-body-generated.md';
+            let prBody = fs.readFileSync(prPath, 'utf8');
+            prBody = prBody.replace(/Related: #4 , #5/g, `Related: #${migrationIssue.number} , #${p2Issue.number}`);
+
+            const prTitle =
+              'refactor(hr): unify attendance_records SSOT, Firestore policies, and Time Off operational absence';
+
+            const { data: openPrs } = await github.rest.pulls.list({
+              owner,
+              repo,
+              state: 'open',
+              head: `${owner}:refactor/leave-attendance-unify`,
+            });
+
+            let pr = openPrs[0];
+            if (pr) {
+              await github.rest.pulls.update({
+                owner,
+                repo,
+                pull_number: pr.number,
+                title: prTitle,
+                body: prBody,
+              });
+              core.info(`Updated PR #${pr.number}`);
+            } else {
+              try {
+                const created = await github.rest.pulls.create({
+                  owner,
+                  repo,
+                  title: prTitle,
+                  head: 'refactor/leave-attendance-unify',
+                  base: 'main',
+                  body: prBody,
+                });
+                pr = created.data;
+                core.info(`Created PR #${pr.number}`);
+              } catch (error) {
+                core.warning(
+                  `pulls.create failed — open compare manually or enable Settings → Actions → Allow GitHub Actions to create pull requests. ${error.message}`
+                );
+                pr = {
+                  number: 0,
+                  html_url: `https://github.com/${owner}/${repo}/compare/main...refactor/leave-attendance-unify?expand=1`,
+                };
+              }
+            }
+
+            const compareUrl = `https://github.com/${owner}/${repo}/compare/main...refactor/leave-attendance-unify?expand=1`;
+            const crossLink = `Follow-up: migration #${migrationIssue.number}, P2 refactor #${p2Issue.number}, branch \`refactor/leave-attendance-unify\`. Open PR: ${compareUrl}`;
+            for (const num of [migrationIssue.number, p2Issue.number]) {
+              try {
+                await github.rest.issues.createComment({ owner, repo, issue_number: num, body: crossLink });
+              } catch (error) {
+                core.warning(`issue comment on #${num} failed: ${error.message}`);
+              }
+            }
+
+            const prLine = pr.number ? `#${pr.number}` : compareUrl;
+            const summary = `### GitHub sync\n- PR: ${prLine}\n- Migration issue: #${migrationIssue.number}\n- P2 issue: #${p2Issue.number}\n`;
+            if (process.env.GITHUB_STEP_SUMMARY) {
+              fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
+            }

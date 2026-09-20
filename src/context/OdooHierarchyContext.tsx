@@ -3,6 +3,11 @@ import { KUWAIT_LABOR_CONFIG } from '../config/kuwaitLaborConfig';
 import { useCompany } from './CompanyContext';
 import { TenantDatabaseService } from '../services/tenantDataService';
 import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
+import {
+  getAttendanceRecordDocId,
+  mapAttendanceRecordToLog,
+  upsertAttendanceRecordDoc,
+} from '../utils/attendanceRecords';
 import { db, cleanFirestoreData } from '../lib/firebase';
 import { normalizeEmployeeRecord } from '../utils/employeeMapper';
 import { normalizeContractStatus } from '../utils/contractStatus';
@@ -288,18 +293,45 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
   const [attendance, setAttendance] = useState<Record<string, AttendanceLog>>({});
 
   useEffect(() => {
-    const attendanceQuery = query(collection(db, 'attendance'), where('companyId', '==', currentCompanyId));
-    return onSnapshot(attendanceQuery, snapshot => {
+    const attendanceQuery = query(
+      collection(db, 'attendance_records'),
+      where('companyId', '==', currentCompanyId)
+    );
+    const mergeDoc = (records: Record<string, AttendanceLog>, data: Record<string, unknown>) => {
+      const log = mapAttendanceRecordToLog(data, currentCompanyId);
+      if (!log) return;
+      const date = getAttendanceDate(log.date);
+      records[getAttendanceKey(currentCompanyId, log.employeeId, date)] = { ...log, date };
+    };
+
+    const unsubPrimary = onSnapshot(attendanceQuery, snapshot => {
       const records: Record<string, AttendanceLog> = {};
-      snapshot.docs.forEach(item => {
-        const data = item.data() as AttendanceLog & { employeeId?: string };
-        if (data.employeeId) {
-          const date = getAttendanceDate(data.date);
-          records[item.id] = { ...data, date, companyId: data.companyId || currentCompanyId };
-        }
-      });
+      snapshot.docs.forEach(item => mergeDoc(records, { ...item.data(), id: item.id }));
       setAttendance(records);
-    }, error => console.error('Error in realtime attendance sync:', error));
+    }, error => console.error('Error in realtime attendance_records sync:', error));
+
+    const legacyQuery = query(collection(db, 'attendance'), where('companyId', '==', currentCompanyId));
+    const unsubLegacy = onSnapshot(legacyQuery, snapshot => {
+      setAttendance(prev => {
+        const records = { ...prev };
+        snapshot.docs.forEach(item => {
+          const key = getAttendanceKey(
+            currentCompanyId,
+            String(item.data().employeeId || ''),
+            getAttendanceDate(item.data().date)
+          );
+          if (!records[key]) {
+            mergeDoc(records, { ...item.data(), id: item.id });
+          }
+        });
+        return records;
+      });
+    }, error => console.error('Error in legacy attendance sync:', error));
+
+    return () => {
+      unsubPrimary();
+      unsubLegacy();
+    };
   }, [currentCompanyId]);
 
   // السلف المالية
@@ -469,7 +501,17 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
       ...prev,
       [attendanceId]: record
     }));
-    await setDoc(doc(db, 'attendance', attendanceId), cleanFirestoreData(record), { merge: true });
+    await upsertAttendanceRecordDoc(currentCompanyId, {
+      id: getAttendanceRecordDocId(currentCompanyId, empId, targetDate),
+      employeeId: empId,
+      date: targetDate,
+      lateMinutes: delayMin,
+      delayMinutes: delayMin,
+      overtimeHours: overtimeHr,
+      workHours: 0,
+      status: 'present',
+      method: 'تسجيل يدوي (Manual)',
+    });
   };
 
   const recordAttendanceTimes = async (
@@ -495,7 +537,20 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
       date: targetDate
     };
     setAttendance(prev => ({ ...prev, [attendanceId]: record }));
-    await setDoc(doc(db, 'attendance', attendanceId), cleanFirestoreData(record), { merge: true });
+    await upsertAttendanceRecordDoc(currentCompanyId, {
+      id: getAttendanceRecordDocId(currentCompanyId, empId, targetDate),
+      employeeId: empId,
+      date: targetDate,
+      checkIn: record.checkIn || '',
+      checkOut: record.checkOut || '',
+      lateMinutes: record.delayMinutes,
+      delayMinutes: record.delayMinutes,
+      overtimeHours: record.overtimeHours,
+      workHours: record.actualHours || 0,
+      isHoliday: record.isHoliday,
+      status: record.unpaidAbsenceDays > 0 ? 'absent' : 'present',
+      method: 'تسجيل يدوي (Manual)',
+    });
   };
 
   const addLoan = async (empId: string, amount: number, installment: number) => {
@@ -612,7 +667,16 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
       date: targetDate
     };
     setAttendance(prev => ({ ...prev, [attendanceId]: record }));
-    await setDoc(doc(db, 'attendance', attendanceId), cleanFirestoreData(record), { merge: true });
+    await upsertAttendanceRecordDoc(currentCompanyId, {
+      id: getAttendanceRecordDocId(currentCompanyId, empId, targetDate),
+      employeeId: empId,
+      date: targetDate,
+      lateMinutes: record.delayMinutes,
+      overtimeHours: record.overtimeHours,
+      unpaidAbsenceDays: days,
+      status: days > 0 ? 'absent' : 'present',
+      method: 'تسجيل يدوي (Manual)',
+    });
   };
 
   const updateLeaveAccrual = (

@@ -50,6 +50,9 @@ import { parseAttendanceFile } from '../utils/attendanceParser';
 import { db, cleanFirestoreData } from '../lib/firebase';
 import { collection, doc, getDoc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { EmployeeShift, ShiftProfile } from '../types';
+import { upsertAttendanceRecordDoc } from '../utils/attendanceRecords';
+import { loadTenantPolicy } from '../services/hrPolicyStorage';
+import { getAttendancePolicyStorageKey } from './attendance/AttendanceSetupWizardModal';
 
 const seededShiftProfilesNoticeByCompany = new Set<string>();
 const seededEmployeeShiftsNoticeByCompany = new Set<string>();
@@ -134,15 +137,32 @@ export const Attendances: React.FC = () => {
 
   // Attendance Setup Policy Wizard State
   const [isSetupWizardOpen, setIsSetupWizardOpen] = useState(false);
-  const [attendancePolicy, setAttendancePolicy] = useState<AttendancePolicyData>(() => getAttendanceMasterPolicy());
+  const [attendancePolicy, setAttendancePolicy] = useState<AttendancePolicyData>(() =>
+    getAttendanceMasterPolicy(activeCompany)
+  );
+
+  useEffect(() => {
+    const companyId = activeCompId || '';
+    void loadTenantPolicy(
+      companyId,
+      'attendance_policy',
+      () => getAttendanceMasterPolicy(activeCompany),
+      getAttendancePolicyStorageKey(companyId)
+    ).then(setAttendancePolicy);
+  }, [activeCompId, activeCompany]);
 
   useEffect(() => {
     const handlePolicyUpdated = () => {
-      setAttendancePolicy(getAttendanceMasterPolicy());
+      void loadTenantPolicy(
+        activeCompId,
+        'attendance_policy',
+        () => getAttendanceMasterPolicy(activeCompany),
+        getAttendancePolicyStorageKey(activeCompId)
+      ).then(setAttendancePolicy);
     };
     window.addEventListener('attendance_policy_updated', handlePolicyUpdated);
     return () => window.removeEventListener('attendance_policy_updated', handlePolicyUpdated);
-  }, []);
+  }, [activeCompId, activeCompany]);
 
   // Official Print Modal State
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
@@ -166,16 +186,6 @@ export const Attendances: React.FC = () => {
     }, error => console.error('Failed to load attendance records from Firestore', error));
     return () => unsubscribe();
   }, [activeCompId]);
-
-  useEffect(() => {
-    customAttendanceRecords.forEach(record => {
-      void setDoc(
-        doc(db, 'attendance_records', record.id),
-        cleanFirestoreData({ ...record, companyId: activeCompId }),
-        { merge: true }
-      ).catch(error => console.error('Failed to save attendance record to Firestore', error));
-    });
-  }, [activeCompId, customAttendanceRecords]);
 
   // Monthly Posted to Payroll records tracker
   const [postedMonths, setPostedMonths] = useState<Record<string, boolean>>({});
@@ -606,6 +616,12 @@ export const Attendances: React.FC = () => {
       return [newRecord, ...filtered];
     });
 
+    void upsertAttendanceRecordDoc(activeCompId, {
+      ...newRecord,
+      companyId: activeCompId,
+      lateMinutes: newRecord.lateMinutes,
+    }).catch((error) => console.error('Failed to persist manual attendance', error));
+
     // If recording for today, update context
     if (payload.date === selectedDate) {
       recordAttendanceTimes(
@@ -662,6 +678,12 @@ export const Attendances: React.FC = () => {
       return [updatedRecord, ...filtered];
     });
 
+    void upsertAttendanceRecordDoc(activeCompId, {
+      ...updatedRecord,
+      companyId: activeCompId,
+      lateMinutes: updatedRecord.lateMinutes,
+    }).catch((error) => console.error('Failed to persist resolved punch', error));
+
     recordAttendanceTimes(
       emp.id,
       target.checkIn,
@@ -696,6 +718,12 @@ export const Attendances: React.FC = () => {
       const filtered = prev.filter(r => !(r.employeeId === record.employeeId && r.date === record.date));
       return [updated, ...filtered];
     });
+
+    void upsertAttendanceRecordDoc(activeCompId, {
+      ...updated,
+      companyId: activeCompId,
+      lateMinutes: updated.lateMinutes,
+    }).catch((error) => console.error('Failed to persist excuse toggle', error));
 
     recordAttendanceTimes(
       record.employeeId,
@@ -927,6 +955,11 @@ export const Attendances: React.FC = () => {
     setCustomAttendanceRecords(prev => [...importedLogs, ...prev]);
 
     importedLogs.forEach(log => {
+      void upsertAttendanceRecordDoc(activeCompId, {
+        ...log,
+        companyId: activeCompId,
+        lateMinutes: log.lateMinutes,
+      }).catch((error) => console.error('Failed to persist imported attendance', error));
       const emp = employees.find(e => e.id === log.employeeId);
       if (emp) {
         recordAttendanceTimes(
@@ -959,6 +992,11 @@ export const Attendances: React.FC = () => {
     setCustomAttendanceRecords(prev => [...punches, ...prev]);
 
     punches.forEach(log => {
+      void upsertAttendanceRecordDoc(activeCompId, {
+        ...log,
+        companyId: activeCompId,
+        lateMinutes: log.lateMinutes,
+      }).catch((error) => console.error('Failed to persist biometric attendance', error));
       const emp = employees.find(e => e.id === log.employeeId);
       if (emp) {
         recordAttendanceTimes(
@@ -1037,6 +1075,12 @@ export const Attendances: React.FC = () => {
       const filtered = prev.filter(r => !(r.employeeId === kioskSelectedEmp.id && r.date === newRecord.date));
       return [newRecord, ...filtered];
     });
+
+    void upsertAttendanceRecordDoc(activeCompId, {
+      ...newRecord,
+      companyId: activeCompId,
+      lateMinutes: newRecord.lateMinutes,
+    }).catch((error) => console.error('Failed to persist kiosk attendance', error));
     
     recordAttendanceTimes(kioskSelectedEmp.id, finalCheckIn, finalCheckOut, calc.delayMinutes, calc.overtimeHours, undefined, kioskDate);
 
@@ -1833,6 +1877,11 @@ export const Attendances: React.FC = () => {
               return;
             }
             setCustomAttendanceRecords(prev => [newAtt, ...prev]);
+            void upsertAttendanceRecordDoc(activeCompId, {
+              ...newAtt,
+              companyId: activeCompId,
+              lateMinutes: newAtt.lateMinutes,
+            }).catch((error) => console.error('Failed to persist QR attendance', error));
             recordAttendanceTimes(rec.employeeId, newAtt.checkIn, newAtt.checkOut, newAtt.lateMinutes, newAtt.overtimeHours, undefined, newAtt.date);
             toast.success(`تم تسجيل بصمة QR للموظف بنجاح`);
           }}
