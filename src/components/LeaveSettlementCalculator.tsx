@@ -28,9 +28,12 @@ import { syncLedgerFromFirestore } from '../services/leaveBalanceLedgerService';
 import { LeaveClearanceDocument } from './LeaveClearanceDocument';
 import {
   LeaveBalanceEngine,
+  resolveAnnualTicketAllowanceKwd,
   resolveLeaveBalancePoolHint,
   resolveLeavePaidUnpaidSplit
 } from '../utils/leaveEngine';
+import { LeavePolicyData } from './leaves/LeavePolicyWizardModal';
+import { normalizeContractStatus } from '../utils/contractStatus';
 import { normalizeContractStatus } from '../utils/contractStatus';
 import toast from 'react-hot-toast';
 import { useLang } from '../lib/i18n';
@@ -100,6 +103,7 @@ export interface LeaveSettlementCalculatorProps {
   leaves?: LeaveRequest[];
   attendance?: AttendanceRecord[];
   activeCompany?: Company;
+  leavePolicy?: LeavePolicyData;
   preSelectedEmployeeId?: string;
   onNavigateToTab?: (tab: string) => void;
   onSaveLeave?: (leave: LeaveRequest) => void;
@@ -115,6 +119,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
   leaves = [],
   attendance = [],
   activeCompany,
+  leavePolicy,
   preSelectedEmployeeId,
   onNavigateToTab,
   onSaveLeave,
@@ -249,7 +254,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
   const hourlyWage = dailyWage > 0 ? calculateKuwaitHourlyRate(dailyWage, 8) : 0;
 
   // Form State: Settlement Mode & Basic parameters
-  const [settlementMode, setSettlementMode] = useState<'LEAVE_WITH_TRAVEL' | 'ENCASHMENT_LIQUIDATION' | 'CUSTOM'>('LEAVE_WITH_TRAVEL');
+  const [settlementMode, setSettlementMode] = useState<'LEAVE_WITH_TRAVEL' | 'ENCASHMENT_LIQUIDATION'>('LEAVE_WITH_TRAVEL');
   const [settlementDate, setSettlementDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [departureDate, setDepartureDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [returnDate, setReturnDate] = useState<string>(() => {
@@ -370,7 +375,17 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
   const [overtimeMultiplier, setOvertimeMultiplier] = useState<number>(1.25);
 
   // Handle switching settlement modes cleanly
-  const handleModeChange = (mode: 'LEAVE_WITH_TRAVEL' | 'ENCASHMENT_LIQUIDATION' | 'CUSTOM') => {
+  const resolveTicketForSelectedEmployee = () => {
+    const emp = employees.find(e => e.id === selectedEmpId) as Record<string, unknown> | undefined;
+    const contract = contracts.find(
+      c =>
+        c.employeeId === selectedEmpId &&
+        normalizeContractStatus(String((c as Record<string, unknown>).status || 'running')) === 'running'
+    ) as Record<string, unknown> | undefined;
+    return resolveAnnualTicketAllowanceKwd(emp, leavePolicy as Record<string, unknown>, contract);
+  };
+
+  const handleModeChange = (mode: 'LEAVE_WITH_TRAVEL' | 'ENCASHMENT_LIQUIDATION') => {
     setSettlementMode(mode);
     if (mode === 'ENCASHMENT_LIQUIDATION') {
       // وضع صرف رصيد الإجازات فقط بدون إجازة:
@@ -394,15 +409,13 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
       setIncludeProratedSalary(true);
       const phys = calculatePhysicalWorkedDays(departureDate);
       setWorkedDaysInMonth(phys.workingDays > 0 ? phys.workingDays : 1);
-      setTicketAllowance(150);
+      setTicketAllowance(resolveTicketForSelectedEmployee());
       setVoucherNotes('تسوية وتصفية مستحقات إجازة وسفر وفق أحكام قانون العمل الكويتي (المادة 70)');
-    } else {
-      setVoucherNotes('تسوية مستحقات مالية شاملة مخصصة للموظف');
     }
   };
 
   // 4. Other allowances & deductions
-  const [ticketAllowance, setTicketAllowance] = useState<number>(150);
+  const [ticketAllowance, setTicketAllowance] = useState<number>(0);
   const [housingAllowance, setHousingAllowance] = useState<number>(0);
   const [loanDeduction, setLoanDeduction] = useState<number>(0);
   const [salaryAdvanceDeduction, setSalaryAdvanceDeduction] = useState<number>(0);
@@ -1102,11 +1115,15 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                   <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-white border border-slate-200 shadow-2xs text-slate-700 w-fit">
                     {settlementMode === 'LEAVE_WITH_TRAVEL' && '✈️ تسوية إجازة وسفر (شاملة أيام العمل والتذاكر)'}
                     {settlementMode === 'ENCASHMENT_LIQUIDATION' && '💰 صرف رصيد إجازات فقط بدون إجازة (تسوية الرصيد فقط)'}
-                    {settlementMode === 'CUSTOM' && '⚙️ تسوية شاملة مخصصة'}
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <p className="text-[10px] text-slate-500 mb-2">
+                  التسوية الشاملة المخصصة (بنود حرة متعددة) من{' '}
+                  <strong>تطبيق الرواتب → التسويات</strong> — وليس من هذا المركز.
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <button
                     type="button"
                     onClick={() => handleModeChange('LEAVE_WITH_TRAVEL')}
@@ -1140,24 +1157,6 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                     </div>
                     <p className={`text-[10px] mt-1 line-clamp-2 ${settlementMode === 'ENCASHMENT_LIQUIDATION' ? 'text-amber-100' : 'text-slate-500'}`}>
                       تسييل وصرف البدل النقدي للرصيد المتاح فقط (مستبعد منه أيام العمل وتذاكر السفر)
-                    </p>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleModeChange('CUSTOM')}
-                    className={`p-3 rounded-xl border text-right transition cursor-pointer flex flex-col justify-between ${
-                      settlementMode === 'CUSTOM'
-                        ? 'bg-slate-800 text-white border-slate-800 shadow-sm'
-                        : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className="font-bold text-xs flex items-center justify-between">
-                      <span>تسوية شاملة مخصصة</span>
-                      {settlementMode === 'CUSTOM' && <Check size={14} className="text-slate-300" />}
-                    </div>
-                    <p className={`text-[10px] mt-1 line-clamp-2 ${settlementMode === 'CUSTOM' ? 'text-slate-300' : 'text-slate-500'}`}>
-                      تحكم كامل بجميع البنود والاستقطاعات وحرية إدراج أيام العمل وبدلات مخصصة
                     </p>
                   </button>
                 </div>

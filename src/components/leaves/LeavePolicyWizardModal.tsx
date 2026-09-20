@@ -43,6 +43,8 @@ export interface LeavePolicyData {
   syncWithWpsPayroll: boolean;
   autoDeductUnpaidFromSalary: boolean;
   syncWithAttendanceRoster: boolean;
+  /** Cash value (KWD) for annual ticket when contract/employee amount not set */
+  annualTicketAllowanceKwd: number;
 
   // Metadata
   isActivated: boolean;
@@ -81,6 +83,7 @@ export const defaultLeavePolicy: LeavePolicyData = {
   syncWithWpsPayroll: true,
   autoDeductUnpaidFromSalary: true,
   syncWithAttendanceRoster: true,
+  annualTicketAllowanceKwd: 0,
 
   isActivated: true,
   lastUpdated: new Date().toISOString(),
