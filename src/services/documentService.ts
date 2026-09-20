@@ -67,22 +67,10 @@ export async function saveEmployeeDocument(document: EmployeeDocument): Promise<
   };
 
   await setDoc(doc(db, 'documents', document.id), cleanFirestoreData(centralPayload), { merge: true });
-
-  // Remove legacy duplicate if present
-  try {
-    await deleteDoc(doc(db, 'employee_documents', document.id));
-  } catch {
-    /* ignore */
-  }
 }
 
 export async function deleteEmployeeDocument(documentId: string): Promise<void> {
   await deleteDoc(doc(db, 'documents', documentId));
-  try {
-    await deleteDoc(doc(db, 'employee_documents', documentId));
-  } catch {
-    /* ignore */
-  }
 }
 
 export const checkDocumentExpiryStatus = (

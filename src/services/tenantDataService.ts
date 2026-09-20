@@ -763,7 +763,7 @@ export const TenantDatabaseService = {
         'attendance',
         'payslips',
         'loans',
-        'employee_documents',
+        'documents',
         'employee_lifecycle_events',
         'employeeNotes',
         'warnings',
