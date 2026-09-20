@@ -34,7 +34,6 @@ import {
 } from '../utils/leaveEngine';
 import { LeavePolicyData } from './leaves/LeavePolicyWizardModal';
 import { normalizeContractStatus } from '../utils/contractStatus';
-import { normalizeContractStatus } from '../utils/contractStatus';
 import toast from 'react-hot-toast';
 import { useLang } from '../lib/i18n';
 
