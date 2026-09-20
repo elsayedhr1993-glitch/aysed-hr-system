@@ -50,6 +50,7 @@ import {
   getEmployeeUnifiedSummary,
   matchesEmployeeIdentity,
   normalizeLeaveBalanceInputs,
+  resolveAnnualTicketAllowanceKwd,
   resolveLeaveBalancePoolHint,
   resolveLeavePaidUnpaidSplit
 } from '../utils/leaveEngine';
@@ -327,7 +328,7 @@ export const OdooTimeOffApp: React.FC = () => {
     return () => window.removeEventListener('timeoff_policy_updated', handlePolicyUpdated);
   }, [companyId]);
 
-  const [selectedSettlementReq, setSelectedSettlementReq] = useState<LeaveRequest | null>(null);
+  const [highlightAdvanceRequestId, setHighlightAdvanceRequestId] = useState<string | null>(null);
   const [selectedPrintReq, setSelectedPrintReq] = useState<LeaveRequest | null>(null);
   const [selectedReturnReq, setSelectedReturnReq] = useState<LeaveRequest | null>(null);
   const [rejectionModalState, setRejectionModalState] = useState<{ req: LeaveRequest; stageLabel: string } | null>(null);
@@ -844,10 +845,44 @@ export const OdooTimeOffApp: React.FC = () => {
     }
   };
 
-  const markSettlementPaid = (id: string) => {
-    setRequests(requests.map(req => req.id === id ? { ...req, settlementDone: true } : req));
-    toast.success('تم اعتماد التسوية المسبقة، وتم ترحيل المستحقات لمسير الرواتب بنجاح.');
-    setSelectedSettlementReq(null);
+  const goToAdvanceSalaryCenter = (requestId?: string) => {
+    setActiveMainTab('finance');
+    setFinanceSubTab('advance_salary');
+    if (requestId) setHighlightAdvanceRequestId(requestId);
+  };
+
+  useEffect(() => {
+    if (!highlightAdvanceRequestId || activeMainTab !== 'finance') return;
+    const timer = window.setTimeout(() => {
+      document.getElementById(`advance-pay-row-${highlightAdvanceRequestId}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }, 200);
+    return () => window.clearTimeout(timer);
+  }, [highlightAdvanceRequestId, activeMainTab, financeSubTab]);
+
+  const markSettlementPaid = async (id: string) => {
+    const target = requests.find(r => r.id === id);
+    if (!target) return;
+    const updated = { ...target, companyId, settlementDone: true };
+    setRequests(previous => previous.map(req => (req.id === id ? updated : req)));
+    try {
+      await setDoc(doc(db, 'leave_requests', id), cleanFirestoreData(updated), { merge: true });
+      toast.success('تم اعتماد التسوية المسبقة، وتم ترحيل المستحقات لمسير الرواتب بنجاح.');
+    } catch (error) {
+      console.error('markSettlementPaid failed:', error);
+      toast.error('تعذر حفظ حالة السند على الخادم.');
+    }
+  };
+
+  const confirmAdvanceSettlement = (req: LeaveRequest) => {
+    if (req.settlementDone) {
+      goToAdvanceSalaryCenter(req.id);
+      return;
+    }
+    if (!window.confirm('اعتماد صرف راتب الإجازة مقدماً (مادة 71) وترحيل المبلغ لمسير الرواتب؟')) return;
+    void markSettlementPaid(req.id);
   };
 
   // Filter requests
@@ -1360,16 +1395,16 @@ export const OdooTimeOffApp: React.FC = () => {
                                 {isAnnualLeaveType(req.leaveType) && (
                                   <button
                                     type="button"
-                                    onClick={() => setSelectedSettlementReq(req)}
+                                    onClick={() => goToAdvanceSalaryCenter(req.id)}
                                     className={`px-2 py-1.5 rounded-lg text-[10px] font-bold transition flex items-center gap-1 shadow-2xs cursor-pointer ${
                                       req.settlementDone
                                         ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                        : 'bg-[#714B67] hover:bg-[#5a3a52] text-white'
+                                        : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200'
                                     }`}
-                                    title="صرف راتب الإجازة مقدماً وفق المادة 71 من قانون العمل الكويتي"
+                                    title="الصرف المسبق يتم من المركز المالي فقط (مادة 71)"
                                   >
                                     <Plane size={12} />
-                                    <span>{req.settlementDone ? 'تمت التسوية' : 'تسوية راتب مسبقة'}</span>
+                                    <span>{req.settlementDone ? 'المركز المالي (معتمد)' : 'انتقل للصرف (مادة 71)'}</span>
                                   </button>
                                 )}
 
@@ -1676,11 +1711,20 @@ export const OdooTimeOffApp: React.FC = () => {
                     {requests.filter(r => normalizeLeaveStatus(r.status) === 'APPROVED' && isAnnualLeaveType(r.leaveType)).map((req) => {
                       const fin = resolveLeaveRequestFinancials(req);
                       const advanceSalary = calculateKuwaitLeaveCashAmount(fin.paidDays, fin.basicSalary);
-                      const ticketAllowance = 120.000;
+                      const empRecord = companyEmployees.find(e => e.id === req.employeeId) as Record<string, unknown> | undefined;
+                      const ticketAllowance = resolveAnnualTicketAllowanceKwd(
+                        empRecord,
+                        leavePolicy as Record<string, unknown>
+                      );
                       const totalPayable = advanceSalary + ticketAllowance;
+                      const isHighlighted = highlightAdvanceRequestId === req.id;
 
                       return (
-                        <tr key={req.id} className="hover:bg-slate-50/70 transition">
+                        <tr
+                          key={req.id}
+                          id={`advance-pay-row-${req.id}`}
+                          className={`hover:bg-slate-50/70 transition ${isHighlighted ? 'ring-2 ring-[#714B67] bg-purple-50/40' : ''}`}
+                        >
                           <td className="p-3.5">
                             <div className="font-bold text-slate-900">{fin.employeeName}</div>
                             <div className="text-[10px] text-slate-400">{fin.department}</div>
@@ -1699,7 +1743,7 @@ export const OdooTimeOffApp: React.FC = () => {
                           <td className="p-3.5 text-center">
                             <button
                               type="button"
-                              onClick={() => setSelectedSettlementReq(req)}
+                              onClick={() => confirmAdvanceSettlement(req)}
                               className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition flex items-center gap-1 mx-auto cursor-pointer ${
                                 req.settlementDone
                                   ? 'bg-emerald-100 text-emerald-800'
@@ -1707,7 +1751,7 @@ export const OdooTimeOffApp: React.FC = () => {
                               }`}
                             >
                               <Plane size={12} />
-                              <span>{req.settlementDone ? 'سند معتمد (عرض/طباعة)' : 'إصدار سند صرف مسبق'}</span>
+                              <span>{req.settlementDone ? 'سند معتمد' : 'اعتماد وترحيل للرواتب'}</span>
                             </button>
                           </td>
                         </tr>
@@ -1734,6 +1778,7 @@ export const OdooTimeOffApp: React.FC = () => {
                 allocations={mappedAllocations}
                 leaves={mappedLeaveRequests as any}
                 activeCompany={activeCompany as any}
+                leavePolicy={leavePolicy}
                 onUpdateAllocations={handleUpdateAllocations}
               />
             </div>
@@ -2174,134 +2219,7 @@ export const OdooTimeOffApp: React.FC = () => {
       )}
 
       {/* ======================================================== */}
-      {/* MODAL 3: LEAVE ADVANCE SALARY SETTLEMENT (KUWAIT LAW ART 71) */}
-      {/* ======================================================== */}
-      {selectedSettlementReq && (() => {
-        const settlementFin = resolveLeaveRequestFinancials(selectedSettlementReq);
-        return (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-2xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border text-xs my-8">
-            <div className="flex justify-between items-center border-b pb-3 mb-4">
-              <div className="flex items-center gap-2">
-                <Plane className="text-[#714B67]" size={20} />
-                <div>
-                  <h3 className="font-bold text-sm text-slate-900">سند صرف راتب إجازة مقدماً قبل السفر (Leave Settlement)</h3>
-                  <p className="text-[10px] text-slate-400">تنفيذاً للمادة 71 من قانون العمل الكويتي رقم 6 لسنة 2010</p>
-                </div>
-              </div>
-              <button type="button" onClick={() => setSelectedSettlementReq(null)} className="text-slate-400 hover:text-slate-600 font-bold cursor-pointer transition">
-                <X size={18} />
-              </button>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-slate-50 p-3 rounded-xl border">
-                <div>
-                  <span className="text-slate-400 block text-[10px]">الموظف المسافر:</span>
-                  <span className="font-bold text-slate-900">{settlementFin.employeeName}</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px]">الرقم المدني:</span>
-                  <span className="font-mono font-bold">{settlementFin.civilId}</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px]">فترة الإجازة:</span>
-                  <span className="font-bold text-slate-800">
-                    {selectedSettlementReq.startDate} ({settlementFin.daysCount} يوم — مدفوع {settlementFin.paidDays} / بدون راتب {settlementFin.unpaidDays})
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px]">الراتب الشامل:</span>
-                  <span className="font-mono font-bold text-emerald-700">{settlementFin.totalSalary.toFixed(3)} د.ك</span>
-                </div>
-              </div>
-
-              <table className="w-full text-right border rounded-lg overflow-hidden">
-                <thead className="bg-slate-100 text-slate-700 font-bold">
-                  <tr>
-                    <th className="p-2.5">البند المالي المستحق للصرف</th>
-                    <th className="p-2.5">البيان والأساس القانوني</th>
-                    <th className="p-2.5 text-left">المبلغ (د.ك)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  <tr>
-                    <td className="p-2.5 font-bold">راتب الإجازة السنوية مقدماً</td>
-                    <td className="p-2.5 text-slate-500">
-                      أجر {settlementFin.paidDays} يوماً مغطاة بالرصيد مقدماً (مادة 71)
-                      {settlementFin.unpaidDays > 0 && (
-                        <span className="block text-[10px] text-orange-800 mt-0.5">
-                          لا يُصرف أجر عن {settlementFin.unpaidDays} يوم تجاوز رصيد (بدون راتب).
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-2.5 font-mono font-bold text-left text-purple-900">
-                      {calculateKuwaitLeaveCashAmount(settlementFin.paidDays, settlementFin.basicSalary).toFixed(3)}
-                    </td>
-                  </tr>
-                  {settlementFin.unpaidDays > 0 && (
-                    <tr className="bg-orange-50/60">
-                      <td className="p-2.5 font-bold text-orange-950">أيام بدون راتب (تجاوز رصيد)</td>
-                      <td className="p-2.5 text-orange-900 text-[11px]">
-                        {settlementFin.unpaidDays} يوم خارج الرصيد — مستثناة من الصرف المقدم ومسير الرواتب لاحقاً.
-                      </td>
-                      <td className="p-2.5 font-mono font-bold text-left text-orange-900">0.000</td>
-                    </tr>
-                  )}
-                  <tr>
-                    <td className="p-2.5 font-bold">بدل تذاكر السفر السنوية</td>
-                    <td className="p-2.5 text-slate-500">استحقاق تذكرة سفر نقدية سنوية</td>
-                    <td className="p-2.5 font-mono font-bold text-left">120.000</td>
-                  </tr>
-                </tbody>
-                <tfoot>
-                  <tr className="bg-emerald-50 text-emerald-900 font-black border-t-2 border-emerald-300">
-                    <td className="p-3 text-sm">صافي المبلغ المستحق للتحويل البنكي (WPS):</td>
-                    <td></td>
-                    <td className="p-3 text-base font-mono text-left">
-                      {(calculateKuwaitLeaveCashAmount(settlementFin.paidDays, settlementFin.basicSalary) + 120).toFixed(3)} د.ك
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-
-              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-[11px]">
-                <strong>تأكيد إداري:</strong> عند اعتماد هذه التسوية المسبقة، يتم إدراج المبلغ وتوجيهه مباشرة لبرنامج مسير الرواتب ليتم تحويله في ملف البنوك (WPS / SIF) كأجر مدفوع مقدماً، ويستبعد تلقائياً من مسير راتب الشهر القادم لعدم التكرار.
-              </div>
-
-              <div className="flex justify-between items-center pt-4 border-t">
-                <button
-                  type="button"
-                  onClick={() => safePrintAction('سند_تسوية_راتب_مسبقة')}
-                  className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold flex items-center gap-1.5 transition cursor-pointer border border-slate-300"
-                >
-                  <Printer size={14} /> طباعة السند (A4)
-                </button>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedSettlementReq(null)}
-                    className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg font-bold cursor-pointer hover:bg-slate-200 transition"
-                  >
-                    إغلاق
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => markSettlementPaid(selectedSettlementReq.id)}
-                    className="px-5 py-2 bg-[#714B67] hover:bg-[#5a3a52] text-white rounded-lg font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
-                  >
-                    <CheckCircle2 size={15} /> اعتماد وترحيل للرواتب
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        );
-      })()}
-
-      {/* ======================================================== */}
-      {/* MODAL 4: PRINTABLE OFFICIAL LEAVE APPLICATION FORM (A4) */}
+      {/* MODAL 3: PRINTABLE OFFICIAL LEAVE APPLICATION FORM (A4) */}
       {/* ======================================================== */}
       {selectedPrintReq && (() => {
         const { available } = getEmployeeContractBalance(selectedPrintReq.employeeId);

@@ -516,6 +516,41 @@ export function calculateNetWorkingDays(startDate: string, endDate: string, holi
   return netDays;
 }
 
+/** Annual travel ticket cash (KWD) from employee snapshot, active contract, then leave policy — never a hardcoded default. */
+export function resolveAnnualTicketAllowanceKwd(
+  employee?: Record<string, unknown> | null,
+  leavePolicy?: Record<string, unknown> | null,
+  contract?: Record<string, unknown> | null
+): number {
+  const fromEmployee = Number(
+    employee?.annualTicketAllowanceKwd ??
+      employee?.ticketAllowanceKwd ??
+      employee?.ticketAllowance ??
+      employee?.ticketCashAmount ??
+      0
+  );
+  if (fromEmployee > 0) return cleanKwdAmount(fromEmployee);
+
+  const fromContract = Number(
+    contract?.annualTicketAllowanceKwd ??
+      contract?.ticketAllowanceKwd ??
+      contract?.ticketAllowance ??
+      contract?.airTicketCashKwd ??
+      0
+  );
+  if (fromContract > 0) return cleanKwdAmount(fromContract);
+
+  const ticketFlag = employee?.airTicketAllowance ?? contract?.airTicketAllowance;
+  if (ticketFlag === false || ticketFlag === 0 || ticketFlag === 'false') {
+    return 0;
+  }
+
+  const fromPolicy = Number(leavePolicy?.annualTicketAllowanceKwd ?? 0);
+  if (fromPolicy > 0) return cleanKwdAmount(fromPolicy);
+
+  return 0;
+}
+
 export function computeLeaveRequest(
   employee: Employee, 
   startDate: string, 

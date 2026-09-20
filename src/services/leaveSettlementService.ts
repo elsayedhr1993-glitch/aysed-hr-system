@@ -34,36 +34,6 @@ export type {
   LeaveSettlementVoucher,
 };
 
-export interface LeaveRequestInput {
-  employeeId?: string;
-  startDate: string; // YYYY-MM-DD
-  endDate: string;   // YYYY-MM-DD
-  carriedOverBalance: number; // e.g. 44
-  currentYearAccrued?: number; // e.g. 20
-  joinDate?: string;  // YYYY-MM-DD
-  monthlyWage?: number;
-  dailyWage?: number;
-  asOfDate?: Date;
-}
-
-export interface LeaveSettlementResult {
-  totalCalendarDays: number;
-  excludedFridays: number;
-  actualLeaveDays: number; // working days
-  totalAvailableBalance: number;
-  paidDays: number;
-  unpaidDays: number;
-  remainingBalance: number;
-  dailyRate: number;
-  netPayableAmount: number;
-  unpaidDeductionAmount: number;
-  settlementSummary: {
-    title: string;
-    value: string;
-    note: string;
-  }[];
-}
-
 export interface LeaveValidationParams {
   employeeId: string;
   leaveId: string;
@@ -92,17 +62,6 @@ export interface AysedSettlementOutput {
   aysed_allowances: number;
   aysed_deductions: number;
   aysed_net_payable: number;
-}
-
-export interface AysedLeaveEngineInput {
-  carriedOver: number;
-  openingBalance?: number;
-  accrued: number;
-  requestedDays: number;
-  monthlyWage: number;
-  ticketAllowance?: number;
-  allowances?: number;
-  deductions?: number;
 }
 
 /**
@@ -236,70 +195,7 @@ export function calculatePhysicalWorkedDays(
 }
 
 /**
- * 6. محرك تسوية واحتساب الإجازة الموحد (Odoo & Kuwait Labor Law)
- */
-export function processLeaveSettlement(input: LeaveRequestInput): LeaveSettlementResult {
-  const asOfDate = input.asOfDate || new Date();
-  const { totalDays, fridaysCount, workingDays } = calculateWorkingLeaveDays(input.startDate, input.endDate);
-
-  const carriedOver = cleanDayDecimals(input.carriedOverBalance || 0);
-  const currentAccrued = cleanDayDecimals(
-    input.currentYearAccrued !== undefined 
-      ? input.currentYearAccrued 
-      : computeAccrual2026(input.joinDate || '2026-01-01', asOfDate)
-  );
-
-  const totalAvailableBalance = cleanDayDecimals(carriedOver + currentAccrued);
-
-  const paidDays = cleanDayDecimals(Math.min(totalAvailableBalance, workingDays));
-  const unpaidDays = cleanDayDecimals(Math.max(0, workingDays - totalAvailableBalance));
-  const remainingBalance = cleanDayDecimals(Math.max(0, totalAvailableBalance - paidDays));
-
-  const wage = input.monthlyWage || (input.dailyWage ? input.dailyWage * 26 : 0);
-  const dailyRate = input.dailyWage > 0 ? cleanKwdAmount(input.dailyWage) : calculateKuwaitDailyRate(wage);
-  const netPayableAmount = cleanKwdAmount(paidDays * dailyRate);
-  const unpaidDeductionAmount = 0; // الخصم المالي المباشر من الراتب هو 0 د.ك بناءً على قانون المنشأة المعتمد
-
-  const settlementSummary = [
-    {
-      title: "إجمالي مدة الإجازة المعتمدة",
-      value: `${workingDays.toFixed(2)} يوم`,
-      note: `(تم استبعاد ${fridaysCount} أيام جمعة استناداً للمادة 70)`
-    },
-    {
-      title: "أيام مدفوعة الأجر (خصم من الرصيد)",
-      value: `${paidDays.toFixed(2)} يوم`,
-      note: `(${carriedOver.toFixed(2)} مرحل + ${currentAccrued.toFixed(2)} رصيد السنة)`
-    },
-    {
-      title: "أيام غير مدفوعة (تُخصم من مدة الخدمة)",
-      value: `${unpaidDays.toFixed(2)} يوم`,
-      note: unpaidDays > 0 ? "تُخصم تلقائياً من مدة الخدمة الفعلية وليس من الراتب" : "لا يوجد تجاوز"
-    },
-    {
-      title: "الرصيد المتبقي للموظف بعد التصفية",
-      value: `${remainingBalance.toFixed(2)} يوم`,
-      note: remainingBalance === 0 ? "تمت تصفية الرصيد بالكامل" : "رصيد متبقي متاح"
-    }
-  ];
-
-  return {
-    totalCalendarDays: totalDays,
-    excludedFridays: fridaysCount,
-    actualLeaveDays: workingDays,
-    totalAvailableBalance,
-    paidDays,
-    unpaidDays,
-    remainingBalance,
-    dailyRate,
-    netPayableAmount,
-    unpaidDeductionAmount,
-    settlementSummary
-  };
-}
-
-/**
- * 7. محرك التسوية الشامل المتعدد البنود وتصفية الإجازات (Universal Multi-Item Leave Settlement & Encashment Engine)
+ * 6. محرك التسوية الشامل المتعدد البنود وتصفية الإجازات (Universal Multi-Item Leave Settlement & Encashment Engine)
  * يضمن منع الازدواجية وتكرار البنود (Elimination of Duplicate Earning Lines):
  * 1. احتساب راتب الأيام الفعلية السابقة للسفر بدقة بدون تكرار
  * 2. دمج وتوحيد بند التسييل النقدي للرصيد في بند موحد غير مجزأ (Unified Consolidated Encashment Line)
@@ -647,41 +543,6 @@ export function calculateUniversalLeaveSettlement(input: UniversalSettlementInpu
     aysed_allowances,
     aysed_deductions: totalDeductions,
     aysed_net_payable: netSettlementPayout,
-  };
-}
-
-/**
- * 8. حسابات تسوية متوافقة مع واجهة LeaveClearanceDocument (Legacy bridge)
- */
-export function calculateAysedLeaveSettlement(input: AysedLeaveEngineInput): AysedSettlementOutput {
-  const carriedOver = input.carriedOver || 0;
-  const accrued = input.accrued !== undefined ? input.accrued : computeAccrual2026('2026-01-01');
-  const totalAvailable = Number((carriedOver + accrued).toFixed(2));
-
-  const paidDays = Math.min(totalAvailable, input.requestedDays);
-  const unpaidDays = Math.max(0, input.requestedDays - totalAvailable);
-
-  const dailyWage = calculateKuwaitDailyRate(input.monthlyWage);
-  const leaveCash = cleanKwdAmount(paidDays * dailyWage);
-  const ticket = input.ticketAllowance || 0;
-  const allowances = input.allowances || 0;
-  const deductions = input.deductions || 0;
-
-  const netPayable = cleanKwdAmount(Math.max(0, leaveCash + ticket + allowances - deductions));
-
-  return {
-    aysed_carried_over: carriedOver,
-    aysed_opening_balance: input.openingBalance || 0,
-    aysed_accrued_2026: accrued,
-    aysed_total_available: totalAvailable,
-    aysed_unpaid_days: Number(unpaidDays.toFixed(2)),
-    aysed_paid_days: Number(paidDays.toFixed(2)),
-    aysed_daily_wage: dailyWage,
-    aysed_leave_cash: leaveCash,
-    aysed_ticket_allowance: ticket,
-    aysed_allowances: allowances,
-    aysed_deductions: deductions,
-    aysed_net_payable: netPayable,
   };
 }
 
