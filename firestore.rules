@@ -75,6 +75,11 @@ service cloud.firestore {
     match /companies/{companyId} {
       allow read: if isSuperAdmin() || (signedIn() && callerCompanyId() == companyId);
       allow write: if isSuperAdmin();
+
+      match /custom_layouts/{screenId} {
+        allow read: if isSuperAdmin() || (signedIn() && callerCompanyId() == companyId);
+        allow write: if isSuperAdmin();
+      }
     }
 
     match /dev_companies/{companyId} {
