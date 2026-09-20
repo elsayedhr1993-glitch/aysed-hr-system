@@ -1,5 +1,6 @@
 import type {
   BuiltinFieldLayout,
+  CustomDataBag,
   CustomFieldLayout,
   FieldLayoutDefinition,
   LayoutLocale,
@@ -110,4 +111,72 @@ export function mergeScreenLayout(
 
 export function layoutCacheKey(companyId: string, screenId: string): string {
   return `custom_layout_${companyId}_${screenId}`;
+}
+
+export function slugifyStorageKey(input: string): string {
+  const base = input
+    .trim()
+    .toLowerCase()
+    .replace(/[^\w\u0600-\u06FF]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 48);
+  return base || `field_${Date.now()}`;
+}
+
+export function pickAllowedCustomData(
+  customData: CustomDataBag | undefined,
+  fields: CustomFieldLayout[]
+): CustomDataBag {
+  const allowed = new Set(fields.map(f => f.storageKey));
+  const out: CustomDataBag = {};
+  for (const field of fields) {
+    const key = field.storageKey;
+    if (!allowed.has(key)) continue;
+    const raw = customData?.[key];
+    out[key] = raw === undefined ? (field.defaultValue ?? null) : raw;
+  }
+  return out;
+}
+
+export function validateCustomFieldValue(field: CustomFieldLayout, value: unknown): string | null {
+  const empty =
+    value === undefined ||
+    value === null ||
+    (typeof value === 'string' && value.trim() === '');
+  if (field.required && empty) {
+    return 'هذا الحقل مطلوب';
+  }
+  if (empty) return null;
+
+  if (field.type === 'number') {
+    const num = Number(value);
+    if (Number.isNaN(num)) return 'أدخل رقماً صالحاً';
+    if (field.validation?.min != null && num < field.validation.min) {
+      return `الحد الأدنى ${field.validation.min}`;
+    }
+    if (field.validation?.max != null && num > field.validation.max) {
+      return `الحد الأقصى ${field.validation.max}`;
+    }
+  }
+
+  if (field.type === 'text' || field.type === 'textarea') {
+    const str = String(value);
+    if (field.validation?.maxLength != null && str.length > field.validation.maxLength) {
+      return `الحد الأقصى ${field.validation.maxLength} حرفاً`;
+    }
+    if (field.validation?.pattern) {
+      try {
+        if (!new RegExp(field.validation.pattern).test(str)) return 'القيمة لا تطابق النمط المطلوب';
+      } catch {
+        /* ignore invalid pattern */
+      }
+    }
+  }
+
+  if (field.type === 'select' && field.options?.length) {
+    const str = String(value);
+    if (!field.options.some(o => o.value === str)) return 'اختر قيمة من القائمة';
+  }
+
+  return null;
 }
