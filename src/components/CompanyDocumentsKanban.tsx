@@ -1,21 +1,44 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { Company } from '../types';
 import { CompanyDocument, getDocumentStatus } from '../types/companyDocuments';
-import { Plus, Search, FileText, Calendar, User, ExternalLink, Download, CheckCircle, AlertCircle, X, Shield, Building } from 'lucide-react';
+import { CompanyLicensesPrintModal } from './documents/CompanyLicensesPrintModal';
+import { exportToExcel } from '../utils/exportUtils';
+import {
+  Plus,
+  Search,
+  FileText,
+  User,
+  Download,
+  X,
+  Shield,
+  Building,
+  LayoutGrid,
+  List,
+  FileSpreadsheet,
+  Printer,
+  AlertTriangle,
+  Clock,
+  CheckCircle,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface CompanyDocumentsKanbanProps {
   documents: CompanyDocument[];
+  company?: Company | null;
   onSaveDocument: (doc: CompanyDocument) => void;
   onDeleteDocument: (docId: string) => void;
 }
 
 export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
   documents,
+  company,
   onSaveDocument,
   onDeleteDocument,
 }) => {
   const [filter, setFilter] = useState<'all' | 'valid' | 'expiring_soon' | 'expired'>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
+  const [showPrintModal, setShowPrintModal] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<CompanyDocument | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -33,6 +56,17 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
     fileUrl: ''
   });
 
+  const typeLabels: Record<string, string> = {
+    commercial_license: 'رخصة تجارية',
+    signature_auth: 'اعتماد توقيع',
+    chamber_commerce: 'عضوية غرفة التجارة',
+    municipality: 'رخصة بلدية',
+    civil_defense: 'دفاع مدني',
+    medical_license: 'ترخيص صحي/طبي',
+    lease_contract: 'عقد إيجار',
+    other: 'أخرى',
+  };
+
   const filteredDocs = documents.filter(doc => {
     const { status } = getDocumentStatus(doc.expiryDate);
     const matchesFilter = filter === 'all' || status === filter;
@@ -42,6 +76,54 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
                           doc.responsiblePerson.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesFilter && matchesSearch;
   });
+
+  const metrics = useMemo(() => {
+    let valid = 0;
+    let expiringSoon = 0;
+    let expired = 0;
+    for (const doc of documents) {
+      const { status } = getDocumentStatus(doc.expiryDate);
+      if (status === 'expired') expired += 1;
+      else if (status === 'expiring_soon') expiringSoon += 1;
+      else valid += 1;
+    }
+    return { total: documents.length, valid, expiringSoon, expired };
+  }, [documents]);
+
+  const filterLabel =
+    filter === 'all'
+      ? 'جميع التراخيص'
+      : filter === 'valid'
+        ? 'التراخيص السارية'
+        : filter === 'expiring_soon'
+          ? 'قارب على الانتهاء'
+          : 'منتهية الصلاحية';
+
+  const handleExportExcel = () => {
+    if (filteredDocs.length === 0) {
+      toast.error('لا توجد تراخيص لتصديرها');
+      return;
+    }
+    const rows = filteredDocs.map((doc, idx) => {
+      const { badgeLabel, status, daysRemaining } = getDocumentStatus(doc.expiryDate);
+      return {
+        م: idx + 1,
+        'اسم الترخيص': doc.name,
+        النوع: typeLabels[doc.documentType] || doc.documentType,
+        'رقم الترخيص': doc.documentNumber,
+        'جهة الإصدار': doc.issuingAuthority,
+        'تاريخ الإصدار': doc.issueDate,
+        'تاريخ الانتهاء': doc.expiryDate,
+        'الأيام المتبقية': daysRemaining ?? '—',
+        الحالة: badgeLabel,
+        'حالة النظام': status,
+        المسؤول: doc.responsiblePerson,
+        ملاحظات: doc.notes || '—',
+      };
+    });
+    const companyName = company?.nameAr || company?.name || 'المنشأة';
+    exportToExcel(rows, `تراخيص_المنشأة_${companyName}_${new Date().toISOString().split('T')[0]}`, 'تراخيص المنشأة');
+  };
 
   const handleOpenAdd = () => {
     setFormData({
@@ -53,7 +135,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
       expiryDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       responsiblePerson: 'مندوب الشؤون الحكومية',
       notes: '',
-      fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+      fileUrl: '',
     });
     setShowModal(true);
   };
@@ -84,22 +166,15 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
     setSelectedDoc(null);
   };
 
-  // Documents list
-  const displayDocs = filteredDocs;
-
-  const typeLabels: Record<string, string> = {
-    commercial_license: 'رخصة تجارية',
-    signature_auth: 'اعتماد توقيع',
-    chamber_commerce: 'عضوية غرفة التجارة',
-    municipality: 'رخصة بلدية',
-    civil_defense: 'دفاع مدني',
-    medical_license: 'ترخيص صحي/طبي',
-    lease_contract: 'عقد إيجار',
-    other: 'أخرى'
+  const printCompany: Company = company || {
+    id: 'company',
+    name: 'المنشأة',
+    nameAr: 'المنشأة',
+    nameEn: 'Company',
   };
 
   return (
-    <div className="p-6 bg-slate-50 min-h-screen text-right" dir="rtl">
+    <div className="space-y-4 text-right" dir="rtl">
       {/* Header & Controls */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
         <div>
@@ -128,7 +203,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
             <button 
               onClick={() => setFilter('all')} 
               className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${filter === 'all' ? 'bg-[#714B67] text-white shadow' : 'text-slate-600 hover:bg-slate-100'}`}>
-              الكل ({documents.length > 0 ? documents.length : 5})
+              الكل ({documents.length})
             </button>
             <button 
               onClick={() => setFilter('expiring_soon')} 
@@ -147,6 +222,47 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
             </button>
           </div>
 
+          <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200">
+            <button
+              type="button"
+              onClick={() => setViewMode('kanban')}
+              className={`p-1.5 rounded-lg transition ${
+                viewMode === 'kanban' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-500 hover:text-slate-900'
+              }`}
+              title="عرض البطاقات"
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              className={`p-1.5 rounded-lg transition ${
+                viewMode === 'list' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-500 hover:text-slate-900'
+              }`}
+              title="عرض الجدول"
+            >
+              <List className="w-4 h-4" />
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            Excel
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowPrintModal(true)}
+            className="bg-[#714B67] hover:bg-[#5c3c53] text-white text-xs font-bold px-3 py-2 rounded-lg flex items-center gap-1.5"
+          >
+            <Printer className="w-4 h-4" />
+            طباعة A4
+          </button>
+
           <button 
             onClick={handleOpenAdd}
             className="bg-[#714B67] hover:bg-[#5c3c53] text-white text-xs font-bold px-4 py-2.5 rounded-lg shadow-sm flex items-center gap-2 transition">
@@ -156,9 +272,66 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
         </div>
       </div>
 
-      {/* Kanban Cards Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="p-3 rounded-xl border border-slate-200 bg-white flex items-center justify-between">
+          <div>
+            <p className="text-xs font-medium text-slate-500">إجمالي التراخيص</p>
+            <h4 className="text-xl font-black text-slate-900 font-mono">{metrics.total}</h4>
+          </div>
+          <div className="w-9 h-9 rounded-xl bg-purple-100 text-[#714B67] flex items-center justify-center">
+            <Shield className="w-5 h-5" />
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setFilter('valid')}
+          className={`p-3 rounded-xl border transition text-right flex items-center justify-between ${
+            filter === 'valid' ? 'border-emerald-500 bg-emerald-50/70' : 'border-slate-200 bg-white hover:bg-emerald-50/30'
+          }`}
+        >
+          <div>
+            <p className="text-xs font-medium text-emerald-700">سارية</p>
+            <h4 className="text-xl font-black text-emerald-800 font-mono">{metrics.valid}</h4>
+          </div>
+          <CheckCircle className="w-5 h-5 text-emerald-600" />
+        </button>
+        <button
+          type="button"
+          onClick={() => setFilter('expiring_soon')}
+          className={`p-3 rounded-xl border transition text-right flex items-center justify-between ${
+            filter === 'expiring_soon' ? 'border-amber-500 bg-amber-50/70' : 'border-slate-200 bg-white hover:bg-amber-50/30'
+          }`}
+        >
+          <div>
+            <p className="text-xs font-medium text-amber-700">قريب الانتهاء</p>
+            <h4 className="text-xl font-black text-amber-800 font-mono">{metrics.expiringSoon}</h4>
+          </div>
+          <Clock className="w-5 h-5 text-amber-600" />
+        </button>
+        <button
+          type="button"
+          onClick={() => setFilter('expired')}
+          className={`p-3 rounded-xl border transition text-right flex items-center justify-between ${
+            filter === 'expired' ? 'border-rose-500 bg-rose-50/70' : 'border-slate-200 bg-white hover:bg-rose-50/30'
+          }`}
+        >
+          <div>
+            <p className="text-xs font-medium text-rose-700">منتهية</p>
+            <h4 className="text-xl font-black text-rose-800 font-mono">{metrics.expired}</h4>
+          </div>
+          <AlertTriangle className="w-5 h-5 text-rose-600" />
+        </button>
+      </div>
+
+      {filteredDocs.length === 0 && (
+        <div className="bg-white border border-dashed border-slate-300 rounded-xl p-10 text-center text-slate-500 text-sm">
+          لا توجد تراخيص تطابق البحث أو الفلتر الحالي.
+        </div>
+      )}
+
+      {viewMode === 'kanban' && filteredDocs.length > 0 && (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {(documents.length > 0 ? filteredDocs : displayDocs).map((doc) => {
+        {filteredDocs.map((doc) => {
           const { badgeColor, badgeLabel, status, daysRemaining } = getDocumentStatus(doc.expiryDate);
 
           return (
@@ -265,6 +438,66 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
           );
         })}
       </div>
+      )}
+
+      {viewMode === 'list' && filteredDocs.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+          <table className="w-full text-xs text-right">
+            <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+              <tr>
+                <th className="p-3">الترخيص</th>
+                <th className="p-3">النوع</th>
+                <th className="p-3 font-mono">الرقم</th>
+                <th className="p-3">الجهة</th>
+                <th className="p-3 font-mono">الانتهاء</th>
+                <th className="p-3">المسؤول</th>
+                <th className="p-3 text-center">الحالة</th>
+                <th className="p-3 text-center">إجراءات</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filteredDocs.map(doc => {
+                const { badgeColor, badgeLabel, status } = getDocumentStatus(doc.expiryDate);
+                return (
+                  <tr key={doc.id} className="hover:bg-slate-50/80">
+                    <td className="p-3 font-bold text-slate-900">{doc.name}</td>
+                    <td className="p-3">{typeLabels[doc.documentType] || doc.documentType}</td>
+                    <td className="p-3 font-mono">{doc.documentNumber}</td>
+                    <td className="p-3">{doc.issuingAuthority}</td>
+                    <td className={`p-3 font-mono ${status === 'expired' ? 'text-rose-600 font-bold' : status === 'expiring_soon' ? 'text-amber-600' : ''}`}>
+                      {doc.expiryDate}
+                    </td>
+                    <td className="p-3">{doc.responsiblePerson}</td>
+                    <td className="p-3 text-center">
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full border ${badgeColor}`}>{badgeLabel}</span>
+                    </td>
+                    <td className="p-3 text-center">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedDoc(doc);
+                          setIsDetailModalOpen(true);
+                        }}
+                        className="text-[#714B67] font-bold hover:underline"
+                      >
+                        تفاصيل
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <CompanyLicensesPrintModal
+        isOpen={showPrintModal}
+        onClose={() => setShowPrintModal(false)}
+        documents={filteredDocs}
+        company={printCompany}
+        filterLabel={filterLabel}
+      />
 
       {/* Add / Edit Modal */}
       {showModal && (

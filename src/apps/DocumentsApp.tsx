@@ -355,7 +355,8 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
       {workspaceTab === 'COMPANY_LICENSES' ? (
         <div className="flex-1 overflow-y-auto p-6 bg-slate-100">
           <CompanyDocumentsKanban 
-            documents={companyDocuments} 
+            documents={companyDocuments}
+            company={activeCompany}
             onSaveDocument={handleSaveCompanyDoc} 
             onDeleteDocument={handleDeleteCompanyDoc} 
           />
