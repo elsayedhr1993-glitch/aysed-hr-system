@@ -7,10 +7,10 @@ on:
       - refactor/leave-attendance-unify
     paths:
       - .github/workflows/sync-leave-attendance-github.yml
-      - docs/github/PR-refactor-leave-attendance-unify.md
+      - docs/github/pr-body-generated.md
 
 permissions:
-  contents: read
+  contents: write
   issues: write
   pull-requests: write
 
@@ -77,17 +77,9 @@ jobs:
             const migrationIssue = await ensureIssue(migrationTitle, migrationBody, ['migration', 'attendance', 'firebase']);
             const p2Issue = await ensureIssue(p2Title, p2Body, ['refactor', 'leaves', 'tech-debt']);
 
-            const prPath = 'docs/github/PR-refactor-leave-attendance-unify.md';
+            const prPath = 'docs/github/pr-body-generated.md';
             let prBody = fs.readFileSync(prPath, 'utf8');
-            const split = prBody.indexOf('\n---\n');
-            if (split !== -1) {
-              prBody = prBody.slice(split + 5).trim();
-            }
-            prBody = prBody.replace(
-              /After issues exist, edit this PR description: `Related: #___ , #___`/,
-              `Related: #${migrationIssue.number} , #${p2Issue.number}`
-            );
-            prBody += `\n\n---\nRelated: #${migrationIssue.number} , #${p2Issue.number}\n`;
+            prBody = prBody.replace(/Related: #4 , #5/g, `Related: #${migrationIssue.number} , #${p2Issue.number}`);
 
             const prTitle =
               'refactor(hr): unify attendance_records SSOT, Firestore policies, and Time Off operational absence';
@@ -110,16 +102,40 @@ jobs:
               });
               core.info(`Updated PR #${pr.number}`);
             } else {
-              const created = await github.rest.pulls.create({
-                owner,
-                repo,
-                title: prTitle,
-                head: 'refactor/leave-attendance-unify',
-                base: 'main',
-                body: prBody,
-              });
-              pr = created.data;
-              core.info(`Created PR #${pr.number}`);
+              try {
+                const created = await github.rest.pulls.create({
+                  owner,
+                  repo,
+                  title: prTitle,
+                  head: 'refactor/leave-attendance-unify',
+                  base: 'main',
+                  body: prBody,
+                });
+                pr = created.data;
+                core.info(`Created PR #${pr.number}`);
+              } catch (error) {
+                core.setFailed(
+                  `pulls.create failed (enable Settings → Actions → Allow GitHub Actions to create pull requests): ${error.message}`
+                );
+                return;
+              }
             }
 
-            core.summary.addRaw(`### GitHub sync\n- PR: #${pr.number}\n- Migration issue: #${migrationIssue.number}\n- P2 issue: #${p2Issue.number}\n`);
+            const crossLink = `Follow-up: migration #${migrationIssue.number}, P2 refactor #${p2Issue.number}, branch \`refactor/leave-attendance-unify\`.`;
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: migrationIssue.number,
+              body: crossLink,
+            });
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: p2Issue.number,
+              body: crossLink,
+            });
+
+            const summary = `### GitHub sync\n- PR: #${pr.number}\n- Migration issue: #${migrationIssue.number}\n- P2 issue: #${p2Issue.number}\n`;
+            if (process.env.GITHUB_STEP_SUMMARY) {
+              fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
+            }

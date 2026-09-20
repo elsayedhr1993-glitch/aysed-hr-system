@@ -26,7 +26,12 @@ Local helper (opens browser tabs):
 .\scripts\open-leave-attendance-github-tasks.ps1
 ```
 
+## Status
+
+See [STATUS.md](./STATUS.md) for live links (#4, #5, PR compare, Actions).
+
 ## Files
 
-- `PR-refactor-leave-attendance-unify.md` — PR description source for CI and copy-paste
+- `pr-body-generated.md` — PR body used by Actions + `open-leave-attendance-github-tasks.ps1`
+- `PR-refactor-leave-attendance-unify.md` — longer PR doc with manual links
 - `ISSUE-*-copy.md` — shortened issue bodies for manual paste
