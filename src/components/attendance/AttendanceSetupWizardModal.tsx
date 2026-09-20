@@ -6,6 +6,7 @@ import {
   Building2, Users, DollarSign, Smartphone, Zap, Server, Activity, Wifi, Lock
 } from 'lucide-react';
 import { useCompany } from '../../context/CompanyContext';
+import { loadTenantPolicy, saveTenantPolicy } from '../../services/hrPolicyStorage';
 
 export interface ShiftConfig {
   id: string;
@@ -267,10 +268,22 @@ export const AttendanceSetupWizardModal: React.FC<AttendanceSetupWizardModalProp
   };
 
   useEffect(() => {
-    if (isOpen) {
-      setPolicy(getAttendanceMasterPolicy(activeCompany));
-      setCurrentStep(1);
-    }
+    if (!isOpen) return;
+    setCurrentStep(1);
+    const companyId = activeCompany?.id || '';
+    const cacheKey = getAttendancePolicyStorageKey(companyId);
+    let cancelled = false;
+    void loadTenantPolicy(
+      companyId,
+      'attendance_policy',
+      () => getAttendanceMasterPolicy(activeCompany),
+      cacheKey
+    ).then(loaded => {
+      if (!cancelled) setPolicy(loaded);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen, activeCompany]);
 
   if (!isOpen) return null;
@@ -298,10 +311,20 @@ export const AttendanceSetupWizardModal: React.FC<AttendanceSetupWizardModalProp
   };
 
   const handleSaveAndActivate = () => {
-    const saved = saveAttendanceMasterPolicy(policy, activeCompany?.id);
-    if (onSaved) onSaved(saved);
-    alert(`✅ تم اعتماد وتثبيت لائحة وجداول الحضور وساعات العمل رسمياً لمنشأة [${policy.facility_name || activeCompName}]!`);
-    onClose();
+    const companyId = activeCompany?.id || policy.company_id || '';
+    const cacheKey = getAttendancePolicyStorageKey(companyId);
+    const localSaved = saveAttendanceMasterPolicy(policy, companyId);
+    void saveTenantPolicy(companyId, 'attendance_policy', localSaved as Record<string, unknown>, cacheKey)
+      .then(saved => {
+        if (onSaved) onSaved(saved as AttendancePolicyData);
+        alert(`✅ تم اعتماد لائحة الحضور للمنشأة [${policy.facility_name || activeCompName}] (Firestore).`);
+        onClose();
+      })
+      .catch(err => {
+        console.error(err);
+        if (onSaved) onSaved(localSaved);
+        onClose();
+      });
   };
 
   const steps = [

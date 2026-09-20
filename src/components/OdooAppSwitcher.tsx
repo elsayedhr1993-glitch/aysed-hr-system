@@ -57,7 +57,7 @@ export const OdooAppSwitcher: React.FC<OdooAppSwitcherProps> = ({ onSelectApp, o
     { id: 'hr', label: 'الموظفون', icon: Users, color: 'bg-[#714B67]' },
     { id: 'timesheets', label: 'الحضور والبصمة', icon: Clock, color: 'bg-blue-800' },
     { id: 'planning', label: 'تخطيط الشفتات', icon: Calendar, color: 'bg-orange-600' },
-    { id: 'attendance', label: 'الإجازات والغياب', icon: CalendarDays, color: 'bg-teal-600' },
+    { id: 'leaves', label: 'الإجازات والغياب', icon: CalendarDays, color: 'bg-teal-600' },
     { id: 'payroll', label: 'الرواتب و WPS', icon: CreditCard, color: 'bg-emerald-600' },
     // الصف الثاني وما يليه
     { id: 'custody', label: 'العهد والممتلكات', icon: Package, color: 'bg-orange-600' },

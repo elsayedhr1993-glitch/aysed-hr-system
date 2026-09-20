@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useCompany } from '../../context/CompanyContext';
+import { loadTenantPolicy, saveTenantPolicy } from '../../services/hrPolicyStorage';
 import { 
   X, Check, ChevronRight, ChevronLeft, Palmtree, Scale, 
   ShieldCheck, Clock, FileText, AlertTriangle, Calendar, 
@@ -119,15 +121,27 @@ export const LeavePolicyWizardModal: React.FC<LeavePolicyWizardModalProps> = ({
   onClose,
   onSaved,
 }) => {
+  const { activeCompany } = useCompany();
+  const companyId = activeCompany?.id || '';
   const [currentStep, setCurrentStep] = useState(1);
   const [policy, setPolicy] = useState<LeavePolicyData>(defaultLeavePolicy);
 
   useEffect(() => {
-    if (isOpen) {
-      setPolicy(getLeaveMasterPolicy());
-      setCurrentStep(1);
-    }
-  }, [isOpen]);
+    if (!isOpen) return;
+    setCurrentStep(1);
+    let cancelled = false;
+    void loadTenantPolicy(
+      companyId,
+      'leave_policy',
+      getLeaveMasterPolicy,
+      companyId ? `${TIMEOFF_POLICY_STORAGE_KEY}_${companyId}` : TIMEOFF_POLICY_STORAGE_KEY
+    ).then(loaded => {
+      if (!cancelled) setPolicy(loaded);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, companyId]);
 
   if (!isOpen) return null;
 
@@ -136,10 +150,22 @@ export const LeavePolicyWizardModal: React.FC<LeavePolicyWizardModalProps> = ({
   };
 
   const handleSaveAndActivate = () => {
-    const saved = saveLeaveMasterPolicy(policy);
-    if (onSaved) onSaved(saved);
-    alert('✅ تم تثبيت واعتماد لائحة وقواعد الإجازات الرسمية بنجاح!');
-    onClose();
+    void saveTenantPolicy(
+      companyId,
+      'leave_policy',
+      saveLeaveMasterPolicy(policy) as LeavePolicyData,
+      companyId ? `${TIMEOFF_POLICY_STORAGE_KEY}_${companyId}` : TIMEOFF_POLICY_STORAGE_KEY
+    ).then(saved => {
+      window.dispatchEvent(new Event('timeoff_policy_updated'));
+      onSaved?.(saved);
+      onClose();
+    }).catch(err => {
+      console.error(err);
+      const saved = saveLeaveMasterPolicy(policy);
+      window.dispatchEvent(new Event('timeoff_policy_updated'));
+      onSaved?.(saved);
+      onClose();
+    });
   };
 
   const steps = [

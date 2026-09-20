@@ -43,12 +43,13 @@ import { exportToExcel } from '../utils/exportUtils';
 import { toast } from 'react-hot-toast';
 import { LeaveSettlementCalculator } from './LeaveSettlementCalculator';
 import { calculate2026AccruedDays, getCarriedOverBalance, getGlobalCompensatoryDays, calculateActualLeaveDays } from '../utils/kuwaitLaw';
-import { computeFifoLeaveAllocations, buildEmployeeBaselineAllocations } from '../services/leaveService';
 import { approveLeaveRequest } from '../services/leaveApprovalService';
 import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { db, cleanFirestoreData } from '../lib/firebase';
 import {
-  LeaveBalanceEngine,
+  getEmployeeUnifiedSummary,
+  matchesEmployeeIdentity,
+  normalizeLeaveBalanceInputs,
   resolveLeaveBalancePoolHint,
   resolveLeavePaidUnpaidSplit
 } from '../utils/leaveEngine';
@@ -61,8 +62,10 @@ import { HrLeaveAllocation } from '../types';
 import { PrintableLeaveFormModal } from './timeoff/PrintableLeaveFormModal';
 import { ReturnToWorkModal } from './timeoff/ReturnToWorkModal';
 import { LeaveRejectionModal } from './timeoff/LeaveRejectionModal';
-import { LeavePolicyWizardModal, getLeaveMasterPolicy, LeavePolicyData } from './leaves/LeavePolicyWizardModal';
+import { LeavePolicyWizardModal, getLeaveMasterPolicy, LeavePolicyData, TIMEOFF_POLICY_STORAGE_KEY } from './leaves/LeavePolicyWizardModal';
+import { loadTenantPolicy } from '../services/hrPolicyStorage';
 import { AbsenceTimelineView } from './timeoff/AbsenceTimelineView';
+import { OperationalAbsencePanel } from './timeoff/OperationalAbsencePanel';
 
 export interface LeaveRequest {
   id: string;
@@ -124,7 +127,7 @@ const leaveTypeLabels: Record<string, { label: string; color: string; maxDaysRul
 
 export const OdooTimeOffApp: React.FC = () => {
   const { activeCompany } = useCompany();
-  const { employees, leaveAccruals, updateLeaveAccrual, processMonthlyAccruals } = useOdooHierarchy();
+  const { employees } = useOdooHierarchy();
   const { user } = useAuth();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const companyId = activeCompany?.id || 'comp-super-admin';
@@ -149,6 +152,20 @@ export const OdooTimeOffApp: React.FC = () => {
     };
   }, [companyId]);
 
+  useEffect(() => {
+    const absenceQuery = query(collection(db, 'attendance_records'), where('companyId', '==', companyId));
+    return onSnapshot(absenceQuery, snapshot => {
+      const rows = snapshot.docs
+        .map(item => ({ ...item.data(), id: item.id } as Record<string, unknown>))
+        .filter(row => {
+          const status = String(row.status || '').toLowerCase();
+          const unpaid = Number(row.unpaidAbsenceDays ?? row.unexcusedAbsenceDays ?? 0) > 0;
+          return status === 'absent' || unpaid;
+        })
+        .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+      setOperationalAbsences(rows.slice(0, 200));
+    }, error => console.error('Failed to load operational absences', error));
+  }, [companyId]);
 
   const handleDeleteRequest = async (id: string, empName: string) => {
     if (window.confirm(`هل أنت متأكد من حذف طلب الإجازة للموظف (${empName}) نهائياً؟`)) {
@@ -266,7 +283,10 @@ export const OdooTimeOffApp: React.FC = () => {
   }, [companyId, companyEmployees, allocations]);
 
   // Main navigation tabs: requests, timeline, allocations, finance
-  const [activeMainTab, setActiveMainTab] = useState<'requests' | 'timeline' | 'allocations' | 'finance'>('requests');
+  const [activeMainTab, setActiveMainTab] = useState<
+    'requests' | 'timeline' | 'allocations' | 'finance' | 'operational_absence'
+  >('requests');
+  const [operationalAbsences, setOperationalAbsences] = useState<Array<Record<string, unknown>>>([]);
   const [financeSubTab, setFinanceSubTab] = useState<'advance_salary' | 'encashment_calculator'>('advance_salary');
 
   // Filters & Search for Requests
@@ -280,12 +300,32 @@ export const OdooTimeOffApp: React.FC = () => {
   const [leavePolicy, setLeavePolicy] = useState<LeavePolicyData>(() => getLeaveMasterPolicy());
 
   useEffect(() => {
+    let cancelled = false;
+    void loadTenantPolicy(
+      companyId,
+      'leave_policy',
+      getLeaveMasterPolicy,
+      companyId ? `${TIMEOFF_POLICY_STORAGE_KEY}_${companyId}` : TIMEOFF_POLICY_STORAGE_KEY
+    ).then(loaded => {
+      if (!cancelled) setLeavePolicy(loaded);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId]);
+
+  useEffect(() => {
     const handlePolicyUpdated = () => {
-      setLeavePolicy(getLeaveMasterPolicy());
+      void loadTenantPolicy(
+        companyId,
+        'leave_policy',
+        getLeaveMasterPolicy,
+        companyId ? `${TIMEOFF_POLICY_STORAGE_KEY}_${companyId}` : TIMEOFF_POLICY_STORAGE_KEY
+      ).then(setLeavePolicy);
     };
     window.addEventListener('timeoff_policy_updated', handlePolicyUpdated);
     return () => window.removeEventListener('timeoff_policy_updated', handlePolicyUpdated);
-  }, []);
+  }, [companyId]);
 
   const [selectedSettlementReq, setSelectedSettlementReq] = useState<LeaveRequest | null>(null);
   const [selectedPrintReq, setSelectedPrintReq] = useState<LeaveRequest | null>(null);
@@ -324,16 +364,23 @@ export const OdooTimeOffApp: React.FC = () => {
     let available = 0;
 
     if (emp) {
-      const normalizedAllocations = buildEmployeeBaselineAllocations(emp as any, mappedAllocations as any);
-      const snapshot = LeaveBalanceEngine.calculate({
-        employee: emp as any,
-        allocations: normalizedAllocations as any,
-        leaves: requests as any,
-      });
-      carried = snapshot.carriedForwardDays;
-      earned = snapshot.accruedDays + snapshot.holidayCompensationDays + snapshot.manualAdjustmentDays;
-      consumed = snapshot.approvedLeaveDeductionDays;
-      available = Number(snapshot.netBalance ?? snapshot.totalBalance ?? 0);
+      const empRecord = emp as Record<string, unknown>;
+      const scopedAllocations = mappedAllocations.filter((a) =>
+        matchesEmployeeIdentity(a as Record<string, unknown>, empRecord)
+      );
+      const scopedLeaves = requests.filter((l) =>
+        matchesEmployeeIdentity(l as Record<string, unknown>, empRecord)
+      );
+      const { allocations: normAlloc, leaves: normLeaves } = normalizeLeaveBalanceInputs(
+        scopedAllocations as never[],
+        scopedLeaves as never[]
+      );
+      const summary = getEmployeeUnifiedSummary(emp as never, normAlloc, normLeaves);
+      carried = Number(summary.carriedOverDays || 0);
+      earned =
+        Number(summary.accruedAnnualDays || 0) + Number(summary.holidayCompensationDays || 0);
+      consumed = Number(summary.usedLeaveDays || 0);
+      available = Number(summary.totalAvailableDays || 0);
     }
 
     const startYear = contractStartStr ? contractStartStr.slice(0, 4) : '2025';
@@ -595,15 +642,6 @@ export const OdooTimeOffApp: React.FC = () => {
     setAllocations(updatedAllocations);
     void setDoc(doc(db, 'leave_allocations', createdAlloc.id), cleanFirestoreData({ ...createdAlloc, companyId }), { merge: true });
 
-    // Sync with Odoo Hierarchy Context if employee exists
-    if (newAllocation.employeeId && updateLeaveAccrual) {
-      const currentAccrual = leaveAccruals?.[newAllocation.employeeId];
-      const prevCarried = Number(currentAccrual?.carriedFrom2025) || 0;
-      const earned = Number(currentAccrual?.earned2026) || 20;
-      const consumed = Number(currentAccrual?.consumedDays) || 0;
-      updateLeaveAccrual(newAllocation.employeeId, Number((prevCarried + daysNum).toFixed(2)), Number(earned.toFixed(2)), Number(consumed.toFixed(2)));
-    }
-
     setShowAllocationModal(false);
     toast.success(
       `تم اعتماد وإضافة ${daysNum} يوم كرصيد مرحّل للموظف (${newAllocation.employeeName}) بنجاح.`
@@ -737,16 +775,6 @@ export const OdooTimeOffApp: React.FC = () => {
         { ...targetReq, companyId },
         'إدارة الموارد البشرية والشؤون القانونية'
       );
-      const current = leaveAccruals?.[targetReq.employeeId];
-      if (current && updateLeaveAccrual) {
-        updateLeaveAccrual(
-          targetReq.employeeId,
-          Number(current.carriedFrom2025) || 0,
-          Number(current.earned2026) || 0,
-          (Number(current.consumedDays) || 0) + Number(result.paidDays || 0),
-          Number(current.excludedServiceDays) || 0
-        );
-      }
       const approvedRequest = {
         ...targetReq,
         companyId,
@@ -813,13 +841,6 @@ export const OdooTimeOffApp: React.FC = () => {
       toast.success(`تم تسجيل مباشرة العمل مبكراً قبل الموعد بـ (${Math.abs(diffDays)} يوم).`);
     } else {
       toast.success('تم تسجيل مباشرة العمل في الموعد المحدد بنجاح.');
-    }
-  };
-
-  const handleRunMonthlyAccrual = () => {
-    if (processMonthlyAccruals) {
-      processMonthlyAccruals();
-      toast.success('تم تشغيل الاستحقاق الشهري بنجاح: إضافة 2.5 يوم لرصيد جميع الموظفين النشطين (يوم 30 شهرياً).');
     }
   };
 
@@ -996,17 +1017,6 @@ export const OdooTimeOffApp: React.FC = () => {
             <span>لائحة وقواعد الإجازات</span>
           </button>
 
-          {isSuperAdmin && (
-            <button
-              type="button"
-              onClick={handleRunMonthlyAccrual}
-              className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-3.5 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
-              title={`تشغيل إضافة الاستحقاق الشهري التلقائي (Super Admin فقط) (+${leavePolicy.monthlyAccrualRate} يوم لجميع الموظفين النشطين يوم 30)`}
-            >
-              <RefreshCw size={14} className="text-emerald-600" /> استحقاق الشهر (+{leavePolicy.monthlyAccrualRate} يوم)
-            </button>
-          )}
-
           <button
             type="button"
             onClick={() => setShowApplyModal(true)}
@@ -1103,6 +1113,16 @@ export const OdooTimeOffApp: React.FC = () => {
           }`}
         >
           <BarChart size={15} /> مخطط تداخل الغيابات وتغطية الأقسام (Timeline)
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveMainTab('operational_absence')}
+          className={`px-4 py-2.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+            activeMainTab === 'operational_absence' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <AlertTriangle size={15} className="text-amber-600" /> غياب تشغيلي (من الحضور)
         </button>
 
         <button
@@ -1427,6 +1447,21 @@ export const OdooTimeOffApp: React.FC = () => {
         </div>
       )}
 
+      {activeMainTab === 'operational_absence' && (
+        <OperationalAbsencePanel
+          rows={operationalAbsences.map(row => ({
+            id: String(row.id),
+            date: String(row.date || ''),
+            employeeName: String(row.employeeName || ''),
+            employeeId: String(row.employeeId || ''),
+            department: String(row.department || ''),
+            status: String(row.status || ''),
+            notes: String(row.notes || ''),
+            excuseReason: String(row.excuseReason || ''),
+          }))}
+        />
+      )}
+
       {/* ======================================================== */}
       {/* TAB 3: ALLOCATIONS & OPENING BALANCES */}
       {/* ======================================================== */}
@@ -1605,6 +1640,11 @@ export const OdooTimeOffApp: React.FC = () => {
           </div>
 
           {/* Sub-tab 1: Advance Salary Settlements */}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-[11px] text-slate-700">
+            مخالصة نهاية الخدمة الكاملة وإبراء الذمة من{' '}
+            <strong>تطبيق الرواتب → التسويات</strong>. هذا المركز مخصص لسلف إجازة (مادة 71) وتسييل الرصيد أثناء الخدمة فقط.
+          </div>
+
           {financeSubTab === 'advance_salary' && (
             <div className="space-y-4">
               <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-950 flex items-start gap-2.5">
