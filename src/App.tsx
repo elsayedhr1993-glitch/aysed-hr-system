@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { parseKuwaitCivilId, validateKuwaitCivilId } from './utils/kuwaitLaw';
 import { TenantProvider, useTenant } from './context/TenantContext';
 import { LayoutStudioProvider } from './context/LayoutStudioContext';
+import { LayoutStudioDrawer } from './components/studio/LayoutStudioDrawer';
 import { useCompany } from './context/CompanyContext';
 import { OdooHierarchyProvider, useOdooHierarchy } from './context/OdooHierarchyContext';
 import { useAuth } from './context/AuthContext';
@@ -579,6 +580,7 @@ function MainAppLayout() {
   return (
     <div className="h-screen w-full flex flex-col font-sans overflow-hidden bg-slate-100 text-slate-800" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       <Toaster position="top-center" containerStyle={{ zIndex: 99999 }} reverseOrder={false} />
+      <LayoutStudioDrawer />
 
       {/* شريط تنبيه الدخول كمسؤول (Strict Impersonation Banner) */}
       {isActualSuperAdmin && (impersonatingCompanyId || isImpersonating) && activeApp !== 'saas_admin' && (
