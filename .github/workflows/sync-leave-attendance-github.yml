@@ -114,28 +114,28 @@ jobs:
                 pr = created.data;
                 core.info(`Created PR #${pr.number}`);
               } catch (error) {
-                core.setFailed(
-                  `pulls.create failed (enable Settings → Actions → Allow GitHub Actions to create pull requests): ${error.message}`
+                core.warning(
+                  `pulls.create failed — open compare manually or enable Settings → Actions → Allow GitHub Actions to create pull requests. ${error.message}`
                 );
-                return;
+                pr = {
+                  number: 0,
+                  html_url: `https://github.com/${owner}/${repo}/compare/main...refactor/leave-attendance-unify?expand=1`,
+                };
               }
             }
 
-            const crossLink = `Follow-up: migration #${migrationIssue.number}, P2 refactor #${p2Issue.number}, branch \`refactor/leave-attendance-unify\`.`;
-            await github.rest.issues.createComment({
-              owner,
-              repo,
-              issue_number: migrationIssue.number,
-              body: crossLink,
-            });
-            await github.rest.issues.createComment({
-              owner,
-              repo,
-              issue_number: p2Issue.number,
-              body: crossLink,
-            });
+            const compareUrl = `https://github.com/${owner}/${repo}/compare/main...refactor/leave-attendance-unify?expand=1`;
+            const crossLink = `Follow-up: migration #${migrationIssue.number}, P2 refactor #${p2Issue.number}, branch \`refactor/leave-attendance-unify\`. Open PR: ${compareUrl}`;
+            for (const num of [migrationIssue.number, p2Issue.number]) {
+              try {
+                await github.rest.issues.createComment({ owner, repo, issue_number: num, body: crossLink });
+              } catch (error) {
+                core.warning(`issue comment on #${num} failed: ${error.message}`);
+              }
+            }
 
-            const summary = `### GitHub sync\n- PR: #${pr.number}\n- Migration issue: #${migrationIssue.number}\n- P2 issue: #${p2Issue.number}\n`;
+            const prLine = pr.number ? `#${pr.number}` : compareUrl;
+            const summary = `### GitHub sync\n- PR: ${prLine}\n- Migration issue: #${migrationIssue.number}\n- P2 issue: #${p2Issue.number}\n`;
             if (process.env.GITHUB_STEP_SUMMARY) {
               fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
             }
