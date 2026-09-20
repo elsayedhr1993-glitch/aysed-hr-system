@@ -631,6 +631,29 @@ export const LeavePolicyWizardModal: React.FC<LeavePolicyWizardModalProps> = ({
                     <span className="text-[10px] text-slate-500 block">تسجيل الموظف كـ "في إجازة رسمية" تلقائياً ومنع تسجيل غياب غير مبرر له.</span>
                   </div>
                 </label>
+
+                <div className="pt-3 border-t border-slate-200">
+                  <label className="block text-xs font-bold text-slate-900 mb-1 flex items-center gap-1.5">
+                    <DollarSign size={14} className="text-amber-600" />
+                    بدل تذكرة سنوية افتراضي (د.ك)
+                  </label>
+                  <p className="text-[10px] text-slate-500 mb-2 leading-relaxed">
+                    يُستخدم في تسوية الإجازة والمركز المالي إذا لم يُحدَّد مبلغ في عقد الموظف أو ملفه. اتركه 0 لعدم افتراض قيمة.
+                  </p>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.001}
+                    value={policy.annualTicketAllowanceKwd}
+                    onChange={(e) =>
+                      handleFieldChange(
+                        'annualTicketAllowanceKwd',
+                        Math.max(0, Number(e.target.value) || 0)
+                      )
+                    }
+                    className="w-full max-w-[200px] px-3 py-2 text-sm font-mono border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
+                  />
+                </div>
               </div>
 
               {/* Summary Card */}
@@ -655,6 +678,14 @@ export const LeavePolicyWizardModal: React.FC<LeavePolicyWizardModalProps> = ({
                   <div className="bg-white/10 p-2 rounded-xl">
                     <span className="text-slate-400 block text-[10px]">مستويات الاعتماد:</span>
                     <strong className="font-mono text-purple-300">{policy.approvalLevelsCount} مستويات</strong>
+                  </div>
+                  <div className="bg-white/10 p-2 rounded-xl col-span-2 sm:col-span-4">
+                    <span className="text-slate-400 block text-[10px]">بدل تذكرة (لائحة):</span>
+                    <strong className="font-mono text-amber-200">
+                      {policy.annualTicketAllowanceKwd > 0
+                        ? `${policy.annualTicketAllowanceKwd.toFixed(3)} د.ك`
+                        : 'غير محدد (عقد/موظف)'}
+                    </strong>
                   </div>
                 </div>
               </div>
