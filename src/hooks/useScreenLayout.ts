@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useCompany } from '../context/CompanyContext';
+import { useLayoutStudio } from '../context/LayoutStudioContext';
 import { useLang } from '../lib/i18n';
 import { subscribeScreenLayout } from '../services/customLayoutService';
 import type { LayoutLocale, ResolvedScreenLayout, ScreenId } from '../types/customLayout';
@@ -12,6 +13,7 @@ export function useScreenLayout(screenId: ScreenId): {
   locale: LayoutLocale;
 } {
   const { activeCompanyId, activeCompany } = useCompany();
+  const { studioSession } = useLayoutStudio();
   const { lang } = useLang();
   const locale: LayoutLocale = lang === 'en' ? 'en' : 'ar';
   const companyId =
@@ -43,6 +45,13 @@ export function useScreenLayout(screenId: ScreenId): {
     );
     return unsub;
   }, [companyId, screenId]);
+
+  useEffect(() => {
+    if (!companyId || studioSession?.screenId !== screenId) return;
+    setLayout(
+      mergeScreenLayout(getDefaultScreenLayout(screenId, companyId), studioSession.draft, companyId)
+    );
+  }, [studioSession, screenId, companyId]);
 
   return { layout, loading, locale };
 }

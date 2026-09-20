@@ -1160,7 +1160,7 @@ export const OdooTimeOffApp: React.FC = () => {
           }}
           className="flex-1"
         />
-        <ScreenLayoutStudioToggle screenId="leaves" layoutVersion={leavesLayout.version} />
+        <ScreenLayoutStudioToggle screenId="leaves" layout={leavesLayout} />
       </div>
 
       {/* ======================================================== */}
