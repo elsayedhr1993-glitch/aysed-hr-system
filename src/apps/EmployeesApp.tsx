@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { 
   Users, Clock, Stethoscope, AlertTriangle, X, FileText, Printer, Calendar, 
   RefreshCw, DollarSign, CheckCircle2, Building2, Briefcase, ExternalLink, Trash2,
-  MoreVertical, Download, UserPlus, ChevronDown, LayoutGrid, List, Search
+  MoreVertical, Download, UserPlus, ChevronDown, LayoutGrid, List, Search, Network
 } from 'lucide-react';
+import { OrganizationChartApp } from '../components/org-chart/OrganizationChartApp';
 import toast from 'react-hot-toast';
 import { OdooEmployeeDetailView } from '../components/employees/OdooEmployeeDetailView';
 import OdooContractsApp from "../components/OdooContractsApp";
@@ -273,7 +274,9 @@ export function EmployeesApp(props?: any) {
   const isSuperAdmin = props?.isSuperAdmin === true;
   const { layout: employeesLayout } = useScreenLayout('employees');
 
-  const [activeTab, setActiveTab] = useState<'directory' | 'contracts' | 'commencement' | 'onboarding'>('directory');
+  const [activeTab, setActiveTab] = useState<
+    'directory' | 'contracts' | 'commencement' | 'onboarding' | 'orgchart'
+  >('directory');
   const [showFullCommencementApp, setShowFullCommencementApp] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
@@ -1373,6 +1376,17 @@ export function EmployeesApp(props?: any) {
                     <span>خطة التهيئة والتعيين</span>
                   </button>
 
+                  <button
+                    onClick={() => {
+                      setShowActionsDropdown(false);
+                      setActiveTab('orgchart');
+                    }}
+                    className="w-full text-right px-3 py-2 hover:bg-indigo-50 rounded-lg text-xs font-medium text-indigo-900 flex items-center gap-2 cursor-pointer"
+                  >
+                    <Network size={14} className="text-indigo-600" />
+                    <span>الهيكل التنظيمي (Org Chart)</span>
+                  </button>
+
                   {isSuperAdmin && (
                     <>
                       <div className="border-t border-slate-100 my-1"></div>
@@ -1430,6 +1444,7 @@ export function EmployeesApp(props?: any) {
               {activeTab === 'contracts' && 'عرض وإدارة سجل العقود والرواتب'}
               {activeTab === 'commencement' && 'عرض وإدارة إقرارات المباشرة والعهد'}
               {activeTab === 'onboarding' && 'عرض خطة التهيئة والتعيين'}
+              {activeTab === 'orgchart' && 'عرض الهيكل التنظيمي والتسلسل الإداري'}
             </span>
           </div>
         )}
@@ -1826,7 +1841,15 @@ export function EmployeesApp(props?: any) {
         </>
       )}
 
-      {/* 3.2 العقود والرواتب */}
+      {/* 3.2 الهيكل التنظيمي */}
+      {activeTab === 'orgchart' && (
+        <OrganizationChartApp
+          employees={visibleEmployees as Array<Record<string, unknown>>}
+          activeCompany={activeCompany as any}
+        />
+      )}
+
+      {/* 3.3 العقود والرواتب */}
       {activeTab === 'contracts' && (
         <div className="animate-in fade-in duration-300">
           <OdooContractsApp />

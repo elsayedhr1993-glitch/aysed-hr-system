@@ -41,6 +41,12 @@ export function normalizeEmployeeRecord(raw: Partial<Employee> & Record<string, 
     status: raw.status || 'ACTIVE',
     joinDate: raw.joinDate || raw.join_date || '',
     department: raw.department || raw.dept || '',
+    parentId:
+      raw.parentId ||
+      raw.managerId ||
+      raw.reportsTo ||
+      raw.directManagerId ||
+      undefined,
     jobTitle: raw.jobTitle || raw.job_title || '',
     email,
     workEmail: email,
