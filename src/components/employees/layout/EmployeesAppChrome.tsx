@@ -7,7 +7,6 @@ import {
   ChevronDown,
   LayoutGrid,
   List,
-  ArrowRight,
   FileText,
   Rocket,
   Network,
@@ -92,164 +91,143 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
       : SUB_MODULE_LABELS[activeTab as Exclude<EmployeesWorkspaceTab, 'directory'>];
 
   return (
-    <div className="flex-1 flex flex-col w-full min-h-0 bg-slate-100/40">
-      {/* مسار التنقل */}
-      <div className="bg-white border border-slate-200/90 rounded-xl px-4 py-2 mb-2 shadow-2xs">
-        <nav className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-700">
-          <Users size={14} className="text-[#714B67] shrink-0" />
-          <span className="text-slate-500">شؤون الموظفين</span>
-          <span className="text-slate-300">/</span>
-          {activeTab !== 'directory' && (
-            <>
-              <button
-                type="button"
-                onClick={() => onTabChange('directory')}
-                className="text-[#714B67] hover:underline cursor-pointer"
-              >
-                الدليل
-              </button>
-              <span className="text-slate-300">/</span>
-            </>
-          )}
-          <span className="text-slate-900">{breadcrumbTail}</span>
-          <span className="text-[10px] font-medium text-slate-400 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-md truncate max-w-[200px]">
-            {companyLabel}
-          </span>
-        </nav>
-      </div>
+    <div className="flex-1 flex flex-col w-full min-h-0 bg-slate-50/80">
+      <div className="bg-white border border-slate-200/80 rounded-xl shadow-2xs mb-2 overflow-hidden shrink-0">
+        {/* صف واحد: مسار + إجراءات */}
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-b border-slate-100">
+          <nav className="flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-slate-600 min-w-0">
+            <Users size={13} className="text-[#714B67] shrink-0" />
+            <span className="text-slate-400">شؤون الموظفين</span>
+            <span className="text-slate-200">/</span>
+            {activeTab !== 'directory' && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => onTabChange('directory')}
+                  className="text-[#714B67] hover:underline cursor-pointer"
+                >
+                  الدليل
+                </button>
+                <span className="text-slate-200">/</span>
+              </>
+            )}
+            <span className="text-slate-800">{breadcrumbTail}</span>
+            <span className="text-[10px] font-medium text-slate-400 truncate max-w-[140px] sm:max-w-[220px]">
+              · {companyLabel}
+            </span>
+          </nav>
 
-      {/* شريط التحكم */}
-      <div className="bg-white border border-slate-200/90 rounded-xl px-3 py-2.5 mb-2 shadow-2xs space-y-2.5">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="min-w-0">
-            <h1 className="text-sm font-black text-slate-900">دليل الموظفين</h1>
-            <p className="text-[10px] text-slate-400 mt-0.5">سجل الكوادر — عرض Odoo 18</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+          <div className="flex flex-wrap items-center gap-1 shrink-0">
             <ScreenLayoutStudioToggle screenId="employees" layout={employeesLayout} />
             <button
               type="button"
               onClick={onCreateEmployee}
-              className="bg-[#714B67] hover:bg-[#5b3c53] text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              className="bg-[#714B67] hover:bg-[#5b3c53] text-white px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
             >
-              <UserPlus size={14} />
+              <UserPlus size={13} />
               موظف جديد
             </button>
             <div className="relative" ref={actionsRef}>
               <button
                 type="button"
                 onClick={() => onActionsMenuOpenChange(!actionsMenuOpen)}
-                className="bg-white border border-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer hover:bg-slate-50"
+                className="bg-white border border-slate-200 text-slate-600 px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-0.5 cursor-pointer hover:bg-slate-50"
               >
                 إجراءات
-                <ChevronDown size={13} className={`text-slate-400 transition ${actionsMenuOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown size={12} className={`text-slate-400 transition ${actionsMenuOpen ? 'rotate-180' : ''}`} />
               </button>
               {actionsMenuOpen && actionsMenu}
             </div>
             {showViewToggle && (
-              <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200/90">
+              <div className="flex items-center bg-slate-100 p-0.5 rounded-md border border-slate-200/80">
                 <button
                   type="button"
                   onClick={() => onViewModeChange('cards')}
-                  className={`p-1.5 rounded-md cursor-pointer ${viewMode === 'cards' ? 'bg-white text-[#714B67] shadow-2xs' : 'text-slate-400'}`}
+                  className={`p-1 rounded cursor-pointer ${viewMode === 'cards' ? 'bg-white text-[#714B67] shadow-2xs' : 'text-slate-400'}`}
                   title="بطاقات"
                 >
-                  <LayoutGrid size={14} />
+                  <LayoutGrid size={13} />
                 </button>
                 <button
                   type="button"
                   onClick={() => onViewModeChange('list')}
-                  className={`p-1.5 rounded-md cursor-pointer ${viewMode === 'list' ? 'bg-white text-[#714B67] shadow-2xs' : 'text-slate-400'}`}
+                  className={`p-1 rounded cursor-pointer ${viewMode === 'list' ? 'bg-white text-[#714B67] shadow-2xs' : 'text-slate-400'}`}
                   title="جدول"
                 >
-                  <List size={14} />
+                  <List size={13} />
                 </button>
               </div>
             )}
           </div>
         </div>
 
-        <CompactTabBar
-          tabs={[
-            { id: 'directory', label: 'دليل الموظفين', shortLabel: 'الدليل', icon: <Users size={15} /> },
-          ]}
-          moreItems={[
-            { id: 'contracts', label: 'سجل العقود والرواتب', icon: <FileText size={14} /> },
-            { id: 'commencement', label: 'إقرارات المباشرة', icon: <Stethoscope size={14} /> },
-            { id: 'onboarding', label: 'خطة التهيئة', icon: <Rocket size={14} /> },
-            { id: 'orgchart', label: 'الهيكل التنظيمي', icon: <Network size={14} /> },
-          ]}
-          activeTabId={activeTab === 'directory' ? 'directory' : ''}
-          activeMoreId={activeTab !== 'directory' ? activeTab : undefined}
-          onTabChange={(id) => onTabChange(id as EmployeesWorkspaceTab)}
-          onMoreChange={(id) => onTabChange(id as EmployeesWorkspaceTab)}
-        />
+        <div className="px-2 pt-1">
+          <CompactTabBar
+            tabs={[
+              { id: 'directory', label: 'دليل الموظفين', shortLabel: 'الدليل', icon: <Users size={14} /> },
+            ]}
+            moreItems={[
+              { id: 'contracts', label: 'سجل العقود والرواتب', icon: <FileText size={13} /> },
+              { id: 'commencement', label: 'إقرارات المباشرة', icon: <Stethoscope size={13} /> },
+              { id: 'onboarding', label: 'خطة التهيئة', icon: <Rocket size={13} /> },
+              { id: 'orgchart', label: 'الهيكل التنظيمي', icon: <Network size={13} /> },
+            ]}
+            activeTabId={activeTab === 'directory' ? 'directory' : ''}
+            activeMoreId={activeTab !== 'directory' ? activeTab : undefined}
+            onTabChange={(id) => onTabChange(id as EmployeesWorkspaceTab)}
+            onMoreChange={(id) => onTabChange(id as EmployeesWorkspaceTab)}
+          />
+        </div>
 
         {showDirectoryTools && (
-          <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100">
-            <div className="relative flex-1 min-w-[180px] max-w-xl">
-              <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => onSearchQueryChange(e.target.value)}
-                placeholder="بحث: الاسم، المدني، المسمى..."
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg pr-9 pl-8 py-1.5 text-xs focus:bg-white focus:border-[#714B67] focus:outline-none"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => onSearchQueryChange('')}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
-                >
-                  <X size={13} />
-                </button>
-              )}
+          <div className="px-3 pb-2.5 pt-0 space-y-2 border-t border-slate-50">
+            <div className="flex flex-wrap items-center gap-2 pt-2">
+              <div className="relative flex-1 min-w-[160px]">
+                <Search size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => onSearchQueryChange(e.target.value)}
+                  placeholder="بحث بالاسم أو المدني..."
+                  className="w-full bg-slate-50/80 border border-slate-200/80 rounded-lg pr-8 pl-7 py-1.5 text-[11px] focus:bg-white focus:border-[#714B67]/50 focus:outline-none"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => onSearchQueryChange('')}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+              <select
+                value={selectedDept || ''}
+                onChange={(e) => onDeptChange(e.target.value || null)}
+                className="bg-slate-50/80 border border-slate-200/80 rounded-lg px-2 py-1.5 text-[11px] cursor-pointer shrink-0 max-w-[120px]"
+              >
+                <option value="">الأقسام</option>
+                {allDepts.map((dept) => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
+              </select>
+              <select
+                value={selectedStatus || ''}
+                onChange={(e) => onStatusChange(e.target.value || null)}
+                className="bg-slate-50/80 border border-slate-200/80 rounded-lg px-2 py-1.5 text-[11px] cursor-pointer shrink-0"
+              >
+                <option value="">الحالة</option>
+                <option value="على رأس العمل">على رأس العمل</option>
+                <option value="في إجازة">في إجازة</option>
+                <option value="قيد التعيين">قيد التعيين</option>
+              </select>
             </div>
-            <select
-              value={selectedDept || ''}
-              onChange={(e) => onDeptChange(e.target.value || null)}
-              className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs cursor-pointer shrink-0"
-            >
-              <option value="">كل الأقسام</option>
-              {allDepts.map((dept) => (
-                <option key={dept} value={dept}>{dept}</option>
-              ))}
-            </select>
-            <select
-              value={selectedStatus || ''}
-              onChange={(e) => onStatusChange(e.target.value || null)}
-              className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs cursor-pointer shrink-0"
-            >
-              <option value="">كل الحالات</option>
-              <option value="على رأس العمل">على رأس العمل</option>
-              <option value="في إجازة">في إجازة</option>
-              <option value="قيد التعيين">قيد التعيين</option>
-            </select>
+            {kpiBar ? <div className="flex flex-wrap items-center gap-1.5">{kpiBar}</div> : null}
           </div>
         )}
       </div>
 
-      {kpiBar}
-
-      <div className="flex-1 min-h-0 overflow-auto">{children}</div>
+      <div className="flex-1 min-h-0 overflow-auto px-0.5">{children}</div>
     </div>
   );
 };
-
-export const EmployeesSubModuleBanner: React.FC<{
-  activeTab: Exclude<EmployeesWorkspaceTab, 'directory'>;
-  onBack: () => void;
-}> = ({ activeTab, onBack }) => (
-  <div className="bg-white border border-slate-200/90 rounded-xl px-4 py-2 mb-2 flex items-center justify-between shadow-2xs">
-    <button
-      type="button"
-      onClick={onBack}
-      className="text-xs font-bold text-[#714B67] flex items-center gap-1.5 cursor-pointer hover:underline"
-    >
-      <ArrowRight size={14} />
-      العودة للدليل
-    </button>
-    <span className="text-[11px] text-slate-500">{SUB_MODULE_LABELS[activeTab]}</span>
-  </div>
-);

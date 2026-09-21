@@ -1263,63 +1263,58 @@ export function EmployeesApp(props?: any) {
     </div>
   );
 
+  const hasActiveDirectoryFilters =
+    Boolean(searchQuery || selectedDept || selectedStatus || kpiFilter !== 'all');
+
   const directoryKpiBar =
     activeTab === 'directory' ? (
-      <div className="bg-white border border-slate-200/90 rounded-xl px-3 py-2 mb-2 flex flex-wrap items-center justify-between gap-2 text-[11px] shadow-2xs">
-        <div className="flex flex-wrap items-center gap-2">
+      <>
+        <button
+          type="button"
+          onClick={() => setKpiFilter('all')}
+          className={`px-2 py-0.5 rounded-md text-[10px] cursor-pointer ${
+            kpiFilter === 'all' ? 'bg-slate-700 text-white font-bold' : 'text-slate-500 hover:bg-slate-100'
+          }`}
+        >
+          الكل {totalEmployeesCount}
+        </button>
+        <button
+          type="button"
+          onClick={() => setKpiFilter((prev) => (prev === 'on_duty' ? 'all' : 'on_duty'))}
+          className={`px-2 py-0.5 rounded-md text-[10px] cursor-pointer ${
+            kpiFilter === 'on_duty' ? 'bg-emerald-600 text-white font-bold' : 'text-slate-500 hover:bg-emerald-50'
+          }`}
+        >
+          على رأس العمل {onDutyCount}
+        </button>
+        <button
+          type="button"
+          onClick={() => setKpiFilter((prev) => (prev === 'on_leave' ? 'all' : 'on_leave'))}
+          className={`px-2 py-0.5 rounded-md text-[10px] cursor-pointer ${
+            kpiFilter === 'on_leave' ? 'bg-blue-600 text-white font-bold' : 'text-slate-500 hover:bg-blue-50'
+          }`}
+        >
+          في إجازة {onLeaveCount}
+        </button>
+        <button
+          type="button"
+          onClick={() => setKpiFilter((prev) => (prev === 'residency_expiring' ? 'all' : 'residency_expiring'))}
+          className={`px-2 py-0.5 rounded-md text-[10px] cursor-pointer ${
+            kpiFilter === 'residency_expiring' ? 'bg-amber-600 text-white font-bold' : 'text-slate-500 hover:bg-amber-50'
+          }`}
+        >
+          إقامات قريبة {residencyExpiringCount}
+        </button>
+        {kpiFilter !== 'all' && (
           <button
             type="button"
             onClick={() => setKpiFilter('all')}
-            className={`px-2 py-1 rounded-md cursor-pointer ${
-              kpiFilter === 'all' ? 'bg-slate-800 text-white font-bold' : 'text-slate-600 hover:bg-slate-100'
-            }`}
+            className="text-[10px] text-slate-400 hover:text-slate-700 underline cursor-pointer mr-1"
           >
-            الكل <span className="font-mono">{totalEmployeesCount}</span>
+            إلغاء الفلتر ({filteredEmployees.length}/{totalEmployeesCount})
           </button>
-          <button
-            type="button"
-            onClick={() => setKpiFilter((prev) => (prev === 'on_duty' ? 'all' : 'on_duty'))}
-            className={`px-2 py-1 rounded-md cursor-pointer flex items-center gap-1 ${
-              kpiFilter === 'on_duty' ? 'bg-emerald-600 text-white font-bold' : 'text-slate-600 hover:bg-emerald-50'
-            }`}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            على رأس العمل <span className="font-mono">{onDutyCount}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setKpiFilter((prev) => (prev === 'on_leave' ? 'all' : 'on_leave'))}
-            className={`px-2 py-1 rounded-md cursor-pointer flex items-center gap-1 ${
-              kpiFilter === 'on_leave' ? 'bg-blue-600 text-white font-bold' : 'text-slate-600 hover:bg-blue-50'
-            }`}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-            في إجازة <span className="font-mono">{onLeaveCount}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setKpiFilter((prev) => (prev === 'residency_expiring' ? 'all' : 'residency_expiring'))}
-            className={`px-2 py-1 rounded-md cursor-pointer flex items-center gap-1 ${
-              kpiFilter === 'residency_expiring' ? 'bg-amber-600 text-white font-bold' : 'text-slate-600 hover:bg-amber-50'
-            }`}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-            إقامات قريبة <span className="font-mono">{residencyExpiringCount}</span>
-          </button>
-        </div>
-        {kpiFilter !== 'all' && (
-          <div className="flex items-center gap-2 text-slate-500">
-            <span>{filteredEmployees.length} / {totalEmployeesCount}</span>
-            <button
-              type="button"
-              onClick={() => setKpiFilter('all')}
-              className="text-[10px] border border-slate-200 px-2 py-0.5 rounded-md hover:bg-slate-50 cursor-pointer"
-            >
-              إلغاء
-            </button>
-          </div>
         )}
-      </div>
+      </>
     ) : null;
 
   return (
@@ -1369,23 +1364,42 @@ export function EmployeesApp(props?: any) {
       {activeTab === 'directory' && (
             <>
               {filteredEmployees.length === 0 ? (
-                <div className="bg-white rounded-xl border border-dashed border-slate-200 p-10 text-center my-4">
-                  <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 mx-auto flex items-center justify-center text-xl mb-3">
-                    👥
+                <div className="bg-white rounded-xl border border-slate-200/70 p-8 sm:p-12 text-center">
+                  <div className="w-14 h-14 rounded-2xl bg-[#714B67]/8 text-[#714B67] mx-auto flex items-center justify-center mb-4">
+                    <Users size={28} strokeWidth={1.5} />
                   </div>
-                  <h3 className="text-sm font-bold text-slate-700 mb-1">لا يوجد موظفون مطابقون</h3>
-                  <p className="text-xs text-slate-400 mb-3">لم يتم العثور على أي موظف مطابق للبحث أو الفلتر المختار.</p>
-                  <button
-                    onClick={() => {
-                      setSearchQuery('');
-                      setSelectedDept(null);
-                      setSelectedStatus(null);
-                      setKpiFilter('all');
-                    }}
-                    className="text-xs text-[#714B67] font-bold hover:underline cursor-pointer"
-                  >
-                    إعادة تعيين جميع الفلاتر
-                  </button>
+                  {totalEmployeesCount === 0 && !hasActiveDirectoryFilters ? (
+                    <>
+                      <h3 className="text-sm font-bold text-slate-800 mb-1">الدليل فارغ</h3>
+                      <p className="text-xs text-slate-500 mb-4 max-w-sm mx-auto leading-relaxed">
+                        لا يوجد موظفون مسجلون لهذه المنشأة بعد. ابدأ بإضافة أول موظف عبر المعالج أو التسجيل السريع.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleCreateNewEmployee}
+                        className="bg-[#714B67] hover:bg-[#5b3c53] text-white px-4 py-2 rounded-lg text-xs font-bold cursor-pointer"
+                      >
+                        إضافة موظف جديد
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <h3 className="text-sm font-bold text-slate-800 mb-1">لا نتائج مطابقة</h3>
+                      <p className="text-xs text-slate-500 mb-3">جرّب تعديل البحث أو الفلاتر أو مؤشرات الحالة.</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchQuery('');
+                          setSelectedDept(null);
+                          setSelectedStatus(null);
+                          setKpiFilter('all');
+                        }}
+                        className="text-xs text-[#714B67] font-bold hover:underline cursor-pointer"
+                      >
+                        إعادة تعيين الفلاتر
+                      </button>
+                    </>
+                  )}
                 </div>
               ) : viewMode === 'cards' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-3.5 mb-4">
@@ -1893,24 +1907,12 @@ export function EmployeesApp(props?: any) {
         </div>
       )}
 
-      {/* 4. شريط الأنشطة والمتابعة الموحد أسفل الصفحة (Odoo Chatter) */}
-      <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm flex items-center justify-between text-xs text-slate-500 mt-2 shrink-0">
-        <div className="flex items-center gap-6">
-          <button className="flex items-center gap-1.5 hover:text-slate-900 font-semibold transition">
-            <span>✉️</span> إرسال رسالة
-          </button>
-          <button className="flex items-center gap-1.5 text-purple-900 font-bold border-b-2 border-purple-900 pb-0.5">
-            <span>📝</span> تسجيل ملاحظة
-          </button>
-          <button className="flex items-center gap-1.5 hover:text-slate-900 font-semibold transition">
-            <span>⏰</span> جدولة نشاط (Schedule Activity)
-          </button>
+      {activeTab !== 'directory' && (
+        <div className="bg-white/90 border border-slate-200/80 rounded-lg px-3 py-2 flex flex-wrap items-center gap-4 text-[10px] text-slate-500 mt-2 shrink-0">
+          <button type="button" className="hover:text-slate-800 cursor-pointer">تسجيل ملاحظة</button>
+          <button type="button" className="hover:text-slate-800 cursor-pointer">جدولة نشاط</button>
         </div>
-
-        <div className="flex items-center gap-2 text-slate-400 text-[11px]">
-          <span>👤 1 متابعين</span>
-        </div>
-      </div>
+      )}
 
         </EmployeesAppChrome>
       )}
