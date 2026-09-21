@@ -170,16 +170,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (role === 'TENANT_ADMIN') role = 'COMPANY_ADMIN';
             if (isSuperAdminEmail(email)) role = 'SUPER_ADMIN';
 
-            if (
-              canonicalCompanyId &&
-              (canonicalCompanyId !== currentCompanyId || role !== currentRole)
-            ) {
+            if (canonicalCompanyId && canonicalCompanyId !== currentCompanyId) {
               await writeUser(
                 doc(db, 'users', uid),
                 {
                   email,
                   companyId: canonicalCompanyId,
-                  role,
                 },
                 { merge: true }
               ).catch(() => {});

@@ -3,6 +3,7 @@ import { collection, onSnapshot, query, where, doc, setDoc, getDoc } from 'fireb
 import { db, auth, cleanFirestoreData, getCompaniesCollectionName } from '../lib/firebase';
 import { Employee, Contract, LeaveRequest, AttendanceRecord, Payslip, DocumentItem, CustodyItem, LoanAdvance, DisciplinaryWarning, EmployeeNote, EmployeeNotification, Company, EmploymentCommencement } from '../types';
 import { MANARA_STORAGE_KEYS, setPersistentData } from '../utils/persistentStorage';
+import { dedupeTenantCompanies } from '../utils/companyDedupe';
 
 
 enum OperationType {
@@ -364,25 +365,26 @@ export const useFirebaseSync = (
     const unsubCompanies = onSnapshot(collection(db, getCompaniesCollectionName()), 
         snap => {
             if (setCompanies) {
-                const docs = snap.docs.map(d => ({ ...d.data(), id: d.id })) as Company[];
-                const map = new Map<string, any>();
-                const nameMap = new Map<string, any>();
-                docs.forEach(c => {
-                    if (!c || !c.id) return;
-                    const nameKey = (c.nameAr || (c as any).companyName || '').trim().toLowerCase().replace(/\s+/g, ' ');
-                    if (nameKey && nameMap.has(nameKey)) {
-                        const existing = nameMap.get(nameKey)!;
-                        const merged = { ...existing, ...c };
-                        map.set(merged.id, merged);
-                        nameMap.set(nameKey, merged);
-                    } else {
-                        map.set(c.id, c);
-                        if (nameKey) nameMap.set(nameKey, c);
-                    }
-                });
-                const remote = Array.from(map.values());
+                const docs = snap.docs.map((d) => ({ ...d.data(), id: d.id })) as Company[];
+                const { companies: remote } = dedupeTenantCompanies(
+                  docs.map((c) => ({
+                    id: c.id,
+                    nameAr: c.nameAr || (c as any).companyName || c.name || '—',
+                    nameEn: c.nameEn || c.name || '—',
+                    adminUsername: (c as any).adminUsername || (c as any).email || '',
+                    adminPassword: '',
+                    contactPhone: (c as any).contactPhone || (c as any).phone || '',
+                    pamFileNumber: (c as any).pamFileNumber || '',
+                    commercialReg: (c as any).commercialReg || (c as any).commercialRegNo || '',
+                    mohLicense: (c as any).mohLicense || '',
+                    iban: (c as any).iban || '',
+                    bankName: (c as any).bankName || '',
+                    isActive: true,
+                    createdAt: (c as any).createdAt || '',
+                  }))
+                );
                 if (remote.length > 0) {
-                  setCompanies(remote);
+                  setCompanies(remote as Company[]);
                   setPersistentData(MANARA_STORAGE_KEYS.COMPANIES, remote, MANARA_STORAGE_KEYS.TENANTS);
                 }
             }

@@ -55,6 +55,11 @@ export function pickCanonicalCompanyId(
   return sorted[0]?.id || candidates[0]?.id || '';
 }
 
+export function isLegacyDuplicateCompanyId(id?: string | null): boolean {
+  const value = String(id || '').trim().toLowerCase();
+  return value.startsWith('req-') || value.startsWith('mock-') || value.startsWith('demo-');
+}
+
 export function dedupeTenantCompanies<T extends TenantCompany>(
   companies: T[]
 ): { companies: T[]; duplicateIds: string[]; idRemap: Record<string, string> } {
@@ -62,6 +67,7 @@ export function dedupeTenantCompanies<T extends TenantCompany>(
 
   for (const company of companies) {
     if (!company?.id) continue;
+    if (isLegacyDuplicateCompanyId(company.id)) continue;
     const key = nameToGroupKey(company.nameAr || company.nameEn || company.name);
     const list = groups.get(key) || [];
     list.push(company);

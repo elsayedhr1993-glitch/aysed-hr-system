@@ -18,6 +18,12 @@ service cloud.firestore {
       );
     }
 
+    function isCompanyAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && (userDoc().role == 'COMPANY_ADMIN' || userDoc().role == 'TENANT_ADMIN');
+    }
+
     function tokenCompanyId() {
       return request.auth.token.companyId;
     }
@@ -73,7 +79,9 @@ service cloud.firestore {
 
     // Company master records
     match /companies/{companyId} {
-      allow read: if isSuperAdmin() || (signedIn() && callerCompanyId() == companyId);
+      allow read: if isSuperAdmin()
+        || (signedIn() && callerCompanyId() == companyId)
+        || (isCompanyAdmin() && profileCompanyId() == companyId);
       allow write: if isSuperAdmin();
 
       match /custom_layouts/{screenId} {

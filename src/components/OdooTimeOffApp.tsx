@@ -1195,8 +1195,8 @@ export const OdooTimeOffApp: React.FC = () => {
               },
               {
                 id: 'allocations',
-                label: 'الأرصدة والتخصيص (مرتبط بالعقد)',
-                shortLabel: 'العقد والبدلات',
+                label: 'الأرصدة والتخصيص — الافتتاحية والمرحّلة',
+                shortLabel: 'الأرصدة والتخصيص',
                 icon: <Layers size={15} />,
                 badge: (
                   <span className="text-[9px] font-mono bg-purple-50 text-purple-800 px-1 rounded">
@@ -1206,17 +1206,17 @@ export const OdooTimeOffApp: React.FC = () => {
               },
               {
                 id: 'timeline',
-                label: 'التقارير والمستندات والطباعة',
-                shortLabel: 'المستندات',
+                label: 'التقارير وسجل الإجازات — مخطط التغطية والطباعة',
+                shortLabel: 'التقارير وسجل الإجازات',
                 icon: <FileText size={15} />,
               },
             ]}
             moreItems={[
-              { id: 'operational_absence', label: 'الغياب التشغيلي (من الحضور)', icon: <AlertTriangle size={14} /> },
-              { id: 'finance', label: 'المركز المالي والتسويات', icon: <DollarSign size={14} /> },
+              { id: 'operational_absence', label: 'الغياب التشغيلي', icon: <AlertTriangle size={14} /> },
+              { id: 'finance', label: 'المركز المالي', icon: <DollarSign size={14} /> },
               {
                 id: 'policy',
-                label: 'إعدادات اللائحة (HR)',
+                label: 'إعدادات اللائحة',
                 icon: <ShieldCheck size={14} />,
               },
             ]}
