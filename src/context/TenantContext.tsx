@@ -3,6 +3,8 @@ import { TenantCompany } from '../types';
 import { db, createTenantUserSafely, getCompaniesCollectionName } from '../lib/firebase';
 import { collection, doc, setDoc, deleteDoc, updateDoc, onSnapshot, query, documentId, where } from 'firebase/firestore';
 import { useAuth } from './AuthContext';
+import { isTenantPurged } from '../lib/firebase';
+import { dedupeTenantCompanies } from '../utils/companyDedupe';
 
 const ALMANAR_COMPANY_ID = 'comp-1788442584841';
 const ALMANAR_COMPANY_NAME_AR = 'مستوصف المنار الطبي (Almanar Clinic)';
@@ -139,11 +141,14 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedCompanies: TenantCompany[] = [];
-      snapshot.forEach((doc) => {
-        fetchedCompanies.push({ id: doc.id, ...doc.data() } as TenantCompany);
+      snapshot.forEach((docSnap) => {
+        const row = { id: docSnap.id, ...docSnap.data() } as TenantCompany;
+        if (isTenantPurged(row.id) || isTenantPurged(row.nameAr) || isTenantPurged(row.nameEn)) return;
+        fetchedCompanies.push(row);
       });
-      if (fetchedCompanies.length > 0) {
-        setCompanies(fetchedCompanies);
+      const { companies: deduped } = dedupeTenantCompanies(fetchedCompanies);
+      if (deduped.length > 0) {
+        setCompanies(deduped);
       } else if (fallbackCompany) {
         setCompanies([fallbackCompany]);
       } else {

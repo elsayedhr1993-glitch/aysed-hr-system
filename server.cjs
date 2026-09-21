@@ -1217,6 +1217,8 @@ function assertClientCompanyAccess(requestedCompanyId, callerCompanyId, isSuperA
 
 // server/firebaseAdmin.ts
 var import_crypto = __toESM(require("crypto"), 1);
+var import_node_fs = require("node:fs");
+var import_node_path = require("node:path");
 var import_app = require("firebase-admin/app");
 var import_auth = require("firebase-admin/auth");
 var import_firestore = require("firebase-admin/firestore");
@@ -1310,10 +1312,23 @@ function getAdminApp() {
   getAdminAuth();
   return adminApp;
 }
+function resolveFirestoreDatabaseId() {
+  const fromEnv = process.env.FIRESTORE_DATABASE_ID || process.env.FIREBASE_FIRESTORE_DATABASE_ID || "";
+  if (fromEnv.trim()) return fromEnv.trim();
+  try {
+    const configPath = (0, import_node_path.join)(process.cwd(), "firebase-applet-config.json");
+    const raw = (0, import_node_fs.readFileSync)(configPath, "utf8");
+    const parsed = JSON.parse(raw);
+    if (parsed.firestoreDatabaseId?.trim()) return parsed.firestoreDatabaseId.trim();
+  } catch {
+  }
+  return "ai-studio-remixaysedshr202-98c882d5-9491-4f4b-a838-c6b0b10a0472";
+}
 function getAdminFirestore() {
   if (!getAdminAuth() || !adminApp) return null;
   try {
-    return (0, import_firestore.getFirestore)(adminApp);
+    const databaseId = resolveFirestoreDatabaseId();
+    return databaseId ? (0, import_firestore.getFirestore)(adminApp, databaseId) : (0, import_firestore.getFirestore)(adminApp);
   } catch {
     return null;
   }
@@ -1373,8 +1388,9 @@ async function resolveCallerRole(authCheck) {
         if (role === "SUPER_ADMIN" || isSuperAdminEmail(String(data.email || email))) {
           return { role: "SUPER_ADMIN", companyId };
         }
+        const normalizedRole = role === "TENANT_ADMIN" ? "COMPANY_ADMIN" : role;
         return {
-          role: role === "TENANT_ADMIN" ? "COMPANY_ADMIN" : role,
+          role: normalizedRole,
           companyId
         };
       }

@@ -76,8 +76,9 @@ export async function resolveCallerRole(authCheck: {
         if (role === 'SUPER_ADMIN' || isSuperAdminEmail(String(data.email || email))) {
           return { role: 'SUPER_ADMIN', companyId };
         }
+        const normalizedRole = role === 'TENANT_ADMIN' ? 'COMPANY_ADMIN' : role;
         return {
-          role: role === 'TENANT_ADMIN' ? 'COMPANY_ADMIN' : role,
+          role: normalizedRole,
           companyId,
         };
       }

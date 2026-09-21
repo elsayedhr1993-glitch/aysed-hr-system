@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
-import { auth, db, isTenantPurged } from '../lib/firebase';
+import { auth, db, getCompaniesCollectionName, isTenantPurged } from '../lib/firebase';
+import { dedupeTenantCompanies, remapCompanyId, resolveCompanyIdForAdminEmail } from '../utils/companyDedupe';
 import { doc, getDoc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { isSuperAdminEmail } from '../config/superAdminAccess';
@@ -132,6 +133,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           let companyId: string | undefined;
           let photoURL = firebaseUser.photoURL || localStorage.getItem('aysed_user_avatar') || '';
 
+          const syncCompanyAdminBinding = async (
+            uid: string,
+            email: string,
+            currentCompanyId?: string,
+            currentRole?: string
+          ) => {
+            const { getDocs, collection, setDoc: writeUser } = await import('firebase/firestore');
+            const companiesSnap = await getDocs(collection(db, getCompaniesCollectionName())).catch(() => null);
+            if (!companiesSnap) return { companyId: currentCompanyId, role: currentRole };
+
+            const rawCompanies = companiesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+            const { companies: deduped, idRemap } = dedupeTenantCompanies(
+              rawCompanies.map((c: any) => ({
+                id: c.id,
+                nameAr: c.nameAr || c.name || '—',
+                nameEn: c.nameEn || c.name || '—',
+                adminUsername: c.adminUsername || c.email || '',
+                adminPassword: '',
+                contactPhone: c.contactPhone || c.phone || '',
+                pamFileNumber: c.pamFileNumber || '',
+                commercialReg: c.commercialReg || '',
+                mohLicense: c.mohLicense || '',
+                iban: c.iban || '',
+                bankName: c.bankName || '',
+                isActive: true,
+                createdAt: c.createdAt || '',
+              }))
+            );
+
+            const fromEmail = resolveCompanyIdForAdminEmail(email, deduped as any[]);
+            const remapped = remapCompanyId(currentCompanyId, idRemap);
+            const canonicalCompanyId = fromEmail || remapped || currentCompanyId;
+
+            let role = String(currentRole || 'COMPANY_ADMIN').toUpperCase();
+            if (role === 'TENANT_ADMIN') role = 'COMPANY_ADMIN';
+            if (isSuperAdminEmail(email)) role = 'SUPER_ADMIN';
+
+            if (
+              canonicalCompanyId &&
+              (canonicalCompanyId !== currentCompanyId || role !== currentRole)
+            ) {
+              await writeUser(
+                doc(db, 'users', uid),
+                {
+                  email,
+                  companyId: canonicalCompanyId,
+                  role,
+                },
+                { merge: true }
+              ).catch(() => {});
+            }
+
+            return { companyId: canonicalCompanyId, role };
+          };
+
           // Attempt to fetch profile & check account status with timeout
           try {
             const userDocPromise = getDoc(doc(db, 'users', firebaseUser.uid));
@@ -154,32 +210,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               name = data.name || name;
               companyId = data.companyId;
               photoURL = data.photoURL || data.avatar || photoURL;
+
+              if (!isSuperAdminEmail(userEmail) && userEmail) {
+                const synced = await syncCompanyAdminBinding(
+                  firebaseUser.uid,
+                  userEmail,
+                  companyId,
+                  role
+                );
+                companyId = synced.companyId;
+                role = synced.role || role;
+              }
             } else {
               // Look up if this email is registered in company collections
               const { getDocs, collection, query, where, setDoc } = await import('firebase/firestore');
-              const collectionName = 'companies';
-              const compQuery = query(collection(db, collectionName), where('adminUsername', '==', firebaseUser.email));
-              const compSnap = await getDocs(compQuery).catch(() => null);
+              const synced = await syncCompanyAdminBinding(
+                firebaseUser.uid,
+                userEmail,
+                undefined,
+                'COMPANY_ADMIN'
+              );
+              companyId = synced.companyId;
+              role = synced.role || 'COMPANY_ADMIN';
 
-              let foundCompany = null;
-              if (compSnap && !compSnap.empty) {
-                foundCompany = compSnap.docs[0];
-              } else {
-                const compQuery2 = query(collection(db, collectionName), where('email', '==', firebaseUser.email));
-                const compSnap2 = await getDocs(compQuery2).catch(() => null);
-                if (compSnap2 && !compSnap2.empty) {
-                  foundCompany = compSnap2.docs[0];
-                }
-              }
-
-              if (foundCompany) {
-                const compData = foundCompany.data();
-                role = 'COMPANY_ADMIN';
-                name = compData.ownerName || compData.nameAr || 'مسؤول الشركة';
-                companyId = foundCompany.id;
-              } else {
-                role = 'COMPANY_ADMIN';
-                name = 'مسؤول شركة جديد';
+              if (companyId) {
+                const companySnap = await getDoc(doc(db, getCompaniesCollectionName(), companyId)).catch(() => null);
+                const compData = companySnap?.exists() ? companySnap.data() : null;
+                name = compData?.ownerName || compData?.nameAr || name;
               }
 
               await setDoc(doc(db, 'users', firebaseUser.uid), {
@@ -198,6 +255,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (isSuperAdminEmail(userEmail)) {
             role = 'SUPER_ADMIN';
             name = name || 'مدير النظام';
+            companyId = undefined;
+          } else if (String(role).toUpperCase() === 'TENANT_ADMIN') {
+            role = 'COMPANY_ADMIN';
           }
 
           let jwt = 'session-token';

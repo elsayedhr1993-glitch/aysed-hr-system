@@ -1,4 +1,6 @@
 import crypto from 'crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { initializeApp, cert, getApps, App } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -107,10 +109,30 @@ export function getAdminApp(): App | null {
   return adminApp;
 }
 
+function resolveFirestoreDatabaseId(): string | undefined {
+  const fromEnv =
+    process.env.FIRESTORE_DATABASE_ID ||
+    process.env.FIREBASE_FIRESTORE_DATABASE_ID ||
+    '';
+  if (fromEnv.trim()) return fromEnv.trim();
+
+  try {
+    const configPath = join(process.cwd(), 'firebase-applet-config.json');
+    const raw = readFileSync(configPath, 'utf8');
+    const parsed = JSON.parse(raw) as { firestoreDatabaseId?: string };
+    if (parsed.firestoreDatabaseId?.trim()) return parsed.firestoreDatabaseId.trim();
+  } catch {
+    /* optional local config */
+  }
+
+  return 'ai-studio-remixaysedshr202-98c882d5-9491-4f4b-a838-c6b0b10a0472';
+}
+
 export function getAdminFirestore() {
   if (!getAdminAuth() || !adminApp) return null;
   try {
-    return getFirestore(adminApp);
+    const databaseId = resolveFirestoreDatabaseId();
+    return databaseId ? getFirestore(adminApp, databaseId) : getFirestore(adminApp);
   } catch {
     return null;
   }
