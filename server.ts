@@ -6,8 +6,6 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import nodemailer from "nodemailer";
-import { initializeApp, cert, getApps, App } from "firebase-admin/app";
-import { getAuth } from "firebase-admin/auth";
 import { getFirestore, FieldPath } from "firebase-admin/firestore";
 import { 
   sendWelcomeEmail, 
@@ -29,6 +27,10 @@ import {
   validateSettlementConstraints
 } from "./server/leaveCalculatorServer.ts";
 import { registerAiChatRoute } from "./server/aiChat.ts";
+import { handleAiTestKeyRequest } from "./server/aiTestKeyCore.ts";
+import { requireFirebaseAuthFromHeader, resolveCallerRole } from "./server/apiAuth.ts";
+import { getAdminApp, getAdminAuth, getAdminFirestore } from "./server/firebaseAdmin.ts";
+import { getGeminiClient } from "./server/geminiServer.ts";
 import { getConnectivityTestModels, getOcrModelCandidates } from "./src/config/aiConfig.ts";
 
 dotenv.config();
@@ -69,131 +71,7 @@ app.use((req, res, next) => {
   next();
 });
 
-let adminApp: App | null = null;
-let authAdmin: ReturnType<typeof getAuth> | null = null;
-let firebaseAdminInitAttempted = false;
-
-function normalizeAndValidatePrivateKey(rawKey: any): string | null {
-  if (!rawKey || typeof rawKey !== 'string') return null;
-  let key = rawKey.trim();
-  if (key.startsWith('"') && key.endsWith('"')) {
-    key = key.slice(1, -1);
-  }
-  key = key.replace(/\\n/g, '\n').trim();
-
-  // Basic check for PEM headers
-  if (!key.includes('-----BEGIN') || !key.includes('KEY-----')) {
-    return null;
-  }
-
-  const beginMatch = key.match(/-----BEGIN [A-Z0-9_\-\s]+KEY-----/);
-  const endMatch = key.match(/-----END [A-Z0-9_\-\s]+KEY-----/);
-  if (!beginMatch || !endMatch) {
-    return null;
-  }
-
-  const header = beginMatch[0];
-  const footer = endMatch[0];
-  const startIndex = key.indexOf(header) + header.length;
-  const endIndex = key.indexOf(footer);
-  if (startIndex >= endIndex) return null;
-
-  const rawBase64 = key.substring(startIndex, endIndex).replace(/\s+/g, '');
-  if (!rawBase64 || rawBase64.length < 50) return null;
-
-  const chunks = rawBase64.match(/.{1,64}/g);
-  if (!chunks) return null;
-
-  const formattedKey = `${header}\n${chunks.join('\n')}\n${footer}\n`;
-
-  try {
-    crypto.createPrivateKey(formattedKey);
-    return formattedKey;
-  } catch {
-    return null;
-  }
-}
-
-function getAdminAuth(): ReturnType<typeof getAuth> | null {
-  if (authAdmin) return authAdmin;
-  if (firebaseAdminInitAttempted && !adminApp) return null;
-  firebaseAdminInitAttempted = true;
-
-  try {
-    let rawCreds = process.env.FIREBASE_SERVICE_ACCOUNT;
-    if (!rawCreds || rawCreds.trim() === "" || rawCreds.includes("YOUR_")) {
-      return null;
-    }
-    rawCreds = rawCreds.trim();
-    let parsedServiceAccount: any;
-    if (rawCreds.startsWith('{')) {
-      parsedServiceAccount = JSON.parse(rawCreds);
-    } else if (rawCreds.startsWith('"{') && rawCreds.endsWith('}"')) {
-      parsedServiceAccount = JSON.parse(JSON.parse(rawCreds));
-    } else {
-      try {
-        const decoded = Buffer.from(rawCreds, 'base64').toString('utf8');
-        if (decoded.trim().startsWith('{')) {
-          parsedServiceAccount = JSON.parse(decoded);
-        } else {
-          parsedServiceAccount = JSON.parse(rawCreds);
-        }
-      } catch {
-        parsedServiceAccount = JSON.parse(rawCreds);
-      }
-    }
-
-    if (parsedServiceAccount && (parsedServiceAccount.private_key || parsedServiceAccount.client_email)) {
-      const validKey = normalizeAndValidatePrivateKey(parsedServiceAccount.private_key);
-      if (!validKey) {
-        return null;
-      }
-      parsedServiceAccount.private_key = validKey;
-
-      if (getApps().length === 0) {
-        adminApp = initializeApp({
-          credential: cert(parsedServiceAccount)
-        });
-      } else {
-        adminApp = getApps()[0];
-      }
-      authAdmin = getAuth(adminApp);
-      console.log("[Firebase Admin] initialized successfully");
-      return authAdmin;
-    }
-  } catch (err: any) {
-    return null;
-  }
-  return null;
-}
-
-function getAdminFirestore() {
-  if (!getAdminAuth() || !adminApp) return null;
-  try {
-    return getFirestore(adminApp);
-  } catch {
-    return null;
-  }
-}
-
 app.use(express.json({ limit: "25mb" }));
-
-// Initialize Gemini client strictly from server environment only.
-function getGeminiClient() {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.VITE_GEMINI_API_KEY;
-
-  if (!apiKey || apiKey.trim() === "" || apiKey.includes("YOUR_")) {
-    return null;
-  }
-  return new GoogleGenAI({
-    apiKey: apiKey.trim(),
-    httpOptions: {
-      headers: {
-        "User-Agent": "aistudio-build",
-      },
-    },
-  });
-}
 
 let supabaseAdminClient: any = null;
 function getSupabaseAdmin() {
@@ -269,7 +147,7 @@ function buildFacilityAlertMessage(companyName: string, label: string, daysRemai
 async function runFacilityLicenseAudit(trigger = "AUTOMATED"): Promise<FacilityAuditResult> {
   const executedAt = new Date().toISOString();
   const admin = getAdminAuth();
-  if (!admin || !adminApp) {
+  if (!admin || !getAdminApp()) {
     const fallback: FacilityAuditResult = {
       success: false,
       scannedCompanies: 0,
@@ -294,7 +172,7 @@ async function runFacilityLicenseAudit(trigger = "AUTOMATED"): Promise<FacilityA
   };
 
   try {
-    const adminDb = getFirestore(adminApp);
+    const adminDb = getFirestore(getAdminApp());
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const dayKey = toIsoDate(today);
@@ -707,53 +585,9 @@ app.get("/api/system/env-health", async (req, res) => {
 
 // Test Gemini API Key endpoint for Settings / Admin Panel
 app.post("/api/ai/test-key", async (req, res) => {
-  try {
-    const authCheck = await requireFirebaseAuth(req, res);
-    if (!authCheck.ok) {
-      return res.status(401).json({ success: false, error: authCheck.error });
-    }
-
-    const client = getGeminiClient();
-    if (!client) {
-      return res.status(400).json({ 
-        success: false, 
-        error: "مفتاح Gemini API غير مهيأ على الخادم. يرجى ضبط GEMINI_API_KEY في بيئة التشغيل." 
-      });
-    }
-
-    const modelsToTry = getConnectivityTestModels();
-    let lastError: any = null;
-    const startTime = Date.now();
-
-    for (const modelName of modelsToTry) {
-      try {
-        const response = await client.models.generateContent({
-          model: modelName,
-          contents: "مرحباً، قم بتأكيد فحص الاتصال بالرد بكلمة 'READY' فقط."
-        });
-        const duration = Date.now() - startTime;
-        if (response.text) {
-          return res.json({
-            success: true,
-            model: modelName,
-            reply: response.text.trim(),
-            responseTimeMs: duration,
-            message: `تم الاتصال والتحقق بنجاح من محرك الذكاء الاصطناعي (${modelName}) خلال ${duration}ms.`
-          });
-        }
-      } catch (err: any) {
-        lastError = err;
-      }
-    }
-
-    return res.status(500).json({
-      success: false,
-      error: "تعذر الاتصال بمحرك الذكاء الاصطناعي بمفتاح الخادم.",
-      details: lastError?.message || String(lastError)
-    });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
+  const authHeader = req.headers.authorization || req.headers.Authorization;
+  const result = await handleAiTestKeyRequest(authHeader as string | undefined);
+  return res.status(result.status).json(result.body);
 });
 
 // ---------------------------------------------------------------------------
@@ -919,7 +753,7 @@ app.post("/api/guards/clean-duplicate-punches", (req, res) => {
 // [3] الحارس الدوري الليلي (Cron Job Health Check & Residency Audit)
 app.all("/api/guards/nightly-audit", async (req, res) => {
   try {
-    const db = adminApp ? getFirestore(adminApp) : null;
+    const db = getAdminApp() ? getFirestore(getAdminApp()) : null;
     const report = await runNightlyAudit(db);
     return res.json({
       success: true,
@@ -1431,72 +1265,7 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
 // Odoo Enterprise AI Copilot Chat Endpoint
 async function requireFirebaseAuth(req: any, _res?: any) {
   const authHeader = req?.headers?.authorization || req?.headers?.Authorization;
-  if (!authHeader || typeof authHeader !== 'string') {
-    return { ok: false, error: 'Missing Authorization header', status: 401 };
-  }
-
-  const match = authHeader.match(/^Bearer\s+(.+)$/i);
-  if (!match) {
-    return { ok: false, error: 'Invalid Authorization format', status: 401 };
-  }
-
-  const token = match[1].trim();
-  if (!token || token.length < 20) {
-    return { ok: false, error: 'Invalid token format', status: 401 };
-  }
-
-  const auth = getAdminAuth();
-  if (!auth) {
-    return { ok: false, error: 'Firebase admin not configured', status: 503 };
-  }
-
-  try {
-    const decoded = await auth.verifyIdToken(token);
-    return {
-      ok: true,
-      token,
-      uid: decoded.uid,
-      email: String(decoded.email || '').toLowerCase(),
-      claims: decoded,
-      status: 200,
-    };
-  } catch {
-    return { ok: false, error: 'Invalid Firebase ID token', status: 401 };
-  }
-}
-
-async function resolveCallerRole(authCheck: {
-  uid: string;
-  email?: string;
-  claims?: Record<string, any>;
-}): Promise<{ role: string; companyId?: string }> {
-  const claimRole = String(authCheck.claims?.role || '').toUpperCase();
-  const claimCompanyId = authCheck.claims?.companyId
-    ? String(authCheck.claims.companyId)
-    : undefined;
-
-  if (claimRole === 'SUPER_ADMIN' || claimRole === 'COMPANY_ADMIN' || claimRole === 'TENANT_ADMIN') {
-    return { role: claimRole === 'TENANT_ADMIN' ? 'COMPANY_ADMIN' : claimRole, companyId: claimCompanyId };
-  }
-
-  try {
-    const dbAdmin = getAdminFirestore();
-    if (dbAdmin) {
-      const snap = await dbAdmin.collection('users').doc(authCheck.uid).get();
-      if (snap.exists) {
-        const data = snap.data() || {};
-        const role = String(data.role || 'COMPANY_ADMIN').toUpperCase();
-        return {
-          role: role === 'TENANT_ADMIN' ? 'COMPANY_ADMIN' : role,
-          companyId: data.companyId ? String(data.companyId) : claimCompanyId,
-        };
-      }
-    }
-  } catch (err) {
-    console.warn('[Auth] Failed to resolve role from Firestore users doc:', err);
-  }
-
-  return { role: 'COMPANY_ADMIN', companyId: claimCompanyId };
+  return requireFirebaseAuthFromHeader(authHeader);
 }
 
 async function requireSuperAdmin(req: any, _res?: any) {
@@ -1529,11 +1298,7 @@ function rejectUnauthorized(res: any, authCheck: { error?: string; status?: numb
   });
 }
 
-registerAiChatRoute(app, {
-  requireFirebaseAuth,
-  resolveCallerRole,
-  getGeminiClient,
-});
+registerAiChatRoute(app, { requireFirebaseAuth, resolveCallerRole, getGeminiClient });
 
 // ---------------------------------------------------------------------------
 // ZKTECO & BIOMETRIC REALTIME AUTO-SYNC API ENDPOINTS
@@ -1592,9 +1357,9 @@ app.post("/api/attendance/live-push", async (req, res) => {
       if (livePunchesCache.length > 500) livePunchesCache.pop();
       processedList.push(punchItem);
 
-      if (adminApp) {
+      if (getAdminApp()) {
         try {
-          const db = getFirestore(adminApp);
+          const db = getFirestore(getAdminApp());
           const attDocId = `att-live-${effCompId}-${empCode}-${dateStr}`;
           const attRef = db.collection("attendance").doc(attDocId);
           const snap = await attRef.get();
@@ -1691,8 +1456,8 @@ app.all(["/iclock/cdata", "/api/zkteco/iclock/cdata"], async (req, res) => {
           livePunchesCache.unshift(punchItem);
           if (livePunchesCache.length > 500) livePunchesCache.pop();
 
-          if (adminApp) {
-            const db = getFirestore(adminApp);
+          if (getAdminApp()) {
+            const db = getFirestore(getAdminApp());
             const attDocId = `att-live-${effCompId}-${empCode}-${dateStr}`;
             const attRef = db.collection("attendance").doc(attDocId);
             const snap = await attRef.get();
@@ -1973,9 +1738,9 @@ async function executeSystemBackupCore(clientSnapshot?: any, triggerSource = 'MA
     let totalRecords = 0;
 
     // 1. If Firestore Admin is initialized on server, dump directly from Firestore
-    if (adminApp) {
+    if (getAdminApp()) {
       try {
-        const db = getFirestore(adminApp);
+        const db = getFirestore(getAdminApp());
         const colNames = [
           'companies', 'employees', 'contracts', 'leave_requests', 'leave_allocations',
           'leave_settlements', 'attendance', 'payslips', 'payroll_runs',
