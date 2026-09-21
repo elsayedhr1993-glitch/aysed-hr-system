@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { DocumentItem, Employee } from '../../types';
 import { X, Upload, FileText, User, Calendar, Shield, CheckCircle2, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { createArchiveDocumentId } from '../../utils/documentArchiveUtils';
 
 interface DirectDocumentUploadModalProps {
   isOpen: boolean;
@@ -120,7 +121,7 @@ export const DirectDocumentUploadModal: React.FC<DirectDocumentUploadModalProps>
     }
 
     const newDoc: DocumentItem = {
-      id: `doc-${Date.now()}`,
+      id: createArchiveDocumentId(),
       companyId: companyId || 'default',
       employeeId: targetType === 'employee' ? selectedEmpId : undefined,
       title: title.trim(),

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Company } from '../types';
 import { CompanyDocument, getDocumentStatus } from '../types/companyDocuments';
+import { createArchiveDocumentId } from '../utils/documentArchiveUtils';
 import { CompanyLicensesPrintModal } from './documents/CompanyLicensesPrintModal';
 import { exportToExcel } from '../utils/exportUtils';
 import {
@@ -40,7 +41,8 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [selectedDoc, setSelectedDoc] = useState<CompanyDocument | null>(null);
+  const [editingDoc, setEditingDoc] = useState<CompanyDocument | null>(null);
+  const [detailDoc, setDetailDoc] = useState<CompanyDocument | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   // Form state for creating / editing
@@ -126,6 +128,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
   };
 
   const handleOpenAdd = () => {
+    setEditingDoc(null);
     setFormData({
       name: '',
       documentType: 'commercial_license',
@@ -148,7 +151,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
     }
 
     const newDoc: CompanyDocument = {
-      id: selectedDoc ? selectedDoc.id : `doc-${Date.now()}`,
+      id: editingDoc ? editingDoc.id : createArchiveDocumentId('company-doc'),
       name: formData.name,
       documentType: (formData.documentType as any) || 'commercial_license',
       documentNumber: formData.documentNumber,
@@ -161,9 +164,9 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
     };
 
     onSaveDocument(newDoc);
-    toast.success(selectedDoc ? 'تم تحديث الترخيص بنجاح' : 'تم إضافة الترخيص بنجاح');
+    toast.success(editingDoc ? 'تم تحديث الترخيص بنجاح' : 'تم إضافة الترخيص بنجاح');
     setShowModal(false);
-    setSelectedDoc(null);
+    setEditingDoc(null);
   };
 
   const printCompany: Company = company || {
@@ -389,7 +392,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
               <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between">
                 <button 
                   onClick={() => {
-                    setSelectedDoc(doc);
+                    setDetailDoc(doc);
                     setIsDetailModalOpen(true);
                   }}
                   className="text-xs text-[#714B67] hover:text-[#5c3c53] font-bold flex items-center gap-1">
@@ -475,7 +478,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
                       <button
                         type="button"
                         onClick={() => {
-                          setSelectedDoc(doc);
+                          setDetailDoc(doc);
                           setIsDetailModalOpen(true);
                         }}
                         className="text-[#714B67] font-bold hover:underline"
@@ -506,9 +509,15 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
             <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
               <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                 <Shield className="w-5 h-5 text-[#714B67]" />
-                {selectedDoc ? 'تعديل بيانات الترخيص' : 'إضافة ترخيص أو مستند جديد'}
+                {editingDoc ? 'تعديل بيانات الترخيص' : 'إضافة ترخيص أو مستند جديد'}
               </h3>
-              <button onClick={() => setShowModal(false)} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition">
+              <button
+                onClick={() => {
+                  setShowModal(false);
+                  setEditingDoc(null);
+                }}
+                className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -628,7 +637,10 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
               <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={() => {
+                    setShowModal(false);
+                    setEditingDoc(null);
+                  }}
                   className="px-4 py-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
                 >
                   إلغاء
@@ -646,7 +658,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
       )}
 
       {/* Details Modal */}
-      {isDetailModalOpen && selectedDoc && (
+      {isDetailModalOpen && detailDoc && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-slate-100 flex flex-col">
             <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
@@ -663,11 +675,11 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
               <div className="flex justify-between items-center bg-slate-50 p-3 rounded-lg border border-slate-100">
                 <div>
                   <span className="text-xs text-slate-400 block mb-0.5">رقم ترخيص وزارة الصحة:</span>
-                  <span className="font-mono font-bold text-slate-800 text-sm">{selectedDoc.documentNumber}</span>
+                  <span className="font-mono font-bold text-slate-800 text-sm">{detailDoc.documentNumber}</span>
                 </div>
                 <div>
                   {(() => {
-                    const { badgeColor, badgeLabel } = getDocumentStatus(selectedDoc.expiryDate);
+                    const { badgeColor, badgeLabel } = getDocumentStatus(detailDoc.expiryDate);
                     return (
                       <span className={`text-xs px-3 py-1 rounded-full font-semibold border ${badgeColor}`}>
                         {badgeLabel}
@@ -680,42 +692,42 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
               <div className="space-y-3 text-xs text-slate-700">
                 <div>
                   <span className="text-slate-400 block mb-0.5">اسم الترخيص:</span>
-                  <span className="font-bold text-sm text-slate-900">{selectedDoc.name}</span>
+                  <span className="font-bold text-sm text-slate-900">{detailDoc.name}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <span className="text-slate-400 block mb-0.5">نوع الترخيص:</span>
-                    <span className="font-medium">{typeLabels[selectedDoc.documentType]}</span>
+                    <span className="font-medium">{typeLabels[detailDoc.documentType]}</span>
                   </div>
                   <div>
                     <span className="text-slate-400 block mb-0.5">جهة الإصدار:</span>
-                    <span className="font-medium">{selectedDoc.issuingAuthority}</span>
+                    <span className="font-medium">{detailDoc.issuingAuthority}</span>
                   </div>
                   <div>
                     <span className="text-slate-400 block mb-0.5">تاريخ الإصدار:</span>
-                    <span className="font-mono font-medium">{selectedDoc.issueDate}</span>
+                    <span className="font-mono font-medium">{detailDoc.issueDate}</span>
                   </div>
                   <div>
                     <span className="text-slate-400 block mb-0.5">تاريخ الانتهاء:</span>
-                    <span className="font-mono font-medium text-red-600">{selectedDoc.expiryDate}</span>
+                    <span className="font-mono font-medium text-red-600">{detailDoc.expiryDate}</span>
                   </div>
                 </div>
                 <div>
                   <span className="text-slate-400 block mb-0.5">الموظف / المندوب المسؤول:</span>
-                  <span className="font-medium text-slate-800">{selectedDoc.responsiblePerson}</span>
+                  <span className="font-medium text-slate-800">{detailDoc.responsiblePerson}</span>
                 </div>
-                {selectedDoc.notes && (
+                {detailDoc.notes && (
                   <div>
                     <span className="text-slate-400 block mb-0.5">ملاحظات:</span>
-                    <p className="p-2 bg-slate-50 rounded border border-slate-100 text-slate-600">{selectedDoc.notes}</p>
+                    <p className="p-2 bg-slate-50 rounded border border-slate-100 text-slate-600">{detailDoc.notes}</p>
                   </div>
                 )}
               </div>
 
               <div className="pt-4 border-t border-slate-100 flex justify-between items-center">
-                {selectedDoc.fileUrl && selectedDoc.fileUrl !== '#' ? (
+                {detailDoc.fileUrl && detailDoc.fileUrl !== '#' ? (
                   <a
-                    href={selectedDoc.fileUrl}
+                    href={detailDoc.fileUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-2 transition"

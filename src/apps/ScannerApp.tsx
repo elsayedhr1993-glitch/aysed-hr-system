@@ -12,6 +12,7 @@ import { DocumentPreviewModal } from '../components/documents/DocumentPreviewMod
 import { storage } from '../lib/firebase';
 import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import toast from 'react-hot-toast';
+import { createArchiveDocumentId } from '../utils/documentArchiveUtils';
 
 interface ScannerAppProps {
   documents: DocumentItem[];
@@ -365,7 +366,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
 
     const docNumber = data.civilId || data.passportNo || data.documentNumber || data.mohLicenseNo || '';
     const newDoc: DocumentItem = {
-      id: `doc-${Date.now()}`,
+      id: createArchiveDocumentId(),
       companyId: activeCompany?.id || '',
       employeeId: employeeId,
       title: `${scanResult.docType} - ${data.fullNameAr || data.fullNameEn || scanResult.fileName}`,
