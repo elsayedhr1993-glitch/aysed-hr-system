@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   Users,
   Search,
@@ -75,6 +75,7 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
   children,
 }) => {
   const actionsRef = useRef<HTMLDivElement>(null);
+  const [workspaceMoreOpen, setWorkspaceMoreOpen] = useState(false);
 
   useEffect(() => {
     if (!actionsMenuOpen) return;
@@ -94,7 +95,11 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
 
   return (
     <div className="flex-1 flex flex-col w-full min-h-0 bg-slate-50/80">
-      <div className="bg-white border border-slate-200/80 rounded-xl shadow-2xs mb-2 overflow-hidden shrink-0">
+      <div
+        className={`relative bg-white border border-slate-200/80 rounded-xl shadow-2xs mb-2 overflow-visible shrink-0 ${
+          workspaceMoreOpen ? 'z-50' : 'z-20'
+        }`}
+      >
         {/* صف واحد: مسار + إجراءات */}
         <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-b border-slate-100">
           <nav className="flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-slate-600 min-w-0">
@@ -163,31 +168,13 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
           </div>
         </div>
 
-        <div className="px-2 pt-1 relative z-30">
-          <CompactTabBar
-            tabs={[
-              { id: 'directory', label: 'دليل الموظفين', shortLabel: 'الدليل', icon: <Users size={14} /> },
-            ]}
-            moreItems={[
-              { id: 'contracts', label: 'سجل العقود والرواتب', icon: <FileText size={13} /> },
-              { id: 'commencement', label: 'إقرارات المباشرة', icon: <Stethoscope size={13} /> },
-              { id: 'onboarding', label: 'خطة التهيئة', icon: <Rocket size={13} /> },
-              { id: 'orgchart', label: 'الهيكل التنظيمي', icon: <Network size={13} /> },
-            ]}
-            activeTabId={activeTab === 'directory' ? 'directory' : ''}
-            activeMoreId={activeTab !== 'directory' ? activeTab : undefined}
-            onTabChange={(id) => onTabChange(id as EmployeesWorkspaceTab)}
-            onMoreChange={(id) => onTabChange(id as EmployeesWorkspaceTab)}
-          />
-        </div>
-
         {showDirectoryTools && (
           <div
-            className={`px-3 pb-2.5 pt-0 space-y-2 border-t border-slate-50 relative z-10 ${
+            className={`px-3 py-2 space-y-2 border-t border-slate-50 ${
               isDirectoryLoading ? 'opacity-60 pointer-events-none' : ''
             }`}
           >
-            <div className="flex flex-wrap items-center gap-2 pt-2">
+            <div className="flex flex-wrap items-center gap-2">
               <div className="relative flex-1 min-w-[160px]">
                 <Search size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 <input
@@ -231,9 +218,34 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
             {kpiBar ? <div className="flex flex-wrap items-center gap-1.5">{kpiBar}</div> : null}
           </div>
         )}
+
+        <div className="px-2 pt-1 pb-1 relative z-30 isolate">
+          <CompactTabBar
+            tabs={[
+              { id: 'directory', label: 'دليل الموظفين', shortLabel: 'الدليل', icon: <Users size={14} /> },
+            ]}
+            moreItems={[
+              { id: 'contracts', label: 'سجل العقود والرواتب', icon: <FileText size={13} /> },
+              { id: 'commencement', label: 'إقرارات المباشرة', icon: <Stethoscope size={13} /> },
+              { id: 'onboarding', label: 'خطة التهيئة', icon: <Rocket size={13} /> },
+              { id: 'orgchart', label: 'الهيكل التنظيمي', icon: <Network size={13} /> },
+            ]}
+            activeTabId={activeTab === 'directory' ? 'directory' : ''}
+            activeMoreId={activeTab !== 'directory' ? activeTab : undefined}
+            onTabChange={(id) => onTabChange(id as EmployeesWorkspaceTab)}
+            onMoreChange={(id) => onTabChange(id as EmployeesWorkspaceTab)}
+            onMoreMenuOpenChange={setWorkspaceMoreOpen}
+          />
+        </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-auto px-0.5">{children}</div>
+      <div
+        className={`relative z-0 flex-1 min-h-0 overflow-auto px-0.5 ${
+          workspaceMoreOpen ? 'pointer-events-none select-none' : ''
+        }`}
+      >
+        {children}
+      </div>
     </div>
   );
 };
