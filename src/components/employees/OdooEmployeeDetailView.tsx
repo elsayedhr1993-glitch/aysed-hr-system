@@ -60,6 +60,11 @@ import { calculateKuwaitDailyRate } from '../../utils/kuwaitPayrollMath';
 import { deleteEmployeeDocument, saveEmployeeDocument } from '../../services/documentService';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
+import { CompactTabBar } from '../ui/CompactTabBar';
+import {
+  EMPLOYEE_DETAIL_COMPACT_STORAGE_KEY,
+  readEmployeeDetailCompactPreference,
+} from '../../config/uiPilotFlags';
 
 interface Props {
   employee: any;
@@ -99,6 +104,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
 
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'work' | 'contract' | 'commencement' | 'private' | 'documents' | 'hr'>('work');
+  const [compactEmployeeUI, setCompactEmployeeUI] = useState(() => readEmployeeDetailCompactPreference());
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
@@ -594,8 +600,38 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
         
         {/* Top Header Row: Smart Stat Buttons in top-corner (RTL: top-left) */}
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
-          <div className="text-xs font-bold text-slate-400">
+          <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-400">
             <span>بطاقة بيانات الموظف الرسمية</span>
+            <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200/80 text-[10px] font-bold">
+              <button
+                type="button"
+                onClick={() => {
+                  setCompactEmployeeUI(true);
+                  try {
+                    localStorage.setItem(EMPLOYEE_DETAIL_COMPACT_STORAGE_KEY, '1');
+                  } catch {}
+                }}
+                className={`px-2 py-0.5 rounded-md cursor-pointer transition ${
+                  compactEmployeeUI ? 'bg-white text-[#714B67] shadow-2xs' : 'text-slate-500'
+                }`}
+              >
+                مبسّط
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCompactEmployeeUI(false);
+                  try {
+                    localStorage.setItem(EMPLOYEE_DETAIL_COMPACT_STORAGE_KEY, '0');
+                  } catch {}
+                }}
+                className={`px-2 py-0.5 rounded-md cursor-pointer transition ${
+                  !compactEmployeeUI ? 'bg-white text-slate-800 shadow-2xs' : 'text-slate-500'
+                }`}
+              >
+                كلاسيكي
+              </button>
+            </div>
           </div>
 
           {/* Smart Stat Buttons in a single clean horizontal row */}
@@ -1031,88 +1067,111 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
           );
         })()}
 
-        {/* Clean Notebook Tabs Bar */}
-        <div className="border-b border-slate-200 flex items-center gap-2 overflow-x-auto pt-2">
-          
-          <button
-            type="button"
-            onClick={() => setActiveTab('work')}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 shrink-0 cursor-pointer duration-200 ${
-              activeTab === 'work'
-                ? 'bg-white text-[#714B67] shadow-sm ring-1 ring-slate-200/50'
-                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
-            }`}
-          >
-            <Briefcase size={15} />
-            <span>معلومات العمل (Work Information)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('contract')}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 shrink-0 cursor-pointer duration-200 ${
-              activeTab === 'contract'
-                ? 'bg-white text-[#714B67] shadow-sm ring-1 ring-slate-200/50'
-                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
-            }`}
-          >
-            <span>📄</span>
-            <span>عقد العمل والبدلات (Contract & Salary)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('commencement')}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 shrink-0 cursor-pointer duration-200 ${
-              activeTab === 'commencement'
-                ? 'bg-white text-[#714B67] shadow-sm ring-1 ring-slate-200/50'
-                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
-            }`}
-          >
-            <span>🚀</span>
-            <span>إقرار المباشرة والجاهزية (Job Commencement)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('private')}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 shrink-0 cursor-pointer duration-200 ${
-              activeTab === 'private'
-                ? 'bg-white text-[#714B67] shadow-sm ring-1 ring-slate-200/50'
-                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
-            }`}
-          >
-            <UserCheck size={15} />
-            <span>البيانات الشخصية (Private Information)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('documents')}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 shrink-0 cursor-pointer duration-200 ${
-              activeTab === 'documents'
-                ? 'bg-white text-[#714B67] shadow-sm ring-1 ring-slate-200/50'
-                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
-            }`}
-          >
-            <FileSpreadsheet size={15} />
-            <span>المستندات والتراخيص الكويتية (Documents)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('hr')}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 shrink-0 cursor-pointer duration-200 ${
-              activeTab === 'hr'
-                ? 'bg-white text-[#714B67] shadow-sm ring-1 ring-slate-200/50'
-                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
-            }`}
-          >
-            <Building2 size={15} />
-            <span>إعدادات الموارد البشرية (HR Settings)</span>
-          </button>
-
-        </div>
+        {compactEmployeeUI ? (
+          <CompactTabBar
+            tabs={[
+              { id: 'work', label: 'العام — العمل والدوام', shortLabel: 'العام', icon: <Briefcase size={15} /> },
+              {
+                id: 'contract',
+                label: 'عقد العمل والبدلات',
+                shortLabel: 'العقد والبدلات',
+                icon: <FileText size={15} />,
+              },
+              {
+                id: 'documents',
+                label: 'المستندات والتراخيص',
+                shortLabel: 'المستندات',
+                icon: <FileSpreadsheet size={15} />,
+              },
+            ]}
+            moreItems={[
+              { id: 'private', label: 'البيانات الشخصية والبنكية', icon: <UserCheck size={14} /> },
+              { id: 'commencement', label: 'إقرار المباشرة', icon: <span>🚀</span> },
+              { id: 'hr', label: 'إعدادات الموارد البشرية', icon: <Building2 size={14} /> },
+            ]}
+            activeTabId={
+              ['work', 'contract', 'documents'].includes(activeTab) ? activeTab : ''
+            }
+            activeMoreId={['private', 'commencement', 'hr'].includes(activeTab) ? activeTab : undefined}
+            onTabChange={(id) => setActiveTab(id as typeof activeTab)}
+            onMoreChange={(id) => setActiveTab(id as typeof activeTab)}
+          />
+        ) : (
+          <div className="border-b border-slate-200 flex items-center gap-2 overflow-x-auto pt-2">
+            <button
+              type="button"
+              onClick={() => setActiveTab('work')}
+              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 shrink-0 cursor-pointer duration-200 ${
+                activeTab === 'work'
+                  ? 'bg-white text-[#714B67] shadow-sm ring-1 ring-slate-200/50'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
+              }`}
+            >
+              <Briefcase size={15} />
+              <span>معلومات العمل (Work Information)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('contract')}
+              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 shrink-0 cursor-pointer duration-200 ${
+                activeTab === 'contract'
+                  ? 'bg-white text-[#714B67] shadow-sm ring-1 ring-slate-200/50'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
+              }`}
+            >
+              <span>📄</span>
+              <span>عقد العمل والبدلات (Contract & Salary)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('commencement')}
+              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 shrink-0 cursor-pointer duration-200 ${
+                activeTab === 'commencement'
+                  ? 'bg-white text-[#714B67] shadow-sm ring-1 ring-slate-200/50'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
+              }`}
+            >
+              <span>🚀</span>
+              <span>إقرار المباشرة والجاهزية (Job Commencement)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('private')}
+              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 shrink-0 cursor-pointer duration-200 ${
+                activeTab === 'private'
+                  ? 'bg-white text-[#714B67] shadow-sm ring-1 ring-slate-200/50'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
+              }`}
+            >
+              <UserCheck size={15} />
+              <span>البيانات الشخصية (Private Information)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('documents')}
+              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 shrink-0 cursor-pointer duration-200 ${
+                activeTab === 'documents'
+                  ? 'bg-white text-[#714B67] shadow-sm ring-1 ring-slate-200/50'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
+              }`}
+            >
+              <FileSpreadsheet size={15} />
+              <span>المستندات والتراخيص الكويتية (Documents)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('hr')}
+              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 shrink-0 cursor-pointer duration-200 ${
+                activeTab === 'hr'
+                  ? 'bg-white text-[#714B67] shadow-sm ring-1 ring-slate-200/50'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
+              }`}
+            >
+              <Building2 size={15} />
+              <span>إعدادات الموارد البشرية (HR Settings)</span>
+            </button>
+          </div>
+        )}
 
         {/* Tab 1: معلومات العمل (Work Information) */}
         {activeTab === 'work' && (
@@ -1123,6 +1182,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
             onOpenContracts={onOpenContracts}
             onOpenLeaveSettings={() => setActiveTab('hr')}
             displayedCarriedOverDays={getCarriedOverForDisplay()}
+            compact={compactEmployeeUI}
           />
         )}
 
@@ -1151,6 +1211,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
             isEditMode={isEditMode}
             handleFieldChange={handleFieldChange}
             handleOcrResult={handleOcrResult}
+            compact={compactEmployeeUI}
           />
         )}
         {activeTab === 'documents' && (

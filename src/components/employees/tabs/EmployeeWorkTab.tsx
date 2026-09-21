@@ -1,7 +1,8 @@
 import React from 'react';
-import { DollarSign, ExternalLink } from 'lucide-react';
+import { Briefcase, DollarSign, ExternalLink, Layers } from 'lucide-react';
 import { EditableField, EditableSelect } from '../../EditableField';
 import { calculateKuwaitDailyRate } from '../../../utils/kuwaitPayrollMath';
+import { CompactFormAccordion } from '../../ui/CompactFormAccordion';
 
 interface Props {
   employee: any;
@@ -11,6 +12,8 @@ interface Props {
   onOpenLeaveSettings?: () => void;
   /** عرض مرجعي من تخصيصات الإجازة (إن وُجد) */
   displayedCarriedOverDays?: number | string;
+  /** Pilot: حقول أساسية + أقسام قابلة للطي */
+  compact?: boolean;
 }
 
 export const EmployeeWorkTab: React.FC<Props> = ({
@@ -19,7 +22,8 @@ export const EmployeeWorkTab: React.FC<Props> = ({
   handleFieldChange,
   onOpenContracts,
   onOpenLeaveSettings,
-  displayedCarriedOverDays
+  displayedCarriedOverDays,
+  compact = false,
 }) => {
   const isMedicalStaff = ['الأطباء', 'التمريض'].includes(employee.dept || employee.department) || 
     employee.jobTitle?.includes('طبيب') || employee.jobTitle?.includes('ممرض');
@@ -40,6 +44,188 @@ export const EmployeeWorkTab: React.FC<Props> = ({
         : employee.carriedOverBalance !== undefined
           ? employee.carriedOverBalance
           : 0;
+
+  const financialBlock = (
+    <div className="pt-2 space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-slate-200/80">
+        <div className="flex items-center gap-2">
+          <DollarSign className="w-4 h-4 text-emerald-700" />
+          <span className="font-bold text-xs text-slate-900">حزمة الأجور (عرض من العقد)</span>
+          <span className="text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded font-bold">
+            WPS
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="text-xs font-mono font-bold flex items-center gap-3 text-slate-700">
+            <span>يوم: <strong className="text-purple-900">{dailyWage.toFixed(3)}</strong></span>
+            <span className="text-emerald-700">إجمالي {totalSalary.toFixed(3)} د.ك</span>
+          </div>
+          {onOpenContracts && (
+            <button
+              type="button"
+              onClick={onOpenContracts}
+              className="bg-slate-800 hover:bg-slate-900 text-white px-3 py-1.5 rounded-lg text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0"
+            >
+              <ExternalLink size={12} />
+              العقود
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="py-1">
+          <label className="block text-[10px] font-semibold text-slate-500 mb-1">أساسي</label>
+          <div className="font-mono font-bold text-slate-900 text-sm">{(Number(employee.basicSalary) || 0).toFixed(3)}</div>
+        </div>
+        <div className="py-1">
+          <label className="block text-[10px] font-semibold text-slate-500 mb-1">سكن</label>
+          <div className="font-mono font-bold text-slate-900 text-sm">{(Number(employee.housingAllowance) || 0).toFixed(3)}</div>
+        </div>
+        <div className="py-1">
+          <label className="block text-[10px] font-semibold text-slate-500 mb-1">انتقال</label>
+          <div className="font-mono font-bold text-slate-900 text-sm">{(Number(employee.transportAllowance) || 0).toFixed(3)}</div>
+        </div>
+        <div className="py-1">
+          <label className="block text-[10px] font-semibold text-slate-500 mb-1">طبي</label>
+          <div className="font-mono font-bold text-slate-900 text-sm">{(Number(employee.medicalAllowance) || 0).toFixed(3)}</div>
+        </div>
+        <div className="py-1">
+          <label className="block text-[10px] font-semibold text-slate-500 mb-1">أخرى</label>
+          <div className="font-mono font-bold text-slate-900 text-sm">
+            {(Number(employee.otherAllowances !== undefined ? employee.otherAllowances : employee.otherAllowance) || 0).toFixed(3)}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (compact) {
+    return (
+      <div className="space-y-5 animate-fade-in text-slate-900">
+        <div className="flex items-center gap-2 text-[10px] text-slate-500">
+          <span className="bg-[#714B67]/10 text-[#714B67] px-2 py-0.5 rounded-md font-bold">أساسي</span>
+          <span>المسمى، القسم، وبيانات التواصل — الحقول الإلزامية للتشغيل اليومي</span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
+          <EditableField
+            label="المسمى الوظيفي"
+            value={employee.jobTitle || ''}
+            onChange={(val) => handleFieldChange('jobTitle', val)}
+            isEditMode={isEditMode}
+            type="text"
+            placeholder="مثال: مسؤول موارد بشرية"
+          />
+          <EditableField
+            label="القسم / الإدارة"
+            value={employee.dept || employee.department || ''}
+            onChange={(val) => {
+              handleFieldChange('dept', val);
+              handleFieldChange('department', val);
+            }}
+            isEditMode={isEditMode}
+            type="text"
+            placeholder="الشؤون الإدارية"
+          />
+          <EditableField
+            label="هاتف العمل"
+            value={employee.phone || ''}
+            onChange={(val) => handleFieldChange('phone', val)}
+            isEditMode={isEditMode}
+            type="text"
+            placeholder="+965"
+          />
+          <EditableField
+            label="بريد العمل"
+            value={employee.email || ''}
+            onChange={(val) => handleFieldChange('email', val)}
+            isEditMode={isEditMode}
+            type="email"
+            placeholder="employee@company.com"
+          />
+        </div>
+
+        <CompactFormAccordion
+          title="معلومات إضافية — التنظيم والدوام"
+          subtitle="المدير، الموقع، الجدول، رصيد الإجازة المرجعي"
+          icon={<Briefcase size={16} />}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 pt-2">
+            <EditableField
+              label="المدير المباشر"
+              value={employee.manager || employee.directSupervisor || ''}
+              onChange={(val) => {
+                handleFieldChange('manager', val);
+                handleFieldChange('directSupervisor', val);
+              }}
+              isEditMode={isEditMode}
+              type="text"
+            />
+            <EditableField
+              label="موقع العمل"
+              value={employee.workLocation || ''}
+              onChange={(val) => handleFieldChange('workLocation', val)}
+              isEditMode={isEditMode}
+              type="text"
+            />
+            {isMedicalStaff && (
+              <EditableField
+                label="ترخيص MOH"
+                value={employee.mohLicense || ''}
+                onChange={(val) => handleFieldChange('mohLicense', val)}
+                isEditMode={isEditMode}
+                type="text"
+              />
+            )}
+            <div className="py-1">
+              <label className="block text-xs font-semibold text-slate-500 mb-1">تاريخ التعيين</label>
+              <div className="font-mono text-sm font-semibold text-slate-900">
+                {(employee.hireDate || employee.joinDate || '—').toString().slice(0, 10)}
+              </div>
+            </div>
+            <div className="py-1">
+              <label className="block text-xs font-semibold text-slate-500 mb-1">رصيد مرحّل (عرض)</label>
+              <div className="font-mono text-sm font-bold text-slate-900">{Number(carriedOverDisplay) || 0} يوم</div>
+              {onOpenLeaveSettings && (
+                <button
+                  type="button"
+                  onClick={onOpenLeaveSettings}
+                  className="mt-1 text-[11px] font-bold text-[#714B67] hover:underline cursor-pointer"
+                >
+                  إعدادات HR / كشف الرصيد
+                </button>
+              )}
+            </div>
+            <EditableSelect
+              label="جدول العمل"
+              value={employee.workingSchedule || 'standard_48h'}
+              onChange={(val) => handleFieldChange('workingSchedule', val)}
+              isEditMode={isEditMode}
+              options={[
+                { value: 'standard_48h', label: 'قياسي 48 ساعة' },
+                { value: 'shifts_rotational', label: 'ورديات' },
+                { value: 'part_time', label: 'جزئي' },
+              ]}
+            />
+          </div>
+        </CompactFormAccordion>
+
+        <CompactFormAccordion
+          title="تفاصيل متقدمة — الأجور والبدلات"
+          subtitle="قراءة فقط من العقد المعتمد"
+          icon={<Layers size={16} />}
+          badge={
+            <span className="text-[9px] bg-amber-50 text-amber-800 border border-amber-200 px-1.5 rounded font-bold">
+              عقد
+            </span>
+          }
+        >
+          {financialBlock}
+        </CompactFormAccordion>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-fade-in text-slate-900">
