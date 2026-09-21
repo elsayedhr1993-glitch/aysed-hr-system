@@ -170,6 +170,20 @@ export function normalizeEmployeeStatus(rawStatus?: string | null): EmployeeLife
   return 'ACTIVE';
 }
 
+/** على رأس العمل / مداوم (يشمل فترة التجربة والإنذار) */
+export function isEmployeeOnDuty(rawStatus?: string | null): boolean {
+  const code = normalizeEmployeeStatus(rawStatus);
+  return code === 'ACTIVE' || code === 'PROBATION' || code === 'NOTICE_PERIOD';
+}
+
+export function isEmployeeOnLeave(rawStatus?: string | null): boolean {
+  return normalizeEmployeeStatus(rawStatus) === 'ON_LEAVE';
+}
+
+export function isEmployeeOnboarding(rawStatus?: string | null): boolean {
+  return normalizeEmployeeStatus(rawStatus) === 'ONBOARDING';
+}
+
 /**
  * الحصول على البيانات المرئية وشارة الحالة
  */

@@ -46,6 +46,7 @@ interface EmployeesAppChromeProps {
   actionsMenu: React.ReactNode;
   employeesLayout: ScreenCustomLayout;
   kpiBar?: React.ReactNode;
+  isDirectoryLoading?: boolean;
   children: React.ReactNode;
 }
 
@@ -70,6 +71,7 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
   actionsMenu,
   employeesLayout,
   kpiBar,
+  isDirectoryLoading = false,
   children,
 }) => {
   const actionsRef = useRef<HTMLDivElement>(null);
@@ -161,7 +163,7 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
           </div>
         </div>
 
-        <div className="px-2 pt-1">
+        <div className="px-2 pt-1 relative z-30">
           <CompactTabBar
             tabs={[
               { id: 'directory', label: 'دليل الموظفين', shortLabel: 'الدليل', icon: <Users size={14} /> },
@@ -180,7 +182,11 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
         </div>
 
         {showDirectoryTools && (
-          <div className="px-3 pb-2.5 pt-0 space-y-2 border-t border-slate-50">
+          <div
+            className={`px-3 pb-2.5 pt-0 space-y-2 border-t border-slate-50 relative z-10 ${
+              isDirectoryLoading ? 'opacity-60 pointer-events-none' : ''
+            }`}
+          >
             <div className="flex flex-wrap items-center gap-2 pt-2">
               <div className="relative flex-1 min-w-[160px]">
                 <Search size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />

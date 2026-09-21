@@ -86,7 +86,7 @@ export const CompactTabBar: React.FC<CompactTabBarProps> = ({
           </button>
 
           {moreOpen && (
-            <div className="absolute left-0 top-full mt-1 z-50 w-56 bg-white border border-slate-200 rounded-xl shadow-lg p-1 animate-in fade-in duration-100">
+            <div className="absolute left-0 top-full mt-1 z-[120] w-56 bg-white border border-slate-200 rounded-xl shadow-lg p-1 animate-in fade-in duration-100">
               {moreItems.map((item) => (
                 <button
                   key={item.id}

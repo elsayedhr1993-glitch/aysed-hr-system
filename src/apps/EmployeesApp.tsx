@@ -27,7 +27,12 @@ import { collection, deleteDoc, doc, getDocs, onSnapshot, query, setDoc, where }
 import { cleanFirestoreData, db } from '../lib/firebase';
 import { changeEmployeeStatus } from '../services/employeeLifecycleService';
 import { mapEmployeeForEmployeesAppView } from '../utils/employeeMapper';
-import { normalizeEmployeeStatus } from '../utils/employeeLifecycle';
+import {
+  isEmployeeOnDuty,
+  isEmployeeOnLeave,
+  isEmployeeOnboarding,
+  normalizeEmployeeStatus,
+} from '../utils/employeeLifecycle';
 
 export const safePrintA4Document = (htmlContent: string) => {
   try {
@@ -1120,16 +1125,10 @@ export function EmployeesApp(props?: any) {
 
   const totalEmployeesCount = visibleEmployees.length;
 
-  const onDutyEmployees = visibleEmployees.filter(e => {
-    const st = (e.status || '').trim().toLowerCase();
-    return !st || st === 'على رأس العمل' || st === 'active' || st === 'نشط' || st === 'مداوم';
-  });
+  const onDutyEmployees = visibleEmployees.filter((e) => isEmployeeOnDuty(e.status));
   const onDutyCount = onDutyEmployees.length;
 
-  const onLeaveEmployees = visibleEmployees.filter(e => {
-    const st = (e.status || '').trim().toLowerCase();
-    return st === 'في إجازة' || st === 'إجازة' || st === 'leave' || st === 'on_leave';
-  });
+  const onLeaveEmployees = visibleEmployees.filter((e) => isEmployeeOnLeave(e.status));
   const onLeaveCount = onLeaveEmployees.length;
 
   const residencyExpiringEmployees = visibleEmployees.filter(checkResidencyExpiringSoon);
@@ -1148,17 +1147,16 @@ export function EmployeesApp(props?: any) {
     const empDept = emp.dept || emp.department || '';
     const matchDept = selectedDept === null || !selectedDept || empDept === selectedDept || empDept.includes(selectedDept) || selectedDept.includes(empDept);
     
-    const empStatus = (emp.status || '').trim().toLowerCase();
     let matchStatus = true;
     if (selectedStatus) {
       if (selectedStatus === 'على رأس العمل') {
-        matchStatus = !empStatus || empStatus === 'على رأس العمل' || empStatus === 'active' || empStatus === 'نشط' || empStatus === 'مداوم';
+        matchStatus = isEmployeeOnDuty(emp.status);
       } else if (selectedStatus === 'في إجازة') {
-        matchStatus = empStatus === 'في إجازة' || empStatus === 'إجازة' || empStatus === 'leave' || empStatus === 'on_leave';
+        matchStatus = isEmployeeOnLeave(emp.status);
       } else if (selectedStatus === 'قيد التعيين') {
-        matchStatus = empStatus.includes('تعيين') || empStatus.includes('onboarding');
+        matchStatus = isEmployeeOnboarding(emp.status);
       } else {
-        matchStatus = empStatus === selectedStatus.toLowerCase();
+        matchStatus = String(emp.status || '').trim() === selectedStatus;
       }
     }
 
@@ -1171,9 +1169,9 @@ export function EmployeesApp(props?: any) {
 
     let matchesKpi = true;
     if (kpiFilter === 'on_duty') {
-      matchesKpi = !empStatus || empStatus === 'على رأس العمل' || empStatus === 'active' || empStatus === 'نشط' || empStatus === 'مداوم';
+      matchesKpi = isEmployeeOnDuty(emp.status);
     } else if (kpiFilter === 'on_leave') {
-      matchesKpi = empStatus === 'في إجازة' || empStatus === 'إجازة' || empStatus === 'leave' || empStatus === 'on_leave';
+      matchesKpi = isEmployeeOnLeave(emp.status);
     } else if (kpiFilter === 'residency_expiring') {
       matchesKpi = checkResidencyExpiringSoon(emp);
     } else if (kpiFilter === 'moh_expiring') {
@@ -1360,10 +1358,16 @@ export function EmployeesApp(props?: any) {
           actionsMenu={employeesActionsMenu}
           employeesLayout={employeesLayout}
           kpiBar={directoryKpiBar}
+          isDirectoryLoading={isLoadingDb}
         >
       {activeTab === 'directory' && (
             <>
-              {filteredEmployees.length === 0 ? (
+              {isLoadingDb ? (
+                <div className="bg-white rounded-xl border border-slate-200/70 p-10 text-center">
+                  <RefreshCw size={22} className="text-[#714B67] animate-spin mx-auto mb-3" />
+                  <p className="text-xs font-medium text-slate-500">جاري تحميل دليل الموظفين...</p>
+                </div>
+              ) : filteredEmployees.length === 0 ? (
                 <div className="bg-white rounded-xl border border-slate-200/70 p-8 sm:p-12 text-center">
                   <div className="w-14 h-14 rounded-2xl bg-[#714B67]/8 text-[#714B67] mx-auto flex items-center justify-center mb-4">
                     <Users size={28} strokeWidth={1.5} />
