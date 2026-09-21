@@ -155,19 +155,56 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
         ),
       });
 
-      const data = await response.json();
+      type AiChatApiResponse = {
+        success?: boolean;
+        error?: string;
+        code?: string;
+        reply?: string;
+        source?: string;
+        action?: CopilotAction | null;
+      };
+
+      const contentType = response.headers.get('content-type') || '';
+      let data: AiChatApiResponse = {};
+      if (contentType.includes('application/json')) {
+        data = (await response.json()) as AiChatApiResponse;
+      } else {
+        const snippet = (await response.text()).slice(0, 120);
+        const looksLikeHtml = snippet.trim().startsWith('<');
+        data = {
+          success: false,
+          code: 'API_ROUTE_UNAVAILABLE',
+          error: looksLikeHtml
+            ? isArabic
+              ? 'مسار API غير متاح على هذا الاستضافة (تم استلام صفحة ويب بدل JSON). تأكد من نشر دوال /api على Vercel أو تشغيل npm run dev على المنفذ 3000.'
+              : 'API route is unavailable on this host (received HTML instead of JSON). Deploy /api functions on Vercel or run npm run dev on port 3000.'
+            : isArabic
+              ? 'استجابة غير متوقعة من الخادم.'
+              : 'Unexpected response from server.',
+        };
+      }
       console.log('🤖 [Aysed Copilot AI Response]:', data);
 
       if (!response.ok || !data.success) {
         const errText =
-          data.error ||
+          String(data.error || '') ||
           (isArabic ? 'تعذر الاتصال بالمساعد الذكي.' : 'Could not reach the AI assistant.');
         const hint =
           data.code === 'AI_NOT_CONFIGURED'
             ? isArabic
-              ? '\n\nالمفتاح غير مهيأ على الخادم.'
-              : '\n\nServer API key is not configured.'
-            : '';
+              ? '\n\nالمفتاح غير مهيأ على الخادم (GEMINI_API_KEY في Vercel).'
+              : '\n\nServer API key is not configured (GEMINI_API_KEY on Vercel).'
+            : data.code === 'COMPANY_MISMATCH'
+              ? isArabic
+                ? '\n\nاختر شركة مستأجر (معاينة منشأة) قبل استخدام المساعد.'
+                : '\n\nSelect a tenant company before using the copilot.'
+              : data.code === 'API_ROUTE_UNAVAILABLE'
+                ? ''
+                : !token
+                  ? isArabic
+                    ? '\n\nتأكد من تسجيل الدخول.'
+                    : '\n\nPlease sign in again.'
+                  : '';
         setMessages((prev) => [
           ...prev,
           {
@@ -178,7 +215,7 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
               hour: '2-digit',
               minute: '2-digit',
             }),
-            action: data.action || null,
+            action: (data.action as CopilotAction | null) || null,
             source: data.code || 'unavailable',
           },
         ]);
