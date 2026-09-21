@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { EmployeeWorkTab } from './tabs/EmployeeWorkTab';
 import { EmployeePrivateTab } from './tabs/EmployeePrivateTab';
 import { EmployeeDocumentsTab } from './tabs/EmployeeDocumentsTab';
@@ -43,6 +43,7 @@ import {
   Paperclip,
   Edit3,
   Undo2,
+  ChevronDown,
   Phone,
   Mail,
   MapPin,
@@ -109,6 +110,19 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [leaveAllocations, setLeaveAllocations] = useState<any[]>([]);
+  const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
+  const actionsMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!actionsMenuOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (actionsMenuRef.current && !actionsMenuRef.current.contains(e.target as Node)) {
+        setActionsMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [actionsMenuOpen]);
 
   // تحديث بيانات الموظف عند تغير الـ initialEmployee
   useEffect(() => {
@@ -463,133 +477,188 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
   return (
     <div className="min-h-screen bg-slate-100/60 p-2 sm:p-4 md:p-6 space-y-4 text-right font-sans text-slate-900 w-full" dir="rtl">
       
-      {/* Top Breadcrumbs & Control Bar */}
-      <div className="w-full bg-white border border-slate-200/90 rounded-xl px-4 py-3 flex flex-col gap-2 shadow-2xs">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
-          <button 
+      {/* Breadcrumb — سطر مستقل */}
+      <div className="w-full bg-white border border-slate-200/90 rounded-xl px-4 py-2.5 shadow-2xs">
+        <nav className="flex flex-wrap items-center gap-2 text-sm font-bold text-slate-900 min-w-0">
+          <button
             type="button"
             onClick={onBack}
-            className="flex items-center gap-1.5 text-[#714B67] hover:text-[#5a3b52] hover:bg-purple-50 px-2.5 py-1.5 rounded-lg border border-[#714B67]/30 transition cursor-pointer"
+            className="flex items-center gap-1.5 text-[#714B67] hover:text-[#5a3b52] hover:bg-purple-50 px-2 py-1 rounded-lg border border-[#714B67]/25 transition cursor-pointer shrink-0"
           >
-            <ArrowRight size={16} />
+            <ArrowRight size={15} />
             <span>العودة لدليل الموظفين</span>
           </button>
-          <span className="text-slate-300">/</span>
-          <span className="text-slate-900 font-bold">{employee.nameAr || employee.fullNameAr || 'ملف موظف'}</span>
-          <span className="font-mono bg-purple-50 text-[#714B67] border border-purple-200 px-2 py-0.5 rounded text-xs font-bold">{employee.id}</span>
-        </div>
+          <span className="text-slate-300 shrink-0">/</span>
+          <span className="text-slate-900 truncate max-w-[min(100%,280px)] sm:max-w-md">
+            {employee.nameAr || employee.fullNameAr || 'ملف موظف'}
+          </span>
+          <span className="font-mono bg-purple-50 text-[#714B67] border border-purple-200 px-2 py-0.5 rounded text-[11px] font-bold shrink-0">
+            {employee.id}
+          </span>
+        </nav>
+      </div>
 
+      {/* شريط الإجراءات */}
+      <div className="w-full bg-white border border-slate-200/90 rounded-xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 shadow-2xs">
         <div className="flex flex-wrap items-center gap-2">
           {saveSuccess && (
-            <span className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-300 px-3 py-1.5 rounded-lg flex items-center gap-1">
-              <Check size={14} /> تم الحفظ بنجاح
+            <span className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-300 px-2.5 py-1 rounded-lg flex items-center gap-1">
+              <Check size={14} /> تم الحفظ
             </span>
           )}
-
           {isEditMode ? (
             <>
               <button
                 type="button"
                 onClick={handleSave}
                 disabled={isSaving}
-                className="bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-xs cursor-pointer disabled:opacity-50"
+                className="bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
                 <Save size={15} />
                 <span>{isSaving ? 'جاري الحفظ...' : 'حفظ التعديلات'}</span>
               </button>
-
               <button
                 type="button"
                 onClick={() => {
                   setEmployee({ ...initialEmployee });
                   setIsEditMode(false);
                 }}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer"
               >
                 <Undo2 size={15} />
-                <span>إلغاء التعديل</span>
+                <span>إلغاء</span>
               </button>
             </>
           ) : (
-            <>
-              <button
-                type="button"
-                onClick={() => setIsEditMode(true)}
-                className="bg-[#714B67] hover:bg-[#5a3b52] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
-              >
-                <Edit3 size={15} />
-                <span>تعديل الملف (Edit)</span>
-              </button>
-              {onQuickEdit && (
-                <button
-                  type="button"
-                  onClick={onQuickEdit}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
-                  title="تعديل سريع للتواصل والهوية والبنك (بدون الراتب)"
-                >
-                  <Edit3 size={15} />
-                  <span>تعديل سريع</span>
-                </button>
-              )}
-            </>
-          )}
-
-          <button
-            type="button"
-            onClick={() => onTriggerPrint(`ملف الموظف الشامل - ${employee.nameAr || employee.id}`, employee)}
-            className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
-          >
-            <Printer size={15} className="text-[#714B67]" />
-            <span>طباعة الملف (A4)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onTriggerPrint(`كشف رصيد إجازات الموظف - ${employee.nameAr || employee.id}`, employee)}
-            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
-            title="طباعة كشف رصيد الإجازات المعتمد والمستحق للموظف"
-          >
-            <Printer size={15} className="text-emerald-700" />
-            <span>طباعة كشف الإجازات</span>
-          </button>
-
-          {onDelete && employee.id && (
             <button
               type="button"
-              onClick={() => onDelete(employee.id, employee.nameAr)}
-              className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
-              title="حذف الموظف"
+              onClick={() => setIsEditMode(true)}
+              className="bg-[#714B67] hover:bg-[#5a3b52] text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer"
             >
-              <Trash2 size={15} />
-              <span>حذف</span>
+              <Edit3 size={15} />
+              <span>تعديل الملف</span>
             </button>
           )}
         </div>
-        </div>
 
-        {(onOpenContracts || onOpenCommencement || onOpenLeaves || onOpenPayroll) && (
-          <div className="w-full flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">انتقال سريع</span>
-            {onOpenContracts && (
-              <button type="button" onClick={onOpenContracts} className="text-[11px] font-bold text-slate-700 bg-slate-100 hover:bg-purple-50 hover:text-[#714B67] px-2.5 py-1 rounded-lg cursor-pointer">
-                📝 العقود
-              </button>
-            )}
-            {onOpenCommencement && (
-              <button type="button" onClick={onOpenCommencement} className="text-[11px] font-bold text-slate-700 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-800 px-2.5 py-1 rounded-lg cursor-pointer">
-                🏥 المباشرة
-              </button>
-            )}
-            {onOpenLeaves && (
-              <button type="button" onClick={onOpenLeaves} className="text-[11px] font-bold text-slate-700 bg-slate-100 hover:bg-blue-50 hover:text-blue-800 px-2.5 py-1 rounded-lg cursor-pointer">
-                🏖️ الإجازات
-              </button>
-            )}
-            {onOpenPayroll && (
-              <button type="button" onClick={onOpenPayroll} className="text-[11px] font-bold text-slate-700 bg-slate-100 hover:bg-amber-50 hover:text-amber-900 px-2.5 py-1 rounded-lg cursor-pointer">
-                💰 المسير
-              </button>
+        {!isEditMode && (
+          <div className="relative shrink-0" ref={actionsMenuRef}>
+            <button
+              type="button"
+              onClick={() => setActionsMenuOpen((v) => !v)}
+              className="bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>إجراءات</span>
+              <ChevronDown size={14} className={`text-slate-500 transition ${actionsMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {actionsMenuOpen && (
+              <div className="absolute left-0 top-full mt-1 z-50 w-56 bg-white border border-slate-200 rounded-xl shadow-lg p-1 text-right animate-in fade-in duration-100">
+                {onQuickEdit && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActionsMenuOpen(false);
+                      onQuickEdit();
+                    }}
+                    className="w-full px-3 py-2 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                  >
+                    <Edit3 size={14} className="text-emerald-600" />
+                    تعديل سريع
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActionsMenuOpen(false);
+                    onTriggerPrint(`ملف الموظف الشامل - ${employee.nameAr || employee.id}`, employee);
+                  }}
+                  className="w-full px-3 py-2 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                >
+                  <Printer size={14} className="text-[#714B67]" />
+                  طباعة الملف (A4)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActionsMenuOpen(false);
+                    onTriggerPrint(`كشف رصيد إجازات الموظف - ${employee.nameAr || employee.id}`, employee);
+                  }}
+                  className="w-full px-3 py-2 rounded-lg text-xs font-medium text-emerald-800 hover:bg-emerald-50 flex items-center gap-2 cursor-pointer"
+                >
+                  <Printer size={14} />
+                  طباعة كشف الإجازات
+                </button>
+                {(onOpenContracts || onOpenCommencement || onOpenLeaves || onOpenPayroll) && (
+                  <>
+                    <div className="border-t border-slate-100 my-1" />
+                    <p className="px-3 py-1 text-[10px] font-bold text-slate-400">انتقال سريع</p>
+                    {onOpenContracts && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActionsMenuOpen(false);
+                          onOpenContracts();
+                        }}
+                        className="w-full px-3 py-2 rounded-lg text-xs font-medium hover:bg-purple-50 text-purple-900 cursor-pointer text-right"
+                      >
+                        العقود
+                      </button>
+                    )}
+                    {onOpenCommencement && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActionsMenuOpen(false);
+                          onOpenCommencement();
+                        }}
+                        className="w-full px-3 py-2 rounded-lg text-xs font-medium hover:bg-emerald-50 text-emerald-900 cursor-pointer text-right"
+                      >
+                        المباشرة
+                      </button>
+                    )}
+                    {onOpenLeaves && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActionsMenuOpen(false);
+                          onOpenLeaves();
+                        }}
+                        className="w-full px-3 py-2 rounded-lg text-xs font-medium hover:bg-blue-50 text-blue-900 cursor-pointer text-right"
+                      >
+                        الإجازات
+                      </button>
+                    )}
+                    {onOpenPayroll && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActionsMenuOpen(false);
+                          onOpenPayroll();
+                        }}
+                        className="w-full px-3 py-2 rounded-lg text-xs font-medium hover:bg-amber-50 text-amber-900 cursor-pointer text-right"
+                      >
+                        المسير
+                      </button>
+                    )}
+                  </>
+                )}
+                {onDelete && employee.id && (
+                  <>
+                    <div className="border-t border-slate-100 my-1" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActionsMenuOpen(false);
+                        onDelete(employee.id, employee.nameAr);
+                      }}
+                      className="w-full px-3 py-2 rounded-lg text-xs font-bold text-rose-700 hover:bg-rose-50 flex items-center gap-2 cursor-pointer"
+                    >
+                      <Trash2 size={14} />
+                      حذف الموظف
+                    </button>
+                  </>
+                )}
+              </div>
             )}
           </div>
         )}
@@ -598,10 +667,10 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
       {/* Odoo Official Document Sheet (White Paper on bg-slate-100) */}
       <div className="bg-white border border-slate-200/90 rounded-2xl shadow-sm w-full p-5 sm:p-7 md:p-9 space-y-6">
         
-        {/* Top Header Row: Smart Stat Buttons in top-corner (RTL: top-left) */}
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
-          <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-400">
-            <span>بطاقة بيانات الموظف الرسمية</span>
+        {/* ترويسة البطاقة: أزرار Odoo مصغّرة (يسار) + وسم العرض */}
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-4">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 min-w-0">
+            <span className="font-bold text-slate-400 shrink-0">بطاقة الموظف</span>
             <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200/80 text-[10px] font-bold">
               <button
                 type="button"
@@ -633,56 +702,57 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
               </button>
             </div>
           </div>
-
-          {/* Smart Stat Buttons in a single clean horizontal row */}
-          <div className="flex items-center gap-2.5">
-            {/* Smart Button 1: العقود */}
-            <div 
+          <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+            <button
+              type="button"
               onClick={() => {
                 setActiveTab('contract');
-                import('react-hot-toast').then(m => m.toast.success('تم الانتقال لبيانات العقد والأجر'));
+                import('react-hot-toast').then((m) => m.toast.success('بيانات العقد والأجر'));
               }}
-              className="border border-slate-200 hover:border-[#714B67]/40 bg-white hover:bg-purple-50/30 px-3.5 py-1.5 rounded-xl flex items-center gap-2.5 transition cursor-pointer shadow-2xs group"
-              title="انقر للانتقال لبيانات العقد والتعيين"
+              className="border border-slate-200 hover:border-[#714B67]/50 bg-slate-50/80 hover:bg-purple-50/40 rounded-lg px-2 py-1.5 flex items-center gap-1.5 cursor-pointer transition text-[10px] font-bold text-slate-800"
+              title="عقد العمل"
             >
-              <div className="w-8 h-8 rounded-lg bg-purple-100 text-[#714B67] flex items-center justify-center shrink-0 group-hover:bg-[#714B67] group-hover:text-white transition">
-                <FileText size={16} />
-              </div>
-              <div className="text-right leading-tight">
-                <div className="text-[10px] text-slate-400 font-semibold">عقد العمل</div>
-                <div className="text-xs font-bold text-slate-900 font-mono">1 نشط</div>
-              </div>
-            </div>
-
-            {/* Smart Button 2: رصيد الإجازات */}
-            <div 
-              onClick={() => onTriggerPrint(`كشف رصيد إجازات الموظف - ${employee.nameAr || employee.id}`, employee)}
-              className="border border-slate-200 hover:border-emerald-500/40 bg-white hover:bg-emerald-50/30 px-3.5 py-1.5 rounded-xl flex items-center gap-2.5 transition cursor-pointer shadow-2xs group"
-              title="انقر لطباعة كشف رصيد الإجازات السنوية المعتمد"
+              <FileText size={13} className="text-[#714B67]" />
+              <span className="text-slate-500 font-semibold">عقد</span>
+              <span className="font-mono text-[#714B67]">1</span>
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                onTriggerPrint(`كشف رصيد إجازات الموظف - ${employee.nameAr || employee.id}`, employee)
+              }
+              className="border border-slate-200 hover:border-emerald-400 bg-slate-50/80 hover:bg-emerald-50/50 rounded-lg px-2 py-1.5 flex items-center gap-1.5 cursor-pointer transition text-[10px] font-bold"
+              title="رصيد الإجازات"
             >
-              <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 group-hover:bg-emerald-700 group-hover:text-white transition">
-                <Plane size={16} />
-              </div>
-              <div className="text-right leading-tight">
-                <div className="text-[10px] text-slate-400 font-semibold">رصيد الإجازات</div>
-                <div className="text-xs font-bold text-slate-900 font-mono">{calculatedBalance} يوم</div>
-              </div>
-            </div>
-
-            {/* Smart Button 3: الهوية الذكية */}
-            <div 
-              onClick={() => onTriggerPrint(`بطاقة هوية الموظف - ${employee.nameAr || employee.id}`, { ...employee, type: 'ID_CARD' })}
-              className="border border-slate-200 hover:border-blue-500/40 bg-white hover:bg-blue-50/30 px-3.5 py-1.5 rounded-xl flex items-center gap-2.5 transition cursor-pointer shadow-2xs group"
-              title="طباعة واستخراج بطاقة هوية الموظف والـ QR Code"
+              <Plane size={13} className="text-emerald-700" />
+              <span className="text-slate-500 font-semibold">إجازات</span>
+              <span className="font-mono text-emerald-800">{calculatedBalance}</span>
+            </button>
+            {onOpenPayroll && (
+              <button
+                type="button"
+                onClick={onOpenPayroll}
+                className="border border-slate-200 hover:border-amber-400 bg-slate-50/80 hover:bg-amber-50/50 rounded-lg px-2 py-1.5 flex items-center gap-1.5 cursor-pointer transition text-[10px] font-bold"
+                title="المسير"
+              >
+                <DollarSign size={13} className="text-amber-700" />
+                <span className="text-slate-600">مسير</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() =>
+                onTriggerPrint(`بطاقة هوية الموظف - ${employee.nameAr || employee.id}`, {
+                  ...employee,
+                  type: 'ID_CARD',
+                })
+              }
+              className="border border-slate-200 hover:border-blue-400 bg-slate-50/80 hover:bg-blue-50/50 rounded-lg px-2 py-1.5 flex items-center gap-1.5 cursor-pointer transition text-[10px] font-bold"
+              title="طباعة QR"
             >
-              <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 group-hover:bg-blue-700 group-hover:text-white transition">
-                <CreditCard size={16} />
-              </div>
-              <div className="text-right leading-tight">
-                <div className="text-[10px] text-slate-400 font-semibold">الهوية والبطاقة</div>
-                <div className="text-xs font-bold text-slate-900">طباعة QR</div>
-              </div>
-            </div>
+              <CreditCard size={13} className="text-blue-700" />
+              <span className="text-slate-600">QR</span>
+            </button>
           </div>
         </div>
 
