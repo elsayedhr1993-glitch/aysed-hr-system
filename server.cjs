@@ -24,15 +24,13 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 // server.ts
 var import_express = __toESM(require("express"), 1);
 var import_path = __toESM(require("path"), 1);
-var import_crypto = __toESM(require("crypto"), 1);
+var import_crypto2 = __toESM(require("crypto"), 1);
 var import_zlib2 = __toESM(require("zlib"), 1);
-var import_genai2 = require("@google/genai");
+var import_genai3 = require("@google/genai");
 var import_supabase_js = require("@supabase/supabase-js");
 var import_dotenv = __toESM(require("dotenv"), 1);
 var import_nodemailer2 = __toESM(require("nodemailer"), 1);
-var import_app = require("firebase-admin/app");
-var import_auth = require("firebase-admin/auth");
-var import_firestore = require("firebase-admin/firestore");
+var import_firestore2 = require("firebase-admin/firestore");
 
 // src/services/emailService.ts
 var import_nodemailer = __toESM(require("nodemailer"), 1);
@@ -978,8 +976,8 @@ function validateSettlementConstraints(voucherOrInput) {
   };
 }
 
-// server/aiChat.ts
-var import_genai = require("@google/genai");
+// server/aiChatCore.ts
+var import_genai2 = require("@google/genai");
 
 // src/config/aiConfig.ts
 var import_meta = {};
@@ -1021,6 +1019,20 @@ function getOcrModelCandidates() {
 }
 function getConnectivityTestModels() {
   return uniqueModels([AI_MODELS.chat, AI_MODELS.fallback, "gemini-2.0-flash"]);
+}
+
+// src/config/superAdminAccess.ts
+var SUPER_ADMIN_EMAILS = ["admin@aysed.com", "elsayedhr1993@gmail.com"];
+function normalizeAuthEmail(email) {
+  return String(email || "").trim().toLowerCase();
+}
+function isSuperAdminEmail(email) {
+  const normalized = normalizeAuthEmail(email);
+  return SUPER_ADMIN_EMAILS.includes(normalized);
+}
+function isSuperAdminPrincipal(input) {
+  if (String(input.role || "").toUpperCase() === "SUPER_ADMIN") return true;
+  return isSuperAdminEmail(input.email);
 }
 
 // src/lib/aiEmployeeActionParser.ts
@@ -1203,156 +1215,11 @@ function assertClientCompanyAccess(requestedCompanyId, callerCompanyId, isSuperA
   return { ok: true, companyId: req };
 }
 
-// server/aiChat.ts
-var COPILOT_SYSTEM = `\u0623\u0646\u062A \u0645\u0633\u0627\u0639\u062F Aysed S HR 2026 \u0644\u0644\u0645\u0648\u0627\u0631\u062F \u0627\u0644\u0628\u0634\u0631\u064A\u0629 \u0641\u064A \u0627\u0644\u0643\u0648\u064A\u062A.
-- \u0623\u062C\u0628 \u0628\u0627\u0644\u0639\u0631\u0628\u064A\u0629 \u0627\u0644\u0645\u0647\u0646\u064A\u0629 \u0645\u0639 Markdown \u0639\u0646\u062F \u0627\u0644\u062D\u0627\u062C\u0629.
-- \u0627\u0633\u062A\u0634\u0627\u0631\u0627\u062A \u0642\u0627\u0646\u0648\u0646 \u0627\u0644\u0639\u0645\u0644 6/2010\u060C \u0627\u0644\u0625\u062C\u0627\u0632\u0627\u062A\u060C EOS\u060C \u0627\u0644\u0631\u0648\u0627\u062A\u0628 \u0628\u0640 KWD (\u062B\u0644\u0627\u062B \u062E\u0627\u0646\u0627\u062A).
-- \u0644\u0627 \u062A\u062E\u062A\u0644\u0642 \u0623\u0633\u0645\u0627\u0621 \u0645\u0648\u0638\u0641\u064A\u0646 \u0623\u0648 \u0623\u0631\u0642\u0627\u0645\u0627\u064B \u0645\u0646 \u0627\u0644\u0633\u064A\u0627\u0642\u061B \u0627\u0644\u0633\u064A\u0627\u0642 \u0625\u062D\u0635\u0627\u0626\u064A \u0641\u0642\u0637.
-
-\u0639\u0646\u062F \u0637\u0644\u0628 \u062A\u0646\u0641\u064A\u0630 \u062F\u0627\u062E\u0644 \u0627\u0644\u0646\u0638\u0627\u0645\u060C \u0623\u062E\u0631\u062C JSON \u0641\u0642\u0637 \u0628\u0627\u0644\u0634\u0643\u0644:
-{"reply":"\u0646\u0635 \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645","action":{...} \u0623\u0648 null}
-
-action.type \u0627\u0644\u0645\u0633\u0645\u0648\u062D:
-- NAVIGATE + appId \u0645\u0646: ${COPILOT_APP_IDS.join(", ")}
-- OPEN_MODAL + modal \u0645\u0646: ${COPILOT_MODAL_IDS.join(", ")}
-- TRIGGER_FUNCTION + functionName \u0645\u0646: ${COPILOT_FUNCTION_NAMES.join(", ")}
-- OPEN_CALCULATOR (\u062D\u0627\u0633\u0628\u0629 HR \u0633\u0631\u064A\u0639\u0629)
-- CREATE_EMPLOYEE + employeeData (nameAr, civilId, jobTitle, department, basicSalary, ...)
-
-\u0625\u0630\u0627 \u0643\u0627\u0646 \u0627\u0644\u0633\u0624\u0627\u0644 \u0627\u0633\u062A\u0634\u0627\u0631\u0629 \u0641\u0642\u0637\u060C action = null.
-\u0644\u0627 \u062A\u064F\u0631\u062C\u0639 \u0646\u0635\u0627\u064B \u062E\u0627\u0631\u062C JSON.`;
-function registerAiChatRoute(app2, deps) {
-  app2.post("/api/ai-chat", async (req, res) => {
-    try {
-      const authCheck = await deps.requireFirebaseAuth(req, res);
-      if (!authCheck.ok) {
-        return res.status(authCheck.status || 401).json({ success: false, error: authCheck.error });
-      }
-      const { prompt, contextSummary, conversationHistory, companyId: bodyCompanyId } = req.body || {};
-      if (!prompt || !String(prompt).trim()) {
-        return res.status(400).json({
-          success: false,
-          error: "\u0627\u0644\u0631\u062C\u0627\u0621 \u0643\u062A\u0627\u0628\u0629 \u0627\u0644\u0633\u0624\u0627\u0644 \u0623\u0648 \u0627\u0644\u0637\u0644\u0628 \u0644\u0644\u0645\u0633\u0627\u0639\u062F \u0627\u0644\u0630\u0643\u064A",
-          code: "VALIDATION_ERROR"
-        });
-      }
-      const resolved = await deps.resolveCallerRole(authCheck);
-      const isSuperAdmin = resolved.role === "SUPER_ADMIN";
-      const access = assertClientCompanyAccess(
-        bodyCompanyId ? String(bodyCompanyId) : resolved.companyId,
-        resolved.companyId,
-        isSuperAdmin
-      );
-      if (!access.ok) {
-        const denied = access;
-        return res.status(403).json({
-          success: false,
-          error: denied.reason,
-          code: "COMPANY_MISMATCH"
-        });
-      }
-      const regexAction = buildCreateEmployeeActionFromPrompt(String(prompt));
-      const ai = deps.getGeminiClient();
-      if (!ai) {
-        return res.status(503).json({
-          success: false,
-          error: "\u0645\u062D\u0631\u0643 \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A \u063A\u064A\u0631 \u0645\u0647\u064A\u0623 \u0639\u0644\u0649 \u0627\u0644\u062E\u0627\u062F\u0645 (GEMINI_API_KEY).",
-          code: "AI_NOT_CONFIGURED",
-          action: regexAction
-        });
-      }
-      const parts = [];
-      parts.push({
-        text: `[\u0633\u064A\u0627\u0642 \u0627\u0644\u0634\u0631\u0643\u0629 \u2014 \u0628\u064A\u0627\u0646\u0627\u062A \u0645\u062C\u0645\u0651\u0639\u0629 \u0641\u0642\u0637]
-${contextSummary || "\u0644\u0627 \u064A\u0648\u062C\u062F \u0633\u064A\u0627\u0642 \u0625\u0636\u0627\u0641\u064A."}
-companyId=${access.companyId}`
-      });
-      if (Array.isArray(conversationHistory)) {
-        for (const msg of conversationHistory.slice(-12)) {
-          parts.push({
-            text: `${msg.role === "user" ? "\u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645" : "\u0627\u0644\u0645\u0633\u0627\u0639\u062F"}: ${String(msg.content || "").slice(0, 4e3)}`
-          });
-        }
-      }
-      parts.push({ text: `\u0633\u0624\u0627\u0644 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${String(prompt).trim()}` });
-      const models = getChatModelCandidates();
-      let lastErr = null;
-      for (const modelName of models) {
-        try {
-          const response = await ai.models.generateContent({
-            model: modelName,
-            contents: { parts },
-            config: {
-              systemInstruction: COPILOT_SYSTEM,
-              temperature: 0.35,
-              responseMimeType: "application/json",
-              responseSchema: {
-                type: import_genai.Type.OBJECT,
-                properties: {
-                  reply: { type: import_genai.Type.STRING },
-                  action: {
-                    type: import_genai.Type.OBJECT,
-                    nullable: true,
-                    properties: {
-                      type: { type: import_genai.Type.STRING },
-                      title: { type: import_genai.Type.STRING },
-                      appId: { type: import_genai.Type.STRING },
-                      modal: { type: import_genai.Type.STRING },
-                      functionName: { type: import_genai.Type.STRING },
-                      employeeData: { type: import_genai.Type.OBJECT }
-                    }
-                  }
-                },
-                required: ["reply"]
-              }
-            }
-          });
-          const rawText = response.text || "{}";
-          const { reply, action: parsedAction } = parseModelCopilotPayload(rawText);
-          const action = parsedAction || regexAction;
-          return res.json({
-            success: true,
-            reply: reply || "\u062A\u0645\u062A \u0627\u0644\u0645\u0639\u0627\u0644\u062C\u0629.",
-            source: `gemini:${modelName}`,
-            action: action ? sanitizeCopilotAction(action) : null
-          });
-        } catch (err) {
-          lastErr = err;
-          console.warn(`[ai-chat] model ${modelName} failed:`, err);
-        }
-      }
-      console.error("[ai-chat] all models failed", lastErr);
-      return res.status(503).json({
-        success: false,
-        error: "\u062A\u0639\u0630\u0631 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0645\u062D\u0631\u0643 \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A. \u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u0644\u0631\u0635\u064A\u062F \u0648\u0623\u0633\u0645\u0627\u0621 \u0627\u0644\u0646\u0645\u0627\u0630\u062C.",
-        code: "AI_UNAVAILABLE",
-        action: regexAction
-      });
-    } catch (error) {
-      console.error("[ai-chat] unexpected", error);
-      return res.status(500).json({
-        success: false,
-        error: error?.message || "\u062E\u0637\u0623 \u062F\u0627\u062E\u0644\u064A \u0641\u064A \u0645\u0633\u0627\u0639\u062F \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A",
-        code: "AI_UNAVAILABLE"
-      });
-    }
-  });
-}
-
-// server.ts
-import_dotenv.default.config();
-import_dotenv.default.config({ path: ".env.local", override: true });
-var app = (0, import_express.default)();
-var PORT = 3e3;
-app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, apikey, prefer, range, x-api-key");
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
-  }
-  next();
-});
+// server/firebaseAdmin.ts
+var import_crypto = __toESM(require("crypto"), 1);
+var import_app = require("firebase-admin/app");
+var import_auth = require("firebase-admin/auth");
+var import_firestore = require("firebase-admin/firestore");
 var adminApp = null;
 var authAdmin = null;
 var firebaseAdminInitAttempted = false;
@@ -1432,13 +1299,16 @@ function getAdminAuth() {
         adminApp = (0, import_app.getApps)()[0];
       }
       authAdmin = (0, import_auth.getAuth)(adminApp);
-      console.log("[Firebase Admin] initialized successfully");
       return authAdmin;
     }
-  } catch (err) {
+  } catch {
     return null;
   }
   return null;
+}
+function getAdminApp() {
+  getAdminAuth();
+  return adminApp;
 }
 function getAdminFirestore() {
   if (!getAdminAuth() || !adminApp) return null;
@@ -1448,13 +1318,81 @@ function getAdminFirestore() {
     return null;
   }
 }
-app.use(import_express.default.json({ limit: "25mb" }));
+
+// server/apiAuth.ts
+async function requireFirebaseAuthFromHeader(authHeader) {
+  const header = Array.isArray(authHeader) ? authHeader[0] : authHeader;
+  if (!header || typeof header !== "string") {
+    return { ok: false, error: "Missing Authorization header", status: 401 };
+  }
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  if (!match) {
+    return { ok: false, error: "Invalid Authorization format", status: 401 };
+  }
+  const token = match[1].trim();
+  if (!token || token.length < 20) {
+    return { ok: false, error: "Invalid token format", status: 401 };
+  }
+  const auth = getAdminAuth();
+  if (!auth) {
+    return { ok: false, error: "Firebase admin not configured", status: 503 };
+  }
+  try {
+    const decoded = await auth.verifyIdToken(token);
+    return {
+      ok: true,
+      token,
+      uid: decoded.uid,
+      email: String(decoded.email || "").toLowerCase(),
+      claims: decoded,
+      status: 200
+    };
+  } catch {
+    return { ok: false, error: "Invalid Firebase ID token", status: 401 };
+  }
+}
+async function resolveCallerRole(authCheck) {
+  const email = String(authCheck.email || "").toLowerCase();
+  if (isSuperAdminEmail(email)) {
+    const claimCompanyId2 = authCheck.claims?.companyId ? String(authCheck.claims.companyId) : void 0;
+    return { role: "SUPER_ADMIN", companyId: claimCompanyId2 };
+  }
+  const claimRole = String(authCheck.claims?.role || "").toUpperCase();
+  const claimCompanyId = authCheck.claims?.companyId ? String(authCheck.claims.companyId) : void 0;
+  if (claimRole === "SUPER_ADMIN" || claimRole === "COMPANY_ADMIN" || claimRole === "TENANT_ADMIN") {
+    return { role: claimRole === "TENANT_ADMIN" ? "COMPANY_ADMIN" : claimRole, companyId: claimCompanyId };
+  }
+  try {
+    const dbAdmin = getAdminFirestore();
+    if (dbAdmin) {
+      const snap = await dbAdmin.collection("users").doc(authCheck.uid).get();
+      if (snap.exists) {
+        const data = snap.data() || {};
+        const role = String(data.role || "COMPANY_ADMIN").toUpperCase();
+        const companyId = data.companyId ? String(data.companyId) : claimCompanyId;
+        if (role === "SUPER_ADMIN" || isSuperAdminEmail(String(data.email || email))) {
+          return { role: "SUPER_ADMIN", companyId };
+        }
+        return {
+          role: role === "TENANT_ADMIN" ? "COMPANY_ADMIN" : role,
+          companyId
+        };
+      }
+    }
+  } catch (err) {
+    console.warn("[Auth] Failed to resolve role from Firestore users doc:", err);
+  }
+  return { role: "COMPANY_ADMIN", companyId: claimCompanyId };
+}
+
+// server/geminiServer.ts
+var import_genai = require("@google/genai");
 function getGeminiClient() {
   const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.VITE_GEMINI_API_KEY;
   if (!apiKey || apiKey.trim() === "" || apiKey.includes("YOUR_")) {
     return null;
   }
-  return new import_genai2.GoogleGenAI({
+  return new import_genai.GoogleGenAI({
     apiKey: apiKey.trim(),
     httpOptions: {
       headers: {
@@ -1463,6 +1401,242 @@ function getGeminiClient() {
     }
   });
 }
+
+// server/aiChatCore.ts
+var COPILOT_SYSTEM = `\u0623\u0646\u062A \u0645\u0633\u0627\u0639\u062F Aysed S HR 2026 \u0644\u0644\u0645\u0648\u0627\u0631\u062F \u0627\u0644\u0628\u0634\u0631\u064A\u0629 \u0641\u064A \u0627\u0644\u0643\u0648\u064A\u062A.
+- \u0623\u062C\u0628 \u0628\u0627\u0644\u0639\u0631\u0628\u064A\u0629 \u0627\u0644\u0645\u0647\u0646\u064A\u0629 \u0645\u0639 Markdown \u0639\u0646\u062F \u0627\u0644\u062D\u0627\u062C\u0629.
+- \u0627\u0633\u062A\u0634\u0627\u0631\u0627\u062A \u0642\u0627\u0646\u0648\u0646 \u0627\u0644\u0639\u0645\u0644 6/2010\u060C \u0627\u0644\u0625\u062C\u0627\u0632\u0627\u062A\u060C EOS\u060C \u0627\u0644\u0631\u0648\u0627\u062A\u0628 \u0628\u0640 KWD (\u062B\u0644\u0627\u062B \u062E\u0627\u0646\u0627\u062A).
+- \u0644\u0627 \u062A\u062E\u062A\u0644\u0642 \u0623\u0633\u0645\u0627\u0621 \u0645\u0648\u0638\u0641\u064A\u0646 \u0623\u0648 \u0623\u0631\u0642\u0627\u0645\u0627\u064B \u0645\u0646 \u0627\u0644\u0633\u064A\u0627\u0642\u061B \u0627\u0644\u0633\u064A\u0627\u0642 \u0625\u062D\u0635\u0627\u0626\u064A \u0641\u0642\u0637.
+
+\u0639\u0646\u062F \u0637\u0644\u0628 \u062A\u0646\u0641\u064A\u0630 \u062F\u0627\u062E\u0644 \u0627\u0644\u0646\u0638\u0627\u0645\u060C \u0623\u062E\u0631\u062C JSON \u0641\u0642\u0637 \u0628\u0627\u0644\u0634\u0643\u0644:
+{"reply":"\u0646\u0635 \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645","action":{...} \u0623\u0648 null}
+
+action.type \u0627\u0644\u0645\u0633\u0645\u0648\u062D:
+- NAVIGATE + appId \u0645\u0646: ${COPILOT_APP_IDS.join(", ")}
+- OPEN_MODAL + modal \u0645\u0646: ${COPILOT_MODAL_IDS.join(", ")}
+- TRIGGER_FUNCTION + functionName \u0645\u0646: ${COPILOT_FUNCTION_NAMES.join(", ")}
+- OPEN_CALCULATOR (\u062D\u0627\u0633\u0628\u0629 HR \u0633\u0631\u064A\u0639\u0629)
+- CREATE_EMPLOYEE + employeeData (nameAr, civilId, jobTitle, department, basicSalary, ...)
+
+\u0625\u0630\u0627 \u0643\u0627\u0646 \u0627\u0644\u0633\u0624\u0627\u0644 \u0627\u0633\u062A\u0634\u0627\u0631\u0629 \u0641\u0642\u0637\u060C action = null.
+\u0644\u0627 \u062A\u064F\u0631\u062C\u0639 \u0646\u0635\u0627\u064B \u062E\u0627\u0631\u062C JSON.`;
+async function handleAiChatRequest(body, authHeader, getClient = getGeminiClient) {
+  try {
+    const authCheck = await requireFirebaseAuthFromHeader(authHeader);
+    if (authCheck.ok === false) {
+      return {
+        status: authCheck.status,
+        body: { success: false, error: authCheck.error, code: "UNAUTHORIZED" }
+      };
+    }
+    const { prompt, contextSummary, conversationHistory, companyId: bodyCompanyId } = body || {};
+    if (!prompt || !String(prompt).trim()) {
+      return {
+        status: 400,
+        body: {
+          success: false,
+          error: "\u0627\u0644\u0631\u062C\u0627\u0621 \u0643\u062A\u0627\u0628\u0629 \u0627\u0644\u0633\u0624\u0627\u0644 \u0623\u0648 \u0627\u0644\u0637\u0644\u0628 \u0644\u0644\u0645\u0633\u0627\u0639\u062F \u0627\u0644\u0630\u0643\u064A",
+          code: "VALIDATION_ERROR"
+        }
+      };
+    }
+    const resolved = await resolveCallerRole(authCheck);
+    const isSuperAdmin = isSuperAdminPrincipal({
+      role: resolved.role,
+      email: authCheck.email
+    });
+    const access = assertClientCompanyAccess(
+      bodyCompanyId ? String(bodyCompanyId) : resolved.companyId,
+      resolved.companyId,
+      isSuperAdmin
+    );
+    if (!access.ok) {
+      const denied = access;
+      return {
+        status: 403,
+        body: { success: false, error: denied.reason, code: "COMPANY_MISMATCH" }
+      };
+    }
+    const regexAction = buildCreateEmployeeActionFromPrompt(String(prompt));
+    const ai = getClient();
+    if (!ai) {
+      return {
+        status: 503,
+        body: {
+          success: false,
+          error: "\u0645\u062D\u0631\u0643 \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A \u063A\u064A\u0631 \u0645\u0647\u064A\u0623 \u0639\u0644\u0649 \u0627\u0644\u062E\u0627\u062F\u0645 (GEMINI_API_KEY).",
+          code: "AI_NOT_CONFIGURED",
+          action: regexAction
+        }
+      };
+    }
+    const parts = [];
+    parts.push({
+      text: `[\u0633\u064A\u0627\u0642 \u0627\u0644\u0634\u0631\u0643\u0629 \u2014 \u0628\u064A\u0627\u0646\u0627\u062A \u0645\u062C\u0645\u0651\u0639\u0629 \u0641\u0642\u0637]
+${contextSummary || "\u0644\u0627 \u064A\u0648\u062C\u062F \u0633\u064A\u0627\u0642 \u0625\u0636\u0627\u0641\u064A."}
+companyId=${access.companyId}`
+    });
+    if (Array.isArray(conversationHistory)) {
+      for (const msg of conversationHistory.slice(-12)) {
+        const role = msg.role;
+        const content = msg.content;
+        parts.push({
+          text: `${role === "user" ? "\u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645" : "\u0627\u0644\u0645\u0633\u0627\u0639\u062F"}: ${String(content || "").slice(0, 4e3)}`
+        });
+      }
+    }
+    parts.push({ text: `\u0633\u0624\u0627\u0644 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645: ${String(prompt).trim()}` });
+    const models = getChatModelCandidates();
+    let lastErr = null;
+    for (const modelName of models) {
+      try {
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: { parts },
+          config: {
+            systemInstruction: COPILOT_SYSTEM,
+            temperature: 0.35,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: import_genai2.Type.OBJECT,
+              properties: {
+                reply: { type: import_genai2.Type.STRING },
+                action: {
+                  type: import_genai2.Type.OBJECT,
+                  nullable: true,
+                  properties: {
+                    type: { type: import_genai2.Type.STRING },
+                    title: { type: import_genai2.Type.STRING },
+                    appId: { type: import_genai2.Type.STRING },
+                    modal: { type: import_genai2.Type.STRING },
+                    functionName: { type: import_genai2.Type.STRING },
+                    employeeData: { type: import_genai2.Type.OBJECT }
+                  }
+                }
+              },
+              required: ["reply"]
+            }
+          }
+        });
+        const rawText = response.text || "{}";
+        const { reply, action: parsedAction } = parseModelCopilotPayload(rawText);
+        const action = parsedAction || regexAction;
+        return {
+          status: 200,
+          body: {
+            success: true,
+            reply: reply || "\u062A\u0645\u062A \u0627\u0644\u0645\u0639\u0627\u0644\u062C\u0629.",
+            source: `gemini:${modelName}`,
+            action: action ? sanitizeCopilotAction(action) : null
+          }
+        };
+      } catch (err) {
+        lastErr = err;
+        console.warn(`[ai-chat] model ${modelName} failed:`, err);
+      }
+    }
+    console.error("[ai-chat] all models failed", lastErr);
+    return {
+      status: 503,
+      body: {
+        success: false,
+        error: "\u062A\u0639\u0630\u0631 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0645\u062D\u0631\u0643 \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A. \u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u0644\u0631\u0635\u064A\u062F \u0648\u0623\u0633\u0645\u0627\u0621 \u0627\u0644\u0646\u0645\u0627\u0630\u062C.",
+        code: "AI_UNAVAILABLE",
+        action: regexAction
+      }
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "\u062E\u0637\u0623 \u062F\u0627\u062E\u0644\u064A \u0641\u064A \u0645\u0633\u0627\u0639\u062F \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A";
+    console.error("[ai-chat] unexpected", error);
+    return {
+      status: 500,
+      body: { success: false, error: message, code: "AI_UNAVAILABLE" }
+    };
+  }
+}
+
+// server/aiChat.ts
+function registerAiChatRoute(app2, deps) {
+  app2.post("/api/ai-chat", async (req, res) => {
+    const authHeader = req.headers.authorization || req.headers.Authorization;
+    const result = await handleAiChatRequest(req.body, authHeader, deps.getGeminiClient);
+    return res.status(result.status).json(result.body);
+  });
+}
+
+// server/aiTestKeyCore.ts
+async function handleAiTestKeyRequest(authHeader) {
+  try {
+    const authCheck = await requireFirebaseAuthFromHeader(authHeader);
+    if (authCheck.ok === false) {
+      return { status: authCheck.status, body: { success: false, error: authCheck.error, code: "UNAUTHORIZED" } };
+    }
+    const client = getGeminiClient();
+    if (!client) {
+      return {
+        status: 400,
+        body: {
+          success: false,
+          error: "\u0645\u0641\u062A\u0627\u062D Gemini API \u063A\u064A\u0631 \u0645\u0647\u064A\u0623 \u0639\u0644\u0649 \u0627\u0644\u062E\u0627\u062F\u0645. \u064A\u0631\u062C\u0649 \u0636\u0628\u0637 GEMINI_API_KEY \u0641\u064A \u0628\u064A\u0626\u0629 \u0627\u0644\u062A\u0634\u063A\u064A\u0644."
+        }
+      };
+    }
+    const modelsToTry = getConnectivityTestModels();
+    let lastError = null;
+    const startTime = Date.now();
+    for (const modelName of modelsToTry) {
+      try {
+        const response = await client.models.generateContent({
+          model: modelName,
+          contents: "\u0645\u0631\u062D\u0628\u0627\u064B\u060C \u0642\u0645 \u0628\u062A\u0623\u0643\u064A\u062F \u0641\u062D\u0635 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0627\u0644\u0631\u062F \u0628\u0643\u0644\u0645\u0629 'READY' \u0641\u0642\u0637."
+        });
+        const duration = Date.now() - startTime;
+        if (response.text) {
+          return {
+            status: 200,
+            body: {
+              success: true,
+              model: modelName,
+              reply: response.text.trim(),
+              responseTimeMs: duration,
+              message: `\u062A\u0645 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0648\u0627\u0644\u062A\u062D\u0642\u0642 \u0628\u0646\u062C\u0627\u062D \u0645\u0646 \u0645\u062D\u0631\u0643 \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A (${modelName}) \u062E\u0644\u0627\u0644 ${duration}ms.`
+            }
+          };
+        }
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    const details = lastError instanceof Error ? lastError.message : lastError ? String(lastError) : "unknown";
+    return {
+      status: 500,
+      body: {
+        success: false,
+        error: "\u062A\u0639\u0630\u0631 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0645\u062D\u0631\u0643 \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A \u0628\u0645\u0641\u062A\u0627\u062D \u0627\u0644\u062E\u0627\u062F\u0645.",
+        details
+      }
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { status: 500, body: { success: false, error: message } };
+  }
+}
+
+// server.ts
+import_dotenv.default.config();
+import_dotenv.default.config({ path: ".env.local", override: true });
+var app = (0, import_express.default)();
+var PORT = 3e3;
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, apikey, prefer, range, x-api-key");
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
+app.use(import_express.default.json({ limit: "25mb" }));
 var supabaseAdminClient = null;
 function getSupabaseAdmin() {
   if (supabaseAdminClient) return supabaseAdminClient;
@@ -1527,7 +1701,7 @@ function buildFacilityAlertMessage(companyName, label, daysRemaining, expiryDate
 async function runFacilityLicenseAudit(trigger = "AUTOMATED") {
   const executedAt = (/* @__PURE__ */ new Date()).toISOString();
   const admin = getAdminAuth();
-  if (!admin || !adminApp) {
+  if (!admin || !getAdminApp()) {
     const fallback = {
       success: false,
       scannedCompanies: 0,
@@ -1550,11 +1724,11 @@ async function runFacilityLicenseAudit(trigger = "AUTOMATED") {
     executedAt
   };
   try {
-    const adminDb = (0, import_firestore.getFirestore)(adminApp);
+    const adminDb = (0, import_firestore2.getFirestore)(getAdminApp());
     const now = /* @__PURE__ */ new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const dayKey = toIsoDate(today);
-    const facilitySnap = await adminDb.collection("system_config").where(import_firestore.FieldPath.documentId(), ">=", FACILITY_DOC_PREFIX).where(import_firestore.FieldPath.documentId(), "<", `${FACILITY_DOC_PREFIX}\uF8FF`).get();
+    const facilitySnap = await adminDb.collection("system_config").where(import_firestore2.FieldPath.documentId(), ">=", FACILITY_DOC_PREFIX).where(import_firestore2.FieldPath.documentId(), "<", `${FACILITY_DOC_PREFIX}\uF8FF`).get();
     for (const docSnap of facilitySnap.docs) {
       result.scannedCompanies += 1;
       const raw = docSnap.data();
@@ -1889,49 +2063,9 @@ app.get("/api/system/env-health", async (req, res) => {
   }
 });
 app.post("/api/ai/test-key", async (req, res) => {
-  try {
-    const authCheck = await requireFirebaseAuth(req, res);
-    if (!authCheck.ok) {
-      return res.status(401).json({ success: false, error: authCheck.error });
-    }
-    const client = getGeminiClient();
-    if (!client) {
-      return res.status(400).json({
-        success: false,
-        error: "\u0645\u0641\u062A\u0627\u062D Gemini API \u063A\u064A\u0631 \u0645\u0647\u064A\u0623 \u0639\u0644\u0649 \u0627\u0644\u062E\u0627\u062F\u0645. \u064A\u0631\u062C\u0649 \u0636\u0628\u0637 GEMINI_API_KEY \u0641\u064A \u0628\u064A\u0626\u0629 \u0627\u0644\u062A\u0634\u063A\u064A\u0644."
-      });
-    }
-    const modelsToTry = getConnectivityTestModels();
-    let lastError = null;
-    const startTime = Date.now();
-    for (const modelName of modelsToTry) {
-      try {
-        const response = await client.models.generateContent({
-          model: modelName,
-          contents: "\u0645\u0631\u062D\u0628\u0627\u064B\u060C \u0642\u0645 \u0628\u062A\u0623\u0643\u064A\u062F \u0641\u062D\u0635 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0627\u0644\u0631\u062F \u0628\u0643\u0644\u0645\u0629 'READY' \u0641\u0642\u0637."
-        });
-        const duration = Date.now() - startTime;
-        if (response.text) {
-          return res.json({
-            success: true,
-            model: modelName,
-            reply: response.text.trim(),
-            responseTimeMs: duration,
-            message: `\u062A\u0645 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0648\u0627\u0644\u062A\u062D\u0642\u0642 \u0628\u0646\u062C\u0627\u062D \u0645\u0646 \u0645\u062D\u0631\u0643 \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A (${modelName}) \u062E\u0644\u0627\u0644 ${duration}ms.`
-          });
-        }
-      } catch (err) {
-        lastError = err;
-      }
-    }
-    return res.status(500).json({
-      success: false,
-      error: "\u062A\u0639\u0630\u0631 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0645\u062D\u0631\u0643 \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A \u0628\u0645\u0641\u062A\u0627\u062D \u0627\u0644\u062E\u0627\u062F\u0645.",
-      details: lastError?.message || String(lastError)
-    });
-  } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
+  const authHeader = req.headers.authorization || req.headers.Authorization;
+  const result = await handleAiTestKeyRequest(authHeader);
+  return res.status(result.status).json(result.body);
 });
 app.post("/api/leave/calculate-balance", (req, res) => {
   try {
@@ -2070,7 +2204,7 @@ app.post("/api/guards/clean-duplicate-punches", (req, res) => {
 });
 app.all("/api/guards/nightly-audit", async (req, res) => {
   try {
-    const db = adminApp ? (0, import_firestore.getFirestore)(adminApp) : null;
+    const db = getAdminApp() ? (0, import_firestore2.getFirestore)(getAdminApp()) : null;
     const report = await runNightlyAudit(db);
     return res.json({
       success: true,
@@ -2417,30 +2551,30 @@ app.post("/api/ocr-scan", import_express.default.json({ limit: "50mb" }), async 
           temperature: 0,
           responseMimeType: "application/json",
           responseSchema: {
-            type: import_genai2.Type.OBJECT,
+            type: import_genai3.Type.OBJECT,
             properties: {
-              civilId: { type: import_genai2.Type.STRING },
-              fullNameAr: { type: import_genai2.Type.STRING },
-              fullNameEn: { type: import_genai2.Type.STRING },
-              nationality: { type: import_genai2.Type.STRING },
-              gender: { type: import_genai2.Type.STRING },
-              birthDate: { type: import_genai2.Type.STRING },
-              unifiedNo: { type: import_genai2.Type.STRING },
-              passportNo: { type: import_genai2.Type.STRING },
-              profession: { type: import_genai2.Type.STRING },
-              expiryDate: { type: import_genai2.Type.STRING },
-              issueDate: { type: import_genai2.Type.STRING },
-              mohLicenseNo: { type: import_genai2.Type.STRING },
-              mohLicenseExpiryDate: { type: import_genai2.Type.STRING },
-              residencyType: { type: import_genai2.Type.STRING },
-              bloodGroup: { type: import_genai2.Type.STRING },
+              civilId: { type: import_genai3.Type.STRING },
+              fullNameAr: { type: import_genai3.Type.STRING },
+              fullNameEn: { type: import_genai3.Type.STRING },
+              nationality: { type: import_genai3.Type.STRING },
+              gender: { type: import_genai3.Type.STRING },
+              birthDate: { type: import_genai3.Type.STRING },
+              unifiedNo: { type: import_genai3.Type.STRING },
+              passportNo: { type: import_genai3.Type.STRING },
+              profession: { type: import_genai3.Type.STRING },
+              expiryDate: { type: import_genai3.Type.STRING },
+              issueDate: { type: import_genai3.Type.STRING },
+              mohLicenseNo: { type: import_genai3.Type.STRING },
+              mohLicenseExpiryDate: { type: import_genai3.Type.STRING },
+              residencyType: { type: import_genai3.Type.STRING },
+              bloodGroup: { type: import_genai3.Type.STRING },
               address: {
-                type: import_genai2.Type.OBJECT,
+                type: import_genai3.Type.OBJECT,
                 properties: {
-                  block: { type: import_genai2.Type.STRING },
-                  street: { type: import_genai2.Type.STRING },
-                  building: { type: import_genai2.Type.STRING },
-                  area: { type: import_genai2.Type.STRING }
+                  block: { type: import_genai3.Type.STRING },
+                  street: { type: import_genai3.Type.STRING },
+                  building: { type: import_genai3.Type.STRING },
+                  area: { type: import_genai3.Type.STRING }
                 }
               }
             }
@@ -2532,58 +2666,7 @@ app.post("/api/ocr-scan", import_express.default.json({ limit: "50mb" }), async 
 });
 async function requireFirebaseAuth(req, _res) {
   const authHeader = req?.headers?.authorization || req?.headers?.Authorization;
-  if (!authHeader || typeof authHeader !== "string") {
-    return { ok: false, error: "Missing Authorization header", status: 401 };
-  }
-  const match = authHeader.match(/^Bearer\s+(.+)$/i);
-  if (!match) {
-    return { ok: false, error: "Invalid Authorization format", status: 401 };
-  }
-  const token = match[1].trim();
-  if (!token || token.length < 20) {
-    return { ok: false, error: "Invalid token format", status: 401 };
-  }
-  const auth = getAdminAuth();
-  if (!auth) {
-    return { ok: false, error: "Firebase admin not configured", status: 503 };
-  }
-  try {
-    const decoded = await auth.verifyIdToken(token);
-    return {
-      ok: true,
-      token,
-      uid: decoded.uid,
-      email: String(decoded.email || "").toLowerCase(),
-      claims: decoded,
-      status: 200
-    };
-  } catch {
-    return { ok: false, error: "Invalid Firebase ID token", status: 401 };
-  }
-}
-async function resolveCallerRole(authCheck) {
-  const claimRole = String(authCheck.claims?.role || "").toUpperCase();
-  const claimCompanyId = authCheck.claims?.companyId ? String(authCheck.claims.companyId) : void 0;
-  if (claimRole === "SUPER_ADMIN" || claimRole === "COMPANY_ADMIN" || claimRole === "TENANT_ADMIN") {
-    return { role: claimRole === "TENANT_ADMIN" ? "COMPANY_ADMIN" : claimRole, companyId: claimCompanyId };
-  }
-  try {
-    const dbAdmin = getAdminFirestore();
-    if (dbAdmin) {
-      const snap = await dbAdmin.collection("users").doc(authCheck.uid).get();
-      if (snap.exists) {
-        const data = snap.data() || {};
-        const role = String(data.role || "COMPANY_ADMIN").toUpperCase();
-        return {
-          role: role === "TENANT_ADMIN" ? "COMPANY_ADMIN" : role,
-          companyId: data.companyId ? String(data.companyId) : claimCompanyId
-        };
-      }
-    }
-  } catch (err) {
-    console.warn("[Auth] Failed to resolve role from Firestore users doc:", err);
-  }
-  return { role: "COMPANY_ADMIN", companyId: claimCompanyId };
+  return requireFirebaseAuthFromHeader(authHeader);
 }
 async function requireSuperAdmin(req, _res) {
   const authCheck = await requireFirebaseAuth(req);
@@ -2611,11 +2694,7 @@ function rejectUnauthorized(res, authCheck) {
     error: authCheck.error || "Unauthorized"
   });
 }
-registerAiChatRoute(app, {
-  requireFirebaseAuth,
-  resolveCallerRole,
-  getGeminiClient
-});
+registerAiChatRoute(app, { requireFirebaseAuth, resolveCallerRole, getGeminiClient });
 var livePunchesCache = [];
 app.post("/api/attendance/live-push", async (req, res) => {
   try {
@@ -2651,9 +2730,9 @@ app.post("/api/attendance/live-push", async (req, res) => {
       livePunchesCache.unshift(punchItem);
       if (livePunchesCache.length > 500) livePunchesCache.pop();
       processedList.push(punchItem);
-      if (adminApp) {
+      if (getAdminApp()) {
         try {
-          const db = (0, import_firestore.getFirestore)(adminApp);
+          const db = (0, import_firestore2.getFirestore)(getAdminApp());
           const attDocId = `att-live-${effCompId}-${empCode}-${dateStr}`;
           const attRef = db.collection("attendance").doc(attDocId);
           const snap = await attRef.get();
@@ -2747,8 +2826,8 @@ TimeZone=3`);
           };
           livePunchesCache.unshift(punchItem);
           if (livePunchesCache.length > 500) livePunchesCache.pop();
-          if (adminApp) {
-            const db = (0, import_firestore.getFirestore)(adminApp);
+          if (getAdminApp()) {
+            const db = (0, import_firestore2.getFirestore)(getAdminApp());
             const attDocId = `att-live-${effCompId}-${empCode}-${dateStr}`;
             const attRef = db.collection("attendance").doc(attDocId);
             const snap = await attRef.get();
@@ -2965,9 +3044,9 @@ async function executeSystemBackupCore(clientSnapshot, triggerSource = "MANUAL")
     let dumpCollections = {};
     let collectionStats = {};
     let totalRecords = 0;
-    if (adminApp) {
+    if (getAdminApp()) {
       try {
-        const db = (0, import_firestore.getFirestore)(adminApp);
+        const db = (0, import_firestore2.getFirestore)(getAdminApp());
         const colNames = [
           "companies",
           "employees",
@@ -3028,7 +3107,7 @@ async function executeSystemBackupCore(clientSnapshot, triggerSource = "MANUAL")
     const uncompressedSizeBytes = Buffer.byteLength(jsonString, "utf8");
     const compressedBuffer = import_zlib2.default.gzipSync(Buffer.from(jsonString, "utf8"));
     const compressedSizeBytes = compressedBuffer.length;
-    const sha256Checksum = import_crypto.default.createHash("sha256").update(compressedBuffer).digest("hex");
+    const sha256Checksum = import_crypto2.default.createHash("sha256").update(compressedBuffer).digest("hex");
     const durationMs = Date.now() - startTime;
     const metadata = {
       backupId,

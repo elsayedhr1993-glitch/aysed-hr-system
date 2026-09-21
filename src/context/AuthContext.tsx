@@ -3,6 +3,7 @@ import { onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth
 import { auth, db, isTenantPurged } from '../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
+import { isSuperAdminEmail } from '../config/superAdminAccess';
 
 const AUTH_USER_KEY = 'aysed_auth_user';
 const AUTH_TOKEN_KEY = 'aysed_auth_token';
@@ -192,6 +193,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           } catch (e) {
             console.warn('Auth profile lookup skipped.');
+          }
+
+          if (isSuperAdminEmail(userEmail)) {
+            role = 'SUPER_ADMIN';
+            name = name || 'مدير النظام';
           }
 
           let jwt = 'session-token';

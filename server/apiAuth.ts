@@ -1,3 +1,4 @@
+import { isSuperAdminEmail } from '../src/config/superAdminAccess.ts';
 import { getAdminAuth, getAdminFirestore } from './firebaseAdmin.ts';
 
 export type AuthCheckResult =
@@ -47,6 +48,14 @@ export async function resolveCallerRole(authCheck: {
   email?: string;
   claims?: Record<string, unknown>;
 }): Promise<{ role: string; companyId?: string }> {
+  const email = String(authCheck.email || '').toLowerCase();
+  if (isSuperAdminEmail(email)) {
+    const claimCompanyId = authCheck.claims?.companyId
+      ? String(authCheck.claims.companyId)
+      : undefined;
+    return { role: 'SUPER_ADMIN', companyId: claimCompanyId };
+  }
+
   const claimRole = String(authCheck.claims?.role || '').toUpperCase();
   const claimCompanyId = authCheck.claims?.companyId
     ? String(authCheck.claims.companyId)
@@ -63,9 +72,13 @@ export async function resolveCallerRole(authCheck: {
       if (snap.exists) {
         const data = snap.data() || {};
         const role = String(data.role || 'COMPANY_ADMIN').toUpperCase();
+        const companyId = data.companyId ? String(data.companyId) : claimCompanyId;
+        if (role === 'SUPER_ADMIN' || isSuperAdminEmail(String(data.email || email))) {
+          return { role: 'SUPER_ADMIN', companyId };
+        }
         return {
           role: role === 'TENANT_ADMIN' ? 'COMPANY_ADMIN' : role,
-          companyId: data.companyId ? String(data.companyId) : claimCompanyId,
+          companyId,
         };
       }
     }

@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { getChatModelCandidates } from '../src/config/aiConfig.ts';
+import { isSuperAdminPrincipal } from '../src/config/superAdminAccess.ts';
 import {
   buildCreateEmployeeActionFromPrompt,
   parseModelCopilotPayload,
@@ -60,7 +61,10 @@ export async function handleAiChatRequest(
     }
 
     const resolved = await resolveCallerRole(authCheck);
-    const isSuperAdmin = resolved.role === 'SUPER_ADMIN';
+    const isSuperAdmin = isSuperAdminPrincipal({
+      role: resolved.role,
+      email: authCheck.email,
+    });
     const access = assertClientCompanyAccess(
       bodyCompanyId ? String(bodyCompanyId) : resolved.companyId,
       resolved.companyId,
