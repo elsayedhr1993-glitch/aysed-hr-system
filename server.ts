@@ -1,4 +1,5 @@
 import express from "express";
+import net from "net";
 import path from "path";
 import crypto from "crypto";
 import zlib from "zlib";
@@ -37,7 +38,31 @@ dotenv.config();
 dotenv.config({ path: ".env.local", override: true });
 
 const app = express();
-const PORT = 3000;
+const PREFERRED_PORT = Number(process.env.PORT) || 3000;
+
+function findAvailablePort(startPort: number, host = "0.0.0.0", maxAttempts = 25): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const attempt = (port: number) => {
+      if (port - startPort >= maxAttempts) {
+        reject(new Error(`No available port in range ${startPort}-${startPort + maxAttempts - 1}`));
+        return;
+      }
+      const tester = net.createServer();
+      tester.once("error", (err: NodeJS.ErrnoException) => {
+        if (err.code === "EADDRINUSE") {
+          attempt(port + 1);
+          return;
+        }
+        reject(err);
+      });
+      tester.once("listening", () => {
+        tester.close(() => resolve(port));
+      });
+      tester.listen(port, host);
+    };
+    attempt(startPort);
+  });
+}
 
 interface FacilityLicenseDoc {
   id?: string;
@@ -2660,7 +2685,11 @@ async function startServer() {
   if (process.env.NODE_ENV !== "production") {
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        strictPort: false,
+        hmr: { port: undefined },
+      },
       appType: "spa",
     });
     app.use(vite.middlewares);
@@ -2704,8 +2733,12 @@ async function startServer() {
     console.log("=================================================");
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Aysed S HR 2026 (Odoo Enterprise Kuwait) running on http://0.0.0.0:${PORT}`);
+  const port = await findAvailablePort(PREFERRED_PORT);
+  if (port !== PREFERRED_PORT) {
+    console.warn(`[Server] Port ${PREFERRED_PORT} is busy; using http://0.0.0.0:${port} instead.`);
+  }
+  app.listen(port, "0.0.0.0", () => {
+    console.log(`Aysed S HR 2026 (Odoo Enterprise Kuwait) running on http://0.0.0.0:${port}`);
     runStartupEnvironmentAudit();
   });
 }

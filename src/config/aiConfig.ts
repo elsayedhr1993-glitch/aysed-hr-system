@@ -1,8 +1,13 @@
 function readConfigEnv(key: string): string | undefined {
-  if (typeof process !== 'undefined' && process.env?.[key]) {
-    return String(process.env[key]);
+  if (typeof process !== 'undefined' && process.env) {
+    const fromProcess = process.env[key] ?? process.env[`VITE_${key}`];
+    if (fromProcess) return String(fromProcess);
   }
-  const viteEnv = import.meta.env as Record<string, string | undefined>;
+  const viteEnv =
+    typeof import.meta !== 'undefined'
+      ? (import.meta.env as Record<string, string | undefined> | undefined)
+      : undefined;
+  if (!viteEnv) return undefined;
   return viteEnv[key] ?? viteEnv[`VITE_${key}`];
 }
 
