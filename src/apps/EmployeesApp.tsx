@@ -1886,8 +1886,15 @@ export function EmployeesApp(props?: any) {
       {/* 3.4 خطط التهيئة والتعيين (Onboarding Plans & Form Wizard) */}
       {activeTab === 'onboarding' && (
         <div className="animate-in fade-in duration-300">
-          <OnboardingTrackerApp 
-            existingEmployees={employees} 
+          <OnboardingTrackerApp
+            existingEmployees={employees}
+            onOpenEmployee={(employeeId) => {
+              const emp = employees.find((e) => String(e.id) === String(employeeId));
+              if (emp) {
+                setActiveTab('directory');
+                setSelectedEmployee(emp);
+              }
+            }}
             onEmployeeCreated={async (newEmp) => {
               setEmployees(prev => {
                 const exists = prev.some(e => e.id === newEmp.id || (e.civilId && e.civilId === newEmp.civilId));

@@ -40,15 +40,31 @@ import { toast } from 'react-hot-toast';
 import { TabDocumentScanner } from '../TabDocumentScanner';
 import { TenantDatabaseService } from '../../services/tenantDataService';
 import { createEmployeeOnboardingBundle } from '../../services/employeeOnboardingService';
+import { CompactTabBar } from '../ui/CompactTabBar';
+
+const CORE_DOC_KEYS = ['civilIdScan', 'passportScan', 'pamWorkPermit', 'mohLicense'] as const;
+
+function getPlanInsights(plan: OnboardingPlan) {
+  const missingDocs = CORE_DOC_KEYS.filter((k) => !plan.documentFiles?.[k]).length;
+  const pendingTasks = plan.tasks.filter((t) => !t.completed).length;
+  const nextTask = plan.tasks.find((t) => !t.completed);
+  const readyToCommence =
+    plan.progressPercentage >= 80 &&
+    missingDocs === 0 &&
+    Boolean(plan.commencementDetails?.actualJoiningDate || plan.expectedStartDate);
+  return { missingDocs, pendingTasks, nextTask, readyToCommence };
+}
 
 interface OnboardingTrackerAppProps {
   existingEmployees?: Array<{ id: string; nameAr: string; jobTitle?: string; dept?: string; civilId?: string }>;
   onEmployeeCreated?: (emp: any) => void;
+  onOpenEmployee?: (employeeId: string) => void;
 }
 
-export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({ 
+export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
   existingEmployees = [],
-  onEmployeeCreated 
+  onEmployeeCreated,
+  onOpenEmployee,
 }) => {
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.id || 'comp-1788442584841';
@@ -352,7 +368,7 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
           branchLocation: newPlan.commencementDetails?.branchLocation || 'الفرع الرئيسي',
           isCommenced: newPlan.commencementDetails?.isCommenced !== false,
           leaveAccrualActivated: newPlan.commencementDetails?.leaveAccrualActivated !== false,
-          status: 'على رأس العمل',
+          status: 'ONBOARDING',
           basicSalary: newPlan.contractDetails?.basicSalary || (newPlan.department === 'الأطباء' ? 1200 : 700),
           contractSalary: newPlan.contractDetails?.basicSalary || (newPlan.department === 'الأطباء' ? 1200 : 700),
           housingAllowance: newPlan.contractDetails?.housingAllowance || 100,
@@ -432,118 +448,117 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
   // Analytics
   const activePlansCount = plans.filter(p => p.status === 'active').length;
   const completedPlansCount = plans.filter(p => p.status === 'completed').length;
-  const avgProgress = plans.length > 0 
-    ? Math.round(plans.reduce((acc, p) => acc + p.progressPercentage, 0) / plans.length) 
+  const avgProgress = plans.length > 0
+    ? Math.round(plans.reduce((acc, p) => acc + p.progressPercentage, 0) / plans.length)
     : 0;
 
+  const plansMissingDocs = plans.filter((p) => getPlanInsights(p).missingDocs > 0 && p.status !== 'completed').length;
+  const plansNearReady = plans.filter((p) => getPlanInsights(p).readyToCommence && p.status !== 'completed').length;
+
+  const resolveEmployeeId = (plan: OnboardingPlan) => {
+    if (plan.employeeId) return plan.employeeId;
+    const hit = existingEmployees.find(
+      (e) =>
+        (e.civilId && plan.civilId && e.civilId === plan.civilId && plan.civilId !== 'غير محدد') ||
+        e.nameAr === plan.employeeName
+    );
+    return hit?.id;
+  };
+
   return (
-    <div className="space-y-4 animate-fadeIn">
-      
-      {/* Top Banner & Header Action Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-purple-100 text-[#714B67] flex items-center justify-center font-bold">
-            <Sparkles className="w-5 h-5 text-[#714B67]" />
+    <div className="space-y-3 animate-fadeIn">
+      <div className="bg-white rounded-xl border border-slate-200/90 p-3 shadow-2xs space-y-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-9 h-9 rounded-lg bg-[#714B67]/10 text-[#714B67] flex items-center justify-center shrink-0">
+              <Sparkles size={18} />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">خطة التهيئة والتعيين</h2>
+              <p className="text-[10px] text-slate-500">مستندات · عهد · عقد · جاهزية المباشرة — مرتبطة بملف الموظف</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <span>خطط التهيئة وإدارة التعيين (Onboarding Plans & Form Wizard)</span>
-              <span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
-                Odoo 18 Transient Engine
-              </span>
-            </h2>
-            <p className="text-xs text-slate-500">
-              متابعة مراحل تسليم العهد، المستندات الرسمية، وتراخيص وزارة الصحة للموظفين الجدد خطوة بخطوة
-            </p>
+          <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => handleSaveAsDefaultTemplate()}
+              disabled={isSavingTemplate}
+              className="border border-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg text-[11px] font-bold hover:bg-slate-50 cursor-pointer disabled:opacity-50"
+              title="حفظ قالب افتراضي للمنشأة في Firestore"
+            >
+              {isSavingTemplate ? 'جاري الحفظ...' : 'حفظ قالب'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsWizardOpen(true)}
+              className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+            >
+              <Plus size={14} />
+              خطة جديدة
+            </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap gap-1.5 text-[10px]">
+          <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-900 border border-amber-100">
+            قائمة: <strong>{activePlansCount}</strong>
+          </span>
+          <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-900 border border-emerald-100">
+            مكتملة: <strong>{completedPlansCount}</strong>
+          </span>
+          <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
+            متوسط الإنجاز: <strong>{avgProgress}%</strong>
+          </span>
+          {plansMissingDocs > 0 && (
+            <span className="px-2 py-0.5 rounded-md bg-rose-50 text-rose-800 border border-rose-100">
+              تحتاج مستندات: <strong>{plansMissingDocs}</strong>
+            </span>
+          )}
+          {plansNearReady > 0 && (
+            <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-900 border border-blue-100">
+              جاهزة للمباشرة: <strong>{plansNearReady}</strong>
+            </span>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100">
           <button
-            onClick={() => handleSaveAsDefaultTemplate()}
-            disabled={isSavingTemplate}
-            className="bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer shrink-0 disabled:opacity-50"
-            title="حفظ واعتماد الخطة الحالية كقالب افتراضي دائم في قاعدة بيانات Supabase"
-          >
-            <Save size={15} />
-            <span>{isSavingTemplate ? 'جاري الحفظ...' : 'حفظ كقالب دائم لـ Supabase'}</span>
-          </button>
-
-          <button
-            onClick={() => setIsWizardOpen(true)}
-            className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm cursor-pointer shrink-0"
-          >
-            <Plus size={16} />
-            <span>+ معالج خطة تهيئة جديدة (Form Wizard)</span>
-          </button>
-        </div>
-      </div>
-
-      {/* KPI Stats Bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
-          <div>
-            <span className="text-[11px] text-slate-400 font-bold block">خطط التعيين القائمة (Active)</span>
-            <span className="text-lg font-black text-amber-600 font-mono">{activePlansCount} خطة</span>
-          </div>
-          <Clock className="w-6 h-6 text-amber-500 opacity-80" />
-        </div>
-
-        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
-          <div>
-            <span className="text-[11px] text-slate-400 font-bold block">الخطط المكتملة 100% (Completed)</span>
-            <span className="text-lg font-black text-emerald-600 font-mono">{completedPlansCount} خطة</span>
-          </div>
-          <CheckCircle2 className="w-6 h-6 text-emerald-500 opacity-80" />
-        </div>
-
-        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
-          <div>
-            <span className="text-[11px] text-slate-400 font-bold block">متوسط نسبة إنجاز التهيئة</span>
-            <span className="text-lg font-black text-indigo-700 font-mono">{avgProgress}%</span>
-          </div>
-          <TrendingUp className="w-6 h-6 text-indigo-500 opacity-80" />
-        </div>
-      </div>
-
-      {/* Filter & Search Bar */}
-      <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row gap-3 items-center justify-between text-xs font-bold">
-        <div className="flex items-center gap-1.5 w-full sm:w-auto">
-          <button
+            type="button"
             onClick={() => setFilterStatus('active')}
-            className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
-              filterStatus === 'active' ? 'bg-[#714B67] text-white shadow-2xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            className={`px-2 py-1 rounded-md text-[11px] font-bold cursor-pointer ${
+              filterStatus === 'active' ? 'bg-[#714B67] text-white' : 'bg-slate-100 text-slate-600'
             }`}
           >
-            الخطط القائمة ({activePlansCount})
+            قائمة ({activePlansCount})
           </button>
           <button
+            type="button"
             onClick={() => setFilterStatus('completed')}
-            className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
-              filterStatus === 'completed' ? 'bg-[#714B67] text-white shadow-2xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            className={`px-2 py-1 rounded-md text-[11px] font-bold cursor-pointer ${
+              filterStatus === 'completed' ? 'bg-[#714B67] text-white' : 'bg-slate-100 text-slate-600'
             }`}
           >
-            المكتملة ({completedPlansCount})
+            مكتملة ({completedPlansCount})
           </button>
           <button
+            type="button"
             onClick={() => setFilterStatus('all')}
-            className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
-              filterStatus === 'all' ? 'bg-[#714B67] text-white shadow-2xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            className={`px-2 py-1 rounded-md text-[11px] font-bold cursor-pointer ${
+              filterStatus === 'all' ? 'bg-[#714B67] text-white' : 'bg-slate-100 text-slate-600'
             }`}
           >
-            جميع الخطط ({plans.length})
+            الكل ({plans.length})
           </button>
-        </div>
-
-        <div className="relative w-full sm:w-64">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="بحث بالاسم أو المسمى..."
-            className="w-full pr-8 pl-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:bg-white focus:outline-hidden"
-          />
-          <Search size={14} className="absolute right-2.5 top-2 text-slate-400" />
+          <div className="relative flex-1 min-w-[140px] max-w-xs">
+            <Search size={13} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="بحث..."
+              className="w-full pr-7 pl-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[11px] focus:outline-none focus:border-[#714B67]/40"
+            />
+          </div>
         </div>
       </div>
 
@@ -566,6 +581,8 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
           ) : (
             filteredPlans.map(plan => {
               const isSelected = selectedPlan?.id === plan.id;
+              const insights = getPlanInsights(plan);
+              const linkedEmpId = resolveEmployeeId(plan);
               return (
                 <div
                   key={plan.id}
@@ -614,14 +631,40 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
                     </div>
                   </div>
 
+                  <div className="mt-2 flex flex-wrap gap-1.5 text-[10px]">
+                    {insights.missingDocs > 0 && (
+                      <span className="text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded">مستندات ناقصة: {insights.missingDocs}</span>
+                    )}
+                    {insights.nextTask && (
+                      <span className="text-slate-600 bg-slate-50 px-1.5 py-0.5 rounded truncate max-w-full">
+                        التالي: {insights.nextTask.title}
+                      </span>
+                    )}
+                    {insights.readyToCommence && plan.status !== 'completed' && (
+                      <span className="text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded">جاهز للمباشرة</span>
+                    )}
+                  </div>
                   <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
                     <div className="flex items-center gap-1">
                       <Calendar size={13} className="text-slate-400" />
                       <span>المباشرة: {plan.expectedStartDate}</span>
                     </div>
-                    <div className="flex items-center gap-1 font-bold text-[#714B67]">
-                      <span>عرض قائمة التحقق والمهام ({plan.tasks.filter(t => t.completed).length}/{plan.tasks.length})</span>
-                      <ChevronLeft size={13} />
+                    <div className="flex items-center gap-2">
+                      {linkedEmpId && onOpenEmployee && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenEmployee(linkedEmpId);
+                          }}
+                          className="text-[#714B67] font-bold hover:underline cursor-pointer"
+                        >
+                          ملف الموظف
+                        </button>
+                      )}
+                      <span className="font-bold text-[#714B67]">
+                        مهام {plan.tasks.filter((t) => t.completed).length}/{plan.tasks.length}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -634,77 +677,52 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
         {selectedPlan && (
           <div className="lg:col-span-6 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-5 text-xs animate-fadeIn">
             {/* Header / Control Bar */}
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3.5">
-              <div>
-                <span className="bg-purple-100 text-purple-950 px-2 py-0.5 rounded-full font-bold text-[10px] mb-1.5 inline-block">
-                  محطة عمل التعيين والتهيئة الشاملة (4 مراحل)
-                </span>
-                <h3 className="font-black text-base text-[#714B67] flex items-center gap-2">
-                  <span>خطة تهيئة الموظف: {selectedPlan.employeeName}</span>
-                </h3>
-                <p className="text-[11px] text-slate-500 font-medium">
-                  {selectedPlan.jobTitle} • {selectedPlan.department} • تاريخ المباشرة المتوقع: {selectedPlan.expectedStartDate}
+            <div className="flex items-start justify-between border-b border-slate-200 pb-3 gap-2">
+              <div className="min-w-0">
+                <h3 className="font-bold text-sm text-slate-900 truncate">{selectedPlan.employeeName}</h3>
+                <p className="text-[11px] text-slate-500">
+                  {selectedPlan.jobTitle} · {selectedPlan.department} · {selectedPlan.progressPercentage}% ·{' '}
+                  {selectedPlan.tasks.filter((t) => t.completed).length}/{selectedPlan.tasks.length} مهام
                 </p>
               </div>
-
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1 shrink-0">
+                {resolveEmployeeId(selectedPlan) && onOpenEmployee && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenEmployee(resolveEmployeeId(selectedPlan)!)}
+                    className="text-[11px] font-bold text-[#714B67] border border-[#714B67]/30 px-2 py-1 rounded-lg hover:bg-purple-50 cursor-pointer"
+                  >
+                    ملف الموظف
+                  </button>
+                )}
                 <button
+                  type="button"
                   onClick={() => handleDeletePlan(selectedPlan.id)}
-                  className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition cursor-pointer border border-rose-100"
+                  className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg cursor-pointer"
                   title="حذف الخطة"
                 >
-                  <Trash2 size={15} />
+                  <Trash2 size={14} />
                 </button>
                 <button
+                  type="button"
                   onClick={() => setSelectedPlan(null)}
-                  className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl transition cursor-pointer border border-slate-100 font-bold"
+                  className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-lg cursor-pointer"
                 >
                   ✕
                 </button>
               </div>
             </div>
 
-            {/* Stepper progress & Phase Selector Tabs */}
-            <div className="grid grid-cols-4 gap-2 border-b border-slate-100 pb-3">
-              {[
-                { id: 'verification', label: '1. الوثائق والـ OCR', icon: FileText },
-                { id: 'custody', label: '2. العهد واللوجستية', icon: Laptop },
-                { id: 'biometrics', label: '3. القياسات والبصمة', icon: Fingerprint },
-                { id: 'compliance', label: '4. العقد والمباشرة', icon: UserCheck }
-              ].map(phase => {
-                const Icon = phase.icon;
-                const isActive = activePhaseTab === phase.id;
-                return (
-                  <button
-                    key={phase.id}
-                    onClick={() => setActivePhaseTab(phase.id as any)}
-                    className={`flex flex-col items-center gap-1.5 py-2.5 px-1 rounded-xl border transition-all text-[10px] font-bold cursor-pointer ${
-                      isActive 
-                        ? 'bg-purple-900 border-purple-950 text-white shadow-xs' 
-                        : 'bg-slate-50/75 border-slate-200 text-slate-600 hover:bg-slate-100'
-                    }`}
-                  >
-                    <Icon size={16} className={isActive ? 'text-purple-200' : 'text-slate-400'} />
-                    <span>{phase.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Overall Progress Tracker Badge */}
-            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center justify-between">
-              <div>
-                <span className="font-bold text-slate-700 block">إجمالي الإنجاز بخطة التعيين:</span>
-                <span className="text-[10px] text-slate-500 font-medium mt-0.5 block">
-                  أنجزت {selectedPlan.tasks.filter(t => t.completed).length} من أصل {selectedPlan.tasks.length} مهام واشتراطات إلزامية
-                </span>
-              </div>
-              <div className="text-right flex items-center gap-3">
-                <span className="font-black text-sm text-purple-900 font-mono bg-purple-50 border border-purple-100 px-2.5 py-1 rounded-lg">
-                  {selectedPlan.progressPercentage}%
-                </span>
-              </div>
-            </div>
+            <CompactTabBar
+              tabs={[
+                { id: 'verification', label: 'الوثائق', shortLabel: 'وثائق', icon: <FileText size={14} /> },
+                { id: 'custody', label: 'العهد', shortLabel: 'عهد', icon: <Laptop size={14} /> },
+                { id: 'biometrics', label: 'البصمة', shortLabel: 'بصمة', icon: <Fingerprint size={14} /> },
+                { id: 'compliance', label: 'العقد والمباشرة', shortLabel: 'عقد', icon: <UserCheck size={14} /> },
+              ]}
+              activeTabId={activePhaseTab}
+              onTabChange={(id) => setActivePhaseTab(id as typeof activePhaseTab)}
+            />
 
             {/* Phase 1: Smart OCR & Documents */}
             {activePhaseTab === 'verification' && (
