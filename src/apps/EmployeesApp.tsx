@@ -22,6 +22,7 @@ import {
   createEmployeeOnboardingBundle,
   employeeMatchesActiveOnboarding,
   launchOnboardingFromPlan,
+  normalizeOnboardingPlanFromFirestore,
 } from '../services/onboardingService';
 import type { OnboardingPlan } from '../types';
 import { TenantDatabaseService } from '../services/tenantDataService';
@@ -37,7 +38,6 @@ import { mapEmployeeForEmployeesAppView } from '../utils/employeeMapper';
 import {
   isEmployeeOnDuty,
   isEmployeeOnLeave,
-  isEmployeeOnboarding,
   normalizeEmployeeStatus,
 } from '../utils/employeeLifecycle';
 
@@ -609,7 +609,12 @@ export function EmployeesApp(props?: any) {
     return onSnapshot(
       plansQuery,
       (snapshot) => {
-        const plans = snapshot.docs.map((item) => ({ ...item.data(), id: item.id } as OnboardingPlan));
+        const plans = snapshot.docs.map((item) =>
+          normalizeOnboardingPlanFromFirestore(
+            { ...item.data(), id: item.id } as OnboardingPlan,
+            currentCompanyId
+          )
+        );
         setActiveOnboardingKeys(buildActiveOnboardingDirectoryKeys(plans, currentCompanyId));
       },
       (error) => console.error('Failed to sync active onboarding plans for directory filter:', error)
@@ -1106,8 +1111,7 @@ export function EmployeesApp(props?: any) {
       } else if (selectedStatus === 'في إجازة') {
         matchStatus = isEmployeeOnLeave(emp.status);
       } else if (selectedStatus === 'قيد التعيين') {
-        matchStatus =
-          isEmployeeOnboarding(emp.status) || employeeMatchesActiveOnboarding(emp, activeOnboardingKeys);
+        matchStatus = employeeMatchesActiveOnboarding(emp, activeOnboardingKeys);
       } else {
         matchStatus = String(emp.status || '').trim() === selectedStatus;
       }

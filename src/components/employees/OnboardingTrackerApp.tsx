@@ -41,8 +41,13 @@ import { toast } from 'react-hot-toast';
 import { TabDocumentScanner } from '../TabDocumentScanner';
 import { TenantDatabaseService } from '../../services/tenantDataService';
 import {
+  coalesceOnboardingPlanLaunch,
+  isOnboardingPlanCompleted,
+  isOnboardingPlanInProgress,
   launchOnboardingFromPlan,
+  normalizeOnboardingPlanFromFirestore,
   persistOnboardingPlan,
+  reconcileDuplicateActivePlans,
   syncPlanToEmployeeRecord,
 } from '../../services/onboardingService';
 import { CompactTabBar } from '../ui/CompactTabBar';
@@ -223,24 +228,38 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
   // Load onboarding plans from Firestore for the active company.
   useEffect(() => {
     const plansQuery = query(collection(db, 'onboarding_plans'), where('companyId', '==', companyId));
-    return onSnapshot(plansQuery, snapshot => {
-      setPlans(snapshot.docs.map(item => ({ ...item.data(), id: item.id } as OnboardingPlan)));
-    }, error => console.error('Error loading onboarding plans from Firestore:', error));
+    return onSnapshot(
+      plansQuery,
+      (snapshot) => {
+        void (async () => {
+          try {
+            const raw = snapshot.docs.map(
+              (item) => ({ ...item.data(), id: item.id } as OnboardingPlan)
+            );
+            const { plans: reconciled, archivedIds } = await reconcileDuplicateActivePlans(raw, companyId);
+            if (archivedIds.length > 0) {
+              toast.success(`تم أرشفة ${archivedIds.length} خطة تهيئة مكررة؛ بقي أحدث سجل نشط لكل موظف.`);
+            }
+            setPlans(reconciled);
+          } catch (err) {
+            console.error('Error loading onboarding plans from Firestore:', err);
+          }
+        })();
+      },
+      (error) => console.error('Error loading onboarding plans from Firestore:', error)
+    );
   }, [companyId]);
 
-  // Save plans to Firestore.
   const savePlans = async (newPlans: OnboardingPlan[]) => {
-    setPlans(newPlans);
+    const normalized = newPlans.map((p) => normalizeOnboardingPlanFromFirestore(p, companyId));
+    setPlans(normalized);
     try {
-      for (const plan of newPlans) {
-        await setDoc(doc(db, 'onboarding_plans', plan.id), cleanFirestoreData({
-          ...plan,
-          companyId,
-          updatedAt: new Date().toISOString()
-        }), { merge: true });
+      for (const plan of normalized) {
+        await persistOnboardingPlan(plan, companyId);
       }
     } catch (e) {
       console.error('Error saving onboarding plans:', e);
+      toast.error('تعذر حفظ بعض خطط التهيئة في Firestore.');
     }
   };
 
@@ -274,13 +293,18 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
 
   const handleLaunchNewPlan = async (newPlan: OnboardingPlan) => {
     const planWithStatus: OnboardingPlan = { ...newPlan, status: newPlan.status || 'active' };
-    setSelectedPlan(planWithStatus);
+    const coalesced = coalesceOnboardingPlanLaunch(planWithStatus, plans, companyId);
+    if (coalesced.id !== planWithStatus.id) {
+      toast('تم ربط الطلب بخطة التهيئة النشطة الحالية لنفس الموظف (بدون تكرار).', { icon: '🔗' });
+    }
+    setSelectedPlan(coalesced);
 
     try {
       const result = await launchOnboardingFromPlan({
         companyId,
-        plan: planWithStatus,
+        plan: coalesced,
         existingEmployees: existingEmployees as Array<Record<string, unknown>>,
+        existingPlans: plans,
       });
 
       const linkedPlan = result.plan;
@@ -346,8 +370,11 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
   };
 
   // Filtered list
-  const filteredPlans = plans.filter(p => {
-    const matchStatus = filterStatus === 'all' || p.status === filterStatus;
+  const filteredPlans = plans.filter((p) => {
+    const matchStatus =
+      filterStatus === 'all' ||
+      (filterStatus === 'active' && isOnboardingPlanInProgress(p)) ||
+      (filterStatus === 'completed' && isOnboardingPlanCompleted(p));
     const matchSearch = !searchQuery || 
       p.employeeName.toLowerCase().includes(searchQuery.toLowerCase()) || 
       p.jobTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -357,14 +384,18 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
   });
 
   // Analytics
-  const activePlansCount = plans.filter(p => p.status === 'active').length;
-  const completedPlansCount = plans.filter(p => p.status === 'completed').length;
+  const activePlansCount = plans.filter((p) => isOnboardingPlanInProgress(p)).length;
+  const completedPlansCount = plans.filter((p) => isOnboardingPlanCompleted(p)).length;
   const avgProgress = plans.length > 0
     ? Math.round(plans.reduce((acc, p) => acc + p.progressPercentage, 0) / plans.length)
     : 0;
 
-  const plansMissingDocs = plans.filter((p) => getPlanInsights(p).missingDocs > 0 && p.status !== 'completed').length;
-  const plansNearReady = plans.filter((p) => getPlanInsights(p).readyToCommence && p.status !== 'completed').length;
+  const plansMissingDocs = plans.filter(
+    (p) => getPlanInsights(p).missingDocs > 0 && isOnboardingPlanInProgress(p)
+  ).length;
+  const plansNearReady = plans.filter(
+    (p) => getPlanInsights(p).readyToCommence && isOnboardingPlanInProgress(p)
+  ).length;
 
   const resolveEmployeeId = (plan: OnboardingPlan) => {
     if (plan.employeeId) return plan.employeeId;
@@ -518,11 +549,11 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
                     </div>
 
                     <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                      plan.status === 'completed'
+                      isOnboardingPlanCompleted(plan)
                         ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                         : 'bg-amber-100 text-amber-800 border-amber-300'
                     }`}>
-                      {plan.status === 'completed' ? 'مكتملة 100%' : `جارية (${plan.progressPercentage}%)`}
+                      {isOnboardingPlanCompleted(plan) ? 'مكتملة 100%' : `جارية (${plan.progressPercentage}%)`}
                     </span>
                   </div>
 
@@ -551,7 +582,7 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
                         التالي: {insights.nextTask.title}
                       </span>
                     )}
-                    {insights.readyToCommence && plan.status !== 'completed' && (
+                    {insights.readyToCommence && isOnboardingPlanInProgress(plan) && (
                       <span className="text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded">جاهز للمباشرة</span>
                     )}
                   </div>
