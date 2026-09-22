@@ -47,7 +47,8 @@ import {
   launchOnboardingFromPlan,
   normalizeOnboardingPlanFromFirestore,
   persistOnboardingPlan,
-  reconcileDuplicateActivePlans,
+  backfillMissingPlanStatuses,
+  reconcileDuplicateOnboardingPlans,
   syncPlanToEmployeeRecord,
 } from '../../services/onboardingService';
 import { CompactTabBar } from '../ui/CompactTabBar';
@@ -233,12 +234,20 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
       (snapshot) => {
         void (async () => {
           try {
-            const raw = snapshot.docs.map(
-              (item) => ({ ...item.data(), id: item.id } as OnboardingPlan)
+            const rawItems = snapshot.docs.map((item) => ({
+              id: item.id,
+              data: item.data() as Record<string, unknown>,
+            }));
+            await backfillMissingPlanStatuses(rawItems, companyId);
+            const raw = rawItems.map(
+              (item) => ({ ...item.data, id: item.id } as OnboardingPlan)
             );
-            const { plans: reconciled, archivedIds } = await reconcileDuplicateActivePlans(raw, companyId);
-            if (archivedIds.length > 0) {
-              toast.success(`تم أرشفة ${archivedIds.length} خطة تهيئة مكررة؛ بقي أحدث سجل نشط لكل موظف.`);
+            const { plans: reconciled, deletedIds } = await reconcileDuplicateOnboardingPlans(
+              raw,
+              companyId
+            );
+            if (deletedIds.length > 0) {
+              toast.success(`تم حذف ${deletedIds.length} خطة تهيئة مكررة؛ بقي السجل المعتمد لكل موظف.`);
             }
             setPlans(reconciled);
           } catch (err) {

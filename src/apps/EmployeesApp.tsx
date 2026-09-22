@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Users, Clock, Stethoscope, AlertTriangle, X, FileText, Printer, Calendar, 
   RefreshCw, DollarSign, CheckCircle2, Building2, Briefcase, ExternalLink, Trash2,
@@ -18,11 +18,15 @@ import { useScreenLayout } from '../hooks/useScreenLayout';
 import { useCompany } from '../context/CompanyContext';
 import { EmployeeOnboardingValidationError } from '../services/employeeOnboardingService';
 import {
+  backfillMissingPlanStatuses,
   buildActiveOnboardingDirectoryKeys,
   createEmployeeOnboardingBundle,
   employeeMatchesActiveOnboarding,
   launchOnboardingFromPlan,
   normalizeOnboardingPlanFromFirestore,
+  reconcileDuplicateOnboardingPlans,
+  shouldDisplayEmployeeAsOnboarding,
+  syncDirectoryEmployeeStatusesFromPlans,
 } from '../services/onboardingService';
 import type { OnboardingPlan } from '../types';
 import { TenantDatabaseService } from '../services/tenantDataService';
@@ -36,6 +40,7 @@ import { cleanFirestoreData, db } from '../lib/firebase';
 import { changeEmployeeStatus } from '../services/employeeLifecycleService';
 import { mapEmployeeForEmployeesAppView } from '../utils/employeeMapper';
 import {
+  getEmployeeStatusMeta,
   isEmployeeOnDuty,
   isEmployeeOnLeave,
   normalizeEmployeeStatus,
@@ -542,6 +547,8 @@ export function EmployeesApp(props?: any) {
 
   // 1. حالة الموظفين معتمدة حصراً على قاعدة البيانات السحابية (Supabase / Firestore)
   const [employees, setEmployees] = useState<any[]>([]);
+  const employeesRef = useRef<any[]>([]);
+  employeesRef.current = employees;
 
   useEffect(() => {
     if (props?.selectedEmployeeId && employees.length > 0) {
@@ -609,13 +616,33 @@ export function EmployeesApp(props?: any) {
     return onSnapshot(
       plansQuery,
       (snapshot) => {
-        const plans = snapshot.docs.map((item) =>
-          normalizeOnboardingPlanFromFirestore(
-            { ...item.data(), id: item.id } as OnboardingPlan,
-            currentCompanyId
-          )
-        );
-        setActiveOnboardingKeys(buildActiveOnboardingDirectoryKeys(plans, currentCompanyId));
+        void (async () => {
+          try {
+            const rawItems = snapshot.docs.map((item) => ({
+              id: item.id,
+              data: item.data() as Record<string, unknown>,
+            }));
+            await backfillMissingPlanStatuses(rawItems, currentCompanyId);
+            const raw = rawItems.map(
+              (item) => ({ ...item.data, id: item.id } as OnboardingPlan)
+            );
+            const { plans: reconciled, deletedIds } = await reconcileDuplicateOnboardingPlans(
+              raw,
+              currentCompanyId
+            );
+            if (deletedIds.length > 0) {
+              toast.success(`تم حذف ${deletedIds.length} خطة تهيئة مكررة من السجل.`);
+            }
+            setActiveOnboardingKeys(buildActiveOnboardingDirectoryKeys(reconciled, currentCompanyId));
+            await syncDirectoryEmployeeStatusesFromPlans({
+              companyId: currentCompanyId,
+              plans: reconciled,
+              employees: employeesRef.current,
+            });
+          } catch (error) {
+            console.error('Failed to sync active onboarding plans for directory filter:', error);
+          }
+        })();
       },
       (error) => console.error('Failed to sync active onboarding plans for directory filter:', error)
     );
@@ -1100,6 +1127,23 @@ export function EmployeesApp(props?: any) {
   );
   const allDepts = availableDepts.length > 0 ? availableDepts : ['الأطباء', 'التمريض', 'الموارد البشرية', 'الإدارة العليا', 'الفنيين', 'مناديب وسائقين'];
 
+  const renderDirectoryStatusBadge = useCallback(
+    (emp: any) => {
+      const meta = shouldDisplayEmployeeAsOnboarding(emp, activeOnboardingKeys)
+        ? getEmployeeStatusMeta('ONBOARDING')
+        : getEmployeeStatusMeta(emp.status);
+      return (
+        <span
+          className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold border flex items-center gap-1.5 ${meta.badgeBg} ${meta.textColor} ${meta.borderColor}`}
+        >
+          <span className={`w-1.5 h-1.5 rounded-full ${meta.dotColor}`}></span>
+          <span>{meta.labelAr}</span>
+        </span>
+      );
+    },
+    [activeOnboardingKeys]
+  );
+
   const filteredEmployees = visibleEmployees.filter(emp => {
     const empDept = emp.dept || emp.department || '';
     const matchDept = selectedDept === null || !selectedDept || empDept === selectedDept || empDept.includes(selectedDept) || selectedDept.includes(empDept);
@@ -1428,22 +1472,7 @@ export function EmployeesApp(props?: any) {
 
                         {/* شارة الحالة الهادئة + زر الخيارات (...) */}
                         <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold border flex items-center gap-1.5 ${
-                            (!emp.status || emp.status === 'على رأس العمل' || emp.status.toLowerCase() === 'active')
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80'
-                              : (emp.status === 'في إجازة' || emp.status.toLowerCase() === 'leave')
-                              ? 'bg-blue-50 text-blue-700 border-blue-200/80'
-                              : 'bg-slate-100 text-slate-600 border-slate-200'
-                          }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${
-                              (!emp.status || emp.status === 'على رأس العمل' || emp.status.toLowerCase() === 'active')
-                                ? 'bg-emerald-500'
-                                : (emp.status === 'في إجازة' || emp.status.toLowerCase() === 'leave')
-                                ? 'bg-blue-500'
-                                : 'bg-slate-400'
-                            }`}></span>
-                            <span>{emp.status || 'على رأس العمل'}</span>
-                          </span>
+                          {renderDirectoryStatusBadge(emp)}
 
                           {/* زر (...) */}
                           <div className="relative">
@@ -1568,24 +1597,7 @@ export function EmployeesApp(props?: any) {
                             <div className="text-[10px] text-slate-400 mt-0.5">{emp.dept || emp.department}</div>
                           </td>
                           <td className="p-3 font-mono text-purple-900 font-bold">{emp.mohLicense || '-'}</td>
-                          <td className="p-3">
-                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold border inline-flex items-center gap-1 ${
-                              (!emp.status || emp.status === 'على رأس العمل' || emp.status.toLowerCase() === 'active')
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80'
-                                : (emp.status === 'في إجازة' || emp.status.toLowerCase() === 'leave')
-                                ? 'bg-blue-50 text-blue-700 border-blue-200/80'
-                                : 'bg-slate-100 text-slate-600 border-slate-200'
-                            }`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${
-                                (!emp.status || emp.status === 'على رأس العمل' || emp.status.toLowerCase() === 'active')
-                                  ? 'bg-emerald-500'
-                                  : (emp.status === 'في إجازة' || emp.status.toLowerCase() === 'leave')
-                                  ? 'bg-blue-500'
-                                  : 'bg-slate-400'
-                              }`}></span>
-                              <span>{emp.status || 'على رأس العمل'}</span>
-                            </span>
-                          </td>
+                          <td className="p-3">{renderDirectoryStatusBadge(emp)}</td>
                           <td className="p-3 text-center">
                             <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                               <button

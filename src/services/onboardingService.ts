@@ -1,4 +1,4 @@
-import { doc, setDoc } from 'firebase/firestore';
+import { deleteDoc, doc, setDoc } from 'firebase/firestore';
 import { db, cleanFirestoreData } from '../lib/firebase';
 import { OnboardingPlan } from '../types';
 import {
@@ -89,16 +89,38 @@ export function coalesceOnboardingPlanLaunch(
   );
 }
 
-/** أرشفة الخطط المكررة النشطة (الاحتفاظ بأحدث تحديث لكل موظف/مدني). */
-export async function reconcileDuplicateActivePlans(
+/** يكتب status=active في Firestore للخطط القديمة بدون حقل status. */
+export async function backfillMissingPlanStatuses(
+  rawPlans: Array<{ id: string; data: Record<string, unknown> }>,
+  companyId: string
+): Promise<void> {
+  const patches = rawPlans
+    .filter((item) => {
+      const raw = item.data.status;
+      return raw === undefined || raw === null || String(raw).trim() === '';
+    })
+    .map((item) =>
+      normalizeOnboardingPlanFromFirestore(
+        { ...(item.data as OnboardingPlan), id: item.id, status: 'active' },
+        companyId
+      )
+    );
+  if (patches.length === 0) return;
+  await Promise.all(patches.map((plan) => persistOnboardingPlan(plan, companyId)));
+}
+
+/**
+ * إزالة خطط التهيئة المكررة لنفس الموظف من Firestore.
+ * عند وجود خطة مكتملة يُحتفظ بأحدثها ويُحذف الباقي؛ وإلا تُحفظ أحدث خطة جارية.
+ */
+export async function reconcileDuplicateOnboardingPlans(
   plans: OnboardingPlan[],
   companyId: string
-): Promise<{ plans: OnboardingPlan[]; archivedIds: string[] }> {
+): Promise<{ plans: OnboardingPlan[]; deletedIds: string[] }> {
   const normalized = plans.map((p) => normalizeOnboardingPlanFromFirestore(p, companyId));
   const groups = new Map<string, OnboardingPlan[]>();
 
   for (const plan of normalized) {
-    if (!isOnboardingPlanInProgress(plan)) continue;
     const key = planSubjectKey(plan);
     if (!key || key === 'name:') continue;
     const bucket = groups.get(key) || [];
@@ -106,43 +128,43 @@ export async function reconcileDuplicateActivePlans(
     groups.set(key, bucket);
   }
 
-  const archivedIds: string[] = [];
-  const archivedSet = new Set<string>();
+  const deleteIds = new Set<string>();
 
   for (const bucket of groups.values()) {
     if (bucket.length <= 1) continue;
-    bucket.sort((a, b) => String(b.updatedAt || b.id).localeCompare(String(a.updatedAt || a.id)));
-    for (let i = 1; i < bucket.length; i++) {
-      const stale = bucket[i];
-      archivedSet.add(stale.id);
-      archivedIds.push(stale.id);
+    const completed = bucket.filter((p) => isOnboardingPlanCompleted(p));
+    let keeper: OnboardingPlan;
+    if (completed.length > 0) {
+      completed.sort((a, b) => String(b.updatedAt || b.id).localeCompare(String(a.updatedAt || a.id)));
+      keeper = completed[0];
+    } else {
+      const inProgress = bucket.filter((p) => isOnboardingPlanInProgress(p));
+      const pool = inProgress.length > 0 ? inProgress : bucket;
+      pool.sort((a, b) => String(b.updatedAt || b.id).localeCompare(String(a.updatedAt || a.id)));
+      keeper = pool[0];
+    }
+    for (const plan of bucket) {
+      if (plan.id !== keeper.id) deleteIds.add(plan.id);
     }
   }
 
-  if (archivedIds.length === 0) {
-    return { plans: normalized, archivedIds };
+  if (deleteIds.size > 0) {
+    await Promise.all([...deleteIds].map((id) => deleteDoc(doc(db, 'onboarding_plans', id))));
   }
 
-  const reconciled = normalized.map((plan) => {
-    if (!archivedSet.has(plan.id)) return plan;
-    return {
-      ...plan,
-      status: 'completed' as const,
-      updatedAt: new Date().toISOString(),
-      commencementDetails: {
-        ...(plan.commencementDetails || {}),
-        notes: 'أُرشفت تلقائياً: خطة تهيئة مكررة لنفس الموظف (الاحتفاظ بأحدث خطة نشطة).',
-      },
-    };
-  });
+  return {
+    plans: normalized.filter((p) => !deleteIds.has(p.id)),
+    deletedIds: [...deleteIds],
+  };
+}
 
-  await Promise.all(
-    reconciled
-      .filter((p) => archivedSet.has(p.id))
-      .map((p) => persistOnboardingPlan(p, companyId))
-  );
-
-  return { plans: reconciled, archivedIds };
+/** @deprecated استخدم reconcileDuplicateOnboardingPlans */
+export async function reconcileDuplicateActivePlans(
+  plans: OnboardingPlan[],
+  companyId: string
+): Promise<{ plans: OnboardingPlan[]; archivedIds: string[] }> {
+  const result = await reconcileDuplicateOnboardingPlans(plans, companyId);
+  return { plans: result.plans, archivedIds: result.deletedIds };
 }
 
 export function isPlanCommencementApproved(plan: OnboardingPlan): boolean {
@@ -408,16 +430,10 @@ export function buildActiveOnboardingDirectoryKeys(
   return { employeeIds, civilIds, planIds };
 }
 
-export function employeeMatchesActiveOnboarding(
+export function employeeHasActiveOnboardingPlan(
   emp: Record<string, unknown>,
   keys: ReturnType<typeof buildActiveOnboardingDirectoryKeys>
 ): boolean {
-  if (isEmployeeOnDuty(String(emp.status || ''))) {
-    return false;
-  }
-  if (isEmployeeOnboarding(String(emp.status || ''))) {
-    return true;
-  }
   const id = String(emp.id || '');
   const civil = String(emp.civilId || emp.civil_id_number || '');
   const planId = String(emp.onboardingPlanId || '');
@@ -426,6 +442,77 @@ export function employeeMatchesActiveOnboarding(
     (civil && keys.civilIds.has(civil)) ||
     (planId && keys.planIds.has(planId))
   );
+}
+
+export function shouldDisplayEmployeeAsOnboarding(
+  emp: Record<string, unknown>,
+  keys: ReturnType<typeof buildActiveOnboardingDirectoryKeys>
+): boolean {
+  return isEmployeeOnboarding(String(emp.status || '')) || employeeHasActiveOnboardingPlan(emp, keys);
+}
+
+export function employeeMatchesActiveOnboarding(
+  emp: Record<string, unknown>,
+  keys: ReturnType<typeof buildActiveOnboardingDirectoryKeys>
+): boolean {
+  return shouldDisplayEmployeeAsOnboarding(emp, keys);
+}
+
+/** مزامنة حالة الموظف في Firestore مع خطط التهيئة الجارية. */
+export async function syncDirectoryEmployeeStatusesFromPlans(params: {
+  companyId: string;
+  plans: OnboardingPlan[];
+  employees: Array<Record<string, unknown>>;
+}): Promise<void> {
+  const { companyId, plans, employees } = params;
+  const keys = buildActiveOnboardingDirectoryKeys(plans, companyId);
+
+  for (const emp of employees) {
+    if (emp.isDeleted) continue;
+    const empId = String(emp.id || '');
+    if (!empId) continue;
+
+    const linkedToActivePlan = employeeHasActiveOnboardingPlan(emp, keys);
+    const currentlyOnboarding = isEmployeeOnboarding(String(emp.status || ''));
+    const onDuty = isEmployeeOnDuty(String(emp.status || ''));
+
+    if (linkedToActivePlan && !currentlyOnboarding) {
+      await TenantDatabaseService.saveEmployee(
+        {
+          ...emp,
+          status: 'ONBOARDING',
+          isCommenced: false,
+        } as any,
+        companyId
+      );
+      continue;
+    }
+
+    if (currentlyOnboarding && !linkedToActivePlan && onDuty) {
+      continue;
+    }
+
+    if (currentlyOnboarding && !linkedToActivePlan && !onDuty) {
+      const linkedCompleted = plans.some(
+        (p) =>
+          isOnboardingPlanCompleted(p) &&
+          (p.employeeId === empId ||
+            (p.civilId &&
+              p.civilId !== 'غير محدد' &&
+              String(emp.civilId || emp.civil_id_number) === p.civilId))
+      );
+      if (linkedCompleted) {
+        await TenantDatabaseService.saveEmployee(
+          {
+            ...emp,
+            status: 'ACTIVE',
+            isCommenced: true,
+          } as any,
+          companyId
+        );
+      }
+    }
+  }
 }
 
 export { createEmployeeOnboardingBundle } from './employeeOnboardingService';
