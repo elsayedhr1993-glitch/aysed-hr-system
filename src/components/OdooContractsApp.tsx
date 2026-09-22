@@ -60,7 +60,15 @@ export interface DetailedContract extends EmployeeContract {
   notes?: string;
 }
 
-export const OdooContractsApp: React.FC = () => {
+export type OdooContractsAppProps = {
+  focusEmployeeId?: string | null;
+  onFocusConsumed?: () => void;
+};
+
+export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
+  focusEmployeeId,
+  onFocusConsumed,
+}) => {
   const { employees, updateContractSalary, updateContractDetails } = useOdooHierarchy();
   const { activeCompany, activeCompanyId } = useCompany();
   const currentCompanyId = activeCompanyId || activeCompany?.id || 'comp-super-admin';
@@ -348,6 +356,23 @@ export const OdooContractsApp: React.FC = () => {
     setIsCreatingNew(false);
     setIsContractModalOpen(true);
   };
+
+  useEffect(() => {
+    if (!focusEmployeeId || !contractsLoaded) return;
+    const match = contracts.find(
+      (c) =>
+        String(c?.id || '') === focusEmployeeId ||
+        String(c?.employeeId || '') === focusEmployeeId
+    );
+    if (match) {
+      const label = match.name || match.contractRef || '';
+      if (label) setSearchTerm(label);
+      handleOpenEditContract(match as DetailedContract);
+    } else {
+      setSearchTerm(focusEmployeeId);
+    }
+    onFocusConsumed?.();
+  }, [focusEmployeeId, contractsLoaded, contracts, onFocusConsumed]);
 
   // Employee Selection auto-sync
   const handleEmployeeSelectionChange = (empId: string) => {

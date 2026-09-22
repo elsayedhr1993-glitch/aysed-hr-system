@@ -29,7 +29,8 @@ import {
   UserCheck,
   Building2,
   Activity,
-  HeartPulse
+  HeartPulse,
+  ExternalLink,
 } from 'lucide-react';
 import { OnboardingPlan, OnboardingTask } from '../../types';
 import { OnboardingWizardModal } from './OnboardingWizardModal';
@@ -39,7 +40,11 @@ import { db, cleanFirestoreData } from '../../lib/firebase';
 import { toast } from 'react-hot-toast';
 import { TabDocumentScanner } from '../TabDocumentScanner';
 import { TenantDatabaseService } from '../../services/tenantDataService';
-import { createEmployeeOnboardingBundle } from '../../services/employeeOnboardingService';
+import {
+  launchOnboardingFromPlan,
+  persistOnboardingPlan,
+  syncPlanToEmployeeRecord,
+} from '../../services/onboardingService';
 import { CompactTabBar } from '../ui/CompactTabBar';
 
 const CORE_DOC_KEYS = ['civilIdScan', 'passportScan', 'pamWorkPermit', 'mohLicense'] as const;
@@ -57,14 +62,20 @@ function getPlanInsights(plan: OnboardingPlan) {
 
 interface OnboardingTrackerAppProps {
   existingEmployees?: Array<{ id: string; nameAr: string; jobTitle?: string; dept?: string; civilId?: string }>;
+  existingContracts?: Array<{ id?: string; employeeId?: string }>;
   onEmployeeCreated?: (emp: any) => void;
   onOpenEmployee?: (employeeId: string) => void;
+  onOpenContracts?: (employeeId: string) => void;
+  onOpenCommencement?: (employeeId: string) => void;
 }
 
 export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
   existingEmployees = [],
+  existingContracts = [],
   onEmployeeCreated,
   onOpenEmployee,
+  onOpenContracts,
+  onOpenCommencement,
 }) => {
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.id || 'comp-1788442584841';
@@ -78,86 +89,15 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
   const [activePhaseTab, setActivePhaseTab] = useState<'verification' | 'custody' | 'biometrics' | 'compliance'>('verification');
   const [pendingOcrData, setPendingOcrData] = useState<{ docType: string; data: any } | null>(null);
 
-  // Sync Onboarding Plan data back to permanent Employee directory record
   const syncPlanWithEmployee = async (plan: OnboardingPlan) => {
     try {
-      const employees = await TenantDatabaseService.getEmployeesByTenant(companyId);
-      if (employees.length > 0) {
-        let found = false;
-        let matchedEmployee: any = null;
-
-        const updatedEmployees = employees.map((emp: any) => {
-          // Match by id, or civilId, or name
-          const isMatch = (emp.id && plan.employeeId && emp.id === plan.employeeId) ||
-                          (emp.civilId && plan.civilId && emp.civilId === plan.civilId && emp.civilId !== 'غير محدد') ||
-                          (emp.nameAr && plan.employeeName && emp.nameAr === plan.employeeName);
-          if (isMatch) {
-            found = true;
-            
-            // الربط التلقائي والنشط بدورة الموظف
-            const isCommenced = plan.commencementDetails?.isCommenced || !!plan.commencementDetails?.actualJoiningDate;
-            const finalStatus = isCommenced ? 'على رأس العمل' : (emp.status || 'Draft');
-
-            const updatedEmp = {
-              ...emp,
-              status: finalStatus,
-              hireDate: plan.commencementDetails?.actualJoiningDate || emp.hireDate,
-              civilId: plan.civilId && plan.civilId !== 'غير محدد' ? plan.civilId : emp.civilId,
-              civilIdExpiry: plan.civilIdExpiry || emp.civilIdExpiry,
-              passportNo: plan.passportNo || emp.passportNo,
-              passportExpiry: plan.passportExpiry || emp.passportExpiry,
-              mohLicense: plan.mohLicense || emp.mohLicense,
-              mohLicenseExpiry: plan.mohLicenseExpiry || emp.mohLicenseExpiry,
-              medicalFitnessStatus: plan.medicalFitnessStatus || emp.medicalFitnessStatus,
-              medicalFitnessDate: plan.medicalFitnessDate || emp.medicalFitnessDate,
-              medicalFitnessHospital: plan.medicalFitnessHospital || emp.medicalFitnessHospital,
-              directSupervisor: plan.commencementDetails?.directSupervisor || emp.directSupervisor,
-              branchLocation: plan.commencementDetails?.branchLocation || emp.branch || emp.branchLocation,
-              email: plan.contractDetails?.workEmail || emp.email || emp.workEmail,
-              workEmail: plan.contractDetails?.workEmail || emp.email || emp.workEmail,
-              bankName: plan.contractDetails?.bankName || emp.bankName,
-              iban: plan.contractDetails?.iban || emp.iban,
-              contractType: plan.contractDetails?.contractType || emp.contractType,
-              contractStartDate: plan.contractDetails?.startDate || emp.contractStartDate || emp.joinDate,
-              contractEndDate: plan.contractDetails?.endDate || emp.contractEndDate,
-              basicSalary: plan.contractDetails?.basicSalary || emp.basicSalary,
-              housingAllowance: plan.contractDetails?.housingAllowance || emp.housingAllowance,
-              transportAllowance: plan.contractDetails?.transportAllowance || emp.transportAllowance,
-              otherAllowances: plan.contractDetails?.otherAllowances || emp.otherAllowances,
-              totalSalary: plan.contractDetails?.totalSalary || emp.totalSalary,
-              leaveAccrualActivated: plan.commencementDetails?.leaveAccrualActivated !== false,
-              isCommenced,
-              documentFiles: {
-                ...(emp.documentFiles || {}),
-                ...(plan.documentFiles || {})
-              }
-            };
-            matchedEmployee = updatedEmp;
-            return updatedEmp;
-          }
-          return emp;
-        });
-
-        if (found) {
-          console.log('[OnboardingTrackerApp] Successfully synced plan with permanent employee record.');
-          
-          // بث إشعار التحديث لتحديث كافة شاشات النظام فوراً حياً وبلا تأخير
-          window.dispatchEvent(new Event('manara_employees_updated'));
-
-          if (matchedEmployee) {
-            try {
-              await createEmployeeOnboardingBundle({
-                companyId,
-                employee: matchedEmployee,
-                existingEmployees: employees as any
-              });
-              console.log('[OnboardingTrackerApp] Synced employee bundle to Cloud Firestore successfully.');
-            } catch (dbErr) {
-              console.error('Firestore onboarding bundle save failed in onboarding sync:', dbErr);
-            }
-          }
-        }
-      }
+      await syncPlanToEmployeeRecord({
+        companyId,
+        plan,
+        existingEmployees: existingEmployees as Array<Record<string, unknown>>,
+        existingContracts,
+      });
+      window.dispatchEvent(new Event('manara_employees_updated'));
     } catch (err) {
       console.error('Error syncing plan with employee:', err);
     }
@@ -332,63 +272,34 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
     }
   };
 
-  const handleLaunchNewPlan = (newPlan: OnboardingPlan) => {
-    const updated = [newPlan, ...plans];
-    savePlans(updated);
-    setSelectedPlan(newPlan);
+  const handleLaunchNewPlan = async (newPlan: OnboardingPlan) => {
+    const planWithStatus: OnboardingPlan = { ...newPlan, status: newPlan.status || 'active' };
+    setSelectedPlan(planWithStatus);
 
-    if (onEmployeeCreated && newPlan.employeeName) {
-      const isExisting = existingEmployees.some(e => e.id === newPlan.employeeId || (e.civilId && e.civilId === newPlan.civilId && newPlan.civilId !== 'غير محدد'));
-      if (!isExisting) {
-        const sc = newPlan.scannedData || {};
-        const generatedEmp = {
-          id: `EMP-2026-${Date.now().toString().slice(-4)}`,
-          nameAr: newPlan.employeeName,
-          fullNameAr: newPlan.employeeName,
-          fullNameEn: sc.fullNameEn || sc.fullName || '',
-          nameEn: sc.fullNameEn || '',
-          jobTitle: newPlan.jobTitle || sc.profession || 'موظف',
-          dept: newPlan.department || 'العموم',
-          department: newPlan.department || 'العموم',
-          civilId: newPlan.civilId !== 'غير محدد' ? newPlan.civilId : (sc.civilId || ''),
-          civil_id_number: newPlan.civilId !== 'غير محدد' ? newPlan.civilId : (sc.civilId || ''),
-          email: newPlan.contractDetails?.workEmail || '',
-          workEmail: newPlan.contractDetails?.workEmail || '',
-          bankName: newPlan.contractDetails?.bankName || '',
-          iban: newPlan.contractDetails?.iban || '',
-          civilIdExpiry: sc.expiryDate || sc.civilIdExpiry || '2027-01-01',
-          civilIdExpiryDate: sc.expiryDate || sc.civilIdExpiry || '2027-01-01',
-          hireDate: newPlan.expectedStartDate || new Date().toISOString().slice(0, 10),
-          joinDate: newPlan.expectedStartDate || new Date().toISOString().slice(0, 10),
-          contractStartDate: newPlan.contractDetails?.startDate || newPlan.expectedStartDate || new Date().toISOString().slice(0, 10),
-          contractEndDate: newPlan.contractDetails?.endDate || '',
-          contractType: newPlan.contractDetails?.contractType || 'محدد المدة (Fixed Term)',
-          commencementDate: newPlan.commencementDetails?.actualJoiningDate || newPlan.expectedStartDate || new Date().toISOString().slice(0, 10),
-          directSupervisor: newPlan.commencementDetails?.directSupervisor || 'مدير القسم',
-          branchLocation: newPlan.commencementDetails?.branchLocation || 'الفرع الرئيسي',
-          isCommenced: newPlan.commencementDetails?.isCommenced !== false,
-          leaveAccrualActivated: newPlan.commencementDetails?.leaveAccrualActivated !== false,
-          status: 'ONBOARDING',
-          basicSalary: newPlan.contractDetails?.basicSalary || (newPlan.department === 'الأطباء' ? 1200 : 700),
-          contractSalary: newPlan.contractDetails?.basicSalary || (newPlan.department === 'الأطباء' ? 1200 : 700),
-          housingAllowance: newPlan.contractDetails?.housingAllowance || 100,
-          transportAllowance: newPlan.contractDetails?.transportAllowance || 50,
-          otherAllowances: newPlan.contractDetails?.otherAllowances || 0,
-          allowances: (newPlan.contractDetails?.housingAllowance || 100) + (newPlan.contractDetails?.transportAllowance || 50) + (newPlan.contractDetails?.otherAllowances || 0),
-          totalSalary: newPlan.contractDetails?.totalSalary || ((newPlan.contractDetails?.basicSalary || 700) + 150),
-          nationality: sc.nationality || 'كويتي',
-          gender: sc.gender || 'MALE',
-          dob: sc.birthDate || sc.dob || '1990-01-01',
-          birthDate: sc.birthDate || sc.dob || '1990-01-01',
-          passportNo: sc.passportNo || '',
-          passportExpiry: sc.passportExpiryDate || '',
-          residencyType: sc.residencyType || (sc.nationality?.includes('كويت') ? 'مواطن' : 'مادة 18 - قطاع أهلي'),
-          avatarColor: 'bg-purple-900',
-          mohLicense: sc.mohLicenseNo || (newPlan.department === 'الأطباء' ? 'MOH-DOC-TEMP' : ''),
-          mohLicenseExpiry: sc.mohLicenseExpiryDate || ''
-        };
-        onEmployeeCreated(generatedEmp);
+    try {
+      const result = await launchOnboardingFromPlan({
+        companyId,
+        plan: planWithStatus,
+        existingEmployees: existingEmployees as Array<Record<string, unknown>>,
+      });
+
+      const linkedPlan = result.plan;
+      const updated = [linkedPlan, ...plans.filter((p) => p.id !== linkedPlan.id)];
+      setPlans(updated);
+      setSelectedPlan(linkedPlan);
+
+      if (result.kind === 'created' && onEmployeeCreated) {
+        onEmployeeCreated(result.bundle.employee);
+        toast.success('تم إنشاء ملف الموظف والعقد والمباشرة عبر مسار التهيئة الموحد.');
+      } else if (result.kind === 'updated' && onEmployeeCreated) {
+        onEmployeeCreated(result.employee);
       }
+    } catch (err) {
+      console.error('launchOnboardingFromPlan failed:', err);
+      const updated = [planWithStatus, ...plans.filter((p) => p.id !== planWithStatus.id)];
+      await persistOnboardingPlan(planWithStatus, companyId);
+      setPlans(updated);
+      toast.error(err instanceof Error ? err.message : 'تعذر إنشاء حزمة الموظف؛ تم حفظ الخطة فقط.');
     }
   };
 
@@ -649,7 +560,33 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
                       <Calendar size={13} className="text-slate-400" />
                       <span>المباشرة: {plan.expectedStartDate}</span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 justify-end">
+                      {linkedEmpId && onOpenContracts && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenContracts(linkedEmpId);
+                          }}
+                          className="text-slate-700 font-bold hover:underline cursor-pointer inline-flex items-center gap-0.5"
+                        >
+                          العقد
+                          <ExternalLink size={11} />
+                        </button>
+                      )}
+                      {linkedEmpId && onOpenCommencement && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenCommencement(linkedEmpId);
+                          }}
+                          className="text-emerald-800 font-bold hover:underline cursor-pointer inline-flex items-center gap-0.5"
+                        >
+                          المباشرة
+                          <ExternalLink size={11} />
+                        </button>
+                      )}
                       {linkedEmpId && onOpenEmployee && (
                         <button
                           type="button"
@@ -685,7 +622,27 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
                   {selectedPlan.tasks.filter((t) => t.completed).length}/{selectedPlan.tasks.length} مهام
                 </p>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
+              <div className="flex flex-wrap items-center gap-1 shrink-0">
+                {resolveEmployeeId(selectedPlan) && onOpenContracts && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenContracts(resolveEmployeeId(selectedPlan)!)}
+                    className="text-[11px] font-bold text-slate-700 border border-slate-200 px-2 py-1 rounded-lg hover:bg-slate-50 cursor-pointer inline-flex items-center gap-1"
+                  >
+                    فتح العقد
+                    <ExternalLink size={12} />
+                  </button>
+                )}
+                {resolveEmployeeId(selectedPlan) && onOpenCommencement && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenCommencement(resolveEmployeeId(selectedPlan)!)}
+                    className="text-[11px] font-bold text-emerald-800 border border-emerald-200 px-2 py-1 rounded-lg hover:bg-emerald-50 cursor-pointer inline-flex items-center gap-1"
+                  >
+                    إقرار المباشرة
+                    <ExternalLink size={12} />
+                  </button>
+                )}
                 {resolveEmployeeId(selectedPlan) && onOpenEmployee && (
                   <button
                     type="button"

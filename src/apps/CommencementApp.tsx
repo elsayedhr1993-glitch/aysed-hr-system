@@ -1,5 +1,5 @@
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   FileSignature, CheckCircle, Clock, Calendar, Building2, 
   User, Check, Plus, AlertTriangle, ShieldCheck, FolderArchive, 
@@ -24,6 +24,8 @@ interface CommencementAppProps {
   onSaveEmployee?: (emp: Employee) => void;
   onSaveContract?: (contract: Contract) => void;
   onNavigateToApp?: (app: any) => void;
+  focusEmployeeId?: string | null;
+  onFocusConsumed?: () => void;
 }
 
 // Odoo Standard Working Calendars (resource.calendar)
@@ -109,6 +111,8 @@ export const CommencementApp: React.FC<CommencementAppProps> = ({
   onSaveContract,
   onNavigateToApp,
   onDeleteCommencement,
+  focusEmployeeId,
+  onFocusConsumed,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [isDevCodeModalOpen, setIsDevCodeModalOpen] = useState<boolean>(false);
@@ -143,6 +147,25 @@ export const CommencementApp: React.FC<CommencementAppProps> = ({
     if (filterTab === 'APPROVED') return c.status === 'APPROVED';
     return true;
   });
+
+  useEffect(() => {
+    if (!focusEmployeeId) return;
+    const comm = companyCommencements.find((c) => c.employeeId === focusEmployeeId);
+    if (comm) {
+      setSelectedCommForView(comm);
+    } else {
+      const emp = companyEmployees.find((e) => e.id === focusEmployeeId);
+      if (emp) {
+        setEditingCommId(null);
+        setSelectedEmpId(focusEmployeeId);
+        const empContract = contracts.find((c) => c.employeeId === focusEmployeeId);
+        setContractType(empContract?.contractType || 'INDEFINITE');
+        setActualJoiningDate(emp.joinDate || new Date().toISOString().split('T')[0]);
+        setIsModalOpen(true);
+      }
+    }
+    onFocusConsumed?.();
+  }, [focusEmployeeId, companyCommencements, companyEmployees, contracts, onFocusConsumed]);
 
   // When opening modal for new commencement
   const handleOpenNew = () => {

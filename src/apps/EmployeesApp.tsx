@@ -16,7 +16,14 @@ import { EmployeeQuickEditModal } from '../components/employees/EmployeeQuickEdi
 import { EmployeesAppChrome } from '../components/employees/layout/EmployeesAppChrome';
 import { useScreenLayout } from '../hooks/useScreenLayout';
 import { useCompany } from '../context/CompanyContext';
-import { createEmployeeOnboardingBundle, EmployeeOnboardingValidationError } from '../services/employeeOnboardingService';
+import { EmployeeOnboardingValidationError } from '../services/employeeOnboardingService';
+import {
+  buildActiveOnboardingDirectoryKeys,
+  createEmployeeOnboardingBundle,
+  employeeMatchesActiveOnboarding,
+  launchOnboardingFromPlan,
+} from '../services/onboardingService';
+import type { OnboardingPlan } from '../types';
 import { TenantDatabaseService } from '../services/tenantDataService';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { getPersistentData } from '../utils/persistentStorage';
@@ -283,6 +290,10 @@ export function EmployeesApp(props?: any) {
     'directory' | 'contracts' | 'commencement' | 'onboarding' | 'orgchart'
   >('directory');
   const [showFullCommencementApp, setShowFullCommencementApp] = useState(false);
+  const [workspaceFocusEmployeeId, setWorkspaceFocusEmployeeId] = useState<string | null>(null);
+  const [activeOnboardingKeys, setActiveOnboardingKeys] = useState(() =>
+    buildActiveOnboardingDirectoryKeys([], currentCompanyId)
+  );
   const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
@@ -589,6 +600,22 @@ export function EmployeesApp(props?: any) {
       .then(snapshot => setCommencements(snapshot.docs.map(item => ({ ...item.data(), id: item.id }))));
   }, [currentCompanyId]);
 
+  useEffect(() => {
+    if (!currentCompanyId) {
+      setActiveOnboardingKeys(buildActiveOnboardingDirectoryKeys([], currentCompanyId));
+      return;
+    }
+    const plansQuery = query(collection(db, 'onboarding_plans'), where('companyId', '==', currentCompanyId));
+    return onSnapshot(
+      plansQuery,
+      (snapshot) => {
+        const plans = snapshot.docs.map((item) => ({ ...item.data(), id: item.id } as OnboardingPlan));
+        setActiveOnboardingKeys(buildActiveOnboardingDirectoryKeys(plans, currentCompanyId));
+      },
+      (error) => console.error('Failed to sync active onboarding plans for directory filter:', error)
+    );
+  }, [currentCompanyId]);
+
   // فتح نموذج الموظف (hr.employee) كصفحة نظيفة ومباشرة
   const openEmployeeModal = (emp: any) => {
     const latest = employees.find(e => e.id === emp.id) || emp;
@@ -601,122 +628,47 @@ export function EmployeesApp(props?: any) {
   };
 
   // تأكيد معالج التهيئة وإنشاء الموظف والخطة تلقائياً
-  const handleConfirmOnboardingPlan = async (plan: any) => {
+  const handleConfirmOnboardingPlan = async (plan: OnboardingPlan) => {
     setShowOnboardingWizardModal(false);
 
-    // البحث إذا كان الموظف مسجل سابقاً أو جديد
-    const existingEmp = employees.find(e => 
-      (plan.employeeId && e.id === plan.employeeId) || 
-      (e.civilId && plan.civilId && e.civilId === plan.civilId && plan.civilId !== 'غير محدد')
-    );
+    try {
+      const result = await launchOnboardingFromPlan({
+        companyId: currentCompanyId,
+        plan: { ...plan, status: plan.status || 'active' },
+        existingEmployees: employees,
+        nextEmployeeId: `EMP-2026-${String(employees.length + 1).padStart(3, '0')}`,
+      });
 
-    if (!existingEmp) {
-      try {
-        const nextSeq = employees.length + 1;
-        const seedEmployee = {
-          id: `EMP-2026-${String(nextSeq).padStart(3, '0')}`,
-          nameAr: plan.employeeName || 'موظف جديد',
-          fullNameAr: plan.employeeName || 'موظف جديد',
-          fullNameEn: plan.scannedData?.fullNameEn || '',
-          nameEn: plan.scannedData?.fullNameEn || '',
-          jobTitle: plan.jobTitle || 'موظف',
-          dept: plan.department || 'العموم',
-          department: plan.department || 'العموم',
-          civilId: plan.civilId && plan.civilId !== 'غير محدد' ? plan.civilId : '',
-          civil_id_number: plan.civilId && plan.civilId !== 'غير محدد' ? plan.civilId : '',
-          email: plan.contractDetails?.workEmail || '',
-          workEmail: plan.contractDetails?.workEmail || '',
-          hireDate: plan.expectedStartDate || new Date().toISOString().slice(0, 10),
-          joinDate: plan.expectedStartDate || new Date().toISOString().slice(0, 10),
-          contractStartDate: plan.contractDetails?.startDate || plan.expectedStartDate,
-          contractEndDate: plan.contractDetails?.endDate || '',
-          contractType: plan.contractDetails?.contractType || 'محدد المدة (Fixed Term)',
-          commencementDate: plan.commencementDetails?.actualJoiningDate || plan.expectedStartDate,
-          directSupervisor: plan.commencementDetails?.directSupervisor || 'مدير القسم',
-          branchLocation: plan.commencementDetails?.branchLocation || 'الفرع الرئيسي',
-          isCommenced: plan.commencementDetails?.isCommenced !== false,
-          companyId: currentCompanyId,
-          basicSalary: plan.contractDetails?.basicSalary || (plan.department === 'الأطباء' ? 1200 : 700),
-          housingAllowance: plan.contractDetails?.housingAllowance || 100,
-          transportAllowance: plan.contractDetails?.transportAllowance || 50,
-          otherAllowances: plan.contractDetails?.otherAllowances || 0,
-          totalSalary: plan.contractDetails?.totalSalary || ((plan.contractDetails?.basicSalary || (plan.department === 'الأطباء' ? 1200 : 700)) + (plan.contractDetails?.housingAllowance || 100) + (plan.contractDetails?.transportAllowance || 50) + (plan.contractDetails?.otherAllowances || 0)),
-          bankName: plan.contractDetails?.bankName || '',
-          iban: plan.contractDetails?.iban || '',
-          nationality: plan.scannedData?.nationality || 'كويتي',
-          salary: plan.contractDetails?.totalSalary || ((plan.contractDetails?.basicSalary || (plan.department === 'الأطباء' ? 1200 : 700)) + (plan.contractDetails?.housingAllowance || 100) + (plan.contractDetails?.transportAllowance || 50) + (plan.contractDetails?.otherAllowances || 0)),
-          carriedOverLeave2025: 0,
-          carriedOverBalance: 0,
-          openingBalance: 0,
-          avatarColor: 'bg-purple-900',
-          mohLicense: plan.mohLicense || (plan.department === 'الأطباء' ? 'MOH-DOC-TEMP' : ''),
-          pifssStatus: 'subscribed',
-          leaveAccrualActivated: plan.commencementDetails?.leaveAccrualActivated !== false,
-          legalChecklist: plan.legalChecklist || {
-            civilIdScan: true,
-            passportScan: true,
-            pamWorkPermit: true,
-            mohLicense: plan.department === 'الأطباء',
-            medicalFitness: true,
-            signedContract: true
-          },
-          requiredDocuments: plan.requiredDocuments || ['civilIdScan', 'passportScan', 'pamWorkPermit', 'signedContract', 'medicalFitness'],
-          onboardingPlanId: plan.id,
-          custodyItems: plan.custodyItems || [],
-          documentFiles: {}
-        };
-
-        const bundle = await createEmployeeOnboardingBundle({
-          companyId: currentCompanyId,
-          employee: seedEmployee,
-          existingEmployees: employees as any
-        });
-
-        setEmployees(prev => [bundle.employee as any, ...prev.filter(e => e.id !== bundle.employee.id)]);
-        setContracts(prev => [bundle.contract, ...prev.filter(c => c.id !== bundle.contract.id)]);
-        setCommencements(prev => [bundle.commencement, ...prev.filter(c => c.id !== bundle.commencement.id)]);
+      if (result.kind === 'created') {
+        const bundle = result.bundle;
+        setEmployees((prev) => [bundle.employee as any, ...prev.filter((e) => e.id !== bundle.employee.id)]);
+        setContracts((prev) => [bundle.contract, ...prev.filter((c) => c.id !== bundle.contract.id)]);
+        setCommencements((prev) => [bundle.commencement, ...prev.filter((c) => c.id !== bundle.commencement.id)]);
         setSelectedEmployee(bundle.employee as any);
         setActiveTab('directory');
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'تعذر إنشاء حزمة الموظف الموحدة.');
-        return;
+      } else {
+        setEmployees((prev) => prev.map((e) => (e.id === result.employee.id ? result.employee : e)));
       }
-    } else {
-      // إذا كان الموظف مسجلاً بالفعل، نقوم بتحديث قائمة وثائقه وخطة تهيئته
-      const updatedExisting = {
-        ...existingEmp,
-        legalChecklist: plan.legalChecklist || existingEmp.legalChecklist || {
-          civilIdScan: true,
-          passportScan: true,
-          pamWorkPermit: true,
-          mohLicense: (existingEmp.dept || existingEmp.department) === 'الأطباء',
-          medicalFitness: true,
-          signedContract: true
-        },
-        requiredDocuments: plan.requiredDocuments || existingEmp.requiredDocuments || ['civilIdScan', 'passportScan', 'pamWorkPermit', 'signedContract', 'medicalFitness'],
-        onboardingPlanId: plan.id,
-        custodyItems: plan.custodyItems || existingEmp.custodyItems || []
-      };
 
-      await TenantDatabaseService.saveEmployee(updatedExisting as any, currentCompanyId);
+      toast.success(`تم تسجيل الموظف (${plan.employeeName}) وتفعيل خطة التهيئة والتعيين بنجاح!`);
 
-      setEmployees(prev => {
-        const nextList = prev.map(e => e.id === updatedExisting.id ? updatedExisting : e);
-        return nextList;
-      });
+      if (props?.recruitmentCandidateId && typeof props?.onRecruitmentHired === 'function') {
+        props.onRecruitmentHired(props.recruitmentCandidateId);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'تعذر إنشاء حزمة الموظف الموحدة.');
     }
+  };
 
-    await setDoc(doc(db, 'onboarding_plans', plan.id), cleanFirestoreData({
-      ...plan,
-      companyId: currentCompanyId,
-      updatedAt: new Date().toISOString()
-    }), { merge: true });
+  const openContractsForEmployee = (employeeId: string) => {
+    setWorkspaceFocusEmployeeId(employeeId);
+    setActiveTab('contracts');
+  };
 
-    toast.success(`تم تسجيل الموظف (${plan.employeeName}) وتفعيل خطة التهيئة والتعيين بنجاح!`);
-
-    if (props?.recruitmentCandidateId && typeof props?.onRecruitmentHired === 'function') {
-      props.onRecruitmentHired(props.recruitmentCandidateId);
-    }
+  const openCommencementForEmployee = (employeeId: string) => {
+    setWorkspaceFocusEmployeeId(employeeId);
+    setShowFullCommencementApp(true);
+    setActiveTab('commencement');
   };
 
   const handleSaveEmployee = async (updatedEmp: any) => {
@@ -1154,7 +1106,8 @@ export function EmployeesApp(props?: any) {
       } else if (selectedStatus === 'في إجازة') {
         matchStatus = isEmployeeOnLeave(emp.status);
       } else if (selectedStatus === 'قيد التعيين') {
-        matchStatus = isEmployeeOnboarding(emp.status);
+        matchStatus =
+          isEmployeeOnboarding(emp.status) || employeeMatchesActiveOnboarding(emp, activeOnboardingKeys);
       } else {
         matchStatus = String(emp.status || '').trim() === selectedStatus;
       }
@@ -1674,7 +1627,10 @@ export function EmployeesApp(props?: any) {
       {/* 3.3 العقود والرواتب */}
       {activeTab === 'contracts' && (
         <div className="animate-in fade-in duration-300">
-          <OdooContractsApp />
+          <OdooContractsApp
+            focusEmployeeId={workspaceFocusEmployeeId}
+            onFocusConsumed={() => setWorkspaceFocusEmployeeId(null)}
+          />
         </div>
       )}
 
@@ -1703,6 +1659,8 @@ export function EmployeesApp(props?: any) {
               commencements={commencements}
               activeCompany={activeCompany as any}
               filterTab="all"
+              focusEmployeeId={workspaceFocusEmployeeId}
+              onFocusConsumed={() => setWorkspaceFocusEmployeeId(null)}
               onSaveCommencement={(updatedComm) => {
                 const exists = commencements.some(c => c.id === updatedComm.id);
                 let updatedList;
@@ -1888,6 +1846,9 @@ export function EmployeesApp(props?: any) {
         <div className="animate-in fade-in duration-300">
           <OnboardingTrackerApp
             existingEmployees={employees}
+            existingContracts={contracts}
+            onOpenContracts={openContractsForEmployee}
+            onOpenCommencement={openCommencementForEmployee}
             onOpenEmployee={(employeeId) => {
               const emp = employees.find((e) => String(e.id) === String(employeeId));
               if (emp) {
