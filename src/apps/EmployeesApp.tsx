@@ -1215,11 +1215,15 @@ export function EmployeesApp(props?: any) {
 
   const employeesActionsMenu = (
     <div
+      role="menu"
+      aria-label="إجراءات دليل الموظفين"
       className="absolute right-0 top-full mt-1 w-52 bg-white border border-slate-200 rounded-xl shadow-lg z-[60] p-1 space-y-0.5"
       onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
     >
       <button
         type="button"
+        role="menuitem"
         onClick={() => {
           setShowActionsDropdown(false);
           handleTriggerPrint(
@@ -1234,6 +1238,7 @@ export function EmployeesApp(props?: any) {
       </button>
       <button
         type="button"
+        role="menuitem"
         onClick={() => {
           setShowActionsDropdown(false);
           exportToExcel();
@@ -1248,6 +1253,7 @@ export function EmployeesApp(props?: any) {
           <div className="border-t border-slate-100 my-1" />
           <button
             type="button"
+            role="menuitem"
             onClick={() => {
               setShowActionsDropdown(false);
               setShowResetConfirmModal(true);

@@ -84,8 +84,14 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
         onActionsMenuOpenChange(false);
       }
     };
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
+    // Defer so the same click that opened the menu does not immediately close it.
+    const timer = window.setTimeout(() => {
+      document.addEventListener('click', onDoc, true);
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('click', onDoc, true);
+    };
   }, [actionsMenuOpen, onActionsMenuOpenChange]);
 
   const breadcrumbTail =
@@ -141,6 +147,8 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
             <div className={`relative ${actionsMenuOpen ? 'z-50' : ''}`} ref={actionsRef}>
               <button
                 type="button"
+                aria-expanded={actionsMenuOpen}
+                aria-haspopup="menu"
                 onClick={() => onActionsMenuOpenChange(!actionsMenuOpen)}
                 className="bg-white border border-slate-200 text-slate-600 px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-0.5 cursor-pointer hover:bg-slate-50"
               >
