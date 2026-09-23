@@ -1217,7 +1217,7 @@ export function EmployeesApp(props?: any) {
     <div
       role="menu"
       aria-label="إجراءات دليل الموظفين"
-      className="absolute right-0 top-full mt-1 w-52 bg-white border border-slate-200 rounded-xl shadow-lg z-[60] p-1 space-y-0.5"
+      className="w-full p-1 space-y-0.5"
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
     >

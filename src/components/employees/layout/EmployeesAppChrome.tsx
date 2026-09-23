@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Users,
   Search,
@@ -74,25 +75,72 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
   isDirectoryLoading = false,
   children,
 }) => {
-  const actionsRef = useRef<HTMLDivElement>(null);
+  const actionsTriggerRef = useRef<HTMLButtonElement>(null);
+  const actionsMenuPortalRef = useRef<HTMLDivElement>(null);
+  const [actionsMenuAnchor, setActionsMenuAnchor] = useState<{ top: number; left: number } | null>(
+    null
+  );
   const [workspaceMoreOpen, setWorkspaceMoreOpen] = useState(false);
+
+  const syncActionsMenuAnchor = () => {
+    const rect = actionsTriggerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const menuWidth = 208;
+    setActionsMenuAnchor({
+      top: rect.bottom + 4,
+      left: Math.max(8, rect.right - menuWidth),
+    });
+  };
+
+  const setActionsMenuOpenSafe = (open: boolean) => {
+    if (!open) setActionsMenuAnchor(null);
+    onActionsMenuOpenChange(open);
+  };
+
+  const toggleActionsMenu = () => {
+    if (actionsMenuOpen) {
+      setActionsMenuOpenSafe(false);
+      return;
+    }
+    syncActionsMenuAnchor();
+    setActionsMenuOpenSafe(true);
+  };
+
+  useEffect(() => {
+    if (!actionsMenuOpen) {
+      setActionsMenuAnchor(null);
+      return;
+    }
+    syncActionsMenuAnchor();
+    const onScrollOrResize = () => syncActionsMenuAnchor();
+    window.addEventListener('scroll', onScrollOrResize, true);
+    window.addEventListener('resize', onScrollOrResize);
+    return () => {
+      window.removeEventListener('scroll', onScrollOrResize, true);
+      window.removeEventListener('resize', onScrollOrResize);
+    };
+  }, [actionsMenuOpen]);
 
   useEffect(() => {
     if (!actionsMenuOpen) return;
     const onDoc = (e: MouseEvent) => {
-      if (actionsRef.current && !actionsRef.current.contains(e.target as Node)) {
-        onActionsMenuOpenChange(false);
+      const target = e.target as Node;
+      if (
+        actionsTriggerRef.current?.contains(target) ||
+        actionsMenuPortalRef.current?.contains(target)
+      ) {
+        return;
       }
+      setActionsMenuOpenSafe(false);
     };
-    // Defer so the same click that opened the menu does not immediately close it.
-    const timer = window.setTimeout(() => {
-      document.addEventListener('click', onDoc, true);
-    }, 0);
+    const frame = window.requestAnimationFrame(() => {
+      document.addEventListener('mousedown', onDoc);
+    });
     return () => {
-      window.clearTimeout(timer);
-      document.removeEventListener('click', onDoc, true);
+      window.cancelAnimationFrame(frame);
+      document.removeEventListener('mousedown', onDoc);
     };
-  }, [actionsMenuOpen, onActionsMenuOpenChange]);
+  }, [actionsMenuOpen]);
 
   const breadcrumbTail =
     activeTab === 'directory'
@@ -108,8 +156,8 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
       >
         {/* صف واحد: مسار + إجراءات */}
         <div
-          className={`flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-b border-slate-100 shrink-0 ${
-            actionsMenuOpen ? 'relative z-50' : ''
+          className={`flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-b border-slate-100 shrink-0 overflow-visible ${
+            actionsMenuOpen ? 'relative z-[60]' : 'relative z-20'
           }`}
         >
           <nav className="flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-slate-600 min-w-0">
@@ -144,19 +192,36 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
               <UserPlus size={13} />
               موظف جديد
             </button>
-            <div className={`relative ${actionsMenuOpen ? 'z-50' : ''}`} ref={actionsRef}>
+            <div className="relative shrink-0">
               <button
+                ref={actionsTriggerRef}
                 type="button"
                 aria-expanded={actionsMenuOpen}
                 aria-haspopup="menu"
-                onClick={() => onActionsMenuOpenChange(!actionsMenuOpen)}
-                className="bg-white border border-slate-200 text-slate-600 px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-0.5 cursor-pointer hover:bg-slate-50"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleActionsMenu();
+                }}
+                className="bg-white border border-slate-200 text-slate-600 px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-0.5 cursor-pointer hover:bg-slate-50 relative z-[61]"
               >
                 إجراءات
                 <ChevronDown size={12} className={`text-slate-400 transition ${actionsMenuOpen ? 'rotate-180' : ''}`} />
               </button>
-              {actionsMenuOpen && actionsMenu}
             </div>
+            {actionsMenuOpen && actionsMenuAnchor
+              ? createPortal(
+                  <div
+                    ref={actionsMenuPortalRef}
+                    className="fixed z-[200] w-52 bg-white border border-slate-200 rounded-xl shadow-lg animate-in fade-in duration-100"
+                    style={{ top: actionsMenuAnchor.top, left: actionsMenuAnchor.left }}
+                    dir="rtl"
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    {actionsMenu}
+                  </div>,
+                  document.body
+                )
+              : null}
             {showViewToggle && (
               <div className="flex items-center bg-slate-100 p-0.5 rounded-md border border-slate-200/80">
                 <button
