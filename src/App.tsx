@@ -54,6 +54,8 @@ import { OdooTemplatesApp } from './components/OdooTemplatesApp';
 import { OdooPublicHolidaysApp } from './components/OdooPublicHolidaysApp';
 import { OdooReportsApp } from './components/OdooReportsApp';
 import { OdooSettingsFull } from './components/OdooSettingsFull';
+import { CompaniesApp } from './apps/CompaniesApp';
+import { Company } from './types';
 import { ScannerApp } from './apps/ScannerApp';
 import { OdooMohMedicalHubApp } from './apps/OdooMohMedicalHubApp';
 import { SuperAdminDashboard } from './pages/SuperAdminDashboard';
@@ -88,6 +90,7 @@ type AppId =
   | 'holidays' 
   | 'reports' 
   | 'settings'
+  | 'companies'
   | 'saas_admin'
   | 'scanner'
   | 'moh'
@@ -541,7 +544,7 @@ function MainAppLayout() {
   // Guard against unauthorized access to Super Admin screens
   useEffect(() => {
     if (user && !isSuperAdmin) {
-      if (activeApp === 'saas_admin') {
+      if (activeApp === 'saas_admin' || activeApp === 'companies') {
         setActiveApp('switcher');
       }
     }
@@ -585,6 +588,7 @@ function MainAppLayout() {
       case 'moh': return lang === 'ar' ? 'إدارة التراخيص الطبية والكادر الصحي (MOH Medical Hub)' : 'MOH Medical Hub';
       case 'audit': return lang === 'ar' ? 'سجل الرقابة وتتبع العمليات (Audit Logs & Diagnostic Center)' : 'Audit Logs & Diagnostic Center';
       case 'settings': return lang === 'ar' ? (isSuperAdmin ? 'الإعدادات والمشتركين (Settings & SaaS Tenants)' : 'بيانات المنشأة والإعدادات (Company Profile & Settings)') : (isSuperAdmin ? 'Settings & SaaS Tenants' : 'Company Profile & Settings');
+      case 'companies': return lang === 'ar' ? 'الشركات والمؤسسات (Companies & Clinics)' : 'Companies & Clinics';
       default: return lang === 'ar' ? 'نظام Aysed S HR 2026' : 'Aysed S HR 2026';
     }
   };
@@ -744,8 +748,10 @@ function MainAppLayout() {
                     setActiveApp('audit');
                     break;
                   case 'SETTINGS':
-                  case 'COMPANIES':
                     setActiveApp('settings');
+                    break;
+                  case 'COMPANIES':
+                    setActiveApp('companies');
                     break;
                   case 'SAAS_ADMIN':
                     setActiveApp('saas_admin');
@@ -961,6 +967,30 @@ function MainAppLayout() {
         {activeApp === 'settings' && (
           <main className="flex-1 overflow-y-auto w-full relative">
             <OdooSettingsFull />
+          </main>
+        )}
+
+        {activeApp === 'companies' && isSuperAdmin && (
+          <main className="flex-1 overflow-y-auto w-full">
+            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
+              <CompaniesApp
+                companies={(companies || []) as Company[]}
+                activeCompany={activeCompany as Company}
+                currentUserEmail={user?.email || ''}
+                currentUserRole={isSuperAdmin ? 'SUPER_ADMIN' : 'COMPANY_ADMIN'}
+                onSelectCompany={(comp) => {
+                  impersonateCompany(comp.id);
+                  startImpersonation(comp);
+                  toast.success(`تم التبديل إلى: ${comp.nameAr || comp.name}`);
+                }}
+                onSaveCompany={() => {
+                  window.dispatchEvent(new CustomEvent('aysed_companies_changed'));
+                }}
+                onDeleteCompany={(companyId) => {
+                  void deleteCompany(companyId);
+                }}
+              />
+            </div>
           </main>
         )}
 

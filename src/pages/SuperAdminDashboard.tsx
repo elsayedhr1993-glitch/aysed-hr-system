@@ -10,6 +10,7 @@ import { collection, getDocs, doc, setDoc, deleteDoc, onSnapshot } from 'firebas
 import toast from 'react-hot-toast';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { buildAuthedJsonHeaders } from '../lib/clientAuth';
+import { SuperAdminTenantOpsPanel } from '../components/superadmin/SuperAdminTenantOpsPanel';
 
 interface SubscriptionRequest {
   id: string;
@@ -42,9 +43,9 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   const isDevPreview = typeof window !== 'undefined' && (window.location.hostname.includes('ais-dev') || window.location.hostname.includes('localhost'));
   const companiesCollection = getCompaniesCollectionName();
 
-  const [activeNav, setActiveNav] = useState<'SUBSCRIPTIONS' | 'SERVER_STATS' | 'AUDIT_LOGS' | 'SYSTEM_INTEGRATION' | 'BACKUP_RESTORE'>(
-    isDevPreview ? 'SYSTEM_INTEGRATION' : 'SUBSCRIPTIONS'
-  );
+  const [activeNav, setActiveNav] = useState<
+    'SUBSCRIPTIONS' | 'SERVER_STATS' | 'AUDIT_LOGS' | 'SYSTEM_INTEGRATION' | 'BACKUP_RESTORE' | 'TENANT_OPS'
+  >(isDevPreview ? 'SYSTEM_INTEGRATION' : 'SUBSCRIPTIONS');
   const [requests, setRequests] = useState<SubscriptionRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -912,6 +913,13 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
               <span>النسخ الاحتياطي واستعادة البيانات</span>
             </button>
             <button
+              onClick={() => setActiveNav('TENANT_OPS')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${activeNav === 'TENANT_OPS' ? 'bg-[#71639e] text-white shadow' : 'text-slate-300 hover:bg-slate-800'}`}
+            >
+              <Clock size={16} />
+              <span>عمليات المنشأة (شفتات / تصفير محلي)</span>
+            </button>
+            <button
               onClick={() => setActiveNav('AUDIT_LOGS')}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${activeNav === 'AUDIT_LOGS' ? 'bg-[#71639e] text-white shadow' : 'text-slate-300 hover:bg-slate-800'}`}
             >
@@ -1615,6 +1623,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 </div>
               </form>
             </div>)}
+
+          {activeNav === 'TENANT_OPS' && <SuperAdminTenantOpsPanel />}
 
           {/* Tab 5: Full Backup & Restore Suite */}
           {activeNav === 'BACKUP_RESTORE' && (

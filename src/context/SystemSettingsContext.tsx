@@ -1,5 +1,8 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useCompany } from './CompanyContext';
+import { useAuth } from './AuthContext';
+import { loadCompanySettings, saveCompanySettings } from '../services/companySettingsStorage';
+import { toast } from 'react-hot-toast';
 
 export interface SystemSettings {
   // 1. بيانات المنشأة (Company Profile)
@@ -28,32 +31,32 @@ export interface SystemSettings {
   enableWpsSif: boolean;
   salaryCutoffDay: number;
 
-  // 3. إعدادات الإجازات ومحرك التراكم
+  // 3. إعدادات الإجازات ومحرك التراكم (legacy keys — leave_policy is source of truth)
   monthlyAccrualRate: number; // 2.5 يوم شهرياً
-  unpaidLeaveFreezesAccrual: boolean; // إيقاف عداد الرصيد تلقائياً في الإجازات غير المدفوعة
-  unpaidLeaveExcludesService: boolean; // استبعاد الإجازة غير المدفوعة من مدة الخدمة الفعلية
-  maxCarryoverDays: number; // الحد الأقصى لتراكم الإجازات
-  enableAdvanceLeaveSalary: boolean; // صرف بدل الإجازة مقدماً وفق المادة 71
+  unpaidLeaveFreezesAccrual: boolean;
+  unpaidLeaveExcludesService: boolean;
+  maxCarryoverDays: number;
+  enableAdvanceLeaveSalary: boolean;
 
   // 4. إعدادات الدوام والبصمة
-  standardDailyHours: number; // 8 ساعات
-  weeklyWorkHours: number; // 48 ساعة
-  gracePeriodMinutes: number; // 15 دقيقة
-  overtimeRateStandard: number; // 1.25x
-  overtimeRateHoliday: number; // 1.50x
+  standardDailyHours: number;
+  weeklyWorkHours: number;
+  gracePeriodMinutes: number;
+  overtimeRateStandard: number;
+  overtimeRateHoliday: number;
   biometricIp: string;
   biometricPort: string;
   enableBiometricSync: boolean;
 
   // 5. حاسبة نهاية الخدمة
-  indemnityFirst5YearsDays: number; // 15 يوماً
-  indemnitySubsequentYearsDays: number; // 30 يوماً
-  indemnityMaxCapMonths: number; // 18 شهراً
-  applyResignationTiersArticle53: boolean; // تطبيق المادة 53
-  includeAllowancesInIndemnity: boolean; // احتساب الأجر الشامل
-  workingDaysPerMonthDivisor: number; // 26 يوماً
+  indemnityFirst5YearsDays: number;
+  indemnitySubsequentYearsDays: number;
+  indemnityMaxCapMonths: number;
+  applyResignationTiersArticle53: boolean;
+  includeAllowancesInIndemnity: boolean;
+  workingDaysPerMonthDivisor: number;
 
-  // 6. الذكاء الاصطناعي ومعالجة المستندات (AI, OCR & Integrations)
+  // 6. الذكاء الاصطناعي ومعالجة المستندات
   geminiApiKey: string;
   ocrEngineMode: 'cloud_server' | 'direct_client';
   autoExtractDocuments: boolean;
@@ -65,7 +68,6 @@ export interface SystemSettings {
 }
 
 export const defaultSettings: SystemSettings = {
-  // بيانات المنشأة
   companyNameAr: '',
   companyNameEn: '',
   logo: '',
@@ -80,7 +82,6 @@ export const defaultSettings: SystemSettings = {
   headerMarginTop: 48,
   showLogoOnPrint: true,
 
-  // الرواتب و WPS
   pamId: '',
   bankName: '',
   bankCode: '',
@@ -91,14 +92,12 @@ export const defaultSettings: SystemSettings = {
   enableWpsSif: true,
   salaryCutoffDay: 25,
 
-  // الإجازات ومحرك التراكم
   monthlyAccrualRate: 2.5,
   unpaidLeaveFreezesAccrual: true,
   unpaidLeaveExcludesService: true,
   maxCarryoverDays: 60,
   enableAdvanceLeaveSalary: true,
 
-  // الدوام والبصمة
   standardDailyHours: 8,
   weeklyWorkHours: 48,
   gracePeriodMinutes: 15,
@@ -108,7 +107,6 @@ export const defaultSettings: SystemSettings = {
   biometricPort: '',
   enableBiometricSync: false,
 
-  // نهاية الخدمة
   indemnityFirst5YearsDays: 15,
   indemnitySubsequentYearsDays: 30,
   indemnityMaxCapMonths: 18,
@@ -116,13 +114,12 @@ export const defaultSettings: SystemSettings = {
   includeAllowancesInIndemnity: true,
   workingDaysPerMonthDivisor: 26,
 
-  // الذكاء الاصطناعي و OCR و البريد
   geminiApiKey: '',
   ocrEngineMode: 'cloud_server',
   autoExtractDocuments: true,
   smtpHost: 'smtp.gmail.com',
   smtpPort: 465,
-  smtpUser: 'elsayedhr1993@gmail.com',
+  smtpUser: '',
   smtpPass: '',
   enableAiAssistant: true,
 };
@@ -132,119 +129,103 @@ interface SystemSettingsContextType {
   updateSettings: (newSettings: Partial<SystemSettings>) => void;
   resetSettings: () => void;
   isSaving: boolean;
+  isLoading: boolean;
 }
 
 const SystemSettingsContext = createContext<SystemSettingsContextType | undefined>(undefined);
 
-const STORAGE_KEY_PREFIX = 'aysed_odoo_general_settings_';
-
 export const SystemSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { activeCompany, updateActiveCompany } = useCompany();
+  const { user } = useAuth();
   const activeCompanyId = activeCompany?.id || 'default_settings';
 
-  const [settings, setSettings] = useState<SystemSettings>(() => {
-    try {
-      const saved = localStorage.getItem(`${STORAGE_KEY_PREFIX}${activeCompanyId}`);
-      if (saved) {
-        return { ...defaultSettings, ...JSON.parse(saved) };
-      }
-    } catch (e) {
-      console.error('Error loading settings:', e);
-    }
-    // دمج بيانات الشركة النشطة في الإعدادات الابتدائية
-    return {
-      ...defaultSettings,
-      companyNameAr: activeCompany?.nameAr || defaultSettings.companyNameAr,
-      companyNameEn: activeCompany?.nameEn || defaultSettings.companyNameEn,
-      crNumber: activeCompany?.crNumber || activeCompany?.commercialRegNo || defaultSettings.crNumber,
-      mohLicense: activeCompany?.mohLicense || defaultSettings.mohLicense,
-      civilIdCompany: activeCompany?.civilIdCompany || defaultSettings.civilIdCompany,
-      pifssNumber: activeCompany?.pifssNumber || defaultSettings.pifssNumber,
-      bankName: activeCompany?.bankName || defaultSettings.bankName,
-      iban: activeCompany?.iban || defaultSettings.iban,
-      wpsCorporateId: activeCompany?.wsiCode || defaultSettings.wpsCorporateId,
-    };
-  });
-
+  const [settings, setSettings] = useState<SystemSettings>(defaultSettings);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
 
-  // تحديث الإعدادات عند تبديل الشركة
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(`${STORAGE_KEY_PREFIX}${activeCompanyId}`);
-      if (saved) {
-        setSettings({ ...defaultSettings, ...JSON.parse(saved) });
-      } else {
-        setSettings((prev) => ({
-          ...prev,
-          companyNameAr: activeCompany?.nameAr || prev.companyNameAr,
-          companyNameEn: activeCompany?.nameEn || prev.companyNameEn,
-          crNumber: activeCompany?.crNumber || activeCompany?.commercialRegNo || prev.crNumber,
-          mohLicense: activeCompany?.mohLicense || prev.mohLicense,
-          civilIdCompany: activeCompany?.civilIdCompany || prev.civilIdCompany,
-          pifssNumber: activeCompany?.pifssNumber || prev.pifssNumber,
-          bankName: activeCompany?.bankName || prev.bankName,
-          iban: activeCompany?.iban || prev.iban,
-          wpsCorporateId: activeCompany?.wsiCode || prev.wpsCorporateId,
-        }));
-      }
-    } catch (e) {
-      console.error('Error switching company settings:', e);
-    }
-  }, [activeCompanyId, activeCompany]);
+    let cancelled = false;
+    setIsLoading(true);
 
-  const updateSettings = (newSettings: Partial<SystemSettings>) => {
-    setIsSaving(true);
-    setSettings((prev) => {
-      const updated = { ...prev, ...newSettings };
-      try {
-        localStorage.setItem(`${STORAGE_KEY_PREFIX}${activeCompanyId}`, JSON.stringify(updated));
-      } catch (e) {
-        console.error('Error saving settings:', e);
-      }
-      return updated;
-    });
+    void loadCompanySettings(activeCompanyId, activeCompany)
+      .then((loaded) => {
+        if (!cancelled) setSettings(loaded);
+      })
+      .catch((e) => {
+        console.error('Error loading company settings:', e);
+        if (!cancelled) {
+          toast.error('تعذر تحميل إعدادات المنشأة من السحابة — تم استخدام النسخة المحلية المؤقتة إن وُجدت.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
 
-    // Gemini API key is server-managed only and is not persisted client-side.
+    return () => {
+      cancelled = true;
+    };
+  }, [activeCompanyId, activeCompany?.id, activeCompany?.nameAr]);
 
+  const syncCompanyProfile = (patch: Partial<SystemSettings>) => {
     if (
-      newSettings.companyNameAr ||
-      newSettings.companyNameEn ||
-      newSettings.crNumber ||
-      newSettings.pifssNumber ||
-      newSettings.mohLicense ||
-      newSettings.bankName ||
-      newSettings.iban ||
-      newSettings.logo
+      patch.companyNameAr ||
+      patch.companyNameEn ||
+      patch.crNumber ||
+      patch.pifssNumber ||
+      patch.mohLicense ||
+      patch.bankName ||
+      patch.iban ||
+      patch.logo
     ) {
       updateActiveCompany({
-        nameAr: newSettings.companyNameAr,
-        nameEn: newSettings.companyNameEn,
-        name: newSettings.companyNameAr,
-        crNumber: newSettings.crNumber,
-        commercialRegNo: newSettings.crNumber,
-        pifssNumber: newSettings.pifssNumber,
-        mohLicense: newSettings.mohLicense,
-        bankName: newSettings.bankName,
-        iban: newSettings.iban,
-        logo: newSettings.logo
+        nameAr: patch.companyNameAr,
+        nameEn: patch.companyNameEn,
+        name: patch.companyNameAr,
+        crNumber: patch.crNumber,
+        commercialRegNo: patch.crNumber,
+        pifssNumber: patch.pifssNumber,
+        mohLicense: patch.mohLicense,
+        bankName: patch.bankName,
+        iban: patch.iban,
+        logo: patch.logo,
       });
     }
+  };
 
-    setTimeout(() => setIsSaving(false), 500);
+  const updateSettings = (newSettings: Partial<SystemSettings>) => {
+    const updated = { ...settingsRef.current, ...newSettings };
+    setSettings(updated);
+    setIsSaving(true);
+    syncCompanyProfile(newSettings);
+
+    void saveCompanySettings(activeCompanyId, updated, { updatedBy: user?.email || undefined })
+      .catch((e) => {
+        console.error('Error saving company settings:', e);
+        toast.error('فشل حفظ الإعدادات في Firestore — تحقق من الاتصال والصلاحيات.');
+      })
+      .finally(() => {
+        setTimeout(() => setIsSaving(false), 400);
+      });
   };
 
   const resetSettings = () => {
-    setSettings(defaultSettings);
-    try {
-      localStorage.setItem(`${STORAGE_KEY_PREFIX}${activeCompanyId}`, JSON.stringify(defaultSettings));
-    } catch (e) {
-      console.error('Error resetting settings:', e);
-    }
+    const profileMerged = {
+      ...defaultSettings,
+      companyNameAr: activeCompany?.nameAr || '',
+      companyNameEn: activeCompany?.nameEn || '',
+      crNumber: activeCompany?.crNumber || activeCompany?.commercialRegNo || '',
+    };
+    setSettings(profileMerged);
+    setIsSaving(true);
+    void saveCompanySettings(activeCompanyId, profileMerged, { updatedBy: user?.email || undefined })
+      .catch((e) => console.error('Error resetting settings:', e))
+      .finally(() => setIsSaving(false));
   };
 
   return (
-    <SystemSettingsContext.Provider value={{ settings, updateSettings, resetSettings, isSaving }}>
+    <SystemSettingsContext.Provider value={{ settings, updateSettings, resetSettings, isSaving, isLoading }}>
       {children}
     </SystemSettingsContext.Provider>
   );
@@ -253,12 +234,12 @@ export const SystemSettingsProvider: React.FC<{ children: React.ReactNode }> = (
 export const useSystemSettings = () => {
   const context = useContext(SystemSettingsContext);
   if (!context) {
-    // Fallback safe defaults if used outside provider
     return {
       settings: defaultSettings,
       updateSettings: () => {},
       resetSettings: () => {},
       isSaving: false,
+      isLoading: false,
     };
   }
   return context;
