@@ -10,10 +10,12 @@ import { collection, getDocs, doc, setDoc, deleteDoc, onSnapshot } from 'firebas
 import toast from 'react-hot-toast';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { buildAuthedJsonHeaders } from '../lib/clientAuth';
+import { resolveTenantCompanyId, syncTenantSubscriptionEdit } from '../services/tenantSubscriptionSync';
 import { SuperAdminTenantOpsPanel } from '../components/superadmin/SuperAdminTenantOpsPanel';
 
 interface SubscriptionRequest {
   id: string;
+  companyId?: string;
   requester_name: string;
   name: string;
   phone: string;
@@ -327,6 +329,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
   // Edit Subscription / Company modal state
   const [editingRequest, setEditingRequest] = useState<SubscriptionRequest | null>(null);
+  const [editingOriginalEmail, setEditingOriginalEmail] = useState('');
+  const [editingResolvedCompanyId, setEditingResolvedCompanyId] = useState('');
   const [editPassword, setEditPassword] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
@@ -489,9 +493,12 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   };
 
   const handleOpenEdit = (req: SubscriptionRequest) => {
-    const email = req.email || `${req.phone.replace(/[^0-9]/g, '')}@aysedhr.com`;
+    const email = (req.email || `${req.phone.replace(/[^0-9]/g, '')}@aysedhr.com`).trim().toLowerCase();
     setEditingRequest({ ...req, email });
-    setEditPassword(req.password || '');
+    setEditingOriginalEmail(email);
+    setEditPassword('');
+    setEditingResolvedCompanyId(req.companyId || '');
+    void resolveTenantCompanyId(req.id, req.name, email, req.companyId).then((id) => setEditingResolvedCompanyId(id));
   };
 
   const handleSaveEditedRequest = async (e: React.FormEvent) => {
@@ -501,8 +508,15 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       return;
     }
 
+    const cleanEmail = (editingRequest.email || `${editingRequest.phone.replace(/[^0-9]/g, '')}@aysedhr.com`)
+      .trim()
+      .toLowerCase();
+    if (!cleanEmail.includes('@')) {
+      toast.error('يرجى إدخال بريد إلكتروني صالح');
+      return;
+    }
+
     setIsSavingEdit(true);
-    const cleanEmail = (editingRequest.email || `${editingRequest.phone.replace(/[^0-9]/g, '')}@aysedhr.com`).trim().toLowerCase();
     const updatedReq: SubscriptionRequest = {
       ...editingRequest,
       name: editingRequest.name.trim(),
@@ -512,108 +526,43 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     };
 
     try {
-      // 1. Update in Firebase subscription_requests
-      try {
-        await setDoc(doc(db, 'subscription_requests', updatedReq.id), {
+      const result = await syncTenantSubscriptionEdit(
+        {
+          rowId: updatedReq.id,
+          companyIdHint: updatedReq.companyId || editingResolvedCompanyId,
           companyName: updatedReq.name,
-          name: updatedReq.name,
           requesterName: updatedReq.requester_name,
           phone: updatedReq.phone,
-          email: updatedReq.email,
+          email: cleanEmail,
+          previousEmail: editingOriginalEmail || cleanEmail,
           planType: updatedReq.plan_type,
           empCount: updatedReq.emp_count,
-          status: updatedReq.state,
           state: updatedReq.state,
-          updatedAt: new Date().toISOString()
-        }, { merge: true });
-      } catch (err) {
-        console.warn('Firebase update subscription_requests warn:', err);
+          newPassword: editPassword.trim() || undefined,
+        },
+        { getAuthedHeaders: buildAuthedJsonHeaders }
+      );
+
+      updatedReq.companyId = result.companyId;
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === updatedReq.id || r.companyId === result.companyId || r.name === updatedReq.name ? { ...updatedReq, companyId: result.companyId } : r
+        )
+      );
+
+      window.dispatchEvent(new CustomEvent('aysed_companies_changed'));
+
+      if (result.warnings.length > 0) {
+        toast.success(`تم الحفظ (${result.companyId}) — مع ملاحظات: ${result.warnings[0]}`, { duration: 6000 });
+      } else {
+        toast.success(`تمت مزامنة بيانات المنشأة بنجاح — ${result.companyId}`);
       }
 
-      // 2. Update in Firebase subscriptions collection
-      try {
-        const subSnap = await getDocs(collection(db, 'subscriptions'));
-        let subFound = false;
-        for (const d of subSnap.docs) {
-          const val = d.data();
-          if (d.id === updatedReq.id || (val.companyName && val.companyName.toLowerCase() === updatedReq.name.toLowerCase()) || val.email === updatedReq.email) {
-            subFound = true;
-            await setDoc(doc(db, 'subscriptions', d.id), {
-              companyName: updatedReq.name,
-              ownerName: updatedReq.requester_name,
-              email: updatedReq.email,
-              phone: updatedReq.phone,
-              planType: updatedReq.plan_type,
-              status: updatedReq.state === 'approved' ? 'active' : (updatedReq.state === 'suspended' ? 'suspended' : 'active'),
-              updatedAt: new Date().toISOString()
-            }, { merge: true });
-          }
-        }
-        if (!subFound && updatedReq.state === 'approved') {
-          const subId = updatedReq.id.startsWith('sub-') ? updatedReq.id : `sub-${Date.now()}`;
-          await setDoc(doc(db, 'subscriptions', subId), {
-            id: subId,
-            companyName: updatedReq.name,
-            ownerName: updatedReq.requester_name,
-            email: updatedReq.email,
-            phone: updatedReq.phone,
-            planType: updatedReq.plan_type,
-            subscriptionFee: 50,
-            status: 'active',
-            startDate: new Date().toISOString().split('T')[0],
-            endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            updatedAt: new Date().toISOString()
-          }, { merge: true });
-        }
-      } catch (e) {}
-
-      // 3. Update in Firebase companies collection
-      try {
-        await setDoc(doc(db, companiesCollection, updatedReq.id), {
-          nameAr: updatedReq.name,
-          email: updatedReq.email,
-          adminUsername: updatedReq.email,
-          phone: updatedReq.phone,
-          contactPhone: updatedReq.phone,
-          planType: updatedReq.plan_type,
-          ownerName: updatedReq.requester_name,
-          updatedAt: new Date().toISOString()
-        }, { merge: true });
-
-        const compSnap = await getDocs(collection(db, companiesCollection));
-        for (const d of compSnap.docs) {
-          const comp = d.data();
-          if (d.id === updatedReq.id || comp.nameAr === updatedReq.name || comp.nameEn === updatedReq.name || comp.email === updatedReq.email || comp.adminUsername === updatedReq.email) {
-            await setDoc(doc(db, companiesCollection, d.id), {
-              nameAr: updatedReq.name,
-              email: updatedReq.email,
-              adminUsername: updatedReq.email,
-              phone: updatedReq.phone,
-              contactPhone: updatedReq.phone,
-              planType: updatedReq.plan_type,
-              ownerName: updatedReq.requester_name,
-              updatedAt: new Date().toISOString()
-            }, { merge: true });
-          }
-        }
-      } catch (e) {}
-
-      // 6. Update password in auth provider (if endpoint is available)
-      if (editPassword) {
-        try {
-          await fetch('/api/admin/force-password', {
-            method: 'POST',
-            headers: await buildAuthedJsonHeaders(),
-            body: JSON.stringify({ email: cleanEmail, newPassword: editPassword })
-          });
-        } catch (e) {}
-      }
-
-      // 7. Update in-memory state
-      setRequests(prev => prev.map(r => r.id === updatedReq.id ? updatedReq : r));
-      toast.success('تم حفظ وتحديث بيانات حساب الشركة المشتركة بنجاح');
       setEditingRequest(null);
       setEditPassword('');
+      setEditingOriginalEmail('');
+      setEditingResolvedCompanyId('');
+      await fetchRequests();
     } catch (err: any) {
       console.error(err);
       toast.error('حدث خطأ أثناء حفظ التعديلات: ' + (err.message || 'خطأ غير معروف'));
@@ -641,6 +590,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
             allRequests.push({
               id: d.id,
+              companyId: val.companyId || (String(d.id).match(/^comp[-_]/i) ? d.id : undefined),
               requester_name: val.requesterName || val.requester_name || val.name || '',
               name: compName,
               phone: val.phone || '',
@@ -671,6 +621,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
             allRequests.push({
               id: d.id,
+              companyId: val.companyId || d.id,
               requester_name: val.ownerName || val.requesterName || val.name || 'المسؤول',
               name: compName,
               phone: activePhone,
@@ -2020,6 +1971,9 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 <div>
                   <h3 className="text-sm font-bold text-gray-900">تعديل بيانات حساب واشتراك الشركة</h3>
                   <p className="text-[11px] text-gray-500 font-mono">{editingRequest.name}</p>
+                  {editingResolvedCompanyId && (
+                    <p className="text-[10px] text-indigo-700 font-mono mt-0.5">معرّف المنشأة: {editingResolvedCompanyId}</p>
+                  )}
                 </div>
               </div>
               <button
@@ -2031,6 +1985,11 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
             </div>
 
             <form onSubmit={handleSaveEditedRequest} className="space-y-3.5 text-xs text-slate-900">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-[10px] text-slate-600 leading-relaxed">
+                عند الحفظ تُحدَّث تلقائياً: <strong>companies</strong>، <strong>subscriptions</strong>، <strong>users</strong>،
+                <strong> company_settings</strong>، و<strong>Firebase Auth</strong> (البريد/الكلمة/التفعيل).
+              </div>
+
               <div>
                 <label className="block font-bold text-gray-700 mb-1 flex items-center gap-1">
                   <Building size={13} className="text-[#71639e]" />
@@ -2099,13 +2058,16 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   <span>كلمة المرور للدخول (تحديث اختياري)</span>
                 </label>
                 <input
-                  type="text"
+                  type="password"
+                  autoComplete="new-password"
                   value={editPassword}
                   onChange={(e) => setEditPassword(e.target.value)}
-                  placeholder="اتركها كما هي أو أدخل كلمة سر جديدة"
+                  placeholder="اتركها فارغة أو أدخل كلمة مرور جديدة (8+ أحرف)"
                   className="w-full border border-gray-300 rounded-xl px-3 py-2 text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-[#71639e]/40 bg-white text-amber-700"
                 />
-                <p className="text-[10px] text-gray-500 mt-0.5">سيتم حفظ وتحديث بيانات المرور للشركة مباشرة.</p>
+                <p className="text-[10px] text-gray-500 mt-0.5">
+                  تغيير البريد يحدّث Auth من «{editingOriginalEmail || '—'}» — تأكد من صحة البريد قبل الحفظ.
+                </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -2178,6 +2178,38 @@ app.post("/api/subscription/register", express.json(), async (req, res) => {
 });
 
 
+app.post("/api/admin/set-tenant-active", express.json(), async (req, res) => {
+  const authCheck = await requireSuperAdmin(req);
+  if (!authCheck.ok) return rejectUnauthorized(res, authCheck);
+
+  const email = String(req.body?.email || "").trim().toLowerCase();
+  const active = req.body?.active !== false;
+
+  if (!email) {
+    return res.status(400).json({ success: false, error: "البريد الإلكتروني مطلوب" });
+  }
+
+  const admin = getAdminAuth();
+  if (!admin) {
+    return res.status(400).json({ success: false, error: "Firebase Admin is not configured" });
+  }
+
+  try {
+    const userRecord = await admin.getUserByEmail(email);
+    await admin.updateUser(userRecord.uid, { disabled: !active });
+    return res.json({
+      success: true,
+      message: active ? "تم تفعيل حساب المنشأة في Auth" : "تم تعليق حساب المنشأة في Auth",
+    });
+  } catch (error: any) {
+    if (error?.code === "auth/user-not-found") {
+      return res.json({ success: false, error: "auth/user-not-found" });
+    }
+    console.error("set-tenant-active failed:", error);
+    return res.status(500).json({ success: false, error: error.message || "فشل تحديث حالة الحساب" });
+  }
+});
+
 app.post("/api/admin/force-password", express.json(), async (req, res) => {
   const authCheck = await requireSuperAdmin(req);
   if (!authCheck.ok) return rejectUnauthorized(res, authCheck);
