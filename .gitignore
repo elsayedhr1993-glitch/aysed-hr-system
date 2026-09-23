@@ -7,4 +7,6 @@ coverage/
 bun.lock
 bun.lockb
 dist/
+server.cjs
+server.cjs.map
 
