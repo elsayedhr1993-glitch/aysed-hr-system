@@ -96,12 +96,16 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
   return (
     <div className="flex-1 flex flex-col w-full min-h-0 bg-slate-50/80">
       <div
-        className={`relative flex flex-col flex-1 min-h-0 bg-white border border-slate-200/80 rounded-xl shadow-2xs overflow-hidden ${
-          workspaceMoreOpen ? 'z-50' : 'z-10'
+        className={`relative flex flex-col flex-1 min-h-0 bg-white border border-slate-200/80 rounded-xl shadow-2xs ${
+          workspaceMoreOpen || actionsMenuOpen ? 'z-50' : 'z-10'
         }`}
       >
         {/* صف واحد: مسار + إجراءات */}
-        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-b border-slate-100 shrink-0">
+        <div
+          className={`flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-b border-slate-100 shrink-0 ${
+            actionsMenuOpen ? 'relative z-50' : ''
+          }`}
+        >
           <nav className="flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-slate-600 min-w-0">
             <Users size={13} className="text-[#714B67] shrink-0" />
             <span className="text-slate-400">شؤون الموظفين</span>
@@ -134,7 +138,7 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
               <UserPlus size={13} />
               موظف جديد
             </button>
-            <div className="relative" ref={actionsRef}>
+            <div className={`relative ${actionsMenuOpen ? 'z-50' : ''}`} ref={actionsRef}>
               <button
                 type="button"
                 onClick={() => onActionsMenuOpenChange(!actionsMenuOpen)}

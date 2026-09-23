@@ -1215,7 +1215,7 @@ export function EmployeesApp(props?: any) {
 
   const employeesActionsMenu = (
     <div
-      className="absolute left-0 mt-1 w-52 bg-white border border-slate-200 rounded-xl shadow-lg z-50 p-1 space-y-0.5"
+      className="absolute right-0 top-full mt-1 w-52 bg-white border border-slate-200 rounded-xl shadow-lg z-[60] p-1 space-y-0.5"
       onClick={(e) => e.stopPropagation()}
     >
       <button
