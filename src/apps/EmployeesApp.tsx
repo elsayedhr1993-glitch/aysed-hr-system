@@ -1407,7 +1407,7 @@ export function EmployeesApp(props?: any) {
                   )}
                 </div>
               ) : viewMode === 'cards' ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-3.5 mb-4">
+                <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5 auto-rows-fr">
                   {filteredEmployees.map((emp) => {
                     const civilExp = emp.civilIdExpiry || (emp as any).civilIdExpiryDate || (emp as any).civil_id_expiry || (emp as any).raw_payload?.civilIdExpiry;
                     const passExp = emp.passportExpiry || (emp as any).passportExpiryDate;
@@ -1544,7 +1544,7 @@ export function EmployeesApp(props?: any) {
                 })}
                 </div>
               ) : (
-                <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs overflow-hidden mb-4">
+                <div className="w-full bg-white rounded-xl border border-slate-200/90 shadow-2xs overflow-hidden">
                   <table className="w-full text-right text-xs">
                     <thead className="bg-slate-50/80 text-slate-600 border-b border-slate-200 font-bold">
                       <tr>

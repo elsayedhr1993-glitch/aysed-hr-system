@@ -96,12 +96,12 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
   return (
     <div className="flex-1 flex flex-col w-full min-h-0 bg-slate-50/80">
       <div
-        className={`relative bg-white border border-slate-200/80 rounded-xl shadow-2xs mb-2 overflow-visible shrink-0 ${
-          workspaceMoreOpen ? 'z-50' : 'z-20'
+        className={`relative flex flex-col flex-1 min-h-0 bg-white border border-slate-200/80 rounded-xl shadow-2xs overflow-hidden ${
+          workspaceMoreOpen ? 'z-50' : 'z-10'
         }`}
       >
         {/* صف واحد: مسار + إجراءات */}
-        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-b border-slate-100">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-b border-slate-100 shrink-0">
           <nav className="flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-slate-600 min-w-0">
             <Users size={13} className="text-[#714B67] shrink-0" />
             <span className="text-slate-400">شؤون الموظفين</span>
@@ -168,9 +168,28 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
           </div>
         </div>
 
+        <div className="px-2 sm:px-3 border-b border-slate-100 bg-slate-50/40 shrink-0 relative z-30 isolate">
+          <CompactTabBar
+            tabs={[
+              { id: 'directory', label: 'دليل الموظفين', shortLabel: 'الدليل', icon: <Users size={14} /> },
+            ]}
+            moreItems={[
+              { id: 'contracts', label: 'سجل العقود والرواتب', icon: <FileText size={13} /> },
+              { id: 'commencement', label: 'إقرارات المباشرة', icon: <Stethoscope size={13} /> },
+              { id: 'onboarding', label: 'خطة التهيئة', icon: <Rocket size={13} /> },
+              { id: 'orgchart', label: 'الهيكل التنظيمي', icon: <Network size={13} /> },
+            ]}
+            activeTabId={activeTab === 'directory' ? 'directory' : ''}
+            activeMoreId={activeTab !== 'directory' ? activeTab : undefined}
+            onTabChange={(id) => onTabChange(id as EmployeesWorkspaceTab)}
+            onMoreChange={(id) => onTabChange(id as EmployeesWorkspaceTab)}
+            onMoreMenuOpenChange={setWorkspaceMoreOpen}
+          />
+        </div>
+
         {showDirectoryTools && (
           <div
-            className={`px-3 py-2 space-y-2 border-t border-slate-50 ${
+            className={`px-3 py-2 space-y-2 border-b border-slate-100 shrink-0 ${
               isDirectoryLoading ? 'opacity-60 pointer-events-none' : ''
             }`}
           >
@@ -219,32 +238,13 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
           </div>
         )}
 
-        <div className="px-2 pt-1 pb-1 relative z-30 isolate">
-          <CompactTabBar
-            tabs={[
-              { id: 'directory', label: 'دليل الموظفين', shortLabel: 'الدليل', icon: <Users size={14} /> },
-            ]}
-            moreItems={[
-              { id: 'contracts', label: 'سجل العقود والرواتب', icon: <FileText size={13} /> },
-              { id: 'commencement', label: 'إقرارات المباشرة', icon: <Stethoscope size={13} /> },
-              { id: 'onboarding', label: 'خطة التهيئة', icon: <Rocket size={13} /> },
-              { id: 'orgchart', label: 'الهيكل التنظيمي', icon: <Network size={13} /> },
-            ]}
-            activeTabId={activeTab === 'directory' ? 'directory' : ''}
-            activeMoreId={activeTab !== 'directory' ? activeTab : undefined}
-            onTabChange={(id) => onTabChange(id as EmployeesWorkspaceTab)}
-            onMoreChange={(id) => onTabChange(id as EmployeesWorkspaceTab)}
-            onMoreMenuOpenChange={setWorkspaceMoreOpen}
-          />
+        <div
+          className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 py-3 ${
+            workspaceMoreOpen ? 'pointer-events-none select-none' : ''
+          }`}
+        >
+          <div className="w-full max-w-none">{children}</div>
         </div>
-      </div>
-
-      <div
-        className={`relative z-0 flex-1 min-h-0 overflow-auto px-0.5 ${
-          workspaceMoreOpen ? 'pointer-events-none select-none' : ''
-        }`}
-      >
-        {children}
       </div>
     </div>
   );
