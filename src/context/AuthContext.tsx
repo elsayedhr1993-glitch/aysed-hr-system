@@ -193,12 +193,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (userDoc && userDoc.exists && userDoc.exists()) {
               const data = userDoc.data();
               // Check if account is suspended or blocked
-              if (data.status === 'blocked' || data.status === 'disabled' || data.suspended === true) {
+              const accountStatus = String(data.status || '').toLowerCase();
+              if (
+                accountStatus === 'blocked' ||
+                accountStatus === 'disabled' ||
+                accountStatus === 'inactive' ||
+                data.suspended === true
+              ) {
                 await signOut(auth).catch(() => {});
                 setUser(null);
                 setToken(null);
                 clearAuthStorage();
-                toast.error('تم إيقاف حسابك من قبل إدارة النظام.');
+                toast.error('تم إيقاف حسابك من قبل إدارة النظام (الحساب غير فعال).');
                 setIsLoading(false);
                 return;
               }
@@ -254,6 +260,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             companyId = undefined;
           } else if (String(role).toUpperCase() === 'TENANT_ADMIN') {
             role = 'COMPANY_ADMIN';
+          }
+
+          if (!isSuperAdminEmail(userEmail) && companyId) {
+            try {
+              const companySnap = await getDoc(doc(db, getCompaniesCollectionName(), companyId));
+              if (companySnap.exists()) {
+                const comp = companySnap.data() as Record<string, unknown>;
+                const compStatus = String(comp.status || comp.state || '').toLowerCase();
+                if (comp.isActive === false || compStatus === 'suspended' || compStatus === 'inactive') {
+                  await signOut(auth).catch(() => {});
+                  setUser(null);
+                  setToken(null);
+                  clearAuthStorage();
+                  toast.error('حساب الشركة غير فعال حالياً. يرجى التواصل مع الدعم الفني.');
+                  setIsLoading(false);
+                  return;
+                }
+              }
+            } catch {
+              /* non-blocking */
+            }
           }
 
           let jwt = 'session-token';
