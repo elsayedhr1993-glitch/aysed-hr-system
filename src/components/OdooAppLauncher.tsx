@@ -11,6 +11,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pi
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useLang } from '../lib/i18n';
+import { computeCompanyDocumentComplianceStats } from '../utils/employeeDocumentCompliance';
 
 interface OdooAppLauncherProps {
   onSelectApp: (app: ActiveApp) => void;
@@ -70,6 +71,23 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
     });
   }, [currentCompanyId]);
 
+  useEffect(() => {
+    setRealEmployees([]);
+    const employeesQuery = query(
+      collection(db, 'employees'),
+      where('companyId', '==', currentCompanyId)
+    );
+    return onSnapshot(
+      employeesQuery,
+      (snapshot) => {
+        setRealEmployees(snapshot.docs.map((item) => ({ ...item.data(), id: item.id })));
+      },
+      (error) => {
+        console.error('Failed to load launcher employees:', error);
+      }
+    );
+  }, [currentCompanyId]);
+
   // حساب طلبات الإجازات بانتظار الاعتماد الحقيقية
   const pendingLeavesCount = useMemo(() => {
     return realLeaves.filter(req => {
@@ -78,13 +96,24 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
     }).length;
   }, [realLeaves]);
 
-  // حساب نسبة الامتثال وسلامة المستندات ديناميكياً
-  const compliancePercentage = useMemo(() => {
-    if (!realEmployees || realEmployees.length === 0) return 100;
-    const today = new Date().toISOString().slice(0, 10);
-    const validEmps = realEmployees.filter(e => (!e.civilIdExpiry || e.civilIdExpiry >= today) && (!e.passportExpiry || e.passportExpiry >= today)).length;
-    return Math.round((validEmps / realEmployees.length) * 100);
-  }, [realEmployees]);
+  // نسبة الامتثال = المستندات الإلزامية المرفوعة والسارية ÷ إجمالي المطلوب (لكل موظف)
+  const documentComplianceStats = useMemo(
+    () => computeCompanyDocumentComplianceStats(realEmployees),
+    [realEmployees]
+  );
+  const compliancePercentage = documentComplianceStats.percentage;
+  const complianceSlotLabel =
+    documentComplianceStats.total > 0
+      ? `${documentComplianceStats.fulfilled}/${documentComplianceStats.total} مستند`
+      : lang === 'ar'
+        ? 'لا موظفين'
+        : 'No employees';
+  const complianceToneClass =
+    compliancePercentage >= 90
+      ? 'text-emerald-600'
+      : compliancePercentage >= 70
+        ? 'text-amber-600'
+        : 'text-rose-600';
 
   // حساب توزيع الرواتب الفعلي طبقاً للعقود المسجلة
   const payrollDeptData = useMemo(() => {
@@ -496,7 +525,8 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
           <div>
             <div className="text-[11px] font-bold text-slate-500">سلامة المستندات والامتثال</div>
             <div className="text-base sm:text-lg font-black text-blue-700 font-mono mt-0.5 leading-none">
-              {compliancePercentage}% <span className="text-[11px] font-bold text-emerald-600">ساري</span>
+              {compliancePercentage}%{' '}
+              <span className={`text-[11px] font-bold ${complianceToneClass}`}>{complianceSlotLabel}</span>
             </div>
           </div>
           <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 border border-blue-200/80 flex items-center justify-center font-bold shrink-0 shadow-2xs">
