@@ -1,27 +1,7 @@
 /** Shared Kuwait HR quick calculator math (KWD, 3 decimals). */
 
-export const PIFSS_SALARY_CAP_KWD = 3000;
-export const PIFSS_EMPLOYEE_RATE = 0.105;
-export const PIFSS_EMPLOYER_RATE = 0.115;
-
 export function roundKwd(value: number): number {
   return Number((Number.isFinite(value) ? value : 0).toFixed(3));
-}
-
-export function calculatePifssContributions(grossSalary: number) {
-  const insuredSalary = Math.min(Math.max(grossSalary, 0), PIFSS_SALARY_CAP_KWD);
-  const employeeShare = roundKwd(insuredSalary * PIFSS_EMPLOYEE_RATE);
-  const employerShare = roundKwd(insuredSalary * PIFSS_EMPLOYER_RATE);
-  const totalContribution = roundKwd(employeeShare + employerShare);
-  const capped = grossSalary > PIFSS_SALARY_CAP_KWD;
-
-  return {
-    insuredSalary,
-    employeeShare,
-    employerShare,
-    totalContribution,
-    capped,
-  };
 }
 
 export function calculateOvertimeTotals(input: {
@@ -51,4 +31,4 @@ export function calculateOvertimeTotals(input: {
   };
 }
 
-export type QuickCalculatorTab = 'eos' | 'leave' | 'wage' | 'pifss';
+export type QuickCalculatorTab = 'eos' | 'leave' | 'wage';

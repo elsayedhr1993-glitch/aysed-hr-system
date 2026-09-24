@@ -528,7 +528,6 @@ export const ExclusiveInnovationsSuite: React.FC<ExclusiveInnovationsSuiteProps>
       const salaryBase = currentContract?.basicSalary || 650;
       const salaryAllow = (currentContract?.housingAllowance || 0) + (currentContract?.transportAllowance || 0) + (currentContract?.otherAllowance || 0);
       const grossSalary = salaryBase + salaryAllow;
-      const pifssDeduction = 0;
       const netSalary = grossSalary;
 
       if (lower.includes('راتب') || lower.includes('مسير') || lower.includes('payslip') || lower.includes('salary')) {
@@ -540,7 +539,6 @@ export const ExclusiveInnovationsSuite: React.FC<ExclusiveInnovationsSuiteProps>
           `💵 الراتب الأساسي: ${formatKWD(salaryBase)}\n` +
           `➕ إجمالي البدلات: ${formatKWD(salaryAllow)}\n` +
           `💰 إجمالي الراتب: ${formatKWD(grossSalary)}\n` +
-          (pifssDeduction > 0 ? `➖ استقطاع التأمينات (11.5%): -${formatKWD(pifssDeduction)}\n` : '') +
           `----------------------------\n` +
           `✅ *صافي الراتب المستحق: ${formatKWD(netSalary)}*\n\n` +
           `تم تحويل الراتب لحسابك لدى: ${currentBotEmployee?.bankName || 'البنك الوطني NBK'}\nرقم الآيبان: ${currentBotEmployee?.iban || 'KW82NBK0000000000000000000'}`;

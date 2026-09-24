@@ -47,7 +47,6 @@ export interface Company {
   nameEn: string;
   mohLicense?: string;
   crNumber?: string;
-  pifssNumber?: string;
   logo?: string;
   isDefault?: boolean;
   accountNumber?: string;
@@ -499,7 +498,6 @@ export interface Payslip {
   allowances: number;
   grossSalary: number;
   latenessDeduction: number;
-  pifssDeduction?: number;
   unpaidLeaveDays?: number;
   unpaidLeaveDeduction?: number;
   loanDeduction?: number;

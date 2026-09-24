@@ -38,7 +38,7 @@ export function generateWpsSifFile(
     // Formatting amounts to 3 decimal places as required in Kuwait (KWD)
     const basic = calculation.basicSalary.toFixed(3);
     const allow = calculation.allowances.toFixed(3);
-    const deduct = (calculation.absenceDeduction + calculation.delayDeduction + calculation.socialSecurityDeduction).toFixed(3);
+    const deduct = (calculation.absenceDeduction + calculation.delayDeduction).toFixed(3);
     const net = calculation.netSalary.toFixed(3);
 
     // Format: Civil ID, Bank Code, IBAN, Basic, Allowances, Deductions, Net Salary, Remarks

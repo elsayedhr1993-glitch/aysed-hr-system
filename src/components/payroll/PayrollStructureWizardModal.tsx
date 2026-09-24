@@ -10,7 +10,6 @@ export interface AllowanceCategory {
   id: string;
   name: string;
   isTaxable: boolean;
-  isSubjectToPifss: boolean;
   defaultAmount: number;
 }
 
@@ -19,13 +18,7 @@ export interface PayrollStructureData {
   minBasicSalaryRatioPercent: number; // e.g. 60%
   allowances: AllowanceCategory[];
 
-  // Step 2: PIFSS Social Security (Kuwaiti Employees Law)
-  enablePifssDeductions: boolean;
-  pifssEmployeePercent: number; // 11.5%
-  pifssEmployerPercent: number; // 11.5%
-  pifssMaxSalaryCap: number; // 2750 KWD
-
-  // Step 3: WPS SIF File & Bank Integration
+  // Step 2: WPS SIF File & Bank Integration
   wpsEmployerId: string;
   payerBankShortCode: string; // e.g., 'KFH'
   wpsPaymentDayOfMonth: number; // 28
@@ -51,16 +44,11 @@ export const PAYROLL_STRUCTURE_STORAGE_KEY = 'payroll_master_structure_v1';
 export const defaultPayrollStructure: PayrollStructureData = {
   minBasicSalaryRatioPercent: 60,
   allowances: [
-    { id: '1', name: 'بدل سكن (Housing Allowance)', isTaxable: false, isSubjectToPifss: true, defaultAmount: 150 },
-    { id: '2', name: 'بدل انتقال / سيارة (Transport)', isTaxable: false, isSubjectToPifss: false, defaultAmount: 50 },
-    { id: '3', name: 'بدل طبيعة عمل (Nature of Work)', isTaxable: false, isSubjectToPifss: true, defaultAmount: 100 },
-    { id: '4', name: 'بدل اتصال وموبايل (Mobile)', isTaxable: false, isSubjectToPifss: false, defaultAmount: 25 },
+    { id: '1', name: 'بدل سكن (Housing Allowance)', isTaxable: false, defaultAmount: 150 },
+    { id: '2', name: 'بدل انتقال / سيارة (Transport)', isTaxable: false, defaultAmount: 50 },
+    { id: '3', name: 'بدل طبيعة عمل (Nature of Work)', isTaxable: false, defaultAmount: 100 },
+    { id: '4', name: 'بدل اتصال وموبايل (Mobile)', isTaxable: false, defaultAmount: 25 },
   ],
-
-  enablePifssDeductions: false,
-  pifssEmployeePercent: 0,
-  pifssEmployerPercent: 0,
-  pifssMaxSalaryCap: 0,
 
   wpsEmployerId: 'KW-PAM-998811',
   payerBankShortCode: 'KFH',
@@ -140,7 +128,6 @@ export const PayrollStructureWizardModal: React.FC<PayrollStructureWizardModalPr
       id: Date.now().toString(),
       name: newAllowanceName.trim(),
       isTaxable: false,
-      isSubjectToPifss: true,
       defaultAmount: newAllowanceAmount,
     };
     setStructure(prev => ({ ...prev, allowances: [...prev.allowances, newCategory] }));
@@ -160,10 +147,9 @@ export const PayrollStructureWizardModal: React.FC<PayrollStructureWizardModalPr
 
   const steps = [
     { num: 1, title: 'هيكل الراتب والبدلات', desc: 'الأساسي وبدلات السكن والنقل' },
-    { num: 2, title: 'التأمينات الاجتماعية PIFSS', desc: 'استقطاع العمالة الكويتية 11.5%' },
-    { num: 3, title: 'ملف SIF ومسير WPS', desc: 'ربط البنوك والبنك المركزي' },
-    { num: 4, title: 'معادلة اليومية والخصوم', desc: 'أجر اليوم = الشهر / 26' },
-    { num: 5, title: 'الاعتماد وتصميم القسيمة', desc: 'قسيمة الراتب والختم الآلي' },
+    { num: 2, title: 'ملف SIF ومسير WPS', desc: 'ربط البنوك والبنك المركزي' },
+    { num: 3, title: 'معادلة اليومية والخصوم', desc: 'أجر اليوم = الشهر / 26' },
+    { num: 4, title: 'الاعتماد وتصميم القسيمة', desc: 'قسيمة الراتب والختم الآلي' },
   ];
 
   return (
@@ -184,7 +170,7 @@ export const PayrollStructureWizardModal: React.FC<PayrollStructureWizardModalPr
                 </span>
               </h3>
               <p className="text-xs text-purple-200 font-medium">
-                تثبيت عناصر الراتب، التأمينات الاجتماعية (PIFSS)، ملف SIF البنكي، ومعادلة الخصومات
+                تثبيت عناصر الراتب، ملف SIF البنكي، ومعادلة الخصومات
               </p>
             </div>
           </div>
@@ -315,82 +301,13 @@ export const PayrollStructureWizardModal: React.FC<PayrollStructureWizardModalPr
             </div>
           )}
 
-          {/* STEP 2: PIFSS Social Security */}
+          {/* STEP 2: WPS SIF File */}
           {currentStep === 2 && (
-            <div className="space-y-4 animate-fadeIn">
-              <div className="bg-blue-50 p-3 rounded-xl border border-blue-200 flex items-center justify-between text-blue-900 text-xs font-bold">
-                <span className="flex items-center gap-2">
-                  <Landmark size={16} className="text-blue-700" />
-                  <span>الخطوة 2: استقطاعات المؤسسة العامة للتأمينات الاجتماعية (PIFSS للعمالة الوطنية)</span>
-                </span>
-                <span className="text-[10px] bg-blue-200 text-blue-950 px-2 py-0.5 rounded-full">
-                  Kuwait PIFSS Law
-                </span>
-              </div>
-
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={structure.enablePifssDeductions}
-                    onChange={(e) => handleFieldChange('enablePifssDeductions', e.target.checked)}
-                    className="w-4 h-4 text-blue-600 rounded border-slate-300"
-                  />
-                  <div>
-                    <span className="text-xs font-bold text-slate-900 block">تفعيل الخصم الآلي للتأمينات الاجتماعية للموظفين الكويتيين</span>
-                    <span className="text-[10px] text-slate-500 block">تطبيق النسبة القانونية الحالية واستخراج تقرير PIFSS الشهري.</span>
-                  </div>
-                </label>
-
-                {structure.enablePifssDeductions && (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-200">
-                    <div>
-                      <label className="block text-slate-700 font-bold text-xs mb-1">نسبة خصم الموظف (%) *</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={structure.pifssEmployeePercent}
-                        onChange={(e) => handleFieldChange('pifssEmployeePercent', Number(e.target.value))}
-                        className="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-mono font-bold"
-                      />
-                      <span className="text-[9px] text-slate-400 mt-0.5 block">11.5% تخصم من راتب الموظف</span>
-                    </div>
-
-                    <div>
-                      <label className="block text-slate-700 font-bold text-xs mb-1">نسبة مساهمة الشركة (%) *</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={structure.pifssEmployerPercent}
-                        onChange={(e) => handleFieldChange('pifssEmployerPercent', Number(e.target.value))}
-                        className="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-mono font-bold"
-                      />
-                      <span className="text-[9px] text-slate-400 mt-0.5 block">11.5% تتحملها الشركة</span>
-                    </div>
-
-                    <div>
-                      <label className="block text-slate-700 font-bold text-xs mb-1">الحد الأقصى للراتب الخاضع (د.ك)</label>
-                      <input
-                        type="number"
-                        value={structure.pifssMaxSalaryCap}
-                        onChange={(e) => handleFieldChange('pifssMaxSalaryCap', Number(e.target.value))}
-                        className="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs font-mono font-bold"
-                      />
-                      <span className="text-[9px] text-slate-400 mt-0.5 block">2,750 د.ك الحد الأقصى للتأمين</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* STEP 3: WPS SIF File */}
-          {currentStep === 3 && (
             <div className="space-y-4 animate-fadeIn">
               <div className="bg-amber-50 p-3 rounded-xl border border-amber-200 flex items-center justify-between text-amber-900 text-xs font-bold">
                 <span className="flex items-center gap-2">
                   <CreditCard size={16} className="text-amber-700" />
-                  <span>الخطوة 3: إعدادات ملف SIF البنكي المحول لـ WPS ونظام الأجور</span>
+                  <span>الخطوة 2: إعدادات ملف SIF البنكي المحول لـ WPS ونظام الأجور</span>
                 </span>
                 <span className="text-[10px] bg-amber-200 text-amber-950 px-2 py-0.5 rounded-full">
                   WPS SIF Integration
@@ -440,7 +357,7 @@ export const PayrollStructureWizardModal: React.FC<PayrollStructureWizardModalPr
           )}
 
           {/* STEP 4: Daily Rate Formula */}
-          {currentStep === 4 && (
+          {currentStep === 3 && (
             <div className="space-y-4 animate-fadeIn">
               <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-200 flex items-center justify-between text-emerald-900 text-xs font-bold">
                 <span className="flex items-center gap-2">
@@ -480,7 +397,7 @@ export const PayrollStructureWizardModal: React.FC<PayrollStructureWizardModalPr
           )}
 
           {/* STEP 5: Payslip Branding */}
-          {currentStep === 5 && (
+          {currentStep === 4 && (
             <div className="space-y-4 animate-fadeIn">
               <div className="bg-emerald-50 p-3.5 rounded-xl border border-emerald-300 text-emerald-950 flex items-start gap-2.5">
                 <CheckCircle2 size={22} className="text-emerald-600 shrink-0 mt-0.5" />
@@ -502,10 +419,6 @@ export const PayrollStructureWizardModal: React.FC<PayrollStructureWizardModalPr
                   <div className="bg-white/10 p-2 rounded-xl">
                     <span className="text-slate-400 block text-[10px]">الحد الأدنى للأساسي:</span>
                     <strong className="font-mono text-emerald-300">{structure.minBasicSalaryRatioPercent}% من الراتب</strong>
-                  </div>
-                  <div className="bg-white/10 p-2 rounded-xl">
-                    <span className="text-slate-400 block text-[10px]">استقطاع PIFSS:</span>
-                    <strong className="font-mono text-blue-300">{structure.pifssEmployeePercent}% موظف / {structure.pifssEmployerPercent}% شركة</strong>
                   </div>
                   <div className="bg-white/10 p-2 rounded-xl">
                     <span className="text-slate-400 block text-[10px]">البنك المحول:</span>
@@ -541,7 +454,7 @@ export const PayrollStructureWizardModal: React.FC<PayrollStructureWizardModalPr
             </button>
           )}
 
-          {currentStep < 5 ? (
+          {currentStep < 4 ? (
             <button
               onClick={() => setCurrentStep(prev => prev + 1)}
               className="px-5 py-2 rounded-xl bg-purple-900 hover:bg-purple-950 text-white font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"

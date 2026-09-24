@@ -157,7 +157,6 @@ export const OdooSettingsFull: React.FC = () => {
       name: formData.companyNameAr,
       crNumber: formData.crNumber,
       commercialRegNo: formData.crNumber,
-      pifssNumber: formData.pifssNumber,
       mohLicense: formData.mohLicense,
       bankName: formData.bankName,
       iban: formData.iban,

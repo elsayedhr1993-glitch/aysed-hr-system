@@ -172,7 +172,7 @@ export const OdooMasterHierarchyView: React.FC = () => {
     const totalNet = computedPayslips.reduce((acc, p) => acc + p.netSalary, 0);
     const header = `HDR,201934,AYSED_HR_KUWAIT,2026-08,${computedPayslips.length},${totalNet.toFixed(3)},KWD\n`;
     const rows = computedPayslips.map((p, idx) => 
-      `REC,${idx + 1},${p.civilId},${p.iban},${p.netSalary.toFixed(3)},${p.basic.toFixed(3)},${p.allowances.toFixed(3)},${(p.attendanceDeduction + p.loanDeduction + p.pifssDeduction).toFixed(3)}`
+      `REC,${idx + 1},${p.civilId},${p.iban},${p.netSalary.toFixed(3)},${p.basic.toFixed(3)},${p.allowances.toFixed(3)},${(p.attendanceDeduction + p.loanDeduction).toFixed(3)}`
     ).join('\n');
 
     const blob = new Blob([header + rows], { type: 'text/plain;charset=utf-8;' });
@@ -384,7 +384,7 @@ export const OdooMasterHierarchyView: React.FC = () => {
             <div className="p-3 bg-slate-50 rounded-xl border space-y-1 text-slate-600">
               <div className="flex justify-between">
                 <span>الجنسية والتأمينات:</span>
-                <span className="font-bold">{selectedEmp.isKuwaiti ? 'كويتي (استقطاع 10.5% PIFSS)' : 'غير كويتي (معفي من التأمينات)'}</span>
+                <span className="font-bold">{selectedEmp.isKuwaiti ? 'كويتي' : 'غير كويتي'}</span>
               </div>
               <div className="flex justify-between">
                 <span>الرقم المدني والبنك:</span>
@@ -432,13 +432,6 @@ export const OdooMasterHierarchyView: React.FC = () => {
                   <span className="font-mono font-bold">-{selectedSlip.loanDeduction.toFixed(3)} د.ك</span>
                 </div>
               )}
-              {selectedSlip.pifssDeduction > 0 && (
-                <div className="flex justify-between py-1 border-b text-amber-700">
-                  <span>استقطاع التأمينات الاجتماعية (10.5%):</span>
-                  <span className="font-mono font-bold">-{selectedSlip.pifssDeduction.toFixed(3)} د.ك</span>
-                </div>
-              )}
-
               <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200 flex justify-between items-center text-emerald-950 font-black text-sm mt-3">
                 <span>صافي الراتب النهائي في ملف البنك (WPS):</span>
                 <span className="text-base font-mono text-emerald-700">{selectedSlip.netSalary.toFixed(3)} د.ك</span>
@@ -569,7 +562,7 @@ export const OdooMasterHierarchyView: React.FC = () => {
                     className="w-full p-2.5 border rounded-lg bg-slate-50 outline-none focus:border-[#714B67] font-bold"
                   >
                     <option value="false">غير كويتي (معفي من التأمينات)</option>
-                    <option value="true">كويتي (استقطاع 10.5% PIFSS معطل)</option>
+                    <option value="true">كويتي</option>
                   </select>
                 </div>
                 <div>

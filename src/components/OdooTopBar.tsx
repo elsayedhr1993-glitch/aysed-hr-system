@@ -89,7 +89,7 @@ const appTitles: Record<ActiveApp, { ar: string; en: string }> = {
   SHIFTS: { ar: 'إدارة الورديات وجداول الدوام', en: 'Shifts & Schedules' },
   DAILY_MOVEMENTS: { ar: 'الحركات اليومية (استئذان، مرضية، بدل)', en: 'Daily Movements' },
   ATTENDANCE: { ar: 'الحضور والانصراف', en: 'Attendance' },
-  PAYROLL: { ar: 'الرواتب والتأمينات', en: 'Payroll' },
+  PAYROLL: { ar: 'الرواتب وحماية الأجور', en: 'Payroll' },
   EOS: { ar: 'حاسبة نهاية الخدمة (م 51 & 53)', en: 'EOS Settlement' },
   DOCUMENTS: { ar: 'إدارة المستندات والماسح الضوئي', en: 'Documents & OCR' },
   SCANNER_APP: { ar: 'الماسح الضوئي الذكي (Odoo Document Scanner)', en: 'Smart Document Scanner' },

@@ -239,7 +239,6 @@ export function planToEmployeeDraft(
     openingBalance: 0,
     avatarColor: 'bg-purple-900',
     mohLicense: plan.mohLicense || (plan.department === 'الأطباء' ? 'MOH-DOC-TEMP' : ''),
-    pifssStatus: 'subscribed',
     leaveAccrualActivated: plan.commencementDetails?.leaveAccrualActivated !== false,
     status: commenced ? 'ACTIVE' : 'ONBOARDING',
     legalChecklist: plan.legalChecklist || {

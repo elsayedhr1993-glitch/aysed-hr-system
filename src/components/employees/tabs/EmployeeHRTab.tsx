@@ -546,17 +546,6 @@ export const EmployeeHRTab: React.FC<Props> = ({
           placeholder="101"
         />
 
-        <EditableSelect
-          label="الخضوع للتأمينات الاجتماعية (PIFSS)"
-          value={employee.pifssStatus || ((employee.nationality || '').includes('كويت') ? 'subscribed' : 'exempt')}
-          onChange={(val) => handleFieldChange('pifssStatus', val)}
-          isEditMode={isEditMode}
-          options={[
-            { value: "subscribed", label: "مشترك كويتي - خاضع للتأمينات (مكافأة = 0 د.ك)" }, 
-            { value: "exempt", label: "غير كويتي - خاضع لمكافأة نهاية الخدمة (المادة 51)" }
-          ]}
-        />
-
         <div className="py-1.5">
           <label className="block text-xs font-semibold text-slate-500 mb-1">تاريخ بداية العقد الحالي</label>
           <div className="font-mono font-semibold text-slate-800 text-sm border-b border-slate-100 pb-1">

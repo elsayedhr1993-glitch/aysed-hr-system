@@ -7,11 +7,7 @@ import { db } from '../../lib/firebase';
 import { useCompany } from '../../context/CompanyContext';
 import { useOdooHierarchy } from '../../context/OdooHierarchyContext';
 import type { QuickCalculatorTab } from '../../utils/kuwaitQuickCalculators';
-import {
-  calculateOvertimeTotals,
-  calculatePifssContributions,
-  PIFSS_SALARY_CAP_KWD,
-} from '../../utils/kuwaitQuickCalculators';
+import { calculateOvertimeTotals } from '../../utils/kuwaitQuickCalculators';
 import { calculateKuwaitEOS, calculateDailyWage } from '../../utils/kuwaitPayrollEngine';
 import {
   getEmployeeLeaveEosSnapshot,
@@ -61,8 +57,6 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
   const [workHoursPerDay, setWorkHoursPerDay] = useState<number>(8);
   const [otDayHours, setOtDayHours] = useState<number>(0);
   const [otNightHours, setOtNightHours] = useState<number>(0);
-  const [pifssGross, setPifssGross] = useState<number>(1200);
-
   // Leave Liquidation state
   const [leaveSalary, setLeaveSalary] = useState<number>(800);
   const [leaveDaysBalance, setLeaveDaysBalance] = useState<number>(24);
@@ -186,8 +180,6 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
     [wageSalary, wageDivisor, workHoursPerDay, otDayHours, otNightHours]
   );
 
-  const pifssResult = useMemo(() => calculatePifssContributions(pifssGross), [pifssGross]);
-
   useEffect(() => {
     if (isOpen) setActiveTab(initialTab);
   }, [isOpen, initialTab]);
@@ -235,7 +227,7 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
             </div>
             <div>
               <h3 className="font-bold text-sm">الحاسبات السريعة — قانون العمل الكويتي</h3>
-              <p className="text-[11px] text-white/80">EOS · الإجازات · الإضافي · التأمينات (PIFSS)</p>
+              <p className="text-[11px] text-white/80">EOS · الإجازات · الإضافي</p>
             </div>
           </div>
           <button 
@@ -284,17 +276,6 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
             <span>تسييل الإجازات</span>
           </button>
 
-          <button
-            onClick={() => setActiveTab('pifss')}
-            className={`px-3 sm:px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all flex items-center gap-1.5 cursor-pointer border-t border-x shrink-0 ${
-              activeTab === 'pifss'
-                ? 'bg-white text-[#714B67] border-slate-200 -mb-px font-black shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 border-transparent hover:bg-slate-100/80'
-            }`}
-          >
-            <ShieldCheck size={15} className="text-[#714B67]" />
-            <span>التأمينات PIFSS</span>
-          </button>
         </div>
 
         {/* Modal Body Content */}
@@ -694,55 +675,6 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
 
               <div className="p-3 bg-emerald-50/60 border border-emerald-200 rounded-xl text-[11px] text-emerald-900 leading-relaxed font-medium">
                 💡 <strong>المادة 70 و 71:</strong> يستحق العامل إجازة سنوية مدفوعة الأجر مدتها 30 يوماً عمل عن كل سنة. ويجوز تصفية الإجازة أو صرف بدلها النقدي عند انتهاء العقد على أساس آخر أجر تقاضاه العامل شاملاً جميع البدلات.
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'pifss' && (
-            <div className="space-y-4">
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">الراتب الشامل الخاضع للتأمين (د.ك) *</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="10"
-                  value={pifssGross}
-                  onChange={(e) => setPifssGross(Math.max(0, Number(e.target.value)))}
-                  className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold focus:outline-none focus:border-[#714B67] bg-slate-50"
-                />
-                <span className="text-[10px] text-slate-500">
-                  سقف الاشتراك الشهري: {PIFSS_SALARY_CAP_KWD} د.ك (للمواطنين الكويتيين)
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200">
-                  <span className="text-[10px] text-slate-500 font-bold">الأجر الخاضع</span>
-                  <div className="font-black font-mono text-slate-900 mt-1">{pifssResult.insuredSalary.toFixed(3)}</div>
-                </div>
-                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200">
-                  <span className="text-[10px] text-slate-500 font-bold">حصة الموظف 10.5%</span>
-                  <div className="font-black font-mono text-rose-700 mt-1">{pifssResult.employeeShare.toFixed(3)}</div>
-                </div>
-                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200">
-                  <span className="text-[10px] text-slate-500 font-bold">حصة المنشأة 11.5%</span>
-                  <div className="font-black font-mono text-amber-700 mt-1">{pifssResult.employerShare.toFixed(3)}</div>
-                </div>
-                <div className="bg-purple-50 p-3 rounded-2xl border border-purple-200">
-                  <span className="text-[10px] text-purple-700 font-bold">إجمالي الاشتراك</span>
-                  <div className="font-black font-mono text-[#714B67] mt-1">{pifssResult.totalContribution.toFixed(3)}</div>
-                </div>
-              </div>
-
-              {pifssResult.capped && (
-                <div className="text-[11px] text-amber-800 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
-                  تم تطبيق سقف {PIFSS_SALARY_CAP_KWD} د.ك على الراتب الخاضع للاشتراك.
-                </div>
-              )}
-
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-[11px] text-slate-700">
-                الاستقطاع من صافي راتب الموظف الكويتي = <strong className="font-mono">{pifssResult.employeeShare.toFixed(3)}</strong> د.ك شهرياً.
-                تكلفة المنشأة الإضافية = <strong className="font-mono">{pifssResult.employerShare.toFixed(3)}</strong> د.ك.
               </div>
             </div>
           )}

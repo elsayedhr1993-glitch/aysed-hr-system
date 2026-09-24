@@ -111,9 +111,8 @@ export const WpsAuditShieldModal: React.FC<WpsAuditShieldModalProps> = ({
         calculation: {
           basicSalary: p.basicSalary || 0,
           allowances: p.allowances || 0,
-          absenceDeduction: 0,
+          absenceDeduction: p.totalDeductions || 0,
           delayDeduction: 0,
-          socialSecurityDeduction: p.totalDeductions || 0,
           netSalary: p.netSalary || 0
         }
       })) as any;

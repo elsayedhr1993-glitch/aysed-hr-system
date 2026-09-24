@@ -50,7 +50,6 @@ import { db } from '../lib/firebase';
 
 export type ReportCategory = 
   | 'wps_reconciliation'
-  | 'pifss_contributions'
   | 'gov_compliance'
   | 'kuwaitization'
   | 'eos_indemnity_accrual'
@@ -356,20 +355,6 @@ export const OdooReportsApp: React.FC = () => {
   const expiredComplianceCount = analyticsData.filter(e => e.complianceStatus === 'منتهي الصلاحية').length;
   const expiringSoonCount = analyticsData.filter(e => e.complianceStatus === 'ينتهي قريباً (<30 يوم)').length;
 
-  const computePifssBreakdown = (grossSalary: number) => {
-    const insuredSalary = Math.min(Math.max(grossSalary || 0, 0), 3000);
-    const employeeShare = Number((insuredSalary * 0.105).toFixed(3));
-    const employerShare = Number((insuredSalary * 0.115).toFixed(3));
-    const totalShare = Number((employeeShare + employerShare).toFixed(3));
-    return { insuredSalary, employeeShare, employerShare, totalShare };
-  };
-
-  // إجمالي اشتراكات التأمينات الاجتماعية (PIFSS) للكادر الوطني (سقف 3,000 د.ك، الموظف 10.5%، صاحب العمل 11.5%)
-  const kuwaitiStaff = useMemo(() => analyticsData.filter(e => e.isKuwaiti), [analyticsData]);
-  const totalKuwaitiPifssEmployeeDeduct = kuwaitiStaff.reduce((acc, curr) => acc + computePifssBreakdown(curr.totalSalary).employeeShare, 0);
-  const totalKuwaitiPifssEmployerContrib = kuwaitiStaff.reduce((acc, curr) => acc + computePifssBreakdown(curr.totalSalary).employerShare, 0);
-  const totalKuwaitiPifssContribution = kuwaitiStaff.reduce((acc, curr) => acc + computePifssBreakdown(curr.totalSalary).totalShare, 0);
-
   // استخراج قائمة الأقسام الفريدة
   const departmentsList = useMemo(() => {
     return Array.from(new Set(analyticsData.map(d => d.department)));
@@ -450,23 +435,6 @@ export const OdooReportsApp: React.FC = () => {
         'الآيبان': d.iban,
         'حالة المسير': d.wpsStatus
       }));
-    } else if (activeReport === 'pifss_contributions') {
-      exportRecords = filteredData.filter(d => d.isKuwaiti).map((d, idx) => {
-        const pifss = computePifssBreakdown(d.totalSalary);
-        return {
-          'م': idx + 1,
-          'الكود': d.id,
-          'اسم الموظف': d.name,
-          'الرقم المدني': d.civilId,
-          'المسمى': d.jobTitle,
-          'القسم': d.department,
-          'الراتب الشامل (د.ك)': Number(d.totalSalary.toFixed(3)),
-          'الراتب الخاضع للتأمين': Number(pifss.insuredSalary.toFixed(3)),
-          'استقطاع الموظف (د.ك)': Number(pifss.employeeShare.toFixed(3)),
-          'مساهمة صاحب العمل (د.ك)': Number(pifss.employerShare.toFixed(3)),
-          'إجمالي اشتراك التأمينات (د.ك)': Number(pifss.totalShare.toFixed(3))
-        };
-      });
     } else if (activeReport === 'gov_compliance') {
       exportRecords = filteredData.map((d, idx) => ({
         'م': idx + 1,
@@ -545,7 +513,6 @@ export const OdooReportsApp: React.FC = () => {
   const getReportTitle = (key: ReportCategory) => {
     switch (key) {
       case 'wps_reconciliation': return 'تقرير مطابقة مسيرات الرواتب وملفات WPS البنكية';
-      case 'pifss_contributions': return 'تقرير اشتراكات التأمينات الاجتماعية (PIFSS) للكادر الوطني';
       case 'gov_compliance': return 'تقرير انتهاء الإقامات وأذونات العمل وتراخيص وزارة الصحة (MOH)';
       case 'kuwaitization': return 'تقرير نسب العمالة الوطنية والتكويت (PAM Compliance)';
       case 'eos_indemnity_accrual': return 'تقرير مخصصات نهاية الخدمة التراكمية (Indemnity Accrual - مادة 51)';
@@ -646,22 +613,6 @@ export const OdooReportsApp: React.FC = () => {
               >
                 <span>1. مطابقة مسيرات الرواتب وملفات WPS</span>
                 <ChevronRight size={14} className={activeReport === 'wps_reconciliation' ? 'text-white' : 'text-slate-400'} />
-              </button>
-              <button
-                onClick={() => setActiveReport('pifss_contributions')}
-                className={`w-full text-right p-2 rounded-lg text-xs font-bold transition flex items-center justify-between cursor-pointer ${
-                  activeReport === 'pifss_contributions' 
-                    ? 'bg-[#714B67] text-white shadow-xs' 
-                    : 'text-slate-700 hover:bg-slate-200/70'
-                }`}
-              >
-                <span className="flex items-center gap-1.5">
-                  2. اشتراكات التأمينات الاجتماعية (PIFSS)
-                  <span className="bg-blue-600 text-white text-[9px] px-1.5 py-0.2 rounded-full font-mono">
-                    {kuwaitiCount}
-                  </span>
-                </span>
-                <ChevronRight size={14} className={activeReport === 'pifss_contributions' ? 'text-white' : 'text-slate-400'} />
               </button>
               <button
                 onClick={() => setActiveReport('gov_compliance')}
@@ -971,93 +922,7 @@ export const OdooReportsApp: React.FC = () => {
               </table>
             )}
 
-            {/* 2. REPORT: PIFSS SOCIAL SECURITY CONTRIBUTIONS (اشتراكات التأمينات الاجتماعية) */}
-            {activeReport === 'pifss_contributions' && (
-              <table className="w-full text-right text-xs">
-                <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 font-sans">
-                  <tr>
-                    <th className="p-3.5">الموظف / الرقم المدني</th>
-                    <th className="p-3.5">القسم والمسمى</th>
-                    <th className="p-3.5 text-left">الراتب الشامل (د.ك)</th>
-                    <th className="p-3.5 text-left text-blue-700 font-bold">الخاضع للتأمين (سقف 3,000)</th>
-                    <th className="p-3.5 text-left text-rose-600">استقطاع الموظف (10.5%)</th>
-                    <th className="p-3.5 text-left text-purple-700">مساهمة المنشأة (11.5%)</th>
-                    <th className="p-3.5 text-left text-emerald-800 font-black">إجمالي السداد الشهري (PIFSS)</th>
-                    <th className="p-3.5 text-center">حالة الاشتراك</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-mono">
-                  {filteredData.filter(emp => emp.isKuwaiti).length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="p-8 text-center text-slate-400 font-sans text-xs">
-                        لا يوجد موظفون كويتيون خاضعون للتأمينات الاجتماعية ضمن التصفية الحالية.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredData.filter(emp => emp.isKuwaiti).map((emp, idx) => {
-                      const pifss = computePifssBreakdown(emp.totalSalary);
-                      const insurableWage = pifss.insuredSalary;
-                      const employeeDeduct = pifss.employeeShare;
-                      const employerContrib = pifss.employerShare;
-                      const totalSub = pifss.totalShare;
-
-                      return (
-                        <tr key={emp.id} className={`hover:bg-purple-50/40 transition ${idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
-                          <td className="p-3.5 font-sans">
-                            <div className="font-bold text-slate-900">{emp.name}</div>
-                            <div className="text-[10px] text-slate-400 font-mono">{emp.civilId}</div>
-                          </td>
-                          <td className="p-3.5 font-sans">
-                            <div className="font-semibold text-slate-800">{emp.jobTitle}</div>
-                            <div className="text-[10px] text-slate-400">{emp.department}</div>
-                          </td>
-                          <td className="p-3.5 text-left">{emp.totalSalary.toFixed(3)}</td>
-                          <td className="p-3.5 text-left font-bold text-blue-800">
-                            {insurableWage.toFixed(3)}
-                            {emp.totalSalary > 3000 && <span className="text-[9px] text-slate-400 block font-normal">(مطبق السقف)</span>}
-                          </td>
-                          <td className="p-3.5 text-left text-rose-600 font-bold">-{employeeDeduct.toFixed(3)}</td>
-                          <td className="p-3.5 text-left text-purple-700 font-bold">+{employerContrib.toFixed(3)}</td>
-                          <td className="p-3.5 text-left font-black text-emerald-800 text-sm">{totalSub.toFixed(3)} د.ك</td>
-                          <td className="p-3.5 text-center font-sans">
-                            <span className="bg-blue-100 text-blue-800 border border-blue-200 px-2.5 py-1 rounded-full text-[10px] font-bold inline-flex items-center gap-1">
-                              <CheckCircle2 size={11} /> مسجل فعال بالتأمينات
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-                <tfoot className="bg-slate-100 font-bold border-t-2 border-slate-900 text-xs font-mono">
-                  <tr>
-                    <td colSpan={2} className="p-3.5 font-sans text-slate-900">
-                      إجمالي اشتراكات التأمينات للكادر الوطني ({filteredData.filter(e => e.isKuwaiti).length} موظف):
-                    </td>
-                    <td className="p-3.5 text-left">
-                      {filteredData.filter(e => e.isKuwaiti).reduce((a, b) => a + b.totalSalary, 0).toFixed(3)}
-                    </td>
-                    <td className="p-3.5 text-left text-blue-900 font-bold">
-                      {filteredData.filter(e => e.isKuwaiti).reduce((a, b) => a + computePifssBreakdown(b.totalSalary).insuredSalary, 0).toFixed(3)}
-                    </td>
-                    <td className="p-3.5 text-left text-rose-600 font-bold">
-                      -{totalKuwaitiPifssEmployeeDeduct.toFixed(3)}
-                    </td>
-                    <td className="p-3.5 text-left text-purple-700 font-bold">
-                      +{totalKuwaitiPifssEmployerContrib.toFixed(3)}
-                    </td>
-                    <td className="p-3.5 text-left text-emerald-900 text-sm font-black">
-                      0.000 د.ك
-                    </td>
-                    <td className="p-3.5 text-center font-sans text-[10px] text-slate-500">
-                      سداد إلكتروني (PIFSS)
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            )}
-
-            {/* 3. REPORT 3: GOVERNMENT & MOH COMPLIANCE TABLE */}
+            {/* 2. REPORT: GOVERNMENT & MOH COMPLIANCE TABLE */}
             {activeReport === 'gov_compliance' && (
               <table className="w-full text-right text-xs">
                 <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 font-sans">
@@ -1219,9 +1084,7 @@ export const OdooReportsApp: React.FC = () => {
                       <td className="p-3.5 text-left font-bold">{emp.totalSalary.toFixed(3)}</td>
                       <td className="p-3.5 text-left text-slate-600">{emp.dailyWage.toFixed(3)}</td>
                       <td className="p-3.5 font-sans text-[11px] text-slate-600">
-                        {emp.isKuwaiti ? (
-                          <span className="text-blue-700 font-bold">تأمينات اجتماعية (PIFSS)</span>
-                        ) : emp.serviceYears <= 5 ? (
+                        {emp.serviceYears <= 5 ? (
                           <span>15 يوماً لكل سنة عن الـ 5 سنوات الأولى</span>
                         ) : (
                           <span>15 يوماً (أول 5 سنوات) + شهر لكل سنة تالية</span>
@@ -1580,7 +1443,6 @@ export const OdooReportsApp: React.FC = () => {
         totalNetPayable={totalNetPayable}
         totalEosAccrual={totalEosAccrual}
         totalLeaveLiability={totalLeaveLiability}
-        totalKuwaitiPifssContribution={totalKuwaitiPifssContribution}
       />
 
     </div>

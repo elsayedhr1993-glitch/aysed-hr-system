@@ -24,7 +24,6 @@ export interface PayslipPrintData {
   delayMinutes: number;
   delayDeduction: number;
   loanDeduction: number;
-  pifssDeduction: number;
   grossSalary: number;
   totalDeductions: number;
   netSalary: number;
@@ -213,13 +212,7 @@ export const OfficialPayslipPrintModal: React.FC<OfficialPayslipPrintModalProps>
                         <span className="font-mono font-bold">-{payslip.loanDeduction.toFixed(3)}</span>
                       </div>
                     )}
-                    {payslip.pifssDeduction > 0 && (
-                      <div className="px-3 py-1.5 flex justify-between text-amber-700">
-                        <span>اشتراك التأمينات (PIFSS 10.5%)</span>
-                        <span className="font-mono font-bold">-{payslip.pifssDeduction.toFixed(3)}</span>
-                      </div>
-                    )}
-                    {payslip.absenceDeduction === 0 && payslip.delayDeduction === 0 && payslip.loanDeduction === 0 && payslip.pifssDeduction === 0 && (
+                    {payslip.absenceDeduction === 0 && payslip.delayDeduction === 0 && payslip.loanDeduction === 0 && (
                       <div className="px-3 py-4 text-center text-slate-400 text-[11px]">
                         لا توجد استقطاعات مسجلة لهذا الشهر
                       </div>

@@ -190,7 +190,6 @@ export interface PayslipComputation {
   grossSalary: number;
   attendanceDeduction: number;
   loanDeduction: number;
-  pifssDeduction: number; // التأمينات الاجتماعية
   overtimeAmount: number;
   prepaidDeduction: number; // خصم ما تم صرفه مقدماً
   netSalary: number;
@@ -435,10 +434,8 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
       const loanDed = empLoan && empLoan.remainingAmount > 0 
         ? Math.min(empLoan.monthlyInstallment, empLoan.remainingAmount) 
         : 0;
-      const pifssDed = 0.000;
-
       // 5. صافي الراتب المستحق
-      const totalDeductions = attDeduction + loanDed + pifssDed;
+      const totalDeductions = attDeduction + loanDed;
       const net = Math.max(0, gross + otAmount - totalDeductions);
 
       return {
@@ -451,7 +448,6 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
         grossSalary: Math.round((emp.basicSalary + allowances) * 1000) / 1000,
         attendanceDeduction: Math.round(attDeduction * 1000) / 1000,
         loanDeduction: loanDed,
-        pifssDeduction: 0.000, // صفر تأمينات
         overtimeAmount: otAmount,
         prepaidDeduction: 0,
         netSalary: Math.round(net * 1000) / 1000

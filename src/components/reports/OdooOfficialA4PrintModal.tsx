@@ -32,7 +32,6 @@ interface OdooOfficialA4PrintModalProps {
   totalNetPayable: number;
   totalEosAccrual: number;
   totalLeaveLiability: number;
-  totalKuwaitiPifssContribution: number;
 }
 
 export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> = ({
@@ -48,8 +47,7 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
   totalGrossSalaries,
   totalNetPayable,
   totalEosAccrual,
-  totalLeaveLiability,
-  totalKuwaitiPifssContribution
+  totalLeaveLiability
 }) => {
   const printAreaRef = useRef<HTMLDivElement>(null);
 
@@ -59,35 +57,10 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
     await printDocument('odoo-official-report-a4-sheet', `${reportTitle} - ${selectedMonth}`);
   };
 
-  const computePifssBreakdown = (grossSalary: number) => {
-    const insuredSalary = Math.min(Math.max(grossSalary || 0, 0), 3000);
-    const employeeShare = Number((insuredSalary * 0.105).toFixed(3));
-    const employerShare = Number((insuredSalary * 0.115).toFixed(3));
-    const totalShare = Number((employeeShare + employerShare).toFixed(3));
-    return { insuredSalary, employeeShare, employerShare, totalShare };
-  };
-
   const handleExport = () => {
     let exportRows: Record<string, any>[] = [];
 
-    if (reportCategory === 'pifss_contributions') {
-      exportRows = data.filter(d => d.isKuwaiti).map((d, idx) => {
-        const pifss = computePifssBreakdown(d.totalSalary);
-        return {
-          'م': idx + 1,
-          'اسم الموظف': d.name,
-          'الرقم المدني': d.civilId,
-          'المسمى': d.jobTitle,
-          'القسم': d.department,
-          'الراتب الشامل': Number(d.totalSalary.toFixed(3)),
-          'الراتب التأميني (سقف 3,000)': Number(pifss.insuredSalary.toFixed(3)),
-          'استقطاع الموظف (10.5%)': Number(pifss.employeeShare.toFixed(3)),
-          'مساهمة صاحب العمل (11.5%)': Number(pifss.employerShare.toFixed(3)),
-          'إجمالي اشتراك التأمينات (د.ك)': Number(pifss.totalShare.toFixed(3))
-        };
-      });
-    } else {
-      exportRows = data.map((d, idx) => ({
+    exportRows = data.map((d, idx) => ({
         'م': idx + 1,
         'اسم الموظف': d.name,
         'الرقم المدني': d.civilId,
@@ -100,7 +73,6 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
         'رصيد الإجازات': d.leaveBalance,
         'التزام الإجازة النقدي': Number(d.leaveCashLiability.toFixed(3))
       }));
-    }
 
     exportToExcel(exportRows, `${reportTitle}_${selectedMonth}.xlsx`, reportTitle.slice(0, 30));
   };
@@ -204,13 +176,9 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
                 <span className="font-bold text-emerald-800 text-sm font-mono">{totalNetPayable.toFixed(3)} د.ك</span>
               </div>
               <div className="space-y-0.5">
-                <span className="text-slate-500 block text-[11px]">
-                  {reportCategory === 'pifss_contributions' ? 'إجمالي سداد التأمينات:' : 'مخصص نهاية الخدمة:'}
-                </span>
+                <span className="text-slate-500 block text-[11px]">مخصص نهاية الخدمة:</span>
                 <span className="font-bold text-purple-900 text-sm font-mono">
-                  {reportCategory === 'pifss_contributions' 
-                    ? `${totalKuwaitiPifssContribution.toFixed(3)} د.ك` 
-                    : `${totalEosAccrual.toFixed(3)} د.ك`}
+                  {totalEosAccrual.toFixed(3)} د.ك
                 </span>
               </div>
             </div>
@@ -218,71 +186,8 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
             {/* 3. جدول البيانات التفصيلي المهيأ للطباعة */}
             <div className="border border-slate-200 rounded-xl overflow-hidden">
               
-              {/* حالة 1: كشف التأمينات الاجتماعية */}
-              {reportCategory === 'pifss_contributions' ? (
-                <table className="w-full text-right text-xs">
-                  <thead className="bg-slate-100 text-slate-800 font-bold border-b border-slate-300 font-sans">
-                    <tr>
-                      <th className="p-2.5">م</th>
-                      <th className="p-2.5">الموظف / الرقم المدني</th>
-                      <th className="p-2.5">المسمى والفرع</th>
-                      <th className="p-2.5 text-left font-mono">الراتب الشامل</th>
-                      <th className="p-2.5 text-left font-mono">الراتب التأميني</th>
-                      <th className="p-2.5 text-left font-mono">استقطاع الموظف (10.5%)</th>
-                      <th className="p-2.5 text-left font-mono">مساهمة الشركة (11.5%)</th>
-                      <th className="p-2.5 text-left font-mono text-purple-950 font-black">إجمالي السداد</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 font-mono">
-                    {data.filter(d => d.isKuwaiti).map((emp, idx) => {
-                      const pifss = computePifssBreakdown(emp.totalSalary);
-                      const insurable = pifss.insuredSalary;
-                      const empDeduct = pifss.employeeShare;
-                      const compDeduct = pifss.employerShare;
-                      const totalDue = pifss.totalShare;
-                      return (
-                        <tr key={emp.id} className={idx % 2 === 1 ? 'bg-slate-50/70' : 'bg-white'}>
-                          <td className="p-2.5 font-bold">{idx + 1}</td>
-                          <td className="p-2.5 font-sans">
-                            <div className="font-bold text-slate-900">{emp.name}</div>
-                            <div className="text-[10px] text-slate-500 font-mono">{emp.civilId}</div>
-                          </td>
-                          <td className="p-2.5 font-sans">
-                            <div className="text-slate-800">{emp.jobTitle}</div>
-                            <div className="text-[10px] text-slate-400">{emp.department}</div>
-                          </td>
-                          <td className="p-2.5 text-left">{emp.totalSalary.toFixed(3)}</td>
-                          <td className="p-2.5 text-left font-bold">{insurable.toFixed(3)}</td>
-                          <td className="p-2.5 text-left text-blue-700">{empDeduct.toFixed(3)}</td>
-                          <td className="p-2.5 text-left text-purple-800">{compDeduct.toFixed(3)}</td>
-                          <td className="p-2.5 text-left font-black text-slate-900">{totalDue.toFixed(3)} د.ك</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot className="bg-slate-100 font-black border-t-2 border-slate-900 text-xs font-mono">
-                    <tr>
-                      <td colSpan={3} className="p-2.5 font-sans text-slate-900">إجمالي اشتراكات المؤسسة العامة للتأمينات:</td>
-                      <td className="p-2.5 text-left">
-                        {data.filter(d => d.isKuwaiti).reduce((s, e) => s + e.totalSalary, 0).toFixed(3)}
-                      </td>
-                      <td className="p-2.5 text-left">
-                        {data.filter(d => d.isKuwaiti).reduce((s, e) => s + computePifssBreakdown(e.totalSalary).insuredSalary, 0).toFixed(3)}
-                      </td>
-                      <td className="p-2.5 text-left text-blue-800">
-                        {data.filter(d => d.isKuwaiti).reduce((s, e) => s + computePifssBreakdown(e.totalSalary).employeeShare, 0).toFixed(3)}
-                      </td>
-                      <td className="p-2.5 text-left text-purple-900">
-                        {data.filter(d => d.isKuwaiti).reduce((s, e) => s + computePifssBreakdown(e.totalSalary).employerShare, 0).toFixed(3)}
-                      </td>
-                      <td className="p-2.5 text-left text-sm font-black text-slate-950">
-                        {totalKuwaitiPifssContribution.toFixed(3)} د.ك
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
-              ) : reportCategory === 'wps_reconciliation' ? (
-                /* حالة 2: كشف مسيرات الرواتب وحماية الأجور WPS */
+              {reportCategory === 'wps_reconciliation' ? (
+                /* كشف مسيرات الرواتب وحماية الأجور WPS */
                 <table className="w-full text-right text-xs">
                   <thead className="bg-slate-100 text-slate-800 font-bold border-b border-slate-300 font-sans">
                     <tr>

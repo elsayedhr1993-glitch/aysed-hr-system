@@ -471,7 +471,6 @@ export async function settleHolidayDutyToPayroll(
         delayMinutes: 0,
         delayDeduction: 0,
         loanDeduction: 0,
-        pifssDeduction: 0,
         grossSalary,
         totalDeductions: 0,
         netSalary: round3(grossSalary + bonusAdd),

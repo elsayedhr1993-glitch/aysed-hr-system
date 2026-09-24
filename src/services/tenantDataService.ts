@@ -1887,12 +1887,11 @@ export const TenantDatabaseService = {
             delayMinutes: 0,
             delayDeduction: 0,
             loanDeduction: 0,
-            pifssDeduction: 315, // 10.5% of 3000 Basic
             grossSalary: 4000,
             totalDeductions: 315,
             netSalary: 3685,
             status: 'confirmed',
-            notes: 'مسير معتمد ومحسوب تلقائياً وفق قانون العمل الكويتي (اشتراك التأمينات الكويتيين PIFSS مسدد)'
+            notes: 'مسير معتمد ومحسوب تلقائياً وفق قانون العمل الكويتي (أساس 26 يوم عمل)'
           },
           {
             id: 'SLIP-2026-09-emp-kwt-doc-old',
@@ -1916,7 +1915,6 @@ export const TenantDatabaseService = {
             delayMinutes: 0,
             delayDeduction: 0,
             loanDeduction: 0,
-            pifssDeduction: 315,
             grossSalary: 4000,
             totalDeductions: 315,
             netSalary: 3685,
@@ -1946,12 +1944,11 @@ export const TenantDatabaseService = {
             delayMinutes: 0,
             delayDeduction: 0,
             loanDeduction: 0,
-            pifssDeduction: 84, // 10.5% of 800 Basic
             grossSalary: 1200,
             totalDeductions: 84,
             netSalary: 1116,
             status: 'confirmed',
-            notes: 'مسير معتمد ومحسوب تلقائياً وفق قانون العمل الكويتي (اشتراك التأمينات الكويتيين PIFSS مسدد)'
+            notes: 'مسير معتمد ومحسوب تلقائياً وفق قانون العمل الكويتي (أساس 26 يوم عمل)'
           },
           // Dr. Sameh Al-Husseini
           {
@@ -1976,7 +1973,6 @@ export const TenantDatabaseService = {
             delayMinutes: 0,
             delayDeduction: 0,
             loanDeduction: 0,
-            pifssDeduction: 0,
             grossSalary: 2800,
             totalDeductions: 0,
             netSalary: 2800,
@@ -2006,7 +2002,6 @@ export const TenantDatabaseService = {
             delayMinutes: 0,
             delayDeduction: 0,
             loanDeduction: 0,
-            pifssDeduction: 0,
             grossSalary: 2000,
             totalDeductions: 0,
             netSalary: 2000,
@@ -2036,7 +2031,6 @@ export const TenantDatabaseService = {
             delayMinutes: 0,
             delayDeduction: 0,
             loanDeduction: 0,
-            pifssDeduction: 0,
             grossSalary: 2000,
             totalDeductions: 0,
             netSalary: 2000,
@@ -2065,7 +2059,6 @@ export const TenantDatabaseService = {
             delayMinutes: 0,
             delayDeduction: 0,
             loanDeduction: 0,
-            pifssDeduction: 0,
             grossSalary: 2000,
             totalDeductions: 423.08,
             netSalary: 1576.92,
@@ -2095,7 +2088,6 @@ export const TenantDatabaseService = {
             delayMinutes: 0,
             delayDeduction: 0,
             loanDeduction: 0,
-            pifssDeduction: 0,
             grossSalary: 850,
             totalDeductions: 0,
             netSalary: 850,
@@ -2125,7 +2117,6 @@ export const TenantDatabaseService = {
             delayMinutes: 0,
             delayDeduction: 0,
             loanDeduction: 0,
-            pifssDeduction: 0,
             grossSalary: 850,
             totalDeductions: 0,
             netSalary: 850,
@@ -2155,7 +2146,6 @@ export const TenantDatabaseService = {
             delayMinutes: 0,
             delayDeduction: 0,
             loanDeduction: 0,
-            pifssDeduction: 0,
             grossSalary: 900,
             totalDeductions: 0,
             netSalary: 900,
@@ -2185,7 +2175,6 @@ export const TenantDatabaseService = {
             delayMinutes: 0,
             delayDeduction: 0,
             loanDeduction: 0,
-            pifssDeduction: 0,
             grossSalary: 500,
             totalDeductions: 0,
             netSalary: 500,

@@ -12,7 +12,6 @@ export interface SystemSettings {
   crNumber: string;
   mohLicense: string;
   civilIdCompany: string;
-  pifssNumber: string;
   address: string;
   phone: string;
   email: string;
@@ -74,7 +73,6 @@ export const defaultSettings: SystemSettings = {
   crNumber: '',
   mohLicense: '',
   civilIdCompany: '',
-  pifssNumber: '',
   address: '',
   phone: '',
   email: '',
@@ -173,7 +171,6 @@ export const SystemSettingsProvider: React.FC<{ children: React.ReactNode }> = (
       patch.companyNameAr ||
       patch.companyNameEn ||
       patch.crNumber ||
-      patch.pifssNumber ||
       patch.mohLicense ||
       patch.bankName ||
       patch.iban ||
@@ -185,7 +182,6 @@ export const SystemSettingsProvider: React.FC<{ children: React.ReactNode }> = (
         name: patch.companyNameAr,
         crNumber: patch.crNumber,
         commercialRegNo: patch.crNumber,
-        pifssNumber: patch.pifssNumber,
         mohLicense: patch.mohLicense,
         bankName: patch.bankName,
         iban: patch.iban,

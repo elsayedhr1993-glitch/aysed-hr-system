@@ -46,7 +46,6 @@ export function buildSettingsFromCompanyProfile(company?: Partial<Company> | nul
     crNumber: company?.crNumber || company?.commercialRegNo || defaultSettings.crNumber,
     mohLicense: company?.mohLicense || defaultSettings.mohLicense,
     civilIdCompany: company?.civilIdCompany || defaultSettings.civilIdCompany,
-    pifssNumber: company?.pifssNumber || defaultSettings.pifssNumber,
     bankName: company?.bankName || defaultSettings.bankName,
     iban: company?.iban || defaultSettings.iban,
     wpsCorporateId: company?.wsiCode || defaultSettings.wpsCorporateId,

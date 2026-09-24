@@ -13,7 +13,6 @@ import { exportToExcel } from '../utils/exportUtils';
 import { OfficialPayslipPrintModal, PayslipPrintData } from './payroll/OfficialPayslipPrintModal';
 import { WpsAuditShieldModal, WpsAuditItem } from './payroll/WpsAuditShieldModal';
 import { FinalSettlementModal } from './payroll/FinalSettlementModal';
-import { PifssInsuranceReportModal } from './payroll/PifssInsuranceReportModal';
 import { PayrollStructureWizardModal } from './payroll/PayrollStructureWizardModal';
 import { EosSetupWizardModal } from './payroll/EosSetupWizardModal';
 import { EOSApp } from '../apps/EOSApp';
@@ -47,7 +46,6 @@ export interface PayslipItem {
   delayMinutes: number;
   delayDeduction: number;
   loanDeduction: number;
-  pifssDeduction: number; // اشتراك التأمينات الاجتماعية للكويتيين
   grossSalary: number;
   totalDeductions: number;
   netSalary: number;
@@ -104,7 +102,6 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
   const [payslipToPrint, setPayslipToPrint] = useState<PayslipPrintData | null>(null);
   const [showWpsAuditModal, setShowWpsAuditModal] = useState(false);
   const [showFinalSettlementModal, setShowFinalSettlementModal] = useState(false);
-  const [showPifssModal, setShowPifssModal] = useState(false);
   const [showPayrollWizard, setShowPayrollWizard] = useState(false);
   const [showEosWizard, setShowEosWizard] = useState(false);
   const [showEosEngineModal, setShowEosEngineModal] = useState(false);
@@ -256,8 +253,6 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
       const delayDeduction = attendanceFinancials.delayDeduction;
       const loanDeduction = empLoan ? Math.min(empLoan.monthlyInstallment, empLoan.remainingAmount) : 0;
       
-      const pifssDeduction = 0;
-
       const grossSalary = totalBase;
       const bonusAmount = 0;
       const totalDeductions = round3(absenceDeduction + delayDeduction + loanDeduction);
@@ -286,7 +281,6 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
         delayMinutes,
         delayDeduction,
         loanDeduction,
-        pifssDeduction,
         grossSalary,
         totalDeductions,
         netSalary,
@@ -389,8 +383,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
     medicalAllowance: '0',
     overtimeHours: '0',
     absenceDays: '0',
-    delayMinutes: '0',
-    pifssDeduction: '0'
+    delayMinutes: '0'
   });
   const [newPayslipPeriodStatus, setNewPayslipPeriodStatus] = useState<{
     isLoading: boolean;
@@ -446,8 +439,6 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
       alert(`لا توجد بيانات حضور مرحّلة لشهر ${targetMonth} لهذا الموظف. قم بترحيل الشهر من شاشة الحضور أولاً.`);
       return;
     }
-    const pifss = '0';
-
     setNewForm({
       period: targetMonth,
       employeeId: emp.id,
@@ -463,8 +454,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
       medicalAllowance: String(emp.medicalAllowance || 0),
       overtimeHours: String(attendanceFinancials.overtimeHours || 0),
       absenceDays: String(attendanceFinancials.absenceDays || 0),
-      delayMinutes: String(attendanceFinancials.delayMinutes || 0),
-      pifssDeduction: pifss
+      delayMinutes: String(attendanceFinancials.delayMinutes || 0)
     });
   };
 
@@ -502,8 +492,6 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
       const otHours = attendanceFinancials.overtimeHours;
       const absDays = attendanceFinancials.absenceDays;
       const delMins = attendanceFinancials.delayMinutes;
-      const pifss = 0;
-
       const totalBase = basic + housing + transport + medical;
       const overtimeAmount = attendanceFinancials.overtimeAmount;
       const absenceDeduction = attendanceFinancials.absenceDeduction;
@@ -538,7 +526,6 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
         delayMinutes: delMins,
         delayDeduction,
         loanDeduction: 0,
-        pifssDeduction: pifss,
         grossSalary,
         totalDeductions,
         netSalary,
@@ -627,7 +614,6 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
       delayMinutes: p.delayMinutes,
       delayDeduction: p.delayDeduction,
       loanDeduction: p.loanDeduction,
-      pifssDeduction: p.pifssDeduction,
       grossSalary: p.grossSalary,
       totalDeductions: p.totalDeductions,
       netSalary: p.netSalary,
@@ -655,44 +641,6 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
   const totalNet = filteredPayslips.reduce((sum, p) => sum + p.netSalary, 0);
   const totalGross = filteredPayslips.reduce((sum, p) => sum + p.grossSalary, 0);
   const totalDeductionsAll = filteredPayslips.reduce((sum, p) => sum + p.totalDeductions, 0);
-
-  // PIFSS employee dataset (real payroll-linked values with statutory cap and rates)
-  const pifssData = useMemo(() => {
-    const byEmployee = new Map<string, PayslipItem>();
-    filteredPayslips.forEach((p) => {
-      byEmployee.set(p.employeeId, p);
-    });
-
-    return employees
-      .filter((emp: any) => {
-        const nationality = String(emp?.nationality || '').toLowerCase();
-        return Boolean(emp?.isKuwaiti) || nationality.includes('كويتي') || nationality.includes('kuwaiti');
-      })
-      .map((emp: any) => {
-        const linkedPayslip = byEmployee.get(emp.id);
-        const grossSalary = linkedPayslip
-          ? Number(linkedPayslip.grossSalary || 0)
-          : Number((emp.basicSalary || 0) + (emp.housingAllowance || 0) + (emp.transportAllowance || 0) + (emp.medicalAllowance || 0));
-
-        const insuredSalary = Math.min(Math.max(grossSalary, 0), 3000);
-        const employeeShare = Number((insuredSalary * 0.105).toFixed(3));
-        const companyShare = Number((insuredSalary * 0.115).toFixed(3));
-        const totalContribution = Number((employeeShare + companyShare).toFixed(3));
-
-        return {
-          id: emp.id,
-          name: emp.name || (emp as any).fullNameAr || 'موظف',
-          civilId: emp.civilId || '',
-          jobTitle: emp.jobTitle || 'موظف',
-          nationality: emp.nationality,
-          basicSalary: Number(emp.basicSalary || 0),
-          insuredSalary,
-          employeeShare,
-          companyShare,
-          totalContribution,
-        };
-      });
-  }, [employees, filteredPayslips]);
 
   const normalizeSettlementEmployee = (emp: any, empLoan?: any) => {
     const basicSalary = Number(emp?.basicSalary || emp?.salary || 0);
@@ -825,7 +773,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                   activeSubTab === 'settlements' ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <Calculator size={14} className="text-indigo-600" /> التسويات والتأمينات (PIFSS & EOS)
+                <Calculator size={14} className="text-indigo-600" /> التسويات ونهاية الخدمة (EOS)
               </button>
             </div>
           )}
@@ -853,7 +801,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
               <button
                 onClick={() => setShowPayrollWizard(true)}
                 className="bg-purple-900 hover:bg-purple-950 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer border border-purple-800"
-                title="تثبيت هيكل الأجور ومسير البنك وتأمينات PIFSS"
+                title="تثبيت هيكل الأجور ومسير البنك (WPS)"
               >
                 <Sliders size={15} className="text-amber-300" /> هيكل الأجور ومسير WPS
               </button>
@@ -916,12 +864,6 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                 className="bg-[#714B67] hover:bg-[#583950] text-white px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
               >
                 <FileText size={14} /> مخالصة نهاية الخدمة (Clearance)
-              </button>
-              <button
-                onClick={() => setShowPifssModal(true)}
-                className="bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-              >
-                <ShieldCheck size={14} /> كشف التأمينات (PIFSS)
               </button>
             </div>
           )}
@@ -1086,10 +1028,6 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                       <div className="flex justify-between py-1 border-b border-slate-100 text-rose-700">
                         <span>قسط سلفة شهرية:</span>
                         <strong className="font-mono">-{activePayslip.loanDeduction.toFixed(3)} د.ك</strong>
-                      </div>
-                      <div className="flex justify-between py-1 border-b border-slate-100 text-amber-700">
-                        <span>اشتراك التأمينات الاجتماعية (PIFSS):</span>
-                        <strong className="font-mono">-{activePayslip.pifssDeduction.toFixed(3)} د.ك</strong>
                       </div>
                       <div className="flex justify-between pt-2 border-t font-black text-rose-900">
                         <span>إجمالي الاستقطاعات:</span>
@@ -1447,9 +1385,9 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
         </div>
       )}
 
-      {/* 5. SUBTAB: SETTLEMENTS & PIFSS */}
+      {/* 5. SUBTAB: SETTLEMENTS & EOS */}
       {activeSubTab === 'settlements' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 max-w-2xl">
           {/* Card 1: Final Settlement & Discharge */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xs flex flex-col justify-between space-y-4">
             <div>
@@ -1476,25 +1414,6 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                 <Scale size={14} /> محرك EOS الكامل (تسوية ومغادرة)
               </button>
             </div>
-          </div>
-
-          {/* Card 2: PIFSS Insurance */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xs flex flex-col justify-between space-y-4">
-            <div>
-              <div className="flex items-center gap-2 text-amber-700 font-bold mb-2">
-                <ShieldCheck size={20} />
-                <h3 className="text-base font-black text-slate-900">كشف اشتراكات التأمينات الاجتماعية (PIFSS)</h3>
-              </div>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                حساب استقطاعات التأمينات للمواطنين الكويتيين بنسبة 10.5% حصة الموظف و11.5% حصة صاحب العمل (المنشأة)، مع كشف السداد الشهري المعتمد للتصدير والطباعة.
-              </p>
-            </div>
-            <button
-              onClick={() => setShowPifssModal(true)}
-              className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-            >
-              <ShieldCheck size={14} /> فتح كشف سداد التأمينات
-            </button>
           </div>
         </div>
       )}
@@ -1863,19 +1782,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
         />
       )}
 
-      {/* --- MODAL 4: PIFSS INSURANCE REPORT --- */}
-      {showPifssModal && (
-        <PifssInsuranceReportModal
-          employees={pifssData}
-          period={selectedMonth}
-          companyName={activeCompany?.nameAr || 'شركة الأفق للتجارة العامة والمقاولات ذ.م.م'}
-          companyNameEn={activeCompany?.nameEn || 'Al-Ufuq General Trading & Contracting W.L.L.'}
-          crNumber={activeCompany?.crNumber || activeCompany?.commercialRegNo || '104829'}
-          onClose={() => setShowPifssModal(false)}
-        />
-      )}
-
-      {/* --- MODAL 5: PAYROLL STRUCTURE WIZARD --- */}
+      {/* --- MODAL 4: PAYROLL STRUCTURE WIZARD --- */}
       <PayrollStructureWizardModal
         isOpen={showPayrollWizard}
         onClose={() => setShowPayrollWizard(false)}

@@ -32,7 +32,7 @@ interface TopEnterpriseActionBarProps {
   documents: any[];
   onQuickAction: (action: string, payload?: any) => void;
   onOpenSpotlight: () => void;
-  onOpenCalculator: (tab?: 'eos' | 'leave' | 'wage' | 'pifss') => void;
+  onOpenCalculator: (tab?: 'eos' | 'leave' | 'wage') => void;
   onOpenCopilot?: () => void;
   onOpenSentinel?: () => void;
   onOpenLegalBot?: () => void;
@@ -590,7 +590,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                 ? 'bg-white text-[#714B67] border-white shadow-md'
                 : 'bg-white/15 hover:bg-white/25 border-white/15 text-white'
             }`}
-            title="الحاسبات السريعة — EOS · إجازات · إضافي · PIFSS"
+            title="الحاسبات السريعة — EOS · إجازات · إضافي"
           >
             <Calculator size={15} className={showCalculatorsMenu ? 'text-[#714B67]' : 'text-amber-200'} />
             <span className="hidden md:inline">الحاسبات السريعة</span>
@@ -607,7 +607,6 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                   { tab: 'eos' as const, icon: Scale, title: 'مكافأة نهاية الخدمة (EOS)', sub: 'المادة 51 و 53 — فوري' },
                   { tab: 'leave' as const, icon: Calendar, title: 'تسييل وبدل رصيد الإجازات', sub: 'المادة 70 — أيام × أجر اليوم' },
                   { tab: 'wage' as const, icon: Clock, title: 'الإضافي والعطلات', sub: '125% نهاري · 150% ليلي/عطلة' },
-                  { tab: 'pifss' as const, icon: Shield, title: 'اقتطاعات التأمينات (PIFSS)', sub: '10.5% موظف · 11.5% منشأة' },
                 ].map((item) => (
                   <button
                     key={item.tab}

@@ -467,7 +467,7 @@ function MainAppLayout() {
   // Spotlight Search & Quick HR Calculator modal states
   const [showSpotlight, setShowSpotlight] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
-  const [calculatorTab, setCalculatorTab] = useState<'eos' | 'leave' | 'wage' | 'pifss'>('eos');
+  const [calculatorTab, setCalculatorTab] = useState<'eos' | 'leave' | 'wage'>('eos');
   const [payrollSettlementDeepLink, setPayrollSettlementDeepLink] = useState<{
     employeeId?: string;
     key: number;
@@ -1010,7 +1010,6 @@ function MainAppLayout() {
                     nameEn: companyName,
                     name: companyName,
                     crNumber: '301122',
-                    pifssNumber: 'KUW-554433',
                     commercialRegNo: '301122',
                     civilIdCompany: '203344',
                     bankName: 'بيت التمويل الكويتي (KFH)',

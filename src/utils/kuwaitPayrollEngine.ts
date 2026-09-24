@@ -118,7 +118,6 @@ export interface PayrollCalculationResult {
   delayDeduction: number;
   overtimeHours: number;
   overtimeAmount: number;
-  socialSecurityDeduction: number;
   netSalary: number;
 }
 
@@ -127,8 +126,7 @@ export interface PayrollCalculationResult {
  */
 export function calculateEmployeePayroll(
   employee: EmployeeContract,
-  attendance: any,
-  socialSecurityRate: number = 0.105 // 10.5% for Kuwaitis (employee share), 0% for Expats
+  attendance: any
 ): PayrollCalculationResult {
   
   const basicSalary = employee.basicSalary || 0;
@@ -152,12 +150,8 @@ export function calculateEmployeePayroll(
   const overtimeHours = attendance?.overtimeHours || 0;
   const overtimeAmount = overtimeHours * hourlyWage * 1.25;
 
-  // 4. Social Security (PIFSS)
-  // Only applies to Kuwaitis (and sometimes GCC citizens, but assuming 0 for expats)
-  const socialSecurityDeduction = employee.isKuwaiti ? (grossSalary * socialSecurityRate) : 0;
-
-  // 5. Net Salary Calculation
-  const netSalary = grossSalary - absenceDeduction - delayDeduction - socialSecurityDeduction + overtimeAmount;
+  // 4. Net Salary Calculation (no social insurance deductions)
+  const netSalary = grossSalary - absenceDeduction - delayDeduction + overtimeAmount;
 
   return {
     employeeId: employee.id,
@@ -170,7 +164,6 @@ export function calculateEmployeePayroll(
     delayDeduction,
     overtimeHours,
     overtimeAmount,
-    socialSecurityDeduction,
     netSalary: Math.max(0, netSalary) // Prevents negative salary
   };
 }

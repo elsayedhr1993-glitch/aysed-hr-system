@@ -88,7 +88,7 @@ export const OdooSidebar: React.FC<OdooSidebarProps> = ({
       title: 'المالية والرواتب',
       icon: Banknote,
       apps: [
-        { id: 'PAYROLL', title: 'الرواتب والتأمينات', icon: Banknote },
+        { id: 'PAYROLL', title: 'الرواتب وحماية الأجور', icon: Banknote },
         { id: 'CUSTODY_LOANS', title: 'العهد والسلف', icon: Briefcase },
         { id: 'EOS', title: 'نهاية الخدمة (م51)', icon: Scale },
         { id: 'REPORTS', title: 'التقارير والتحليلات (Pivot)', icon: BarChart3 },
