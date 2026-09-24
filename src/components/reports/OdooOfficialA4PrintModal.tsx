@@ -32,6 +32,7 @@ interface OdooOfficialA4PrintModalProps {
   totalNetPayable: number;
   totalEosAccrual: number;
   totalLeaveLiability: number;
+  reportRef?: string;
 }
 
 export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> = ({
@@ -40,14 +41,15 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
   reportCategory,
   reportTitle,
   companyName,
-  companyCivilId = '123456789012',
-  commercialRegNo = 'CR-KW-987654',
+  companyCivilId = 'غير متوفر',
+  commercialRegNo = 'غير متوفر',
   data,
   selectedMonth,
   totalGrossSalaries,
   totalNetPayable,
   totalEosAccrual,
-  totalLeaveLiability
+  totalLeaveLiability,
+  reportRef,
 }) => {
   const printAreaRef = useRef<HTMLDivElement>(null);
 
@@ -155,7 +157,7 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
               </div>
 
               <div className="text-left text-xs text-slate-600 space-y-1 font-mono">
-                <p><span className="font-bold font-sans">الرقم المرجعي:</span> REP-{new Date().getFullYear()}-{Math.floor(10000 + Math.random() * 90000)}</p>
+                <p><span className="font-bold font-sans">الرقم المرجعي:</span> REP-{reportRef || `${selectedMonth}`}</p>
                 <p><span className="font-bold font-sans">تاريخ الإصدار:</span> {new Date().toISOString().split('T')[0]}</p>
                 <p className="font-sans text-[10px] text-slate-400">{currentDateStr}</p>
               </div>
@@ -214,7 +216,9 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
                         <td className="p-2.5 text-left">{emp.basicSalary.toFixed(3)}</td>
                         <td className="p-2.5 text-left">{(emp.totalSalary - emp.basicSalary).toFixed(3)}</td>
                         <td className="p-2.5 text-left text-purple-700">+{emp.overtimeAmount.toFixed(3)}</td>
-                        <td className="p-2.5 text-left text-rose-600">-{(emp.delayDeductionAmount + emp.absenceDeductionAmount).toFixed(3)}</td>
+                        <td className="p-2.5 text-left text-rose-600">
+                          -{(emp.delayDeductionAmount + emp.absenceDeductionAmount + emp.loanDeductionAmount).toFixed(3)}
+                        </td>
                         <td className="p-2.5 text-left font-black text-emerald-800">{emp.netPayableSalary.toFixed(3)} د.ك</td>
                         <td className="p-2.5 font-sans text-[11px] text-slate-700">{emp.bankName}</td>
                       </tr>
@@ -226,14 +230,79 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
                       <td className="p-2.5 text-left">{data.reduce((s, e) => s + e.basicSalary, 0).toFixed(3)}</td>
                       <td className="p-2.5 text-left">{data.reduce((s, e) => s + (e.totalSalary - e.basicSalary), 0).toFixed(3)}</td>
                       <td className="p-2.5 text-left text-purple-800">+{data.reduce((s, e) => s + e.overtimeAmount, 0).toFixed(3)}</td>
-                      <td className="p-2.5 text-left text-rose-700">-{data.reduce((s, e) => s + e.delayDeductionAmount + e.absenceDeductionAmount, 0).toFixed(3)}</td>
+                      <td className="p-2.5 text-left text-rose-700">
+                        -{data.reduce((s, e) => s + e.delayDeductionAmount + e.absenceDeductionAmount + e.loanDeductionAmount, 0).toFixed(3)}
+                      </td>
                       <td className="p-2.5 text-left text-sm font-black text-emerald-900">{totalNetPayable.toFixed(3)} د.ك</td>
                       <td></td>
                     </tr>
                   </tfoot>
                 </table>
+              ) : reportCategory === 'gov_compliance' ? (
+                <table className="w-full text-right text-xs">
+                  <thead className="bg-slate-100 text-slate-800 font-bold border-b border-slate-300 font-sans">
+                    <tr>
+                      <th className="p-2.5">م</th>
+                      <th className="p-2.5">الموظف</th>
+                      <th className="p-2.5">انتهاء الإقامة</th>
+                      <th className="p-2.5">إذن العمل PAM</th>
+                      <th className="p-2.5">ترخيص MOH</th>
+                      <th className="p-2.5 text-center">حالة الامتثال</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 font-mono">
+                    {data.map((emp, idx) => (
+                      <tr key={emp.id} className={idx % 2 === 1 ? 'bg-slate-50/70' : 'bg-white'}>
+                        <td className="p-2.5 font-bold">{idx + 1}</td>
+                        <td className="p-2.5 font-sans">
+                          <div className="font-bold text-slate-900">{emp.name}</div>
+                          <div className="text-[10px] text-slate-500">{emp.civilId}</div>
+                        </td>
+                        <td className="p-2.5">{emp.isKuwaiti ? 'مواطن' : emp.residencyExpiryDate}</td>
+                        <td className="p-2.5">
+                          <div>{emp.pamWorkPermitNo}</div>
+                          <div className="text-[10px] text-slate-500">{emp.pamWorkPermitExpiryDate}</div>
+                        </td>
+                        <td className="p-2.5">
+                          <div>{emp.mohLicenseNo}</div>
+                          <div className="text-[10px] text-slate-500">{emp.mohLicenseExpiryDate}</div>
+                        </td>
+                        <td className="p-2.5 text-center font-sans">{emp.complianceStatus}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : reportCategory === 'attendance_overtime_analytics' ? (
+                <table className="w-full text-right text-xs">
+                  <thead className="bg-slate-100 text-slate-800 font-bold border-b border-slate-300 font-sans">
+                    <tr>
+                      <th className="p-2.5">م</th>
+                      <th className="p-2.5">الموظف</th>
+                      <th className="p-2.5 text-center">ساعات الإضافي</th>
+                      <th className="p-2.5 text-left">مبلغ الإضافي</th>
+                      <th className="p-2.5 text-center">دقائق التأخير</th>
+                      <th className="p-2.5 text-left">خصم التأخير</th>
+                      <th className="p-2.5 text-center">أيام الغياب</th>
+                      <th className="p-2.5 text-left">خصم الغياب</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 font-mono">
+                    {data.map((emp, idx) => (
+                      <tr key={emp.id} className={idx % 2 === 1 ? 'bg-slate-50/70' : 'bg-white'}>
+                        <td className="p-2.5 font-bold">{idx + 1}</td>
+                        <td className="p-2.5 font-sans font-bold">{emp.name}</td>
+                        <td className="p-2.5 text-center">{emp.overtimeHours}</td>
+                        <td className="p-2.5 text-left">{emp.overtimeAmount.toFixed(3)}</td>
+                        <td className="p-2.5 text-center">{emp.delayMinutes}</td>
+                        <td className="p-2.5 text-left">{emp.delayDeductionAmount.toFixed(3)}</td>
+                        <td className="p-2.5 text-center">{emp.unpaidAbsenceDays}</td>
+                        <td className="p-2.5 text-left">{emp.absenceDeductionAmount.toFixed(3)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               ) : (
-                /* حالة 3: الكشف العام للتقارير الأخرى */
+                /* الكشف العام للتقارير المالية (إجازات / نهاية خدمة) */
                 <table className="w-full text-right text-xs">
                   <thead className="bg-slate-100 text-slate-800 font-bold border-b border-slate-300 font-sans">
                     <tr>
@@ -287,7 +356,7 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
               </p>
               <p>• تم إعداد هذا الكشف وفقاً لأحكام قانون العمل في القطاع الأهلي الكويتي (رقم 6 لسنة 2010) وقرارات الهيئة العامة للقوى العاملة (PAM).</p>
               <p>• احتساب أجر يوم الإجازة وبدلاتها تم وفق معيار (الراتب الأساسي ÷ 26 يوم عمل) طبقاً للمادتين (70 و 71).</p>
-              <p>• الاشتراكات التأمينية للكادر الوطني مطابقة لنسب ولوائح المؤسسة العامة للتأمينات الاجتماعية (10.5% موظف + 11.5% صاحب عمل بحد أقصى 3,000 د.ك).</p>
+              <p>• بيانات الرواتب والحضور في هذا الكشف مرتبطة بفترة التقرير المحددة ومسيرات الرواتب/ترحيل الحضور الشهري عند توفرها.</p>
             </div>
 
             {/* 5. التواقيع الرسمية الثلاثية المعتمدة */}

@@ -1,51 +1,86 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { 
-  BarChart3, 
-  Printer, 
-  FileSpreadsheet, 
-  Users, 
-  CreditCard, 
-  Calendar, 
-  ShieldCheck, 
-  Building2, 
-  FileText, 
-  UserCheck, 
-  Download, 
-  Briefcase, 
-  DollarSign, 
-  Plane, 
-  AlertCircle,
-  QrCode,
+import {
+  BarChart3,
+  Printer,
+  FileSpreadsheet,
+  Users,
+  CreditCard,
+  Calendar,
+  ShieldCheck,
+  DollarSign,
+  Plane,
   CheckCircle2,
   PieChart,
   Table,
   Layers,
   Sparkles,
   Search,
-  Filter,
-  ArrowUpDown,
   Clock,
   AlertTriangle,
-  Stethoscope,
-  Activity,
   Award,
   ChevronRight,
   TrendingUp,
-  Check,
   XCircle,
-  HelpCircle,
   FileCheck,
-  BadgeAlert,
-  Landmark,
-  Eye
 } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
 import { useOdooHierarchy } from '../context/OdooHierarchyContext';
 import { exportToExcel } from '../utils/exportUtils';
 import { OdooOfficialA4PrintModal } from './reports/OdooOfficialA4PrintModal';
 import { getEmployeeUnifiedSummary } from '../utils/leaveEngine';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { computeNetPayrollFromComponents } from '../utils/kuwaitPayrollMath';
+import {
+  REPORTS_MISSING,
+  MonthlyAttendanceRollupEntry,
+  ReportsPayslipSnapshot,
+  daysUntilExpiry,
+  isActiveReportEmployee,
+  pickEmployeeText,
+  resolveComplianceStatus,
+  resolveWpsStatus,
+} from '../utils/reportsPeriodData';
+import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+
+function mapFirestorePayslip(raw: Record<string, unknown>): ReportsPayslipSnapshot {
+  const basicSalary = Number(raw.basicSalary || 0);
+  const housingAllowance = Number(raw.housingAllowance || 0);
+  const transportAllowance = Number(raw.transportAllowance || 0);
+  const medicalAllowance = Number(raw.medicalAllowance || 0);
+  const grossSalary = Number(
+    raw.grossSalary ?? basicSalary + housingAllowance + transportAllowance + medicalAllowance
+  );
+  const { netSalary } = computeNetPayrollFromComponents({
+    grossSalary,
+    overtimeAmount: raw.overtimeAmount,
+    bonusAmount: raw.bonusAmount,
+    absenceDeduction: raw.absenceDeduction,
+    delayDeduction: raw.delayDeduction,
+    loanDeduction: raw.loanDeduction,
+  });
+  return {
+    id: String(raw.id || ''),
+    employeeId: String(raw.employeeId || ''),
+    period: String(raw.period || ''),
+    basicSalary,
+    housingAllowance,
+    transportAllowance,
+    medicalAllowance,
+    overtimeHours: Number(raw.overtimeHours || 0),
+    overtimeAmount: Number(raw.overtimeAmount || 0),
+    absenceDays: Number(raw.absenceDays || 0),
+    absenceDeduction: Number(raw.absenceDeduction || 0),
+    delayMinutes: Number(raw.delayMinutes || 0),
+    delayDeduction: Number(raw.delayDeduction || 0),
+    loanDeduction: Number(raw.loanDeduction || 0),
+    grossSalary,
+    netSalary: Number(raw.netSalary ?? netSalary),
+    status: String(raw.status || 'draft'),
+    wpsFileRef: raw.wpsFileRef ? String(raw.wpsFileRef) : undefined,
+    bankName: raw.bankName ? String(raw.bankName) : undefined,
+    iban: raw.iban ? String(raw.iban) : undefined,
+  };
+}
 
 export type ReportCategory = 
   | 'wps_reconciliation'
@@ -90,7 +125,9 @@ export interface MedicalEmployeeAnalyticsRecord {
   mohLicenseNo: string;
   mohLicenseExpiryDate: string;
   mohDaysLeft: number;
-  complianceStatus: 'ساري ومطابق' | 'ينتهي قريباً (<30 يوم)' | 'منتهي الصلاحية';
+  complianceStatus: 'ساري ومطابق' | 'ينتهي قريباً (<30 يوم)' | 'منتهي الصلاحية' | 'بيانات ناقصة';
+  loanDeductionAmount: number;
+  hasPayslipForPeriod: boolean;
 
   // Leaves & Financial Liabilities
   leaveBalance: number;
@@ -120,9 +157,11 @@ export interface MedicalEmployeeAnalyticsRecord {
 
 export const OdooReportsApp: React.FC = () => {
   const { activeCompany } = useCompany();
-  const { employees: contextEmployees, getAttendanceForEmployee, computedPayslips } = useOdooHierarchy();
+  const { employees: contextEmployees, computedPayslips } = useOdooHierarchy();
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [leaveAllocations, setLeaveAllocations] = useState<any[]>([]);
+  const [periodPayslips, setPeriodPayslips] = useState<ReportsPayslipSnapshot[]>([]);
+  const [monthlyRollup, setMonthlyRollup] = useState<Record<string, MonthlyAttendanceRollupEntry>>({});
 
   // الحالة العامة للتنقل بين التقارير والمحاور
   const [activeReport, setActiveReport] = useState<ReportCategory>('wps_reconciliation');
@@ -131,12 +170,16 @@ export const OdooReportsApp: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('ALL');
   const [complianceFilter, setComplianceFilter] = useState('ALL');
-  const [selectedPeriodMonth, setSelectedPeriodMonth] = useState('2026-09');
+  const [selectedPeriodMonth, setSelectedPeriodMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [isA4ModalOpen, setIsA4ModalOpen] = useState(false);
 
   const companyDisplayName = activeCompany?.nameAr || activeCompany?.name || '';
-  const companyCivilId = activeCompany?.civilIdCompany || activeCompany?.civilId || '123456789012';
-  const commercialRegNo = activeCompany?.commercialRegNo || (activeCompany as any)?.crNumber || 'CR-KW-987654';
+  const companyCivilId =
+    pickEmployeeText(activeCompany?.civilIdCompany || activeCompany?.civilId, REPORTS_MISSING);
+  const commercialRegNo = pickEmployeeText(
+    activeCompany?.commercialRegNo || (activeCompany as any)?.crNumber,
+    REPORTS_MISSING
+  );
 
   useEffect(() => {
     const companyId = activeCompany?.id;
@@ -161,13 +204,47 @@ export const OdooReportsApp: React.FC = () => {
     };
   }, [activeCompany?.id]);
 
-  // قاعدة بيانات الكادر الشاملة من موظفي النظام الحقيقيين وحركات البصمة الحية
+  useEffect(() => {
+    const companyId = activeCompany?.id;
+    if (!companyId) {
+      setPeriodPayslips([]);
+      return;
+    }
+    return onSnapshot(
+      collection(db, 'payslips'),
+      (snapshot) => {
+        const rows = snapshot.docs
+          .filter((item) => String(item.data().companyId || '') === companyId)
+          .map((item) => mapFirestorePayslip({ ...item.data(), id: item.id }));
+        setPeriodPayslips(rows);
+      },
+      (error) => console.error('Failed to load payslips for reports:', error)
+    );
+  }, [activeCompany?.id]);
+
+  useEffect(() => {
+    const companyId = activeCompany?.id;
+    if (!companyId || !selectedPeriodMonth) {
+      setMonthlyRollup({});
+      return;
+    }
+    return onSnapshot(
+      doc(db, 'attendance_monthly_rollups', `${companyId}_${selectedPeriodMonth}`),
+      (snapshot) => {
+        setMonthlyRollup((snapshot.data()?.summaries || {}) as Record<string, MonthlyAttendanceRollupEntry>);
+      },
+      () => setMonthlyRollup({})
+    );
+  }, [activeCompany?.id, selectedPeriodMonth]);
+
+  // قاعدة بيانات الكادر الشاملة من موظفي النظام الحقيقيين ومسيرات/ترحيل الحضور للفترة
   const analyticsData: MedicalEmployeeAnalyticsRecord[] = useMemo(() => {
     if (!contextEmployees || contextEmployees.length === 0) return [];
-    
-    const now = new Date();
 
-    return contextEmployees.map((emp: any) => {
+    const now = new Date();
+    const activeEmployees = contextEmployees.filter((e) => isActiveReportEmployee(e as Record<string, unknown>));
+
+    return activeEmployees.map((emp: any) => {
       const basic = Number(emp.basicSalary || emp.salary || 0);
       const housing = Number(emp.housingAllowance || 0);
       const transport = Number(emp.transportAllowance || 0);
@@ -181,7 +258,6 @@ export const OdooReportsApp: React.FC = () => {
       const joinDateObj = new Date(joinDateStr);
       const elapsedDays = Math.max(0, (now.getTime() - joinDateObj.getTime()) / (1000 * 60 * 60 * 24));
       const serviceYears = elapsedDays / 365.25;
-      const serviceMonths = elapsedDays / 30.4375;
 
       const normalizedAllocations = leaveAllocations.map((allocation: any) => ({
         ...allocation,
@@ -201,7 +277,6 @@ export const OdooReportsApp: React.FC = () => {
 
       // أجر اليوم الواحد وفق معيار الـ 26 يوم عمل (المادتين 70 و 71)
       const dailyWage = Number(leaveSummary.dailyWageRate || 0);
-      const hourlyWage = dailyWage > 0 ? (dailyWage / 8) : 0;
       const leaveCashLiability = Number(leaveSummary.cashSettlementAmount || 0);
 
       // احتساب مخصص مكافأة نهاية الخدمة المتراكم (المادة 51)
@@ -223,51 +298,89 @@ export const OdooReportsApp: React.FC = () => {
         }
       }
 
-      // حساب ديناميكي دقيق لأيام الإقامة والترخيص المتبقية
-      const parseDaysLeft = (expiryDateStr: string | undefined): number => {
-        if (!expiryDateStr) return 365;
-        const exp = new Date(expiryDateStr);
-        if (isNaN(exp.getTime())) return 365;
-        return Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      };
+      const resExpiryRaw =
+        emp.residencyExpiryDate ||
+        (emp as any).residencyExpiry ||
+        (emp as any).civilIdExpiry ||
+        (emp as any).civilIdExpiryDate;
+      const pamExpiryRaw = emp.pamWorkPermitExpiryDate || (emp as any).pamPermitExpiry;
+      const mohExpiryRaw = emp.mohLicenseExpiryDate || (emp as any).mohExpiry;
 
-      const resExpiry = emp.residencyExpiryDate || (emp as any).civilIdExpiry || '2027-01-01';
-      const pamExpiry = emp.pamWorkPermitExpiryDate || '2027-01-01';
-      const mohExpiry = emp.mohLicenseExpiryDate || '2027-01-01';
+      const resExpiry = isKw ? '' : pickEmployeeText(resExpiryRaw, '');
+      const pamExpiry = isKw ? '' : pickEmployeeText(pamExpiryRaw, '');
+      const mohExpiry = pickEmployeeText(mohExpiryRaw, '');
 
-      const resDaysLeft = isKw ? 9999 : parseDaysLeft(resExpiry);
-      const pamDaysLeft = isKw ? 9999 : parseDaysLeft(pamExpiry);
-      const mohDaysLeft = parseDaysLeft(mohExpiry);
+      const resDaysLeft = isKw ? null : daysUntilExpiry(resExpiry || undefined, now);
+      const pamDaysLeft = isKw ? null : daysUntilExpiry(pamExpiry || undefined, now);
+      const mohDaysLeft = daysUntilExpiry(mohExpiry || undefined, now);
 
-      // تحديد حالة الامتثال الفعلية
-      let complianceStatus: 'ساري ومطابق' | 'ينتهي قريباً (<30 يوم)' | 'منتهي الصلاحية' = 'ساري ومطابق';
-      const minDaysLeft = isKw ? mohDaysLeft : Math.min(resDaysLeft, pamDaysLeft, mohDaysLeft);
-      if (minDaysLeft <= 0) {
-        complianceStatus = 'منتهي الصلاحية';
-      } else if (minDaysLeft <= 30) {
-        complianceStatus = 'ينتهي قريباً (<30 يوم)';
+      const complianceStatus = resolveComplianceStatus(
+        isKw,
+        resExpiry || undefined,
+        pamExpiry || undefined,
+        mohExpiry || undefined,
+        now
+      );
+
+      const payslip = periodPayslips.find(
+        (p) => p.employeeId === emp.id && p.period === selectedPeriodMonth
+      );
+      const rollup = monthlyRollup[emp.id];
+      const hasMonthlyRollup = Boolean(rollup);
+      const compPayslip = computedPayslips?.find((p) => p.employeeId === emp.id);
+
+      const iban = pickEmployeeText(payslip?.iban || emp.iban, '');
+      const bankName = pickEmployeeText(payslip?.bankName || emp.bankName, REPORTS_MISSING);
+
+      let otHours = 0;
+      let otAmount = 0;
+      let delayMin = 0;
+      let delayDeduct = 0;
+      let absenceDays = 0;
+      let absenceDeduct = 0;
+      let loanDeduct = 0;
+      let netSalary = 0;
+      let basicForRow = basic;
+      let totalForRow = total;
+
+      if (payslip) {
+        basicForRow = payslip.basicSalary;
+        totalForRow = payslip.grossSalary;
+        otHours = payslip.overtimeHours;
+        otAmount = payslip.overtimeAmount;
+        delayMin = payslip.delayMinutes;
+        delayDeduct = payslip.delayDeduction;
+        absenceDays = payslip.absenceDays;
+        absenceDeduct = payslip.absenceDeduction;
+        loanDeduct = payslip.loanDeduction;
+        netSalary = payslip.netSalary;
+      } else if (rollup) {
+        otHours = Number(rollup.overtimeHours || 0);
+        otAmount = Number(rollup.overtimePay || 0);
+        delayMin = Number(rollup.lateMinutes || 0);
+        delayDeduct = Number(rollup.delayDeduction || 0);
+        absenceDays = Number(rollup.unexcusedAbsenceDays || 0);
+        absenceDeduct = Number(rollup.absenceDeduction || 0);
+        const { netSalary: rollupNet } = computeNetPayrollFromComponents({
+          grossSalary: total,
+          overtimeAmount: otAmount,
+          absenceDeduction: absenceDeduct,
+          delayDeduction: delayDeduct,
+          loanDeduction: 0,
+        });
+        netSalary = rollupNet;
+      } else if (compPayslip?.netSalary !== undefined) {
+        otAmount = compPayslip.overtimeAmount || 0;
+        delayDeduct = compPayslip.attendanceDeduction || 0;
+        loanDeduct = compPayslip.loanDeduction || 0;
+        netSalary = compPayslip.netSalary;
+      } else {
+        netSalary = Math.max(0, total);
       }
 
-      // قراءة حركات البصمة الفعلية أو المحسوبة من السياق
-      const attLog = getAttendanceForEmployee(emp.id);
-      const compPayslip = computedPayslips?.find(p => p.employeeId === emp.id);
+      const wpsStatus = resolveWpsStatus(iban, payslip, hasMonthlyRollup);
+      const wpsBatchNo = payslip?.wpsFileRef || (payslip ? `مسير-${selectedPeriodMonth}` : REPORTS_MISSING);
 
-      const otHours = attLog?.overtimeHours || 0;
-      const delayMin = attLog?.delayMinutes || 0;
-      const absenceDays = attLog?.unpaidAbsenceDays || 0;
-
-      const otAmount = compPayslip?.overtimeAmount !== undefined 
-        ? compPayslip.overtimeAmount 
-        : (otHours * hourlyWage * 1.25);
-
-      const delayDeduct = (delayMin / 60) * hourlyWage;
-      const absenceDeduct = absenceDays * dailyWage;
-      const totalDeduct = delayDeduct + absenceDeduct;
-
-      const netSalary = compPayslip?.netSalary !== undefined 
-        ? compPayslip.netSalary 
-        : Math.max(0, total + otAmount - totalDeduct);
-      
       return {
         id: emp.id || `EMP-${Math.random().toString(36).substring(2, 7)}`,
         name: emp.fullNameAr || emp.name || emp.nameAr || 'موظف',
@@ -279,25 +392,25 @@ export const OdooReportsApp: React.FC = () => {
         department: emp.department || 'إدارة عامة',
         joinDate: joinDateStr,
         serviceYears: Number(serviceYears.toFixed(2)),
-        basicSalary: basic,
+        basicSalary: basicForRow,
         housingAllowance: housing,
         transportAllowance: transport,
         natureOfWorkAllowance: nature,
         otherAllowances: other,
-        totalSalary: total,
-        bankName: emp.bankName || 'بنك الكويت الوطني (NBK)',
-        iban: emp.iban || '',
-        wpsStatus: 'مطابق ومحوّل',
-        wpsBatchNo: `WPS-${selectedPeriodMonth}-01`,
-        residencyExpiryDate: resExpiry,
-        residencyDaysLeft: resDaysLeft,
-        pamWorkPermitNo: emp.pamWorkPermitNo || 'PAM-KW-123456',
-        pamWorkPermitExpiryDate: pamExpiry,
-        pamDaysLeft: pamDaysLeft,
-        mohLicenseNo: emp.mohLicenseNo || 'MOH-1234',
-        mohLicenseExpiryDate: mohExpiry,
-        mohDaysLeft: mohDaysLeft,
-        complianceStatus: complianceStatus,
+        totalSalary: totalForRow,
+        bankName,
+        iban,
+        wpsStatus,
+        wpsBatchNo,
+        residencyExpiryDate: resExpiry || REPORTS_MISSING,
+        residencyDaysLeft: resDaysLeft ?? -1,
+        pamWorkPermitNo: pickEmployeeText(emp.pamWorkPermitNo || (emp as any).pamFileNumber, REPORTS_MISSING),
+        pamWorkPermitExpiryDate: pamExpiry || REPORTS_MISSING,
+        pamDaysLeft: pamDaysLeft ?? -1,
+        mohLicenseNo: pickEmployeeText(emp.mohLicenseNo, REPORTS_MISSING),
+        mohLicenseExpiryDate: mohExpiry || REPORTS_MISSING,
+        mohDaysLeft: mohDaysLeft ?? -1,
+        complianceStatus,
         leaveBalance: leaveBal,
         consumedLeaveDays: consumedDays,
         consumedFromCarried: Number(leaveSummary.consumedFromCarried || 0),
@@ -316,12 +429,20 @@ export const OdooReportsApp: React.FC = () => {
         delayDeductionAmount: Number(delayDeduct.toFixed(3)),
         unpaidAbsenceDays: absenceDays,
         absenceDeductionAmount: Number(absenceDeduct.toFixed(3)),
-        netPayableSalary: Number(netSalary.toFixed(3))
+        loanDeductionAmount: Number(loanDeduct.toFixed(3)),
+        netPayableSalary: Number(netSalary.toFixed(3)),
+        hasPayslipForPeriod: Boolean(payslip),
       };
     });
-  }, [contextEmployees, getAttendanceForEmployee, computedPayslips, selectedPeriodMonth, leaveRequests, leaveAllocations]);
-
-  // Legacy mock data purged for 100% live Firebase usage
+  }, [
+    contextEmployees,
+    computedPayslips,
+    selectedPeriodMonth,
+    leaveRequests,
+    leaveAllocations,
+    periodPayslips,
+    monthlyRollup,
+  ]);
 
   // تصفية البيانات حسب البحث والأقسام وحالة الامتثال
   const filteredData = useMemo(() => {
@@ -350,6 +471,12 @@ export const OdooReportsApp: React.FC = () => {
   const totalDeductions = analyticsData.reduce((acc, curr) => acc + curr.delayDeductionAmount + curr.absenceDeductionAmount, 0);
   const expiredComplianceCount = analyticsData.filter(e => e.complianceStatus === 'منتهي الصلاحية').length;
   const expiringSoonCount = analyticsData.filter(e => e.complianceStatus === 'ينتهي قريباً (<30 يوم)').length;
+  const missingComplianceDataCount = analyticsData.filter(e => e.complianceStatus === 'بيانات ناقصة').length;
+  const payslipCoverageCount = analyticsData.filter(e => e.hasPayslipForPeriod).length;
+  const wpsReadyCount = analyticsData.filter(e => e.wpsStatus === 'مطابق ومحوّل').length;
+  const ibanReadyCount = analyticsData.filter(
+    (e) => e.iban && e.iban !== REPORTS_MISSING && e.iban.replace(/\s/g, '').length >= 15
+  ).length;
 
   // استخراج قائمة الأقسام الفريدة
   const departmentsList = useMemo(() => {
@@ -422,11 +549,13 @@ export const OdooReportsApp: React.FC = () => {
         'الأساسي (د.ك)': Number(d.basicSalary.toFixed(3)),
         'البدلات (د.ك)': Number((d.totalSalary - d.basicSalary).toFixed(3)),
         'الإضافي (د.ك)': Number(d.overtimeAmount.toFixed(3)),
-        'الاستقطاعات (د.ك)': Number((d.delayDeductionAmount + d.absenceDeductionAmount).toFixed(3)),
+        'الاستقطاعات (د.ك)': Number((d.delayDeductionAmount + d.absenceDeductionAmount + d.loanDeductionAmount).toFixed(3)),
+        'خصم السلف (د.ك)': Number(d.loanDeductionAmount.toFixed(3)),
         'صافي الراتب WPS (د.ك)': Number(d.netPayableSalary.toFixed(3)),
         'البنك': d.bankName,
         'الآيبان': d.iban,
-        'حالة المسير': d.wpsStatus
+        'حالة المسير': d.wpsStatus,
+        'فترة المسير': selectedPeriodMonth,
       }));
     } else if (activeReport === 'gov_compliance') {
       exportRecords = filteredData.map((d, idx) => ({
@@ -589,7 +718,7 @@ export const OdooReportsApp: React.FC = () => {
                     : 'text-slate-700 hover:bg-slate-200/70'
                 }`}
               >
-                <span>1. مطابقة مسيرات الرواتب وملفات WPS</span>
+                <span>1. مطابقة مسيرات الرواتب (شهر الفترة)</span>
                 <ChevronRight size={14} className={activeReport === 'wps_reconciliation' ? 'text-white' : 'text-slate-400'} />
               </button>
               <button
@@ -601,7 +730,7 @@ export const OdooReportsApp: React.FC = () => {
                 }`}
               >
                 <span className="flex items-center gap-1.5">
-                  3. الإقامات وأذونات PAM وتراخيص MOH
+                  2. الإقامات وأذونات PAM وتراخيص MOH
                   {expiredComplianceCount > 0 && (
                     <span className="bg-rose-500 text-white text-[9px] px-1.5 py-0.2 rounded-full font-mono">
                       {expiredComplianceCount}
@@ -627,7 +756,7 @@ export const OdooReportsApp: React.FC = () => {
                     : 'text-slate-700 hover:bg-slate-200/70'
                 }`}
               >
-                <span>5. مخصصات نهاية الخدمة (مادة 51)</span>
+                <span>3. مخصصات نهاية الخدمة (مادة 51)</span>
                 <ChevronRight size={14} className={activeReport === 'eos_indemnity_accrual' ? 'text-white' : 'text-slate-400'} />
               </button>
               <button
@@ -638,7 +767,7 @@ export const OdooReportsApp: React.FC = () => {
                     : 'text-slate-700 hover:bg-slate-200/70'
                 }`}
               >
-                <span>6. أرصدة الإجازات والالتزام النقدي</span>
+                <span>4. أرصدة الإجازات والالتزام النقدي</span>
                 <ChevronRight size={14} className={activeReport === 'leaves_financial_liability' ? 'text-white' : 'text-slate-400'} />
               </button>
             </div>
@@ -658,12 +787,12 @@ export const OdooReportsApp: React.FC = () => {
                     : 'text-slate-700 hover:bg-slate-200/70'
                 }`}
               >
-                <span>7. تحليل التأخير والغياب والإضافي (OT)</span>
+                <span>5. تحليل التأخير والغياب والإضافي (شهري)</span>
                 <ChevronRight size={14} className={activeReport === 'attendance_overtime_analytics' ? 'text-white' : 'text-slate-400'} />
               </button>
               <div className="p-2 bg-purple-50/50 rounded-lg text-[10px] text-[#714B67] font-semibold flex items-center gap-1.5 border border-purple-100">
                 <Sparkles size={13} className="shrink-0" />
-                <span>محسوبة تلقائياً على أساس 26 يوم عمل</span>
+                <span>من ترحيل الحضور الشهري أو مسير الرواتب للفترة المختارة</span>
               </div>
             </div>
           </div>
@@ -679,7 +808,9 @@ export const OdooReportsApp: React.FC = () => {
             <Users className="w-3.5 h-3.5 text-[#714B67]" />
           </div>
           <div className="text-lg font-black text-slate-900">{totalEmployees} <span className="text-[10px] font-normal text-slate-500">موظف</span></div>
-          <div className="text-[9px] text-emerald-700 mt-0.5 font-bold">100% مسجلين بـ WPS</div>
+          <div className="text-[9px] text-slate-600 mt-0.5 font-bold">
+            {ibanReadyCount}/{totalEmployees} IBAN صالح · {payslipCoverageCount} مسير للشهر
+          </div>
         </div>
 
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
@@ -688,7 +819,9 @@ export const OdooReportsApp: React.FC = () => {
             <CreditCard className="w-3.5 h-3.5 text-emerald-600" />
           </div>
           <div className="text-lg font-black text-emerald-700">{totalNetPayable.toFixed(3)} <span className="text-[9px] font-normal text-slate-500">د.ك</span></div>
-          <div className="text-[9px] text-emerald-800 mt-0.5 font-bold">محول للبنك بالكامل</div>
+          <div className="text-[9px] text-emerald-800 mt-0.5 font-bold">
+            {wpsReadyCount}/{totalEmployees} جاهز للتحويل · {selectedPeriodMonth}
+          </div>
         </div>
 
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
@@ -715,7 +848,9 @@ export const OdooReportsApp: React.FC = () => {
             <ShieldCheck className="w-3.5 h-3.5 text-rose-600" />
           </div>
           <div className="text-lg font-black text-rose-700">{expiredComplianceCount + expiringSoonCount} <span className="text-[9px] font-normal text-slate-500">حالة</span></div>
-          <div className="text-[9px] text-rose-600 mt-0.5 font-bold">{expiredComplianceCount} منتهي / {expiringSoonCount} قريباً</div>
+          <div className="text-[9px] text-rose-600 mt-0.5 font-bold">
+            {expiredComplianceCount} منتهي / {expiringSoonCount} قريباً / {missingComplianceDataCount} ناقص
+          </div>
         </div>
       </div>
 
@@ -771,6 +906,7 @@ export const OdooReportsApp: React.FC = () => {
                 <option value="ساري ومطابق">ساري ومطابق</option>
                 <option value="ينتهي قريباً (<30 يوم)">ينتهي قريباً (&lt;30 يوم)</option>
                 <option value="منتهي الصلاحية">منتهي الصلاحية</option>
+                <option value="بيانات ناقصة">بيانات ناقصة</option>
               </select>
             </div>
           )}
@@ -814,12 +950,17 @@ export const OdooReportsApp: React.FC = () => {
               </p>
             </div>
             <span className="bg-purple-100 text-[#714B67] text-xs font-mono font-bold px-2.5 py-1 rounded-lg">
-              KWD 0.000 (26 Days)
+              {selectedPeriodMonth} · صافي {totalNetPayable.toFixed(3)} د.ك
             </span>
           </div>
 
           <div className="overflow-x-auto">
-            
+            {filteredData.length === 0 && (
+              <div className="p-10 text-center text-sm text-slate-500 font-bold">
+                لا توجد سجلات نشطة لهذه الشركة أو لا تطابق الفلاتر الحالية.
+              </div>
+            )}
+
             {/* 1. REPORT 1: WPS RECONCILIATION TABLE */}
             {activeReport === 'wps_reconciliation' && (
               <table className="w-full text-right text-xs">
@@ -852,15 +993,29 @@ export const OdooReportsApp: React.FC = () => {
                       <td className="p-3.5 text-left">{emp.basicSalary.toFixed(3)}</td>
                       <td className="p-3.5 text-left text-slate-600">+{(emp.totalSalary - emp.basicSalary).toFixed(3)}</td>
                       <td className="p-3.5 text-left text-purple-700">+{emp.overtimeAmount.toFixed(3)}</td>
-                      <td className="p-3.5 text-left text-rose-600">-{(emp.delayDeductionAmount + emp.absenceDeductionAmount).toFixed(3)}</td>
+                      <td className="p-3.5 text-left text-rose-600">
+                        -{(emp.delayDeductionAmount + emp.absenceDeductionAmount + emp.loanDeductionAmount).toFixed(3)}
+                        {emp.loanDeductionAmount > 0 && (
+                          <span className="block text-[9px] text-rose-500 font-sans">سلف: {emp.loanDeductionAmount.toFixed(3)}</span>
+                        )}
+                      </td>
                       <td className="p-3.5 text-left font-black text-emerald-700 text-sm">{emp.netPayableSalary.toFixed(3)} د.ك</td>
                       <td className="p-3.5 font-sans">
                         <div className="text-[11px] font-bold text-slate-800">{emp.bankName}</div>
                         <div className="text-[9px] text-slate-400 font-mono truncate max-w-[180px]">{emp.iban}</div>
                       </td>
                       <td className="p-3.5 text-center font-sans">
-                        <span className="bg-emerald-100 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded-full text-[10px] font-bold inline-flex items-center gap-1">
-                          <CheckCircle2 size={11} /> {emp.wpsStatus}
+                        <span
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold inline-flex items-center gap-1 border ${
+                            emp.wpsStatus === 'مطابق ومحوّل'
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                              : emp.wpsStatus === 'قيد المراجعة'
+                                ? 'bg-amber-100 text-amber-800 border-amber-200'
+                                : 'bg-rose-100 text-rose-800 border-rose-200'
+                          }`}
+                        >
+                          {emp.wpsStatus === 'مطابق ومحوّل' ? <CheckCircle2 size={11} /> : <AlertTriangle size={11} />}
+                          {emp.wpsStatus}
                         </span>
                       </td>
                     </tr>
@@ -872,7 +1027,9 @@ export const OdooReportsApp: React.FC = () => {
                     <td className="p-3.5 text-left">{filteredData.reduce((a, b) => a + b.basicSalary, 0).toFixed(3)}</td>
                     <td className="p-3.5 text-left">+{filteredData.reduce((a, b) => a + (b.totalSalary - b.basicSalary), 0).toFixed(3)}</td>
                     <td className="p-3.5 text-left text-purple-700">+{filteredData.reduce((a, b) => a + b.overtimeAmount, 0).toFixed(3)}</td>
-                    <td className="p-3.5 text-left text-rose-600">-{filteredData.reduce((a, b) => a + b.delayDeductionAmount + b.absenceDeductionAmount, 0).toFixed(3)}</td>
+                    <td className="p-3.5 text-left text-rose-600">
+                      -{filteredData.reduce((a, b) => a + b.delayDeductionAmount + b.absenceDeductionAmount + b.loanDeductionAmount, 0).toFixed(3)}
+                    </td>
                     <td className="p-3.5 text-left text-emerald-800 text-sm font-black">{filteredData.reduce((a, b) => a + b.netPayableSalary, 0).toFixed(3)} د.ك</td>
                     <td colSpan={2}></td>
                   </tr>
@@ -909,11 +1066,23 @@ export const OdooReportsApp: React.FC = () => {
                       <td className="p-3.5">
                         {emp.isKuwaiti ? (
                           <span className="text-slate-400 font-sans">مواطن كويتي</span>
+                        ) : emp.residencyExpiryDate === REPORTS_MISSING ? (
+                          <span className="text-slate-400 font-sans">{REPORTS_MISSING}</span>
                         ) : (
                           <div>
                             <div className="font-bold text-slate-800">{emp.residencyExpiryDate}</div>
-                            <div className={`text-[10px] font-sans font-bold ${emp.residencyDaysLeft < 0 ? 'text-rose-600' : emp.residencyDaysLeft < 30 ? 'text-amber-600' : 'text-emerald-700'}`}>
-                              {emp.residencyDaysLeft < 0 ? `منتهية منذ ${Math.abs(emp.residencyDaysLeft)} يوماً ⚠️` : `متبقي ${emp.residencyDaysLeft} يوماً`}
+                            <div
+                              className={`text-[10px] font-sans font-bold ${
+                                emp.residencyDaysLeft < 0
+                                  ? 'text-rose-600'
+                                  : emp.residencyDaysLeft < 30
+                                    ? 'text-amber-600'
+                                    : 'text-emerald-700'
+                              }`}
+                            >
+                              {emp.residencyDaysLeft < 0
+                                ? `منتهية منذ ${Math.abs(emp.residencyDaysLeft)} يوماً`
+                                : `متبقي ${emp.residencyDaysLeft} يوماً`}
                             </div>
                           </div>
                         )}
@@ -940,6 +1109,11 @@ export const OdooReportsApp: React.FC = () => {
                         {emp.complianceStatus === 'منتهي الصلاحية' && (
                           <span className="bg-rose-100 text-rose-800 border border-rose-200 px-2.5 py-1 rounded-full text-[10px] font-bold inline-flex items-center gap-1">
                             <XCircle size={11} /> منتهي الصلاحية ⚠️
+                          </span>
+                        )}
+                        {emp.complianceStatus === 'بيانات ناقصة' && (
+                          <span className="bg-slate-100 text-slate-700 border border-slate-300 px-2.5 py-1 rounded-full text-[10px] font-bold inline-flex items-center gap-1">
+                            <AlertTriangle size={11} /> بيانات ناقصة
                           </span>
                         )}
                       </td>
@@ -1287,6 +1461,7 @@ export const OdooReportsApp: React.FC = () => {
         totalNetPayable={totalNetPayable}
         totalEosAccrual={totalEosAccrual}
         totalLeaveLiability={totalLeaveLiability}
+        reportRef={`${activeCompany?.id || 'company'}-${selectedPeriodMonth}`}
       />
 
     </div>
