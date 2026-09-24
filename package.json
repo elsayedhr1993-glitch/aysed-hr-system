@@ -17,7 +17,8 @@
     "supabase:sync:allocations": "tsx scripts/sync-leave-allocations-to-supabase.ts",
     "supabase:sync:settlements": "tsx scripts/sync-leave-settlements-to-supabase.ts",
     "leaves:purge-legacy": "tsx scripts/purge-legacy-leaves-collection.ts",
-    "purge:demo": "tsx scripts/purge-demo-data.ts"
+    "purge:demo": "tsx scripts/purge-demo-data.ts",
+    "employees:heal-cross-tenant": "tsx scripts/run-employee-cross-tenant-self-heal-admin.ts"
   },
   "dependencies": {
     "@fontsource/cairo": "^5.3.0",

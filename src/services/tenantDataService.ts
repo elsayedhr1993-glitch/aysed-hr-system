@@ -707,6 +707,20 @@ export const TenantDatabaseService = {
    */
   async saveEmployee(employee: Employee, targetCompanyId?: string): Promise<boolean> {
     const compId = requireCompanyId(targetCompanyId || employee.companyId || (employee as any).company_id);
+    const civilId =
+      (employee as any).civilId ||
+      (employee as any).civil_id ||
+      (employee as any).civil_id_number ||
+      '';
+    if (civilId) {
+      const { assertNoCrossTenantCivilDuplicate } = await import('./employeeDuplicateGuard');
+      const gate = await assertNoCrossTenantCivilDuplicate(civilId, compId, {
+        employeeDocId: employee.id,
+      });
+      if (!gate.ok) {
+        throw new Error(gate.message);
+      }
+    }
     try {
       const cleanDoc = cleanFirestoreData(toEmployeeFirestoreData(employee as any, compId));
       await setDoc(doc(db, 'employees', employee.id), cleanDoc, { merge: true });

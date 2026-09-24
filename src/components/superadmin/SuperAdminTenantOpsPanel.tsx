@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Clock, ShieldAlert, Trash2 } from 'lucide-react';
+import { Clock, ShieldAlert, Trash2, UserX } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useCompany } from '../../context/CompanyContext';
 import {
@@ -11,6 +11,12 @@ import {
   saveShiftSeedRules,
 } from '../../services/shiftSeedService';
 import { performDemoEnvironmentWipe } from '../../utils/demoEnvironmentWipe';
+import {
+  healCrossTenantEmployeeDuplicates,
+  runDefaultCrossTenantSelfHealOncePerSession,
+  SELF_HEAL_WATCH_CIVIL_ID,
+  ALMANAR_CANONICAL_COMPANY_ID,
+} from '../../services/employeeCrossTenantSelfHeal';
 
 export const SuperAdminTenantOpsPanel: React.FC = () => {
   const { activeCompany } = useCompany();
@@ -19,11 +25,31 @@ export const SuperAdminTenantOpsPanel: React.FC = () => {
   const [shiftSeedRules, setShiftSeedRules] = useState<ShiftSeedRulesConfig>(DEFAULT_SHIFT_SEED_RULES);
   const [shiftSeedRunMode, setShiftSeedRunMode] = useState<ShiftSeedRunMode>('preserve_existing');
   const [isRunningShiftSeed, setIsRunningShiftSeed] = useState(false);
+  const [isRunningSelfHeal, setIsRunningSelfHeal] = useState(false);
+  const [lastSelfHealSummary, setLastSelfHealSummary] = useState<string | null>(null);
 
   useEffect(() => {
     if (!companyId) return;
     void loadShiftSeedRules(companyId).then(setShiftSeedRules);
   }, [companyId]);
+
+  useEffect(() => {
+    void runDefaultCrossTenantSelfHealOncePerSession()
+      .then((result) => {
+        if (!result) return;
+        const n = result.deletedEmployees.length;
+        const p = result.deletedOnboardingPlanIds.length;
+        if (n > 0 || p > 0) {
+          setLastSelfHealSummary(
+            `إصلاح تلقائي: حُذف ${n} سجل موظف مكرر و${p} خطة تهيئة خارج المنار.`
+          );
+          toast.success(`تم إصلاح تكرار الرقم المدني (${n} موظف، ${p} خطة تهيئة).`);
+        }
+      })
+      .catch((err) => {
+        console.warn('[SelfHeal] auto-run skipped:', err);
+      });
+  }, []);
 
   const previewDays = useMemo(() => {
     const daysCount = Math.max(1, Math.min(14, shiftSeedRules.seedDays || 7));
@@ -95,6 +121,26 @@ export const SuperAdminTenantOpsPanel: React.FC = () => {
     }
   };
 
+  const handleCrossTenantSelfHeal = async (dryRun: boolean) => {
+    setIsRunningSelfHeal(true);
+    try {
+      const result = await healCrossTenantEmployeeDuplicates({ dryRun });
+      const msg = dryRun
+        ? `معاينة: ${result.deletedEmployees.length} موظف و${result.deletedOnboardingPlanIds.length} خطة تهيئة للحذف.`
+        : `تم الحذف: ${result.deletedEmployees.length} موظف و${result.deletedOnboardingPlanIds.length} خطة تهيئة.`;
+      setLastSelfHealSummary(msg);
+      if (result.errors.length) {
+        toast.error(result.errors[0]);
+      } else {
+        toast.success(msg);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'فشل الإصلاح الذاتي.');
+    } finally {
+      setIsRunningSelfHeal(false);
+    }
+  };
+
   const handleDemoWipe = () => {
     const confirmed = window.confirm(
       'تحذير: سيتم مسح بيانات التخزين المحلي التجريبية على هذا المتصفح فقط. هل تريد المتابعة؟'
@@ -111,6 +157,51 @@ export const SuperAdminTenantOpsPanel: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-200">
+      <div className="bg-white p-6 rounded-xl border border-amber-200 shadow-sm">
+        <div className="flex items-center gap-3 pb-4 border-b border-gray-200 mb-4">
+          <UserX className="w-6 h-6 text-amber-700" />
+          <div>
+            <h3 className="text-base font-bold text-gray-900">إصلاح تكرار الموظف عبر المنشآت</h3>
+            <p className="text-xs text-gray-500">
+              يحتفظ بالرقم المدني <span className="font-mono">{SELF_HEAL_WATCH_CIVIL_ID}</span> في المنار فقط (
+              {ALMANAR_CANONICAL_COMPANY_ID}) ويحذف النسخ الأخرى وخطط التهيئة المرتبطة.
+            </p>
+          </div>
+        </div>
+        {lastSelfHealSummary && (
+          <p className="text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-3">
+            {lastSelfHealSummary}
+          </p>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={isRunningSelfHeal}
+            onClick={() => void handleCrossTenantSelfHeal(true)}
+            className="px-4 py-2 rounded-lg border border-slate-300 text-xs font-bold text-slate-800 disabled:opacity-50"
+          >
+            معاينة (بدون حذف)
+          </button>
+          <button
+            type="button"
+            disabled={isRunningSelfHeal}
+            onClick={() => {
+              if (
+                !window.confirm(
+                  'سيتم حذف سجلات الموظف المكررة خارج عيادة المنار نهائياً. متابعة؟'
+                )
+              ) {
+                return;
+              }
+              void handleCrossTenantSelfHeal(false);
+            }}
+            className="px-4 py-2 rounded-lg bg-amber-700 text-white text-xs font-bold disabled:opacity-50"
+          >
+            {isRunningSelfHeal ? 'جاري الإصلاح...' : 'تنفيذ الإصلاح الآن'}
+          </button>
+        </div>
+      </div>
+
       <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
         <div className="flex items-center gap-3 pb-4 border-b border-gray-200 mb-4">
           <Clock className="w-6 h-6 text-[#71639e]" />

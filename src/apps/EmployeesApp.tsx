@@ -732,17 +732,31 @@ export function EmployeesApp(props?: any) {
 
     const civilId = (updatedEmp.civil_id_number || updatedEmp.civilId || updatedEmp.civil_id || '').trim();
 
-    if (updatedEmp.isNewRecord && civilId) {
-      const isDuplicate = employees.some(
-        emp => (emp.companyId === activeCompanyId || activeCompanyId === 'comp-super-admin') && 
-        ((emp.civil_id_number && emp.civil_id_number.trim() === civilId) || 
-         (emp.civilId && emp.civilId.trim() === civilId) ||
-         (emp.civil_id && emp.civil_id.trim() === civilId))
+    if (civilId) {
+      const isDuplicateInTenant = employees.some(
+        (emp) =>
+          emp.id !== updatedEmp.id &&
+          ((emp.civil_id_number && emp.civil_id_number.trim() === civilId) ||
+            (emp.civilId && emp.civilId.trim() === civilId) ||
+            (emp.civil_id && emp.civil_id.trim() === civilId))
       );
 
-      if (isDuplicate) {
-        alert('خطأ: الموظف مسجل بالفعل! الرقم المدني مكرر في هذه الشركة.');
+      if (isDuplicateInTenant) {
+        alert('خطأ: الرقم المدني مكرر داخل نفس المنشأة.');
         return;
+      }
+
+      try {
+        const { assertNoCrossTenantCivilDuplicate } = await import('../services/employeeDuplicateGuard');
+        const crossCheck = await assertNoCrossTenantCivilDuplicate(civilId, activeCompanyId, {
+          employeeDocId: updatedEmp.id,
+        });
+        if (!crossCheck.ok) {
+          alert(crossCheck.message);
+          return;
+        }
+      } catch (err) {
+        console.warn('Cross-tenant civil check failed', err);
       }
     }
 
