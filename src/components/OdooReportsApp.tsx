@@ -31,7 +31,6 @@ import {
   Award,
   ChevronRight,
   TrendingUp,
-  Percent,
   Check,
   XCircle,
   HelpCircle,
@@ -51,7 +50,6 @@ import { db } from '../lib/firebase';
 export type ReportCategory = 
   | 'wps_reconciliation'
   | 'gov_compliance'
-  | 'kuwaitization'
   | 'eos_indemnity_accrual'
   | 'leaves_financial_liability'
   | 'attendance_overtime_analytics';
@@ -344,8 +342,6 @@ export const OdooReportsApp: React.FC = () => {
 
   // إجماليات وإحصائيات عامة
   const totalEmployees = analyticsData.length;
-  const kuwaitiCount = analyticsData.filter(e => e.isKuwaiti).length;
-  const kuwaitizationRatio = totalEmployees > 0 ? (kuwaitiCount / totalEmployees) * 100 : 0;
   const totalGrossSalaries = analyticsData.reduce((acc, curr) => acc + curr.totalSalary, 0);
   const totalNetPayable = analyticsData.reduce((acc, curr) => acc + curr.netPayableSalary, 0);
   const totalEosAccrual = analyticsData.reduce((acc, curr) => acc + curr.eosAccruedAmount, 0);
@@ -365,7 +361,6 @@ export const OdooReportsApp: React.FC = () => {
     const map = new Map<string, {
       groupKey: string;
       count: number;
-      kuwaitiCount: number;
       totalBasic: number;
       totalGross: number;
       totalNet: number;
@@ -387,7 +382,6 @@ export const OdooReportsApp: React.FC = () => {
         map.set(key, {
           groupKey: key,
           count: 0,
-          kuwaitiCount: 0,
           totalBasic: 0,
           totalGross: 0,
           totalNet: 0,
@@ -400,7 +394,6 @@ export const OdooReportsApp: React.FC = () => {
 
       const grp = map.get(key)!;
       grp.count += 1;
-      if (item.isKuwaiti) grp.kuwaitiCount += 1;
       grp.totalBasic += item.basicSalary;
       grp.totalGross += item.totalSalary;
       grp.totalNet += item.netPayableSalary;
@@ -451,20 +444,6 @@ export const OdooReportsApp: React.FC = () => {
         'انتهاء ترخيص MOH': d.mohLicenseExpiryDate,
         'حالة الامتثال': d.complianceStatus
       }));
-    } else if (activeReport === 'kuwaitization') {
-      exportRecords = pivotGroups.map((g, idx) => {
-        const kwRatio = g.count > 0 ? ((g.kuwaitiCount / g.count) * 100).toFixed(1) : '0';
-        return {
-          'م': idx + 1,
-          'القسم': g.groupKey,
-          'إجمالي الكادر': g.count,
-          'عدد الكويتيين': g.kuwaitiCount,
-          'عدد الوافدين': g.count - g.kuwaitiCount,
-          'نسبة التكويت %': `${kwRatio}%`,
-          'إجمالي الرواتب للكويتيين (د.ك)': Number((g.totalGross * (g.kuwaitiCount / g.count || 0)).toFixed(3)),
-          'إجمالي الرواتب للوافدين (د.ك)': Number((g.totalGross * ((g.count - g.kuwaitiCount) / g.count || 0)).toFixed(3))
-        };
-      });
     } else if (activeReport === 'eos_indemnity_accrual') {
       exportRecords = filteredData.map((d, idx) => ({
         'م': idx + 1,
@@ -514,7 +493,6 @@ export const OdooReportsApp: React.FC = () => {
     switch (key) {
       case 'wps_reconciliation': return 'تقرير مطابقة مسيرات الرواتب وملفات WPS البنكية';
       case 'gov_compliance': return 'تقرير انتهاء الإقامات وأذونات العمل وتراخيص وزارة الصحة (MOH)';
-      case 'kuwaitization': return 'تقرير نسب العمالة الوطنية والتكويت (PAM Compliance)';
       case 'eos_indemnity_accrual': return 'تقرير مخصصات نهاية الخدمة التراكمية (Indemnity Accrual - مادة 51)';
       case 'leaves_financial_liability': return 'تقرير الأرصدة السنوية والالتزامات النقدية للإجازات (مادة 70 & 71)';
       case 'attendance_overtime_analytics': return 'تحليل ساعات التأخير والغياب والساعات الإضافية وتكلفتها';
@@ -632,17 +610,6 @@ export const OdooReportsApp: React.FC = () => {
                 </span>
                 <ChevronRight size={14} className={activeReport === 'gov_compliance' ? 'text-white' : 'text-slate-400'} />
               </button>
-              <button
-                onClick={() => setActiveReport('kuwaitization')}
-                className={`w-full text-right p-2 rounded-lg text-xs font-bold transition flex items-center justify-between cursor-pointer ${
-                  activeReport === 'kuwaitization' 
-                    ? 'bg-[#714B67] text-white shadow-xs' 
-                    : 'text-slate-700 hover:bg-slate-200/70'
-                }`}
-              >
-                <span>4. نسب العمالة الوطنية والتكويت</span>
-                <ChevronRight size={14} className={activeReport === 'kuwaitization' ? 'text-white' : 'text-slate-400'} />
-              </button>
             </div>
           </div>
 
@@ -705,7 +672,7 @@ export const OdooReportsApp: React.FC = () => {
       </div>
 
       {/* 3. EXECUTIVE KPIS CARDS (المؤشرات التنفيذية اللحظية) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
           <div className="text-[10px] text-slate-400 font-bold mb-1 flex items-center justify-between">
             <span>إجمالي الكادر</span>
@@ -713,15 +680,6 @@ export const OdooReportsApp: React.FC = () => {
           </div>
           <div className="text-lg font-black text-slate-900">{totalEmployees} <span className="text-[10px] font-normal text-slate-500">موظف</span></div>
           <div className="text-[9px] text-emerald-700 mt-0.5 font-bold">100% مسجلين بـ WPS</div>
-        </div>
-
-        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
-          <div className="text-[10px] text-slate-400 font-bold mb-1 flex items-center justify-between">
-            <span>نسبة التكويت</span>
-            <Percent className="w-3.5 h-3.5 text-blue-600" />
-          </div>
-          <div className="text-lg font-black text-blue-700">{kuwaitizationRatio.toFixed(1)}%</div>
-          <div className="text-[9px] text-slate-500 mt-0.5 font-mono">{kuwaitiCount} كويتي من {totalEmployees}</div>
         </div>
 
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
@@ -991,73 +949,7 @@ export const OdooReportsApp: React.FC = () => {
               </table>
             )}
 
-            {/* 3. REPORT 3: KUWAITIZATION & PAM RATIOS TABLE */}
-            {activeReport === 'kuwaitization' && (
-              <table className="w-full text-right text-xs">
-                <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 font-sans">
-                  <tr>
-                    <th className="p-3.5">القسم / الوحدة الطبية</th>
-                    <th className="p-3.5 text-center">إجمالي الكادر</th>
-                    <th className="p-3.5 text-center text-blue-700">عدد الكويتيين</th>
-                    <th className="p-3.5 text-center text-slate-600">عدد الوافدين</th>
-                    <th className="p-3.5 text-center font-black text-purple-900">نسبة التكويت الحالية (%)</th>
-                    <th className="p-3.5 text-center">النسبة المستهدفة (PAM)</th>
-                    <th className="p-3.5 text-left">كتلة أجور الكويتيين (د.ك)</th>
-                    <th className="p-3.5 text-center">حالة الامتثال</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-mono">
-                  {pivotGroups.map((grp, idx) => {
-                    const ratio = grp.count > 0 ? (grp.kuwaitiCount / grp.count) * 100 : 0;
-                    const targetRatio = 15.0; // النسبة المستهدفة بالقطاع الطبي
-                    const isCompliant = ratio >= targetRatio;
-
-                    return (
-                      <tr key={grp.groupKey} className={`hover:bg-purple-50/40 transition ${idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
-                        <td className="p-3.5 font-bold text-slate-900 font-sans">{grp.groupKey}</td>
-                        <td className="p-3.5 text-center font-bold">{grp.count}</td>
-                        <td className="p-3.5 text-center font-bold text-blue-700">{grp.kuwaitiCount}</td>
-                        <td className="p-3.5 text-center text-slate-600">{grp.count - grp.kuwaitiCount}</td>
-                        <td className="p-3.5 text-center font-black text-purple-900 text-sm">{ratio.toFixed(1)}%</td>
-                        <td className="p-3.5 text-center font-bold text-slate-500">{targetRatio.toFixed(1)}%</td>
-                        <td className="p-3.5 text-left font-bold text-emerald-800">
-                          {(grp.totalGross * (grp.kuwaitiCount / grp.count || 0)).toFixed(3)} د.ك
-                        </td>
-                        <td className="p-3.5 text-center font-sans">
-                          {isCompliant ? (
-                            <span className="bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-full text-[10px] font-bold">
-                              مستوفٍ لنسبة القوى العاملة ✓
-                            </span>
-                          ) : (
-                            <span className="bg-amber-100 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-full text-[10px] font-bold">
-                              بحاجة لتعيين عمالة وطنية
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot className="bg-slate-100 font-bold border-t-2 border-slate-900 text-xs font-mono">
-                  <tr>
-                    <td className="p-3.5 font-sans text-slate-900">إجمالي المنشأة العام:</td>
-                    <td className="p-3.5 text-center font-bold">{totalEmployees}</td>
-                    <td className="p-3.5 text-center text-blue-700 font-bold">{kuwaitiCount}</td>
-                    <td className="p-3.5 text-center text-slate-600">{totalEmployees - kuwaitiCount}</td>
-                    <td className="p-3.5 text-center text-purple-900 text-sm font-black">{kuwaitizationRatio.toFixed(1)}%</td>
-                    <td className="p-3.5 text-center font-bold">15.0%</td>
-                    <td className="p-3.5 text-left text-emerald-800 font-black">
-                      {filteredData.filter(e => e.isKuwaiti).reduce((a, b) => a + b.totalSalary, 0).toFixed(3)} د.ك
-                    </td>
-                    <td className="p-3.5 text-center font-sans text-emerald-800">
-                      {kuwaitizationRatio >= 15 ? 'مطابق لنسب التكويت الإجمالية' : 'أقل من النسبة'}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            )}
-
-            {/* 4. REPORT 4: END OF SERVICE INDEMNITY ACCRUAL TABLE */}
+            {/* 3. REPORT: END OF SERVICE INDEMNITY ACCRUAL TABLE */}
             {activeReport === 'eos_indemnity_accrual' && (
               <table className="w-full text-right text-xs">
                 <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 font-sans">
@@ -1260,8 +1152,6 @@ export const OdooReportsApp: React.FC = () => {
                 <tr>
                   <th className="p-3.5">المجموعة المحورية ({pivotGroupBy})</th>
                   <th className="p-3.5 text-center">العدد</th>
-                  <th className="p-3.5 text-center text-blue-700">كويتي</th>
-                  <th className="p-3.5 text-center">وافد</th>
                   <th className="p-3.5 text-left">إجمالي الأساسي (د.ك)</th>
                   <th className="p-3.5 text-left">إجمالي الشامل (د.ك)</th>
                   <th className="p-3.5 text-left text-emerald-700">صافي الرواتب (WPS)</th>
@@ -1279,8 +1169,6 @@ export const OdooReportsApp: React.FC = () => {
                       {grp.groupKey}
                     </td>
                     <td className="p-3.5 text-center font-bold">{grp.count}</td>
-                    <td className="p-3.5 text-center font-bold text-blue-700">{grp.kuwaitiCount}</td>
-                    <td className="p-3.5 text-center text-slate-600">{grp.count - grp.kuwaitiCount}</td>
                     <td className="p-3.5 text-left">{grp.totalBasic.toFixed(3)}</td>
                     <td className="p-3.5 text-left font-bold">{grp.totalGross.toFixed(3)}</td>
                     <td className="p-3.5 text-left font-black text-emerald-700">{grp.totalNet.toFixed(3)}</td>
@@ -1295,8 +1183,6 @@ export const OdooReportsApp: React.FC = () => {
                 <tr>
                   <td className="p-3.5 font-sans text-slate-900">المجموع الكلي (Total Summary):</td>
                   <td className="p-3.5 text-center font-black">{totalEmployees}</td>
-                  <td className="p-3.5 text-center text-blue-700">{kuwaitiCount}</td>
-                  <td className="p-3.5 text-center">{totalEmployees - kuwaitiCount}</td>
                   <td className="p-3.5 text-left">{filteredData.reduce((a, b) => a + b.basicSalary, 0).toFixed(3)}</td>
                   <td className="p-3.5 text-left">{totalGrossSalaries.toFixed(3)}</td>
                   <td className="p-3.5 text-left text-emerald-800 text-sm font-black">{totalNetPayable.toFixed(3)}</td>
@@ -1350,49 +1236,7 @@ export const OdooReportsApp: React.FC = () => {
             </div>
           </div>
 
-          {/* Graph Card 2: نسب التكويت والامتثال لقانون العمل */}
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-            <div className="flex justify-between items-center border-b pb-3">
-              <h4 className="font-bold text-sm text-slate-900 flex items-center gap-2">
-                <PieChart className="text-emerald-600" size={16} />
-                توزيع الكادر الوطني والتكويت (Kuwaitization Ratio)
-              </h4>
-              <span className="text-[10px] text-slate-400 font-mono">PAM Compliance</span>
-            </div>
-
-            <div className="flex flex-col sm:flex-row items-center justify-around gap-6 pt-4">
-              <div className="relative w-36 h-36 rounded-full border-8 border-slate-100 flex items-center justify-center bg-purple-50">
-                <div className="text-center">
-                  <div className="text-2xl font-black text-[#714B67]">{kuwaitizationRatio.toFixed(1)}%</div>
-                  <div className="text-[10px] text-slate-500 font-bold">نسبة التكويت</div>
-                </div>
-              </div>
-
-              <div className="space-y-3 text-xs w-full sm:w-auto">
-                <div className="flex items-center justify-between gap-6 p-2 rounded-lg bg-blue-50 border border-blue-100">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-blue-600"></span>
-                    <span className="font-bold text-slate-800">عمالة وطنية (كويتيين):</span>
-                  </div>
-                  <span className="font-mono font-black text-blue-700">{kuwaitiCount} موظف</span>
-                </div>
-
-                <div className="flex items-center justify-between gap-6 p-2 rounded-lg bg-slate-50 border border-slate-200">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-slate-400"></span>
-                    <span className="font-bold text-slate-800">عمالة وافدة (مقيمين):</span>
-                  </div>
-                  <span className="font-mono font-black text-slate-700">{totalEmployees - kuwaitiCount} موظف</span>
-                </div>
-
-                <div className="p-2 bg-emerald-50 rounded-lg border border-emerald-200 text-[10px] text-emerald-800 font-bold">
-                  ✓ النسبة المستوفاة تتوافق مع اشتراطات الهيئة العامة للقوى العاملة.
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Graph Card 3: التزامات نهاية الخدمة وبدل الإجازات النقدية */}
+          {/* Graph Card 2: التزامات نهاية الخدمة وبدل الإجازات النقدية */}
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4 lg:col-span-2">
             <div className="flex justify-between items-center border-b pb-3">
               <h4 className="font-bold text-sm text-slate-900 flex items-center gap-2">
