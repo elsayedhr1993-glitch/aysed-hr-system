@@ -145,9 +145,9 @@ export function calculate_aysed_service_duration(
 }
 
 /**
- * Calculate Kuwait PIFSS (التأمينات الاجتماعية) Deduction - Removed completely per user request
+ * @deprecated Social insurance (PIFSS) is out of scope for this tenant. Returns 0 for legacy callers.
  */
-export function calculatePIFSS(isKuwaiti: boolean, grossSalary: number): number {
+export function calculatePIFSS(_isKuwaiti: boolean, _grossSalary: number): number {
   return 0;
 }
 
@@ -1113,9 +1113,9 @@ export function calculateActualLeaveDays(startDateStr: string, endDateStr: strin
   return { totalDays, actualDays, deductedHolidays, deductedWeekends };
 }
 
-// Payroll Module Logic (Kuwait Law & PIFSS)
-export function calculatePIFSSDeduction(basicSalary: number): number {
-    return 0; // إلغاء التأمينات الاجتماعية نهائياً (0%) للمنشأة الطبية الخاصة
+/** @deprecated Legacy API — social insurance disabled; always 0. */
+export function calculatePIFSSDeduction(_basicSalary: number): number {
+  return 0;
 }
 
 export function calculateUnpaidDeduction(basic: number, allowances: number, unpaidDays: number): number {
@@ -1123,10 +1123,15 @@ export function calculateUnpaidDeduction(basic: number, allowances: number, unpa
     return unpaidDays * dayValue;
 }
 
-export function calculateNetSalary(basic: number, allowances: number, unpaidDays: number, isKuwaiti: boolean = false, otherDeductions: number = 0): number {
-    const pifss_deduction = 0; // تم الإلغاء
-    const unpaid_deduction = calculateUnpaidDeduction(basic, allowances, unpaidDays);
-    return (basic + allowances) - (unpaid_deduction + otherDeductions);
+export function calculateNetSalary(
+  basic: number,
+  allowances: number,
+  unpaidDays: number,
+  _isKuwaiti: boolean = false,
+  otherDeductions: number = 0
+): number {
+  const unpaid_deduction = calculateUnpaidDeduction(basic, allowances, unpaidDays);
+  return basic + allowances - (unpaid_deduction + otherDeductions);
 }
 
 export function calculateIndemnity(years: number, totalSalary: number): number {

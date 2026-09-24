@@ -27,6 +27,7 @@ import { OdooDocumentManager } from './OdooDocumentManager';
 import { getPersistentData, setPersistentData } from '../utils/persistentStorage';
 import { toast } from 'react-hot-toast';
 
+/** `pifss` = legacy key for labor/ministry filings (الشؤون والعمل), not social insurance. */
 interface CompanyDoc {
   id: string;
   docTitle: string;

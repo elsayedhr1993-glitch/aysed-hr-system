@@ -32,3 +32,40 @@ export function calculateKuwaitHourlyRate(
   if (!dailyWage || dailyWage <= 0 || dailyHours <= 0) return 0;
   return cleanKwdAmount(dailyWage / dailyHours);
 }
+
+/** Operational payroll deductions only (no social insurance / PIFSS). */
+export function sumOperationalPayrollDeductions(input: {
+  absenceDeduction?: number;
+  delayDeduction?: number;
+  loanDeduction?: number;
+  otherDeductions?: number;
+}): number {
+  return cleanKwdAmount(
+    (input.absenceDeduction || 0) +
+      (input.delayDeduction || 0) +
+      (input.loanDeduction || 0) +
+      (input.otherDeductions || 0)
+  );
+}
+
+export function computeNetPayrollFromComponents(input: {
+  grossSalary: number;
+  overtimeAmount?: number;
+  bonusAmount?: number;
+  absenceDeduction?: number;
+  delayDeduction?: number;
+  loanDeduction?: number;
+  otherDeductions?: number;
+}): { totalDeductions: number; netSalary: number } {
+  const totalDeductions = sumOperationalPayrollDeductions(input);
+  const netSalary = Math.max(
+    0,
+    cleanKwdAmount(
+      (input.grossSalary || 0) +
+        (input.overtimeAmount || 0) +
+        (input.bonusAmount || 0) -
+        totalDeductions
+    )
+  );
+  return { totalDeductions, netSalary };
+}

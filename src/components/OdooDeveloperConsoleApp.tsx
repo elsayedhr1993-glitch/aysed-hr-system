@@ -27,7 +27,7 @@ export const OdooDeveloperConsoleApp: React.FC = () => {
     'INFO: Odoo Core Developer Mode Active [PM 8:25:31]',
     'CACHE: Temporary cache verified and synchronized [PM 8:25:52]',
     'DATABASE: IndexedDB & LocalStorage health checks: 100% OK [PM 8:26:00]',
-    'COMPLIANCE: Kuwait Labor Law Rules (26 Days Basis / 0% PIFSS) engaged'
+    'COMPLIANCE: Kuwait Labor Law Rules (26 Days Basis / operational deductions only) engaged'
   ]);
 
   const handleClearLogs = () => {

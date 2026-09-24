@@ -163,7 +163,7 @@ Storage Keys: ${Object.keys(localStorage).filter(k => k.startsWith('aysed_') || 
             </div>
             <div className="text-2xl font-black text-slate-800">الكويت v2026.8</div>
             <p className="text-xs text-slate-500">
-              المادة 51، المادة 53، رواتب WPS، والتأمينات الاجتماعية متوافقة 100%.
+              المادة 51، المادة 53، ورواتب WPS (خصومات تشغيلية فقط) متوافقة 100%.
             </p>
             <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
               <span className="text-slate-500">WPS Bank Format:</span>

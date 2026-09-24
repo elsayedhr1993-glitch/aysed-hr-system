@@ -19,7 +19,11 @@ import { EOSApp } from '../apps/EOSApp';
 import type { Contract } from '../types';
 import { db, cleanFirestoreData } from '../lib/firebase';
 import { TenantDatabaseService } from '../services/tenantDataService';
-import { calculateKuwaitDailyRate, calculateKuwaitHourlyRate } from '../utils/kuwaitPayrollMath';
+import {
+  calculateKuwaitDailyRate,
+  calculateKuwaitHourlyRate,
+  computeNetPayrollFromComponents,
+} from '../utils/kuwaitPayrollMath';
 import { collection, doc, getDoc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 
 export interface PayslipItem {
@@ -127,7 +131,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
       collection(db, 'payslips'),
       snapshot => {
         const remote = snapshot.docs
-          .map(item => ({ ...item.data(), id: item.id } as PayslipItem))
+          .map(item => normalizePayslipItem({ ...item.data(), id: item.id } as PayslipItem))
           .filter(item => (item as PayslipItem & { companyId?: string }).companyId === companyId);
         setPayslips(remote);
       },
@@ -182,15 +186,36 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
     const companyId = activeCompany?.id;
     if (!companyId) return;
     newList.forEach(payslip => {
+      const normalized = normalizePayslipItem(payslip);
       void setDoc(
         doc(db, 'payslips', payslip.id),
-        cleanFirestoreData({ ...payslip, companyId }),
+        cleanFirestoreData({ ...normalized, companyId }),
         { merge: true }
       ).catch(error => console.error('Failed to save payslip to Firestore', error));
     });
   };
 
   const round3 = (value: number) => Math.round((Number(value) || 0) * 1000) / 1000;
+
+  const normalizePayslipItem = (raw: PayslipItem): PayslipItem => {
+    const grossSalary = Number(
+      raw.grossSalary ??
+        (raw.basicSalary || 0) +
+          (raw.housingAllowance || 0) +
+          (raw.transportAllowance || 0) +
+          (raw.medicalAllowance || 0)
+    );
+    const { totalDeductions, netSalary } = computeNetPayrollFromComponents({
+      grossSalary,
+      overtimeAmount: raw.overtimeAmount,
+      bonusAmount: raw.bonusAmount,
+      absenceDeduction: raw.absenceDeduction,
+      delayDeduction: raw.delayDeduction,
+      loanDeduction: raw.loanDeduction,
+    });
+    const { pifssDeduction: _legacyPifss, ...rest } = raw as PayslipItem & { pifssDeduction?: number };
+    return { ...rest, grossSalary, totalDeductions, netSalary };
+  };
 
   const getAttendanceFinancials = (emp: any, rollupByEmployee?: Record<string, MonthlyAttendanceRollupEntry>) => {
     const sourceRollup = rollupByEmployee || monthlyRollupByEmployee;
@@ -255,8 +280,14 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
       
       const grossSalary = totalBase;
       const bonusAmount = 0;
-      const totalDeductions = round3(absenceDeduction + delayDeduction + loanDeduction);
-      const netSalary = Math.max(0, round3(grossSalary + overtimeAmount + bonusAmount - totalDeductions));
+      const { totalDeductions, netSalary } = computeNetPayrollFromComponents({
+        grossSalary,
+        overtimeAmount,
+        bonusAmount,
+        absenceDeduction,
+        delayDeduction,
+        loanDeduction,
+      });
 
       return {
         id: `SLIP-${selectedMonth}-${emp.id}`,
@@ -497,9 +528,18 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
       const absenceDeduction = attendanceFinancials.absenceDeduction;
       const delayDeduction = attendanceFinancials.delayDeduction;
       
+      const empLoan = loans.find((l) => l.employeeId === newForm.employeeId && l.remainingAmount > 0);
+      const loanDeduction = empLoan
+        ? Math.min(empLoan.monthlyInstallment, empLoan.remainingAmount)
+        : 0;
       const grossSalary = totalBase;
-      const totalDeductions = round3(absenceDeduction + delayDeduction);
-      const netSalary = Math.max(0, round3(grossSalary + overtimeAmount - totalDeductions));
+      const { totalDeductions, netSalary } = computeNetPayrollFromComponents({
+        grossSalary,
+        overtimeAmount,
+        absenceDeduction,
+        delayDeduction,
+        loanDeduction,
+      });
 
       const newId = `SLIP-${periodMonth}-${newForm.employeeId || '00' + (payslips.length + 1)}`;
       const newSeq = `PAY/${periodMonth.replace('-', '/')}/${String(payslips.length + 1).padStart(4, '0')}`;
@@ -525,7 +565,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
         absenceDeduction,
         delayMinutes: delMins,
         delayDeduction,
-        loanDeduction: 0,
+        loanDeduction,
         grossSalary,
         totalDeductions,
         netSalary,
@@ -568,8 +608,13 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
         const delayDeduction = attendanceFinancials.delayDeduction;
         
         const grossSalary = totalBase;
-        const totalDeductions = round3(absenceDeduction + delayDeduction + p.loanDeduction);
-        const netSalary = Math.max(0, round3(grossSalary + overtimeAmount - totalDeductions));
+        const { totalDeductions, netSalary } = computeNetPayrollFromComponents({
+          grossSalary,
+          overtimeAmount,
+          absenceDeduction,
+          delayDeduction,
+          loanDeduction: p.loanDeduction,
+        });
 
         return {
           ...p,
