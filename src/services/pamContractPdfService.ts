@@ -254,22 +254,9 @@ function fontCandidatePaths(fontChoice: PamFontChoice): string[] {
     : ['fonts/Amiri-Bold.ttf', 'fonts/Amiri-Regular.ttf', 'fonts/Cairo-Bold.ttf', 'fonts/Cairo-Regular.ttf'];
 }
 
+/** Browser / Vite client: fetch fonts from /public */
 async function loadFontBytes(fontChoice: PamFontChoice = 'cairo'): Promise<ArrayBuffer> {
   const relPaths = fontCandidatePaths(fontChoice);
-
-  if (typeof window === 'undefined') {
-    const fs = await import('fs');
-    const pathMod = await import('path');
-    for (const rel of relPaths) {
-      const full = pathMod.join(process.cwd(), 'public', rel);
-      if (fs.existsSync(full)) {
-        const buf = fs.readFileSync(full);
-        if (buf.byteLength > 10000) {
-          return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
-        }
-      }
-    }
-  }
 
   let lastError: unknown = null;
   for (const rel of relPaths) {
@@ -297,9 +284,17 @@ export async function generatePamContractPdfBytesFromTemplate(
   templateBytes: ArrayBuffer | Uint8Array,
   data: PamContractData,
   coords: PamCoordinatesConfig = DEFAULT_PAM_COORDINATES,
-  fontChoice: PamFontChoice = 'cairo'
+  fontChoice: PamFontChoice = 'cairo',
+  preloadedFontBytes?: ArrayBuffer | Uint8Array
 ): Promise<Uint8Array> {
-  const fontBytes = await loadFontBytes(fontChoice);
+  const fontBytes = preloadedFontBytes
+    ? preloadedFontBytes instanceof Uint8Array
+      ? preloadedFontBytes.buffer.slice(
+          preloadedFontBytes.byteOffset,
+          preloadedFontBytes.byteOffset + preloadedFontBytes.byteLength
+        )
+      : preloadedFontBytes
+    : await loadFontBytes(fontChoice);
 
   const pdfDoc = await PDFDocument.load(templateBytes);
   pdfDoc.registerFontkit(fontkit);
