@@ -3,20 +3,13 @@ import { X, Printer, Building2, ShieldCheck, Sparkles, Award } from 'lucide-reac
 import { printDocument } from '../../utils/printUtils';
 import { PublicHoliday, HolidayDutyAssignment } from './holidayTypes';
 import { getCompensatedHolidays2026 } from '../../data/kuwaitPublicHolidays2026';
-
-export interface OfficialHolidaysPrintCompany {
-  nameAr?: string;
-  name?: string;
-  commercialLicenseNo?: string;
-  wsiCode?: string;
-  civilIdCompany?: string;
-  authorizedSignatory?: string;
-}
+import type { Company } from '../../types';
+import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
 
 interface OfficialPublicHolidaysPrintModalProps {
   isOpen: boolean;
   onClose: () => void;
-  company: OfficialHolidaysPrintCompany | null;
+  company: Company | null;
   holidays: PublicHoliday[];
   duties: HolidayDutyAssignment[];
   calendarYear?: number;
@@ -53,11 +46,8 @@ export const OfficialPublicHolidaysPrintModal: React.FC<OfficialPublicHolidaysPr
 }) => {
   const printRootId = 'official-holidays-registry-print';
 
-  const compName = company?.nameAr || company?.name || 'المنشأة المركزية';
-  const commercialNo = company?.commercialLicenseNo || '—';
-  const wsiCode = company?.wsiCode || '—';
-  const civilIdCompany = company?.civilIdCompany || '—';
-  const signatory = company?.authorizedSignatory || 'المدير العام المفوض بالتوقيع';
+  const profile = getCompanyPrintProfile(company);
+  const signatory = profile.authorizedSignatory !== '—' ? profile.authorizedSignatory : 'المدير العام المفوض بالتوقيع';
 
   const todayLabel = new Date().toLocaleDateString('ar-KW', {
     year: 'numeric',
@@ -121,18 +111,29 @@ export const OfficialPublicHolidaysPrintModal: React.FC<OfficialPublicHolidaysPr
           >
             <div className="border-b-2 border-slate-900 pb-4 mb-5 flex items-start justify-between gap-4">
               <div className="flex items-start gap-3">
-                <div
-                  className="w-14 h-14 rounded-full border-2 border-slate-800 flex items-center justify-center shrink-0 bg-gradient-to-b from-emerald-50 to-white"
-                  aria-hidden
-                >
-                  <ShieldCheck className="text-emerald-800" size={28} />
-                </div>
+                {profile.logoUrl ? (
+                  <img
+                    src={profile.logoUrl}
+                    alt=""
+                    className="w-14 h-14 object-contain rounded-lg border border-slate-200 shrink-0"
+                  />
+                ) : (
+                  <div
+                    className="w-14 h-14 rounded-full border-2 border-slate-800 flex items-center justify-center shrink-0 bg-gradient-to-b from-emerald-50 to-white"
+                    aria-hidden
+                  >
+                    <ShieldCheck className="text-emerald-800" size={28} />
+                  </div>
+                )}
                 <div>
                   <div className="text-[11px] font-bold text-slate-500">دولة الكويت — وزارة الشؤون الاجتماعية والعمل</div>
-                  <h2 className="text-lg font-black text-slate-900 leading-tight">{compName}</h2>
+                  <h2 className="text-lg font-black text-slate-900 leading-tight">{profile.displayNameAr}</h2>
                   <div className="text-[10px] text-slate-600 mt-1 font-mono space-y-0.5">
-                    <div>س.ت: <strong>{commercialNo}</strong> | ملف الشؤون (PAM/WPS): <strong>{wsiCode}</strong></div>
-                    <div>الرقم المدني للجهة: <strong>{civilIdCompany}</strong></div>
+                    <div>
+                      س.ت: <strong>{profile.commercialReg}</strong> | ملف الشؤون (PAM/WPS):{' '}
+                      <strong>{profile.wsiCode}</strong>
+                    </div>
+                    <div>الرقم المدني للجهة: <strong>{profile.civilIdCompany}</strong></div>
                   </div>
                 </div>
               </div>

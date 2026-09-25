@@ -1,6 +1,7 @@
 import React from 'react';
 import { DocumentItem, Employee, Company } from '../../types';
-import { X, Printer, Download, Shield, Calendar, CheckCircle2, AlertCircle, Building2 } from 'lucide-react';
+import { X, Printer, Building2 } from 'lucide-react';
+import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
 
 interface DocumentCompliancePrintModalProps {
   isOpen: boolean;
@@ -27,7 +28,12 @@ export const DocumentCompliancePrintModal: React.FC<DocumentCompliancePrintModal
     });
   };
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const profile = getCompanyPrintProfile(company);
+  const todayStr = new Date().toLocaleDateString('ar-KW', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
   const reportRef = `DOC-REP-${Date.now().toString().slice(-6)}`;
 
   // إحصائيات سريعة للتقرير
@@ -77,20 +83,47 @@ export const DocumentCompliancePrintModal: React.FC<DocumentCompliancePrintModal
         >
           
           {/* Header */}
-          <div className="border-b-2 border-slate-900 pb-4 mb-6 flex justify-between items-start">
-            <div className="space-y-1">
-              <h2 className="text-xl font-black text-slate-900">{company?.name || 'مجموعة أيسد الكويتية للحلول الإدارية'}</h2>
-              <p className="text-xs font-bold text-slate-600">إدارة الشؤون الإدارية والموارد البشرية - قسم الأرشيف الرقمي</p>
-              <div className="text-[11px] text-slate-500 flex items-center gap-3 pt-1">
-                <span>الرقم المدني للجهة: <strong className="font-mono text-slate-800">{company?.civilIdCompany || company?.civilId || '1029384756'}</strong></span>
-                <span>• السجل التجاري: <strong className="font-mono text-slate-800">{company?.commercialRegNo || '482910'}</strong></span>
+          <div className="border-b-2 border-slate-900 pb-4 mb-6 flex justify-between items-start gap-4">
+            <div className="flex items-start gap-3 min-w-0">
+              {profile.logoUrl ? (
+                <img
+                  src={profile.logoUrl}
+                  alt={profile.displayNameAr}
+                  className="w-16 h-16 object-contain rounded-lg border border-slate-200 bg-white shrink-0"
+                />
+              ) : (
+                <div className="w-16 h-16 rounded-lg border border-slate-300 bg-slate-50 flex items-center justify-center shrink-0">
+                  <Building2 className="text-[#714B67]" size={28} />
+                </div>
+              )}
+              <div className="space-y-1 min-w-0">
+                <h2 className="text-xl font-black text-slate-900 leading-tight">{profile.displayNameAr}</h2>
+                {profile.displayNameEn && profile.displayNameEn !== profile.displayNameAr && (
+                  <p className="text-[11px] font-bold text-slate-500" dir="ltr">{profile.displayNameEn}</p>
+                )}
+                <p className="text-xs font-bold text-slate-600">
+                  إدارة الشؤون الإدارية والموارد البشرية — قسم الأرشيف الرقمي
+                </p>
+                <div className="text-[11px] text-slate-600 flex flex-wrap items-center gap-x-3 gap-y-1 pt-1">
+                  <span>
+                    الرقم المدني للجهة:{' '}
+                    <strong className="font-mono text-slate-900">{profile.civilIdCompany}</strong>
+                  </span>
+                  <span>
+                    السجل التجاري: <strong className="font-mono text-slate-900">{profile.commercialReg}</strong>
+                  </span>
+                  {profile.wsiCode !== '—' && (
+                    <span>
+                      ملف الشؤون (PAM/WPS): <strong className="font-mono text-slate-900">{profile.wsiCode}</strong>
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* QR Code & Report Ref */}
-            <div className="text-left flex flex-col items-end">
-              <div className="w-16 h-16 border border-slate-300 rounded p-1 bg-slate-50 flex items-center justify-center text-[9px] font-mono text-center text-slate-500">
-                [QR OFFICIAL VERIFY]
+            <div className="text-left flex flex-col items-end shrink-0">
+              <div className="w-16 h-16 border border-slate-300 rounded p-1 bg-slate-50 flex items-center justify-center text-[8px] font-mono text-center text-slate-500 leading-tight">
+                {profile.companyId ? profile.companyId.slice(-8) : 'VERIFY'}
               </div>
               <span className="text-[10px] font-mono text-slate-500 mt-1">المرجع: {reportRef}</span>
               <span className="text-[10px] font-mono text-slate-500">التاريخ: {todayStr}</span>
@@ -184,7 +217,7 @@ export const DocumentCompliancePrintModal: React.FC<DocumentCompliancePrintModal
 
           {/* Footer notice */}
           <div className="mt-8 text-center text-[10px] text-slate-400 border-t border-slate-100 pt-3">
-            تم استخراج هذا التقرير تلقائياً من منظومة Odoo للأرشيف والمستندات - صالح لمراجعة الجهات الرسمية ووزارة الداخلية والهيئة العامة للقوى العاملة.
+            تم استخراج هذا التقرير آلياً لصالح {profile.displayNameAr} — منظومة أيسد للأرشيف والمستندات — صالح لمراجعة الجهات الرسمية والهيئة العامة للقوى العاملة.
           </div>
 
         </div>

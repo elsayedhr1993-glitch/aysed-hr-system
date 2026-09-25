@@ -14,6 +14,7 @@ import {
   resolveEmployeeDisplayName,
 } from '../utils/employeeDisplayName';
 import { resolveTenantCompanyId } from '../utils/tenantCompanyId';
+import { useTenantCompanyProfile } from '../hooks/useTenantCompanyProfile';
 import { 
   FolderOpen, FileText, Upload, Trash2, Search, X, CheckCircle2, 
   Scan, AlertTriangle, Download, Calendar, BellRing, Shield, 
@@ -48,6 +49,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
   onSelectEmpForForm,
 }) => {
   const resolvedCompanyId = resolveTenantCompanyId(tenantCompanyId, activeCompany?.id);
+  const companyForPrint = useTenantCompanyProfile(resolvedCompanyId, activeCompany);
 
   // Main Workspace Tab (Employee Docs vs Company Licenses)
   const [workspaceTab, setWorkspaceTab] = useState<'EMPLOYEE_DOCS' | 'COMPANY_LICENSES'>('EMPLOYEE_DOCS');
@@ -852,7 +854,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
         onClose={() => setShowPrintModal(false)}
         documents={filteredDocs}
         employees={employees}
-        company={activeCompany}
+        company={companyForPrint}
         filterTitle={activeFolder === 'ACTIVITIES' ? 'الوثائق المطلوب تجديدها عاجلاً' : 'أرشيف الوثائق العام'}
       />
 

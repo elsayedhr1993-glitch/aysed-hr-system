@@ -1114,14 +1114,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
       <OfficialPublicHolidaysPrintModal
         isOpen={showOfficialPrintModal}
         onClose={() => setShowOfficialPrintModal(false)}
-        company={{
-          nameAr: activeCompany?.nameAr,
-          name: activeCompany?.name,
-          commercialLicenseNo: activeCompany?.commercialLicenseNo,
-          wsiCode: activeCompany?.wsiCode,
-          civilIdCompany: activeCompany?.civilIdCompany,
-          authorizedSignatory: activeCompany?.authorizedSignatory,
-        }}
+        company={activeCompany}
         holidays={holidays}
         duties={duties}
         calendarYear={2026}

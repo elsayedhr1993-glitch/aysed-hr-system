@@ -149,6 +149,8 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const preferredCompanyId = getPreferredCompanyId(authCompanyId, !!isActualSuperAdmin);
 
+  const [tenantFirestoreOverlay, setTenantFirestoreOverlay] = useState<Partial<Company> | null>(null);
+
   // Automatically listen to auth session or active company changes in localStorage
   useEffect(() => {
     const syncFromStorage = () => {
@@ -195,10 +197,21 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
     : (authCompanyId || preferredCompanyId || getDeterministicCompanyId(rawActive));
   const activeCompany = {
     ...rawActive,
+    ...(tenantFirestoreOverlay || {}),
     id: activeCompanyId,
-    nameAr: isActualSuperAdmin && !isImpersonating ? 'منصة الإدارة المركزية' : rawActive.nameAr,
-    nameEn: isActualSuperAdmin && !isImpersonating ? 'SaaS Platform' : rawActive.nameEn,
-    name: isActualSuperAdmin && !isImpersonating ? 'منصة الإدارة المركزية' : rawActive.name
+    nameAr:
+      tenantFirestoreOverlay?.nameAr ||
+      (isActualSuperAdmin && !isImpersonating && !tenantFirestoreOverlay
+        ? 'منصة الإدارة المركزية'
+        : rawActive.nameAr),
+    nameEn:
+      tenantFirestoreOverlay?.nameEn ||
+      (isActualSuperAdmin && !isImpersonating && !tenantFirestoreOverlay ? 'SaaS Platform' : rawActive.nameEn),
+    name:
+      tenantFirestoreOverlay?.name ||
+      (isActualSuperAdmin && !isImpersonating && !tenantFirestoreOverlay
+        ? 'منصة الإدارة المركزية'
+        : rawActive.name),
   };
 
   // Strict SaaS Isolation: The accessible companies in dropdown is strictly the active context
@@ -252,6 +265,62 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
       cancelled = true;
     };
   }, [authCompanyId, isActualSuperAdmin]);
+
+  // Super Admin + ?companyId=… — hydrate tenant profile for headers, print, and payroll context
+  useEffect(() => {
+    if (!isActualSuperAdmin) {
+      setTenantFirestoreOverlay(null);
+      return;
+    }
+    const tenantId =
+      preferredCompanyId && preferredCompanyId !== 'SAAS_PLATFORM' && preferredCompanyId !== 'comp-super-admin'
+        ? preferredCompanyId
+        : isImpersonating && impersonatedCompany?.id
+          ? impersonatedCompany.id
+          : null;
+    if (!tenantId) {
+      setTenantFirestoreOverlay(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { doc, getDoc } = await import('firebase/firestore');
+        const { db, getCompaniesCollectionName } = await import('../lib/firebase');
+        const snap = await getDoc(doc(db, getCompaniesCollectionName(), tenantId));
+        if (cancelled) return;
+        if (!snap.exists()) {
+          setTenantFirestoreOverlay({ id: tenantId });
+          return;
+        }
+        const data = snap.data() as Record<string, unknown>;
+        const nameAr = String(data.nameAr || data.name || '').trim();
+        setTenantFirestoreOverlay({
+          id: tenantId,
+          nameAr,
+          nameEn: String(data.nameEn || ''),
+          name: nameAr,
+          commercialRegNo: String(data.commercialReg || data.commercialRegNo || data.crNumber || ''),
+          commercialLicenseNo: String(data.commercialLicenseNo || data.commercialReg || ''),
+          crNumber: String(data.crNumber || data.commercialReg || ''),
+          civilIdCompany: String(data.civilIdCompany || data.signatoryCivilId || ''),
+          wsiCode: String(data.wsiCode || data.pamFileNumber || data.pam || ''),
+          logoUrl: String(data.logoUrl || data.logo || ''),
+          logo: String(data.logo || data.logoUrl || ''),
+          mohLicense: String(data.mohLicense || ''),
+          authorizedSignatory: String(data.authorizedSignatory || data.managerName || ''),
+          email: String(data.email || ''),
+          phone: String(data.phone || ''),
+        });
+      } catch (e) {
+        console.warn('Super-admin tenant company hydrate failed:', e);
+        if (!cancelled) setTenantFirestoreOverlay({ id: tenantId });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isActualSuperAdmin, preferredCompanyId, isImpersonating, impersonatedCompany?.id]);
 
   useEffect(() => {
     if (!isActualSuperAdmin && isImpersonating) {
