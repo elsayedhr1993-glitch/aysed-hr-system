@@ -209,12 +209,48 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
     localStorage.setItem('activeCompanyId', authCompanyId);
   }, [authCompanyId]);
 
-  // Bind master company id to authenticated tenant company (ignore stale Almanar/local defaults)
+  // Hydrate tenant company profile from Firestore (fixes stale Almanar name on Elite/Fanar logins)
   useEffect(() => {
     if (isActualSuperAdmin || !authCompanyId) return;
-    setMasterCompany((prev) =>
-      prev.id === authCompanyId ? prev : { ...prev, id: authCompanyId }
-    );
+    let cancelled = false;
+    (async () => {
+      try {
+        const { doc, getDoc } = await import('firebase/firestore');
+        const { db, getCompaniesCollectionName } = await import('../lib/firebase');
+        const snap = await getDoc(doc(db, getCompaniesCollectionName(), authCompanyId));
+        if (!snap.exists() || cancelled) return;
+        const data = snap.data() as Record<string, unknown>;
+        const nameAr = String(data.nameAr || data.name || '').trim();
+        setMasterCompany((prev) => ({
+          ...prev,
+          id: authCompanyId,
+          nameAr: nameAr || prev.nameAr,
+          nameEn: String(data.nameEn || prev.nameEn || ''),
+          name: nameAr || prev.name,
+          commercialRegNo: String(data.commercialReg || data.commercialRegNo || prev.commercialRegNo || ''),
+          crNumber: String(data.commercialReg || data.crNumber || prev.crNumber || ''),
+          civilIdCompany: String(data.civilIdCompany || data.signatoryCivilId || prev.civilIdCompany || ''),
+          pamFileNumber: String(data.pamFileNumber || data.pam || prev.pamFileNumber || ''),
+          bankName: String(data.bankName || prev.bankName || ''),
+          iban: String(data.iban || prev.iban || ''),
+          ...(data.authorizedSignatory || data.managerName
+            ? { authorizedSignatory: data.authorizedSignatory || data.managerName }
+            : {}),
+          ...(data.signatoryCivilId ? { signatoryCivilId: data.signatoryCivilId } : {}),
+          ...(data.laborDepartment ? { laborDepartment: data.laborDepartment } : {}),
+          ...(data.commercialActivity || data.activity
+            ? { commercialActivity: data.commercialActivity || data.activity }
+            : {}),
+          ...(data.pamOverlayCoords ? { pamOverlayCoords: data.pamOverlayCoords as Company['pamOverlayCoords'] } : {}),
+          ...(data.pamFontChoice ? { pamFontChoice: data.pamFontChoice as Company['pamFontChoice'] } : {}),
+        }));
+      } catch (e) {
+        console.warn('Company profile hydrate failed:', e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [authCompanyId, isActualSuperAdmin]);
 
   useEffect(() => {

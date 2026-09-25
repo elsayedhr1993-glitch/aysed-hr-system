@@ -46,16 +46,8 @@ export type TemplateCategory = 'ALL' | 'CONTRACTS' | 'BANKING' | 'ADMIN';
 export type WorkspaceView = 'split' | 'editor' | 'preview';
 
 export type TemplateId = 
-  | 'contract_kuwait' 
   | 'pam_contract' 
-  | 'contract_part_time'
   | 'leave_request_form'
-  | 'salary_cert_ar' 
-  | 'salary_cert_en' 
-  | 'salary_cert_bank'
-  | 'salary_cert_gov'
-  | 'to_whom' 
-  | 'noc_letter'
   | 'custody_handover'
   | 'custody_clearance'
   | 'commencement'
@@ -78,84 +70,17 @@ interface TemplateDef {
 }
 
 const TEMPLATES_LIST: TemplateDef[] = [
-  // 1. عقود العمل الرسمية
-  {
-    id: 'contract_kuwait',
-    category: 'CONTRACTS',
-    title: 'عقد عمل أهلي كويتي رسمي',
-    subtitle: 'شامل كافة المواد الإلزامية طبقاً لقانون العمل الكويتي رقم 6 لسنة 2010',
-    badge: 'معتمد قانونياً',
-    icon: '📜'
-  },
   {
     id: 'pam_contract',
     category: 'CONTRACTS',
-    title: 'عقد القوى العاملة الموحد (PAM 2)',
-    subtitle: 'النموذج الرسمي للهيئة العامة للقوى العاملة بدولة الكويت للتحويل وتجديد الإقامة',
-    badge: 'نموذج PAM',
+    title: 'عقد عمل — نموذج (2) الهيئة العامة للقوى العاملة',
+    subtitle: 'النموذج الرسمي المعتمد (PdfProxy) — تعبئة تلقائية فوق pam_contract_form_2.pdf',
+    badge: 'PAM نموذج 2',
     icon: '🏛️',
     isPamModal: true
   },
-  {
-    id: 'contract_part_time',
-    category: 'CONTRACTS',
-    title: 'عقد عمل بدوام جزئي / استشاري',
-    subtitle: 'عقد مهني مرن بالساعة والمهام للمستشارين والكوادر المؤقتة',
-    badge: 'دوام جزئي',
-    icon: '⏳'
-  },
 
-  // 2. الشهادات والخطابات البنكية
-  {
-    id: 'salary_cert_ar',
-    category: 'BANKING',
-    title: 'شهادة تفصيل راتب واستمرارية تحويل (عربي)',
-    subtitle: 'موجهة للبنوك والجهات التمويلية موثقة برقم الآيبان ونظام حماية الأجور WPS',
-    badge: 'معاملات بنكية',
-    icon: '🏦'
-  },
-  {
-    id: 'salary_cert_en',
-    category: 'BANKING',
-    title: 'Salary Certificate & Proof of Income (EN)',
-    subtitle: 'Official certified salary certificate for Embassies, Consulates & International Banks',
-    badge: 'English / Visa',
-    icon: '🌐'
-  },
-  {
-    id: 'salary_cert_bank',
-    category: 'BANKING',
-    title: 'شهادة راتب بنكية تفصيلية',
-    subtitle: 'نسخة موجهة للبنوك تتضمن الآيبان ورقم الحساب وتفاصيل البدلات ونظام WPS',
-    badge: 'نسخة بنكية',
-    icon: '💳'
-  },
-  {
-    id: 'salary_cert_gov',
-    category: 'BANKING',
-    title: 'شهادة راتب للجهات الحكومية',
-    subtitle: 'نسخة رسمية مبسطة موجهة للوزارات والجهات الرسمية والبعثات',
-    badge: 'نسخة حكومية',
-    icon: '🏢'
-  },
-  {
-    id: 'to_whom',
-    category: 'BANKING',
-    title: 'شهادة لمن يهمه الأمر (إثبات عمل)',
-    subtitle: 'إثبات رأس العمل والمسمى الوظيفي للجهات الحكومية والوزارات الكويتية',
-    badge: 'إثبات كادر',
-    icon: '📋'
-  },
-  {
-    id: 'noc_letter',
-    category: 'BANKING',
-    title: 'خطاب عدم ممانعة (NOC)',
-    subtitle: 'للمرور (استخراج رخصة قيادة) أو فتح حساب بنكي أو استكمال دراسات عليا',
-    badge: 'عدم ممانعة',
-    icon: '🚗'
-  },
-
-  // 3. الإجراءات الإدارية والقانونية
+  // الإجراءات الإدارية والقانونية
   {
     id: 'commencement',
     category: 'ADMIN',
@@ -248,270 +173,6 @@ const TEMPLATES_LIST: TemplateDef[] = [
 
 // Default HTML template bodies with smart placeholders embedded
 const DEFAULT_TEMPLATE_BODIES: Partial<Record<TemplateId, string>> = {
-  salary_cert_ar: `
-<div style="text-align: center; margin: 15px 0;">
-  <h1 style="font-size: 20px; font-weight: 900; border-bottom: 2px solid #0f172a; display: inline-block; padding-bottom: 6px;">
-    شهادة تفصيل راتب واستمرارية تحويل
-  </h1>
-</div>
-
-<p><strong>السادة / إلى من يهمه الأمر المحترمين</strong></p>
-<p>تحية طيبة وبعد ،،،</p>
-
-<p>
-  تشهد إدارة <strong>{اسم_الشركة}</strong> بأن {السيد_السيدة}/ <strong>{اسم_الموظف}</strong>، حامل البطاقة المدنية رقم (<strong>{الرقم_المدني}</strong>)، وجنسيته (<strong>{الجنسية}</strong>)، {يعمل_تعمل} لدينا بوظيفة (<strong>{المسمى_الوظيفي}</strong>) في قسم (<strong>{القسم}</strong>) وذلك اعتباراً من تاريخ <strong>{تاريخ_المباشرة}</strong> ولا يزال على رأس عمله حتى تاريخه.
-</p>
-
-<p>ويتقاضى المذكور راتباً شهرياً شاملاً ومفصلاً على النحو الآتي:</p>
-
-<table style="width: 100%; border-collapse: collapse; margin: 15px 0; border: 1px solid #cbd5e1;">
-  <thead>
-    <tr style="background-color: #f1f5f9;">
-      <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: right;">الراتب الأساسي</th>
-      <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: right;">بدل السكن</th>
-      <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: right;">بدل الانتقال</th>
-      <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: right; color: #714B67;">إجمالي الراتب الشهري</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr style="font-weight: bold;">
-      <td style="border: 1px solid #cbd5e1; padding: 8px;">{الراتب_الأساسي}</td>
-      <td style="border: 1px solid #cbd5e1; padding: 8px;">{بدل_السكن}</td>
-      <td style="border: 1px solid #cbd5e1; padding: 8px;">{بدل_الانتقال}</td>
-      <td style="border: 1px solid #cbd5e1; padding: 8px; background-color: #faf5ff; color: #714B67; font-size: 15px;">
-        {الراتب_الشامل}
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-<p><strong>فقط وقدره:</strong> ({تفقيت_الراتب}).</p>
-
-<p>
-  ويتم تحويل مستحقاته الشهرية بانتظام عبر نظام حماية الأجور (WPS) لحسابه البنكي طرف <strong>{اسم_البنك}</strong>، رقم الآيبان (IBAN): <strong>{الآيبان}</strong>.
-</p>
-
-<p>
-  وقد أُعطيت {له_لها} هذه الشهادة بناءً على طلبه دون أدنى مسؤولية مالية أو قانونية على المنشأة تجاه حقوق الغير.
-</p>
-
-<p style="text-align: center; font-weight: bold; margin-top: 25px;">وتفضلوا بقبول فائق التقدير والاحترام ،،،</p>
-`,
-
-  salary_cert_en: `
-<div style="text-align: center; margin: 15px 0;" dir="ltr">
-  <h1 style="font-size: 20px; font-weight: 900; border-bottom: 2px solid #0f172a; display: inline-block; padding-bottom: 6px;">
-    SALARY CERTIFICATE & PROOF OF EMPLOYMENT
-  </h1>
-</div>
-
-<div dir="ltr">
-  <p><strong>To Whom It May Concern</strong></p>
-  <p>Dear Sir / Madam,</p>
-
-  <p>
-    This is to certify that Mr./Ms. <strong>{اسم_الموظف}</strong>, holding Civil ID No. (<strong>{الرقم_المدني}</strong>) and {الجنسية} nationality, is a full-time employee with <strong>{اسم_الشركة}</strong>.
-  </p>
-
-  <p>
-    The employee has been actively engaged as a <strong>{المسمى_الوظيفي}</strong> in the {القسم} department since <strong>{تاريخ_المباشرة}</strong>, and remains in good standing up to the present date.
-  </p>
-
-  <p>His/Her current gross monthly remuneration is structured as follows:</p>
-
-  <table style="width: 100%; border-collapse: collapse; margin: 15px 0; border: 1px solid #cbd5e1;">
-    <thead>
-      <tr style="background-color: #f1f5f9;">
-        <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: left;">Basic Salary</th>
-        <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: left;">Housing Allowance</th>
-        <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: left;">Transport</th>
-        <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: left; color: #714B67;">Total Gross Salary</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr style="font-weight: bold;">
-        <td style="border: 1px solid #cbd5e1; padding: 8px;">{الراتب_الأساسي}</td>
-        <td style="border: 1px solid #cbd5e1; padding: 8px;">{بدل_السكن}</td>
-        <td style="border: 1px solid #cbd5e1; padding: 8px;">{بدل_الانتقال}</td>
-        <td style="border: 1px solid #cbd5e1; padding: 8px; background-color: #faf5ff; color: #714B67; font-size: 15px;">
-          {الراتب_الشامل}
-        </td>
-      </tr>
-    </tbody>
-  </table>
-
-  <p>
-    Remuneration is remitted monthly in compliance with the Kuwait Wages Protection System (WPS) to {اسم_البنك}, IBAN: <strong>{الآيبان}</strong>.
-  </p>
-
-  <p>
-    This certificate is issued upon the employee's request without any financial liability or commitment on the company's part towards third parties.
-  </p>
-
-  <p style="margin-top: 25px;">Sincerely,</p>
-</div>
-`,
-
-  salary_cert_bank: `
-<div style="text-align: center; margin: 15px 0;">
-  <h1 style="font-size: 20px; font-weight: 900; border-bottom: 2px solid #0f172a; display: inline-block; padding-bottom: 6px;">
-    شهادة راتب بنكية تفصيلية
-  </h1>
-</div>
-
-<p><strong>السادة / إدارة الائتمان أو التمويل المحترمين</strong></p>
-<p>تحية طيبة وبعد ،،،</p>
-
-<p>
-  تشهد إدارة <strong>{اسم_الشركة}</strong> بأن {السيد_السيدة}/ <strong>{اسم_الموظف}</strong>، حامل البطاقة المدنية رقم (<strong>{الرقم_المدني}</strong>)،
-  {يعمل_تعمل} لدينا على وظيفة (<strong>{المسمى_الوظيفي}</strong>) منذ تاريخ <strong>{تاريخ_المباشرة}</strong> وما زال على رأس عمله حتى تاريخه.
-</p>
-
-<table style="width: 100%; border-collapse: collapse; margin: 15px 0; border: 1px solid #cbd5e1;">
-  <tbody>
-    <tr><td style="border: 1px solid #cbd5e1; padding: 8px;">الراتب الأساسي</td><td style="border: 1px solid #cbd5e1; padding: 8px;"><strong>{الراتب_الأساسي}</strong></td></tr>
-    <tr><td style="border: 1px solid #cbd5e1; padding: 8px;">بدل السكن</td><td style="border: 1px solid #cbd5e1; padding: 8px;"><strong>{بدل_السكن}</strong></td></tr>
-    <tr><td style="border: 1px solid #cbd5e1; padding: 8px;">بدل الانتقال</td><td style="border: 1px solid #cbd5e1; padding: 8px;"><strong>{بدل_الانتقال}</strong></td></tr>
-    <tr style="background: #faf5ff;"><td style="border: 1px solid #cbd5e1; padding: 8px;"><strong>إجمالي الراتب الشهري</strong></td><td style="border: 1px solid #cbd5e1; padding: 8px;"><strong>{الراتب_الشامل}</strong></td></tr>
-    <tr><td style="border: 1px solid #cbd5e1; padding: 8px;">اسم البنك</td><td style="border: 1px solid #cbd5e1; padding: 8px;"><strong>{اسم_البنك}</strong></td></tr>
-    <tr><td style="border: 1px solid #cbd5e1; padding: 8px;">رقم الحساب</td><td style="border: 1px solid #cbd5e1; padding: 8px;"><strong>{رقم_الحساب}</strong></td></tr>
-    <tr><td style="border: 1px solid #cbd5e1; padding: 8px;">رقم الآيبان</td><td style="border: 1px solid #cbd5e1; padding: 8px;"><strong>{الآيبان}</strong></td></tr>
-  </tbody>
-</table>
-
-<p><strong>فقط وقدره:</strong> ({تفقيت_الراتب}). ويتم تحويل الراتب شهرياً عبر نظام حماية الأجور (WPS).</p>
-<p>أُصدرت هذه الشهادة بناءً على طلب الموظف دون تحمل المنشأة أي التزام تجاه الغير.</p>
-`,
-
-  salary_cert_gov: `
-<div style="text-align: center; margin: 15px 0;">
-  <h1 style="font-size: 20px; font-weight: 900; border-bottom: 2px solid #0f172a; display: inline-block; padding-bottom: 6px;">
-    شهادة راتب للجهات الحكومية والرسمية
-  </h1>
-</div>
-
-<p><strong>السادة / الجهة الحكومية المختصة المحترمين</strong></p>
-<p>تحية طيبة وبعد ،،،</p>
-<p>
-  نفيدكم بأن {السيد_السيدة}/ <strong>{اسم_الموظف}</strong>، حامل البطاقة المدنية رقم (<strong>{الرقم_المدني}</strong>)،
-  {يعمل_تعمل} لدى <strong>{اسم_الشركة}</strong> بمسمى (<strong>{المسمى_الوظيفي}</strong>) منذ <strong>{تاريخ_المباشرة}</strong> وحتى تاريخه.
-</p>
-<p>
-  إجمالي الراتب الشهري المستحق: <strong>{الراتب_الشامل}</strong> فقط ({تفقيت_الراتب}).
-</p>
-<p>
-  وقد منحت له هذه الشهادة لتقديمها إلى الجهة الرسمية المعنية، دون أي التزامات مالية إضافية على المنشأة.
-</p>
-`,
-
-  contract_kuwait: `
-<div style="text-align: center; margin: 10px 0;">
-  <h1 style="font-size: 20px; font-weight: 900; border-bottom: 2px solid #0f172a; display: inline-block; padding-bottom: 4px;">
-    عقد عمل في القطاع الأهلي
-  </h1>
-  <div style="font-size: 12px; color: #475569; font-weight: bold; margin-top: 4px;">
-    (محرر وفقاً لأحكام قانون العمل الكويتي في القطاع الأهلي رقم 6 لسنة 2010 والقرارات المنفذة له)
-  </div>
-</div>
-
-<p>
-  إنه في يوم <strong>{تاريخ_اليوم}</strong> بدولة الكويت، تم الاتفاق والتراضي بين كل من:
-</p>
-
-<div style="padding: 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; margin: 10px 0;">
-  <p style="margin: 4px 0;"><strong>الطرف الأول (صاحب العمل):</strong> {اسم_الشركة}، سجل تجاري: {السجل_التجاري}، الرقم الآلي: {الرقم_الآلي}.</p>
-  <p style="margin: 4px 0;"><strong>الطرف الثاني (العامل):</strong> {السيد_السيدة}/ {اسم_الموظف}، الجنسية: {الجنسية}، البطاقة المدنية: ({الرقم_المدني}).</p>
-</div>
-
-<p>
-  <strong>البند الأول (طبيعة العمل ومكانه):</strong> {يعمل_تعمل} {العامل_العاملة} لدى الطرف الأول بمهنة (<strong>{المسمى_الوظيفي}</strong>) في إدارة (<strong>{القسم}</strong>)، ويلتزم بأداء واجباته في مقرات المنشأة وفروعها بدولة الكويت.
-</p>
-
-<p>
-  <strong>البند الثاني (مدة العقد والتجربة):</strong> يبدأ سريان هذا العقد من تاريخ <strong>{تاريخ_المباشرة}</strong> وحتى <strong>{نهاية_العقد}</strong>، ويخضع الطرف الثاني لفترة تجربة مدتها <strong>100 يوم عمل</strong> طبقاً للمادة (24) من قانون العمل.
-</p>
-
-<p>
-  <strong>البند الثالث (الأجر والبدلات):</strong> يتقاضى الطرف الثاني أجراً شهرياً شاملاً قدره (<strong>{الراتب_الشامل}</strong>) فقط ({تفقيت_الراتب})، مفصلاً كالتالي: أساسي ({الراتب_الأساسي}) + بدل سكن ({بدل_السكن}) + بدل انتقال ({بدل_الانتقال})، ويحول عبر نظام حماية الأجور (WPS) لحسابه طرف {اسم_البنك}.
-</p>
-
-<p>
-  <strong>البند الرابع (ساعات العمل والراحة):</strong> ساعات العمل <strong>48 ساعة أسبوعياً</strong>، مع منح العامل يوم راحة أسبوعية مدفوعة الأجر طبقاً للمادتين (64 و 67).
-</p>
-
-<p>
-  <strong>البند الخامس (الإجازات السنوية ومكافأة نهاية الخدمة):</strong> يستحق العامل إجازة سنوية مدتها 30 يوماً مدفوعة الأجر، وتصرف مكافأة نهاية الخدمة طبقاً للمادة (51) من القانون رقم 6 لسنة 2010.
-</p>
-
-<p>
-  <strong>البند السادس (المحاكم المختصة):</strong> تختص المحاكم العمالية بدولة الكويت بنظر أي نزاع قد ينشأ، وحُرر هذا العقد من نسختين بيد كل طرف نسخة للعمل بموجبها.
-</p>
-`,
-
-  contract_part_time: `
-<div style="text-align: center; margin: 10px 0;">
-  <h1 style="font-size: 20px; font-weight: 900; border-bottom: 2px solid #0f172a; display: inline-block; padding-bottom: 4px;">
-    عقد عمل جزئي وتقديم خدمات استشارية (Part-Time)
-  </h1>
-</div>
-
-<p>
-  تم الاتفاق بين <strong>{اسم_الشركة}</strong> (طرف أول) و{السيد_السيدة}/ <strong>{اسم_الموظف}</strong>، المدني: <strong>{الرقم_المدني}</strong> (طرف ثانٍ) {بصفته_بصفتها} مستشاراً وخبيراً في مجال (<strong>{المسمى_الوظيفي}</strong>).
-</p>
-
-<p>
-  <strong>1. نطاق المهام:</strong> يقدم الطرف الثاني استشاراته التخصصية بما لا يقل عن <strong>20 ساعة شهرياً</strong> بمقر الشركة أو عن بُعد بحسب حاجة العمل.
-</p>
-<p>
-  <strong>2. المقابل المالي:</strong> يتقاضى الطرف الثاني أتعاباً شهرية إجمالية قدرها (<strong>{الراتب_الشامل}</strong>) فقط ({تفقيت_الراتب}) تصرف في نهاية كل شهر ميلادي.
-</p>
-<p>
-  <strong>3. السرية والملكية الفكرية:</strong> يتعهد الطرف الثاني بالمحافظة على سرية بيانات المنشأة ومشاريعها وعملائها تعهداً أبدياً لا يسقط بانتهاء العقد.
-</p>
-`,
-
-  to_whom: `
-<div style="text-align: center; margin: 15px 0;">
-  <h1 style="font-size: 20px; font-weight: 900; border-bottom: 2px solid #0f172a; display: inline-block; padding-bottom: 6px;">
-    شهادة لمن يهمه الأمر
-  </h1>
-</div>
-
-<p><strong>السادة / الجهات الرسمية والمعنية المحترمين</strong></p>
-<p>تحية طيبة وبعد ،،،</p>
-
-<p>
-  تفيد إدارة <strong>{اسم_الشركة}</strong> بأن {المذكور_المذكورة}/ <strong>{اسم_الموظف}</strong>، حامل البطاقة المدنية رقم (<strong>{الرقم_المدني}</strong>)، من الجنسية (<strong>{الجنسية}</strong>)، {يعمل_تعمل} لدينا بالمنشأة بمسمى (<strong>{المسمى_الوظيفي}</strong>) في قسم (<strong>{القسم}</strong>) وذلك اعتباراً من <strong>{تاريخ_المباشرة}</strong> وما زال على رأس عمله حتى تاريخ هذا الخطاب.
-</p>
-
-<p>
-  وقد أعطيت {له_لها} هذه الشهادة بناءً على طلبه لتقديمها إلى من يهمه الأمر دون أي التزام مالي أو قانوني على الشركة تجاه الغير.
-</p>
-
-<p style="text-align: center; font-weight: bold; margin-top: 30px;">وتفضلوا بقبول فائق الاحترام والتقدير ،،،</p>
-`,
-
-  noc_letter: `
-<div style="text-align: center; margin: 15px 0;">
-  <h1 style="font-size: 20px; font-weight: 900; border-bottom: 2px solid #0f172a; display: inline-block; padding-bottom: 6px;">
-    كتاب عدم ممانعة رسمي (No Objection Certificate)
-  </h1>
-</div>
-
-<p><strong>السادة / الإدارة العامة للمرور - وزارة الداخلية المحترمين</strong></p>
-<p>تحية طيبة وبعد ،،،</p>
-
-<p>
-  تفيد شركة <strong>{اسم_الشركة}</strong> بأنها لا تمانع من قيام {مكفولها_مكفولتها} {السيد_السيدة}/ <strong>{اسم_الموظف}</strong>، حامل البطاقة المدنية رقم (<strong>{الرقم_المدني}</strong>)، والذي {يعمل_تعمل} لدينا بمهنة (<strong>{المسمى_الوظيفي}</strong>) باستخراج رخصة سوق خاصة طبقاً للقوانين واللوائح المعمول بها بدولة الكويت.
-</p>
-
-<p>
-  وهذا إقرار وتفويض منا بذلك دون أي مسؤولية مدنية أو جنائية على كاهل الشركة.
-</p>
-
-<p style="text-align: center; font-weight: bold; margin-top: 30px;">وتفضلوا بقبول فائق التقدير ،،،</p>
-`,
-
   commencement: `
 <div style="text-align: center; margin: 15px 0;">
   <h1 style="font-size: 20px; font-weight: 900; border-bottom: 2px solid #0f172a; display: inline-block; padding-bottom: 6px;">
@@ -759,7 +420,7 @@ export const OdooTemplatesApp: React.FC = () => {
   const { employees } = useOdooHierarchy();
 
   const [activeCategory, setActiveCategory] = useState<TemplateCategory>('ALL');
-  const [selectedTemplate, setSelectedTemplate] = useState<TemplateId>('salary_cert_bank');
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateId>('pam_contract');
   const [selectedEmpId, setSelectedEmpId] = useState<string>('');
   const [showPamModal, setShowPamModal] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
@@ -789,7 +450,7 @@ export const OdooTemplatesApp: React.FC = () => {
   const [eosAmount, setEosAmount] = useState('0.000');
 
   // Active Template HTML Content (loaded in the rich editor)
-  const [editorContent, setEditorContent] = useState<string>(DEFAULT_TEMPLATE_BODIES.salary_cert_bank || '');
+  const [editorContent, setEditorContent] = useState<string>('');
 
   const previewSheetRef = useRef<HTMLDivElement>(null);
 
@@ -1319,7 +980,6 @@ export const OdooTemplatesApp: React.FC = () => {
               {[
                 { id: 'ALL', label: `الكل (${TEMPLATES_LIST.length})` },
                 { id: 'CONTRACTS', label: 'عقود العمل' },
-                { id: 'BANKING', label: 'الشهادات' },
                 { id: 'ADMIN', label: 'إداري' }
               ].map(cat => (
                 <button

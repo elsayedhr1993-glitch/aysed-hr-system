@@ -38,11 +38,12 @@ export const PrintActionsMenu: React.FC<PrintActionsMenuProps> = ({
   const moduleTemplates: Record<string, PrintTemplateOption[]> = {
     // 1. تطبيق الموظفين والملفات (HR Core)
     employees: [
-      { id: 'salary_cert_ar', titleAr: 'شهادة راتب واستمرارية (عربي)', titleEn: 'Salary Certificate (Arabic)', icon: '📄' },
-      { id: 'salary_cert_en', titleAr: 'Salary Certificate (English)', titleEn: 'Salary Certificate (English)', icon: '🌐' },
-      { id: 'experience_cert', titleAr: 'شهادة خبرة وإخلاء طرف', titleEn: 'Experience Letter', icon: '🎓' },
-      { id: 'employment_contract', titleAr: 'عقد العمل الموحد (نموذج 2 - القوى العاملة)', titleEn: 'Employment Contract', icon: '📜' },
-      { id: 'warning_letter', titleAr: 'نموذج إنذار إداري / لفت نظر', titleEn: 'Disciplinary Warning Letter', icon: '⚠️' }
+      {
+        id: 'pam_contract',
+        titleAr: 'عقد عمل — نموذج (2) القوى العاملة (PAM)',
+        titleEn: 'PAM Form 2 Employment Contract',
+        icon: '🏛️',
+      },
     ],
 
     // 2. تطبيق الإجازات (Leaves & Time Off)

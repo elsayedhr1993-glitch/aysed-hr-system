@@ -2,9 +2,7 @@
  * Quick check: Arabic shaping + bidi for PAM pdf-lib strings.
  * Usage: npx tsx scripts/verify-pam-arabic-text.ts
  */
-import { ensurePamBidi, preparePdfText } from '../src/services/pamContractPdfService.ts';
-
-await ensurePamBidi();
+import { preparePdfText } from '../src/services/pamContractPdfService.ts';
 
 const samples = [
   'ريميا ماناليل ماثيو',

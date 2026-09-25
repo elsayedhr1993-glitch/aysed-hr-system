@@ -11,11 +11,17 @@ export default defineConfig(() => {
         '@': path.resolve(__dirname, './src'),
       },
     },
+    optimizeDeps: {
+      include: ['bidi-js', 'arabic-persian-reshaper'],
+    },
     build: {
       outDir: 'dist',
       emptyOutDir: true,
       sourcemap: false,
       chunkSizeWarningLimit: 5000,
+      commonjsOptions: {
+        transformMixedEsModules: true,
+      },
       rollupOptions: {
         output: {
           manualChunks: {
@@ -23,7 +29,6 @@ export default defineConfig(() => {
             'vendor-icons': ['lucide-react'],
             'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
             'vendor-pdf': ['pdf-lib', 'pdfjs-dist'],
-            'vendor-arabic': ['bidi-js', 'arabic-persian-reshaper'],
             'vendor-data': ['xlsx', 'papaparse', 'recharts'],
             'vendor-ui': ['html2canvas-pro', 'html2pdf.js', 'motion'],
             'vendor-ocr': ['@google/genai', 'jsqr', 'qrcode']

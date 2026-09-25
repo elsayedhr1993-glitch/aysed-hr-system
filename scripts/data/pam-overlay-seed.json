@@ -1,0 +1,30 @@
+{
+  "_readme": "عدّل pamOverlayCoords بعد المعايرة في الواجهة، ثم: npx tsx scripts/seed-pam-overlay-settings.ts | للتصدير من السحابة: npx tsx scripts/seed-pam-overlay-settings.ts --export",
+  "platform": {
+    "pamFontChoice": "cairo",
+    "pamOverlayCoords": null
+  },
+  "companies": [
+    {
+      "companyId": "comp-1788442584841",
+      "label": "مستوصف المنار الطبي",
+      "inheritPlatformCoords": true,
+      "pamFontChoice": null,
+      "pamOverlayCoords": null
+    },
+    {
+      "companyId": "tenant_1788413304890",
+      "label": "مستوصف الفنار",
+      "inheritPlatformCoords": true,
+      "pamFontChoice": null,
+      "pamOverlayCoords": null
+    },
+    {
+      "companyId": "comp-1788435917695",
+      "label": "إيليت كلينك",
+      "inheritPlatformCoords": true,
+      "pamFontChoice": null,
+      "pamOverlayCoords": null
+    }
+  ]
+}

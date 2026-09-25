@@ -79,6 +79,19 @@ export interface Company {
   status?: string;
   industry?: string;
   branches?: CompanyBranch[];
+  /** PAM Form (2) — employer block */
+  authorizedSignatory?: string;
+  signatoryCivilId?: string;
+  laborDepartment?: string;
+  commercialActivity?: string;
+  activity?: string;
+  activityEn?: string;
+  managerName?: string;
+  managerNameEn?: string;
+  pamFileNumber?: string;
+  /** Saved print calibration (merged with platform_settings/pam_form_2) */
+  pamOverlayCoords?: Record<string, { x: number; y: number; size?: number; align?: string; pageIndex?: number }>;
+  pamFontChoice?: 'cairo' | 'amiri';
 }
 
 export interface Employee {

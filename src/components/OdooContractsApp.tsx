@@ -47,6 +47,7 @@ import { normalizeContractStatus } from '../utils/contractStatus';
 import { FileSpreadsheet } from 'lucide-react';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import OdooPamContractModal from './OdooPamContractModal';
 
 export interface DetailedContract extends EmployeeContract {
   contractRef: string;
@@ -65,6 +66,30 @@ export type OdooContractsAppProps = {
   onFocusConsumed?: () => void;
 };
 
+function employeePayloadForPamContract(c: DetailedContract) {
+  const total =
+    Number(c.basicSalary || 0) +
+    Number(c.housingAllowance || 0) +
+    Number(c.transportAllowance || 0) +
+    Number(c.medicalAllowance || 0) +
+    Number((c as any).otherAllowance || 0);
+  return {
+    id: c.id,
+    name: c.name,
+    fullNameAr: c.name,
+    civilId: c.civilId,
+    nationality: (c as any).nationality || 'غير كويتي',
+    jobTitle: c.jobTitle,
+    department: c.department,
+    salary: total > 0 ? total : c.basicSalary,
+    basicSalary: c.basicSalary,
+    hireDate: c.startDate,
+    contractStartDate: c.startDate,
+    contractEndDate: c.endDate,
+    residencyType: (c as any).residencyType || 'مادة 18 - قطاع أهلي',
+  };
+}
+
 export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
   focusEmployeeId,
   onFocusConsumed,
@@ -78,6 +103,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
   const [filterStatus, setFilterStatus] = useState<'all' | 'running' | 'draft' | 'expired'>('all');
   const [filterEmploymentType, setFilterEmploymentType] = useState<'all' | 'full_time' | 'part_time'>('all');
   const [printableContract, setPrintableContract] = useState<DetailedContract | null>(null);
+  const [pamPrintEmployee, setPamPrintEmployee] = useState<Record<string, unknown> | null>(null);
   const [isExportingContractPdf, setIsExportingContractPdf] = useState(false);
   const contractPrintRef = useRef<HTMLDivElement>(null);
   const [contractsLoaded, setContractsLoaded] = useState(false);
@@ -799,9 +825,17 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
                         </button>
                         <button
                           type="button"
+                          onClick={() => setPamPrintEmployee(employeePayloadForPamContract(c))}
+                          className="bg-[#714B67]/10 hover:bg-[#714B67] hover:text-white text-[#714B67] px-2 py-1 rounded-lg text-[10px] font-bold transition cursor-pointer"
+                          title="نموذج الهيئة العامة للقوى العاملة (PAM) — المعتمد"
+                        >
+                          PAM
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => setPrintableContract(c)}
                           className="bg-slate-50 hover:bg-slate-200 text-slate-600 p-1.5 rounded-lg transition cursor-pointer"
-                          title="معاينة وطباعة العقد الرسمي"
+                          title="معاينة ملخص العقد (HTML)"
                         >
                           <Printer size={13} />
                         </button>
@@ -1268,11 +1302,21 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
+                  onClick={() =>
+                    selectedContract && setPamPrintEmployee(employeePayloadForPamContract(selectedContract))
+                  }
+                  className="bg-[#714B67]/10 hover:bg-[#714B67] hover:text-white text-[#714B67] px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FileCheck size={14} />
+                  <span>نموذج PAM الرسمي</span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => selectedContract && setPrintableContract(selectedContract)}
                   className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
                 >
                   <Printer size={14} />
-                  <span>معاينة وطباعة العقد</span>
+                  <span>ملخص العقد (HTML)</span>
                 </button>
 
                 <button
@@ -1531,6 +1575,15 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
           </div>
         )}
       </div>
+
+      {pamPrintEmployee && (
+        <OdooPamContractModal
+          isOpen={Boolean(pamPrintEmployee)}
+          onClose={() => setPamPrintEmployee(null)}
+          employee={pamPrintEmployee}
+          company={activeCompany}
+        />
+      )}
     </div>
   );
 };

@@ -2369,6 +2369,7 @@ export function EmployeesApp(props?: any) {
           onClose={() => setShowPamContractModal(false)}
           employee={{
             ...selectedEmployee,
+            companyId: selectedEmployee.companyId || activeCompanyId,
             name: selectedEmployee.nameAr || selectedEmployee.name,
             civilId: selectedEmployee.civilId || selectedEmployee.civil_id_number,
             jobTitle: selectedEmployee.jobTitle,
