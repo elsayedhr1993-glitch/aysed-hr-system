@@ -1,7 +1,6 @@
 import { PDFDocument, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import reshaperPkg from 'arabic-persian-reshaper';
-import bidiFactory from 'bidi-js';
 
 export type PamFontChoice = 'cairo' | 'amiri';
 
@@ -169,7 +168,29 @@ export const DEFAULT_PAM_COORDINATES: PamCoordinatesConfig = {
   art15LangEn: { x: 72, y: 216, size: 7, align: 'left', pageIndex: 1 },
 };
 
-const bidi = bidiFactory();
+type BidiApi = {
+  getEmbeddingLevels: (text: string, direction: 'ltr' | 'rtl') => Uint8Array;
+  getReorderedString: (text: string, levels: Uint8Array) => string;
+};
+
+let bidiApi: BidiApi | null = null;
+let bidiLoadPromise: Promise<BidiApi> | null = null;
+
+/** Lazy-load bidi-js (avoids Vite/Rollup ESM init issues on Vercel) */
+export async function ensurePamBidi(): Promise<BidiApi> {
+  if (bidiApi) return bidiApi;
+  if (!bidiLoadPromise) {
+    bidiLoadPromise = import('bidi-js').then((mod) => {
+      const factory =
+        (mod as { default?: () => BidiApi }).default ??
+        (mod as unknown as () => BidiApi);
+      const instance = typeof factory === 'function' ? factory() : (factory as BidiApi);
+      bidiApi = instance;
+      return instance;
+    });
+  }
+  return bidiLoadPromise;
+}
 
 const ARABIC_CHAR_RE = /[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]/;
 const DIGITS_ONLY_RE = /^\d+$/;
@@ -217,7 +238,11 @@ export function reshapeArabic(text: string): string {
 /**
  * Prepare text for pdf-lib drawText (LTR engine): reshape Arabic + Unicode bidi visual order.
  */
-export function preparePdfText(text: string | number | undefined, isEnglishField = false): string {
+function preparePdfTextWithBidi(
+  text: string | number | undefined,
+  isEnglishField: boolean,
+  bidi: BidiApi
+): string {
   if (text === undefined || text === null) return '';
   const str = String(text).trim();
   if (!str) return '';
@@ -238,6 +263,22 @@ export function preparePdfText(text: string | number | undefined, isEnglishField
   const shaped = reshapeArabic(str);
   const levels = bidi.getEmbeddingLevels(shaped, 'rtl');
   return bidi.getReorderedString(shaped, levels);
+}
+
+export async function preparePdfTextAsync(
+  text: string | number | undefined,
+  isEnglishField = false
+): Promise<string> {
+  const bidi = await ensurePamBidi();
+  return preparePdfTextWithBidi(text, isEnglishField, bidi);
+}
+
+/** Sync helper — call `ensurePamBidi()` first (PDF generator does this automatically). */
+export function preparePdfText(text: string | number | undefined, isEnglishField = false): string {
+  if (!bidiApi) {
+    return String(text ?? '').trim();
+  }
+  return preparePdfTextWithBidi(text, isEnglishField, bidiApi);
 }
 
 /** @deprecated Use preparePdfText — kept for existing imports/scripts */
@@ -287,6 +328,8 @@ export async function generatePamContractPdfBytesFromTemplate(
   fontChoice: PamFontChoice = 'cairo',
   preloadedFontBytes?: ArrayBuffer | Uint8Array
 ): Promise<Uint8Array> {
+  await ensurePamBidi();
+
   const fontBytes = preloadedFontBytes
     ? preloadedFontBytes instanceof Uint8Array
       ? preloadedFontBytes.buffer.slice(
