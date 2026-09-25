@@ -114,7 +114,14 @@ export const EmployeeProvider: React.FC<{
       return next;
     });
     try {
-      await setDoc(doc(db, "employees", updatedEmp.id), cleanFirestoreData(updatedEmp), { merge: true });
+      const clean = cleanFirestoreData(updatedEmp);
+      await setDoc(doc(db, "employees", updatedEmp.id), clean, { merge: true });
+      try {
+        const { syncEmployeeDocumentsToArchive } = await import('../services/employeeDocumentArchiveSync');
+        await syncEmployeeDocumentsToArchive(clean as Record<string, unknown>);
+      } catch (syncErr) {
+        console.warn('[EmployeeContext] Document archive sync failed:', syncErr);
+      }
     } catch (err) {
       console.error("Failed to update employee in Firestore", err);
     }

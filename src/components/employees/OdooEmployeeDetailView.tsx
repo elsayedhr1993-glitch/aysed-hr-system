@@ -59,6 +59,7 @@ import { buildEmployeeBaselineAllocations, computeFifoLeaveAllocations } from '.
 import { getEmployeeUnifiedSummary } from '../../utils/leaveEngine';
 import { calculateKuwaitDailyRate } from '../../utils/kuwaitPayrollMath';
 import { deleteEmployeeDocument, saveEmployeeDocument } from '../../services/documentService';
+import { syncEmployeeDocumentsToArchive } from '../../services/employeeDocumentArchiveSync';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { CompactTabBar } from '../ui/CompactTabBar';
@@ -351,19 +352,21 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
         status: 'verified'
       };
 
-      void saveEmployeeDocument(fileInfo as any).catch(error => {
-        console.error('Failed to persist employee document:', error);
-      });
-
       setEmployee((prev: any) => {
         const currentFiles = prev.documentFiles || {};
-        return {
+        const next = {
           ...prev,
           documentFiles: {
             ...currentFiles,
             [docKey]: fileInfo
           }
         };
+        void saveEmployeeDocument(fileInfo as any)
+          .then(() => syncEmployeeDocumentsToArchive(next as Record<string, unknown>))
+          .catch(error => {
+            console.error('Failed to persist employee document:', error);
+          });
+        return next;
       });
 
       import('react-hot-toast').then(m => m.default.success(`تم حفظ وإرفاق مستند (${file.name}) بنجاح.`));

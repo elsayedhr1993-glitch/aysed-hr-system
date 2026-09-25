@@ -14,6 +14,8 @@ export function mapEmployeeDocKeyToCategory(docKey: string): string {
     case 'passportScan':
       return 'PASSPORT';
     case 'pamWorkPermit':
+    case 'residency':
+    case 'residencyScan':
       return 'RESIDENCY';
     case 'mohLicense':
       return 'MOH_LICENSE';
