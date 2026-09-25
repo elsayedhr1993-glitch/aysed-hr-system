@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { KUWAIT_LABOR_CONFIG } from '../config/kuwaitLaborConfig';
 import { useCompany } from './CompanyContext';
 import { TenantDatabaseService } from '../services/tenantDataService';
+import { resolveTenantCompanyId } from '../utils/tenantCompanyId';
 import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import {
   getAttendanceRecordDocId,
@@ -230,7 +231,7 @@ const getAttendanceKey = (companyId: string, employeeId: string, date: string) =
 
 export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { activeCompany, activeCompanyId } = useCompany();
-  const currentCompanyId = activeCompanyId || activeCompany?.id || 'comp-super-admin';
+  const currentCompanyId = resolveTenantCompanyId(activeCompanyId, activeCompany?.id) || 'comp-super-admin';
 
   // بيانات العقود المركزية
   const [employees, setEmployees] = useState<EmployeeContract[]>([]);

@@ -41,10 +41,17 @@ async function main() {
   let documentsWritten = 0;
 
   for (const companyId of companyFilter) {
-    const snap = await db.collection('employees').where('companyId', '==', companyId).get();
-    console.log(`\n=== ${companyId} (${snap.size} employees) ===`);
+    const [byCompanyId, byLegacyCompanyId] = await Promise.all([
+      db.collection('employees').where('companyId', '==', companyId).get(),
+      db.collection('employees').where('company_id', '==', companyId).get(),
+    ]);
+    const employeeDocs = new Map<string, (typeof byCompanyId.docs)[number]>();
+    for (const d of [...byCompanyId.docs, ...byLegacyCompanyId.docs]) {
+      employeeDocs.set(d.id, d);
+    }
+    console.log(`\n=== ${companyId} (${employeeDocs.size} employees) ===`);
 
-    for (const docSnap of snap.docs) {
+    for (const docSnap of employeeDocs.values()) {
       const employee = { id: docSnap.id, ...docSnap.data() } as Record<string, unknown>;
       if (seenEmployeeIds.has(employee.id as string)) continue;
       seenEmployeeIds.add(employee.id as string);

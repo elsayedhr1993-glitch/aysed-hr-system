@@ -22,7 +22,9 @@ export const DocumentCompliancePrintModal: React.FC<DocumentCompliancePrintModal
   if (!isOpen) return null;
 
   const handlePrint = () => {
-    window.print();
+    void import('../../utils/printUtils').then(({ printDocument }) => {
+      printDocument('document-compliance-print-root', filterTitle || 'كشف_امتثال_المستندات');
+    });
   };
 
   const todayStr = new Date().toISOString().split('T')[0];
@@ -69,7 +71,10 @@ export const DocumentCompliancePrintModal: React.FC<DocumentCompliancePrintModal
         </div>
 
         {/* Printable A4 Content */}
-        <div className="p-8 overflow-y-auto flex-1 bg-white text-slate-900 font-sans print:p-0 print:overflow-visible">
+        <div
+          id="document-compliance-print-root"
+          className="p-8 overflow-y-auto flex-1 bg-white text-slate-900 font-sans print:p-0 print:overflow-visible"
+        >
           
           {/* Header */}
           <div className="border-b-2 border-slate-900 pb-4 mb-6 flex justify-between items-start">

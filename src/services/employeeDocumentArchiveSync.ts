@@ -123,7 +123,7 @@ export function buildEmployeeArchiveDocuments(
   employee: Record<string, unknown>
 ): EmployeeArchiveDocumentPayload[] {
   const employeeId = pickFirstNonEmpty(employee.id);
-  const companyId = pickFirstNonEmpty(employee.companyId, employee.company_id);
+  const companyId = pickFirstNonEmpty(employee.companyId, employee.company_id, employee.tenantId);
   if (!employeeId || !companyId) return [];
 
   const displayName = resolveEmployeeDisplayName(employee) || 'موظف';

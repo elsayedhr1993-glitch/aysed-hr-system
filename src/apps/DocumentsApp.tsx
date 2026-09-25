@@ -13,6 +13,7 @@ import {
   employeeMatchesSearchQuery,
   resolveEmployeeDisplayName,
 } from '../utils/employeeDisplayName';
+import { resolveTenantCompanyId } from '../utils/tenantCompanyId';
 import { 
   FolderOpen, FileText, Upload, Trash2, Search, X, CheckCircle2, 
   Scan, AlertTriangle, Download, Calendar, BellRing, Shield, 
@@ -24,6 +25,8 @@ interface DocumentsAppProps {
   documents: DocumentItem[];
   employees: Employee[];
   activeCompany: Company;
+  /** Firestore tenant id (URL / CompanyContext); must match `documents` query in App. */
+  tenantCompanyId?: string;
   onSaveDocument: (doc: DocumentItem) => void;
   onDeleteDocument: (docId: string) => void;
   onAutoAddEmpFromOCR: (empData: any, docType?: string) => string | Promise<string>;
@@ -36,6 +39,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
   documents,
   employees,
   activeCompany,
+  tenantCompanyId,
   onSaveDocument,
   onDeleteDocument,
   onAutoAddEmpFromOCR,
@@ -43,6 +47,8 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
   onNavigateToApp,
   onSelectEmpForForm,
 }) => {
+  const resolvedCompanyId = resolveTenantCompanyId(tenantCompanyId, activeCompany?.id);
+
   // Main Workspace Tab (Employee Docs vs Company Licenses)
   const [workspaceTab, setWorkspaceTab] = useState<'EMPLOYEE_DOCS' | 'COMPANY_LICENSES'>('EMPLOYEE_DOCS');
 
@@ -77,23 +83,22 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
   const [companyDocuments, setCompanyDocuments] = useState<CompanyDocument[]>([]);
 
   useEffect(() => {
-    const companyId = activeCompany?.id;
-    if (!companyId) {
+    if (!resolvedCompanyId) {
       setCompanyDocuments([]);
       return;
     }
 
     const documentsQuery = query(
       collection(db, 'company_documents'),
-      where('companyId', '==', companyId)
+      where('companyId', '==', resolvedCompanyId)
     );
     return onSnapshot(documentsQuery, snapshot => {
       setCompanyDocuments(snapshot.docs.map(item => ({ ...item.data(), id: item.id } as CompanyDocument)));
     }, error => console.error('Failed to load company documents:', error));
-  }, [activeCompany?.id]);
+  }, [resolvedCompanyId]);
 
   const handleSaveCompanyDoc = async (document: CompanyDocument) => {
-    const companyDocument = { ...document, companyId: activeCompany?.id || 'comp-super-admin' };
+    const companyDocument = { ...document, companyId: resolvedCompanyId || activeCompany?.id || 'comp-super-admin' };
     const updated = companyDocuments.some(d => d.id === document.id)
       ? companyDocuments.map(d => d.id === document.id ? companyDocument : d)
       : [companyDocument, ...companyDocuments];
@@ -125,7 +130,13 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
     today.setHours(0, 0, 0, 0);
 
     return (documents || [])
-      .filter(d => !d.companyId || d.companyId === activeCompany?.id || d.companyId === 'default')
+      .filter(
+        d =>
+          !d.companyId ||
+          !resolvedCompanyId ||
+          d.companyId === resolvedCompanyId ||
+          d.companyId === 'default'
+      )
       .map(doc => {
         let currentStatus: 'active' | 'near_expiry' | 'expired' = 'active';
         let daysToExpiry: number | null = null;
@@ -148,7 +159,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
         const employee = employees.find(e => e.id === doc.employeeId);
         return { ...doc, currentStatus, daysToExpiry, employee };
       });
-  }, [documents, activeCompany, employees]);
+  }, [documents, resolvedCompanyId, employees]);
 
   // KPI Summary Metrics
   const metrics = useMemo(() => {
@@ -831,7 +842,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
         isOpen={showUploadModal}
         onClose={() => setShowUploadModal(false)}
         employees={employees}
-        companyId={activeCompany?.id || 'default'}
+        companyId={resolvedCompanyId || activeCompany?.id || 'default'}
         onSaveDocument={onSaveDocument}
       />
 

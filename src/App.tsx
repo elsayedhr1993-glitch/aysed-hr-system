@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { parseKuwaitCivilId, validateKuwaitCivilId } from './utils/kuwaitLaw';
+import { resolveTenantCompanyId } from './utils/tenantCompanyId';
 import { TenantProvider, useTenant } from './context/TenantContext';
 import { LayoutStudioProvider } from './context/LayoutStudioContext';
 import { LayoutStudioDrawer } from './components/studio/LayoutStudioDrawer';
@@ -118,10 +119,7 @@ function MainAppLayout() {
   } = useCompany();
 
   /** Align launcher stats with Odoo modules (CompanyContext is canonical for app data). */
-  const effectiveCompanyId =
-    companyContextId && companyContextId !== 'SAAS_PLATFORM'
-      ? companyContextId
-      : activeCompany?.id;
+  const effectiveCompanyId = resolveTenantCompanyId(companyContextId, activeCompany?.id);
 
   const { employees, attendance, computedPayslips, addEmployee, updateEmployee } = useOdooHierarchy();
 
@@ -882,6 +880,7 @@ function MainAppLayout() {
                 documents={documents}
                 employees={employees as any}
                 activeCompany={activeCompany}
+                tenantCompanyId={effectiveCompanyId}
                 onSaveDocument={handleSaveDocument}
                 onDeleteDocument={handleDeleteDocument}
                 onAutoAddEmpFromOCR={handleAutoAddEmpFromOCR}
