@@ -24,6 +24,16 @@ import {
   PamFontChoice
 } from '../services/pamContractPdfService';
 import toast from 'react-hot-toast';
+import { useCompany } from '../context/CompanyContext';
+import { useAuth } from '../context/AuthContext';
+import { buildPamFormDataFromSources, resolvePamCompanyId } from '../lib/pamContractHelpers';
+import type { Company } from '../types';
+import {
+  fetchCompanyRecord,
+  resolvePamRenderSettings,
+  saveCompanyPamSettings,
+  savePlatformPamSettings,
+} from '../services/pamCompanySettingsService';
 
 interface Props {
   isOpen: boolean;
@@ -42,6 +52,12 @@ export const OdooPamContractModal: React.FC<Props> = ({
   employee,
   company
 }) => {
+  const { activeCompany, activeCompanyId, updateActiveCompany } = useCompany();
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const [resolvedCompany, setResolvedCompany] = useState<any>(company || activeCompany);
+  const [resolvedCompanyId, setResolvedCompanyId] = useState('');
+  const [isSavingPamSettings, setIsSavingPamSettings] = useState(false);
   const today = useMemo(() => new Date(), []);
   const todayDayAr = ARABIC_DAYS[today.getDay()];
   const todayDayEn = ENGLISH_DAYS[today.getDay()];
@@ -74,12 +90,15 @@ export const OdooPamContractModal: React.FC<Props> = ({
     jobTitleAr: '',
     jobTitleEn: '',
     basicSalary: '500',
-    salaryPeriod: 'شهر ميلادي',
-    salaryPeriodEn: 'Month',
+    salaryPeriod: 'نهاية كل شهر',
+    salaryPeriodEn: 'End of each calendar month',
 
     effectiveDate: todayDateStr,
     durationYears: '3',
-    leaveDay: '30'
+    leaveDay: '30',
+    leaveDayEn: '30 days (annual leave per Kuwait Private Sector Labor Law)',
+    contractLanguageAr: 'باللغتين العربية والإنجليزية',
+    contractLanguageEn: 'Arabic and English',
   });
 
   const [coords, setCoords] = useState<PamCoordinatesConfig>(DEFAULT_PAM_COORDINATES);
@@ -89,54 +108,70 @@ export const OdooPamContractModal: React.FC<Props> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeTab, setActiveTab] = useState<'form' | 'preview'>('preview');
 
-  // Update initial data when employee or company changes
   useEffect(() => {
-    if (!employee && !company) return;
+    let cancelled = false;
+    const targetCompanyId = resolvePamCompanyId(employee, activeCompanyId, company);
+    setResolvedCompanyId(targetCompanyId);
 
-    const compName = company?.name || company?.nameAr || 'شركة الرعاية الطبية المتقدمة ذ.م.م';
-    const compNameEn = company?.nameEn || 'Advanced Medical Care Co. W.L.L';
-    const compRep = company?.authorizedSignatory || company?.managerName || 'أحمد محمد الكندري';
-    const compRepEn = company?.managerNameEn || 'Ahmed M. Al-Kandari';
-    const compRepCivil = company?.signatoryCivilId || company?.civilId || '285010101234';
-    const compField = company?.commercialActivity || company?.activity || 'الرعاية والخدمات الطبية والصحية';
-    const compFieldEn = company?.activityEn || 'Healthcare & Medical Services';
-    const laborDept = company?.laborDepartment || 'حولي';
+    (async () => {
+      let base: Record<string, unknown> = (company || activeCompany) as Record<string, unknown>;
+      if (targetCompanyId) {
+        const fromDb = await fetchCompanyRecord(targetCompanyId);
+        if (fromDb && !cancelled) {
+          base = fromDb;
+        } else if (base?.id !== targetCompanyId) {
+          base = { ...base, id: targetCompanyId };
+        }
+      }
+      if (!cancelled) setResolvedCompany(base);
 
-    const empNameAr = employee?.name || employee?.fullNameAr || employee?.fullName || '';
-    const empNameEn = employee?.nameEn || employee?.fullNameEn || '';
-    const empNationality = employee?.nationality || 'مصري';
-    const empCivil = employee?.civilId || '';
-    const empResidence = employee?.address || employee?.residencyArticle ? `مادة ${employee?.residencyArticle || '18'} - ${employee?.address || 'حولي'}` : 'مادة 18 - حولي';
-    const empResidenceEn = `Article ${employee?.residencyArticle || '18'} - Hawalli`;
-    const empJobAr = employee?.jobTitle || employee?.position || employee?.department || 'طبيب بشري عام';
-    const empJobEn = employee?.jobTitleEn || 'General Practitioner';
-    const empSalary = String(employee?.salary || employee?.basicWage || employee?.wage || '650');
-    const empHireDate = employee?.hireDate || employee?.joiningDate || todayDateStr;
+      const render = await resolvePamRenderSettings(targetCompanyId);
+      if (!cancelled) {
+        setCoords(render.coords);
+        setFontChoice(render.font);
+      }
+    })();
 
-    setFormData(prev => ({
-      ...prev,
-      companyLaborDept: laborDept,
-      companyLaborDeptEn: laborDept === 'حولي' ? 'Hawalli' : laborDept === 'العاصمة' ? 'Capital' : laborDept,
-      companyName: compName,
-      companyNameEn: compNameEn,
-      companyRepName: compRep,
-      companyRepNameEn: compRepEn,
-      companyRepCivilId: compRepCivil,
-      companyField: compField,
-      companyFieldEn: compFieldEn,
-      employeeNameAr: empNameAr,
-      employeeNameEn: empNameEn,
-      employeeNationality: empNationality,
-      employeeNationalityEn: empNationality === 'مصري' ? 'Egyptian' : empNationality === 'كويتي' ? 'Kuwaiti' : empNationality === 'هندي' ? 'Indian' : empNationality,
-      employeeCivilId: empCivil,
-      employeeResidence: empResidence,
-      employeeResidenceEn: empResidenceEn,
-      jobTitleAr: empJobAr,
-      jobTitleEn: empJobEn,
-      basicSalary: empSalary,
-      effectiveDate: empHireDate ? String(empHireDate).replace(/-/g, '/') : todayDateStr
-    }));
-  }, [employee, company, todayDateStr]);
+    return () => {
+      cancelled = true;
+    };
+  }, [employee?.companyId, company, activeCompany, activeCompanyId]);
+
+  useEffect(() => {
+    if (!employee && !resolvedCompany) return;
+    const co = resolvedCompany || company || activeCompany;
+    const next = buildPamFormDataFromSources(employee, co, todayDateStr);
+    setFormData((prev) => ({ ...prev, ...next }));
+  }, [employee, resolvedCompany, company, activeCompany, todayDateStr]);
+
+  const persistPamSettings = async (scope: 'company' | 'platform') => {
+    setIsSavingPamSettings(true);
+    try {
+      const payload = { pamOverlayCoords: coords, pamFontChoice: fontChoice };
+      if (scope === 'platform') {
+        await savePlatformPamSettings(payload);
+        toast.success('تم حفظ معايرة PAM كافتراضي عام لكل المنشآت');
+      } else {
+        const cid = resolvedCompanyId || activeCompanyId;
+        if (!cid) {
+          toast.error('لا يمكن الحفظ: معرّف المنشأة غير معروف');
+          return;
+        }
+        await saveCompanyPamSettings(cid, payload);
+        updateActiveCompany({
+          id: cid,
+          pamOverlayCoords: coords as Company['pamOverlayCoords'],
+          pamFontChoice: fontChoice,
+        });
+        toast.success('تم حفظ معايرة PAM لهذه المنشأة — ستُطبَّق على كل العقود');
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'خطأ غير معروف';
+      toast.error(`تعذر حفظ المعايرة: ${msg}`);
+    } finally {
+      setIsSavingPamSettings(false);
+    }
+  };
 
   // Generate PDF preview whenever form data, coords, or font change
   const refreshPreview = async (selectedFont: PamFontChoice = fontChoice) => {
@@ -160,17 +195,10 @@ export const OdooPamContractModal: React.FC<Props> = ({
     refreshPreview(newFont);
   };
 
-  // Initial preview generation on open
   useEffect(() => {
-    if (isOpen) {
-      refreshPreview(fontChoice);
-    }
-    return () => {
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-      }
-    };
-  }, [isOpen]);
+    if (!isOpen) return;
+    refreshPreview(fontChoice);
+  }, [isOpen, formData, coords, fontChoice]);
 
   if (!isOpen) return null;
 
@@ -325,6 +353,26 @@ export const OdooPamContractModal: React.FC<Props> = ({
                 <p className="text-slate-600 text-[10px]">
                   تم ضبط كافة الإحداثيات بدقة بالغة على الفراغات والخطوط المنقطة للنموذج رقم (2). يمكنك تعديل أي إحداثي يدوياً إن دعت الحاجة:
                 </p>
+                <div className="flex flex-wrap gap-2 pb-1">
+                  <button
+                    type="button"
+                    disabled={isSavingPamSettings || !resolvedCompanyId}
+                    onClick={() => persistPamSettings('company')}
+                    className="px-3 py-1.5 rounded-lg bg-[#714B67] text-white text-[10px] font-bold disabled:opacity-50 cursor-pointer"
+                  >
+                    {isSavingPamSettings ? 'جاري الحفظ...' : 'حفظ معايرة المنشأة (للجميع)'}
+                  </button>
+                  {isSuperAdmin && (
+                    <button
+                      type="button"
+                      disabled={isSavingPamSettings}
+                      onClick={() => persistPamSettings('platform')}
+                      className="px-3 py-1.5 rounded-lg bg-amber-700 text-white text-[10px] font-bold disabled:opacity-50 cursor-pointer"
+                    >
+                      حفظ كافتراضي عام للنظام
+                    </button>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-h-40 overflow-y-auto p-1 font-mono">
                   <div>
                     <label className="text-[10px] text-slate-500 block">إدارة العمل (Y)</label>
