@@ -1,7 +1,7 @@
 import React from 'react';
 import { DocumentItem, Employee, Company } from '../../types';
-import { X, Printer, Building2 } from 'lucide-react';
-import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
+import { X, Printer } from 'lucide-react';
+import { OfficialA4CompanyLetterhead } from '../print/OfficialA4CompanyLetterhead';
 
 interface DocumentCompliancePrintModalProps {
   isOpen: boolean;
@@ -28,7 +28,6 @@ export const DocumentCompliancePrintModal: React.FC<DocumentCompliancePrintModal
     });
   };
 
-  const profile = getCompanyPrintProfile(company);
   const todayStr = new Date().toLocaleDateString('ar-KW', {
     year: 'numeric',
     month: '2-digit',
@@ -82,53 +81,20 @@ export const DocumentCompliancePrintModal: React.FC<DocumentCompliancePrintModal
           className="p-8 overflow-y-auto flex-1 bg-white text-slate-900 font-sans print:p-0 print:overflow-visible"
         >
           
-          {/* Header */}
-          <div className="border-b-2 border-slate-900 pb-4 mb-6 flex justify-between items-start gap-4">
-            <div className="flex items-start gap-3 min-w-0">
-              {profile.logoUrl ? (
-                <img
-                  src={profile.logoUrl}
-                  alt={profile.displayNameAr}
-                  className="w-16 h-16 object-contain rounded-lg border border-slate-200 bg-white shrink-0"
-                />
-              ) : (
-                <div className="w-16 h-16 rounded-lg border border-slate-300 bg-slate-50 flex items-center justify-center shrink-0">
-                  <Building2 className="text-[#714B67]" size={28} />
+          <OfficialA4CompanyLetterhead
+            company={company}
+            departmentLine="إدارة الشؤون الإدارية والموارد البشرية — قسم الأرشيف الرقمي"
+            className="mb-6"
+            rightSlot={
+              <div className="flex flex-col items-end">
+                <div className="w-16 h-16 border border-slate-300 rounded p-1 bg-slate-50 flex items-center justify-center text-[8px] font-mono text-center text-slate-500 leading-tight">
+                  VERIFY
                 </div>
-              )}
-              <div className="space-y-1 min-w-0">
-                <h2 className="text-xl font-black text-slate-900 leading-tight">{profile.displayNameAr}</h2>
-                {profile.displayNameEn && profile.displayNameEn !== profile.displayNameAr && (
-                  <p className="text-[11px] font-bold text-slate-500" dir="ltr">{profile.displayNameEn}</p>
-                )}
-                <p className="text-xs font-bold text-slate-600">
-                  إدارة الشؤون الإدارية والموارد البشرية — قسم الأرشيف الرقمي
-                </p>
-                <div className="text-[11px] text-slate-600 flex flex-wrap items-center gap-x-3 gap-y-1 pt-1">
-                  <span>
-                    الرقم المدني للجهة:{' '}
-                    <strong className="font-mono text-slate-900">{profile.civilIdCompany}</strong>
-                  </span>
-                  <span>
-                    السجل التجاري: <strong className="font-mono text-slate-900">{profile.commercialReg}</strong>
-                  </span>
-                  {profile.wsiCode !== '—' && (
-                    <span>
-                      ملف الشؤون (PAM/WPS): <strong className="font-mono text-slate-900">{profile.wsiCode}</strong>
-                    </span>
-                  )}
-                </div>
+                <span className="text-[10px] font-mono text-slate-500 mt-1">المرجع: {reportRef}</span>
+                <span className="text-[10px] font-mono text-slate-500">التاريخ: {todayStr}</span>
               </div>
-            </div>
-
-            <div className="text-left flex flex-col items-end shrink-0">
-              <div className="w-16 h-16 border border-slate-300 rounded p-1 bg-slate-50 flex items-center justify-center text-[8px] font-mono text-center text-slate-500 leading-tight">
-                {profile.companyId ? profile.companyId.slice(-8) : 'VERIFY'}
-              </div>
-              <span className="text-[10px] font-mono text-slate-500 mt-1">المرجع: {reportRef}</span>
-              <span className="text-[10px] font-mono text-slate-500">التاريخ: {todayStr}</span>
-            </div>
-          </div>
+            }
+          />
 
           {/* Title & Filter Info */}
           <div className="bg-slate-100 rounded-xl p-3.5 mb-6 flex justify-between items-center text-xs">

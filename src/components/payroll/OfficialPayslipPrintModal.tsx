@@ -1,6 +1,8 @@
 import React, { useRef } from 'react';
-import { X, Printer, Download, CheckCircle, Building2, ShieldCheck, DollarSign } from 'lucide-react';
+import { X, Printer, Download, CheckCircle, ShieldCheck, DollarSign } from 'lucide-react';
 import { tafqitKuwaiti } from '../../utils/tafqit';
+import type { Company } from '../../types';
+import { OfficialA4CompanyLetterheadCompact } from '../print/OfficialA4CompanyLetterhead';
 
 export interface PayslipPrintData {
   payslipNumber: string;
@@ -32,19 +34,13 @@ export interface PayslipPrintData {
 
 interface OfficialPayslipPrintModalProps {
   payslip: PayslipPrintData;
-  companyName?: string;
-  companyNameEn?: string;
-  crNumber?: string;
-  companyLogo?: string;
+  company: Company | null;
   onClose: () => void;
 }
 
 export const OfficialPayslipPrintModal: React.FC<OfficialPayslipPrintModalProps> = ({
   payslip,
-  companyName = 'شركة المنار كلينك',
-  companyNameEn = 'Al Manar Clinic W.L.L.',
-  crNumber = '301122',
-  companyLogo,
+  company,
   onClose,
 }) => {
   const printContentRef = useRef<HTMLDivElement>(null);
@@ -90,21 +86,20 @@ export const OfficialPayslipPrintModal: React.FC<OfficialPayslipPrintModalProps>
             className="bg-white p-8 sm:p-10 rounded-xl shadow-xs border border-slate-200 max-w-2xl mx-auto print:border-none print:shadow-none print:p-0 print:m-0 print:max-w-none text-slate-800 text-xs"
             dir="rtl"
           >
-            {/* Header */}
-            <div className="border-b-2 border-slate-800 pb-5 mb-5 flex justify-between items-start">
-              <div>
-                <h1 className="text-base font-black text-slate-900">{companyName}</h1>
-                <p className="text-[11px] font-semibold text-slate-500">{companyNameEn}</p>
-                <p className="text-[10px] text-slate-500 mt-1 font-mono">سجل تجاري: {crNumber} | دولة الكويت</p>
-              </div>
-              <div className="text-left font-mono">
-                <div className="inline-block bg-[#714B67]/10 text-[#714B67] px-3 py-1 rounded-md font-bold text-[11px] mb-1">
-                  قسيمة راتب شهرية (Payslip)
+            <OfficialA4CompanyLetterheadCompact
+              company={company}
+              rightSlot={
+                <div className="text-left font-mono">
+                  <div className="inline-block bg-[#714B67]/10 text-[#714B67] px-3 py-1 rounded-md font-bold text-[11px] mb-1">
+                    قسيمة راتب شهرية (Payslip)
+                  </div>
+                  <div className="text-[11px] text-slate-600 font-bold">
+                    الشهر: <span className="font-black text-slate-900">{payslip.period}</span>
+                  </div>
+                  <div className="text-[10px] text-slate-500">رقم القسيمة: {payslip.payslipNumber}</div>
                 </div>
-                <div className="text-[11px] text-slate-600 font-bold">الشهر: <span className="font-black text-slate-900">{payslip.period}</span></div>
-                <div className="text-[10px] text-slate-500">رقم القسيمة: {payslip.payslipNumber}</div>
-              </div>
-            </div>
+              }
+            />
 
             {/* Employee Info Grid */}
             <div className="bg-slate-50 border border-slate-200 rounded-lg p-3.5 mb-5 grid grid-cols-2 sm:grid-cols-3 gap-y-2 gap-x-4">

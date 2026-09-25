@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useCompany } from '../context/CompanyContext';
+import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
 import { useOdooHierarchy, computeAttendanceAndOvertime, AttendanceLog } from '../context/OdooHierarchyContext';
 import { getDepartmentColorStyle } from '../utils/odooPalette';
 import { toast } from 'react-hot-toast';
@@ -103,6 +104,7 @@ const DEFAULT_SHIFT_SEED_RULES: ShiftSeedRulesConfig = {
 
 export const Attendances: React.FC = () => {
   const { activeCompany } = useCompany();
+  const { company: companyForPrint } = useCompanyForPrint();
   const { employees, attendance, getAttendanceForEmployee, recordAttendanceTimes } = useOdooHierarchy();
   const activeCompId = activeCompany?.id || 'default_comp';
 
@@ -1892,7 +1894,7 @@ export const Attendances: React.FC = () => {
       <OfficialAttendancePrintModal
         isOpen={isPrintModalOpen}
         onClose={() => setIsPrintModalOpen(false)}
-        company={activeCompany as any}
+        company={companyForPrint}
         reportData={printModalData}
       />
 

@@ -25,6 +25,7 @@ import {
   ZoomOut,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useCompanyForPrint } from '../../hooks/useCompanyForPrint';
 
 interface OrganizationChartAppProps {
   employees: Array<Record<string, unknown>>;
@@ -37,6 +38,7 @@ export const OrganizationChartApp: React.FC<OrganizationChartAppProps> = ({
   employees,
   activeCompany,
 }) => {
+  const { company: companyForPrint } = useCompanyForPrint();
   const [departmentFilter, setDepartmentFilter] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [highlightId, setHighlightId] = useState<string | null>(null);
@@ -313,7 +315,7 @@ export const OrganizationChartApp: React.FC<OrganizationChartAppProps> = ({
       <OrganizationChartPrintModal
         isOpen={showPrint}
         onClose={() => setShowPrint(false)}
-        company={activeCompany}
+        company={companyForPrint}
         scopeLabel={scopeLabel}
         lines={printLines}
         totalEmployees={employees.length}

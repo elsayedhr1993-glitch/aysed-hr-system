@@ -24,6 +24,7 @@ import {
   FileCheck,
 } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
+import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
 import { useOdooHierarchy } from '../context/OdooHierarchyContext';
 import { exportToExcel } from '../utils/exportUtils';
 import { OdooOfficialA4PrintModal } from './reports/OdooOfficialA4PrintModal';
@@ -157,6 +158,7 @@ export interface MedicalEmployeeAnalyticsRecord {
 
 export const OdooReportsApp: React.FC = () => {
   const { activeCompany } = useCompany();
+  const { company: companyForPrint } = useCompanyForPrint();
   const { employees: contextEmployees, computedPayslips } = useOdooHierarchy();
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [leaveAllocations, setLeaveAllocations] = useState<any[]>([]);
@@ -1452,9 +1454,7 @@ export const OdooReportsApp: React.FC = () => {
         onClose={() => setIsA4ModalOpen(false)}
         reportCategory={activeReport}
         reportTitle={getReportTitle(activeReport)}
-        companyName={companyDisplayName}
-        companyCivilId={companyCivilId}
-        commercialRegNo={commercialRegNo}
+        company={companyForPrint}
         data={filteredData}
         selectedMonth={selectedPeriodMonth}
         totalGrossSalaries={totalGrossSalaries}

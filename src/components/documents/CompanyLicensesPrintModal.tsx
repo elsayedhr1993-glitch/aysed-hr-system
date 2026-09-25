@@ -2,6 +2,7 @@ import React from 'react';
 import { Company } from '../../types';
 import { CompanyDocument, getDocumentStatus } from '../../types/companyDocuments';
 import { X, Printer, Shield } from 'lucide-react';
+import { OfficialA4CompanyLetterhead } from '../print/OfficialA4CompanyLetterhead';
 
 interface CompanyLicensesPrintModalProps {
   isOpen: boolean;
@@ -67,16 +68,17 @@ export const CompanyLicensesPrintModal: React.FC<CompanyLicensesPrintModalProps>
         </div>
 
         <div className="p-8 overflow-y-auto flex-1 bg-white text-slate-900 print:p-0">
-          <div className="border-b-2 border-slate-900 pb-4 mb-6 flex justify-between items-start">
-            <div>
-              <h2 className="text-xl font-black">{company?.nameAr || company?.name || 'المنشأة'}</h2>
-              <p className="text-xs text-slate-600 mt-1">كشف تراخيص المنشأة والامتثال الحكومي</p>
-            </div>
-            <div className="text-left text-[10px] font-mono text-slate-500">
-              <div>المرجع: {reportRef}</div>
-              <div>التاريخ: {todayStr}</div>
-            </div>
-          </div>
+          <OfficialA4CompanyLetterhead
+            company={company}
+            subtitle="كشف تراخيص المنشأة والامتثال الحكومي"
+            className="mb-6"
+            rightSlot={
+              <div className="text-[10px] font-mono text-slate-500">
+                <div>المرجع: {reportRef}</div>
+                <div>التاريخ: {todayStr}</div>
+              </div>
+            }
+          />
 
           <div className="bg-slate-100 rounded-xl p-3 mb-6 text-xs flex flex-wrap justify-between gap-2">
             <span>

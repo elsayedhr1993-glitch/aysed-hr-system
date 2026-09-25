@@ -31,6 +31,8 @@ import {
   UserCheck
 } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
+import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
+import { OfficialA4CompanyLetterhead } from './print/OfficialA4CompanyLetterhead';
 import { useOdooHierarchy, EmployeeContract } from '../context/OdooHierarchyContext';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { exportElementToPdf } from '../utils/printUtils';
@@ -417,6 +419,7 @@ const DEFAULT_TEMPLATE_BODIES: Partial<Record<TemplateId, string>> = {
 
 export const OdooTemplatesApp: React.FC = () => {
   const { activeCompany } = useCompany();
+  const { company: companyForPrint, profile: printProfile } = useCompanyForPrint();
   const { employees } = useOdooHierarchy();
 
   const [activeCategory, setActiveCategory] = useState<TemplateCategory>('ALL');
@@ -458,10 +461,10 @@ export const OdooTemplatesApp: React.FC = () => {
   const todayFormattedAr = new Date().toLocaleDateString('ar-KW', { year: 'numeric', month: 'long', day: 'numeric' });
   const referenceNumber = `HR-DOC-${new Date().getFullYear()}-${civilId ? civilId.slice(-6) : '001234'}`;
 
-  const companyDisplayName = activeCompany?.nameAr || activeCompany?.name || 'مجموعة المنارة للخدمات المتكاملة ذ.م.م';
-  const companyCommercialReg = activeCompany?.commercialRegNo || (activeCompany as any)?.commercialRegister || '148291';
-  const companyPaci = (activeCompany as any)?.paciNumber || '20491823';
-  const companyLogoUrl = activeCompany?.logoUrl || activeCompany?.logo || '';
+  const companyDisplayName = printProfile.displayNameAr;
+  const companyCommercialReg = printProfile.commercialReg;
+  const companyPaci = printProfile.paciNumber;
+  const companyLogoUrl = printProfile.logoUrl;
   const companyAccountNumber = activeCompany?.accountNumber || '—';
   const companyWsiCode = activeCompany?.wsiCode || '—';
 
@@ -1096,38 +1099,16 @@ export const OdooTemplatesApp: React.FC = () => {
 
                     {/* Official Company Header (Rendered only if useLetterhead is true) */}
                     {useLetterhead ? (
-                      <div className="border-b-2 border-[#714B67] pb-5 mb-6">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3.5">
-                            {companyLogoUrl ? (
-                              <div className="w-14 h-14 bg-white border-2 border-[#714B67] rounded-2xl p-1.5 shadow-2xs">
-                                <img
-                                  src={companyLogoUrl}
-                                  alt="Company Logo"
-                                  className="w-full h-full object-contain"
-                                />
-                              </div>
-                            ) : (
-                              <div className="w-14 h-14 bg-slate-50 border-2 border-[#714B67] rounded-2xl flex items-center justify-center font-black text-[#714B67] text-2xl shadow-2xs">
-                                {companyDisplayName.charAt(0)}
-                              </div>
-                            )}
-                            <div>
-                              <h2 className="text-xl font-black text-[#714B67] leading-tight">
-                                {companyDisplayName}
-                              </h2>
-                              <p className="text-[11px] font-bold text-slate-500 font-mono mt-0.5">
-                                دولة الكويت | سجل تجاري: {companyCommercialReg} | الرقم الآلي: {companyPaci}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="text-left font-mono text-[11px] text-slate-600 space-y-1">
+                      <OfficialA4CompanyLetterhead
+                        company={companyForPrint}
+                        className="border-[#714B67] mb-6 pb-5"
+                        rightSlot={
+                          <div className="font-mono text-[11px] text-slate-600 space-y-1">
                             <div><strong className="text-slate-800">التاريخ:</strong> {todayFormattedAr}</div>
                             <div><strong className="text-slate-800">الرقم المرجعي:</strong> {referenceNumber}</div>
                           </div>
-                        </div>
-                      </div>
+                        }
+                      />
                     ) : (
                       <div className="text-center font-mono text-[10px] text-slate-300 pb-4 border-b border-dashed border-slate-200 mb-6 print:hidden">
                         --- منطقة الترويسة المسبقة للورق الرسمي (Pre-printed Letterhead 48mm) ---

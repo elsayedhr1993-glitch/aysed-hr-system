@@ -29,6 +29,8 @@ import {
   Hash
 } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
+import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
+import { OfficialA4CompanyLetterhead } from './print/OfficialA4CompanyLetterhead';
 import { useOdooHierarchy, EmployeeContract } from '../context/OdooHierarchyContext';
 import { CustodyItem } from '../types';
 import { formatKWD } from '../utils/kuwaitLaw';
@@ -40,6 +42,7 @@ import { cleanFirestoreData, db } from '../lib/firebase';
 
 export const OdooOperationsApp: React.FC = () => {
   const { activeCompany } = useCompany();
+  const { company: companyForPrint } = useCompanyForPrint();
   const { employees } = useOdooHierarchy();
 
   // Company-scoped employees
@@ -987,24 +990,21 @@ export const OdooOperationsApp: React.FC = () => {
             {/* Printable Document Area */}
             <div id="custody-voucher-print-area" className="p-4 space-y-6 text-slate-900 bg-white" dir="rtl">
               
-              {/* Header */}
-              <div className="border-b-2 border-[#714B67] pb-4 flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-black text-slate-900">{activeCompany?.nameAr || 'المؤسسة الطبية المتخصصة'}</h2>
-                  <div className="text-xs text-slate-500 font-serif">{activeCompany?.nameEn || 'Specialized Medical Enterprise'}</div>
-                  <div className="text-[11px] text-slate-500 mt-1 font-mono">
-                    السجل التجاري: {activeCompany?.commercialRegNo || '189201'} | دولة الكويت
+              <OfficialA4CompanyLetterhead
+                company={companyForPrint}
+                className="border-[#714B67] pb-4"
+                rightSlot={
+                  <div className="text-left dir-ltr">
+                    <span className="text-[11px] font-black text-[#714B67] bg-purple-50 px-3 py-1 rounded-full border border-purple-200">
+                      Odoo 18 Custody Document
+                    </span>
+                    <div className="text-[10px] text-slate-400 font-mono mt-1.5">
+                      التاريخ:{' '}
+                      {new Date().toLocaleDateString('ar-KW', { year: 'numeric', month: 'long', day: 'numeric' })}
+                    </div>
                   </div>
-                </div>
-                <div className="text-left dir-ltr">
-                  <span className="text-[11px] font-black text-[#714B67] bg-purple-50 px-3 py-1 rounded-full border border-purple-200">
-                    Odoo 18 Custody Document
-                  </span>
-                  <div className="text-[10px] text-slate-400 font-mono mt-1.5">
-                    التاريخ: {new Date().toLocaleDateString('ar-KW', { year: 'numeric', month: 'long', day: 'numeric' })}
-                  </div>
-                </div>
-              </div>
+                }
+              />
 
               {/* Title */}
               <div className="text-center space-y-1 py-2">

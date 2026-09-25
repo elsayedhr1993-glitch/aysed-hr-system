@@ -4,6 +4,7 @@ import { AysedSettlementOutput } from '../services/leaveSettlementService';
 import { UniversalSettlementResult, UniversalSettlementItem, Company } from '../types';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { useLang } from '../lib/i18n';
+import { OfficialA4CompanyLetterheadCompact } from './print/OfficialA4CompanyLetterhead';
 
 export interface EmployeeInfo {
   name: string;
@@ -82,27 +83,18 @@ export const LeaveClearanceDocument: React.FC<Props> = ({
   return (
     <div className={`w-full max-w-4xl mx-auto bg-white p-8 sm:p-10 border border-gray-300 shadow-sm print:shadow-none print:border-none print:p-0 font-['Tajawal','Cairo',sans-serif] text-slate-800 ${textAlignClass} leading-normal`} dir={direction}>
       
-      {/* 1. ترويسة السند والشركة */}
-      <div className="border-b-2 border-[#71639e] pb-4 mb-6">
-        <div className="flex items-center justify-between">
-          <div className="text-right">
-            <h1 className="text-xl font-black text-slate-900">
-              {activeCompany?.nameAr || activeCompany?.name || ''}
-            </h1>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">
-              إدارة الموارد البشرية والشؤون الإدارية والمالية (HR & Payroll Dept)
-            </p>
-            <p className="text-[11px] text-slate-400 font-mono">
-              سجل تجاري: {activeCompany?.commercialRegNo || (activeCompany as any)?.crNumber || '-'} | الرقم المدني: {activeCompany?.civilIdCompany || (activeCompany as any)?.civilId || '-'}
-            </p>
-          </div>
-
-          <div className="text-left border border-purple-200 bg-purple-50/60 p-2.5 rounded-lg">
-            <span className="text-[10px] font-bold text-[#71639e] block">سند تصفية وتسوية إجازة</span>
-            <span className="text-xs font-black font-mono text-purple-950 block">{vNum}</span>
-            <span className="text-[10px] text-slate-500 font-mono mt-0.5 block">{sDate}</span>
-          </div>
-        </div>
+      <div className="mb-6">
+        <OfficialA4CompanyLetterheadCompact
+          company={activeCompany}
+          className="border-[#71639e] pb-4"
+          rightSlot={
+            <div className="text-left border border-purple-200 bg-purple-50/60 p-2.5 rounded-lg">
+              <span className="text-[10px] font-bold text-[#71639e] block">سند تصفية وتسوية إجازة</span>
+              <span className="text-xs font-black font-mono text-purple-950 block">{vNum}</span>
+              <span className="text-[10px] text-slate-500 font-mono mt-0.5 block">{sDate}</span>
+            </div>
+          }
+        />
 
         <div className="mt-4 text-center">
           <h2 className="text-xl font-black text-[#71639e] inline-block border-b-2 border-dashed border-[#71639e] pb-1 px-4">

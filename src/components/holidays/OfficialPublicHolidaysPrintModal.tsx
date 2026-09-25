@@ -1,10 +1,11 @@
 import React, { useMemo } from 'react';
-import { X, Printer, Building2, ShieldCheck, Sparkles, Award } from 'lucide-react';
+import { X, Printer, Building2, Sparkles, Award } from 'lucide-react';
 import { printDocument } from '../../utils/printUtils';
 import { PublicHoliday, HolidayDutyAssignment } from './holidayTypes';
 import { getCompensatedHolidays2026 } from '../../data/kuwaitPublicHolidays2026';
 import type { Company } from '../../types';
 import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
+import { OfficialA4CompanyLetterhead } from '../print/OfficialA4CompanyLetterhead';
 
 interface OfficialPublicHolidaysPrintModalProps {
   isOpen: boolean;
@@ -109,43 +110,22 @@ export const OfficialPublicHolidaysPrintModal: React.FC<OfficialPublicHolidaysPr
             className="bg-white w-full max-w-[210mm] min-h-[297mm] p-8 sm:p-10 border border-slate-300 shadow-sm text-slate-900 text-right font-sans"
             dir="rtl"
           >
-            <div className="border-b-2 border-slate-900 pb-4 mb-5 flex items-start justify-between gap-4">
-              <div className="flex items-start gap-3">
-                {profile.logoUrl ? (
-                  <img
-                    src={profile.logoUrl}
-                    alt=""
-                    className="w-14 h-14 object-contain rounded-lg border border-slate-200 shrink-0"
-                  />
-                ) : (
-                  <div
-                    className="w-14 h-14 rounded-full border-2 border-slate-800 flex items-center justify-center shrink-0 bg-gradient-to-b from-emerald-50 to-white"
-                    aria-hidden
-                  >
-                    <ShieldCheck className="text-emerald-800" size={28} />
-                  </div>
-                )}
-                <div>
-                  <div className="text-[11px] font-bold text-slate-500">دولة الكويت — وزارة الشؤون الاجتماعية والعمل</div>
-                  <h2 className="text-lg font-black text-slate-900 leading-tight">{profile.displayNameAr}</h2>
-                  <div className="text-[10px] text-slate-600 mt-1 font-mono space-y-0.5">
-                    <div>
-                      س.ت: <strong>{profile.commercialReg}</strong> | ملف الشؤون (PAM/WPS):{' '}
-                      <strong>{profile.wsiCode}</strong>
-                    </div>
-                    <div>الرقم المدني للجهة: <strong>{profile.civilIdCompany}</strong></div>
+            <OfficialA4CompanyLetterhead
+              company={company}
+              showKuwaitMinistryLine
+              logoClassName="w-14 h-14"
+              className="mb-5"
+              rightSlot={
+                <div className="text-[10px] text-slate-600 space-y-1">
+                  <div className="font-bold text-slate-800">إدارة الموارد البشرية</div>
+                  <div>رقم السجل: <span className="font-mono font-bold">{reportRef}</span></div>
+                  <div>تاريخ الاستخراج: <span className="font-mono">{todayLabel}</span></div>
+                  <div className="inline-block mt-1 px-2 py-0.5 rounded border border-purple-200 bg-purple-50 text-purple-900 font-bold">
+                    قانون العمل 6/2010 — العطلات والمادة 68
                   </div>
                 </div>
-              </div>
-              <div className="text-left text-[10px] text-slate-600 space-y-1">
-                <div className="font-bold text-slate-800">إدارة الموارد البشرية</div>
-                <div>رقم السجل: <span className="font-mono font-bold">{reportRef}</span></div>
-                <div>تاريخ الاستخراج: <span className="font-mono">{todayLabel}</span></div>
-                <div className="inline-block mt-1 px-2 py-0.5 rounded border border-purple-200 bg-purple-50 text-purple-900 font-bold">
-                  قانون العمل 6/2010 — العطلات والمادة 68
-                </div>
-              </div>
-            </div>
+              }
+            />
 
             <div className="bg-slate-100 border border-slate-300 rounded-lg p-3 text-center mb-6">
               <h1 className="text-base font-black text-slate-900 flex items-center justify-center gap-2">

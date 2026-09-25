@@ -1,24 +1,24 @@
 import React from 'react';
-import { Printer, X, ShieldCheck, Calendar, User, FileText, CheckCircle2, Award, DollarSign, Building2 } from 'lucide-react';
+import { Printer, X, CheckCircle2, Award, DollarSign } from 'lucide-react';
 import { safePrintAction } from '../../guards/SystemIntegrityGuard';
 import { HolidayDutyAssignment } from '../OdooPublicHolidaysApp';
+import type { Company } from '../../types';
+import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
 
 interface PrintableHolidayDutyModalProps {
   duty: HolidayDutyAssignment | null;
   onClose: () => void;
-  activeCompanyName?: string;
-  pamFileNumber?: string;
-  civilIdCompany?: string;
+  company: Company | null;
 }
 
 export const PrintableHolidayDutyModal: React.FC<PrintableHolidayDutyModalProps> = ({
   duty,
   onClose,
-  activeCompanyName = 'المنشأة المركزية المتكاملة',
-  pamFileNumber = '12345678',
-  civilIdCompany = '123456789012'
+  company,
 }) => {
   if (!duty) return null;
+
+  const profile = getCompanyPrintProfile(company);
 
   const todayStr = new Date().toISOString().split('T')[0];
   const formRef = `PAM-DTY-${duty.id || '2026-001'}`;
@@ -62,10 +62,10 @@ export const PrintableHolidayDutyModal: React.FC<PrintableHolidayDutyModalProps>
           {/* Header */}
           <div className="flex items-start justify-between border-b-2 border-slate-800 pb-4">
             <div className="space-y-1">
-              <div className="text-base font-black text-slate-900">{activeCompanyName}</div>
-              <div className="text-[11px] text-slate-600">دولة الكويت - سجل تجاري معتمد</div>
+              <div className="text-base font-black text-slate-900">{profile.displayNameAr}</div>
+              <div className="text-[11px] text-slate-600">دولة الكويت — سجل تجاري: {profile.commercialReg}</div>
               <div className="text-[10px] text-slate-500 font-mono">
-                ملف الشؤون (PAM): {pamFileNumber} | الرقم المدني للجهة: {civilIdCompany}
+                ملف الشؤون (PAM): {profile.wsiCode} | الرقم المدني للجهة: {profile.civilIdCompany}
               </div>
             </div>
 

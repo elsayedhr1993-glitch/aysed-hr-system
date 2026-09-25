@@ -1,16 +1,13 @@
 import React, { useRef } from 'react';
-import { X, Printer, Download, CheckCircle2, ShieldCheck, Building2 } from 'lucide-react';
+import { X, Printer, Building2 } from 'lucide-react';
 import { safePrintAction } from '../../guards/SystemIntegrityGuard';
+import type { Company } from '../../types';
+import { OfficialA4CompanyLetterhead } from '../print/OfficialA4CompanyLetterhead';
 
 interface OfficialAttendancePrintModalProps {
   isOpen: boolean;
   onClose: () => void;
-  company: {
-    nameAr?: string;
-    name?: string;
-    commercialLicenseNo?: string;
-    wsiCode?: string;
-  } | null;
+  company: Company | null;
   reportData: {
     mode: 'daily' | 'monthly';
     title: string;
@@ -39,10 +36,6 @@ export const OfficialAttendancePrintModal: React.FC<OfficialAttendancePrintModal
   const handlePrint = () => {
     safePrintAction(reportData.title);
   };
-
-  const compName = company?.nameAr || company?.name || 'الشركة الكويتية لإدارة الأعمال';
-  const commercialNo = company?.commercialLicenseNo || '412093 / ك';
-  const wsiCode = company?.wsiCode || 'MOSAL-KW-88412';
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
@@ -81,25 +74,19 @@ export const OfficialAttendancePrintModal: React.FC<OfficialAttendancePrintModal
             dir="rtl"
           >
             
-            {/* Header */}
-            <div className="border-b-2 border-slate-900 pb-4 mb-5 flex items-start justify-between">
-              <div>
-                <div className="text-xs text-slate-500 font-bold">دولة الكويت</div>
-                <h2 className="text-lg font-black text-slate-900">{compName}</h2>
-                <div className="text-[11px] text-slate-600 mt-0.5 space-x-3 space-x-reverse font-mono">
-                  <span>س.ت: <strong>{commercialNo}</strong></span>
-                  <span>|</span>
-                  <span>ملف الشؤون WPS: <strong>{wsiCode}</strong></span>
+            <OfficialA4CompanyLetterhead
+              company={company}
+              departmentLine="قطاع الشؤون الإدارية والموارد البشرية — الحضور والانصراف"
+              className="mb-5"
+              rightSlot={
+                <div>
+                  <div className="text-[11px] text-slate-500">تاريخ الطباعة: {new Date().toLocaleDateString('ar-KW')}</div>
+                  <div className="inline-block bg-slate-100 text-slate-800 text-[10px] font-bold px-2 py-0.5 rounded border border-slate-300 mt-1">
+                    معتمد قانون العمل الكويتي (م 67)
+                  </div>
                 </div>
-              </div>
-              <div className="text-left">
-                <div className="text-xs font-bold text-slate-600">قطاع الشؤون الإدارية والموارد البشرية</div>
-                <div className="text-[11px] text-slate-500 mt-0.5">تاريخ الطباعة: {new Date().toLocaleDateString('ar-KW')}</div>
-                <div className="inline-block bg-slate-100 text-slate-800 text-[10px] font-bold px-2 py-0.5 rounded border border-slate-300 mt-1">
-                  معتمد قانون العمل الكويتي (م 67)
-                </div>
-              </div>
-            </div>
+              }
+            />
 
             {/* Document Title Banner */}
             <div className="bg-slate-100 p-3 rounded-lg border border-slate-300 text-center mb-5">

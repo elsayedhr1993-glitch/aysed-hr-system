@@ -3,21 +3,24 @@ import { Printer, X, BellRing, Copy, Check, FileText, Building2, Calendar, Spark
 import { safePrintAction } from '../../guards/SystemIntegrityGuard';
 import { PublicHoliday } from '../OdooPublicHolidaysApp';
 import { toast } from 'react-hot-toast';
+import type { Company } from '../../types';
+import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
 
 interface HolidayCircularModalProps {
   holiday: PublicHoliday | null;
   onClose: () => void;
-  companyName?: string;
+  company: Company | null;
 }
 
 export const HolidayCircularModal: React.FC<HolidayCircularModalProps> = ({
   holiday,
   onClose,
-  companyName = 'شركة المنارة للرعاية الصحية والخدمات الإدارية'
+  company,
 }) => {
   const [copied, setCopied] = useState(false);
   if (!holiday) return null;
 
+  const companyName = getCompanyPrintProfile(company).displayNameAr;
   const todayStr = new Date().toISOString().split('T')[0];
   const circularNo = `CIR-${new Date().getFullYear()}-${holiday.id.replace('HOL-KW-', '')}`;
 

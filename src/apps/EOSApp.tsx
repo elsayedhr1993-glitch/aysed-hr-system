@@ -10,6 +10,8 @@ import { Scale, Printer, FileCheck, AlertCircle, Info, Calculator, CheckCircle2,
 import { toast } from 'react-hot-toast';
 import { TenantDatabaseService } from '../services/tenantDataService';
 import { getEmployeeStatusMeta, normalizeEmployeeStatus } from '../utils/employeeLifecycle';
+import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
+import { OfficialA4CompanyLetterhead } from '../components/print/OfficialA4CompanyLetterhead';
 
 interface EOSAppProps {
   employees: Employee[];
@@ -30,6 +32,7 @@ export const EOSApp: React.FC<EOSAppProps> = ({
   onSaveEmployee,
   onSaveContract
 }) => {
+  const { company: companyForPrint } = useCompanyForPrint(activeCompany?.id);
   const activeCompId = activeCompany?.id || '';
   let companyEmps = (employees || []).filter(e => !e.isDeleted && e.companyId === activeCompId);
 
@@ -459,22 +462,18 @@ export const EOSApp: React.FC<EOSAppProps> = ({
         <div id="print-area" className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-8 shadow-sm printable-area text-slate-800 print:shadow-none print:border-none">
           {eosResult ? (
             <div>
-              {/* Printable Letterhead */}
-              <div className="flex justify-between items-start border-b-2 border-[#714B67] pb-4 mb-6">
-                <div>
-                  <h1 className="text-lg font-black text-[#714B67]">{activeCompany?.nameAr || ''}</h1>
-                  <p className="text-xs text-slate-500 font-medium">{activeCompany?.nameEn || ''}</p>
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    سجل تجاري رقم: {activeCompany?.commercialRegNo || ''} | الرقم المدني للشركة: {activeCompany?.civilIdCompany || ''}
-                  </p>
-                </div>
-                <div className="text-left dir-ltr">
-                  <span className="inline-block bg-rose-100 text-rose-800 text-xs font-bold px-3 py-1 rounded-full border border-rose-200">
-                    سند مخالصة وإبراء ذمة نهائي
-                  </span>
-                  <p className="text-[10px] text-slate-400 mt-1">التاريخ: {new Date().toLocaleDateString('ar-KW')}</p>
-                </div>
-              </div>
+              <OfficialA4CompanyLetterhead
+                company={companyForPrint}
+                className="border-[#714B67] mb-6"
+                rightSlot={
+                  <div className="text-left dir-ltr">
+                    <span className="inline-block bg-rose-100 text-rose-800 text-xs font-bold px-3 py-1 rounded-full border border-rose-200">
+                      سند مخالصة وإبراء ذمة نهائي
+                    </span>
+                    <p className="text-[10px] text-slate-400 mt-1">التاريخ: {new Date().toLocaleDateString('ar-KW')}</p>
+                  </div>
+                }
+              />
 
               {/* Employee Summary Card */}
               <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 mb-6 text-xs grid grid-cols-2 md:grid-cols-4 gap-4">

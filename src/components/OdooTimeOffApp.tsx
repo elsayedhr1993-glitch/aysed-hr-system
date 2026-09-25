@@ -36,6 +36,7 @@ import {
   Filter
 } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
+import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
 import { useOdooHierarchy } from '../context/OdooHierarchyContext';
 import { useAuth } from '../context/AuthContext';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
@@ -137,6 +138,7 @@ const leaveTypeLabels: Record<string, { label: string; color: string; maxDaysRul
 
 export const OdooTimeOffApp: React.FC = () => {
   const { activeCompany } = useCompany();
+  const { company: companyForPrint } = useCompanyForPrint();
   const { employees } = useOdooHierarchy();
   const { user } = useAuth();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
@@ -2304,9 +2306,7 @@ export const OdooTimeOffApp: React.FC = () => {
         <PrintableLeaveFormModal
           request={selectedPrintReq}
           onClose={() => setSelectedPrintReq(null)}
-          activeCompanyName={activeCompany?.nameAr || 'المنشأة المركزية المتكاملة'}
-          pamFileNumber={activeCompany?.wsiCode || '12345678'}
-          civilIdCompany={activeCompany?.civilIdCompany || '123456789012'}
+          company={companyForPrint}
           balancePoolBeforeLeave={poolBeforeLeave}
         />
         );

@@ -35,6 +35,9 @@ import {
 } from 'lucide-react';
 import { useOdooHierarchy, EmployeeContract } from '../context/OdooHierarchyContext';
 import { useCompany } from '../context/CompanyContext';
+import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
+import { getCompanyPrintProfile } from '../utils/companyPrintProfile';
+import { OfficialA4CompanyLetterhead } from './print/OfficialA4CompanyLetterhead';
 import { TenantDatabaseService } from '../services/tenantDataService';
 import { OdooChatter, ChatterMessage } from './OdooChatter';
 import { toast } from 'react-hot-toast';
@@ -96,6 +99,8 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
 }) => {
   const { employees, updateContractSalary, updateContractDetails } = useOdooHierarchy();
   const { activeCompany, activeCompanyId } = useCompany();
+  const { company: companyForPrint } = useCompanyForPrint(activeCompanyId);
+  const printProfile = getCompanyPrintProfile(companyForPrint);
   const currentCompanyId = activeCompanyId || activeCompany?.id || 'comp-super-admin';
 
   const [dbEmployees, setDbEmployees] = useState<EmployeeContract[]>([]);
@@ -1404,28 +1409,16 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
                 style={{ fontFamily: "'Cairo', 'Segoe UI', Tahoma, sans-serif", lineHeight: 1.8 }}
                 dir="rtl"
               >
-                {/* Header */}
-                <div className="border-b-2 border-[#714B67] pb-4 mb-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-purple-50 border-2 border-[#714B67] rounded-xl flex items-center justify-center font-black text-[#714B67] text-xl">
-                        {(activeCompany?.nameAr || 'م').charAt(0)}
-                      </div>
-                      <div>
-                        <h2 className="text-lg font-black text-[#714B67]">
-                          {activeCompany?.nameAr || activeCompany?.name || 'مجموعة المنارة للخدمات المتكاملة ذ.م.م'}
-                        </h2>
-                        <p className="text-[11px] font-bold text-slate-500 font-mono">
-                          سجل تجاري: {activeCompany?.commercialRegNo || '148291'} | الرقم الآلي: {(activeCompany as any)?.paciNumber || '20491823'}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-left font-mono text-xs text-slate-600 space-y-1">
+                <OfficialA4CompanyLetterhead
+                  company={companyForPrint}
+                  className="border-[#714B67] mb-6"
+                  rightSlot={
+                    <div className="font-mono text-xs text-slate-600 space-y-1">
                       <div>التاريخ: {new Date().toLocaleDateString('ar-KW')}</div>
                       <div>رقم العقد: <strong className="text-[#714B67]">{printableContract.contractRef}</strong></div>
                     </div>
-                  </div>
-                </div>
+                  }
+                />
 
                 {/* Contract Body */}
                 <div className="space-y-4 text-justify text-xs md:text-sm">
@@ -1443,7 +1436,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
                   </p>
 
                   <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1 text-xs md:text-sm">
-                    <div><strong>الطرف الأول (صاحب العمل):</strong> {activeCompany?.nameAr || activeCompany?.name || 'المنشأة المعتمدة'}، سجل تجاري: {activeCompany?.commercialRegNo || '148291'}، الرقم الآلي: {(activeCompany as any)?.paciNumber || '20491823'}.</div>
+                    <div><strong>الطرف الأول (صاحب العمل):</strong> {printProfile.displayNameAr}، سجل تجاري: {printProfile.commercialReg}، الرقم الآلي: {printProfile.paciNumber}.</div>
                     <div><strong>الطرف الثاني (العامل):</strong> السيد/ {printableContract.name}، البطاقة المدنية: ({printableContract.civilId})، الجنسية: {printableContract.isKuwaiti ? 'كويتي' : 'غير كويتي'}.</div>
                   </div>
 
@@ -1497,7 +1490,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
                     <div className="text-center flex flex-col items-center justify-center">
                       <div className="w-20 h-20 rounded-full border-2 border-dashed border-[#714B67]/40 flex flex-col items-center justify-center p-1 text-center text-[9px] text-[#714B67] font-bold rotate-[-6deg]">
                         <span>ختم المنشأة الرسمي</span>
-                        <span className="text-[8px] font-mono">{activeCompany?.commercialRegNo || '148291'}</span>
+                        <span className="text-[8px] font-mono">{printProfile.commercialReg}</span>
                       </div>
                     </div>
 

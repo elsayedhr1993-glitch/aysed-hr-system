@@ -7,6 +7,7 @@ import {
   ArrowUpRight, Trash2, X, RefreshCw, Layers, Sliders, Scale
 } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
+import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
 import { useSystemSettings } from '../context/SystemSettingsContext';
 import { useOdooHierarchy } from '../context/OdooHierarchyContext';
 import { exportToExcel } from '../utils/exportUtils';
@@ -79,6 +80,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
   openFinalSettlementTriggerKey,
 }) => {
   const { activeCompany } = useCompany();
+  const { company: companyForPrint, profile: printProfile } = useCompanyForPrint();
   const { settings } = useSystemSettings();
   const { 
     employees, 
@@ -1772,9 +1774,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
       {showOfficialPayslipModal && payslipToPrint && (
         <OfficialPayslipPrintModal
           payslip={payslipToPrint}
-          companyName={activeCompany?.nameAr && !activeCompany.nameAr.includes('Super Admin') ? activeCompany.nameAr : 'شركة المنار كلينك'}
-          companyNameEn={activeCompany?.nameEn && !activeCompany.nameEn.includes('Super Admin') ? activeCompany.nameEn : 'Al Manar Clinic W.L.L.'}
-          crNumber={activeCompany?.crNumber || activeCompany?.commercialRegNo || '301122'}
+          company={companyForPrint}
           onClose={() => {
             setShowOfficialPayslipModal(false);
             setPayslipToPrint(null);
@@ -1800,13 +1800,14 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
             status: p.status
           }))}
           period={selectedMonth}
+          company={companyForPrint}
           companyInfo={{
-            nameAr: activeCompany?.nameAr || 'شركة الأفق للتجارة العامة والمقاولات ذ.م.م',
-            nameEn: activeCompany?.nameEn || 'Al-Ufuq General Trading & Contracting W.L.L.',
-            crNumber: activeCompany?.crNumber || activeCompany?.commercialRegNo || '104829',
-            employerMosaCode: (activeCompany as any)?.mosaWorkNumber || activeCompany?.wsiCode || (activeCompany as any)?.pamFileNumber || activeCompany?.crNumber || activeCompany?.commercialRegNo || '000000',
-            bankName: activeCompany?.bankName || 'بنك الكويت الوطني (NBK)',
-            accountNumber: activeCompany?.accountNumber || '0123456789012',
+            nameAr: printProfile.displayNameAr,
+            nameEn: printProfile.displayNameEn,
+            crNumber: printProfile.commercialReg,
+            employerMosaCode: printProfile.wsiCode !== '—' ? printProfile.wsiCode : printProfile.commercialReg,
+            bankName: activeCompany?.bankName || '—',
+            accountNumber: activeCompany?.accountNumber || '—',
             iban: activeCompany?.iban || ''
           }}
           onClose={() => setShowWpsAuditModal(false)}
@@ -1819,9 +1820,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
           employees={settlementEmployees}
           leaveRequests={leaveRequests}
           leaveAllocations={leaveAllocations}
-          companyName={activeCompany?.nameAr || 'شركة الأفق للتجارة العامة والمقاولات ذ.م.م'}
-          companyNameEn={activeCompany?.nameEn || 'Al-Ufuq General Trading & Contracting W.L.L.'}
-          crNumber={activeCompany?.crNumber || activeCompany?.commercialRegNo || '104829'}
+          company={companyForPrint}
           initialEmployeeId={initialSettlementEmployeeId}
           onClose={() => setShowFinalSettlementModal(false)}
         />

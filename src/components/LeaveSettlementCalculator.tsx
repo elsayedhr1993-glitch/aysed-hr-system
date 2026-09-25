@@ -26,6 +26,7 @@ import {
 } from '../services/leaveSettlementService';
 import { syncLedgerFromFirestore } from '../services/leaveBalanceLedgerService';
 import { LeaveClearanceDocument } from './LeaveClearanceDocument';
+import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
 import {
   LeaveBalanceEngine,
   resolveAnnualTicketAllowanceKwd,
@@ -125,6 +126,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
   onUpdateAllocations,
   onUpdateEmployee,
 }) => {
+  const { company: companyForPrint } = useCompanyForPrint(activeCompany?.id);
   const { lang, t } = useLang();
   const direction = lang === 'ar' ? 'rtl' : 'ltr';
   const textAlignClass = lang === 'ar' ? 'text-right' : 'text-left';
@@ -2102,7 +2104,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                     aysed_deductions: viewingVoucher.totalDeductions,
                     aysed_net_payable: viewingVoucher.netSettlementPayout,
                   } : settlementResult!}
-                  activeCompany={activeCompany}
+                  activeCompany={companyForPrint}
                   voucherNumber={viewingVoucher?.voucherNumber || settlementResult?.voucherNumber}
                   settlementDate={viewingVoucher?.settlementDate || settlementDate}
                   items={viewingVoucher?.items || settlementResult?.items}

@@ -1,7 +1,8 @@
 import React from 'react';
 import { Company } from '../../types';
 import { OrgChartPrintLine } from '../../utils/orgChartUtils';
-import { Printer, X, Network } from 'lucide-react';
+import { Printer, X } from 'lucide-react';
+import { OfficialA4CompanyLetterhead } from '../print/OfficialA4CompanyLetterhead';
 
 interface OrganizationChartPrintModalProps {
   isOpen: boolean;
@@ -26,8 +27,6 @@ export const OrganizationChartPrintModal: React.FC<OrganizationChartPrintModalPr
 
   const todayStr = new Date().toISOString().split('T')[0];
   const reportRef = `ORG-${Date.now().toString().slice(-6)}`;
-  const companyName = company?.nameAr || company?.name || 'المنشأة';
-
   return (
     <div
       className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-[60] flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
@@ -54,25 +53,18 @@ export const OrganizationChartPrintModal: React.FC<OrganizationChartPrintModalPr
         </div>
 
         <div className="p-8 overflow-y-auto flex-1 bg-white text-slate-900 print:p-0" id="org-chart-print-area">
-          <div className="border-b-2 border-slate-900 pb-4 mb-6 flex justify-between items-start gap-4">
-            <div className="flex items-start gap-3">
-              {company?.logoUrl ? (
-                <img src={company.logoUrl} alt="" className="w-14 h-14 object-contain rounded-lg border border-slate-200" />
-              ) : (
-                <div className="w-14 h-14 rounded-lg bg-[#714B67]/10 text-[#714B67] flex items-center justify-center">
-                  <Network className="w-7 h-7" />
-                </div>
-              )}
-              <div>
-                <h2 className="text-xl font-black">{companyName}</h2>
-                <p className="text-xs text-slate-600 mt-1">الهيكل التنظيمي والتسلسل الإداري</p>
+          <OfficialA4CompanyLetterhead
+            company={company}
+            subtitle="الهيكل التنظيمي والتسلسل الإداري"
+            logoClassName="w-14 h-14"
+            className="mb-6"
+            rightSlot={
+              <div className="text-[10px] font-mono text-slate-500 shrink-0">
+                <div>المرجع: {reportRef}</div>
+                <div>تاريخ الإصدار: {todayStr}</div>
               </div>
-            </div>
-            <div className="text-left text-[10px] font-mono text-slate-500 shrink-0">
-              <div>المرجع: {reportRef}</div>
-              <div>تاريخ الإصدار: {todayStr}</div>
-            </div>
-          </div>
+            }
+          />
 
           <div className="bg-slate-100 rounded-xl p-3 mb-6 text-xs flex flex-wrap justify-between gap-2">
             <span><strong>النطاق:</strong> {scopeLabel}</span>

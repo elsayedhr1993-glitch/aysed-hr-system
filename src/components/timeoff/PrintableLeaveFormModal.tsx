@@ -1,15 +1,15 @@
 import React from 'react';
-import { Printer, X, ShieldCheck, Calendar, User, FileText, CheckCircle2 } from 'lucide-react';
+import { Printer, X, User, FileText, CheckCircle2 } from 'lucide-react';
 import { LeaveRequest } from '../OdooTimeOffApp';
 import { safePrintAction } from '../../guards/SystemIntegrityGuard';
 import { resolveLeaveBalancePoolHint, resolveLeavePaidUnpaidSplit } from '../../utils/leaveEngine';
+import type { Company } from '../../types';
+import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
 
 interface PrintableLeaveFormModalProps {
   request: LeaveRequest | null;
   onClose: () => void;
-  activeCompanyName?: string;
-  pamFileNumber?: string;
-  civilIdCompany?: string;
+  company: Company | null;
   /** الرصيد المتاح قبل هذا الطلب (لتقسيم paid/unpaid عند غياب snapshot) */
   balancePoolBeforeLeave?: number;
 }
@@ -17,12 +17,12 @@ interface PrintableLeaveFormModalProps {
 export const PrintableLeaveFormModal: React.FC<PrintableLeaveFormModalProps> = ({
   request,
   onClose,
-  activeCompanyName = 'المنشأة المركزية المتكاملة',
-  pamFileNumber = '12345678',
-  civilIdCompany = '123456789012',
+  company,
   balancePoolBeforeLeave = 0
 }) => {
   if (!request) return null;
+
+  const profile = getCompanyPrintProfile(company);
 
   const leaveTypeNamesAr: Record<string, string> = {
     annual: 'إجازة سنوية اعتيادية (Annual Leave - مادة 70)',
@@ -87,9 +87,12 @@ export const PrintableLeaveFormModal: React.FC<PrintableLeaveFormModalProps> = (
           {/* Header */}
           <div className="flex items-center justify-between border-b-2 border-slate-800 pb-4">
             <div className="text-right">
-              <h2 className="text-base font-black text-slate-900">{activeCompanyName}</h2>
+              <h2 className="text-base font-black text-slate-900">{profile.displayNameAr}</h2>
               <p className="text-[11px] text-slate-600 font-medium">إدارة الموارد البشرية والشؤون الإدارية (HR Dept)</p>
-              <p className="text-[10px] text-slate-500 font-mono">ملف الشؤون (PAM): {pamFileNumber} | الرقم المدني للجهة: {civilIdCompany}</p>
+              <p className="text-[10px] text-slate-500 font-mono">
+                ملف الشؤون (PAM): {profile.wsiCode} | السجل التجاري: {profile.commercialReg} | الرقم المدني للجهة:{' '}
+                {profile.civilIdCompany}
+              </p>
             </div>
             <div className="text-center">
               <div className="border border-slate-800 px-4 py-1.5 rounded-lg bg-slate-50">

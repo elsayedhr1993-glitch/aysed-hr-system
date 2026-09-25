@@ -31,6 +31,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
+import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
 import { useOdooHierarchy } from '../context/OdooHierarchyContext';
 import { exportToExcel } from '../utils/exportUtils';
 import { toast } from 'react-hot-toast';
@@ -60,6 +61,7 @@ import type { PublicHoliday, HolidayDutyAssignment } from './holidays/holidayTyp
 
 export const OdooPublicHolidaysApp: React.FC = () => {
   const { activeCompany } = useCompany();
+  const { company: companyForPrint } = useCompanyForPrint();
   const { employees } = useOdooHierarchy();
   const companyEmployees = employees && employees.length > 0 ? employees : [];
 
@@ -1096,9 +1098,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
         <PrintableHolidayDutyModal
           duty={selectedPrintDuty}
           onClose={() => setSelectedPrintDuty(null)}
-          activeCompanyName={activeCompany?.nameAr || 'شركة المنارة المركزية'}
-          pamFileNumber={activeCompany?.wsiCode || '12345678'}
-          civilIdCompany={activeCompany?.civilIdCompany || '123456789012'}
+          company={companyForPrint}
         />
       )}
 
@@ -1107,14 +1107,14 @@ export const OdooPublicHolidaysApp: React.FC = () => {
         <HolidayCircularModal
           holiday={selectedCircularHoliday}
           onClose={() => setSelectedCircularHoliday(null)}
-          companyName={activeCompany?.nameAr || 'شركة المنارة المركزية'}
+          company={companyForPrint}
         />
       )}
 
       <OfficialPublicHolidaysPrintModal
         isOpen={showOfficialPrintModal}
         onClose={() => setShowOfficialPrintModal(false)}
-        company={activeCompany}
+        company={companyForPrint}
         holidays={holidays}
         duties={duties}
         calendarYear={2026}

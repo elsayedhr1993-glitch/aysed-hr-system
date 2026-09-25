@@ -14,7 +14,7 @@ import {
   resolveEmployeeDisplayName,
 } from '../utils/employeeDisplayName';
 import { resolveTenantCompanyId } from '../utils/tenantCompanyId';
-import { useTenantCompanyProfile } from '../hooks/useTenantCompanyProfile';
+import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
 import { 
   FolderOpen, FileText, Upload, Trash2, Search, X, CheckCircle2, 
   Scan, AlertTriangle, Download, Calendar, BellRing, Shield, 
@@ -49,7 +49,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
   onSelectEmpForForm,
 }) => {
   const resolvedCompanyId = resolveTenantCompanyId(tenantCompanyId, activeCompany?.id);
-  const companyForPrint = useTenantCompanyProfile(resolvedCompanyId, activeCompany);
+  const { company: companyForPrint } = useCompanyForPrint(resolvedCompanyId);
 
   // Main Workspace Tab (Employee Docs vs Company Licenses)
   const [workspaceTab, setWorkspaceTab] = useState<'EMPLOYEE_DOCS' | 'COMPANY_LICENSES'>('EMPLOYEE_DOCS');
@@ -369,7 +369,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
         <div className="flex-1 overflow-y-auto p-6 bg-slate-100">
           <CompanyDocumentsKanban 
             documents={companyDocuments}
-            company={activeCompany}
+            company={companyForPrint}
             onSaveDocument={handleSaveCompanyDoc} 
             onDeleteDocument={handleDeleteCompanyDoc} 
           />

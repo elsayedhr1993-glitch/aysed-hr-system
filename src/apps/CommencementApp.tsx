@@ -10,6 +10,8 @@ import {
 import toast from 'react-hot-toast';
 import { Employee, Contract, ShiftProfile, EmploymentCommencement, Company } from '../types';
 import { applyApprovedCommencementToEmployee } from '../utils/employeeCommencementSync';
+import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
+import { OfficialA4CompanyLetterhead } from '../components/print/OfficialA4CompanyLetterhead';
 
 interface CommencementAppProps {
   employees: Employee[];
@@ -114,6 +116,7 @@ export const CommencementApp: React.FC<CommencementAppProps> = ({
   focusEmployeeId,
   onFocusConsumed,
 }) => {
+  const { company: companyForPrint } = useCompanyForPrint(activeCompany?.id);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [isDevCodeModalOpen, setIsDevCodeModalOpen] = useState<boolean>(false);
   const [selectedCommForPrint, setSelectedCommForPrint] = useState<EmploymentCommencement | null>(null);
@@ -1206,21 +1209,20 @@ class HrCommencement(models.Model):
             {/* Printable Document Sheet (Odoo Official Letterhead) */}
             <div className="p-8 space-y-6 text-slate-900 bg-white" id="printable-commencement-document">
               
-              {/* Header */}
-              <div className="flex items-center justify-between border-b-2 border-slate-900 pb-4">
-                <div>
-                  <h2 className="text-lg font-black text-slate-900">{activeCompany?.nameAr || 'شركة Odoo HR الكويت'}</h2>
-                  <p className="text-xs text-slate-600 mt-0.5">إدارة الموارد البشرية والشؤون الإدارية</p>
-                  <p className="text-[10px] text-slate-500 font-mono">السجل التجاري: {activeCompany?.commercialRegNo || '12345678'}</p>
-                </div>
-                <div className="text-left">
-                  <div className="text-xs font-bold text-slate-800">التاريخ: {selectedCommForPrint.actualJoiningDate}</div>
-                  <div className="text-[10px] text-slate-500 font-mono">المرجع: COMM-{selectedCommForPrint.id.slice(-6)}</div>
-                  <span className="inline-block mt-1 bg-[#714B67] text-white text-[10px] px-2 py-0.5 rounded font-bold">
-                    إقرار مباشرة عمل رسمي
-                  </span>
-                </div>
-              </div>
+              <OfficialA4CompanyLetterhead
+                company={companyForPrint}
+                departmentLine="إدارة الموارد البشرية والشؤون الإدارية"
+                className="border-slate-900"
+                rightSlot={
+                  <div>
+                    <div className="text-xs font-bold text-slate-800">التاريخ: {selectedCommForPrint.actualJoiningDate}</div>
+                    <div className="text-[10px] text-slate-500 font-mono">المرجع: COMM-{selectedCommForPrint.id.slice(-6)}</div>
+                    <span className="inline-block mt-1 bg-[#714B67] text-white text-[10px] px-2 py-0.5 rounded font-bold">
+                      إقرار مباشرة عمل رسمي
+                    </span>
+                  </div>
+                }
+              />
 
               {/* Document Title */}
               <div className="text-center py-2">

@@ -9,6 +9,8 @@ import {
   Trash2, Edit2, CheckCircle2, Clock, X, ShieldAlert, Award, ChevronRight, 
   Printer, ArrowRightLeft, Building2, UserCheck, Calendar, Layers
 } from 'lucide-react';
+import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
+import { OfficialA4CompanyLetterhead } from '../components/print/OfficialA4CompanyLetterhead';
 
 interface CustodyLoansAppProps {
   employees: Employee[];
@@ -51,6 +53,7 @@ export const CustodyLoansApp: React.FC<CustodyLoansAppProps> = ({
   onDeleteNote,
   onNavigateToApp,
 }) => {
+  const { company: companyForPrint } = useCompanyForPrint(activeCompany?.id);
   // Main Module Tab State
   const [activeTab, setActiveTab] = useState<'CUSTODY' | 'LOANS' | 'WARNINGS' | 'NOTES'>('CUSTODY');
 
@@ -1330,20 +1333,20 @@ export const CustodyLoansApp: React.FC<CustodyLoansAppProps> = ({
       {printableRecord && (
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div id="print-area" className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-2xl w-full p-8 space-y-6 print:p-0 print:border-none print:shadow-none">
-            {/* Odoo Letterhead Header */}
-            <div className="border-b-2 border-[#714B67] pb-4 flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-extrabold text-slate-900">{activeCompany?.nameAr || ''}</h2>
-                <div className="text-xs text-slate-500 font-serif">{activeCompany?.nameEn || ''}</div>
-                <div className="text-[11px] text-slate-400 mt-1">سجل تجاري: {activeCompany?.commercialRegNo || ''} | دولة الكويت</div>
-              </div>
-              <div className="text-left dir-ltr">
-                <span className="text-xs font-extrabold text-[#714B67] bg-purple-50 px-3 py-1 rounded-full border border-purple-200">
-                  Odoo Official Document
-                </span>
-                <div className="text-[10px] text-slate-400 font-mono mt-1">تاريخ الإصدار: {new Date().toISOString().split('T')[0]}</div>
-              </div>
-            </div>
+            <OfficialA4CompanyLetterhead
+              company={companyForPrint}
+              className="border-[#714B67] pb-4"
+              rightSlot={
+                <div className="text-left dir-ltr">
+                  <span className="text-xs font-extrabold text-[#714B67] bg-purple-50 px-3 py-1 rounded-full border border-purple-200">
+                    Odoo Official Document
+                  </span>
+                  <div className="text-[10px] text-slate-400 font-mono mt-1">
+                    تاريخ الإصدار: {new Date().toISOString().split('T')[0]}
+                  </div>
+                </div>
+              }
+            />
 
             {/* Document Title */}
             <div className="text-center space-y-1">

@@ -6,6 +6,8 @@ import {
 import { tafqitKuwaiti } from '../../utils/tafqit';
 import { exportToExcel } from '../../utils/exportUtils';
 import toast from 'react-hot-toast';
+import type { Company } from '../../types';
+import { OfficialA4CompanyLetterheadCompact } from '../print/OfficialA4CompanyLetterhead';
 
 export interface WpsAuditItem {
   id: string;
@@ -26,6 +28,7 @@ export interface WpsAuditItem {
 interface WpsAuditShieldModalProps {
   payslips: WpsAuditItem[];
   period: string;
+  company?: Company | null;
   companyInfo: {
     nameAr: string;
     nameEn: string;
@@ -41,6 +44,7 @@ interface WpsAuditShieldModalProps {
 export const WpsAuditShieldModal: React.FC<WpsAuditShieldModalProps> = ({
   payslips,
   period,
+  company,
   companyInfo,
   onClose,
 }) => {
@@ -337,18 +341,16 @@ export const WpsAuditShieldModal: React.FC<WpsAuditShieldModalProps> = ({
                 </button>
               </div>
 
-              {/* Company Header */}
-              <div className="flex justify-between items-start border-b-2 border-slate-800 pb-4 mb-6">
-                <div>
-                  <h2 className="text-base font-black text-slate-900">{companyInfo.nameAr}</h2>
-                  <p className="text-[11px] font-semibold text-slate-500">{companyInfo.nameEn}</p>
-                  <p className="text-[10px] text-slate-500 mt-1">سجل تجاري: {companyInfo.crNumber} | دولة الكويت</p>
-                </div>
-                <div className="text-left font-mono text-[11px]">
-                  <p className="font-bold text-slate-700">التاريخ: {new Date().toLocaleDateString('ar-KW')}</p>
-                  <p className="text-slate-500">الإشارة: PAY-WPS/{period.replace('-', '')}</p>
-                </div>
-              </div>
+              <OfficialA4CompanyLetterheadCompact
+                company={company}
+                className="mb-6"
+                rightSlot={
+                  <div className="text-left font-mono text-[11px]">
+                    <p className="font-bold text-slate-700">التاريخ: {new Date().toLocaleDateString('ar-KW')}</p>
+                    <p className="text-slate-500">الإشارة: PAY-WPS/{period.replace('-', '')}</p>
+                  </div>
+                }
+              />
 
               {/* Bank Recipient */}
               <div className="mb-6 text-xs leading-relaxed">
@@ -366,7 +368,7 @@ export const WpsAuditShieldModal: React.FC<WpsAuditShieldModalProps> = ({
               <div className="space-y-3.5 text-xs leading-relaxed text-slate-700 mb-8 text-justify">
                 <p>
                   يرجى التكرم بالخصم من حساب شركتنا المفتوح لديكم برقم:{' '}
-                  <strong className="font-mono text-slate-900 text-sm">{companyInfo.accountNumber || '0123456789'}</strong>
+                  <strong className="font-mono text-slate-900 text-sm">{companyInfo.accountNumber || '—'}</strong>
                   {companyInfo.iban && (
                     <span> (آيبان: <strong className="font-mono text-slate-900">{companyInfo.iban}</strong>)</span>
                   )}

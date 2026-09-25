@@ -17,15 +17,15 @@ import {
 import { printDocument } from '../../utils/printUtils';
 import { exportToExcel } from '../../utils/exportUtils';
 import { MedicalEmployeeAnalyticsRecord, ReportCategory } from '../OdooReportsApp';
+import type { Company } from '../../types';
+import { OfficialA4CompanyLetterhead } from '../print/OfficialA4CompanyLetterhead';
 
 interface OdooOfficialA4PrintModalProps {
   isOpen: boolean;
   onClose: () => void;
   reportCategory: ReportCategory;
   reportTitle: string;
-  companyName: string;
-  companyCivilId?: string;
-  commercialRegNo?: string;
+  company: Company | null;
   data: MedicalEmployeeAnalyticsRecord[];
   selectedMonth: string;
   totalGrossSalaries: number;
@@ -40,9 +40,7 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
   onClose,
   reportCategory,
   reportTitle,
-  companyName,
-  companyCivilId = 'غير متوفر',
-  commercialRegNo = 'غير متوفر',
+  company,
   data,
   selectedMonth,
   totalGrossSalaries,
@@ -132,36 +130,27 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
             className="bg-white border border-slate-300 print:border-none p-8 sm:p-12 max-w-4xl mx-auto shadow-sm print:shadow-none space-y-6 text-slate-800"
             style={{ fontFamily: "'Cairo', 'Tajawal', sans-serif" }}
           >
-            {/* 1. ترويسة المنشأة الرسمية */}
-            <div className="flex justify-between items-start border-b-2 border-slate-900 pb-5">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-[#714B67] text-white flex items-center justify-center font-bold text-base">
-                    {companyName.charAt(0) || 'ش'}
-                  </div>
-                  <h2 className="text-xl font-black text-slate-900">{companyName}</h2>
-                </div>
-                <p className="text-xs text-slate-500 font-bold">الرقم المدني للمنشأة: <span className="font-mono text-slate-800">{companyCivilId}</span></p>
-                <p className="text-xs text-slate-500 font-bold">السجل التجاري / ترخيص MOH: <span className="font-mono text-slate-800">{commercialRegNo}</span></p>
-                <p className="text-xs text-slate-500">دولة الكويت - منظومة حماية الأجور والامتثال</p>
-              </div>
-
-              <div className="text-center">
-                <div className="border-2 border-slate-900 bg-slate-50 px-6 py-2 rounded-xl">
+            <OfficialA4CompanyLetterhead
+              company={company}
+              subtitle="دولة الكويت — منظومة حماية الأجور والامتثال"
+              className="pb-5 mb-0 border-b-2 border-slate-900"
+              centerSlot={
+                <div className="border-2 border-slate-900 bg-slate-50 px-6 py-2 rounded-xl text-center">
                   <h1 className="text-lg font-black text-slate-900">{reportTitle}</h1>
                   <span className="text-[11px] font-bold text-[#714B67] block mt-0.5">فترة الكشف: {selectedMonth}</span>
+                  <span className="text-[9px] font-mono text-slate-400 block mt-1 tracking-widest uppercase">
+                    OFFICIAL AUDIT REPORT
+                  </span>
                 </div>
-                <span className="text-[9px] font-mono text-slate-400 block mt-1 tracking-widest uppercase">
-                  OFFICIAL AUDIT REPORT
-                </span>
-              </div>
-
-              <div className="text-left text-xs text-slate-600 space-y-1 font-mono">
-                <p><span className="font-bold font-sans">الرقم المرجعي:</span> REP-{reportRef || `${selectedMonth}`}</p>
-                <p><span className="font-bold font-sans">تاريخ الإصدار:</span> {new Date().toISOString().split('T')[0]}</p>
-                <p className="font-sans text-[10px] text-slate-400">{currentDateStr}</p>
-              </div>
-            </div>
+              }
+              rightSlot={
+                <div className="text-xs text-slate-600 space-y-1 font-mono">
+                  <p><span className="font-bold font-sans">الرقم المرجعي:</span> REP-{reportRef || `${selectedMonth}`}</p>
+                  <p><span className="font-bold font-sans">تاريخ الإصدار:</span> {new Date().toISOString().split('T')[0]}</p>
+                  <p className="font-sans text-[10px] text-slate-400">{currentDateStr}</p>
+                </div>
+              }
+            />
 
             {/* 2. ملخص الإجماليات الإحصائية للكشف */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">

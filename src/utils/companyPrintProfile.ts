@@ -10,6 +10,7 @@ export interface CompanyPrintProfile {
   logoUrl: string;
   mohLicense: string;
   authorizedSignatory: string;
+  paciNumber: string;
 }
 
 const PLACEHOLDER = '—';
@@ -47,6 +48,7 @@ export function mergeCompanyFromFirestore(
     authorizedSignatory: String(
       data.authorizedSignatory || data.managerName || base.authorizedSignatory || ''
     ).trim(),
+    paciNumber: String(data.paciNumber || (base as { paciNumber?: string }).paciNumber || '').trim(),
     email: String(data.email || base.email || '').trim(),
     phone: String(data.phone || base.phone || '').trim(),
   };
@@ -67,5 +69,6 @@ export function getCompanyPrintProfile(company?: Company | null): CompanyPrintPr
     logoUrl: String(c.logoUrl || c.logo || '').trim(),
     mohLicense: String(c.mohLicense || '').trim() || PLACEHOLDER,
     authorizedSignatory: String(c.authorizedSignatory || '').trim() || PLACEHOLDER,
+    paciNumber: String((c as { paciNumber?: string }).paciNumber || '').trim() || PLACEHOLDER,
   };
 }

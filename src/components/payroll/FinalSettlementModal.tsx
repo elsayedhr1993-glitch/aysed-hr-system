@@ -10,6 +10,8 @@ import {
   matchesEmployeeIdentity,
   normalizeLeaveBalanceInputs
 } from '../../utils/leaveEngine';
+import type { Company } from '../../types';
+import { OfficialA4CompanyLetterheadCompact } from '../print/OfficialA4CompanyLetterhead';
 
 export interface FinalSettlementEmployee {
   id: string;
@@ -30,9 +32,7 @@ interface FinalSettlementModalProps {
   employees: FinalSettlementEmployee[];
   leaveRequests?: any[];
   leaveAllocations?: any[];
-  companyName: string;
-  companyNameEn: string;
-  crNumber: string;
+  company: Company | null;
   initialEmployeeId?: string;
   onClose: () => void;
 }
@@ -41,9 +41,7 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
   employees,
   leaveRequests = [],
   leaveAllocations = [],
-  companyName,
-  companyNameEn,
-  crNumber,
+  company,
   initialEmployeeId,
   onClose,
 }) => {
@@ -328,21 +326,20 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
             className="bg-white p-8 sm:p-12 rounded-xl shadow-xs border border-slate-200 max-w-3xl mx-auto print:border-none print:shadow-none print:p-0 print:m-0 text-slate-800"
             dir="rtl"
           >
-            {/* Letterhead */}
-            <div className="flex justify-between items-start border-b-2 border-slate-800 pb-4 mb-5">
-              <div>
-                <h1 className="text-base font-black text-slate-900">{companyName}</h1>
-                <p className="text-[11px] font-semibold text-slate-500">{companyNameEn}</p>
-                <p className="text-[10px] text-slate-500 mt-0.5">سجل تجاري: {crNumber} | دولة الكويت</p>
-              </div>
-              <div className="text-left font-mono">
-                <div className="inline-block bg-[#714B67] text-white px-3 py-1 rounded-md font-bold text-[11px] mb-1">
-                  مخالصة نهائية وإبراء ذمة عمالي
+            <OfficialA4CompanyLetterheadCompact
+              company={company}
+              rightSlot={
+                <div className="text-left font-mono">
+                  <div className="inline-block bg-[#714B67] text-white px-3 py-1 rounded-md font-bold text-[11px] mb-1">
+                    مخالصة نهائية وإبراء ذمة عمالي
+                  </div>
+                  <div className="text-[10px] text-slate-500">التاريخ: {new Date().toLocaleDateString('ar-KW')}</div>
+                  <div className="text-[10px] text-slate-500">
+                    الرقم المرجعي: EOS-{currentEmp?.id}-{terminationDate.replace(/-/g, '')}
+                  </div>
                 </div>
-                <div className="text-[10px] text-slate-500">التاريخ: {new Date().toLocaleDateString('ar-KW')}</div>
-                <div className="text-[10px] text-slate-500">الرقم المرجعي: EOS-{currentEmp?.id}-{terminationDate.replace(/-/g, '')}</div>
-              </div>
-            </div>
+              }
+            />
 
             {/* Employee Metadata */}
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 mb-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
