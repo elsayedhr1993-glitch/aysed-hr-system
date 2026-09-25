@@ -1,9 +1,11 @@
 import { PDFDocument, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import reshaperPkg from 'arabic-persian-reshaper';
-import bidiFactory from 'bidi-js';
 
 export type PamFontChoice = 'cairo' | 'amiri';
+
+/** Bump when DEFAULT_PAM_COORDINATES changes; Firestore layers below this are ignored. */
+export const PAM_OVERLAY_SCHEMA_VERSION = 2;
 
 export interface PamContractData {
   // إدارة العمل
@@ -114,62 +116,63 @@ export interface PamCoordinatesConfig {
   art15LangEn: FieldCoord;
 }
 
-/** Letter-size PAM Form (2) — calibrated for public/pam_contract_form_2.pdf (612×792pt) */
+/**
+ * Letter-size PAM Form (2) — calibrated for public/pam_contract_form_2.pdf (PdfProxy / 612×792pt).
+ * Baseline tuned via scripts/test_fill_pam.ts against the official blank template.
+ */
 export const DEFAULT_PAM_COORDINATES: PamCoordinatesConfig = {
-  laborDeptAr: { x: 400, y: 695, size: 8.5, align: 'right', pageIndex: 0 },
-  laborDeptEn: { x: 155, y: 695, size: 8, align: 'left', pageIndex: 0 },
-  dayAr: { x: 490, y: 682, size: 8.5, align: 'right', pageIndex: 0 },
-  dateAr: { x: 435, y: 682, size: 8.5, align: 'right', pageIndex: 0 },
-  dayEn: { x: 65, y: 682, size: 8, align: 'left', pageIndex: 0 },
-  dateEn: { x: 160, y: 682, size: 8, align: 'left', pageIndex: 0 },
+  laborDeptAr: { x: 395, y: 660, size: 8, align: 'right', pageIndex: 0 },
+  laborDeptEn: { x: 180, y: 660, size: 7.5, align: 'left', pageIndex: 0 },
+  dayAr: { x: 500, y: 648, size: 8, align: 'right', pageIndex: 0 },
+  dateAr: { x: 440, y: 648, size: 7.5, align: 'right', pageIndex: 0 },
+  dayEn: { x: 65, y: 648, size: 7.5, align: 'left', pageIndex: 0 },
+  dateEn: { x: 175, y: 648, size: 7.5, align: 'left', pageIndex: 0 },
 
-  companyNameAr: { x: 462, y: 668, size: 8.5, align: 'right', pageIndex: 0 },
-  companyRepNameAr: { x: 478, y: 655, size: 8.5, align: 'right', pageIndex: 0 },
-  companyRepCivilIdAr: { x: 478, y: 642, size: 8.5, align: 'right', pageIndex: 0 },
-  companyNameEn: { x: 128, y: 658, size: 7.5, align: 'left', pageIndex: 0 },
-  companyRepNameEn: { x: 82, y: 632, size: 7.5, align: 'left', pageIndex: 0 },
-  companyRepCivilIdEn: { x: 92, y: 620, size: 7.5, align: 'left', pageIndex: 0 },
+  companyNameAr: { x: 450, y: 625, size: 7.5, align: 'right', pageIndex: 0 },
+  companyRepNameAr: { x: 510, y: 602, size: 7.5, align: 'right', pageIndex: 0 },
+  companyRepCivilIdAr: { x: 490, y: 590, size: 7.5, align: 'right', pageIndex: 0 },
+  companyNameEn: { x: 145, y: 625, size: 7, align: 'left', pageIndex: 0 },
+  companyRepNameEn: { x: 85, y: 602, size: 7.5, align: 'left', pageIndex: 0 },
+  companyRepCivilIdEn: { x: 95, y: 590, size: 7.5, align: 'left', pageIndex: 0 },
 
-  empNameAr: { x: 498, y: 614, size: 8.5, align: 'right', pageIndex: 0 },
-  empNationalityAr: { x: 488, y: 601, size: 8.5, align: 'right', pageIndex: 0 },
-  empCivilIdAr: { x: 488, y: 588, size: 8.5, align: 'right', pageIndex: 0 },
-  empResidenceAr: { x: 488, y: 575, size: 8.5, align: 'right', pageIndex: 0 },
+  empNameAr: { x: 505, y: 565, size: 8, align: 'right', pageIndex: 0 },
+  empNationalityAr: { x: 505, y: 553, size: 7.5, align: 'right', pageIndex: 0 },
+  empCivilIdAr: { x: 495, y: 541, size: 7.5, align: 'right', pageIndex: 0 },
+  empResidenceAr: { x: 505, y: 529, size: 7.5, align: 'right', pageIndex: 0 },
 
-  empNameEn: { x: 82, y: 594, size: 7.5, align: 'left', pageIndex: 0 },
-  empNationalityEn: { x: 98, y: 582, size: 7.5, align: 'left', pageIndex: 0 },
-  empCivilIdEn: { x: 92, y: 570, size: 7.5, align: 'left', pageIndex: 0 },
-  empResidenceEn: { x: 92, y: 558, size: 7.5, align: 'left', pageIndex: 0 },
+  empNameEn: { x: 90, y: 565, size: 7.5, align: 'left', pageIndex: 0 },
+  empNationalityEn: { x: 100, y: 553, size: 7.5, align: 'left', pageIndex: 0 },
+  empCivilIdEn: { x: 95, y: 541, size: 7.5, align: 'left', pageIndex: 0 },
+  empResidenceEn: { x: 95, y: 529, size: 7.5, align: 'left', pageIndex: 0 },
 
-  preambleCompanyNameAr: { x: 440, y: 534, size: 8, align: 'right', pageIndex: 0 },
-  preambleCompanyFieldAr: { x: 370, y: 534, size: 8, align: 'right', pageIndex: 0 },
-  preambleJobTitleAr: { x: 420, y: 522, size: 8, align: 'right', pageIndex: 0 },
-  preambleCompanyNameEn: { x: 145, y: 534, size: 7.5, align: 'left', pageIndex: 0 },
-  preambleCompanyFieldEn: { x: 85, y: 523, size: 7.5, align: 'left', pageIndex: 0 },
-  preambleJobTitleEn: { x: 115, y: 512, size: 7.5, align: 'left', pageIndex: 0 },
+  preambleCompanyNameAr: { x: 410, y: 491, size: 7, align: 'right', pageIndex: 0 },
+  preambleCompanyFieldAr: { x: 510, y: 480, size: 7, align: 'right', pageIndex: 0 },
+  preambleJobTitleAr: { x: 430, y: 469, size: 7, align: 'right', pageIndex: 0 },
+  preambleCompanyNameEn: { x: 190, y: 491, size: 7, align: 'left', pageIndex: 0 },
+  preambleCompanyFieldEn: { x: 130, y: 480, size: 7, align: 'left', pageIndex: 0 },
+  preambleJobTitleEn: { x: 105, y: 458, size: 7, align: 'left', pageIndex: 0 },
 
-  art2JobTitleAr: { x: 430, y: 460, size: 8, align: 'right', pageIndex: 0 },
-  art2JobTitleEn: { x: 115, y: 449, size: 7.5, align: 'left', pageIndex: 0 },
+  art2JobTitleAr: { x: 320, y: 412, size: 7.5, align: 'right', pageIndex: 0 },
+  art2JobTitleEn: { x: 140, y: 402, size: 7, align: 'left', pageIndex: 0 },
 
-  art4SalaryAr: { x: 440, y: 375, size: 8.5, align: 'right', pageIndex: 0 },
-  art4PeriodAr: { x: 468, y: 362, size: 7.5, align: 'right', pageIndex: 0 },
-  art4SalaryEn: { x: 96, y: 366, size: 8, align: 'left', pageIndex: 0 },
-  art4PeriodEn: { x: 58, y: 352, size: 7.5, align: 'left', pageIndex: 0 },
+  art4SalaryAr: { x: 360, y: 355, size: 8, align: 'right', pageIndex: 0 },
+  art4PeriodAr: { x: 440, y: 345, size: 7.5, align: 'right', pageIndex: 0 },
+  art4SalaryEn: { x: 110, y: 345, size: 7.5, align: 'left', pageIndex: 0 },
+  art4PeriodEn: { x: 50, y: 335, size: 7.5, align: 'left', pageIndex: 0 },
 
-  art5EffectiveDateAr: { x: 470, y: 308, size: 8, align: 'right', pageIndex: 0 },
-  art5EffectiveDateEn: { x: 140, y: 308, size: 7.5, align: 'left', pageIndex: 0 },
+  art5EffectiveDateAr: { x: 435, y: 299, size: 7.5, align: 'right', pageIndex: 0 },
+  art5EffectiveDateEn: { x: 180, y: 299, size: 7.5, align: 'left', pageIndex: 0 },
 
-  art6EffectiveDateAr: { x: 475, y: 254, size: 8, align: 'right', pageIndex: 0 },
-  art6DurationYearsAr: { x: 395, y: 254, size: 8.5, align: 'right', pageIndex: 0 },
-  art6EffectiveDateEn: { x: 65, y: 254, size: 7.5, align: 'left', pageIndex: 0 },
-  art6DurationYearsEn: { x: 160, y: 254, size: 8, align: 'left', pageIndex: 0 },
+  art6EffectiveDateAr: { x: 380, y: 263, size: 7.5, align: 'right', pageIndex: 0 },
+  art6DurationYearsAr: { x: 535, y: 253, size: 8, align: 'right', pageIndex: 0 },
+  art6EffectiveDateEn: { x: 50, y: 253, size: 7.5, align: 'left', pageIndex: 0 },
+  art6DurationYearsEn: { x: 185, y: 253, size: 7.5, align: 'left', pageIndex: 0 },
 
-  art7LeaveDaysAr: { x: 435, y: 704, size: 8, align: 'right', pageIndex: 1 },
-  art7LeaveDaysEn: { x: 78, y: 704, size: 7.5, align: 'left', pageIndex: 1 },
-  art15LangAr: { x: 445, y: 216, size: 7.5, align: 'right', pageIndex: 1 },
-  art15LangEn: { x: 72, y: 216, size: 7, align: 'left', pageIndex: 1 },
+  art7LeaveDaysAr: { x: 350, y: 660, size: 8, align: 'right', pageIndex: 1 },
+  art7LeaveDaysEn: { x: 85, y: 649, size: 7.5, align: 'left', pageIndex: 1 },
+  art15LangAr: { x: 410, y: 239, size: 7.5, align: 'right', pageIndex: 1 },
+  art15LangEn: { x: 210, y: 239, size: 7.5, align: 'left', pageIndex: 1 },
 };
-
-const bidi = bidiFactory();
 
 const ARABIC_CHAR_RE = /[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]/;
 const DIGITS_ONLY_RE = /^\d+$/;
@@ -199,14 +202,10 @@ export function mergePamCoordinates(
 export function reshapeArabic(text: string): string {
   if (!text) return '';
   try {
-    const shaperObj =
-      (reshaperPkg as any)?.ArabicShaper ||
-      (reshaperPkg as any)?.default?.ArabicShaper ||
-      (reshaperPkg as any)?.default ||
-      reshaperPkg;
-
-    if (shaperObj && typeof shaperObj.convertArabic === 'function') {
-      return shaperObj.convertArabic(text);
+    const shaper = (reshaperPkg as { ArabicShaper?: { convertArabic: (s: string) => string } })
+      .ArabicShaper;
+    if (shaper?.convertArabic) {
+      return shaper.convertArabic(text);
     }
   } catch (err) {
     console.error('Arabic reshaping error:', err);
@@ -215,7 +214,8 @@ export function reshapeArabic(text: string): string {
 }
 
 /**
- * Prepare text for pdf-lib drawText (LTR engine): reshape Arabic + Unicode bidi visual order.
+ * Prepare text for pdf-lib drawText (LTR): reshape Arabic, then reverse glyph order per segment
+ * while keeping Latin/digits LTR — same pipeline as scripts/verify_bidi.ts (proven on PAM tests).
  */
 export function preparePdfText(text: string | number | undefined, isEnglishField = false): string {
   if (text === undefined || text === null) return '';
@@ -226,7 +226,7 @@ export function preparePdfText(text: string | number | undefined, isEnglishField
     return str;
   }
 
-  if (DIGITS_ONLY_RE.test(str) || /^[\d./\-:]+$/.test(str)) {
+  if (DIGITS_ONLY_RE.test(str) || /^[\d./\-:\s]+$/.test(str)) {
     return str;
   }
 
@@ -236,8 +236,13 @@ export function preparePdfText(text: string | number | undefined, isEnglishField
   }
 
   const shaped = reshapeArabic(str);
-  const levels = bidi.getEmbeddingLevels(shaped, 'rtl');
-  return bidi.getReorderedString(shaped, levels);
+  const tokens = shaped.split(/([a-zA-Z0-9\-_./@#:]+)/);
+  const processed = tokens.map((tok) => {
+    if (/^[a-zA-Z0-9\-_./@#:]+$/.test(tok)) return tok;
+    if (!tok) return tok;
+    return [...tok].reverse().join('');
+  });
+  return processed.reverse().join('');
 }
 
 /** @deprecated Use preparePdfText — kept for existing imports/scripts */

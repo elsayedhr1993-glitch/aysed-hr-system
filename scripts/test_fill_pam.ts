@@ -2,26 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { PDFDocument, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
-import reshaperPkg from 'arabic-persian-reshaper';
-import bidiFactory from 'bidi-js';
-
-const bidi = bidiFactory();
-
-function shapeAndReverseArabic(text: string, isEnglishField = false): string {
-  if (!text) return '';
-  const str = String(text).trim();
-  if (!str) return '';
-
-  const hasArabic = /[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]/.test(str);
-  if (!hasArabic || (isEnglishField && !hasArabic)) {
-    return str;
-  }
-
-  const shaperObj = (reshaperPkg as any)?.ArabicShaper || (reshaperPkg as any)?.default?.ArabicShaper || reshaperPkg;
-  const shaped = shaperObj.convertArabic(str);
-  const levels = bidi.getEmbeddingLevels(shaped, 'rtl');
-  return bidi.getReorderedString(shaped, levels);
-}
+import { preparePdfText } from '../src/services/pamContractPdfService.ts';
 
 async function testFillPamPdf() {
   const templateBytes = fs.readFileSync(path.join(process.cwd(), 'public/pam_contract_form_2.pdf'));

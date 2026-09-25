@@ -18,6 +18,7 @@ import { getAdminFirestore } from '../server/firebaseAdmin.ts';
 import {
   DEFAULT_PAM_COORDINATES,
   mergePamCoordinates,
+  PAM_OVERLAY_SCHEMA_VERSION,
   type PamCoordinatesConfig,
   type PamFontChoice,
 } from '../src/services/pamContractPdfService.ts';
@@ -130,6 +131,7 @@ async function applySeed(file: string, dryRun: boolean) {
   const platformPayload = {
     pamOverlayCoords: platformCoords,
     pamFontChoice: platformFont,
+    pamOverlaySchemaVersion: PAM_OVERLAY_SCHEMA_VERSION,
     updatedAt: new Date().toISOString(),
     seededFrom: path.basename(file),
   };
@@ -158,6 +160,7 @@ async function applySeed(file: string, dryRun: boolean) {
     const payload = {
       pamOverlayCoords: coords,
       pamFontChoice: font,
+      pamOverlaySchemaVersion: PAM_OVERLAY_SCHEMA_VERSION,
       pamSettingsUpdatedAt: new Date().toISOString(),
       pamSettingsSeededFrom: path.basename(file),
     };

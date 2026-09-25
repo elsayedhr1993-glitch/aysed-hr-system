@@ -3,9 +3,14 @@ import { db, getCompaniesCollectionName } from '../lib/firebase';
 import {
   DEFAULT_PAM_COORDINATES,
   mergePamCoordinates,
+  PAM_OVERLAY_SCHEMA_VERSION,
   PamCoordinatesConfig,
   PamFontChoice,
 } from './pamContractPdfService';
+
+function overlayLayerIsCurrent(version: unknown): boolean {
+  return typeof version === 'number' && version >= PAM_OVERLAY_SCHEMA_VERSION;
+}
 
 const PLATFORM_COLLECTION = 'platform_settings';
 const PLATFORM_PAM_DOC_ID = 'pam_form_2';
@@ -23,8 +28,11 @@ export async function fetchPlatformPamLayer(): Promise<{
     const snap = await getDoc(doc(db, PLATFORM_COLLECTION, PLATFORM_PAM_DOC_ID));
     if (!snap.exists()) return {};
     const data = snap.data();
+    const coords = overlayLayerIsCurrent(data.pamOverlaySchemaVersion)
+      ? (data.pamOverlayCoords as Partial<PamCoordinatesConfig> | undefined)
+      : undefined;
     return {
-      coords: data.pamOverlayCoords as Partial<PamCoordinatesConfig> | undefined,
+      coords,
       font: (data.pamFontChoice as PamFontChoice) || undefined,
     };
   } catch {
@@ -51,7 +59,9 @@ export async function resolvePamRenderSettings(companyId?: string): Promise<PamR
   if (companyId) {
     const record = await fetchCompanyRecord(companyId);
     if (record) {
-      companyCoords = record.pamOverlayCoords as Partial<PamCoordinatesConfig> | undefined;
+      companyCoords = overlayLayerIsCurrent(record.pamOverlaySchemaVersion)
+        ? (record.pamOverlayCoords as Partial<PamCoordinatesConfig> | undefined)
+        : undefined;
       companyFont = (record.pamFontChoice as PamFontChoice) || undefined;
     }
   }
@@ -68,6 +78,7 @@ export async function saveCompanyPamSettings(
 ): Promise<void> {
   await updateDoc(doc(db, getCompaniesCollectionName(), companyId), {
     ...payload,
+    pamOverlaySchemaVersion: PAM_OVERLAY_SCHEMA_VERSION,
     pamSettingsUpdatedAt: new Date().toISOString(),
   });
 }
@@ -80,6 +91,7 @@ export async function savePlatformPamSettings(payload: {
     doc(db, PLATFORM_COLLECTION, PLATFORM_PAM_DOC_ID),
     {
       ...payload,
+      pamOverlaySchemaVersion: PAM_OVERLAY_SCHEMA_VERSION,
       updatedAt: new Date().toISOString(),
     },
     { merge: true }
