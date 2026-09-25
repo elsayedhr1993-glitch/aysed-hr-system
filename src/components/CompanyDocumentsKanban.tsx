@@ -2,10 +2,10 @@ import React, { useMemo, useState } from 'react';
 import { Company } from '../types';
 import {
   CompanyDocument,
-  COMPANY_DOCUMENT_TYPE_SUGGESTIONS,
   formatCompanyDocumentType,
   getDocumentStatus,
 } from '../types/companyDocuments';
+import { CompanyLicenseTypeInput } from './documents/CompanyLicenseTypeInput';
 import { createArchiveDocumentId } from '../utils/documentArchiveUtils';
 import { CompanyLicensesPrintModal } from './documents/CompanyLicensesPrintModal';
 import { exportToExcel } from '../utils/exportUtils';
@@ -521,19 +521,10 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">نوع الترخيص</label>
-                  <input
-                    type="text"
-                    list="company-license-type-suggestions"
-                    placeholder="اكتب المسمى أو اختر اقتراحاً..."
+                  <CompanyLicenseTypeInput
                     value={formData.documentType || ''}
-                    onChange={(e) => setFormData({ ...formData, documentType: e.target.value })}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#714B67] bg-white"
+                    onChange={(documentType) => setFormData({ ...formData, documentType })}
                   />
-                  <datalist id="company-license-type-suggestions">
-                    {COMPANY_DOCUMENT_TYPE_SUGGESTIONS.map((label) => (
-                      <option key={label} value={label} />
-                    ))}
-                  </datalist>
                   <p className="text-[10px] text-slate-400 mt-1">يمكنك كتابة أي مسمى مخصص — الاقتراحات للتسريع فقط.</p>
                 </div>
 

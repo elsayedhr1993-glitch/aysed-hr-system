@@ -2,6 +2,7 @@ import React from 'react';
 import { DocumentItem, Employee, Company } from '../../types';
 import { X, Printer } from 'lucide-react';
 import { OfficialA4CompanyLetterhead } from '../print/OfficialA4CompanyLetterhead';
+import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
 
 interface DocumentCompliancePrintModalProps {
   isOpen: boolean;
@@ -28,6 +29,7 @@ export const DocumentCompliancePrintModal: React.FC<DocumentCompliancePrintModal
     });
   };
 
+  const profile = getCompanyPrintProfile(company);
   const todayStr = new Date().toLocaleDateString('ar-KW', {
     year: 'numeric',
     month: '2-digit',
@@ -183,7 +185,7 @@ export const DocumentCompliancePrintModal: React.FC<DocumentCompliancePrintModal
 
           {/* Footer notice */}
           <div className="mt-8 text-center text-[10px] text-slate-400 border-t border-slate-100 pt-3">
-            تم استخراج هذا التقرير آلياً لصالح {profile.displayNameAr} — منظومة أيسد للأرشيف والمستندات — صالح لمراجعة الجهات الرسمية والهيئة العامة للقوى العاملة.
+            تم استخراج هذا التقرير آلياً لصالح {profile.displayNameAr} — أرشيف ومستندات المنشأة — صالح لمراجعة الجهات الرسمية والهيئة العامة للقوى العاملة.
           </div>
 
         </div>

@@ -15,6 +15,7 @@ import {
 } from '../utils/employeeDisplayName';
 import { resolveTenantCompanyId } from '../utils/tenantCompanyId';
 import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
+import { syncTenantLicensesAndCompanyProfile } from '../services/companyLicenseSync';
 import { 
   FolderOpen, FileText, Upload, Trash2, Search, X, CheckCircle2, 
   Scan, AlertTriangle, Download, Calendar, BellRing, Shield, 
@@ -117,12 +118,30 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
       },
       { merge: true }
     );
+
+    const tenantId = companyDocument.companyId;
+    if (tenantId) {
+      try {
+        await syncTenantLicensesAndCompanyProfile(tenantId, updated);
+      } catch (err) {
+        console.error('Failed to sync company print profile from licenses:', err);
+        toast.error('تم حفظ الترخيص لكن تعذّر تحديث هوية المنشأة للطباعة');
+      }
+    }
   };
 
   const handleDeleteCompanyDoc = async (docId: string) => {
     const updated = companyDocuments.filter(d => d.id !== docId);
     setCompanyDocuments(updated);
     await deleteDoc(doc(db, 'company_documents', docId));
+    const tenantId = resolvedCompanyId || activeCompany?.id;
+    if (tenantId) {
+      try {
+        await syncTenantLicensesAndCompanyProfile(tenantId, updated);
+      } catch (err) {
+        console.error('Failed to sync company profile after license delete:', err);
+      }
+    }
   };
 
   // Departments list

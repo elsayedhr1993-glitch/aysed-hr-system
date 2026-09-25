@@ -5,7 +5,8 @@ import {
   Store, Send, Image, Sparkles, Building, CheckCircle2, RefreshCw
 } from 'lucide-react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '../../lib/firebase';
+import { db, getCompaniesCollectionName } from '../../lib/firebase';
+import { syncTenantLicensesAndCompanyProfile } from '../../services/companyLicenseSync';
 
 export interface FacilityLicenseData {
   // Step 1: Commercial Identity
@@ -46,70 +47,106 @@ export const FACILITY_STORAGE_KEY = 'facility_master_licensing_v1';
 const FACILITY_CONFIG_COLLECTION = 'system_config';
 const FACILITY_DOC_PREFIX = 'facility_licensing_';
 
-export const defaultFacilityData: FacilityLicenseData = {
-  nameAr: 'مستوصف المنار كلينك الطبي',
-  nameEn: 'Al Manar Clinic Medical Center',
-  commercialRegNo: '10293847',
-  paciCivilId: '988123049182',
+const createEmptyFacilityData = (): FacilityLicenseData => ({
+  nameAr: '',
+  nameEn: '',
+  commercialRegNo: '',
+  paciCivilId: '',
   logoUrl: '',
-  mainBranchName: 'الفرع الرئيسي - حولي',
-  branchesList: ['فرع السالمية', 'فرع العاصمة'],
+  mainBranchName: '',
+  branchesList: [],
+  mohLicenseNo: '',
+  mohStartDate: '',
+  mohExpiryDate: '',
+  mohApprovedDepts: [],
+  mohSpecialDevices: [],
+  pamFileCode: '',
+  authorizedSignatoryName: '',
+  authorizedSignatoryCivilId: '',
+  wpsBankCode: '',
+  wpsEmployerId: '',
+  kffLicenseNo: '',
+  kffExpiryDate: '',
+  baladiyaLicenseNo: '',
+  baladiyaExpiryDate: '',
+  isCompleted: false,
+});
 
-  mohLicenseNo: 'MOH-KW-2024-998',
-  mohStartDate: '2024-01-01',
-  mohExpiryDate: '2027-01-01',
-  mohApprovedDepts: ['الطب العام', 'الأسنان', 'الجلدية والليزر', 'المختبر والتثقيف الطبي'],
-  mohSpecialDevices: ['جهاز ليزر كانديلا Candela', 'جهاز الأشعة السينية X-Ray'],
+/** @deprecated use createEmptyFacilityData — kept for imports that expect a template object */
+export const defaultFacilityData: FacilityLicenseData = createEmptyFacilityData();
 
-  pamFileCode: 'PAM-7788192',
-  authorizedSignatoryName: 'د. خالد أحمد المنار',
-  authorizedSignatoryCivilId: '285091204918',
-  wpsBankCode: 'NBK-KW-001',
-  wpsEmployerId: 'WPS-998811',
-
-  kffLicenseNo: 'KFF-2024-4410',
-  kffExpiryDate: '2026-12-31',
-  baladiyaLicenseNo: 'BAL-KW-88391',
-  baladiyaExpiryDate: '2026-11-30',
-
-  isCompleted: true,
-  lastUpdated: new Date().toISOString(),
-};
+function facilityFromCompanyRecord(data: Record<string, unknown>): Partial<FacilityLicenseData> {
+  return {
+    nameAr: String(data.nameAr || data.name || '').trim(),
+    nameEn: String(data.nameEn || '').trim(),
+    commercialRegNo: String(
+      data.commercialRegNo || data.commercialReg || data.crNumber || ''
+    ).trim(),
+    paciCivilId: String(data.civilIdCompany || data.civilId || data.paciNumber || '').trim(),
+    logoUrl: String(data.logoUrl || data.logo || '').trim(),
+    mohLicenseNo: String(data.mohLicense || '').trim(),
+    pamFileCode: String(data.wsiCode || data.pamFileNumber || data.pam || '').trim(),
+    authorizedSignatoryName: String(data.authorizedSignatory || data.managerName || '').trim(),
+  };
+}
 
 const getFacilityDocId = (companyId?: string) => `${FACILITY_DOC_PREFIX}${companyId || 'global'}`;
 
-const readFacilityFromLocalStorage = (): FacilityLicenseData => {
+const readFacilityFromLocalStorage = (companyId?: string): FacilityLicenseData => {
+  const storageKey = companyId ? `${FACILITY_STORAGE_KEY}_${companyId}` : FACILITY_STORAGE_KEY;
   try {
-    const raw = localStorage.getItem(FACILITY_STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey);
     if (raw) {
-      return { ...defaultFacilityData, ...JSON.parse(raw) };
+      return { ...createEmptyFacilityData(), ...JSON.parse(raw) };
     }
   } catch (e) {
     console.error('Failed to load facility data:', e);
   }
-  return { ...defaultFacilityData };
+  return createEmptyFacilityData();
 };
 
 export const getFacilityMasterData = async (companyId?: string): Promise<FacilityLicenseData> => {
+  const base = createEmptyFacilityData();
+  let fromCompany: Partial<FacilityLicenseData> = {};
+
+  if (companyId) {
+    try {
+      const compSnap = await getDoc(doc(db, getCompaniesCollectionName(), companyId));
+      if (compSnap.exists()) {
+        fromCompany = facilityFromCompanyRecord(compSnap.data() as Record<string, unknown>);
+      }
+    } catch (e) {
+      console.error('Failed to load company profile for facility wizard:', e);
+    }
+  }
+
   try {
     const snap = await getDoc(doc(db, FACILITY_CONFIG_COLLECTION, getFacilityDocId(companyId)));
     if (snap.exists()) {
-      const fromDb = { ...defaultFacilityData, ...(snap.data() as Partial<FacilityLicenseData>) };
-      localStorage.setItem(FACILITY_STORAGE_KEY, JSON.stringify(fromDb));
+      const fromDb = { ...base, ...fromCompany, ...(snap.data() as Partial<FacilityLicenseData>) };
+      const storageKey = companyId ? `${FACILITY_STORAGE_KEY}_${companyId}` : FACILITY_STORAGE_KEY;
+      localStorage.setItem(storageKey, JSON.stringify(fromDb));
       return fromDb;
     }
   } catch (e) {
     console.error('Failed to load facility data from Firestore:', e);
   }
 
-  return readFacilityFromLocalStorage();
+  const local = readFacilityFromLocalStorage(companyId);
+  return { ...base, ...fromCompany, ...local };
 };
 
 export const saveFacilityMasterData = async (data: FacilityLicenseData, companyId?: string): Promise<FacilityLicenseData> => {
   try {
     const updated = { ...data, lastUpdated: new Date().toISOString(), isCompleted: true };
     await setDoc(doc(db, FACILITY_CONFIG_COLLECTION, getFacilityDocId(companyId)), updated, { merge: true });
-    localStorage.setItem(FACILITY_STORAGE_KEY, JSON.stringify(updated));
+    const storageKey = companyId ? `${FACILITY_STORAGE_KEY}_${companyId}` : FACILITY_STORAGE_KEY;
+    localStorage.setItem(storageKey, JSON.stringify(updated));
+
+    if (companyId) {
+      await syncTenantLicensesAndCompanyProfile(companyId, [], updated);
+    }
+
     window.dispatchEvent(new CustomEvent('facility_data_updated', { detail: { companyId: companyId || 'global' } }));
     return updated;
   } catch (e) {
@@ -132,7 +169,7 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
   companyId,
 }) => {
   const [currentStep, setCurrentStep] = useState(1);
-  const [formData, setFormData] = useState<FacilityLicenseData>(defaultFacilityData);
+  const [formData, setFormData] = useState<FacilityLicenseData>(createEmptyFacilityData());
 
   // New dept / device input state
   const [newDeptInput, setNewDeptInput] = useState('');
