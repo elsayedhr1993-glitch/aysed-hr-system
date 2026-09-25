@@ -2,15 +2,41 @@
 export interface CompanyDocument {
   id: string;
   name: string; // اسم الترخيص
-  documentType: 'commercial_license' | 'signature_auth' | 'chamber_commerce' | 'municipality' | 'civil_defense' | 'medical_license' | 'lease_contract' | 'other';
+  /** مسمى نوع الترخيص (نص حر أو مفتاح legacy مثل commercial_license) */
+  documentType: string;
   documentNumber: string; // رقم الترخيص / القيد
   issuingAuthority: string; // جهة الإصدار (وزارة التجارة، البلدية، الصحة، المطافئ...)
   issueDate: string; // تاريخ الإصدار YYYY-MM-DD
   expiryDate: string; // تاريخ الانتهاء YYYY-MM-DD
-  responsiblePerson: string; // الموظف/المندوب المسؤول عن المتابعة والتجديد
+  /** @deprecated لم يعد يُستخدم في النموذج — قد يظهر في سجلات قديمة فقط */
+  responsiblePerson?: string;
   fileUrl?: string; // رابط ملف الـ PDF أو الصورة
   notes?: string;
   companyId?: string;
+}
+
+export const COMPANY_DOCUMENT_TYPE_LABELS: Record<string, string> = {
+  commercial_license: 'رخصة تجارية',
+  signature_auth: 'اعتماد توقيع',
+  chamber_commerce: 'عضوية غرفة التجارة',
+  municipality: 'رخصة بلدية',
+  civil_defense: 'دفاع مدني',
+  medical_license: 'ترخيص صحي/طبي',
+  lease_contract: 'عقد إيجار',
+  other: 'أخرى',
+};
+
+export const COMPANY_DOCUMENT_TYPE_SUGGESTIONS: string[] = [
+  ...Object.values(COMPANY_DOCUMENT_TYPE_LABELS),
+  'ترخيص وزارة الصحة',
+  'شهادة عضوية',
+  'تصريح تشغيل',
+];
+
+export function formatCompanyDocumentType(documentType: string): string {
+  const key = String(documentType || '').trim();
+  if (!key) return '—';
+  return COMPANY_DOCUMENT_TYPE_LABELS[key] || key;
 }
 
 // دالة حساب الحالة والتنبيهات بأسلوب Odoo (Computed Status)

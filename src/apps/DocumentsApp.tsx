@@ -6,7 +6,7 @@ import { exportToExcel } from '../utils/exportUtils';
 import { DocumentPreviewModal } from '../components/documents/DocumentPreviewModal';
 import { DirectDocumentUploadModal } from '../components/documents/DirectDocumentUploadModal';
 import { DocumentCompliancePrintModal } from '../components/documents/DocumentCompliancePrintModal';
-import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
+import { collection, deleteDoc, deleteField, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { cleanFirestoreData, db } from '../lib/firebase';
 import toast from 'react-hot-toast';
 import {
@@ -100,12 +100,23 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
   }, [resolvedCompanyId]);
 
   const handleSaveCompanyDoc = async (document: CompanyDocument) => {
-    const companyDocument = { ...document, companyId: resolvedCompanyId || activeCompany?.id || 'comp-super-admin' };
+    const { responsiblePerson: _legacy, ...rest } = document;
+    const companyDocument: CompanyDocument = {
+      ...rest,
+      companyId: resolvedCompanyId || activeCompany?.id || 'comp-super-admin',
+    };
     const updated = companyDocuments.some(d => d.id === document.id)
       ? companyDocuments.map(d => d.id === document.id ? companyDocument : d)
       : [companyDocument, ...companyDocuments];
     setCompanyDocuments(updated);
-    await setDoc(doc(db, 'company_documents', document.id), cleanFirestoreData(companyDocument), { merge: true });
+    await setDoc(
+      doc(db, 'company_documents', document.id),
+      {
+        ...cleanFirestoreData(companyDocument),
+        responsiblePerson: deleteField(),
+      },
+      { merge: true }
+    );
   };
 
   const handleDeleteCompanyDoc = async (docId: string) => {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Company } from '../../types';
-import { CompanyDocument, getDocumentStatus } from '../../types/companyDocuments';
+import { CompanyDocument, formatCompanyDocumentType, getDocumentStatus } from '../../types/companyDocuments';
 import { X, Printer, Shield } from 'lucide-react';
 import { OfficialA4CompanyLetterhead } from '../print/OfficialA4CompanyLetterhead';
 
@@ -11,17 +11,6 @@ interface CompanyLicensesPrintModalProps {
   company: Company;
   filterLabel: string;
 }
-
-const typeLabels: Record<string, string> = {
-  commercial_license: 'رخصة تجارية',
-  signature_auth: 'اعتماد توقيع',
-  chamber_commerce: 'عضوية غرفة التجارة',
-  municipality: 'رخصة بلدية',
-  civil_defense: 'دفاع مدني',
-  medical_license: 'ترخيص صحي/طبي',
-  lease_contract: 'عقد إيجار',
-  other: 'أخرى',
-};
 
 export const CompanyLicensesPrintModal: React.FC<CompanyLicensesPrintModalProps> = ({
   isOpen,
@@ -100,7 +89,6 @@ export const CompanyLicensesPrintModal: React.FC<CompanyLicensesPrintModalProps>
                 <th className="p-2 font-mono">رقم الترخيص</th>
                 <th className="p-2">جهة الإصدار</th>
                 <th className="p-2 font-mono">الانتهاء</th>
-                <th className="p-2">المسؤول</th>
                 <th className="p-2 text-center">الحالة</th>
               </tr>
             </thead>
@@ -117,11 +105,10 @@ export const CompanyLicensesPrintModal: React.FC<CompanyLicensesPrintModalProps>
                   <tr key={doc.id} className={idx % 2 === 1 ? 'bg-slate-50/60' : ''}>
                     <td className="p-2 text-center text-slate-400">{idx + 1}</td>
                     <td className="p-2 font-bold">{doc.name}</td>
-                    <td className="p-2">{typeLabels[doc.documentType] || doc.documentType}</td>
+                    <td className="p-2">{formatCompanyDocumentType(doc.documentType)}</td>
                     <td className="p-2 font-mono">{doc.documentNumber}</td>
                     <td className="p-2">{doc.issuingAuthority}</td>
                     <td className="p-2 font-mono">{doc.expiryDate}</td>
-                    <td className="p-2">{doc.responsiblePerson}</td>
                     <td className={`p-2 text-center text-[11px] font-semibold ${rowClass}`}>{badgeLabel}</td>
                   </tr>
                 );

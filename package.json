@@ -26,7 +26,9 @@
     "employees:heal-cross-tenant": "tsx scripts/run-employee-cross-tenant-self-heal-admin.ts",
     "pam:seed-overlay": "tsx scripts/seed-pam-overlay-settings.ts",
     "pam:export-overlay": "tsx scripts/seed-pam-overlay-settings.ts --export",
-    "documents:sync-archive": "tsx scripts/sync-employee-documents-archive.ts"
+    "documents:sync-archive": "tsx scripts/sync-employee-documents-archive.ts",
+    "fanar:probe": "tsx scripts/probe-fanar-company-admin.ts",
+    "fanar:list-employees": "tsx scripts/list-fanar-employees-admin.ts"
   },
   "dependencies": {
     "@fontsource/cairo": "^5.3.0",

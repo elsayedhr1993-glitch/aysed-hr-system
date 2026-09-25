@@ -1,6 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { Company } from '../types';
-import { CompanyDocument, getDocumentStatus } from '../types/companyDocuments';
+import {
+  CompanyDocument,
+  COMPANY_DOCUMENT_TYPE_SUGGESTIONS,
+  formatCompanyDocumentType,
+  getDocumentStatus,
+} from '../types/companyDocuments';
 import { createArchiveDocumentId } from '../utils/documentArchiveUtils';
 import { CompanyLicensesPrintModal } from './documents/CompanyLicensesPrintModal';
 import { exportToExcel } from '../utils/exportUtils';
@@ -8,7 +13,6 @@ import {
   Plus,
   Search,
   FileText,
-  User,
   Download,
   X,
   Shield,
@@ -48,34 +52,24 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
   // Form state for creating / editing
   const [formData, setFormData] = useState<Partial<CompanyDocument>>({
     name: '',
-    documentType: 'commercial_license',
+    documentType: 'رخصة تجارية',
     documentNumber: '',
     issuingAuthority: 'وزارة التجارة والصناعة',
     issueDate: new Date().toISOString().split('T')[0],
     expiryDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    responsiblePerson: 'مندوب الشؤون الحكومية',
     notes: '',
     fileUrl: ''
   });
 
-  const typeLabels: Record<string, string> = {
-    commercial_license: 'رخصة تجارية',
-    signature_auth: 'اعتماد توقيع',
-    chamber_commerce: 'عضوية غرفة التجارة',
-    municipality: 'رخصة بلدية',
-    civil_defense: 'دفاع مدني',
-    medical_license: 'ترخيص صحي/طبي',
-    lease_contract: 'عقد إيجار',
-    other: 'أخرى',
-  };
-
   const filteredDocs = documents.filter(doc => {
     const { status } = getDocumentStatus(doc.expiryDate);
     const matchesFilter = filter === 'all' || status === filter;
+    const typeLabel = formatCompanyDocumentType(doc.documentType).toLowerCase();
     const matchesSearch = doc.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           doc.documentNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           doc.issuingAuthority.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          doc.responsiblePerson.toLowerCase().includes(searchTerm.toLowerCase());
+                          typeLabel.includes(searchTerm.toLowerCase()) ||
+                          doc.documentType.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesFilter && matchesSearch;
   });
 
@@ -111,7 +105,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
       return {
         م: idx + 1,
         'اسم الترخيص': doc.name,
-        النوع: typeLabels[doc.documentType] || doc.documentType,
+        النوع: formatCompanyDocumentType(doc.documentType),
         'رقم الترخيص': doc.documentNumber,
         'جهة الإصدار': doc.issuingAuthority,
         'تاريخ الإصدار': doc.issueDate,
@@ -119,7 +113,6 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
         'الأيام المتبقية': daysRemaining ?? '—',
         الحالة: badgeLabel,
         'حالة النظام': status,
-        المسؤول: doc.responsiblePerson,
         ملاحظات: doc.notes || '—',
       };
     });
@@ -131,12 +124,11 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
     setEditingDoc(null);
     setFormData({
       name: '',
-      documentType: 'commercial_license',
+      documentType: 'رخصة تجارية',
       documentNumber: '',
       issuingAuthority: 'وزارة التجارة والصناعة',
       issueDate: new Date().toISOString().split('T')[0],
       expiryDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      responsiblePerson: 'مندوب الشؤون الحكومية',
       notes: '',
       fileUrl: '',
     });
@@ -152,15 +144,15 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
 
     const newDoc: CompanyDocument = {
       id: editingDoc ? editingDoc.id : createArchiveDocumentId('company-doc'),
-      name: formData.name,
-      documentType: (formData.documentType as any) || 'commercial_license',
-      documentNumber: formData.documentNumber,
+      name: formData.name.trim(),
+      documentType: String(formData.documentType || '').trim() || 'أخرى',
+      documentNumber: formData.documentNumber.trim(),
       issuingAuthority: formData.issuingAuthority || 'جهات رسمية',
       issueDate: formData.issueDate || new Date().toISOString().split('T')[0],
       expiryDate: formData.expiryDate,
-      responsiblePerson: formData.responsiblePerson || 'المسؤول الإداري',
       fileUrl: formData.fileUrl || '',
-      notes: formData.notes || ''
+      notes: formData.notes || '',
+      companyId: editingDoc?.companyId,
     };
 
     onSaveDocument(newDoc);
@@ -354,7 +346,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
 
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-[#714B67] mb-1">
                   <Building className="w-3.5 h-3.5" />
-                  <span>{typeLabels[doc.documentType] || doc.documentType}</span>
+                  <span>{formatCompanyDocumentType(doc.documentType)}</span>
                 </div>
 
                 <h3 className="font-bold text-slate-900 text-base mb-1 group-hover:text-[#714B67] transition">
@@ -371,13 +363,6 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
                     <span className="text-slate-400">تاريخ الانتهاء:</span>
                     <span className={`font-medium font-mono ${status === 'expired' ? 'text-red-600 font-bold' : status === 'expiring_soon' ? 'text-amber-600 font-bold' : 'text-emerald-700'}`}>
                       {doc.expiryDate}
-                    </span>
-                  </div>
-                  <div className="flex justify-between pt-1 border-t border-slate-200/60">
-                    <span className="text-slate-400">المسؤول عن التجديد:</span>
-                    <span className="font-medium text-slate-700 flex items-center gap-1">
-                      <User className="w-3 h-3 text-slate-400" />
-                      {doc.responsiblePerson}
                     </span>
                   </div>
                   {doc.notes && (
@@ -453,7 +438,6 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
                 <th className="p-3 font-mono">الرقم</th>
                 <th className="p-3">الجهة</th>
                 <th className="p-3 font-mono">الانتهاء</th>
-                <th className="p-3">المسؤول</th>
                 <th className="p-3 text-center">الحالة</th>
                 <th className="p-3 text-center">إجراءات</th>
               </tr>
@@ -464,13 +448,12 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
                 return (
                   <tr key={doc.id} className="hover:bg-slate-50/80">
                     <td className="p-3 font-bold text-slate-900">{doc.name}</td>
-                    <td className="p-3">{typeLabels[doc.documentType] || doc.documentType}</td>
+                    <td className="p-3">{formatCompanyDocumentType(doc.documentType)}</td>
                     <td className="p-3 font-mono">{doc.documentNumber}</td>
                     <td className="p-3">{doc.issuingAuthority}</td>
                     <td className={`p-3 font-mono ${status === 'expired' ? 'text-rose-600 font-bold' : status === 'expiring_soon' ? 'text-amber-600' : ''}`}>
                       {doc.expiryDate}
                     </td>
-                    <td className="p-3">{doc.responsiblePerson}</td>
                     <td className="p-3 text-center">
                       <span className={`text-[10px] px-2 py-0.5 rounded-full border ${badgeColor}`}>{badgeLabel}</span>
                     </td>
@@ -538,15 +521,20 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">نوع الترخيص</label>
-                  <select 
-                    value={formData.documentType || 'commercial_license'}
-                    onChange={(e) => setFormData({...formData, documentType: e.target.value as any})}
+                  <input
+                    type="text"
+                    list="company-license-type-suggestions"
+                    placeholder="اكتب المسمى أو اختر اقتراحاً..."
+                    value={formData.documentType || ''}
+                    onChange={(e) => setFormData({ ...formData, documentType: e.target.value })}
                     className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#714B67] bg-white"
-                  >
-                    {Object.entries(typeLabels).map(([key, label]) => (
-                      <option key={key} value={key}>{label}</option>
+                  />
+                  <datalist id="company-license-type-suggestions">
+                    {COMPANY_DOCUMENT_TYPE_SUGGESTIONS.map((label) => (
+                      <option key={label} value={label} />
                     ))}
-                  </select>
+                  </datalist>
+                  <p className="text-[10px] text-slate-400 mt-1">يمكنك كتابة أي مسمى مخصص — الاقتراحات للتسريع فقط.</p>
                 </div>
 
                 <div>
@@ -609,17 +597,6 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
                   {formData.fileUrl && formData.fileUrl !== '#' && formData.fileUrl !== 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' && (
                      <p className="text-emerald-600 text-[10px] mt-1 font-bold">✓ تم إرفاق ملف جاهز للحفظ</p>
                   )}
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-bold text-slate-700 mb-1">الموظف / المندوب المسؤول عن التجديد</label>
-                  <input 
-                    type="text"
-                    placeholder="مثال: أحمد المندوب الحكومي"
-                    value={formData.responsiblePerson || ''}
-                    onChange={(e) => setFormData({...formData, responsiblePerson: e.target.value})}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#714B67]"
-                  />
                 </div>
 
                 <div className="md:col-span-2">
@@ -697,7 +674,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <span className="text-slate-400 block mb-0.5">نوع الترخيص:</span>
-                    <span className="font-medium">{typeLabels[detailDoc.documentType]}</span>
+                    <span className="font-medium">{formatCompanyDocumentType(detailDoc.documentType)}</span>
                   </div>
                   <div>
                     <span className="text-slate-400 block mb-0.5">جهة الإصدار:</span>
@@ -711,10 +688,6 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
                     <span className="text-slate-400 block mb-0.5">تاريخ الانتهاء:</span>
                     <span className="font-mono font-medium text-red-600">{detailDoc.expiryDate}</span>
                   </div>
-                </div>
-                <div>
-                  <span className="text-slate-400 block mb-0.5">الموظف / المندوب المسؤول:</span>
-                  <span className="font-medium text-slate-800">{detailDoc.responsiblePerson}</span>
                 </div>
                 {detailDoc.notes && (
                   <div>
