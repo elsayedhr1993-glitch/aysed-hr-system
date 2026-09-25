@@ -1,6 +1,6 @@
 // src/services/holidayWorkService.ts
 import { db, cleanFirestoreData } from '../lib/firebase';
-import { collection, setDoc, deleteDoc, doc, getDocs, getDoc, query, orderBy, where } from 'firebase/firestore';
+import { collection, setDoc, deleteDoc, doc, getDocs, getDoc, query, orderBy, where, onSnapshot, type Unsubscribe } from 'firebase/firestore';
 import { MANARA_STORAGE_KEYS, getPersistentData, setPersistentData } from '../utils/persistentStorage';
 import { HrLeaveAllocation } from '../types';
 import { cancelLeaveBalanceTransaction, upsertLeaveBalanceTransaction } from './leaveBalanceLedgerService';
@@ -40,6 +40,62 @@ export async function persistHolidayDutyRecord(
     updatedAt: new Date().toISOString(),
   });
   await setDoc(doc(db, 'work_on_holidays', duty.id), payload, { merge: true });
+}
+
+function isHolidayDutyFirestoreDoc(data: Record<string, unknown>): boolean {
+  if (data.recordType === 'holiday_duty') return true;
+  if (data.calculatedAmount !== undefined && data.calculatedAmount !== null) return true;
+  return Boolean(data.employeeName && (data.dutyDate || data.date));
+}
+
+export function mapFirestoreDocToHolidayDuty(
+  docId: string,
+  data: Record<string, unknown>
+): HolidayDutyPayrollInput | null {
+  if (!isHolidayDutyFirestoreDoc(data)) return null;
+  return {
+    id: String(data.id || docId),
+    employeeId: data.employeeId as string | undefined,
+    employeeName: String(data.employeeName || (data.employee as { name?: string })?.name || 'موظف'),
+    civilId: String(data.civilId || data.employeeCivilId || ''),
+    jobTitle: String(data.jobTitle || data.employeeJobTitle || 'موظف'),
+    department: String(data.department || ''),
+    holidayName: String(data.holidayName || data.name || 'عطلة رسمية'),
+    dutyDate: String(data.dutyDate || data.date || ''),
+    basicSalary: Number(data.basicSalary || 0),
+    totalSalary: Number(data.totalSalary || data.basicSalary || 0),
+    compensationType: (data.compensationType || 'double_pay') as HolidayDutyPayrollInput['compensationType'],
+    calculatedAmount: Number(data.calculatedAmount || 0),
+    status: (data.status || 'approved') as 'approved' | 'settled',
+    settledAt: data.settledAt as string | undefined,
+  };
+}
+
+/** Live listener for Article 68 duty assignments (work_on_holidays only). */
+export function subscribeHolidayDutyAssignments(
+  companyId: string,
+  onChange: (duties: HolidayDutyPayrollInput[]) => void,
+  onError?: (error: Error) => void
+): Unsubscribe {
+  if (!db || !companyId) {
+    onChange([]);
+    return () => undefined;
+  }
+  const q = query(collection(db, 'work_on_holidays'), where('companyId', '==', companyId));
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const duties = snapshot.docs
+        .map((docRef) => mapFirestoreDocToHolidayDuty(docRef.id, docRef.data() as Record<string, unknown>))
+        .filter((d): d is HolidayDutyPayrollInput => d !== null)
+        .sort((a, b) => (b.dutyDate || '').localeCompare(a.dutyDate || ''));
+      onChange(duties);
+    },
+    (err) => {
+      console.error('[HolidayWorkService] duty onSnapshot error', err);
+      onError?.(err);
+    }
+  );
 }
 
 export interface LeaveType {
@@ -114,20 +170,10 @@ export async function saveHolidayWorkRecord(record: WorkOnHolidayRecord): Promis
     createdAt: record.createdAt || new Date().toISOString()
   };
 
-  // 1. Save to local storage (deduplicated by id or employeeId + date)
-  const localRecords = getPersistentData<WorkOnHolidayRecord[]>(MANARA_STORAGE_KEYS.HOLIDAY_WORK_RECORDS, []);
-  const filtered = localRecords.filter(r => r.id !== recordId && !(r.employeeId === newRec.employeeId && r.date === newRec.date && r.holidayName === newRec.holidayName));
-  const updatedList = [newRec, ...filtered];
-  setPersistentData(MANARA_STORAGE_KEYS.HOLIDAY_WORK_RECORDS, updatedList);
-
-  // 2. Save to Firestore using setDoc with document ID = recordId
-  try {
-    if (db) {
-      await setDoc(doc(db, 'work_on_holidays', recordId), newRec as any);
-    }
-  } catch (e) {
-    console.warn('[HolidayWorkService] Firestore save warning:', e);
+  if (!db) {
+    throw new Error('قاعدة البيانات غير متاحة لحفظ سجل العمل في العطلة');
   }
+  await setDoc(doc(db, 'work_on_holidays', recordId), cleanFirestoreData({ ...newRec } as Record<string, unknown>), { merge: true });
 
   return newRec;
 }
@@ -136,53 +182,30 @@ export async function saveHolidayWorkRecord(record: WorkOnHolidayRecord): Promis
  * جلب جميع سجلات العمل في العطلات (مع الدمج بين محلي وفايربيس ومنع التكرار)
  */
 export async function getHolidayWorkRecords(companyId?: string): Promise<WorkOnHolidayRecord[]> {
-  const localRecords = getPersistentData<WorkOnHolidayRecord[]>(MANARA_STORAGE_KEYS.HOLIDAY_WORK_RECORDS, []);
-  let cloudRecords: WorkOnHolidayRecord[] = [];
+  if (!db) return [];
 
   try {
-    if (db) {
-      const q = query(collection(db, 'work_on_holidays'), orderBy('date', 'desc'));
-      const snap = await getDocs(q);
-      cloudRecords = snap.docs.map(d => {
-        const data = d.data() as any;
+    const baseQuery = companyId && companyId !== 'comp-super-admin'
+      ? query(collection(db, 'work_on_holidays'), where('companyId', '==', companyId))
+      : query(collection(db, 'work_on_holidays'), orderBy('date', 'desc'));
+
+    const snap = await getDocs(baseQuery);
+    const records = snap.docs
+      .map((d) => {
+        const data = d.data() as Record<string, unknown>;
+        if (isHolidayDutyFirestoreDoc(data)) return null;
         return {
           ...data,
-          id: data.id || d.id
-        };
-      }) as WorkOnHolidayRecord[];
-    }
+          id: (data.id as string) || d.id,
+        } as WorkOnHolidayRecord;
+      })
+      .filter((r): r is WorkOnHolidayRecord => r !== null && Boolean(r.employeeId && r.date));
+
+    return records.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   } catch (e) {
     console.warn('[HolidayWorkService] Firestore fetch error:', e);
+    return [];
   }
-
-  // Merge records uniquely with semantic deduplication (employee + date + holiday)
-  const map = new Map<string, WorkOnHolidayRecord>();
-  const combined = [...cloudRecords, ...localRecords];
-
-  combined.forEach(r => {
-    if (!r.employeeId || !r.date) return;
-    const semKey = `${r.employeeId}_${r.date}_${r.holidayName || ''}`;
-    
-    if (map.has(semKey)) {
-      const existing = map.get(semKey)!;
-      // Prefer approved state over draft
-      if (r.state === 'approved' && existing.state !== 'approved') {
-        map.set(semKey, r);
-      }
-    } else {
-      map.set(semKey, r);
-    }
-  });
-
-  const all = Array.from(map.values()).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  
-  // Persist clean deduplicated list to local storage
-  setPersistentData(MANARA_STORAGE_KEYS.HOLIDAY_WORK_RECORDS, all);
-
-  if (companyId && companyId !== 'comp-super-admin') {
-    return all.filter(r => r.companyId === companyId);
-  }
-  return all;
 }
 
 /**
@@ -190,23 +213,22 @@ export async function getHolidayWorkRecords(companyId?: string): Promise<WorkOnH
  */
 export async function deleteHolidayWorkRecord(recordId: string, employeeId?: string): Promise<{ success: boolean; message: string }> {
   try {
-    const localRecords = getPersistentData<WorkOnHolidayRecord[]>(MANARA_STORAGE_KEYS.HOLIDAY_WORK_RECORDS, []);
-    const targetRecord = localRecords.find(r => r.id === recordId || (employeeId && r.employeeId === employeeId && r.id === recordId));
-    
+    let targetRecord: WorkOnHolidayRecord | undefined;
+    if (db && recordId) {
+      try {
+        const snap = await getDoc(doc(db, 'work_on_holidays', recordId));
+        if (snap.exists()) {
+          targetRecord = { id: snap.id, ...(snap.data() as WorkOnHolidayRecord) };
+        }
+      } catch (_) {
+        /* ignore */
+      }
+    }
+
     const targetEmpId = employeeId || targetRecord?.employeeId;
     const targetDate = targetRecord?.date;
-    const targetHoliday = targetRecord?.holidayName;
 
-    // 1. إزالة السجل من مصفوفة سجلات العطلات المحلية
-    const filteredRecords = localRecords.filter(r => {
-      if (r.id === recordId) return false;
-      if (targetRecord && r.id === targetRecord.id) return false;
-      if (targetEmpId && targetDate && r.employeeId === targetEmpId && r.date === targetDate) return false;
-      return true;
-    });
-    setPersistentData(MANARA_STORAGE_KEYS.HOLIDAY_WORK_RECORDS, filteredRecords);
-
-    // 2. إذا كان السجل قد تم اعتماده وأضاف رصيداً (سنوي أو تعويضي)، نقوم بإلغاء التخصيص المرتبط به
+    // إلغاء التخصيص المرتبط إن وُجد
     const existingAllocs = getPersistentData<HrLeaveAllocation[]>(MANARA_STORAGE_KEYS.LEAVE_ALLOCATIONS, []);
     const allocIdComp = `alloc-comp-${recordId}`;
     const allocIdAnnual = `alloc-annual-${recordId}`;

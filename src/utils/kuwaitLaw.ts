@@ -5,6 +5,11 @@ import {
   getApprovedLedgerTransactions
 } from '../services/leaveBalanceLedgerService';
 import { computeAccrual2026Unified, extractEmployeeJoinDate } from './leaveAccrual2026';
+import {
+  getCompensatedHolidays2026 as getCompensatedHolidays2026FromSSOT,
+  KUWAIT_HOLIDAYS_2026 as KUWAIT_HOLIDAYS_2026_FROM_SSOT,
+  type KuwaitHolidayDay,
+} from '../data/kuwaitPublicHolidays2026';
 
 /**
  * Validate Kuwait Civil ID using MOD 11 algorithm
@@ -1014,54 +1019,15 @@ export interface PublicHoliday {
   name: string;
 }
 
-// Kuwait Public Holidays for 2026 (Example standard list)
-export const KUWAIT_HOLIDAYS_2026: PublicHoliday[] = [
-  { date: '2026-01-01', name: 'رأس السنة الميلادية' },
-  { date: '2026-02-14', name: 'الإسراء والمعراج' },
-  { date: '2026-02-25', name: 'العيد الوطني الكويتي' },
-  { date: '2026-02-26', name: 'يوم التحرير' },
-  { date: '2026-03-20', name: 'عيد الفطر السعيد' },
-  { date: '2026-03-21', name: 'عيد الفطر السعيد' },
-  { date: '2026-03-22', name: 'عيد الفطر السعيد' },
-  { date: '2026-05-26', name: 'وقفة عرفات' },
-  { date: '2026-05-27', name: 'عيد الأضحى المبارك' },
-  { date: '2026-05-28', name: 'عيد الأضحى المبارك' },
-  { date: '2026-05-29', name: 'عيد الأضحى المبارك' },
-  { date: '2026-06-16', name: 'رأس السنة الهجرية' },
-  { date: '2026-08-25', name: 'المولد النبوي الشريف' },
-];
+/** @see src/data/kuwaitPublicHolidays2026.ts — SSOT */
+export const KUWAIT_HOLIDAYS_2026: PublicHoliday[] = KUWAIT_HOLIDAYS_2026_FROM_SSOT;
 
-/**
- * Returns the list of holidays, automatically adding a compensation day 
- * (Thursday or Sunday) if a public holiday falls on a Friday.
- */
+/** Friday compensation days per Kuwait cabinet practice (SSOT). */
 export function getCompensatedHolidays2026(): PublicHoliday[] {
-  const finalHolidays: PublicHoliday[] = [];
-  const holidayDates = new Set(KUWAIT_HOLIDAYS_2026.map(h => h.date));
-  
-  for (const holiday of KUWAIT_HOLIDAYS_2026) {
-    finalHolidays.push(holiday);
-    const date = new Date(holiday.date);
-    if (date.getDay() === 5) { // Friday
-       const thursday = new Date(date);
-       thursday.setDate(thursday.getDate() - 1);
-       const thursdayStr = thursday.toISOString().split('T')[0];
-       
-       const sunday = new Date(date);
-       sunday.setDate(sunday.getDate() + 2);
-       const sundayStr = sunday.toISOString().split('T')[0];
-
-       if (!holidayDates.has(thursdayStr)) {
-         finalHolidays.push({ date: thursdayStr, name: holiday.name + ' (يوم تعويضي)' });
-         holidayDates.add(thursdayStr);
-       } else if (!holidayDates.has(sundayStr)) {
-         finalHolidays.push({ date: sundayStr, name: holiday.name + ' (يوم تعويضي)' });
-         holidayDates.add(sundayStr);
-       }
-    }
-  }
-  
-  return finalHolidays.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  return getCompensatedHolidays2026FromSSOT().map((h: KuwaitHolidayDay) => ({
+    date: h.date,
+    name: h.name,
+  }));
 }
 
 /**

@@ -32,237 +32,116 @@ import {
 } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
 import { useOdooHierarchy } from '../context/OdooHierarchyContext';
-import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { exportToExcel } from '../utils/exportUtils';
 import { toast } from 'react-hot-toast';
 import {
   approveHolidayWork,
   persistHolidayDutyRecord,
   settleHolidayDutyToPayroll,
+  subscribeHolidayDutyAssignments,
   WorkOnHolidayRecord,
 } from '../services/holidayWorkService';
-import { collection, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { cleanFirestoreData, db } from '../lib/firebase';
+import {
+  KUWAIT_PUBLIC_HOLIDAYS_2026_DEFAULT,
+  KUWAIT_PUBLIC_HOLIDAYS_SCHEMA_VERSION,
+  type KuwaitPublicHolidayRecord,
+} from '../data/kuwaitPublicHolidays2026';
 
 // Subcomponents
 import { PrintableHolidayDutyModal } from './holidays/PrintableHolidayDutyModal';
 import { HolidaysCalendarView } from './holidays/HolidaysCalendarView';
 import { HolidayCircularModal } from './holidays/HolidayCircularModal';
+import { OfficialPublicHolidaysPrintModal } from './holidays/OfficialPublicHolidaysPrintModal';
 
-export interface PublicHoliday {
-  id: string;
-  nameAr: string;
-  nameEn: string;
-  startDate: string;
-  endDate: string;
-  daysCount: number;
-  type: 'national' | 'religious' | 'official' | 'cabinet_decision';
-  status: 'approved' | 'active';
-  isPaid: boolean;
-  decreeNumber?: string;
-  notes?: string;
-}
-
-export interface HolidayDutyAssignment {
-  id: string;
-  employeeId?: string;
-  employeeName: string;
-  civilId: string;
-  jobTitle: string;
-  department?: string;
-  holidayName: string;
-  dutyDate: string;
-  basicSalary: number;
-  totalSalary: number;
-  compensationType: 'double_pay' | 'comp_day_off' | 'add_to_annual_leave';
-  calculatedAmount: number;
-  status: 'approved' | 'settled';
-  settledAt?: string;
-}
-
-const kuwaitOfficialHolidaysList: PublicHoliday[] = [
-  {
-    id: 'HOL-KW-01',
-    nameAr: 'رأس السنة الميلادية 2026',
-    nameEn: 'New Year Day',
-    startDate: '2026-01-01',
-    endDate: '2026-01-01',
-    daysCount: 1,
-    type: 'official',
-    status: 'approved',
-    isPaid: true,
-    decreeNumber: 'قرار مجلس الوزراء رقم 1 لسنة 2026',
-    notes: 'عطلة رسمية لكافة الوزارات والجهات والمؤسسات الحكومية والقطاع الأهلي'
-  },
-  {
-    id: 'HOL-KW-02',
-    nameAr: 'ذكرى الإسراء والمعراج',
-    nameEn: 'Israa & Miraj',
-    startDate: '2026-01-16',
-    endDate: '2026-01-16',
-    daysCount: 1,
-    type: 'religious',
-    status: 'approved',
-    isPaid: true,
-    decreeNumber: 'مرسوم العطلات الدينية الرسمية',
-    notes: 'عطلة دينية مدفوعة الأجر بالكامل'
-  },
-  {
-    id: 'HOL-KW-03',
-    nameAr: 'العيد الوطني ويوم التحرير (25 - 26 فبراير)',
-    nameEn: 'National & Liberation Days',
-    startDate: '2026-02-25',
-    endDate: '2026-02-26',
-    daysCount: 2,
-    type: 'national',
-    status: 'approved',
-    isPaid: true,
-    decreeNumber: 'مرسوم الأعياد الوطنية الرسمية',
-    notes: 'ذكرى الاستقلال ويوم التحرير المجيد لدولة الكويت'
-  },
-  {
-    id: 'HOL-KW-04',
-    nameAr: 'عطلة عيد الفطر المبارك 1447هـ',
-    nameEn: 'Eid Al-Fitr Holiday',
-    startDate: '2026-03-20',
-    endDate: '2026-03-22',
-    daysCount: 3,
-    type: 'religious',
-    status: 'approved',
-    isPaid: true,
-    decreeNumber: 'قرار مجلس الوزراء - إجازة العيد',
-    notes: '3 أيام رسمية متتالية وفق تقويم هيئة الرؤية الشرعية'
-  },
-  {
-    id: 'HOL-KW-05',
-    nameAr: 'وقفة عرفات وعطلة عيد الأضحى المبارك',
-    nameEn: 'Waqfat Arafat & Eid Al-Adha',
-    startDate: '2026-05-26',
-    endDate: '2026-05-29',
-    daysCount: 4,
-    type: 'religious',
-    status: 'approved',
-    isPaid: true,
-    decreeNumber: 'قرار مجلس الوزراء - عيد الأضحى',
-    notes: '4 أيام تشمل يوم الوقفة وثلاثة أيام التشريق'
-  },
-  {
-    id: 'HOL-KW-06',
-    nameAr: 'رأس السنة الهجرية 1448هـ',
-    nameEn: 'Islamic Hijri New Year',
-    startDate: '2026-06-16',
-    endDate: '2026-06-16',
-    daysCount: 1,
-    type: 'religious',
-    status: 'approved',
-    isPaid: true,
-    decreeNumber: 'مرسوم العطلات الدينية',
-    notes: 'غرة شهر محرم الحرام للسنة الهجرية الجديدة'
-  },
-  {
-    id: 'HOL-KW-07',
-    nameAr: 'المولد النبوي الشريف',
-    nameEn: 'Prophet Muhammad Birthday',
-    startDate: '2026-08-25',
-    endDate: '2026-08-25',
-    daysCount: 1,
-    type: 'religious',
-    status: 'approved',
-    isPaid: true,
-    decreeNumber: 'مرسوم العطلات الدينية',
-    notes: '12 ربيع الأول - ذكرى المولد النبوي الشريف'
-  }
-];
-
-const DEFAULT_SAMPLE_DUTIES: HolidayDutyAssignment[] = [];
+export type { PublicHoliday, HolidayDutyAssignment } from './holidays/holidayTypes';
+import type { PublicHoliday, HolidayDutyAssignment } from './holidays/holidayTypes';
 
 export const OdooPublicHolidaysApp: React.FC = () => {
   const { activeCompany } = useCompany();
   const { employees } = useOdooHierarchy();
   const companyEmployees = employees && employees.length > 0 ? employees : [];
 
-  const [holidays, setHolidays] = useState<PublicHoliday[]>(kuwaitOfficialHolidaysList);
+  const [holidays, setHolidays] = useState<PublicHoliday[]>(KUWAIT_PUBLIC_HOLIDAYS_2026_DEFAULT);
   const [duties, setDuties] = useState<HolidayDutyAssignment[]>([]);
+  const [holidaysRemoteReady, setHolidaysRemoteReady] = useState(false);
+  const [holidaysDirty, setHolidaysDirty] = useState(false);
 
   const companyId = activeCompany?.id || '';
   const holidayConfigId = `public_holidays_${companyId}`;
 
-  const normalizeCompanyKey = (value?: string | null) => String(value || '').trim().toLowerCase();
-
-  const resolveDutiesForCompany = async (): Promise<HolidayDutyAssignment[]> => {
-    if (!companyId) return [];
-
-    try {
-      const q = query(collection(db, 'work_on_holidays'), where('companyId', '==', companyId));
-      const snapshot = await getDocs(q);
-      const records = snapshot.docs.map((docRef) => ({ id: docRef.id, ...(docRef.data() as any) })) as any[];
-
-      return records
-        .filter((record) => record.recordType === 'holiday_duty' || record.employeeName || record.calculatedAmount !== undefined)
-        .map((record) => ({
-        id: String(record.id || record.dutyId || `DUTY-${Date.now()}-${Math.random().toString(36).slice(2,8)}`),
-        employeeId: record.employeeId,
-        employeeName: record.employeeName || record.employee?.name || 'موظف',
-        civilId: record.civilId || record.employeeCivilId || '',
-        jobTitle: record.jobTitle || record.employeeJobTitle || 'موظف',
-        department: record.department || '',
-        holidayName: record.holidayName || record.name || 'عطلة رسمية',
-        dutyDate: record.date || record.dutyDate || '',
-        basicSalary: Number(record.basicSalary || 0),
-        totalSalary: Number(record.totalSalary || record.basicSalary || 0),
-        compensationType: (record.compensationType || 'double_pay') as 'double_pay' | 'comp_day_off' | 'add_to_annual_leave',
-        calculatedAmount: Number(record.calculatedAmount || 0),
-        status: (record.status || 'approved') as 'approved' | 'settled',
-        settledAt: record.settledAt,
-      }));
-    } catch (error) {
-      console.error('Failed to load holiday duty assignments from Firestore', error);
-      return [];
-    }
-  };
-
   useEffect(() => {
-    let mounted = true;
-    const loadHolidayState = async () => {
-      try {
-        const snapshot = await getDoc(doc(db, 'system_config', holidayConfigId));
-        if (!mounted) return;
-        const data = snapshot.data() as { holidays?: PublicHoliday[]; duties?: HolidayDutyAssignment[] } | undefined;
+    if (!companyId) {
+      setHolidays(KUWAIT_PUBLIC_HOLIDAYS_2026_DEFAULT);
+      setHolidaysRemoteReady(false);
+      setHolidaysDirty(false);
+      return;
+    }
+    const configRef = doc(db, 'system_config', holidayConfigId);
+    return onSnapshot(
+      configRef,
+      (snapshot) => {
+        const data = snapshot.data() as { holidays?: PublicHoliday[]; schemaVersion?: number } | undefined;
         if (data?.holidays && Array.isArray(data.holidays) && data.holidays.length > 0) {
           setHolidays(data.holidays);
         } else {
-          setHolidays(kuwaitOfficialHolidaysList);
+          setHolidays(KUWAIT_PUBLIC_HOLIDAYS_2026_DEFAULT);
         }
-
-        const companyDuties = await resolveDutiesForCompany();
-        const mergedDuties = Array.isArray(data?.duties) ? [...companyDuties, ...data.duties.filter((d) => !companyDuties.some((item) => item.id === d.id))] : companyDuties;
-        if (mounted) setDuties(mergedDuties);
-      } catch (error) {
-        console.error('Failed to load holidays config from Firestore', error);
-        if (mounted) {
-          setHolidays(kuwaitOfficialHolidaysList);
-          setDuties(await resolveDutiesForCompany());
-        }
+        setHolidaysRemoteReady(true);
+      },
+      (error) => {
+        console.error('Failed to listen holidays config', error);
+        setHolidays(KUWAIT_PUBLIC_HOLIDAYS_2026_DEFAULT);
+        setHolidaysRemoteReady(true);
       }
-    };
-    void loadHolidayState();
-    return () => {
-      mounted = false;
-    };
-  }, [holidayConfigId, companyId, companyEmployees]);
+    );
+  }, [companyId, holidayConfigId]);
 
   useEffect(() => {
+    if (!companyId) {
+      setDuties([]);
+      return;
+    }
+    return subscribeHolidayDutyAssignments(companyId, (rows) => {
+      setDuties(
+        rows
+          .filter((row) => Boolean(row.employeeId))
+          .map((row) => ({
+          id: row.id,
+          employeeId: row.employeeId as string,
+          employeeName: row.employeeName,
+          civilId: row.civilId || '',
+          jobTitle: row.jobTitle || 'موظف',
+          department: row.department,
+          holidayName: row.holidayName,
+          dutyDate: row.dutyDate,
+          basicSalary: row.basicSalary || 0,
+          totalSalary: row.totalSalary || 0,
+          compensationType: row.compensationType,
+          calculatedAmount: row.calculatedAmount,
+          status: row.status || 'approved',
+          settledAt: row.settledAt,
+        }))
+      );
+    });
+  }, [companyId]);
+
+  useEffect(() => {
+    if (!companyId || !holidaysRemoteReady || !holidaysDirty) return;
     void setDoc(
       doc(db, 'system_config', holidayConfigId),
       cleanFirestoreData({
         companyId,
         holidays,
-        duties,
-        updatedAt: new Date().toISOString()
+        schemaVersion: KUWAIT_PUBLIC_HOLIDAYS_SCHEMA_VERSION,
+        updatedAt: new Date().toISOString(),
       }),
       { merge: true }
-    ).catch(error => console.error('Failed to persist holidays config to Firestore', error));
-  }, [companyId, holidayConfigId, holidays, duties]);
+    )
+      .then(() => setHolidaysDirty(false))
+      .catch((error) => console.error('Failed to persist holidays config to Firestore', error));
+  }, [companyId, holidayConfigId, holidays, holidaysRemoteReady, holidaysDirty]);
 
   // View state: 'list' vs 'calendar' view
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
@@ -276,6 +155,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
   const [showDutyModal, setShowDutyModal] = useState(false);
   const [selectedPrintDuty, setSelectedPrintDuty] = useState<HolidayDutyAssignment | null>(null);
   const [selectedCircularHoliday, setSelectedCircularHoliday] = useState<PublicHoliday | null>(null);
+  const [showOfficialPrintModal, setShowOfficialPrintModal] = useState(false);
 
   // Cabinet Emergency Holiday Form
   const [cabinetForm, setCabinetForm] = useState({
@@ -345,6 +225,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
     };
 
     setHolidays([created, ...holidays]);
+    setHolidaysDirty(true);
     setShowCabinetModal(false);
     toast.success(`تم اعتماد وإدراج العطلة الرسمية الطارئة (${created.nameAr}) بنجاح.`);
   };
@@ -400,7 +281,6 @@ export const OdooPublicHolidaysApp: React.FC = () => {
         toast.success(`تم اعتماد التكليف وإدراج بدل نقدي (+${amount.toFixed(3)} د.ك) جاهز للترحيل للرواتب.`);
       }
 
-      setDuties([created, ...duties]);
       setShowDutyModal(false);
     } catch (err: any) {
       console.warn('Failed to create holiday duty', err);
@@ -424,8 +304,6 @@ export const OdooPublicHolidaysApp: React.FC = () => {
       toast.error(result.message);
       return;
     }
-    const todayStr = new Date().toISOString().split('T')[0];
-    setDuties(duties.map(d => d.id === dutyId ? { ...d, status: 'settled', settledAt: todayStr } : d));
     toast.success(result.message);
   };
 
@@ -572,10 +450,11 @@ export const OdooPublicHolidaysApp: React.FC = () => {
 
           <button
             type="button"
-            onClick={() => safePrintAction('جدول العطلات الرسمية A4')}
+            onClick={() => setShowOfficialPrintModal(true)}
             className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+            title="سجل A4 رسمي للعطلات وتكليفات المادة 68"
           >
-            <Printer size={14} /> طباعة السجل
+            <Printer size={14} /> طباعة السجل الرسمي (A4)
           </button>
         </div>
       </div>
@@ -827,13 +706,22 @@ export const OdooPublicHolidaysApp: React.FC = () => {
                   يحصل الموظف المكلف بالعمل على أجر مضاعف 200% أو يوم راحة بديل معتمد (Comp-Off) يضاف لرصيد إجازاته
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowDutyModal(true)}
-                className="bg-[#714B67] hover:bg-[#583950] text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
-              >
-                <PlusCircle size={14} /> إضافة تكليف عمل جديد
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowOfficialPrintModal(true)}
+                  className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Printer size={14} /> طباعة السجل (A4)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowDutyModal(true)}
+                  className="bg-[#714B67] hover:bg-[#583950] text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <PlusCircle size={14} /> إضافة تكليف عمل جديد
+                </button>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -1222,6 +1110,22 @@ export const OdooPublicHolidaysApp: React.FC = () => {
           companyName={activeCompany?.nameAr || 'شركة المنارة المركزية'}
         />
       )}
+
+      <OfficialPublicHolidaysPrintModal
+        isOpen={showOfficialPrintModal}
+        onClose={() => setShowOfficialPrintModal(false)}
+        company={{
+          nameAr: activeCompany?.nameAr,
+          name: activeCompany?.name,
+          commercialLicenseNo: activeCompany?.commercialLicenseNo,
+          wsiCode: activeCompany?.wsiCode,
+          civilIdCompany: activeCompany?.civilIdCompany,
+          authorizedSignatory: activeCompany?.authorizedSignatory,
+        }}
+        holidays={holidays}
+        duties={duties}
+        calendarYear={2026}
+      />
 
     </div>
   );
