@@ -14,6 +14,7 @@ import {
   resolveEmployeeDisplayName,
 } from '../utils/employeeDisplayName';
 import { resolveTenantCompanyId } from '../utils/tenantCompanyId';
+import { contractQueryCompanyIds, normalizeTenantCompanyId } from '../utils/contractTenantRules';
 import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
 import { syncTenantLicensesAndCompanyProfile } from '../services/companyLicenseSync';
 import { 
@@ -109,10 +110,11 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
       return;
     }
 
-    const documentsQuery = query(
-      collection(db, 'company_documents'),
-      where('companyId', '==', resolvedCompanyId)
-    );
+    const companyIds = contractQueryCompanyIds(resolvedCompanyId);
+    const documentsQuery =
+      companyIds.length === 1
+        ? query(collection(db, 'company_documents'), where('companyId', '==', companyIds[0]))
+        : query(collection(db, 'company_documents'), where('companyId', 'in', companyIds));
     return onSnapshot(documentsQuery, snapshot => {
       setCompanyDocuments(snapshot.docs.map(item => ({ ...item.data(), id: item.id } as CompanyDocument)));
     }, error => console.error('Failed to load company documents:', error));
@@ -122,7 +124,9 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
     const { responsiblePerson: _legacy, ...rest } = document;
     const companyDocument: CompanyDocument = {
       ...rest,
-      companyId: resolvedCompanyId || activeCompany?.id || 'comp-super-admin',
+      companyId: normalizeTenantCompanyId(
+        resolvedCompanyId || activeCompany?.id || 'comp-super-admin'
+      ),
     };
     const updated = companyDocuments.some(d => d.id === document.id)
       ? companyDocuments.map(d => d.id === document.id ? companyDocument : d)

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   X, Check, ChevronRight, ChevronLeft, Building2, ShieldCheck, 
   FileText, Upload, AlertTriangle, Calendar, Award, Flame, 
@@ -6,71 +6,17 @@ import {
 } from 'lucide-react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db, getCompaniesCollectionName } from '../../lib/firebase';
-import { syncTenantLicensesAndCompanyProfile } from '../../services/companyLicenseSync';
+import { syncFacilityWizardDraft, syncTenantLicensesAndCompanyProfile } from '../../services/companyLicenseSync';
 
-export interface FacilityLicenseData {
-  // Step 1: Commercial Identity
-  nameAr: string;
-  nameEn: string;
-  commercialRegNo: string;
-  paciCivilId: string;
-  logoUrl?: string;
-  mainBranchName: string;
-  branchesList: string[];
+import type { FacilityLicenseData } from '../../types/facilityLicense';
+import { createEmptyFacilityData } from '../../types/facilityLicense';
 
-  // Step 2: MOH Licensing
-  mohLicenseNo: string;
-  mohStartDate: string;
-  mohExpiryDate: string;
-  mohApprovedDepts: string[];
-  mohSpecialDevices: string[]; // e.g. Radiation, Laser
-
-  // Step 3: PAM & Labor
-  pamFileCode: string;
-  authorizedSignatoryName: string;
-  authorizedSignatoryCivilId: string;
-  wpsBankCode: string;
-  wpsEmployerId: string;
-
-  // Step 4: Supporting & Safety
-  kffLicenseNo: string; // Kuwait Fire Force
-  kffExpiryDate: string;
-  baladiyaLicenseNo: string; // Municipality
-  baladiyaExpiryDate: string;
-
-  // Status & Metadata
-  isCompleted?: boolean;
-  lastUpdated?: string;
-}
+export type { FacilityLicenseData } from '../../types/facilityLicense';
+export { createEmptyFacilityData } from '../../types/facilityLicense';
 
 export const FACILITY_STORAGE_KEY = 'facility_master_licensing_v1';
 const FACILITY_CONFIG_COLLECTION = 'system_config';
 const FACILITY_DOC_PREFIX = 'facility_licensing_';
-
-const createEmptyFacilityData = (): FacilityLicenseData => ({
-  nameAr: '',
-  nameEn: '',
-  commercialRegNo: '',
-  paciCivilId: '',
-  logoUrl: '',
-  mainBranchName: '',
-  branchesList: [],
-  mohLicenseNo: '',
-  mohStartDate: '',
-  mohExpiryDate: '',
-  mohApprovedDepts: [],
-  mohSpecialDevices: [],
-  pamFileCode: '',
-  authorizedSignatoryName: '',
-  authorizedSignatoryCivilId: '',
-  wpsBankCode: '',
-  wpsEmployerId: '',
-  kffLicenseNo: '',
-  kffExpiryDate: '',
-  baladiyaLicenseNo: '',
-  baladiyaExpiryDate: '',
-  isCompleted: false,
-});
 
 /** @deprecated use createEmptyFacilityData — kept for imports that expect a template object */
 export const defaultFacilityData: FacilityLicenseData = createEmptyFacilityData();
@@ -144,10 +90,12 @@ export const saveFacilityMasterData = async (data: FacilityLicenseData, companyI
     localStorage.setItem(storageKey, JSON.stringify(updated));
 
     if (companyId) {
-      await syncTenantLicensesAndCompanyProfile(companyId, [], updated);
+      await syncTenantLicensesAndCompanyProfile(companyId, [], updated, {
+        persistFacilityMaster: true,
+        markFacilityCompleted: true,
+      });
     }
 
-    window.dispatchEvent(new CustomEvent('facility_data_updated', { detail: { companyId: companyId || 'global' } }));
     return updated;
   } catch (e) {
     console.error('Failed to save facility data:', e);
@@ -178,6 +126,23 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
   const [newDeptInput, setNewDeptInput] = useState('');
   const [newDeviceInput, setNewDeviceInput] = useState('');
   const [newBranchInput, setNewBranchInput] = useState('');
+  const [isSyncing, setIsSyncing] = useState(false);
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const pushWizardToArchive = useCallback(
+    async (draft: FacilityLicenseData) => {
+      if (!companyId) return;
+      setIsSyncing(true);
+      try {
+        await syncFacilityWizardDraft(companyId, draft);
+      } catch (err) {
+        console.error('Facility wizard live sync failed:', err);
+      } finally {
+        setIsSyncing(false);
+      }
+    },
+    [companyId]
+  );
 
   useEffect(() => {
     if (isOpen) {
@@ -189,6 +154,17 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
       loadData();
     }
   }, [isOpen, companyId]);
+
+  useEffect(() => {
+    if (!isOpen || !companyId) return;
+    if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    syncTimerRef.current = setTimeout(() => {
+      void pushWizardToArchive(formData);
+    }, 900);
+    return () => {
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    };
+  }, [formData, isOpen, companyId, pushWizardToArchive]);
 
   if (!isOpen) return null;
 
@@ -828,10 +804,13 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
 
           {currentStep < 5 ? (
             <button
-              onClick={() => setCurrentStep(prev => prev + 1)}
+              onClick={async () => {
+                await pushWizardToArchive(formData);
+                setCurrentStep((prev) => prev + 1);
+              }}
               className="px-5 py-2 rounded-xl bg-[#714B67] hover:bg-[#5c3c54] text-white font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
             >
-              <span>التالي (Next)</span>
+              <span>{isSyncing ? 'جاري المزامنة...' : 'التالي (Next)'}</span>
               <ChevronLeft size={16} />
             </button>
           ) : (

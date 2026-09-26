@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import {
   buildCompanyDocumentsFromFacility,
   deriveCompanyProfilePatchFromLicenses,
+  deriveFacilityPatchFromLicenses,
 } from './companyLicenseSync.ts';
-import type { FacilityLicenseData } from '../components/facility/FacilityLicensingWizardModal.tsx';
+import type { FacilityLicenseData } from '../types/facilityLicense.ts';
 
 test('deriveCompanyProfilePatchFromLicenses merges facility and custom document rows', () => {
   const facility: FacilityLicenseData = {
@@ -52,4 +53,37 @@ test('deriveCompanyProfilePatchFromLicenses merges facility and custom document 
 
   const built = buildCompanyDocumentsFromFacility('tenant_1', facility);
   assert.ok(built.some((d) => d.documentType.includes('تجاري')));
+});
+
+test('deriveFacilityPatchFromLicenses maps archive rows back to wizard fields', () => {
+  const docs = [
+    {
+      id: 'lic-tenant_1-moh',
+      companyId: 'tenant_1',
+      name: 'ترخيص وزارة الصحة',
+      documentType: 'ترخيص صحي/طبي',
+      documentNumber: 'MOH-UPDATED',
+      issuingAuthority: 'وزارة الصحة',
+      issueDate: '2025-06-01',
+      expiryDate: '2028-06-01',
+      notes: 'أقسام: طب عام، أسنان',
+    },
+    {
+      id: 'lic-tenant_1-commercial',
+      companyId: 'tenant_1',
+      name: 'سجل',
+      documentType: 'رخصة تجارية',
+      documentNumber: 'CR-55',
+      issuingAuthority: 'وزارة التجارة',
+      issueDate: '2025-01-01',
+      expiryDate: '2099-12-31',
+      notes: 'الفرع: حولي',
+    },
+  ];
+  const patch = deriveFacilityPatchFromLicenses('tenant_1', docs);
+  assert.equal(patch.mohLicenseNo, 'MOH-UPDATED');
+  assert.equal(patch.mohStartDate, '2025-06-01');
+  assert.equal(patch.commercialRegNo, 'CR-55');
+  assert.equal(patch.mainBranchName, 'حولي');
+  assert.deepEqual(patch.mohApprovedDepts, ['طب عام', 'أسنان']);
 });

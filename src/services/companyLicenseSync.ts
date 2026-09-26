@@ -1,14 +1,22 @@
-import { doc, setDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore';
 import type { Company } from '../types';
 import type { CompanyDocument } from '../types/companyDocuments';
 import { formatCompanyDocumentType } from '../types/companyDocuments';
-import type { FacilityLicenseData } from '../components/facility/FacilityLicensingWizardModal';
+import type { FacilityLicenseData } from '../types/facilityLicense';
+import { createEmptyFacilityData } from '../types/facilityLicense';
 import { cleanFirestoreData, db, getCompaniesCollectionName } from '../lib/firebase';
+import { contractQueryCompanyIds, normalizeTenantCompanyId } from '../utils/contractTenantRules';
 
 const FAR_FUTURE_EXPIRY = '2099-12-31';
+const FACILITY_CONFIG_COLLECTION = 'system_config';
+const FACILITY_DOC_PREFIX = 'facility_licensing_';
+
+export function getFacilityLicensingDocId(companyId: string): string {
+  return `${FACILITY_DOC_PREFIX}${normalizeTenantCompanyId(companyId)}`;
+}
 
 function stableLicenseDocId(companyId: string, slug: string): string {
-  return `lic-${companyId}-${slug}`;
+  return `lic-${normalizeTenantCompanyId(companyId)}-${slug}`;
 }
 
 function isCommercialType(documentType: string): boolean {
@@ -46,19 +54,25 @@ function isFireType(documentType: string): boolean {
   return documentType === 'civil_defense' || t.includes('إطفاء') || t.includes('دفاع') || t.includes('fire');
 }
 
+function docBelongsToTenant(doc: CompanyDocument, tenantId: string): boolean {
+  const docCo = normalizeTenantCompanyId(doc.companyId || tenantId);
+  return docCo === tenantId || !doc.companyId;
+}
+
 /** Map wizard master data → tracked rows in `company_documents`. */
 export function buildCompanyDocumentsFromFacility(
   companyId: string,
   data: FacilityLicenseData
 ): CompanyDocument[] {
+  const tenantId = normalizeTenantCompanyId(companyId);
   const issueFallback = data.mohStartDate || new Date().toISOString().split('T')[0];
   const docs: CompanyDocument[] = [];
 
   if (data.commercialRegNo?.trim()) {
     docs.push({
-      id: stableLicenseDocId(companyId, 'commercial'),
-      companyId,
-      name: 'السجل التجاري / الرخصة التجارية',
+      id: stableLicenseDocId(tenantId, 'commercial'),
+      companyId: tenantId,
+      name: data.nameAr?.trim() ? `السجل التجاري — ${data.nameAr.trim()}` : 'السجل التجاري / الرخصة التجارية',
       documentType: 'رخصة تجارية',
       documentNumber: data.commercialRegNo.trim(),
       issuingAuthority: 'وزارة التجارة والصناعة',
@@ -70,8 +84,8 @@ export function buildCompanyDocumentsFromFacility(
 
   if (data.mohLicenseNo?.trim()) {
     docs.push({
-      id: stableLicenseDocId(companyId, 'moh'),
-      companyId,
+      id: stableLicenseDocId(tenantId, 'moh'),
+      companyId: tenantId,
       name: 'ترخيص وزارة الصحة',
       documentType: 'ترخيص صحي/طبي',
       documentNumber: data.mohLicenseNo.trim(),
@@ -84,8 +98,8 @@ export function buildCompanyDocumentsFromFacility(
 
   if (data.pamFileCode?.trim()) {
     docs.push({
-      id: stableLicenseDocId(companyId, 'pam'),
-      companyId,
+      id: stableLicenseDocId(tenantId, 'pam'),
+      companyId: tenantId,
       name: 'ملف الشؤون — القوى العاملة (PAM/WPS)',
       documentType: 'ملف الشؤون PAM/WPS',
       documentNumber: data.pamFileCode.trim(),
@@ -100,8 +114,8 @@ export function buildCompanyDocumentsFromFacility(
 
   if (data.kffLicenseNo?.trim()) {
     docs.push({
-      id: stableLicenseDocId(companyId, 'kff'),
-      companyId,
+      id: stableLicenseDocId(tenantId, 'kff'),
+      companyId: tenantId,
       name: 'ترخيص الإطفاء / الدفاع المدني',
       documentType: 'دفاع مدني',
       documentNumber: data.kffLicenseNo.trim(),
@@ -113,8 +127,8 @@ export function buildCompanyDocumentsFromFacility(
 
   if (data.baladiyaLicenseNo?.trim()) {
     docs.push({
-      id: stableLicenseDocId(companyId, 'baladiya'),
-      companyId,
+      id: stableLicenseDocId(tenantId, 'baladiya'),
+      companyId: tenantId,
       name: 'رخصة البلدية',
       documentType: 'رخصة بلدية',
       documentNumber: data.baladiyaLicenseNo.trim(),
@@ -125,6 +139,69 @@ export function buildCompanyDocumentsFromFacility(
   }
 
   return docs;
+}
+
+function parseMohDeptsFromNotes(notes?: string): string[] | undefined {
+  if (!notes) return undefined;
+  const match = notes.match(/أقسام:\s*(.+)/);
+  if (!match) return undefined;
+  return match[1]
+    .split(/[،,]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function parseSignatoryFromNotes(notes?: string): string | undefined {
+  if (!notes) return undefined;
+  const match = notes.match(/المفوض بالتوقيع:\s*(.+)/);
+  return match?.[1]?.trim();
+}
+
+function parseBranchFromNotes(notes?: string): string | undefined {
+  if (!notes) return undefined;
+  const match = notes.match(/الفرع:\s*(.+)/);
+  return match?.[1]?.trim();
+}
+
+/** Archive rows → wizard master fields (bidirectional sync). */
+export function deriveFacilityPatchFromLicenses(
+  companyId: string,
+  documents: CompanyDocument[]
+): Partial<FacilityLicenseData> {
+  const tenantId = normalizeTenantCompanyId(companyId);
+  const patch: Partial<FacilityLicenseData> = {};
+
+  for (const d of documents) {
+    if (!docBelongsToTenant(d, tenantId)) continue;
+    const num = String(d.documentNumber || '').trim();
+    if (!num) continue;
+    const type = String(d.documentType || '');
+    const id = d.id;
+
+    if (isCommercialType(type) || id === stableLicenseDocId(tenantId, 'commercial')) {
+      patch.commercialRegNo = num;
+      const branch = parseBranchFromNotes(d.notes);
+      if (branch) patch.mainBranchName = branch;
+    } else if (isMohType(type) || id === stableLicenseDocId(tenantId, 'moh')) {
+      patch.mohLicenseNo = num;
+      if (d.issueDate) patch.mohStartDate = d.issueDate;
+      if (d.expiryDate) patch.mohExpiryDate = d.expiryDate;
+      const depts = parseMohDeptsFromNotes(d.notes);
+      if (depts?.length) patch.mohApprovedDepts = depts;
+    } else if (isPamType(type) || id === stableLicenseDocId(tenantId, 'pam')) {
+      patch.pamFileCode = num;
+      const signatory = parseSignatoryFromNotes(d.notes);
+      if (signatory) patch.authorizedSignatoryName = signatory;
+    } else if (isFireType(type) || id === stableLicenseDocId(tenantId, 'kff')) {
+      patch.kffLicenseNo = num;
+      if (d.expiryDate) patch.kffExpiryDate = d.expiryDate;
+    } else if (isMunicipalityType(type) || id === stableLicenseDocId(tenantId, 'baladiya')) {
+      patch.baladiyaLicenseNo = num;
+      if (d.expiryDate) patch.baladiyaExpiryDate = d.expiryDate;
+    }
+  }
+
+  return patch;
 }
 
 /** Derive `companies/{id}` fields for print headers from licenses + optional wizard data. */
@@ -183,40 +260,160 @@ export function isSyncableTenantCompanyId(companyId?: string | null): boolean {
   return true;
 }
 
-/** Upsert license rows and mirror identity into `companies/{id}` for print profile. */
-export async function syncTenantLicensesAndCompanyProfile(
-  companyId: string,
-  documents: CompanyDocument[],
-  facility?: FacilityLicenseData | null
-): Promise<void> {
-  if (!isSyncableTenantCompanyId(companyId)) return;
+export async function loadFacilityMasterData(
+  companyId: string
+): Promise<FacilityLicenseData | null> {
+  if (!isSyncableTenantCompanyId(companyId)) return null;
+  const snap = await getDoc(
+    doc(db, FACILITY_CONFIG_COLLECTION, getFacilityLicensingDocId(companyId))
+  );
+  if (!snap.exists()) return null;
+  return { ...createEmptyFacilityData(), ...(snap.data() as FacilityLicenseData) };
+}
 
-  const facilityDocs = facility ? buildCompanyDocumentsFromFacility(companyId, facility) : [];
+export async function fetchCompanyDocumentsForTenant(
+  companyId: string
+): Promise<CompanyDocument[]> {
+  const tenantId = normalizeTenantCompanyId(companyId);
+  const companyIds = contractQueryCompanyIds(tenantId);
+  const q =
+    companyIds.length === 1
+      ? query(collection(db, 'company_documents'), where('companyId', '==', companyIds[0]))
+      : query(collection(db, 'company_documents'), where('companyId', 'in', companyIds));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({
+    ...(d.data() as CompanyDocument),
+    id: d.id,
+    companyId: tenantId,
+  }));
+}
+
+export type LicenseSyncOptions = {
+  persistFacilityMaster?: boolean;
+  markFacilityCompleted?: boolean;
+};
+
+function mergeLicenseDocuments(
+  tenantId: string,
+  archiveDocs: CompanyDocument[],
+  facility: FacilityLicenseData
+): CompanyDocument[] {
+  const facilityDocs = buildCompanyDocumentsFromFacility(tenantId, facility);
   const byId = new Map<string, CompanyDocument>();
-  for (const d of documents) {
-    if (d.companyId === companyId || !d.companyId) {
-      byId.set(d.id, { ...d, companyId });
+  for (const d of archiveDocs) {
+    if (docBelongsToTenant(d, tenantId)) {
+      byId.set(d.id, { ...d, companyId: tenantId });
     }
   }
   for (const d of facilityDocs) {
     byId.set(d.id, d);
   }
-  const mergedDocs = [...byId.values()];
+  return [...byId.values()];
+}
 
-  for (const row of facilityDocs) {
+function mergeFacilityMaster(
+  existing: FacilityLicenseData,
+  archiveDocs: CompanyDocument[],
+  tenantId: string,
+  wizardPatch?: FacilityLicenseData | null
+): FacilityLicenseData {
+  const fromArchive = deriveFacilityPatchFromLicenses(tenantId, archiveDocs);
+
+  if (wizardPatch) {
+    return {
+      ...existing,
+      ...fromArchive,
+      ...wizardPatch,
+      mohApprovedDepts:
+        wizardPatch.mohApprovedDepts?.length
+          ? wizardPatch.mohApprovedDepts
+          : fromArchive.mohApprovedDepts?.length
+            ? fromArchive.mohApprovedDepts
+            : existing.mohApprovedDepts,
+      branchesList: wizardPatch.branchesList ?? existing.branchesList,
+      mohSpecialDevices: wizardPatch.mohSpecialDevices ?? existing.mohSpecialDevices,
+      lastUpdated: new Date().toISOString(),
+    };
+  }
+
+  return {
+    ...existing,
+    ...fromArchive,
+    mohApprovedDepts:
+      fromArchive.mohApprovedDepts?.length ? fromArchive.mohApprovedDepts : existing.mohApprovedDepts,
+    branchesList: existing.branchesList,
+    mohSpecialDevices: existing.mohSpecialDevices,
+    lastUpdated: new Date().toISOString(),
+  };
+}
+
+/** Single hub: wizard ↔ archive ↔ company print profile. */
+export async function syncTenantLicensesAndCompanyProfile(
+  companyId: string,
+  documents: CompanyDocument[],
+  facilityInput?: FacilityLicenseData | null,
+  options: LicenseSyncOptions = {}
+): Promise<void> {
+  if (!isSyncableTenantCompanyId(companyId)) return;
+
+  const tenantId = normalizeTenantCompanyId(companyId);
+  const persistFacility = options.persistFacilityMaster !== false;
+
+  const existingFacility =
+    (await loadFacilityMasterData(tenantId)) || createEmptyFacilityData();
+  const archiveDocs =
+    documents.length > 0 ? documents : await fetchCompanyDocumentsForTenant(tenantId);
+
+  const mergedFacility = mergeFacilityMaster(
+    existingFacility,
+    archiveDocs,
+    tenantId,
+    facilityInput || null
+  );
+
+  if (options.markFacilityCompleted) {
+    mergedFacility.isCompleted = true;
+  }
+
+  const mergedDocs = mergeLicenseDocuments(tenantId, archiveDocs, mergedFacility);
+
+  for (const row of mergedDocs) {
     await setDoc(doc(db, 'company_documents', row.id), cleanFirestoreData(row), { merge: true });
   }
 
-  const profilePatch = deriveCompanyProfilePatchFromLicenses(mergedDocs, facility);
-  if (Object.keys(profilePatch).length === 0) return;
+  if (persistFacility) {
+    await setDoc(
+      doc(db, FACILITY_CONFIG_COLLECTION, getFacilityLicensingDocId(tenantId)),
+      cleanFirestoreData(mergedFacility),
+      { merge: true }
+    );
+  }
 
-  await setDoc(
-    doc(db, getCompaniesCollectionName(), companyId),
-    cleanFirestoreData({
-      ...profilePatch,
-      id: companyId,
-      licensesSyncedAt: new Date().toISOString(),
-    }),
-    { merge: true }
+  const profilePatch = deriveCompanyProfilePatchFromLicenses(mergedDocs, mergedFacility);
+  if (Object.keys(profilePatch).length > 0) {
+    await setDoc(
+      doc(db, getCompaniesCollectionName(), tenantId),
+      cleanFirestoreData({
+        ...profilePatch,
+        id: tenantId,
+        licensesSyncedAt: new Date().toISOString(),
+      }),
+      { merge: true }
+    );
+  }
+
+  window.dispatchEvent(
+    new CustomEvent('facility_data_updated', { detail: { companyId: tenantId } })
   );
+}
+
+/** Wizard step edits → archive + facility master (live sync). */
+export async function syncFacilityWizardDraft(
+  companyId: string,
+  facilityDraft: FacilityLicenseData
+): Promise<void> {
+  await syncTenantLicensesAndCompanyProfile(companyId, [], facilityDraft, {
+    persistFacilityMaster: true,
+    markFacilityCompleted: Boolean(facilityDraft.isCompleted),
+  });
 }
