@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { UploadedSignedContractModal } from '../../contracts/UploadedSignedContractModal';
+import { resolveSignedContractFile } from '../../../utils/resolveSignedContractFile';
 
 interface Props {
   employee: any;
@@ -6,6 +8,8 @@ interface Props {
   handleFieldChange: (field: string, value: any) => void;
   onOpenPamModal?: () => void;
   onOpenContracts?: () => void;
+  onUploadSignedContract?: (file: File) => Promise<void>;
+  isUploadingSignedContract?: boolean;
 }
 
 export const EmployeeContractTab: React.FC<Props> = ({
@@ -13,8 +17,12 @@ export const EmployeeContractTab: React.FC<Props> = ({
   isEditMode,
   handleFieldChange,
   onOpenPamModal,
-  onOpenContracts
+  onOpenContracts,
+  onUploadSignedContract,
+  isUploadingSignedContract = false,
 }) => {
+  const [showUploadedContract, setShowUploadedContract] = useState(false);
+  const signedContractFile = resolveSignedContractFile(employee);
   const basicSalary = Number.parseFloat(employee.basicSalary !== undefined ? employee.basicSalary : (employee.salary || 0)) || 0;
   const housingAllowance = Number.parseFloat(employee.housingAllowance || 0) || 0;
   const transportAllowance = Number.parseFloat(employee.transportAllowance || 0) || 0;
@@ -31,6 +39,13 @@ export const EmployeeContractTab: React.FC<Props> = ({
           <p className="text-xs text-slate-500">عرض ملخصي فقط. التعديل يتم داخل تطبيق العقود الرسمي لضمان مصدر موحد للبيانات.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowUploadedContract(true)}
+            className="bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+          >
+            معاينة / عرض العقد المرفوع
+          </button>
           {onOpenPamModal && (
             <button
               type="button"
@@ -53,8 +68,18 @@ export const EmployeeContractTab: React.FC<Props> = ({
       </div>
 
       <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-        التعديل على بيانات العقد لا يتم من هذه الصفحة. استخدم تطبيق العقود الرسمي فقط لتحديث العقد أو الراتب أو البدلات.
+        التعديل على بيانات العقد لا يتم من هذه الصفحة. استخدم تطبيق العقود الرسمي فقط لتحديث العقد أو الراتب أو البدلات. معاينة العقد تعرض الملف المرفوع فقط (PDF أو صورة) وليس أي نص تلقائي.
       </div>
+
+      <UploadedSignedContractModal
+        isOpen={showUploadedContract}
+        onClose={() => setShowUploadedContract(false)}
+        employeeName={employee.fullNameAr || employee.nameAr || employee.name || 'موظف'}
+        contractRef={employee.contractRef || employee.contractNumber}
+        file={signedContractFile}
+        isUploading={isUploadingSignedContract}
+        onUpload={onUploadSignedContract}
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
         <div className="space-y-4">

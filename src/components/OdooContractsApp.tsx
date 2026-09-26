@@ -35,16 +35,14 @@ import {
 } from 'lucide-react';
 import { useOdooHierarchy, EmployeeContract } from '../context/OdooHierarchyContext';
 import { useCompany } from '../context/CompanyContext';
-import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
-import { getCompanyPrintProfile } from '../utils/companyPrintProfile';
-import { OfficialA4CompanyLetterhead } from './print/OfficialA4CompanyLetterhead';
 import { TenantDatabaseService } from '../services/tenantDataService';
+import { UploadedSignedContractModal } from './contracts/UploadedSignedContractModal';
+import { resolveSignedContractFile } from '../utils/resolveSignedContractFile';
+import { attachSignedContractFileToEmployee } from '../utils/signedContractUpload';
 import { OdooChatter, ChatterMessage } from './OdooChatter';
 import { toast } from 'react-hot-toast';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { exportToExcel } from '../utils/exportUtils';
-import { exportElementToPdf } from '../utils/printUtils';
-import { tafqeet } from '../utils/tafqeet';
 import { triggerContractRunningLeaveAllocation } from '../utils/contractLeaveTrigger';
 import { normalizeContractStatus } from '../utils/contractStatus';
 import { FileSpreadsheet } from 'lucide-react';
@@ -99,18 +97,20 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
 }) => {
   const { employees, updateContractSalary, updateContractDetails } = useOdooHierarchy();
   const { activeCompany, activeCompanyId } = useCompany();
-  const { company: companyForPrint } = useCompanyForPrint(activeCompanyId);
-  const printProfile = getCompanyPrintProfile(companyForPrint);
   const currentCompanyId = activeCompanyId || activeCompany?.id || 'comp-super-admin';
 
   const [dbEmployees, setDbEmployees] = useState<EmployeeContract[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'running' | 'draft' | 'expired'>('all');
   const [filterEmploymentType, setFilterEmploymentType] = useState<'all' | 'full_time' | 'part_time'>('all');
-  const [printableContract, setPrintableContract] = useState<DetailedContract | null>(null);
+  const [employeeRecordsById, setEmployeeRecordsById] = useState<Record<string, Record<string, unknown>>>({});
+  const [signedContractPreview, setSignedContractPreview] = useState<{
+    employeeId: string;
+    employeeName: string;
+    contractRef?: string;
+  } | null>(null);
+  const [isUploadingSignedContract, setIsUploadingSignedContract] = useState(false);
   const [pamPrintEmployee, setPamPrintEmployee] = useState<Record<string, unknown> | null>(null);
-  const [isExportingContractPdf, setIsExportingContractPdf] = useState(false);
-  const contractPrintRef = useRef<HTMLDivElement>(null);
   const [contractsLoaded, setContractsLoaded] = useState(false);
   const materializingContractIds = useRef(new Set<string>());
   
@@ -144,6 +144,11 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
             workingSchedule: (emp as any).workingSchedule || 'STANDARD'
           }));
           setDbEmployees(mapped);
+          const byId: Record<string, Record<string, unknown>> = {};
+          fetchedEmps.forEach((emp) => {
+            byId[emp.id] = emp as Record<string, unknown>;
+          });
+          setEmployeeRecordsById(byId);
         }
 
       } catch (e) {
@@ -206,6 +211,44 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
   }, [dbEmployees, employees]);
 
   const [contracts, setContracts] = useState<DetailedContract[]>([]);
+
+  const openSignedContractPreview = (contract: DetailedContract) => {
+    setSignedContractPreview({
+      employeeId: contract.id,
+      employeeName: contract.name,
+      contractRef: contract.contractRef,
+    });
+  };
+
+  const previewEmployeeRecord = signedContractPreview
+    ? employeeRecordsById[signedContractPreview.employeeId] || {
+        id: signedContractPreview.employeeId,
+        fullNameAr: signedContractPreview.employeeName,
+      }
+    : null;
+  const previewSignedFile = resolveSignedContractFile(previewEmployeeRecord);
+
+  const handleUploadSignedContractFromContracts = async (file: File) => {
+    if (!signedContractPreview) return;
+    const record =
+      employeeRecordsById[signedContractPreview.employeeId] || {
+        id: signedContractPreview.employeeId,
+        fullNameAr: signedContractPreview.employeeName,
+      };
+    setIsUploadingSignedContract(true);
+    try {
+      const next = await attachSignedContractFileToEmployee(record, file, currentCompanyId);
+      setEmployeeRecordsById((prev) => ({
+        ...prev,
+        [signedContractPreview.employeeId]: next,
+      }));
+      toast.success('تم رفع نسخة عقد العمل الموقع بنجاح');
+    } catch (err: any) {
+      toast.error(err?.message || 'تعذر رفع ملف العقد');
+    } finally {
+      setIsUploadingSignedContract(false);
+    }
+  };
 
   useEffect(() => {
     if (!contractsLoaded || !currentCompanyId || dbEmployees.length === 0) return;
@@ -838,9 +881,9 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
                         </button>
                         <button
                           type="button"
-                          onClick={() => setPrintableContract(c)}
+                          onClick={() => openSignedContractPreview(c)}
                           className="bg-slate-50 hover:bg-slate-200 text-slate-600 p-1.5 rounded-lg transition cursor-pointer"
-                          title="معاينة ملخص العقد (HTML)"
+                          title="معاينة / عرض العقد المرفوع (PDF أو صورة)"
                         >
                           <Printer size={13} />
                         </button>
@@ -1317,11 +1360,11 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => selectedContract && setPrintableContract(selectedContract)}
+                  onClick={() => selectedContract && openSignedContractPreview(selectedContract)}
                   className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
                 >
                   <Printer size={14} />
-                  <span>ملخص العقد (HTML)</span>
+                  <span>عرض العقد المرفوع</span>
                 </button>
 
                 <button
@@ -1339,181 +1382,19 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
         </div>
       )}
 
-      {/* Official A4 Printable Contract Modal */}
-      {printableContract && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto print:p-0 print:bg-white animate-fadeIn">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full my-8 overflow-hidden border border-slate-200 print:border-none print:shadow-none print:w-full print:max-w-none">
-            
-            {/* Modal Top Bar */}
-            <div className="p-4 bg-slate-100 border-b border-slate-200 flex items-center justify-between print:hidden">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-[#714B67]/10 text-[#714B67] rounded-xl">
-                  <FileText size={20} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-black text-slate-900">
-                    عقد عمل أهلي كويتي رسمي معتمد - {printableContract.name}
-                  </h3>
-                  <p className="text-[11px] text-slate-500 font-mono">
-                    مرجع العقد: {printableContract.contractRef} | الرقم المدني: {printableContract.civilId}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!contractPrintRef.current) return;
-                    setIsExportingContractPdf(true);
-                    try {
-                      await exportElementToPdf(contractPrintRef.current, `عقد_عمل_${printableContract.name}`);
-                      toast.success('تم تصدير العقد بصيغة PDF بنجاح');
-                    } catch (e) {
-                      toast.error('حدث خطأ أثناء تصدير العقد');
-                    } finally {
-                      setIsExportingContractPdf(false);
-                    }
-                  }}
-                  disabled={isExportingContractPdf}
-                  className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-                >
-                  <FileCheck size={14} />
-                  <span>{isExportingContractPdf ? 'جاري التصدير...' : 'تصدير PDF'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => safePrintAction(`عقد عمل رسمي - ${printableContract.name}`)}
-                  className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
-                >
-                  <Printer size={14} />
-                  <span>طباعة A4</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setPrintableContract(null)}
-                  className="bg-slate-200 hover:bg-slate-300 text-slate-700 p-2 rounded-xl transition cursor-pointer"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            </div>
-
-            {/* Printable A4 Content Sheet */}
-            <div className="p-6 md:p-12 overflow-x-auto bg-slate-50 print:bg-white print:p-0 flex justify-center">
-              <div 
-                ref={contractPrintRef}
-                className="bg-white text-slate-900 shadow-xl print:shadow-none w-full max-w-[210mm] min-h-[297mm] p-8 md:p-12 border border-slate-200 print:border-none relative flex flex-col justify-between"
-                style={{ fontFamily: "'Cairo', 'Segoe UI', Tahoma, sans-serif", lineHeight: 1.8 }}
-                dir="rtl"
-              >
-                <OfficialA4CompanyLetterhead
-                  company={companyForPrint}
-                  className="border-[#714B67] mb-6"
-                  rightSlot={
-                    <div className="font-mono text-xs text-slate-600 space-y-1">
-                      <div>التاريخ: {new Date().toLocaleDateString('ar-KW')}</div>
-                      <div>رقم العقد: <strong className="text-[#714B67]">{printableContract.contractRef}</strong></div>
-                    </div>
-                  }
-                />
-
-                {/* Contract Body */}
-                <div className="space-y-4 text-justify text-xs md:text-sm">
-                  <div className="text-center my-2">
-                    <h1 className="text-lg md:text-xl font-black text-slate-900 border-b-2 border-slate-900 inline-block pb-1 px-6">
-                      عقد عمل في القطاع الأهلي
-                    </h1>
-                    <div className="text-xs text-slate-600 font-bold mt-1">
-                      (محرر وفقاً لأحكام قانون العمل الكويتي في القطاع الأهلي رقم 6 لسنة 2010 والقرارات المنفذة له)
-                    </div>
-                  </div>
-
-                  <p className="leading-7">
-                    إنه في يوم <strong>{new Date().toLocaleDateString('ar-KW', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</strong> بدولة الكويت، تم الاتفاق والتراضي بين كل من:
-                  </p>
-
-                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1 text-xs md:text-sm">
-                    <div><strong>الطرف الأول (صاحب العمل):</strong> {printProfile.displayNameAr}، سجل تجاري: {printProfile.commercialReg}، الرقم الآلي: {printProfile.paciNumber}.</div>
-                    <div><strong>الطرف الثاني (العامل):</strong> السيد/ {printableContract.name}، البطاقة المدنية: ({printableContract.civilId})، الجنسية: {printableContract.isKuwaiti ? 'كويتي' : 'غير كويتي'}.</div>
-                  </div>
-
-                  <div className="space-y-3 pt-1 leading-7">
-                    <p>
-                      <strong>البند الأول (طبيعة العمل ومكانه):</strong> يعمل الطرف الثاني لدى الطرف الأول بمهنة (<strong>{printableContract.jobTitle}</strong>) في قسم (<strong>{printableContract.department}</strong>)، ويلتزم بالعمل في مقرات المنشأة وفروعها بدولة الكويت.
-                    </p>
-
-                    <p>
-                      <strong>البند الثاني (مدة العقد والتجربة):</strong> يبدأ سريان هذا العقد من تاريخ <strong>{printableContract.startDate || new Date().toISOString().slice(0, 10)}</strong>، ويخضع الطرف الثاني لفترة تجربة مدتها <strong>{printableContract.probationDays || 100} يوماً</strong> طبقاً للمادة (24) من قانون العمل.
-                    </p>
-
-                    {(() => {
-                      const b = Number(printableContract.basicSalary) || 0;
-                      const h = Number(printableContract.housingAllowance) || 0;
-                      const t = Number(printableContract.transportAllowance) || 0;
-                      const m = Number(printableContract.medicalAllowance) || 0;
-                      const total = b + h + t + m;
-                      const totalTafqeet = tafqeet(total);
-
-                      return (
-                        <p>
-                          <strong>البند الثالث (الأجر والبدلات):</strong> يتقاضى الطرف الثاني أجراً شهرياً شاملاً قدره (<strong>{total.toFixed(3)} د.ك</strong>) فقط ({totalTafqeet} لا غير)، مفصلاً كالتالي: راتب أساسي ({b.toFixed(3)} د.ك) + بدل سكن ({h.toFixed(3)} د.ك) + بدل انتقال ({t.toFixed(3)} د.ك)، ويتم التحويل بانتظام عبر نظام حماية الأجور (WPS) لحسابه في {printableContract.bankName || 'البنك المعتمد'}.
-                        </p>
-                      );
-                    })()}
-
-                    <p>
-                      <strong>البند الرابع (ساعات العمل والراحة):</strong> ساعات العمل <strong>{printableContract.workingHoursWeekly || 48} ساعة أسبوعياً</strong>، مع منح العامل يوم راحة أسبوعية مدفوعة الأجر طبقاً للمادتين (64 و 67).
-                    </p>
-
-                    <p>
-                      <strong>البند الخامس (الإجازات السنوية ومكافأة نهاية الخدمة):</strong> يستحق العامل إجازة سنوية مدتها 30 يوماً مدفوعة الأجر بعد إتمام 9 أشهر خدمة، وتصرف مكافأة نهاية الخدمة طبقاً للمادة (51) من القانون رقم 6 لسنة 2010.
-                    </p>
-
-                    <p>
-                      <strong>البند السادس (المحاكم المختصة):</strong> تختص المحاكم العمالية بدولة الكويت بنظر أي نزاع قد ينشأ، وحُرر هذا العقد من نسختين بيد كل طرف نسخة للعمل بموجبها.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Footer Signatures */}
-                <div className="border-t-2 border-slate-200 pt-6 mt-6">
-                  <div className="grid grid-cols-3 items-end text-xs md:text-sm">
-                    <div className="space-y-1">
-                      <div className="font-black text-slate-800">الطرف الأول (صاحب العمل):</div>
-                      <div className="text-slate-500 text-xs">إدارة الموارد البشرية</div>
-                      <div className="pt-8 font-bold text-slate-400">التوقيع: .........................</div>
-                    </div>
-
-                    <div className="text-center flex flex-col items-center justify-center">
-                      <div className="w-20 h-20 rounded-full border-2 border-dashed border-[#714B67]/40 flex flex-col items-center justify-center p-1 text-center text-[9px] text-[#714B67] font-bold rotate-[-6deg]">
-                        <span>ختم المنشأة الرسمي</span>
-                        <span className="text-[8px] font-mono">{printProfile.commercialReg}</span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1 text-left">
-                      <div className="font-black text-slate-800 text-right">الطرف الثاني (العامل):</div>
-                      <div className="text-slate-500 text-xs text-right">{printableContract.name}</div>
-                      <div className="pt-8 font-bold text-slate-400 text-right">التوقيع: .........................</div>
-                    </div>
-                  </div>
-
-                  <div className="text-center font-mono text-[10px] text-slate-400 pt-4 border-t border-slate-100 flex items-center justify-between mt-4">
-                    <span>وثيقة عقد عمل صادرة عبر نظام منارة HR الذكي</span>
-                    <span>مرجع: {printableContract.contractRef}</span>
-                    <span>معتمدة ومطابقة لقانون العمل 6/2010</span>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-
-          </div>
-        </div>
-      )}
+      <UploadedSignedContractModal
+        isOpen={Boolean(signedContractPreview)}
+        onClose={() => setSignedContractPreview(null)}
+        employeeName={signedContractPreview?.employeeName || ''}
+        contractRef={signedContractPreview?.contractRef}
+        file={previewSignedFile}
+        isUploading={isUploadingSignedContract}
+        onUpload={
+          signedContractPreview
+            ? handleUploadSignedContractFromContracts
+            : undefined
+        }
+      />
 
       {/* Collapsible Chatter Section */}
       <div className="mt-6 border-t border-slate-200 pt-4">

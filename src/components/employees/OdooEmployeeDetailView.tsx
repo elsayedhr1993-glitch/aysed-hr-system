@@ -68,6 +68,7 @@ import {
   readEmployeeDetailCompactPreference,
 } from '../../config/uiPilotFlags';
 import { employeeRequiresMohCompliance, mohComplianceGaps } from '../../utils/employeeCompliance';
+import { attachSignedContractFileToEmployee } from '../../utils/signedContractUpload';
 
 interface Props {
   employee: any;
@@ -113,7 +114,33 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [leaveAllocations, setLeaveAllocations] = useState<any[]>([]);
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
+  const [isUploadingSignedContract, setIsUploadingSignedContract] = useState(false);
   const actionsMenuRef = useRef<HTMLDivElement>(null);
+
+  const resolvedCompanyId =
+    employee.companyId ||
+    employee.company_id ||
+    activeCompany?.id ||
+    contextActiveCompany?.id ||
+    '';
+
+  const handleUploadSignedContract = async (file: File) => {
+    if (!resolvedCompanyId) {
+      import('react-hot-toast').then((m) => m.default.error('تعذر تحديد الشركة لرفع العقد'));
+      return;
+    }
+    setIsUploadingSignedContract(true);
+    try {
+      const next = await attachSignedContractFileToEmployee(employee, file, resolvedCompanyId);
+      setEmployee(next);
+      await onSave(next);
+      import('react-hot-toast').then((m) => m.default.success('تم رفع نسخة عقد العمل الموقع بنجاح'));
+    } catch (err: any) {
+      import('react-hot-toast').then((m) => m.default.error(err?.message || 'تعذر رفع ملف العقد'));
+    } finally {
+      setIsUploadingSignedContract(false);
+    }
+  };
 
   useEffect(() => {
     if (!actionsMenuOpen) return;
@@ -1268,6 +1295,8 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
             handleFieldChange={handleFieldChange}
             onOpenPamModal={onOpenPamModal}
             onOpenContracts={onOpenContracts}
+            onUploadSignedContract={handleUploadSignedContract}
+            isUploadingSignedContract={isUploadingSignedContract}
           />
         )}
 
