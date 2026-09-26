@@ -5,6 +5,7 @@ import { toEmployeeFirestoreData } from '../utils/employeeMapper';
 import { buildContractRunningLeaveAllocationRecord } from '../utils/contractLeaveTrigger';
 import { normalizeContractStatus } from '../utils/contractStatus';
 import { requireCompanyId } from '../utils/tenantGuards';
+import { canonicalContractDocId, normalizeTenantCompanyId } from '../utils/contractTenantRules';
 
 export class EmployeeOnboardingValidationError extends Error {
   constructor(message: string) {
@@ -153,10 +154,11 @@ export function validateEmployeeOnboardingInput(input: EmployeeOnboardingInput):
 }
 
 function buildContractRecord(employee: Partial<Employee> & Record<string, any>, companyId: string): Record<string, any> {
+  const compId = normalizeTenantCompanyId(companyId);
   const contractType = normalizeContractType(employee.contractType);
   const contractStatus = normalizeContractStatus(employee.contractStatus || (employee.isCommenced ? 'running' : 'draft'));
   return {
-    id: `contract-${companyId}-${employee.id}`,
+    id: canonicalContractDocId(compId, String(employee.id)),
     employeeId: employee.id,
     employeeName: employee.fullNameAr,
     civilId: employee.civilId,
@@ -164,7 +166,7 @@ function buildContractRecord(employee: Partial<Employee> & Record<string, any>, 
     department: employee.department,
     bankName: employee.bankName,
     iban: employee.iban,
-    companyId,
+    companyId: compId,
     basicSalary: Number(employee.basicSalary) || 0,
     housingAllowance: Number(employee.housingAllowance) || 0,
     transportAllowance: Number(employee.transportAllowance) || 0,

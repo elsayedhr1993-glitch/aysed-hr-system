@@ -4,6 +4,7 @@ import { db, auth, cleanFirestoreData, getCompaniesCollectionName } from '../lib
 import { Employee, Contract, LeaveRequest, AttendanceRecord, Payslip, DocumentItem, CustodyItem, LoanAdvance, DisciplinaryWarning, EmployeeNote, EmployeeNotification, Company, EmploymentCommencement } from '../types';
 import { MANARA_STORAGE_KEYS, setPersistentData } from '../utils/persistentStorage';
 import { dedupeTenantCompanies } from '../utils/companyDedupe';
+import { contractQueryCompanyIds, dedupeTenantContracts } from '../utils/contractTenantRules';
 
 
 enum OperationType {
@@ -129,11 +130,28 @@ export const useFirebaseSync = (
     );
     
     // 2. Contracts: Strictly scoped to current tenant
-    const qContracts = query(collection(db, 'contracts'), where('companyId', '==', tenantId));
+    const contractCompanyIds = contractQueryCompanyIds(tenantId);
+    const qContracts =
+      contractCompanyIds.length === 1
+        ? query(collection(db, 'contracts'), where('companyId', '==', contractCompanyIds[0]))
+        : query(collection(db, 'contracts'), where('companyId', 'in', contractCompanyIds));
     const unsubContracts = onSnapshot(qContracts, 
         snap => {
           if (!isSuperAdminPlatformMode) {
-            const remote = snap.docs.map(d => ({ ...d.data(), id: d.id } as any));
+            const mapped = snap.docs.map((d) => {
+              const data = d.data() as Record<string, unknown>;
+              return {
+                ...data,
+                id: d.id,
+                contractRef: d.id,
+                employeeId: data.employeeId,
+                contractStatus: data.status || data.contractStatus,
+              };
+            });
+            const remote = dedupeTenantContracts(mapped, tenantId).map((row) => ({
+              ...row,
+              id: row.contractRef || row.id,
+            })) as Contract[];
             setContracts(remote);
           }
         },

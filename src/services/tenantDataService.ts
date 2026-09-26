@@ -15,6 +15,14 @@ import { Company, Employee, LeaveRequest, AttendanceRecord, Payslip, Contract } 
 import { triggerContractRunningLeaveAllocation } from '../utils/contractLeaveTrigger';
 import { normalizeEmployeeRecord, toEmployeeFirestoreData } from '../utils/employeeMapper';
 import { normalizeContractStatus } from '../utils/contractStatus';
+import {
+  canonicalContractDocId,
+  contractQueryCompanyIds,
+  dedupeTenantContracts,
+  employeeBelongsToTenant,
+  normalizeTenantCompanyId,
+  readEmployeeCompanyId,
+} from '../utils/contractTenantRules';
 import { requireCompanyId } from '../utils/tenantGuards';
 import { saveHolidayWorkRecord, approveHolidayWork, WorkOnHolidayRecord } from './holidayWorkService';
 import { createEmployeeOnboardingBundle } from './employeeOnboardingService';
@@ -901,14 +909,38 @@ export const TenantDatabaseService = {
    * Save a Contract record
    */
   async saveContract(contract: Contract, targetCompanyId?: string): Promise<boolean> {
-    const compId = requireCompanyId(targetCompanyId || contract.companyId);
+    const compId = normalizeTenantCompanyId(requireCompanyId(targetCompanyId || contract.companyId));
     const canonicalStatus = normalizeContractStatus((contract as any).status || (contract as any).contractStatus);
     const effectiveDailyHours = contract.customDailyHours ?? contract.custom_daily_hours ?? contract.dailyWorkHours ?? contract.plannedDailyHours ?? 8;
     const effectiveWeeklyHours = contract.workingHoursPerWeek || (Number(effectiveDailyHours) * 6);
+    const employeeId = String((contract as any).employeeId || '').trim();
 
     try {
+      if (employeeId) {
+        const employeeSnap = await getDoc(doc(db, 'employees', employeeId));
+        if (!employeeSnap.exists()) {
+          console.warn('[TenantDatabaseService] saveContract rejected: employee not found', employeeId);
+          return false;
+        }
+        const employeeData = employeeSnap.data() as Record<string, unknown>;
+        if (!employeeBelongsToTenant(employeeData, compId)) {
+          console.warn('[TenantDatabaseService] saveContract rejected: tenant mismatch', {
+            employeeId,
+            employeeCompany: readEmployeeCompanyId(employeeData),
+            contractCompany: compId,
+          });
+          return false;
+        }
+      }
+
+      const docId = employeeId
+        ? canonicalContractDocId(compId, employeeId)
+        : (contract.id || '').replace(/\//g, '_') || doc(collection(db, 'contracts')).id;
+
       const cleanDoc = cleanFirestoreData({
         ...contract,
+        id: docId,
+        employeeId: employeeId || (contract as any).employeeId,
         status: canonicalStatus,
         contractStatus: canonicalStatus,
         dailyWorkHours: effectiveDailyHours,
@@ -919,12 +951,11 @@ export const TenantDatabaseService = {
         companyId: compId,
         updatedAt: new Date().toISOString()
       });
-      const docId = (contract.id || '').replace(/\//g, '_') || doc(collection(db, 'contracts')).id;
       await setDoc(doc(db, 'contracts', docId), cleanDoc, { merge: true });
 
-      if (contract.employeeId) {
+      if (employeeId) {
         triggerContractRunningLeaveAllocation({
-          employeeId: contract.employeeId,
+          employeeId,
           startDate: contract.startDate || '2026-01-01',
           status: canonicalStatus,
           companyId: compId
@@ -976,9 +1007,27 @@ export const TenantDatabaseService = {
     if (!companyId) return [];
 
     try {
-      const q = query(collection(db, 'contracts'), where('companyId', '==', companyId));
+      const companyIds = contractQueryCompanyIds(companyId);
+      const q =
+        companyIds.length === 1
+          ? query(collection(db, 'contracts'), where('companyId', '==', companyIds[0]))
+          : query(collection(db, 'contracts'), where('companyId', 'in', companyIds));
       const snap = await getDocs(q);
-      const res = snap.docs.map(d => ({ ...d.data(), id: d.id } as Contract));
+      const mapped = snap.docs.map((d) => {
+        const data = d.data() as Record<string, unknown>;
+        return {
+          ...data,
+          id: d.id,
+          contractRef: d.id,
+          employeeId: data.employeeId,
+          contractStatus: data.status || data.contractStatus,
+        };
+      });
+      const deduped = dedupeTenantContracts(mapped, companyId);
+      const res = deduped.map((row) => ({
+        ...(row as Record<string, unknown>),
+        id: row.contractRef || row.id,
+      })) as Contract[];
       if (res.length > 0) return res;
     } catch (fsErr) {
       console.warn('[TenantDatabaseService] Firestore contracts query error:', fsErr);

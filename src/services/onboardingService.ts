@@ -7,6 +7,7 @@ import {
 } from './employeeOnboardingService';
 import { TenantDatabaseService } from './tenantDataService';
 import { isEmployeeOnDuty, isEmployeeOnboarding } from '../utils/employeeLifecycle';
+import { canonicalContractDocId, employeeHasContractRecord } from '../utils/contractTenantRules';
 
 export type CanonicalOnboardingPlanStatus = 'active' | 'completed' | 'draft_transient';
 
@@ -366,9 +367,10 @@ export function employeeHasOnboardingContract(
   companyId: string,
   contracts: Array<{ id?: string; employeeId?: string }>
 ): boolean {
-  const contractId = `contract-${companyId}-${employeeId}`;
-  return contracts.some(
-    (c) => c.id === contractId || String(c.employeeId || '') === String(employeeId)
+  const contractId = canonicalContractDocId(companyId, employeeId);
+  return (
+    employeeHasContractRecord(employeeId, companyId, contracts) ||
+    contracts.some((c) => c.id === contractId || String(c.employeeId || '') === String(employeeId))
   );
 }
 

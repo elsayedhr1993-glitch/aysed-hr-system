@@ -9,6 +9,12 @@
 import 'dotenv/config';
 import { getAdminFirestore } from '../server/firebaseAdmin.ts';
 import { normalizeContractStatus } from '../src/utils/contractStatus.ts';
+import {
+  canonicalContractDocId,
+  normalizeTenantCompanyId,
+  resolveEmployeeKeyFromContract,
+  tenantCompanyIdsMatch,
+} from '../src/utils/contractTenantRules.ts';
 
 type ContractRow = {
   docId: string;
@@ -34,27 +40,15 @@ function statusRank(status: unknown): number {
   return 1;
 }
 
-function resolveEmployeeKey(
-  docId: string,
-  companyId: string,
-  data: Record<string, unknown>
-): string {
-  const explicit = String(data.employeeId || '').trim();
-  if (explicit) return explicit;
-  const prefix = `contract-${companyId}-`;
-  if (docId.startsWith(prefix)) {
-    return docId.slice(prefix.length);
-  }
-  return '';
-}
+const resolveEmployeeKey = resolveEmployeeKeyFromContract;
 
 function pickKeeper(rows: ContractRow[]): ContractRow {
   return rows.reduce((a, b) => {
     const ra = statusRank(a.status);
     const rb = statusRank(b.status);
     if (rb !== ra) return rb > ra ? b : a;
-    const canonicalA = a.docId.startsWith(`contract-${a.companyId}-`) ? 1 : 0;
-    const canonicalB = b.docId.startsWith(`contract-${b.companyId}-`) ? 1 : 0;
+    const canonicalA = a.docId === canonicalContractDocId(a.companyId, a.employeeKey) ? 1 : 0;
+    const canonicalB = b.docId === canonicalContractDocId(b.companyId, b.employeeKey) ? 1 : 0;
     if (canonicalB !== canonicalA) return canonicalB > canonicalA ? b : a;
     const ua = a.updatedAt || '';
     const ub = b.updatedAt || '';
@@ -75,7 +69,9 @@ async function main() {
   const employeeById = new Map<string, { companyId: string }>();
   for (const doc of employeeSnap.docs) {
     const data = doc.data() as Record<string, unknown>;
-    employeeById.set(doc.id, { companyId: String(data.companyId || '').trim() });
+    employeeById.set(doc.id, {
+      companyId: normalizeTenantCompanyId(String(data.companyId || data.company_id || '').trim()),
+    });
   }
 
   const rows: ContractRow[] = [];
@@ -103,7 +99,7 @@ async function main() {
     }
 
     const emp = employeeById.get(employeeKey);
-    if (!emp || emp.companyId !== companyId) {
+    if (!emp || !tenantCompanyIdsMatch(emp.companyId, companyId)) {
       if (purgeOrphans) {
         orphanDeletes.push({
           docId: doc.id,

@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
+import { contractQueryCompanyIds, dedupeTenantContracts } from '../../utils/contractTenantRules';
 import { useCompany } from '../../context/CompanyContext';
 import { useOdooHierarchy } from '../../context/OdooHierarchyContext';
 import type { QuickCalculatorTab } from '../../utils/kuwaitQuickCalculators';
@@ -89,9 +90,31 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
       return;
     }
 
+    const contractCompanyIds = contractQueryCompanyIds(companyId);
+    const contractsQuery =
+      contractCompanyIds.length === 1
+        ? query(collection(db, 'contracts'), where('companyId', '==', contractCompanyIds[0]))
+        : query(collection(db, 'contracts'), where('companyId', 'in', contractCompanyIds));
     const unsubContracts = onSnapshot(
-      query(collection(db, 'contracts'), where('companyId', '==', companyId)),
-      (snap) => setContracts(snap.docs.map((d) => ({ ...d.data(), id: d.id }))),
+      contractsQuery,
+      (snap) => {
+        const mapped = snap.docs.map((d) => {
+          const data = d.data() as Record<string, unknown>;
+          return {
+            ...data,
+            id: d.id,
+            contractRef: d.id,
+            employeeId: data.employeeId,
+            contractStatus: data.status || data.contractStatus,
+          };
+        });
+        setContracts(
+          dedupeTenantContracts(mapped, companyId).map((row) => ({
+            ...row,
+            id: row.contractRef || row.id,
+          }))
+        );
+      },
       (err) => console.error('Quick calculator: contracts', err)
     );
     const unsubLeaves = onSnapshot(
