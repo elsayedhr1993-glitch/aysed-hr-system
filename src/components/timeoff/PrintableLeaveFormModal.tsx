@@ -5,6 +5,7 @@ import { safePrintAction } from '../../guards/SystemIntegrityGuard';
 import { resolveLeaveBalancePoolHint, resolveLeavePaidUnpaidSplit } from '../../utils/leaveEngine';
 import type { Company } from '../../types';
 import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
+import { formatLeaveScopeLabel, leaveScopeFromRecord } from '../../utils/leaveScopeAccrual';
 
 interface PrintableLeaveFormModalProps {
   request: LeaveRequest | null;
@@ -47,6 +48,9 @@ export const PrintableLeaveFormModal: React.FC<PrintableLeaveFormModalProps> = (
     : { paid: totalWorkingDays, unpaid: 0, total: totalWorkingDays };
   const paidFromBalanceDays = annualSplit.paid;
   const unpaidExcessDays = annualSplit.unpaid;
+  const leaveScopeLabel = formatLeaveScopeLabel(
+    leaveScopeFromRecord(request as Record<string, unknown>)
+  );
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-2xs flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
@@ -144,6 +148,10 @@ export const PrintableLeaveFormModal: React.FC<PrintableLeaveFormModalProps> = (
               <div>
                 <span className="text-slate-400 block text-[10px]">نوع الإجازة:</span>
                 <span className="font-bold text-[#714B67]">{leaveTypeNamesAr[request.leaveType] || request.leaveType}</span>
+              </div>
+              <div className="sm:col-span-2">
+                <span className="text-slate-400 block text-[10px]">نطاق الإجازة:</span>
+                <span className="font-bold text-slate-900">{leaveScopeLabel}</span>
               </div>
               <div>
                 <span className="text-slate-400 block text-[10px]">تاريخ البداية:</span>

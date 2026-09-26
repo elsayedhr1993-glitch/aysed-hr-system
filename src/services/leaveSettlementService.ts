@@ -143,8 +143,12 @@ export function calculateWorkingLeaveDays(startDateStr: string, endDateStr: stri
 /**
  * 2. احتساب الاستحقاق التراكمي لسنة 2026 (2.5 يوم/شهر — نسخة موحدة)
  */
-export function computeAccrual2026(joinDateStr: string, asOfDate: Date = new Date()): number {
-  return computeAccrual2026Unified(joinDateStr, asOfDate);
+export function computeAccrual2026(
+  joinDateStr: string,
+  asOfDate: Date = new Date(),
+  context?: import('../utils/leaveAccrual2026').Accrual2026Context
+): number {
+  return computeAccrual2026Unified(joinDateStr, asOfDate, context);
 }
 
 /**
@@ -513,6 +517,9 @@ export function calculateUniversalLeaveSettlement(input: UniversalSettlementInpu
     voucherNumber,
     settlementDate: input.settlementDate || new Date().toISOString().split('T')[0],
     settlementMode: mode,
+    leaveScope: input.leaveScope || 'INTERNAL',
+    departureDate: input.departureDate,
+    returnDate: input.returnDate,
     dailyWage,
     hourlyWage,
     

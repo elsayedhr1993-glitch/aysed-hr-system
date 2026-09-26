@@ -3,6 +3,7 @@ import { checkDocumentExpiry } from '../../../utils/dateUtils';
 import { Camera, FileText, CheckCircle2, Shield, Upload, X, ZoomIn, Search, FileSignature, Folder, FolderOpen, RefreshCw, ZoomOut, FolderArchive, Plus, CheckSquare, Square, FileCheck, Eye, Download, Trash2 } from 'lucide-react';
 import { TabDocumentScanner } from '../../TabDocumentScanner';
 import { EditableField } from '../../EditableField';
+import { employeeRequiresMohCompliance } from '../../../utils/employeeCompliance';
 
 interface Props {
   employee: any;
@@ -27,14 +28,11 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
 }) => {
   const [previewModal, setPreviewModal] = useState<{ isOpen: boolean; url: string; title: string; fileType?: string }>({ isOpen: false, url: '', title: '', fileType: '' });
 
-  const isMedicalStaff = ['الأطباء', 'التمريض'].includes(employee.dept || employee.department) || 
-    employee.jobTitle?.includes('طبيب') || employee.jobTitle?.includes('ممرض');
-    
   const requiredChecklist: Record<string, boolean> = {
     civilIdScan: true,
     passportScan: true,
     pamWorkPermit: true,
-    mohLicense: isMedicalStaff || (employee.dept || employee.department) === 'الأطباء',
+    mohLicense: employeeRequiresMohCompliance(employee),
     medicalFitness: true,
     signedContract: true,
     ...(employee.legalChecklist || {}),
@@ -749,6 +747,19 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                           onChange={(e) => handleFieldChange('mohLicenseExpiry', e.target.value)}
                           className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-900 text-xs focus:ring-2 focus:ring-purple-500"
                          />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">المسمى / التخصص (MOH)</label>
+                        <input
+                          type="text"
+                          value={employee.mohSpecialty || employee.specialty || ''}
+                          onChange={(e) => {
+                            handleFieldChange('mohSpecialty', e.target.value);
+                            handleFieldChange('specialty', e.target.value);
+                          }}
+                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-900 text-xs focus:ring-2 focus:ring-purple-500"
+                          placeholder="طبيب عام / ممرض اختصاصي..."
+                        />
                       </div>
                     </div>
 

@@ -39,7 +39,11 @@ export const OfficialLeaveModal: React.FC<OfficialLeaveModalProps> = ({
   // Recompute available balance if employee changes or when opening
   const totalAvailable = useMemo(() => {
     if (!selectedEmp) return 0;
-    const empFifo = computeFifoLeaveAllocations(selectedEmp, buildEmployeeBaselineAllocations(selectedEmp, allocations), allLeaves);
+    const empFifo = computeFifoLeaveAllocations(
+      selectedEmp,
+      buildEmployeeBaselineAllocations(selectedEmp, allocations, new Date(), allLeaves),
+      allLeaves
+    );
     return empFifo.netAvailable;
   }, [selectedEmp, allocations, allLeaves]);
 
@@ -52,7 +56,11 @@ export const OfficialLeaveModal: React.FC<OfficialLeaveModalProps> = ({
       : Number((selectedEmp as any).basicSalary || (selectedEmp as any).basic_salary || (selectedEmp as any).salary || 0);
     
     // Get opening balance
-    const empFifo = computeFifoLeaveAllocations(selectedEmp, buildEmployeeBaselineAllocations(selectedEmp, allocations), allLeaves);
+    const empFifo = computeFifoLeaveAllocations(
+      selectedEmp,
+      buildEmployeeBaselineAllocations(selectedEmp, allocations, new Date(), allLeaves),
+      allLeaves
+    );
     const carriedForward = empFifo.allocations.filter(a => a.allocationType === 'regular').reduce((sum, a) => sum + (a.numberOfDays || 0), 0);
     
     // Get previous approved leaves count (from empFifo.totalConsumed or similar)

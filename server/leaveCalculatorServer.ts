@@ -138,9 +138,19 @@ function cleanKwd(amount: number | undefined | null): number {
  * حساب الاستحقاق الفعلي لعام 2026 حتى تاريخ اليوم أو التاريخ المحدد (2.5 يوم شهرياً)
  * يمنع تماماً افتراض 30 يوم كاملة مقدماً
  */
-export function calculateServerAccrued2026(emp: any, asOfDateStr?: string): number {
+export function calculateServerAccrued2026(
+  emp: any,
+  asOfDateStr?: string,
+  leaves: LeaveRequest[] = []
+): number {
   const joinDate = extractEmployeeJoinDate(emp) || emp?.joinDate || emp?.hireDate || '2026-01-01';
-  return cleanDays(computeAccrual2026Unified(joinDate, asOfDateStr || new Date()));
+  return cleanDays(
+    computeAccrual2026Unified(joinDate, asOfDateStr || new Date(), {
+      employeeId: emp?.id,
+      employeeCode: emp?.employeeCode,
+      leaves,
+    })
+  );
 }
 
 /**
@@ -208,7 +218,7 @@ export function calculateServerFifoBalance(
   const empCode = employee.employeeCode;
 
   const carriedOver = calculateServerOpeningBalance(employee);
-  const accrued2026 = calculateServerAccrued2026(employee, asOfDateStr);
+  const accrued2026 = calculateServerAccrued2026(employee, asOfDateStr, leaves);
   const compDays = calculateServerCompensatoryDays(employee, allocations);
 
   // إعداد حزم التخصيص بنظام FIFO (الأقدم أولاً)

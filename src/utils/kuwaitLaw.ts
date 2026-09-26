@@ -459,15 +459,24 @@ export function getAysedSmartLeaveBalance(hireDateInput?: string | Date, asOfDat
  * - Hired during 2026 (e.g. 2026-06-01): June, July, August = 3 months * 2.5 = 7.5 days.
  */
 export function calculate2026AccruedDays(
-  employeeOrHireDate?: string | Date | { date_start?: string; joinDate?: string; startDate?: string; openingLeaveDate?: string; openingDate?: string; employeeCode?: string; fullNameAr?: string } | null,
-  asOfDate: Date = new Date()
+  employeeOrHireDate?: string | Date | { date_start?: string; joinDate?: string; startDate?: string; openingLeaveDate?: string; openingDate?: string; employeeCode?: string; fullNameAr?: string; id?: string } | null,
+  asOfDate: Date = new Date(),
+  leaves?: import('../types').LeaveRequest[]
 ): number {
   if (typeof employeeOrHireDate === 'string' || employeeOrHireDate instanceof Date) {
     return computeAccrual2026Unified(employeeOrHireDate, asOfDate);
   }
 
+  const emp = employeeOrHireDate as Record<string, unknown> | null | undefined;
   const joinDate = extractEmployeeJoinDate(employeeOrHireDate as any);
-  return computeAccrual2026Unified(joinDate, asOfDate);
+  const context = leaves?.length
+    ? {
+        leaves,
+        employeeId: String(emp?.id || ''),
+        employeeCode: String(emp?.employeeCode || ''),
+      }
+    : undefined;
+  return computeAccrual2026Unified(joinDate, asOfDate, context);
 }
 
 /**
@@ -770,12 +779,20 @@ export function getGlobalCompensatoryDays(emp: any): number {
   return 0.0;
 }
 
-export function getCurrentYearAccrued(emp: any, asOfDate: Date = new Date(2026, 7, 31)): number {
-  return calculate2026AccruedDays(emp, asOfDate);
+export function getCurrentYearAccrued(
+  emp: any,
+  asOfDate: Date = new Date(2026, 7, 31),
+  leaves?: import('../types').LeaveRequest[]
+): number {
+  return calculate2026AccruedDays(emp, asOfDate, leaves);
 }
 
-export function getGlobalAccrued2026(emp: any, asOfDate: Date = new Date(2026, 7, 31)): number {
-  return getCurrentYearAccrued(emp, asOfDate);
+export function getGlobalAccrued2026(
+  emp: any,
+  asOfDate: Date = new Date(2026, 7, 31),
+  leaves?: import('../types').LeaveRequest[]
+): number {
+  return getCurrentYearAccrued(emp, asOfDate, leaves);
 }
 
 export interface UniversalLeaveLedger {

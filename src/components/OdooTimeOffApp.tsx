@@ -59,6 +59,7 @@ import { normalizeLeaveStatus, normalizeLeaveType, isLeaveRequestInConflict, can
 import { calculateKuwaitLeaveCashAmount } from '../utils/kuwaitPayrollMath';
 import { upsertLeaveAllocationToSupabase } from '../services/leaveSupabaseSync';
 import { HrLeaveAllocation } from '../types';
+import { LEAVE_SCOPE_LABELS, type LeaveScope } from '../utils/leaveScopeAccrual';
 
 // Time Off Sub-components
 import { PrintableLeaveFormModal } from './timeoff/PrintableLeaveFormModal';
@@ -111,6 +112,7 @@ export interface LeaveRequest {
   excessDays?: number;
   totalAvailableBalance?: number;
   balanceOverrideApproved?: boolean;
+  leaveScope?: LeaveScope;
 }
 
 export interface LeaveAllocation {
@@ -460,7 +462,8 @@ export const OdooTimeOffApp: React.FC = () => {
     replacementEmployee: '',
     basicSalary: companyEmployees[0]?.basicSalary || 0,
     totalSalary: (companyEmployees[0] as any)?.totalSalary || (companyEmployees[0] as any)?.salary || 0,
-    excludeHolidays: true
+    excludeHolidays: true,
+    leaveScope: 'INTERNAL' as LeaveScope
   });
 
   // Calculate live days breakdown with Kuwait law public holidays & weekend deduction
@@ -615,6 +618,7 @@ export const OdooTimeOffApp: React.FC = () => {
       daysCount: count,
       totalDays: count,
       reason: newRequest.reason || 'إجازة اعتيادية',
+      leaveScope: newRequest.leaveScope || 'INTERNAL',
       status: normalizeLeaveStatus('PENDING_MANAGER') as LeaveRequest['status'],
       appliedDate: new Date().toISOString().split('T')[0],
       replacementEmployee: newRequest.replacementEmployee,
@@ -1932,6 +1936,36 @@ export const OdooTimeOffApp: React.FC = () => {
                     <option value="bereavement">إجازة عزاء (مادة 77)</option>
                     <option value="unpaid">بدون راتب</option>
                   </select>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block font-bold text-slate-700 mb-1">نطاق الإجازة *</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {(['INTERNAL', 'EXTERNAL'] as LeaveScope[]).map((scope) => (
+                      <label
+                        key={scope}
+                        className={`flex items-start gap-2 p-2.5 rounded-xl border cursor-pointer text-[11px] leading-snug ${
+                          newRequest.leaveScope === scope
+                            ? 'border-[#714B67] bg-purple-50 text-purple-950'
+                            : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="leaveScope"
+                          className="mt-0.5"
+                          checked={newRequest.leaveScope === scope}
+                          onChange={() => setNewRequest({ ...newRequest, leaveScope: scope })}
+                        />
+                        <span className="font-bold">{LEAVE_SCOPE_LABELS[scope]}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {newRequest.leaveScope === 'EXTERNAL' && (
+                    <p className="text-[10px] text-amber-800 mt-1.5 font-medium">
+                      عند اعتماد الطلب: يُجمَّد استحقاق 2.5 يوم/شهر لكل شهر تقويمي يتداخل مع فترة السفر خارج البلاد.
+                    </p>
+                  )}
                 </div>
 
                 {/* Annual Balance Preview Bar */}

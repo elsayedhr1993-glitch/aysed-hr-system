@@ -9,6 +9,7 @@ import {
   TrendingUp, Clock, FileCheck, ArrowDownRight, Tag, Lock, AlertTriangle
 } from 'lucide-react';
 import { printDocument, exportElementToPdf } from '../utils/printUtils';
+import { LEAVE_SCOPE_LABELS, type LeaveScope, leaveScopeFromRecord } from '../utils/leaveScopeAccrual';
 import { 
   calculateKuwaitDailyRate,
   calculateKuwaitHourlyRate,
@@ -258,6 +259,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
   const [settlementMode, setSettlementMode] = useState<'LEAVE_WITH_TRAVEL' | 'ENCASHMENT_LIQUIDATION'>('LEAVE_WITH_TRAVEL');
   const [settlementDate, setSettlementDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [departureDate, setDepartureDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [settlementLeaveScope, setSettlementLeaveScope] = useState<LeaveScope>('INTERNAL');
   const [returnDate, setReturnDate] = useState<string>(() => {
     const d = new Date();
     d.setDate(d.getDate() + 30);
@@ -453,6 +455,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
   const [archiveYear, setArchiveYear] = useState<string>('2025');
   const [archiveDays, setArchiveDays] = useState<number>(15);
   const [archiveReason, setArchiveReason] = useState<string>('رصيد إجازات مرحل من سنوات سابقة');
+  const [archiveLeaveScope, setArchiveLeaveScope] = useState<LeaveScope>('INTERNAL');
 
   // Approved leaves for employee
   const employeeLeavesForSettlement = useMemo(() => {
@@ -471,6 +474,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
     if (found) {
       handleDepartureDateChange(found.startDate);
       setReturnDate(found.endDate);
+      setSettlementLeaveScope(leaveScopeFromRecord(found as Record<string, unknown>));
       
       // If split bereavement or bereavement leave
       if (found.leaveType === 'BEREAVEMENT' || found.isSplitBereavement) {
@@ -520,6 +524,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
       settlementDate,
       departureDate,
       returnDate,
+      leaveScope: settlementLeaveScope,
       basicSalary,
       allowances,
       grossSalary,
@@ -562,7 +567,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
     includeOvertime, overtimeHours, overtimeMultiplier,
     includeEncashment, encashmentDays,
     ticketAllowance, housingAllowance, loanDeduction, salaryAdvanceDeduction, adminDeduction,
-    customItems, paymentMethod, voucherNotes, currentVoucherNumber
+    customItems, paymentMethod, voucherNotes, currentVoucherNumber, settlementLeaveScope
   ]);
 
   // 🔒 Odoo-style Mathematical Integrity & Constraint Validation Hook
@@ -681,6 +686,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
         settlementDate,
         departureDate,
         returnDate,
+        leaveScope: settlementLeaveScope,
         status: 'settled_locked', // Locked & Protected State
         basicSalary,
         grossSalary,
@@ -808,6 +814,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
       status: 'APPROVED',
       isHistorical: true,
       historicalYear: parseInt(archiveYear) || 2025,
+      leaveScope: archiveLeaveScope,
       createdAt: new Date().toISOString(),
     };
 
@@ -1194,6 +1201,32 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                         قاعدة 26 يوم
                       </span>
                     </div>
+
+                    {settlementMode === 'LEAVE_WITH_TRAVEL' && (
+                      <div className="mb-3">
+                        <label className="block font-bold text-slate-600 mb-1 text-xs">نطاق الإجازة (للتوثيق والاستحقاق):</label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {(['INTERNAL', 'EXTERNAL'] as LeaveScope[]).map((scope) => (
+                            <label
+                              key={scope}
+                              className={`flex items-center gap-2 p-2 rounded-xl border text-[11px] font-bold cursor-pointer ${
+                                settlementLeaveScope === scope
+                                  ? 'border-[#714B67] bg-purple-50 text-purple-950'
+                                  : 'border-slate-200 bg-white text-slate-700'
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name="settlementLeaveScope"
+                                checked={settlementLeaveScope === scope}
+                                onChange={() => setSettlementLeaveScope(scope)}
+                              />
+                              {LEAVE_SCOPE_LABELS[scope]}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                       <div>
@@ -1814,6 +1847,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                   <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
                     <tr>
                       <th className="p-3.5">نوع الإجازة</th>
+                      <th className="p-3.5">نطاق الإجازة</th>
                       <th className="p-3.5">الفترة (من - إلى)</th>
                       <th className="p-3.5 text-center">الأيام</th>
                       <th className="p-3.5">البيان والسبب</th>
@@ -1823,7 +1857,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                   <tbody className="divide-y divide-slate-100 bg-white">
                     {leaves.filter(l => l.employeeId === selectedEmp?.id).length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="p-8 text-center text-slate-400 font-bold">
+                        <td colSpan={6} className="p-8 text-center text-slate-400 font-bold">
                           لا توجد إجازات مسجلة لهذا الموظف
                         </td>
                       </tr>
@@ -1832,6 +1866,9 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                         <tr key={l.id || idx} className="hover:bg-slate-50">
                           <td className="p-3.5 font-bold text-slate-900">
                             {l.leaveType === 'BEREAVEMENT' ? 'إجازة وفاة (م77)' : l.leaveType === 'ANNUAL' ? 'إجازة سنوية' : l.leaveType}
+                          </td>
+                          <td className="p-3.5 text-[10px] font-bold text-slate-700">
+                            {LEAVE_SCOPE_LABELS[leaveScopeFromRecord(l as Record<string, unknown>)]}
                           </td>
                           <td className="p-3.5 font-mono text-slate-600">{l.startDate} إلى {l.endDate}</td>
                           <td className="p-3.5 text-center font-mono font-bold text-[#714B67]">{l.totalDays} يوم</td>
@@ -1990,6 +2027,28 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
               </div>
 
               <div>
+                <label className="block font-bold text-slate-700 mb-1">نطاق الإجازة:</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {(['INTERNAL', 'EXTERNAL'] as LeaveScope[]).map((scope) => (
+                    <label
+                      key={scope}
+                      className={`flex items-center gap-2 p-2 rounded-lg border text-[11px] font-bold cursor-pointer ${
+                        archiveLeaveScope === scope ? 'border-[#714B67] bg-purple-50' : 'border-slate-200'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="archiveLeaveScope"
+                        checked={archiveLeaveScope === scope}
+                        onChange={() => setArchiveLeaveScope(scope)}
+                      />
+                      {LEAVE_SCOPE_LABELS[scope]}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
                 <label className="block font-bold text-slate-700 mb-1">البيان والتفاصيل:</label>
                 <input
                   type="text"
@@ -2077,6 +2136,10 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                   settlement={viewingVoucher ? {
                     voucherNumber: viewingVoucher.voucherNumber,
                     settlementDate: viewingVoucher.settlementDate,
+                    settlementMode: viewingVoucher.settlementMode,
+                    leaveScope: viewingVoucher.leaveScope,
+                    departureDate: viewingVoucher.departureDate,
+                    returnDate: viewingVoucher.returnDate,
                     dailyWage: viewingVoucher.dailyWage,
                     hourlyWage: viewingVoucher.hourlyWage,
                     carriedOverBalance: viewingVoucher.carriedOverBalance,
@@ -2103,7 +2166,13 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                     aysed_allowances: 0,
                     aysed_deductions: viewingVoucher.totalDeductions,
                     aysed_net_payable: viewingVoucher.netSettlementPayout,
-                  } : settlementResult!}
+                  } : {
+                    ...settlementResult!,
+                    leaveScope: settlementLeaveScope,
+                    departureDate,
+                    returnDate,
+                    settlementMode,
+                  }}
                   activeCompany={companyForPrint}
                   voucherNumber={viewingVoucher?.voucherNumber || settlementResult?.voucherNumber}
                   settlementDate={viewingVoucher?.settlementDate || settlementDate}

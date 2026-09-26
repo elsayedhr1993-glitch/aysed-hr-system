@@ -3,6 +3,8 @@ import {
   ACCRUAL_2026_EPOCH,
   ACCRUAL_2026_MONTHLY_RATE,
 } from '../config/kuwaitLaborConstants';
+import type { LeaveRequest } from '../types';
+import { getExternalAccrualFrozenMonthKeys } from './leaveScopeAccrual';
 
 export { ACCRUAL_2026_ANNUAL_CAP, ACCRUAL_2026_EPOCH, ACCRUAL_2026_MONTHLY_RATE };
 
@@ -26,12 +28,20 @@ function resolveAsOfDate(asOfDate?: string | Date | null): Date {
   return isNaN(asOf.getTime()) ? new Date() : asOf;
 }
 
+export interface Accrual2026Context {
+  employeeId?: string;
+  employeeCode?: string;
+  leaves?: Array<Partial<LeaveRequest>>;
+}
+
 /**
  * Monthly accrual from Jan 2026 (or join date if later) through asOf (inclusive month count).
+ * External leave (خارج البلاد) freezes 2.5-day credit for each overlapping calendar month.
  */
 export function computeAccrual2026Unified(
   joinDateStr?: string | Date | null,
-  asOfDate?: string | Date | null
+  asOfDate?: string | Date | null,
+  context?: Accrual2026Context
 ): number {
   const asOf = resolveAsOfDate(asOfDate);
   const joinDate = resolveJoinDate(joinDateStr);
@@ -47,8 +57,26 @@ export function computeAccrual2026Unified(
   const asOfYear = asOf.getFullYear();
   const asOfMonth = asOf.getMonth();
 
-  const monthsCount = Math.max(0, (asOfYear - startYear) * 12 + (asOfMonth - startMonth) + 1);
-  const accrued = Math.min(ACCRUAL_2026_ANNUAL_CAP, monthsCount * ACCRUAL_2026_MONTHLY_RATE);
+  const frozenMonths = getExternalAccrualFrozenMonthKeys(
+    context?.leaves as Array<Partial<LeaveRequest> & Record<string, unknown>>,
+    context?.employeeId,
+    context?.employeeCode
+  );
+
+  let eligibleMonths = 0;
+  let y = startYear;
+  let m = startMonth;
+  while (y < asOfYear || (y === asOfYear && m <= asOfMonth)) {
+    const key = `${y}-${String(m + 1).padStart(2, '0')}`;
+    if (!frozenMonths.has(key)) eligibleMonths += 1;
+    m += 1;
+    if (m > 11) {
+      m = 0;
+      y += 1;
+    }
+  }
+
+  const accrued = Math.min(ACCRUAL_2026_ANNUAL_CAP, eligibleMonths * ACCRUAL_2026_MONTHLY_RATE);
 
   return cleanAccrualDays(accrued);
 }

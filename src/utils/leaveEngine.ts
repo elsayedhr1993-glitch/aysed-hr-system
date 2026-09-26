@@ -280,7 +280,9 @@ export function buildUnifiedLeaveSummary(
 ): EmployeeLeaveSummary {
   const approvedLeaves = getApprovedEmployeeLeaveRequests(employee, leaves);
   const carriedOverDays = Number((employee as any).carriedOverBalance ?? (employee as any).carriedOverLeave2025 ?? getGlobalOpeningBalance(employee) ?? 0);
-  const accruedAnnualDays = Number((employee as any).accruedAnnualLeave ?? getGlobalAccrued2026(employee) ?? 0);
+  const accruedAnnualDays = Number(
+    (employee as any).accruedAnnualLeave ?? getGlobalAccrued2026(employee, new Date(), leaves) ?? 0
+  );
   const holidayCompensationDays = resolveHolidayCompensationDays(employee, allocations);
   const manualAdjustments = 0;
   const grossPool = Number((carriedOverDays + accruedAnnualDays + holidayCompensationDays + manualAdjustments).toFixed(2));
@@ -391,7 +393,8 @@ export function buildLeaveRecordsFromEmployee(
   const allowances = Number((employee as any).housingAllowance ?? 0) + Number((employee as any).transportAllowance ?? 0) + Number((employee as any).otherAllowance ?? 0) + Number((employee as any).otherAllowances ?? 0);
 
   const carriedOver = Number((employee as any).carriedOverBalance ?? (employee as any).carriedOverLeave2025 ?? getGlobalOpeningBalance(employee) ?? 0) || 0;
-  const accrued2026 = Number((employee as any).accruedAnnualLeave ?? getGlobalAccrued2026(employee) ?? 0) || 0;
+  const accrued2026 =
+    Number((employee as any).accruedAnnualLeave ?? getGlobalAccrued2026(employee, new Date(), leaves) ?? 0) || 0;
   const compensatoryDays = Number(getGlobalCompensatoryDays(employee) ?? 0) || 0;
   const recordMap: LeaveRecord[] = [];
 

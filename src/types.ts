@@ -120,6 +120,16 @@ export interface Employee {
   joinDate: string;
   mohLicenseNo?: string; // ترخيص وزارة الصحة
   mohLicenseExpiry?: string;
+  mohLicense?: string;
+  mohSpecialty?: string;
+  hasMedicalLicense?: boolean;
+  hasBadges?: boolean;
+  hasDrivingLicense?: boolean;
+  workBadgeNo?: string;
+  workBadgeExpiry?: string;
+  drivingLicenseNo?: string;
+  drivingLicenseClass?: string;
+  drivingLicenseExpiry?: string;
   status: 'ACTIVE' | 'ON_LEAVE' | 'TERMINATED' | 'RESIGNED' | 'ONBOARDING' | 'PROBATION' | 'NOTICE_PERIOD' | 'SUSPENDED' | string;
   commencementDate?: string; // تاريخ مباشرة العمل الفعلية
   commencementStatus?: 'PENDING' | 'COMPLETED' | string; // حالة مباشرة العمل
@@ -269,6 +279,8 @@ export interface LeaveRequest {
   annualDeductedDays?: number;                      // الأيام المخصومة من الرصيد السنوي بعد استنفاد الـ 3 أيام
   managerOverride?: boolean;   // تجاوز قيود النظام من قبل المدير للإجازات التي تتجاوز 30 يوماً
   managerOverrideNote?: string;// بيان وموافقة المدير لتجاوز حد 30 يوماً
+  /** داخل الكويت = استحقاق شهري مستمر؛ خارج البلاد = تجميد 2.5 لأشهر السفر المعتمدة */
+  leaveScope?: 'INTERNAL' | 'EXTERNAL';
   allocationBreakdown?: Array<{
     allocationId: string;
     allocationName: string;
@@ -344,6 +356,7 @@ export interface UniversalSettlementInput {
   settlementMode?: 'LEAVE_WITH_TRAVEL' | 'ENCASHMENT_LIQUIDATION' | 'CUSTOM';
   departureDate?: string;
   returnDate?: string;
+  leaveScope?: 'INTERNAL' | 'EXTERNAL';
   
   basicSalary: number;
   allowances: number;
@@ -391,6 +404,9 @@ export interface UniversalSettlementResult {
   voucherNumber: string;
   settlementDate: string;
   settlementMode?: 'LEAVE_WITH_TRAVEL' | 'ENCASHMENT_LIQUIDATION' | 'CUSTOM';
+  leaveScope?: 'INTERNAL' | 'EXTERNAL';
+  departureDate?: string;
+  returnDate?: string;
   dailyWage: number;
   hourlyWage: number;
   
@@ -437,6 +453,7 @@ export interface LeaveSettlementVoucher {
   settlementDate: string;
   departureDate?: string;
   returnDate?: string;
+  leaveScope?: 'INTERNAL' | 'EXTERNAL';
   settlementMode?: 'LEAVE_WITH_TRAVEL' | 'ENCASHMENT_LIQUIDATION' | 'CUSTOM';
   status: 'draft' | 'validated' | 'paid' | 'cancelled' | 'settled_locked';
   

@@ -262,7 +262,8 @@ export function computeFifoLeaveAllocations(
 export function buildEmployeeBaselineAllocations(
   emp: Employee,
   existingAllocations: HrLeaveAllocation[] = [],
-  _asOfDate: Date = new Date()
+  _asOfDate: Date = new Date(),
+  leaves: LeaveRequest[] = []
 ): HrLeaveAllocation[] {
   const is2026Joined = isEmployeeHiredIn2026OrLater(emp);
 
@@ -326,7 +327,7 @@ export function buildEmployeeBaselineAllocations(
   }
 
   // 2. Ensure 2026 Monthly Accrual is ALWAYS present and accurate
-  const accruedDays = getGlobalAccrued2026(emp);
+  const accruedDays = getGlobalAccrued2026(emp, _asOfDate, leaves);
   const monthsCount = Math.round(accruedDays / 2.5);
   
   // Look specifically for monthly accruals (excluding compensatory records)
@@ -762,7 +763,7 @@ export class LeaveService {
     allocations: HrLeaveAllocation[],
     leaves: LeaveRequest[]
   ): FifoAllocationResult {
-    const baselineAllocations = buildEmployeeBaselineAllocations(employee, allocations);
+    const baselineAllocations = buildEmployeeBaselineAllocations(employee, allocations, new Date(), leaves);
     return computeFifoLeaveAllocations(employee, baselineAllocations, leaves);
   }
 }

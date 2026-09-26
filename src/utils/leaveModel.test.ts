@@ -56,6 +56,25 @@ test('buildLeaveRecordsFromEmployee does not treat sick leave as annual balance 
   assert.equal(records.records.some((record: any) => record.type === 'annual' && record.days === 3), false);
 });
 
+test('computeAccrual2026Unified skips months covered by approved external leave', () => {
+  const leaves = [
+    {
+      employeeId: 'EMP-1',
+      startDate: '2026-03-01',
+      endDate: '2026-03-31',
+      status: 'APPROVED',
+      leaveScope: 'EXTERNAL',
+    },
+  ];
+  assert.equal(
+    computeAccrual2026Unified('2026-01-01', new Date('2026-09-15'), {
+      employeeId: 'EMP-1',
+      leaves,
+    }),
+    20
+  );
+});
+
 test('computeAccrual2026Unified accrues 2.5 days per inclusive month capped at 30', () => {
   assert.equal(
     computeAccrual2026Unified('2026-01-01', new Date('2026-09-15')),

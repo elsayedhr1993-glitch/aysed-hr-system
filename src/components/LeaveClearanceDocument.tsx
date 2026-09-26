@@ -5,6 +5,7 @@ import { UniversalSettlementResult, UniversalSettlementItem, Company } from '../
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { useLang } from '../lib/i18n';
 import { OfficialA4CompanyLetterheadCompact } from './print/OfficialA4CompanyLetterhead';
+import { formatLeaveScopeLabel, normalizeLeaveScope } from '../utils/leaveScopeAccrual';
 
 export interface EmployeeInfo {
   name: string;
@@ -79,6 +80,9 @@ export const LeaveClearanceDocument: React.FC<Props> = ({
   const unpaidDays = Number(((settlement as any).unpaidLeaveDays ?? settlement.aysed_unpaid_days ?? 0).toFixed(2));
   const totalAvailable = Number((Math.max(0, grossAvailableBefore - paidLeaveDays)).toFixed(2));
   const remainingBalance = Number(((settlement as any).remainingBalanceAfter ?? Math.max(0, totalAvailable - encashedDays)).toFixed(2));
+  const leaveScopeLabel = formatLeaveScopeLabel((settlement as any).leaveScope);
+  const departureDate = (settlement as any).departureDate as string | undefined;
+  const returnDate = (settlement as any).returnDate as string | undefined;
 
   return (
     <div className={`w-full max-w-4xl mx-auto bg-white p-8 sm:p-10 border border-gray-300 shadow-sm print:shadow-none print:border-none print:p-0 font-['Tajawal','Cairo',sans-serif] text-slate-800 ${textAlignClass} leading-normal`} dir={direction}>
@@ -138,6 +142,34 @@ export const LeaveClearanceDocument: React.FC<Props> = ({
           </tbody>
         </table>
       </div>
+
+      {(settlement as any).settlementMode === 'LEAVE_WITH_TRAVEL' && (
+        <div className="border border-slate-300 rounded-lg overflow-hidden mb-6 text-xs">
+          <div className="bg-slate-100 px-3 py-1.5 font-bold text-slate-800 border-b border-slate-300">
+            بيانات السفر ونطاق الإجازة
+          </div>
+          <table className="w-full border-collapse">
+            <tbody>
+              <tr className="border-b border-slate-200">
+                <td className="w-1/6 p-2 bg-slate-50 font-bold text-slate-700">نطاق الإجازة:</td>
+                <td className="w-2/6 p-2 font-bold text-slate-900">{leaveScopeLabel}</td>
+                <td className="w-1/6 p-2 bg-slate-50 font-bold text-slate-700">تاريخ المغادرة:</td>
+                <td className="w-2/6 p-2 font-mono">{departureDate || '—'}</td>
+              </tr>
+              <tr>
+                <td className="p-2 bg-slate-50 font-bold text-slate-700">تاريخ العودة:</td>
+                <td className="p-2 font-mono">{returnDate || '—'}</td>
+                <td className="p-2 bg-slate-50 font-bold text-slate-700">ملاحظة الاستحقاق:</td>
+                <td className="p-2 text-[10px] leading-snug text-slate-700">
+                  {normalizeLeaveScope((settlement as any).leaveScope) === 'EXTERNAL'
+                    ? 'إجازة خارج البلاد: يُجمَّد استحقاق 2.5 يوم/شهر لأشهر السفر المعتمدة.'
+                    : 'إجازة داخل الكويت: يستمر الاستحقاق الشهري (2.5 يوم) بشكل طبيعي.'}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* 3. جدول الأرصدة وحركة الإجازات */}
       <div className="mb-6">

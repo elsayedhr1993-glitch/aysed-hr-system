@@ -3,6 +3,13 @@ import { Briefcase, DollarSign, ExternalLink, Layers } from 'lucide-react';
 import { EditableField, EditableSelect } from '../../EditableField';
 import { calculateKuwaitDailyRate } from '../../../utils/kuwaitPayrollMath';
 import { CompactFormAccordion } from '../../ui/CompactFormAccordion';
+import { EmployeeComplianceToggles } from '../EmployeeComplianceToggles';
+import {
+  employeeRequiresBadges,
+  employeeRequiresDrivingLicense,
+  employeeRequiresMohCompliance,
+  inferDefaultMedicalLicenseFlag,
+} from '../../../utils/employeeCompliance';
 
 interface Props {
   employee: any;
@@ -25,9 +32,114 @@ export const EmployeeWorkTab: React.FC<Props> = ({
   displayedCarriedOverDays,
   compact = false,
 }) => {
-  const isMedicalStaff = ['الأطباء', 'التمريض'].includes(employee.dept || employee.department) || 
-    employee.jobTitle?.includes('طبيب') || employee.jobTitle?.includes('ممرض');
-    
+  const showMoh = employeeRequiresMohCompliance(employee);
+  const showBadges = employeeRequiresBadges(employee);
+  const showDriving = employeeRequiresDrivingLicense(employee);
+
+  const complianceFlags = {
+    hasMedicalLicense:
+      employee.hasMedicalLicense !== undefined
+        ? Boolean(employee.hasMedicalLicense)
+        : inferDefaultMedicalLicenseFlag(employee),
+    hasBadges: Boolean(employee.hasBadges),
+    hasDrivingLicense: Boolean(employee.hasDrivingLicense),
+  };
+
+  const patchCompliance = (patch: Partial<typeof complianceFlags>) => {
+    Object.entries(patch).forEach(([key, value]) => handleFieldChange(key, value));
+  };
+
+  const complianceFieldsBlock = (
+    <div className="space-y-4">
+      <EmployeeComplianceToggles
+        flags={complianceFlags}
+        isEditMode={isEditMode}
+        onChange={patchCompliance}
+        compact={compact}
+      />
+      {showMoh && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 rounded-xl border border-blue-200 bg-blue-50/40">
+          <EditableField
+            label="رقم ترخيص MOH"
+            value={employee.mohLicense || employee.mohLicenseNo || ''}
+            onChange={(val) => {
+              handleFieldChange('mohLicense', val);
+              handleFieldChange('mohLicenseNo', val);
+            }}
+            isEditMode={isEditMode}
+            type="text"
+          />
+          <EditableField
+            label="تاريخ انتهاء الترخيص"
+            value={(employee.mohLicenseExpiry || '').toString().slice(0, 10)}
+            onChange={(val) => handleFieldChange('mohLicenseExpiry', val)}
+            isEditMode={isEditMode}
+            type="date"
+          />
+          <EditableField
+            label="المسمى / التخصص الطبي"
+            value={employee.mohSpecialty || employee.specialty || ''}
+            onChange={(val) => {
+              handleFieldChange('mohSpecialty', val);
+              handleFieldChange('specialty', val);
+            }}
+            isEditMode={isEditMode}
+            type="text"
+          />
+          <p className="text-[10px] text-blue-900 md:col-span-2">
+            مرفق الترخيص يُرفع من تبويب «المستندات» عند تفعيل MOH.
+          </p>
+        </div>
+      )}
+      {showBadges && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50">
+          <EditableField
+            label="رقم بطاقة العمل"
+            value={employee.workBadgeNo || employee.badgeId || ''}
+            onChange={(val) => {
+              handleFieldChange('workBadgeNo', val);
+              handleFieldChange('badgeId', val);
+            }}
+            isEditMode={isEditMode}
+            type="text"
+          />
+          <EditableField
+            label="تاريخ انتهاء البطاقة"
+            value={(employee.workBadgeExpiry || '').toString().slice(0, 10)}
+            onChange={(val) => handleFieldChange('workBadgeExpiry', val)}
+            isEditMode={isEditMode}
+            type="date"
+          />
+        </div>
+      )}
+      {showDriving && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 rounded-xl border border-amber-200 bg-amber-50/50">
+          <EditableField
+            label="رقم رخصة القيادة"
+            value={employee.drivingLicenseNo || ''}
+            onChange={(val) => handleFieldChange('drivingLicenseNo', val)}
+            isEditMode={isEditMode}
+            type="text"
+          />
+          <EditableField
+            label="فئة الرخصة"
+            value={employee.drivingLicenseClass || ''}
+            onChange={(val) => handleFieldChange('drivingLicenseClass', val)}
+            isEditMode={isEditMode}
+            type="text"
+          />
+          <EditableField
+            label="تاريخ انتهاء الرخصة"
+            value={(employee.drivingLicenseExpiry || '').toString().slice(0, 10)}
+            onChange={(val) => handleFieldChange('drivingLicenseExpiry', val)}
+            isEditMode={isEditMode}
+            type="date"
+          />
+        </div>
+      )}
+    </div>
+  );
+
   const basicSalary = parseFloat(employee.basicSalary !== undefined ? employee.basicSalary : (employee.salary || 0)) || 0;
   const housingAllowance = parseFloat(employee.housingAllowance || 0) || 0;
   const transportAllowance = parseFloat(employee.transportAllowance || 0) || 0;
@@ -108,6 +220,8 @@ export const EmployeeWorkTab: React.FC<Props> = ({
           <span>المسمى، القسم، وبيانات التواصل — الحقول الإلزامية للتشغيل اليومي</span>
         </div>
 
+        {complianceFieldsBlock}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
           <EditableField
             label="المسمى الوظيفي"
@@ -169,15 +283,6 @@ export const EmployeeWorkTab: React.FC<Props> = ({
               isEditMode={isEditMode}
               type="text"
             />
-            {isMedicalStaff && (
-              <EditableField
-                label="ترخيص MOH"
-                value={employee.mohLicense || ''}
-                onChange={(val) => handleFieldChange('mohLicense', val)}
-                isEditMode={isEditMode}
-                type="text"
-              />
-            )}
             <div className="py-1">
               <label className="block text-xs font-semibold text-slate-500 mb-1">تاريخ التعيين</label>
               <div className="font-mono text-sm font-semibold text-slate-900">
@@ -229,7 +334,8 @@ export const EmployeeWorkTab: React.FC<Props> = ({
 
   return (
     <div className="space-y-8 animate-fade-in text-slate-900">
-      
+      {complianceFieldsBlock}
+
       {/* 2-Columns Standard Form Grid: Job & Contact Info */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
         
@@ -284,16 +390,6 @@ export const EmployeeWorkTab: React.FC<Props> = ({
             placeholder="المقر الرئيسي - الكويت"
           />
 
-          {isMedicalStaff && (
-            <EditableField
-              label="رقم ترخيص مزاولة المهنة (MOH License)"
-              value={employee.mohLicense || ''}
-              onChange={(val) => handleFieldChange('mohLicense', val)}
-              isEditMode={isEditMode}
-              type="text"
-              placeholder="MOH-2026-0000"
-            />
-          )}
         </div>
 
         {/* Left Column: الاتصال ومواعيد الدوام */}

@@ -15,6 +15,7 @@ export interface LeaveDbRecord {
   status: string;
   approved_by?: string;
   approved_at?: string;
+  leave_scope?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -35,6 +36,7 @@ export function toLeaveDbRow(leave: LeaveRequest, companyId?: string): LeaveDbRe
     status: leave.status || 'APPROVED',
     approved_by: leave.validatedBy || (leave as any).approvedBy || 'HR Manager',
     approved_at: leave.validatedAt || (leave as any).approvedAt || new Date().toISOString(),
+    leave_scope: leave.leaveScope || (leave as any).leave_scope || 'INTERNAL',
     created_at: leave.createdAt || new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
@@ -55,6 +57,7 @@ export function fromLeaveDbRow(row: any): LeaveRequest {
     status: (row.status || 'APPROVED') as any,
     validatedBy: row.approved_by || row.validatedBy,
     validatedAt: row.approved_at || row.validatedAt,
+    leaveScope: (row.leave_scope || row.leaveScope || 'INTERNAL') as LeaveRequest['leaveScope'],
     createdAt: row.created_at || row.createdAt || new Date().toISOString(),
   } as LeaveRequest;
 }

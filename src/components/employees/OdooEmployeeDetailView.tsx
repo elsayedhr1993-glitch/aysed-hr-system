@@ -67,6 +67,7 @@ import {
   EMPLOYEE_DETAIL_COMPACT_STORAGE_KEY,
   readEmployeeDetailCompactPreference,
 } from '../../config/uiPilotFlags';
+import { employeeRequiresMohCompliance, mohComplianceGaps } from '../../utils/employeeCompliance';
 
 interface Props {
   employee: any;
@@ -291,22 +292,14 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
                             String(contractStatus).toLowerCase() === 'active' || 
                             contractStatus === 'ساري';
 
-  // Check if medical staff to show conditional MOH fields
-  const isMedicalStaff = ['الأطباء', 'التمريض'].includes(employee.dept || employee.department) || 
-                         (employee.jobTitle || '').includes('طبيب') || 
-                         (employee.jobTitle || '').includes('ممرض') ||
-                         (employee.jobTitle || '').includes('دكتور');
+  const mohGaps = mohComplianceGaps(employee);
 
-  // Document Management & Dynamic Binding State
-  
-  
-  
   // Dynamic Legal Documents Checklist (Inherited from Onboarding Plan or Defaults)
   const requiredChecklist: Record<string, boolean> = {
     civilIdScan: true,
     passportScan: true,
     pamWorkPermit: true,
-    mohLicense: isMedicalStaff || (employee.dept || employee.department) === 'الأطباء',
+    mohLicense: employeeRequiresMohCompliance(employee),
     medicalFitness: true,
     signedContract: true,
     ...(employee.legalChecklist || {}),
@@ -1060,6 +1053,14 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
 
               {/* Informative alerts / stats block connected to the current active stage */}
               <div className="border border-slate-200/60 bg-white rounded-lg p-3 text-xs text-slate-700 leading-relaxed font-sans space-y-2">
+                {mohGaps.length > 0 && (
+                  <div className="flex items-start gap-2 text-rose-900 bg-rose-50 border border-rose-200 rounded-lg p-2.5">
+                    <AlertTriangle size={14} className="shrink-0 mt-0.5 text-rose-600" />
+                    <span>
+                      <strong>نواقص امتثال MOH:</strong> {mohGaps.join(' · ')}
+                    </span>
+                  </div>
+                )}
                 {!isCommenced ? (
                   <div className="flex items-start gap-2 text-amber-900">
                     <AlertTriangle size={15} className="text-amber-600 shrink-0 mt-0.5" />
