@@ -67,6 +67,66 @@ export type OdooContractsAppProps = {
   onFocusConsumed?: () => void;
 };
 
+function contractStatusRank(status: unknown): number {
+  const s = normalizeContractStatus(status);
+  if (s === 'running') return 3;
+  if (s === 'draft') return 2;
+  return 1;
+}
+
+/** Firestore may contain several docs per employee (auto-materialize + manual save). Show one row per employee. */
+function dedupeContractsForDisplay(rows: DetailedContract[], companyId: string): DetailedContract[] {
+  const groups = new Map<string, DetailedContract[]>();
+
+  const employeeKeyForRow = (row: DetailedContract): string => {
+    const explicit = String((row as { employeeId?: string }).employeeId || '').trim();
+    if (explicit) return explicit;
+    const prefix = `contract-${companyId}-`;
+    if (row.contractRef?.startsWith(prefix)) {
+      return row.contractRef.slice(prefix.length);
+    }
+    return String(row.id || row.contractRef).trim();
+  };
+
+  for (const row of rows) {
+    const key = employeeKeyForRow(row);
+    if (!key) continue;
+    const bucket = groups.get(key) ?? [];
+    bucket.push(row);
+    groups.set(key, bucket);
+  }
+
+  const out: DetailedContract[] = [];
+  for (const group of groups.values()) {
+    const best = group.reduce((a, b) => {
+      const ra = contractStatusRank(a.contractStatus);
+      const rb = contractStatusRank(b.contractStatus);
+      if (rb !== ra) return rb > ra ? b : a;
+      const canonicalA = a.contractRef?.startsWith('contract-') ? 1 : 0;
+      const canonicalB = b.contractRef?.startsWith('contract-') ? 1 : 0;
+      if (canonicalB !== canonicalA) return canonicalB > canonicalA ? b : a;
+      return (b.contractRef || '').localeCompare(a.contractRef || '') > 0 ? b : a;
+    });
+    out.push({ ...best, id: employeeKeyForRow(best) });
+  }
+  return out;
+}
+
+function employeeHasContractRecord(
+  employeeId: string,
+  companyId: string,
+  contractRows: DetailedContract[]
+): boolean {
+  const canonicalRef = `contract-${companyId}-${employeeId}`;
+  return contractRows.some(
+    (c) =>
+      c.id === employeeId ||
+      (c as { employeeId?: string }).employeeId === employeeId ||
+      c.contractRef === canonicalRef ||
+      c.contractRef?.endsWith(`-${employeeId}`)
+  );
+}
+
 function employeePayloadForPamContract(c: DetailedContract) {
   const total =
     Number(c.basicSalary || 0) +
@@ -112,7 +172,9 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
   const [isUploadingSignedContract, setIsUploadingSignedContract] = useState(false);
   const [pamPrintEmployee, setPamPrintEmployee] = useState<Record<string, unknown> | null>(null);
   const [contractsLoaded, setContractsLoaded] = useState(false);
+  const [firestoreContractDocCount, setFirestoreContractDocCount] = useState(0);
   const materializingContractIds = useRef(new Set<string>());
+  const contractsSnapshotRef = useRef<DetailedContract[]>([]);
   
   // مزامنة الموظفين والعقود حياً من قاعدة البيانات للشركة النشطة
   useEffect(() => {
@@ -167,6 +229,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
         const c = item.data() as any;
         return {
           id: c.employeeId || item.id,
+          employeeId: c.employeeId,
           contractRef: item.id,
           name: c.employeeName || c.name || 'موظف',
           civilId: c.civilId || '',
@@ -195,7 +258,9 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
           hourlyRate: c.hourlyRate || 0
         };
       });
-      setContracts(mappedContracts);
+      contractsSnapshotRef.current = mappedContracts;
+      setFirestoreContractDocCount(mappedContracts.length);
+      setContracts(dedupeContractsForDisplay(mappedContracts, currentCompanyId));
       setContractsLoaded(true);
     }, error => console.error('Failed to load contracts from Firestore:', error));
   }, [currentCompanyId]);
@@ -255,7 +320,11 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
 
     const materializeMissingContracts = async () => {
       for (const employee of dbEmployees) {
-        const hasContract = contracts.some(contract => contract.id === employee.id);
+        const hasContract = employeeHasContractRecord(
+          employee.id,
+          currentCompanyId,
+          contractsSnapshotRef.current
+        );
         if (hasContract || materializingContractIds.current.has(employee.id)) continue;
 
         const sourceEmployee = employee as EmployeeContract & Record<string, any>;
@@ -689,6 +758,14 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
             <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
             <span>دوام جزئي/بالساعة: <strong className="font-mono text-indigo-700">{partTimeCount}</strong></span>
           </div>
+          {firestoreContractDocCount > contracts.length && (
+            <div className="flex items-center gap-1.5 text-amber-800 max-w-md">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              <span>
+                وُجد {firestoreContractDocCount} مستند عقد في القاعدة؛ يُعرض {contracts.length} بعد دمج التكرار (موظف واحد = صف واحد).
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
