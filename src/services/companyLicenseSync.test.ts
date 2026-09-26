@@ -7,31 +7,31 @@ import {
 } from './companyLicenseSync.ts';
 import type { FacilityLicenseData } from '../types/facilityLicense.ts';
 
-test('deriveCompanyProfilePatchFromLicenses merges facility and custom document rows', () => {
-  const facility: FacilityLicenseData = {
-    nameAr: 'الفنار كلينك',
-    nameEn: 'Fanar Clinic',
-    commercialRegNo: 'CR-1000',
-    paciCivilId: '123456789012',
-    logoUrl: '',
-    mainBranchName: '',
-    branchesList: [],
-    mohLicenseNo: 'MOH-1',
-    mohStartDate: '2024-01-01',
-    mohExpiryDate: '2027-01-01',
-    mohApprovedDepts: [],
-    mohSpecialDevices: [],
-    pamFileCode: 'PAM-9',
-    authorizedSignatoryName: 'المدير',
-    authorizedSignatoryCivilId: '',
-    wpsBankCode: '',
-    wpsEmployerId: '',
-    kffLicenseNo: '',
-    kffExpiryDate: '',
-    baladiyaLicenseNo: '',
-    baladiyaExpiryDate: '',
-  };
+const mohFacility: FacilityLicenseData = {
+  nameAr: 'الفنار كلينك',
+  nameEn: 'Fanar Clinic',
+  commercialRegNo: 'CR-1000',
+  paciCivilId: '123456789012',
+  logoUrl: '',
+  mainBranchName: '',
+  branchesList: [],
+  mohLicenseNo: 'MOH-1',
+  mohStartDate: '2024-01-01',
+  mohExpiryDate: '2027-01-01',
+  mohApprovedDepts: [],
+  mohSpecialDevices: [],
+  pamFileCode: 'PAM-9',
+  authorizedSignatoryName: 'المدير',
+  authorizedSignatoryCivilId: '',
+  wpsBankCode: '',
+  wpsEmployerId: '',
+  kffLicenseNo: '',
+  kffExpiryDate: '',
+  baladiyaLicenseNo: '',
+  baladiyaExpiryDate: '',
+};
 
+test('deriveCompanyProfilePatchFromLicenses merges facility and custom document rows (MOH default — no CR)', () => {
   const docs = [
     {
       id: 'x1',
@@ -45,17 +45,19 @@ test('deriveCompanyProfilePatchFromLicenses merges facility and custom document 
     },
   ];
 
-  const patch = deriveCompanyProfilePatchFromLicenses(docs, facility);
+  const patch = deriveCompanyProfilePatchFromLicenses(docs, mohFacility);
   assert.equal(patch.nameAr, 'الفنار كلينك');
-  assert.equal(patch.commercialRegNo, 'CR-1000');
+  assert.equal(patch.commercialRegNo, undefined);
   assert.equal(patch.mohLicense, 'MOH-1');
   assert.equal(patch.wsiCode, 'PAM-9');
+  assert.equal(patch.civilIdCompany, '123456789012');
 
-  const built = buildCompanyDocumentsFromFacility('tenant_1', facility);
-  assert.ok(built.some((d) => d.documentType.includes('تجاري')));
+  const built = buildCompanyDocumentsFromFacility('tenant_1', mohFacility);
+  assert.ok(!built.some((d) => d.documentType.includes('تجاري')));
+  assert.ok(built.some((d) => d.documentType.includes('صحي')));
 });
 
-test('deriveFacilityPatchFromLicenses maps archive rows back to wizard fields', () => {
+test('deriveFacilityPatchFromLicenses maps archive rows back to wizard fields (ignores commercial for MOH)', () => {
   const docs = [
     {
       id: 'lic-tenant_1-moh',
@@ -83,7 +85,7 @@ test('deriveFacilityPatchFromLicenses maps archive rows back to wizard fields', 
   const patch = deriveFacilityPatchFromLicenses('tenant_1', docs);
   assert.equal(patch.mohLicenseNo, 'MOH-UPDATED');
   assert.equal(patch.mohStartDate, '2025-06-01');
-  assert.equal(patch.commercialRegNo, 'CR-55');
-  assert.equal(patch.mainBranchName, 'حولي');
+  assert.equal(patch.commercialRegNo, undefined);
+  assert.equal(patch.mainBranchName, undefined);
   assert.deepEqual(patch.mohApprovedDepts, ['طب عام', 'أسنان']);
 });

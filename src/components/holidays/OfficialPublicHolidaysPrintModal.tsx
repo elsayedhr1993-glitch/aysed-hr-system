@@ -48,7 +48,6 @@ export const OfficialPublicHolidaysPrintModal: React.FC<OfficialPublicHolidaysPr
   const printRootId = 'official-holidays-registry-print';
 
   const profile = getCompanyPrintProfile(company);
-  const signatory = profile.authorizedSignatory !== '—' ? profile.authorizedSignatory : 'المدير العام المفوض بالتوقيع';
 
   const todayLabel = new Date().toLocaleDateString('ar-KW', {
     year: 'numeric',
@@ -242,25 +241,6 @@ export const OfficialPublicHolidaysPrintModal: React.FC<OfficialPublicHolidaysPr
               <div>• العطلات مستمدة من المصدر الموحد لنظام أيسد (SSOT) لعام {calendarYear} مع تعويض الجمعة الرسمي.</div>
               <div>• احتسب بدل المادة (68) على أساس الراتب الشامل ÷ 26 × 2 لليوم المكلف.</div>
               <div>• هذا السجل معد للمراجعة الداخلية وملف الشؤون والهيئة العامة للقوى العاملة عند الطلب.</div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-6 pt-4 border-t-2 border-slate-900 text-center text-[11px]">
-              <div className="space-y-8">
-                <div className="font-bold text-slate-800">إعداد / مسؤول العطلات والشؤون</div>
-                <div className="text-slate-500">التوقيع: .......................................</div>
-              </div>
-              <div className="space-y-8">
-                <div className="font-bold text-slate-800">تدقيق / مدير الموارد البشرية</div>
-                <div className="text-slate-500">التوقيع: .......................................</div>
-              </div>
-              <div className="space-y-4">
-                <div className="font-bold text-slate-800">اعتماد وختم المنشأة</div>
-                <div className="w-24 h-24 border-2 border-dashed border-slate-400 rounded-full mx-auto flex flex-col items-center justify-center text-[9px] text-slate-500 leading-snug px-2">
-                  <span className="font-bold text-slate-700">ختم رسمي</span>
-                  <span>{signatory}</span>
-                </div>
-                <div className="text-[10px] text-slate-400">التاريخ: .... / .... / {calendarYear}</div>
-              </div>
             </div>
 
             <div className="mt-6 text-center text-[9px] text-slate-400 border-t border-slate-100 pt-2">

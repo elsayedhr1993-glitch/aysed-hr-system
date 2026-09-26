@@ -1,9 +1,10 @@
 import React from 'react';
-import { Printer, X, CheckCircle2, Award, DollarSign } from 'lucide-react';
+import { Printer, X, Award, DollarSign } from 'lucide-react';
 import { safePrintAction } from '../../guards/SystemIntegrityGuard';
 import { HolidayDutyAssignment } from '../OdooPublicHolidaysApp';
 import type { Company } from '../../types';
 import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
+import { formatEmployerRegistryLine } from '../../utils/mohMedicalFacility';
 
 interface PrintableHolidayDutyModalProps {
   duty: HolidayDutyAssignment | null;
@@ -63,10 +64,7 @@ export const PrintableHolidayDutyModal: React.FC<PrintableHolidayDutyModalProps>
           <div className="flex items-start justify-between border-b-2 border-slate-800 pb-4">
             <div className="space-y-1">
               <div className="text-base font-black text-slate-900">{profile.displayNameAr}</div>
-              <div className="text-[11px] text-slate-600">دولة الكويت — سجل تجاري: {profile.commercialReg}</div>
-              <div className="text-[10px] text-slate-500 font-mono">
-                ملف الشؤون (PAM): {profile.wsiCode} | الرقم المدني للجهة: {profile.civilIdCompany}
-              </div>
+              <div className="text-[11px] text-slate-600">{formatEmployerRegistryLine(profile, company)}</div>
             </div>
 
             <div className="text-center">
@@ -164,43 +162,6 @@ export const PrintableHolidayDutyModal: React.FC<PrintableHolidayDutyModalProps>
                 </tr>
               </tbody>
             </table>
-          </div>
-
-          {/* Acknowledgement and Tripartite Signatures */}
-          <div className="space-y-4 pt-2">
-            <div className="font-bold text-xs text-slate-900 border-r-4 border-[#714B67] pr-2">
-              ثالثاً: الإقرارات والتوقيعات الرسمية
-            </div>
-
-            <div className="grid grid-cols-3 gap-4 pt-2">
-              
-              {/* Employee Signature */}
-              <div className="border border-slate-300 rounded-lg p-3 space-y-5 bg-slate-50/50 text-center">
-                <div className="font-bold text-[10px] text-slate-700">توقيع الموظف المكلف بالعلم</div>
-                <div className="text-[10px] text-slate-400 italic">أقر بالتكليف واستلام الحقوق المقررة</div>
-                <div className="border-b border-dashed border-slate-400 w-3/4 mx-auto mt-4"></div>
-                <div className="text-[10px] font-mono text-slate-600">التاريخ: {duty.dutyDate}</div>
-              </div>
-
-              {/* Department Head */}
-              <div className="border border-slate-300 rounded-lg p-3 space-y-5 bg-slate-50/50 text-center">
-                <div className="font-bold text-[10px] text-slate-700">اعتماد مدير القسم والتشغيل</div>
-                <div className="text-[10px] text-slate-400 italic">أؤكد حاجة القسم لمباشرة العمل</div>
-                <div className="border-b border-dashed border-slate-400 w-3/4 mx-auto mt-4"></div>
-                <div className="text-[10px] font-mono text-slate-600">التاريخ: {todayStr}</div>
-              </div>
-
-              {/* HR & General Management */}
-              <div className="border border-slate-300 rounded-lg p-3 space-y-5 bg-slate-50/50 text-center">
-                <div className="font-bold text-[10px] text-slate-700">إدارة الموارد البشرية والشؤون القانونية</div>
-                <div className="text-[10px] text-emerald-700 font-bold flex items-center justify-center gap-1">
-                  <CheckCircle2 size={12} /> تم التحقق وترحيل المستحقات
-                </div>
-                <div className="border-b border-dashed border-slate-400 w-3/4 mx-auto mt-4"></div>
-                <div className="text-[10px] font-mono text-slate-600">الختم الرسمي للمنشأة</div>
-              </div>
-
-            </div>
           </div>
 
           {/* Footer Official Notice */}

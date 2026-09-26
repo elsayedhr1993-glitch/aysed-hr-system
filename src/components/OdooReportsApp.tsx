@@ -178,10 +178,7 @@ export const OdooReportsApp: React.FC = () => {
   const companyDisplayName = activeCompany?.nameAr || activeCompany?.name || '';
   const companyCivilId =
     pickEmployeeText(activeCompany?.civilIdCompany || activeCompany?.civilId, REPORTS_MISSING);
-  const commercialRegNo = pickEmployeeText(
-    activeCompany?.commercialRegNo || (activeCompany as any)?.crNumber,
-    REPORTS_MISSING
-  );
+  const companyMohLicense = pickEmployeeText(activeCompany?.mohLicense, REPORTS_MISSING);
 
   useEffect(() => {
     const companyId = activeCompany?.id;

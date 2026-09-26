@@ -74,7 +74,8 @@ export function buildCompanyContextSummary(input: {
   return [
     `معرّف الشركة: ${companyId || company?.id || 'غير محدد'}`,
     `الاسم: ${company?.nameAr || company?.name || '—'}`,
-    company?.commercialRegNo ? `السجل التجاري: ${company.commercialRegNo}` : null,
+    company?.mohLicense ? `ترخيص وزارة الصحة: ${company.mohLicense}` : null,
+    company?.civilIdCompany ? `الرقم المدني للجهة: ${company.civilIdCompany}` : null,
     `الموظفون النشطون: ${active.length} (إجمالي السجلات: ${scopedEmployees.length})`,
     `متوسط الراتب الشامل (من العقود/السجل): ${avgSalary} KWD`,
     `طلبات إجازة معلقة: ${pendingLeave} | معتمدة: ${approvedLeave}${onLeaveToday != null ? ` | في إجازة اليوم: ${onLeaveToday}` : ''}`,

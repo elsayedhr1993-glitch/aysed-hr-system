@@ -25,9 +25,6 @@ function facilityFromCompanyRecord(data: Record<string, unknown>): Partial<Facil
   return {
     nameAr: String(data.nameAr || data.name || '').trim(),
     nameEn: String(data.nameEn || '').trim(),
-    commercialRegNo: String(
-      data.commercialRegNo || data.commercialReg || data.crNumber || ''
-    ).trim(),
     paciCivilId: String(data.civilIdCompany || data.civilId || data.paciNumber || '').trim(),
     logoUrl: String(data.logoUrl || data.logo || '').trim(),
     mohLicenseNo: String(data.mohLicense || '').trim(),
@@ -264,7 +261,7 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
                 </span>
               </h3>
               <p className="text-xs text-purple-200 font-medium">
-                تثبيت السجل التجاري، ترخيص MOH، القوى العاملة PAM، وتراخيص الإطفاء والبلدية للمنشأة
+                تثبيت ترخيص وزارة الصحة، الرقم المدني للجهة (PACI)، ملف القوى العاملة PAM، وتراخيص الإطفاء والبلدية
               </p>
               <p className="text-[10px] text-amber-200/90 mt-1">
                 لإضافة ترخيص إضافي أو نوع حر (غير الحقول المعيارية) استخدم أرشيف المستندات وليس هذا المعالج فقط.
@@ -337,13 +334,13 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
         {/* Wizard Content Body */}
         <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-5 dir-rtl">
           
-          {/* STEP 1: Commercial Identity & Logo */}
+          {/* STEP 1: Facility identity & logo (MOH medical — no commercial registry) */}
           {currentStep === 1 && (
             <div className="space-y-4 animate-fadeIn">
               <div className="bg-purple-50 p-3 rounded-xl border border-purple-200 flex items-center justify-between text-purple-900 text-xs font-bold">
                 <span className="flex items-center gap-2">
                   <Building size={16} className="text-[#714B67]" />
-                  <span>الخطوة 1: الهوية التجارية والشعار الدائم للمنشأة</span>
+                  <span>الخطوة 1: الهوية المؤسسية والشعار الدائم للمنشأة الطبية</span>
                 </span>
                 <span className="text-[10px] bg-purple-200 text-purple-950 px-2 py-0.5 rounded-full">
                   Master Entity Data
@@ -373,19 +370,8 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
                   />
                 </div>
 
-                <div>
-                  <label className="block text-slate-700 font-bold text-xs mb-1">رقم السجل التجاري (Commercial Reg No) *</label>
-                  <input
-                    type="text"
-                    value={formData.commercialRegNo}
-                    onChange={(e) => handleFieldChange('commercialRegNo', e.target.value)}
-                    placeholder="10293847"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs font-bold font-mono text-slate-900 focus:bg-white focus:border-[#714B67]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-700 font-bold text-xs mb-1">الرقم المدني للجهة (PACI Civil ID) *</label>
+                <div className="sm:col-span-2">
+                  <label className="block text-slate-700 font-bold text-xs mb-1">الرقم المدني للجهة / الرقم الآلي (PACI) *</label>
                   <input
                     type="text"
                     value={formData.paciCivilId}
@@ -750,8 +736,8 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[11px]">
                   <div className="bg-white p-2.5 rounded-xl border border-slate-200">
-                    <span className="text-slate-400 block text-[10px]">السجل التجاري:</span>
-                    <strong className="font-mono text-slate-800">{formData.commercialRegNo}</strong>
+                    <span className="text-slate-400 block text-[10px]">الرقم المدني / PACI:</span>
+                    <strong className="font-mono text-slate-800">{formData.paciCivilId || '—'}</strong>
                   </div>
                   <div className="bg-white p-2.5 rounded-xl border border-slate-200">
                     <span className="text-slate-400 block text-[10px]">ترخيص الصحة MOH:</span>

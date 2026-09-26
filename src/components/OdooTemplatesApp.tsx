@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
 import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
+import { employerLicenseTokenForTemplates } from '../utils/mohMedicalFacility';
 import { OfficialA4CompanyLetterhead } from './print/OfficialA4CompanyLetterhead';
 import { useOdooHierarchy, EmployeeContract } from '../context/OdooHierarchyContext';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
@@ -40,7 +41,6 @@ import { tafqeet } from '../utils/tafqeet';
 import { TenantDatabaseService } from '../services/tenantDataService';
 import { DocumentItem } from '../types';
 import { toast } from 'react-hot-toast';
-import QRCode from 'qrcode';
 import OdooPamContractModal from './OdooPamContractModal';
 import OdooRichDocumentEditor from './OdooRichDocumentEditor';
 
@@ -429,9 +429,6 @@ export const OdooTemplatesApp: React.FC = () => {
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [useLetterhead, setUseLetterhead] = useState<boolean>(true); // true = print company header, false = for pre-printed letterhead
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('split');
-  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
-  const [barcodeDataUrl, setBarcodeDataUrl] = useState<string>('');
-
   // Editable Form & Context State
   const [empName, setEmpName] = useState('');
   const [civilId, setCivilId] = useState('');
@@ -462,7 +459,7 @@ export const OdooTemplatesApp: React.FC = () => {
   const referenceNumber = `HR-DOC-${new Date().getFullYear()}-${civilId ? civilId.slice(-6) : '001234'}`;
 
   const companyDisplayName = printProfile.displayNameAr;
-  const companyCommercialReg = printProfile.commercialReg;
+  const companyCommercialReg = employerLicenseTokenForTemplates(printProfile, companyForPrint);
   const companyPaci = printProfile.paciNumber;
   const companyLogoUrl = printProfile.logoUrl;
   const companyAccountNumber = activeCompany?.accountNumber || '—';
@@ -525,75 +522,6 @@ export const OdooTemplatesApp: React.FC = () => {
       setSelectedEmpId(employees[0].id);
     }
   }, [selectedEmpId, employees]);
-
-  // Generate QR Code dynamically for the document
-  useEffect(() => {
-    async function makeQr() {
-      const qrPayload = JSON.stringify({
-        docRef: referenceNumber,
-        company: companyDisplayName,
-        employee: empName,
-        civilId: civilId,
-        date: new Date().toISOString().slice(0, 10),
-        status: 'VERIFIED_OFFICIAL'
-      });
-      try {
-        const url = await QRCode.toDataURL(qrPayload, {
-          width: 130,
-          margin: 1,
-          color: {
-            dark: '#1e293b',
-            light: '#ffffff'
-          }
-        });
-        setQrCodeDataUrl(url);
-      } catch (err) {
-        console.error('QR code generation failed', err);
-      }
-    }
-    makeQr();
-  }, [referenceNumber, companyDisplayName, empName, civilId]);
-
-  // Lightweight barcode image for print footer based on the reference number.
-  useEffect(() => {
-    const makeBarcode = () => {
-      if (typeof document === 'undefined') return;
-      const canvas = document.createElement('canvas');
-      const width = 260;
-      const height = 70;
-      canvas.width = width;
-      canvas.height = height;
-
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, width, height);
-
-      const source = `${referenceNumber}|${civilId || '000000000000'}`;
-      let x = 8;
-      const top = 8;
-      const barHeight = 42;
-
-      for (let i = 0; i < source.length && x < width - 10; i += 1) {
-        const code = source.charCodeAt(i);
-        const barWidth = code % 3 === 0 ? 1 : 2;
-        const gap = code % 2 === 0 ? 1 : 2;
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(x, top, barWidth, barHeight);
-        x += barWidth + gap;
-      }
-
-      ctx.fillStyle = '#475569';
-      ctx.font = 'bold 10px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText(referenceNumber, width / 2, 64);
-
-      setBarcodeDataUrl(canvas.toDataURL('image/png'));
-    };
-
-    makeBarcode();
-  }, [referenceNumber, civilId]);
 
   // Compile editor HTML content by replacing all {placeholders} with live context
   const compiledHtml = useMemo(() => {
@@ -1120,79 +1048,6 @@ export const OdooTemplatesApp: React.FC = () => {
                       className="flex-1 text-sm md:text-[14px] leading-relaxed text-slate-900"
                       dangerouslySetInnerHTML={{ __html: compiledHtml }}
                     />
-
-                    {/* Signatures & Official Stamp & QR Footer */}
-                    <div className="border-t-2 border-slate-200 pt-6 mt-8 space-y-4">
-                      <div className="grid grid-cols-3 items-end text-xs md:text-sm">
-                        
-                        {/* Authorized Signatory */}
-                        <div className="text-right space-y-1">
-                          <div className="font-black text-slate-800">المفوض بالتوقيع:</div>
-                          <div className="text-slate-500 text-xs font-semibold">إدارة الموارد البشرية والشؤون القانونية</div>
-                          <div className="pt-8 font-bold text-slate-400">التوقيع: ............................</div>
-                        </div>
-
-                        {/* Stamp */}
-                        <div className="text-center flex flex-col items-center justify-center">
-                          <div className="w-24 h-24 rounded-full border-2 border-dashed border-[#714B67]/40 flex flex-col items-center justify-center p-2 text-center text-[10px] text-[#714B67] font-bold rotate-[-6deg]">
-                            <span>ختم المنشأة الرسمي</span>
-                            <span className="text-[8px] font-mono mt-0.5">{companyCommercialReg}</span>
-                          </div>
-                        </div>
-
-                        {/* Second Party Signature or QR Code */}
-                        <div className="text-left flex flex-col items-end space-y-1">
-                          {selectedTemplate.startsWith('contract') || selectedTemplate === 'eos_settlement' || selectedTemplate === 'pam_contract' ? (
-                            <div className="text-right w-full space-y-1">
-                              <div className="font-black text-slate-800">
-                                {gender === 'female' ? 'توقيع الطرف الثاني (العاملة):' : 'توقيع الطرف الثاني (العامل):'}
-                              </div>
-                              <div className="text-slate-500 text-xs font-semibold">{empName}</div>
-                              <div className="pt-8 font-bold text-slate-400">التوقيع: ............................</div>
-                            </div>
-                          ) : (
-                            <div className="text-right w-full space-y-1">
-                              <div className="font-black text-slate-800">اعتماد الموارد البشرية:</div>
-                              <div className="pt-8 font-bold text-slate-400">التوقيع: ............................</div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex items-end justify-end gap-2">
-                        <div className="flex flex-col items-center">
-                          {barcodeDataUrl ? (
-                            <img
-                              src={barcodeDataUrl}
-                              alt="Barcode"
-                              className="w-36 h-14 border border-slate-200 rounded-md p-0.5 bg-white"
-                            />
-                          ) : (
-                            <div className="w-36 h-14 bg-slate-100 rounded border border-slate-200" />
-                          )}
-                          <span className="text-[9px] font-mono text-slate-400 mt-1">Barcode: {referenceNumber}</span>
-                        </div>
-                        <div className="flex flex-col items-center">
-                          {qrCodeDataUrl ? (
-                            <img 
-                              src={qrCodeDataUrl} 
-                              alt="رمز التحقق الرقمي" 
-                              className="w-20 h-20 border border-slate-200 rounded-lg p-0.5 bg-white"
-                            />
-                          ) : (
-                            <div className="w-20 h-20 bg-slate-100 rounded border border-slate-200" />
-                          )}
-                          <span className="text-[9px] font-mono text-slate-400 mt-1">التحقق الرقمي المعتمد</span>
-                        </div>
-                      </div>
-
-                      {/* Footer Bottom Line */}
-                      <div className="text-center font-mono text-[10px] text-slate-400 pt-3 border-t border-slate-100 flex items-center justify-between">
-                        <span>{companyDisplayName} - دولة الكويت</span>
-                        <span>الرقم المرجعي: {referenceNumber}</span>
-                        <span>وثيقة رسمية صادرة ومؤرشفة إلكترونياً</span>
-                      </div>
-                    </div>
 
                   </div>
                 </div>

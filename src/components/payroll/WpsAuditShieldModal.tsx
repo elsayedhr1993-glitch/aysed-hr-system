@@ -394,19 +394,6 @@ export const WpsAuditShieldModal: React.FC<WpsAuditShieldModalProps> = ({
                 <p className="text-slate-600 text-[11px]">شاكرين لكم حسن تعاونكم الدائم،،،</p>
               </div>
 
-              {/* Signatures */}
-              <div className="grid grid-cols-2 gap-8 pt-6 border-t border-slate-300 text-center">
-                <div>
-                  <span className="text-[11px] text-slate-600 font-bold block mb-12">المفوض بالتوقيع (1)</span>
-                  <div className="border-b border-dashed border-slate-400 w-2/3 mx-auto mb-1"></div>
-                  <span className="text-[10px] text-slate-400">الاسم والصفة</span>
-                </div>
-                <div>
-                  <span className="text-[11px] text-slate-600 font-bold block mb-12">المفوض بالتوقيع (2) / الختم الرسمي</span>
-                  <div className="border-b border-dashed border-slate-400 w-2/3 mx-auto mb-1"></div>
-                  <span className="text-[10px] text-slate-400">الختم الرسمي المعتمد لدى البنك</span>
-                </div>
-              </div>
             </div>
           )}
         </div>

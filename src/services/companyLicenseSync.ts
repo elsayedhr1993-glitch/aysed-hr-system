@@ -6,6 +6,7 @@ import type { FacilityLicenseData } from '../types/facilityLicense';
 import { createEmptyFacilityData } from '../types/facilityLicense';
 import { cleanFirestoreData, db, getCompaniesCollectionName } from '../lib/firebase';
 import { contractQueryCompanyIds, normalizeTenantCompanyId } from '../utils/contractTenantRules';
+import { usesCommercialRegistration } from '../utils/mohMedicalFacility';
 
 const FAR_FUTURE_EXPIRY = '2099-12-31';
 const FACILITY_CONFIG_COLLECTION = 'system_config';
@@ -62,13 +63,14 @@ function docBelongsToTenant(doc: CompanyDocument, tenantId: string): boolean {
 /** Map wizard master data → tracked rows in `company_documents`. */
 export function buildCompanyDocumentsFromFacility(
   companyId: string,
-  data: FacilityLicenseData
+  data: FacilityLicenseData,
+  company?: Company | null
 ): CompanyDocument[] {
   const tenantId = normalizeTenantCompanyId(companyId);
   const issueFallback = data.mohStartDate || new Date().toISOString().split('T')[0];
   const docs: CompanyDocument[] = [];
 
-  if (data.commercialRegNo?.trim()) {
+  if (usesCommercialRegistration(company) && data.commercialRegNo?.trim()) {
     docs.push({
       id: stableLicenseDocId(tenantId, 'commercial'),
       companyId: tenantId,
@@ -166,7 +168,8 @@ function parseBranchFromNotes(notes?: string): string | undefined {
 /** Archive rows → wizard master fields (bidirectional sync). */
 export function deriveFacilityPatchFromLicenses(
   companyId: string,
-  documents: CompanyDocument[]
+  documents: CompanyDocument[],
+  company?: Company | null
 ): Partial<FacilityLicenseData> {
   const tenantId = normalizeTenantCompanyId(companyId);
   const patch: Partial<FacilityLicenseData> = {};
@@ -178,7 +181,10 @@ export function deriveFacilityPatchFromLicenses(
     const type = String(d.documentType || '');
     const id = d.id;
 
-    if (isCommercialType(type) || id === stableLicenseDocId(tenantId, 'commercial')) {
+    if (
+      usesCommercialRegistration(company) &&
+      (isCommercialType(type) || id === stableLicenseDocId(tenantId, 'commercial'))
+    ) {
       patch.commercialRegNo = num;
       const branch = parseBranchFromNotes(d.notes);
       if (branch) patch.mainBranchName = branch;
@@ -207,7 +213,8 @@ export function deriveFacilityPatchFromLicenses(
 /** Derive `companies/{id}` fields for print headers from licenses + optional wizard data. */
 export function deriveCompanyProfilePatchFromLicenses(
   documents: CompanyDocument[],
-  facility?: FacilityLicenseData | null
+  facility?: FacilityLicenseData | null,
+  company?: Company | null
 ): Partial<Company> {
   const patch: Partial<Company> = {};
 
@@ -217,7 +224,7 @@ export function deriveCompanyProfilePatchFromLicenses(
       patch.name = facility.nameAr.trim();
     }
     if (facility.nameEn?.trim()) patch.nameEn = facility.nameEn.trim();
-    if (facility.commercialRegNo?.trim()) {
+    if (usesCommercialRegistration(company) && facility.commercialRegNo?.trim()) {
       patch.commercialRegNo = facility.commercialRegNo.trim();
       patch.crNumber = facility.commercialRegNo.trim();
     }
@@ -240,7 +247,7 @@ export function deriveCompanyProfilePatchFromLicenses(
     const num = String(d.documentNumber || '').trim();
     if (!num) continue;
     const type = String(d.documentType || '');
-    if (isCommercialType(type)) {
+    if (usesCommercialRegistration(company) && isCommercialType(type)) {
       patch.commercialRegNo = num;
       patch.crNumber = num;
     } else if (isMohType(type)) {
@@ -296,9 +303,10 @@ export type LicenseSyncOptions = {
 function mergeLicenseDocuments(
   tenantId: string,
   archiveDocs: CompanyDocument[],
-  facility: FacilityLicenseData
+  facility: FacilityLicenseData,
+  company?: Company | null
 ): CompanyDocument[] {
-  const facilityDocs = buildCompanyDocumentsFromFacility(tenantId, facility);
+  const facilityDocs = buildCompanyDocumentsFromFacility(tenantId, facility, company);
   const byId = new Map<string, CompanyDocument>();
   for (const d of archiveDocs) {
     if (docBelongsToTenant(d, tenantId)) {
@@ -315,9 +323,10 @@ function mergeFacilityMaster(
   existing: FacilityLicenseData,
   archiveDocs: CompanyDocument[],
   tenantId: string,
-  wizardPatch?: FacilityLicenseData | null
+  wizardPatch?: FacilityLicenseData | null,
+  company?: Company | null
 ): FacilityLicenseData {
-  const fromArchive = deriveFacilityPatchFromLicenses(tenantId, archiveDocs);
+  const fromArchive = deriveFacilityPatchFromLicenses(tenantId, archiveDocs, company);
 
   if (wizardPatch) {
     return {
@@ -364,18 +373,24 @@ export async function syncTenantLicensesAndCompanyProfile(
   const archiveDocs =
     documents.length > 0 ? documents : await fetchCompanyDocumentsForTenant(tenantId);
 
+  const companySnap = await getDoc(doc(db, getCompaniesCollectionName(), tenantId));
+  const companyRecord: Company | null = companySnap.exists()
+    ? ({ id: tenantId, ...(companySnap.data() as Company) } as Company)
+    : null;
+
   const mergedFacility = mergeFacilityMaster(
     existingFacility,
     archiveDocs,
     tenantId,
-    facilityInput || null
+    facilityInput || null,
+    companyRecord
   );
 
   if (options.markFacilityCompleted) {
     mergedFacility.isCompleted = true;
   }
 
-  const mergedDocs = mergeLicenseDocuments(tenantId, archiveDocs, mergedFacility);
+  const mergedDocs = mergeLicenseDocuments(tenantId, archiveDocs, mergedFacility, companyRecord);
 
   for (const row of mergedDocs) {
     await setDoc(doc(db, 'company_documents', row.id), cleanFirestoreData(row), { merge: true });
@@ -389,7 +404,7 @@ export async function syncTenantLicensesAndCompanyProfile(
     );
   }
 
-  const profilePatch = deriveCompanyProfilePatchFromLicenses(mergedDocs, mergedFacility);
+  const profilePatch = deriveCompanyProfilePatchFromLicenses(mergedDocs, mergedFacility, companyRecord);
   if (Object.keys(profilePatch).length > 0) {
     await setDoc(
       doc(db, getCompaniesCollectionName(), tenantId),

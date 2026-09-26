@@ -26,6 +26,7 @@ import {
   computeNetPayrollFromComponents,
 } from '../utils/kuwaitPayrollMath';
 import { collection, doc, getDoc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
+import { employerPamOrEstablishmentCode, isMohMedicalEstablishment } from '../utils/mohMedicalFacility';
 
 export interface PayslipItem {
   id: string;
@@ -1315,9 +1316,13 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
               <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                <span className="text-slate-500 block text-[11px]">رمز المنشأة / السجل التجاري:</span>
+                <span className="text-slate-500 block text-[11px]">
+                  {isMohMedicalEstablishment(activeCompany)
+                    ? 'ترخيص وزارة الصحة / ملف الشؤون (PAM):'
+                    : 'رمز المنشأة / السجل التجاري:'}
+                </span>
                 <strong className="text-sm font-mono text-slate-900 mt-1 block">
-                  {activeCompany?.crNumber || activeCompany?.commercialRegNo || '104829'}
+                  {employerPamOrEstablishmentCode(printProfile, activeCompany)}
                 </strong>
                 <span className="text-[10px] text-slate-400 mt-1 block">يتم استخدامه في ترويسة ملف التحويل المالي</span>
               </div>
@@ -1804,8 +1809,8 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
           companyInfo={{
             nameAr: printProfile.displayNameAr,
             nameEn: printProfile.displayNameEn,
-            crNumber: printProfile.commercialReg,
-            employerMosaCode: printProfile.wsiCode !== '—' ? printProfile.wsiCode : printProfile.commercialReg,
+            crNumber: employerPamOrEstablishmentCode(printProfile, activeCompany),
+            employerMosaCode: employerPamOrEstablishmentCode(printProfile, activeCompany),
             bankName: activeCompany?.bankName || '—',
             accountNumber: activeCompany?.accountNumber || '—',
             iban: activeCompany?.iban || ''

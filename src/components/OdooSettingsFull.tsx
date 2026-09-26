@@ -39,6 +39,7 @@ import {
   TIMEOFF_POLICY_STORAGE_KEY,
 } from './leaves/LeavePolicyWizardModal';
 import { loadTenantPolicy } from '../services/hrPolicyStorage';
+import { isMohMedicalEstablishment } from '../utils/mohMedicalFacility';
 
 export const OdooSettingsFull: React.FC = () => {
   const { settings, updateSettings, resetSettings, isSaving, isLoading } = useSystemSettings();
@@ -155,9 +156,9 @@ export const OdooSettingsFull: React.FC = () => {
       nameAr: formData.companyNameAr,
       nameEn: formData.companyNameEn,
       name: formData.companyNameAr,
-      crNumber: formData.crNumber,
-      commercialRegNo: formData.crNumber,
-      mohLicense: formData.mohLicense,
+      ...(isMohMedicalEstablishment(activeCompany)
+        ? { mohLicense: formData.mohLicense }
+        : { crNumber: formData.crNumber, commercialRegNo: formData.crNumber, mohLicense: formData.mohLicense }),
       bankName: formData.bankName,
       iban: formData.iban,
       logo: formData.logo
@@ -395,15 +396,17 @@ export const OdooSettingsFull: React.FC = () => {
 
               {/* Extended Details */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">رقم ملف الشركة (Company File No)</label>
-                  <input
-                    type="text"
-                    value={formData.crNumber}
-                    onChange={(e) => handleFieldChange('crNumber', e.target.value)}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 focus:border-[#714B67] outline-hidden"
-                  />
-                </div>
+                {!isMohMedicalEstablishment(activeCompany) && (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">رقم السجل التجاري (MOCI)</label>
+                    <input
+                      type="text"
+                      value={formData.crNumber}
+                      onChange={(e) => handleFieldChange('crNumber', e.target.value)}
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 focus:border-[#714B67] outline-hidden"
+                    />
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">العملة الافتراضية</label>

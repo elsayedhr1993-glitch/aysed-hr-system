@@ -504,24 +504,6 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
               وبذلك أبرئ ذمة الشركة المذكورة أعلاه إبراءً شاملاً ومانعاً لأي مطالبة حالية أو مستقبلية، وتعتبر هذه الوثيقة مخالصة عمالية نهائية تامة لا رجعة فيها.
             </div>
 
-            {/* Signatures */}
-            <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-300 text-center print-avoid-break">
-              <div>
-                <span className="text-[10px] text-slate-600 font-bold block mb-10">إعداد / محاسب الرواتب</span>
-                <div className="border-b border-dashed border-slate-400 w-3/4 mx-auto mb-1"></div>
-                <span className="text-[10px] text-slate-400">التوقيع والتاريخ</span>
-              </div>
-              <div>
-                <span className="text-[10px] text-slate-600 font-bold block mb-10">اعتماد / الموارد البشرية</span>
-                <div className="border-b border-dashed border-slate-400 w-3/4 mx-auto mb-1"></div>
-                <span className="text-[10px] text-slate-400">التوقيع والختم</span>
-              </div>
-              <div>
-                <span className="text-[10px] text-slate-900 font-bold block mb-10">الموظف المقر بما فيه (المستلم)</span>
-                <div className="border-b border-dashed border-slate-400 w-3/4 mx-auto mb-1"></div>
-                <span className="text-[10px] text-slate-400">التوقيع والبصمة</span>
-              </div>
-            </div>
           </div>
         </div>
       </div>

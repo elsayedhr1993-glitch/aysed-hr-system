@@ -1,7 +1,7 @@
 import React from 'react';
 import { Company } from '../../types';
 import { CompanyDocument, formatCompanyDocumentType, getDocumentStatus } from '../../types/companyDocuments';
-import { X, Printer, Shield } from 'lucide-react';
+import { X, Printer } from 'lucide-react';
 import { OfficialA4CompanyLetterhead } from '../print/OfficialA4CompanyLetterhead';
 
 interface CompanyLicensesPrintModalProps {
@@ -120,22 +120,6 @@ export const CompanyLicensesPrintModal: React.FC<CompanyLicensesPrintModalProps>
             <p className="text-center text-slate-500 text-sm py-8">لا توجد تراخيص في هذا النطاق.</p>
           )}
 
-          <div className="grid grid-cols-3 gap-6 pt-8 mt-8 border-t border-slate-200 text-center text-xs">
-            <div>
-              <p className="font-bold mb-8">مسؤول المتابعة الحكومية</p>
-              <p className="text-slate-400">التوقيع: ............</p>
-            </div>
-            <div>
-              <p className="font-bold mb-8">مدير الموارد البشرية</p>
-              <p className="text-slate-400">التوقيع: ............</p>
-            </div>
-            <div>
-              <p className="font-bold mb-4 flex items-center justify-center gap-1">
-                <Shield className="w-4 h-4" /> ختم المنشأة
-              </p>
-              <div className="w-16 h-16 border-2 border-dashed rounded-full mx-auto" />
-            </div>
-          </div>
         </div>
       </div>
     </div>

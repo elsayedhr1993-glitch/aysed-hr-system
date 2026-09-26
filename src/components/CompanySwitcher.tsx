@@ -106,7 +106,8 @@ export const CompanySwitcher: React.FC<{ onOpenSaasPortal?: () => void }> = ({ o
                   {companyLabel}
                 </div>
                 <div className="text-[10px] text-slate-500 font-mono">
-                  {isArabic ? 'رقم ملف الشركة:' : 'Company file number:'} {activeCompany?.crNumber || activeCompany?.commercialRegNo || '---'}
+                  {isArabic ? 'ملف الشؤون (PAM):' : 'PAM file:'}{' '}
+                  {activeCompany?.wsiCode || activeCompany?.mohLicense || '---'}
                 </div>
               </div>
             </div>

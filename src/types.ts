@@ -46,6 +46,8 @@ export interface Company {
   nameAr: string;
   nameEn: string;
   mohLicense?: string;
+  /** MOH medical (default) vs MOCI commercial registry */
+  regulatoryRegime?: 'MOH_MEDICAL' | 'MOCI_COMMERCIAL';
   crNumber?: string;
   logo?: string;
   isDefault?: boolean;

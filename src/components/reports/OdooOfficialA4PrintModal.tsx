@@ -348,28 +348,6 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
               <p>• بيانات الرواتب والحضور في هذا الكشف مرتبطة بفترة التقرير المحددة ومسيرات الرواتب/ترحيل الحضور الشهري عند توفرها.</p>
             </div>
 
-            {/* 5. التواقيع الرسمية الثلاثية المعتمدة */}
-            <div className="grid grid-cols-3 gap-6 text-center text-xs pt-8 border-t-2 border-slate-300 print-avoid-break">
-              <div className="space-y-1">
-                <p className="font-bold text-slate-800">إعداد المحاسب / مسؤول الرواتب</p>
-                <div className="h-12 border-b border-dashed border-slate-300 flex items-end justify-center pb-1 text-[10px] text-slate-400">
-                  التوقيع والتاريخ
-                </div>
-              </div>
-              <div className="space-y-1">
-                <p className="font-bold text-slate-800">تدقيق ومراجعة الإدارة المالية</p>
-                <div className="h-12 border-b border-dashed border-slate-300 flex items-end justify-center pb-1 text-[10px] text-slate-400">
-                  التوقيع والتاريخ
-                </div>
-              </div>
-              <div className="space-y-1">
-                <p className="font-bold text-slate-800">اعتماد الإدارة العامة / الختم الرسمي</p>
-                <div className="h-12 border-b border-dashed border-slate-300 flex items-end justify-center pb-1 text-[10px] text-slate-400">
-                  الختم الرسمي للمنشأة
-                </div>
-              </div>
-            </div>
-
           </div>
         </div>
 

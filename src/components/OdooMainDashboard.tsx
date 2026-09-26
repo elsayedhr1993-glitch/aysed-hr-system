@@ -213,8 +213,10 @@ export const OdooMainDashboard: React.FC<OdooMainDashboardProps> = ({ onNavigate
 
           <div className="flex items-center gap-3">
             <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-xl border border-white/20 text-center">
-              <div className="text-[10px] text-purple-200">الرقم المدني / السجل</div>
-              <div className="font-mono font-bold text-sm">{activeCompany?.crNumber || '201934'}</div>
+              <div className="text-[10px] text-purple-200">ترخيص الصحة / PACI</div>
+              <div className="font-mono font-bold text-sm">
+                {activeCompany?.mohLicense || activeCompany?.civilIdCompany || '—'}
+              </div>
             </div>
             <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-xl border border-white/20 text-center">
               <div className="text-[10px] text-purple-200">حالة الربط</div>

@@ -2,6 +2,11 @@ import React from 'react';
 import { Building2 } from 'lucide-react';
 import type { Company } from '../../types';
 import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
+import {
+  employerRegistryMetaParts,
+  formatEmployerRegistryLine,
+  usesCommercialRegistration,
+} from '../../utils/mohMedicalFacility';
 
 export interface OfficialA4CompanyLetterheadProps {
   company?: Company | null;
@@ -64,24 +69,23 @@ export const OfficialA4CompanyLetterhead: React.FC<OfficialA4CompanyLetterheadPr
             {departmentLine && <p className="text-xs font-bold text-slate-600">{departmentLine}</p>}
             {subtitle && <p className="text-[11px] text-slate-600">{subtitle}</p>}
             <div className="text-[11px] text-slate-600 flex flex-wrap items-center gap-x-3 gap-y-1 pt-0.5">
-              <span>
-                الرقم المدني للجهة:{' '}
-                <strong className="font-mono text-slate-900">{profile.civilIdCompany}</strong>
-              </span>
-              <span>
-                السجل التجاري: <strong className="font-mono text-slate-900">{profile.commercialReg}</strong>
-              </span>
-              {showPamWps && profile.wsiCode !== '—' && (
-                <span>
-                  ملف الشؤون (PAM/WPS):{' '}
-                  <strong className="font-mono text-slate-900">{profile.wsiCode}</strong>
-                </span>
-              )}
-              {profile.paciNumber !== '—' && (
-                <span>
-                  الرقم الآلي (PACI): <strong className="font-mono text-slate-900">{profile.paciNumber}</strong>
-                </span>
-              )}
+              {employerRegistryMetaParts(profile, company).map((line) => {
+                const [label, value] = line.split(': ');
+                return (
+                  <span key={line}>
+                    {label}: <strong className="font-mono text-slate-900">{value || '—'}</strong>
+                  </span>
+                );
+              })}
+              {showPamWps &&
+                usesCommercialRegistration(company) &&
+                profile.wsiCode !== '—' &&
+                !employerRegistryMetaParts(profile, company).some((p) => p.includes('PAM')) && (
+                  <span>
+                    ملف الشؤون (PAM/WPS):{' '}
+                    <strong className="font-mono text-slate-900">{profile.wsiCode}</strong>
+                  </span>
+                )}
             </div>
           </div>
         </div>
@@ -109,7 +113,7 @@ export const OfficialA4CompanyLetterheadCompact: React.FC<{
           <p className="text-[11px] font-semibold text-slate-500">{profile.displayNameEn}</p>
         )}
         <p className="text-[10px] text-slate-500 mt-1 font-mono">
-          سجل تجاري: {profile.commercialReg} | الرقم المدني للجهة: {profile.civilIdCompany} | دولة الكويت
+          {formatEmployerRegistryLine(profile, company)}
         </p>
       </div>
       {rightSlot}

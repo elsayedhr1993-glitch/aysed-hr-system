@@ -1,10 +1,11 @@
 import React from 'react';
-import { Printer, X, User, FileText, CheckCircle2 } from 'lucide-react';
+import { Printer, X, User, FileText } from 'lucide-react';
 import { LeaveRequest } from '../OdooTimeOffApp';
 import { safePrintAction } from '../../guards/SystemIntegrityGuard';
 import { resolveLeaveBalancePoolHint, resolveLeavePaidUnpaidSplit } from '../../utils/leaveEngine';
 import type { Company } from '../../types';
 import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
+import { formatEmployerRegistryLine } from '../../utils/mohMedicalFacility';
 import { formatLeaveScopeLabel, leaveScopeFromRecord } from '../../utils/leaveScopeAccrual';
 
 interface PrintableLeaveFormModalProps {
@@ -93,10 +94,7 @@ export const PrintableLeaveFormModal: React.FC<PrintableLeaveFormModalProps> = (
             <div className="text-right">
               <h2 className="text-base font-black text-slate-900">{profile.displayNameAr}</h2>
               <p className="text-[11px] text-slate-600 font-medium">إدارة الموارد البشرية والشؤون الإدارية (HR Dept)</p>
-              <p className="text-[10px] text-slate-500 font-mono">
-                ملف الشؤون (PAM): {profile.wsiCode} | السجل التجاري: {profile.commercialReg} | الرقم المدني للجهة:{' '}
-                {profile.civilIdCompany}
-              </p>
+              <p className="text-[10px] text-slate-500 font-mono">{formatEmployerRegistryLine(profile, company)}</p>
             </div>
             <div className="text-center">
               <div className="border border-slate-800 px-4 py-1.5 rounded-lg bg-slate-50">
@@ -210,10 +208,6 @@ export const PrintableLeaveFormModal: React.FC<PrintableLeaveFormModalProps> = (
                 <span className="text-slate-400 block text-[10px]">حالة التغطية:</span>
                 <span className="font-bold text-emerald-700">موافق ومستلم للمهام</span>
               </div>
-              <div>
-                <span className="text-slate-400 block text-[10px]">توقيع الموظف البديل:</span>
-                <div className="border-b border-dashed border-slate-400 h-5 w-32 mt-1"></div>
-              </div>
             </div>
           </div>
 
@@ -223,66 +217,6 @@ export const PrintableLeaveFormModal: React.FC<PrintableLeaveFormModalProps> = (
               <strong className="text-amber-950 font-bold">تنويه قانوني (المادة 71 من قانون العمل الكويتي):</strong> يُصرف للعامل أجره عن الإجازة السنوية مقدماً قبل قيامه بها، ولا يجوز النزول عن حق الإجازة أو الاستعاضة عنها ببدل مالي إلا عند انتهاء عقد العمل أو باتفاق الطرفين.
             </div>
           )}
-
-          {/* Official Endorsements & Signatures (Triple Signature Grid) */}
-          <div className="pt-3 border-t-2 border-slate-800">
-            <h4 className="font-black text-slate-900 mb-3 text-center text-xs">
-              الاعتمادات والموافقات الرسمية (Administrative Approvals)
-            </h4>
-            <div className="grid grid-cols-3 gap-4 text-center">
-              
-              {/* Box 1: Employee */}
-              <div className="border border-slate-300 rounded-xl p-3 bg-white space-y-2">
-                <span className="font-bold text-slate-800 block text-[11px]">1. توقيع طالب الإجازة</span>
-                <span className="text-[10px] text-slate-500 block">{request.employeeName}</span>
-                <div className="h-10 border-b border-dashed border-slate-400 flex items-end justify-center pb-1">
-                  <span className="text-[9px] text-slate-300">التوقيع</span>
-                </div>
-                <span className="text-[9px] text-slate-400 font-mono block">التاريخ: {request.appliedDate || todayStr}</span>
-              </div>
-
-              {/* Box 2: Direct Manager */}
-              <div className="border border-slate-300 rounded-xl p-3 bg-white space-y-2">
-                <span className="font-bold text-slate-800 block text-[11px]">2. موافقة المدير المباشر</span>
-                <span className="text-[10px] text-slate-500 block">
-                  {request.managerApprovedBy ? `المعتمد: ${request.managerApprovedBy}` : 'رئيس القسم / المدير المباشر'}
-                </span>
-                <div className="h-10 border-b border-dashed border-slate-400 flex items-end justify-center pb-1">
-                  {request.managerApprovedBy ? (
-                    <span className="text-emerald-700 font-bold text-[10px] flex items-center gap-1">
-                      <CheckCircle2 size={12} /> معتمد إلكترونياً
-                    </span>
-                  ) : (
-                    <span className="text-[9px] text-slate-300">التوقيع والخاتم</span>
-                  )}
-                </div>
-                <span className="text-[9px] text-slate-400 font-mono block">
-                  {request.managerApprovedAt ? request.managerApprovedAt.slice(0, 10) : 'التاريخ: .... / .... / 2026'}
-                </span>
-              </div>
-
-              {/* Box 3: HR & General Manager */}
-              <div className="border border-slate-300 rounded-xl p-3 bg-white space-y-2">
-                <span className="font-bold text-slate-800 block text-[11px]">3. اعتماد الموارد البشرية</span>
-                <span className="text-[10px] text-slate-500 block">
-                  {request.hrApprovedBy ? `المعتمد: ${request.hrApprovedBy}` : 'إدارة الموارد البشرية والشؤون القانونية'}
-                </span>
-                <div className="h-10 border-b border-dashed border-slate-400 flex items-end justify-center pb-1">
-                  {request.hrApprovedBy ? (
-                    <span className="text-purple-900 font-bold text-[10px] flex items-center gap-1">
-                      <CheckCircle2 size={12} /> معتمد ومسجل بالسجلات
-                    </span>
-                  ) : (
-                    <span className="text-[9px] text-slate-300">الختم الرسمي للمنشأة</span>
-                  )}
-                </div>
-                <span className="text-[9px] text-slate-400 font-mono block">
-                  {request.hrApprovedAt ? request.hrApprovedAt.slice(0, 10) : 'التاريخ: .... / .... / 2026'}
-                </span>
-              </div>
-
-            </div>
-          </div>
 
           {/* Footer */}
           <div className="pt-2 border-t text-center text-[9px] text-slate-400 flex items-center justify-between font-mono">

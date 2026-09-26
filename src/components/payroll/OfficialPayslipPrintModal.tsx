@@ -240,24 +240,6 @@ export const OfficialPayslipPrintModal: React.FC<OfficialPayslipPrintModalProps>
               <p>تم احتساب هذا المسير وفقاً لأحكام قانون العمل الكويتي في القطاع الأهلي (رقم 6 لسنة 2010) وقرارات وزارة الشؤون الاجتماعية ونظام حماية الأجور (WPS).</p>
             </div>
 
-            {/* Signatures */}
-            <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-300 text-center print-avoid-break">
-              <div>
-                <span className="text-[10px] text-slate-500 block mb-8">إعداد / محاسب الرواتب</span>
-                <div className="border-b border-dashed border-slate-400 w-3/4 mx-auto mb-1"></div>
-                <span className="text-[10px] text-slate-400">التوقيع والتاريخ</span>
-              </div>
-              <div>
-                <span className="text-[10px] text-slate-500 block mb-8">اعتماد / الموارد البشرية</span>
-                <div className="border-b border-dashed border-slate-400 w-3/4 mx-auto mb-1"></div>
-                <span className="text-[10px] text-slate-400">التوقيع والختم</span>
-              </div>
-              <div>
-                <span className="text-[10px] text-slate-500 block mb-8">استلام الموظف المقر بصحته</span>
-                <div className="border-b border-dashed border-slate-400 w-3/4 mx-auto mb-1"></div>
-                <span className="text-[10px] text-slate-400">توقيع المستلم</span>
-              </div>
-            </div>
           </div>
         </div>
       </div>

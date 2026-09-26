@@ -165,24 +165,6 @@ export const DocumentCompliancePrintModal: React.FC<DocumentCompliancePrintModal
             </table>
           </div>
 
-          {/* Signatures & Approvals */}
-          <div className="grid grid-cols-3 gap-6 pt-6 border-t border-slate-200 text-center text-xs mt-12">
-            <div>
-              <p className="font-bold text-slate-700 mb-10">إعداد مسؤول الأرشيف</p>
-              <p className="text-slate-400">التوقيع: ................................</p>
-            </div>
-            <div>
-              <p className="font-bold text-slate-700 mb-10">اعتماد مدير الموارد البشرية</p>
-              <p className="text-slate-400">التوقيع: ................................</p>
-            </div>
-            <div>
-              <p className="font-bold text-slate-700 mb-10">ختم المنشأة الرسمي</p>
-              <div className="w-20 h-20 border-2 border-dashed border-slate-300 rounded-full mx-auto flex items-center justify-center text-[10px] text-slate-400">
-                خاتم الشركة
-              </div>
-            </div>
-          </div>
-
           {/* Footer notice */}
           <div className="mt-8 text-center text-[10px] text-slate-400 border-t border-slate-100 pt-3">
             تم استخراج هذا التقرير آلياً لصالح {profile.displayNameAr} — أرشيف ومستندات المنشأة — صالح لمراجعة الجهات الرسمية والهيئة العامة للقوى العاملة.

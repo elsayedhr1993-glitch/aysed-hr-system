@@ -1,4 +1,5 @@
 import type { Company } from '../types';
+import { usesCommercialRegistration } from './mohMedicalFacility';
 
 export interface CompanyPrintProfile {
   companyId: string;
@@ -64,7 +65,9 @@ export function getCompanyPrintProfile(company?: Company | null): CompanyPrintPr
     displayNameAr: displayNameAr || PLACEHOLDER,
     displayNameEn: displayNameEn || displayNameAr || PLACEHOLDER,
     civilIdCompany: String(c.civilIdCompany || c.civilId || '').trim() || PLACEHOLDER,
-    commercialReg: String(c.commercialRegNo || c.commercialLicenseNo || c.crNumber || '').trim() || PLACEHOLDER,
+    commercialReg: usesCommercialRegistration(c)
+      ? String(c.commercialRegNo || c.commercialLicenseNo || c.crNumber || '').trim() || PLACEHOLDER
+      : PLACEHOLDER,
     wsiCode: String(c.wsiCode || '').trim() || PLACEHOLDER,
     logoUrl: String(c.logoUrl || c.logo || '').trim(),
     mohLicense: String(c.mohLicense || '').trim() || PLACEHOLDER,

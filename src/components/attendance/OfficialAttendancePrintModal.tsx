@@ -172,26 +172,6 @@ export const OfficialAttendancePrintModal: React.FC<OfficialAttendancePrintModal
             </div>
 
             {/* Triple Official Approval Signatures */}
-            <div className="grid grid-cols-3 gap-6 pt-4 border-t-2 border-slate-800 text-center text-xs">
-              <div className="space-y-10">
-                <div className="font-bold text-slate-800">إعداد / مسؤول الحضور والانصراف</div>
-                <div className="text-[11px] text-slate-500">التوقيع: .......................................</div>
-                <div className="text-[10px] text-slate-400">التاريخ: .... / .... / 2026</div>
-              </div>
-
-              <div className="space-y-10">
-                <div className="font-bold text-slate-800">تدقيق ومراجعة / مدير الموارد البشرية</div>
-                <div className="text-[11px] text-slate-500">التوقيع: .......................................</div>
-                <div className="text-[10px] text-slate-400">التاريخ: .... / .... / 2026</div>
-              </div>
-
-              <div className="space-y-10">
-                <div className="font-bold text-slate-800">اعتماد / المدير العام (المفوض بالتوقيع)</div>
-                <div className="text-[11px] text-slate-500">الختم والتوقيع: .......................................</div>
-                <div className="text-[10px] text-slate-400">التاريخ: .... / .... / 2026</div>
-              </div>
-            </div>
-
           </div>
         </div>
 

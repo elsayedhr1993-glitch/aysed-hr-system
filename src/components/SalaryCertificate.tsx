@@ -166,14 +166,6 @@ export const SalaryCertificate: React.FC<SalaryCertificateProps> = ({
           وتفضلوا بقبول فائق التحية والاحترام ،،،
         </div>
 
-        {/* خانة المفوض بالتوقيع في أقصى اليسار */}
-        <div className="flex justify-start mt-12 pl-4" style={{ direction: 'ltr' }}>
-          <div className="text-center w-64" style={{ direction: 'rtl' }}>
-            <p className="font-bold text-lg text-gray-900">المفوض بالتوقيع</p>
-            {/* مساحة فارغة مخصصة للتوقيع والختم اليدوي */}
-            <div className="h-28"></div>
-          </div>
-        </div>
       </div>
     </div>
   );

@@ -539,7 +539,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                   <Award size={16} className="text-[#714B67]" />
                   <div>
                     <span className="block font-bold">تثبيت وتهيئة تراخيص المنشأة</span>
-                    <span className="block text-[10px] text-purple-600 font-normal">تثبيت السجل التجاري، MOH، الإطفاء والبلدية</span>
+                    <span className="block text-[10px] text-purple-600 font-normal">تثبيت ترخيص MOH، PACI، PAM، الإطفاء والبلدية</span>
                   </div>
                 </button>
 

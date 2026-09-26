@@ -40,7 +40,8 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
   const filteredCompanies = (companies || []).filter(c => 
     c.nameAr.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.nameEn.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.commercialRegNo?.toLowerCase().includes(searchTerm.toLowerCase())
+    c.mohLicense?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    c.civilIdCompany?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleOpenCreate = () => {
@@ -199,7 +200,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
             <Search className="w-4 h-4 text-slate-400 absolute right-3 top-2.5" />
             <input
               type="text"
-              placeholder="بحث في الشركات أو السجل التجاري..."
+              placeholder="بحث في الشركات أو ترخيص الصحة أو الرقم المدني..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pr-9 pl-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none"
@@ -287,8 +288,8 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                   <div className="p-5 space-y-3 text-xs text-slate-600">
                     <div className="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
                       <div>
-                        <span className="text-slate-400 block text-[10px]">السجل التجاري</span>
-                        <span className="font-mono font-bold text-slate-800">{comp.commercialRegNo || 'غير محدد'}</span>
+                        <span className="text-slate-400 block text-[10px]">ترخيص وزارة الصحة</span>
+                        <span className="font-mono font-bold text-slate-800">{comp.mohLicense || 'غير محدد'}</span>
                       </div>
                       <div>
                         <span className="text-slate-400 block text-[10px]">الرقم المدني للجهة</span>
@@ -345,7 +346,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
             <thead>
               <tr className="bg-slate-100/80 border-b border-slate-200 text-slate-700 font-bold">
                 <th className="p-4">اسم الشركة / العيادة</th>
-                <th className="p-4">السجل التجاري</th>
+                <th className="p-4">ترخيص وزارة الصحة</th>
                 <th className="p-4">الرقم المدني</th>
                 <th className="p-4">المنطقة والهاتف</th>
                 <th className="p-4">العملة</th>
@@ -371,7 +372,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                         </div>
                       </div>
                     </td>
-                    <td className="p-4 font-mono font-semibold text-slate-700">{comp.commercialRegNo || '-'}</td>
+                    <td className="p-4 font-mono font-semibold text-slate-700">{comp.mohLicense || '-'}</td>
                     <td className="p-4 font-mono font-semibold text-slate-700">{comp.civilIdCompany || '-'}</td>
                     <td className="p-4 text-slate-600">
                       <div>{comp.area || 'الكويت'}</div>
@@ -548,22 +549,28 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">رقم ترخيص وزارة الصحة (MOH License No)</label>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">رقم ترخيص وزارة الصحة (MOH)</label>
                       <input
                         type="text"
-                        value={editingCompany.commercialRegNo || ''}
-                        onChange={(e) => setEditingCompany({ ...editingCompany, commercialRegNo: e.target.value })}
-                        placeholder="123456"
+                        value={editingCompany.mohLicense || editingCompany.commercialLicenseNo || ''}
+                        onChange={(e) =>
+                          setEditingCompany({
+                            ...editingCompany,
+                            mohLicense: e.target.value,
+                            commercialLicenseNo: e.target.value,
+                          })
+                        }
+                        placeholder="MOH-LIC-2026"
                         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none font-mono"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">رقم ترخيص وزارة الصحة</label>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">ملف الشؤون / حماية الأجور (PAM — WSI)</label>
                       <input
                         type="text"
-                        value={editingCompany.commercialLicenseNo || ''}
-                        onChange={(e) => setEditingCompany({ ...editingCompany, commercialLicenseNo: e.target.value })}
-                        placeholder="MOH-LIC-2026"
+                        value={editingCompany.wsiCode || ''}
+                        onChange={(e) => setEditingCompany({ ...editingCompany, wsiCode: e.target.value })}
+                        placeholder="رقم ملف القوى العاملة"
                         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none font-mono"
                       />
                     </div>

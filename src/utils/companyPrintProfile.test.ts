@@ -14,6 +14,18 @@ test('getCompanyPrintProfile prefers nameAr and registry fields', () => {
   } as Company);
   assert.equal(profile.displayNameAr, 'مستوصف المنار الطبي');
   assert.equal(profile.civilIdCompany, '203344');
+  assert.equal(profile.commercialReg, '—');
+  assert.equal(profile.mohLicense, '—');
+});
+
+test('getCompanyPrintProfile exposes commercial reg only for MOCI_COMMERCIAL', () => {
+  const profile = getCompanyPrintProfile({
+    id: 'comp-moci',
+    nameAr: 'شركة تجارية',
+    nameEn: 'Trading Co',
+    regulatoryRegime: 'MOCI_COMMERCIAL',
+    commercialRegNo: '301122',
+  } as Company);
   assert.equal(profile.commercialReg, '301122');
 });
 
