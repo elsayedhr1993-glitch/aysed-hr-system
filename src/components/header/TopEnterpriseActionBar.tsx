@@ -38,6 +38,7 @@ interface TopEnterpriseActionBarProps {
   onOpenLegalBot?: () => void;
   onOpenAnalystBot?: () => void;
   onOpenFacilityWizard?: () => void;
+  onOpenCompanyLicenseArchive?: () => void;
   showUserMenu: boolean;
   setShowUserMenu: (show: boolean) => void;
   setShowAvatarModal: (show: boolean) => void;
@@ -69,6 +70,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
   onOpenLegalBot,
   onOpenAnalystBot,
   onOpenFacilityWizard,
+  onOpenCompanyLicenseArchive,
   showUserMenu,
   setShowUserMenu,
   setShowAvatarModal,
@@ -538,6 +540,20 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                   <div>
                     <span className="block font-bold">تثبيت وتهيئة تراخيص المنشأة</span>
                     <span className="block text-[10px] text-purple-600 font-normal">تثبيت السجل التجاري، MOH، الإطفاء والبلدية</span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowQuickActionsMenu(false);
+                    if (onOpenCompanyLicenseArchive) onOpenCompanyLicenseArchive();
+                  }}
+                  className="w-full text-right px-3 py-2 text-xs font-bold text-emerald-900 hover:bg-emerald-50 rounded-xl transition flex items-center gap-2.5 cursor-pointer border border-emerald-100"
+                >
+                  <FileText size={16} className="text-emerald-700" />
+                  <div>
+                    <span className="block font-bold">+ إضافة ترخيص جديد (أرشيف)</span>
+                    <span className="block text-[10px] text-emerald-700/80 font-normal">ترخيص حر أو مستند منشأة — تطبيق المستندات</span>
                   </div>
                 </button>
 

@@ -158,6 +158,20 @@ function MainAppLayout() {
   const [isLegalBotOpen, setIsLegalBotOpen] = useState(false);
   const [isAnalystBotOpen, setIsAnalystBotOpen] = useState(false);
   const [isFacilityWizardOpen, setIsFacilityWizardOpen] = useState(false);
+  const [documentsUiIntent, setDocumentsUiIntent] = useState<{
+    workspaceTab?: 'EMPLOYEE_DOCS' | 'COMPANY_LICENSES';
+    openAddLicense?: boolean;
+    nonce: number;
+  } | null>(null);
+
+  const openCompanyLicenseArchive = (openAddForm = true) => {
+    setDocumentsUiIntent({
+      workspaceTab: 'COMPANY_LICENSES',
+      openAddLicense: openAddForm,
+      nonce: Date.now(),
+    });
+    setActiveApp('archive');
+  };
 
   useEffect(() => {
     if (!effectiveCompanyId || effectiveCompanyId === 'SAAS_PLATFORM') {
@@ -686,6 +700,7 @@ function MainAppLayout() {
         onOpenLegalBot={() => setIsLegalBotOpen(true)}
         onOpenAnalystBot={() => setIsAnalystBotOpen(true)}
         onOpenFacilityWizard={() => setIsFacilityWizardOpen(true)}
+        onOpenCompanyLicenseArchive={() => openCompanyLicenseArchive(true)}
         showUserMenu={showUserMenu}
         setShowUserMenu={setShowUserMenu}
         setShowAvatarModal={setShowAvatarModal}
@@ -885,6 +900,8 @@ function MainAppLayout() {
                 onDeleteDocument={handleDeleteDocument}
                 onAutoAddEmpFromOCR={handleAutoAddEmpFromOCR}
                 onNavigateToApp={(app) => setActiveApp(app)}
+                documentsUiIntent={documentsUiIntent}
+                onDocumentsUiIntentConsumed={() => setDocumentsUiIntent(null)}
               />
             </div>
           </main>
@@ -1197,6 +1214,10 @@ function MainAppLayout() {
         isOpen={isFacilityWizardOpen}
         onClose={() => setIsFacilityWizardOpen(false)}
         companyId={activeCompany?.id}
+        onOpenCompanyLicenseArchive={() => {
+          setIsFacilityWizardOpen(false);
+          openCompanyLicenseArchive(true);
+        }}
       />
     </div>
   );

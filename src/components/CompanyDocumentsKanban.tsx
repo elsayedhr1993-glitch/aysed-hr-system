@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Company } from '../types';
 import {
   CompanyDocument,
@@ -32,6 +32,8 @@ interface CompanyDocumentsKanbanProps {
   company?: Company | null;
   onSaveDocument: (doc: CompanyDocument) => void;
   onDeleteDocument: (docId: string) => void;
+  /** When changed, opens the «إضافة ترخيص جديد» form (deep-link from wizard / quick actions). */
+  openAddRequestNonce?: number;
 }
 
 export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
@@ -39,6 +41,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
   company,
   onSaveDocument,
   onDeleteDocument,
+  openAddRequestNonce,
 }) => {
   const [filter, setFilter] = useState<'all' | 'valid' | 'expiring_soon' | 'expired'>('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -134,6 +137,10 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
     });
     setShowModal(true);
   };
+
+  useEffect(() => {
+    if (openAddRequestNonce) handleOpenAdd();
+  }, [openAddRequestNonce]);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();

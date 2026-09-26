@@ -35,6 +35,12 @@ interface DocumentsAppProps {
   isOCRModalOpenInitially?: boolean;
   onNavigateToApp?: (app: any) => void;
   onSelectEmpForForm?: (emp: Employee) => void;
+  documentsUiIntent?: {
+    workspaceTab?: 'EMPLOYEE_DOCS' | 'COMPANY_LICENSES';
+    openAddLicense?: boolean;
+    nonce: number;
+  } | null;
+  onDocumentsUiIntentConsumed?: () => void;
 }
 
 export const DocumentsApp: React.FC<DocumentsAppProps> = ({
@@ -48,12 +54,24 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
   isOCRModalOpenInitially = false,
   onNavigateToApp,
   onSelectEmpForForm,
+  documentsUiIntent,
+  onDocumentsUiIntentConsumed,
 }) => {
   const resolvedCompanyId = resolveTenantCompanyId(tenantCompanyId, activeCompany?.id);
   const { company: companyForPrint } = useCompanyForPrint(resolvedCompanyId);
 
   // Main Workspace Tab (Employee Docs vs Company Licenses)
   const [workspaceTab, setWorkspaceTab] = useState<'EMPLOYEE_DOCS' | 'COMPANY_LICENSES'>('EMPLOYEE_DOCS');
+  const [companyLicenseAddNonce, setCompanyLicenseAddNonce] = useState(0);
+
+  useEffect(() => {
+    if (!documentsUiIntent) return;
+    if (documentsUiIntent.workspaceTab) setWorkspaceTab(documentsUiIntent.workspaceTab);
+    if (documentsUiIntent.openAddLicense) {
+      setCompanyLicenseAddNonce(documentsUiIntent.nonce);
+    }
+    onDocumentsUiIntentConsumed?.();
+  }, [documentsUiIntent, onDocumentsUiIntentConsumed]);
 
   // Sidebar Folders for employee docs
   const [activeFolder, setActiveFolder] = useState<string>('ALL');
@@ -318,6 +336,16 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
             <Shield className="w-4 h-4" />
             <span>تراخيص وسجلات المنشأة ({companyDocuments.length})</span>
           </button>
+          {workspaceTab === 'COMPANY_LICENSES' && (
+            <button
+              type="button"
+              onClick={() => setCompanyLicenseAddNonce(Date.now())}
+              className="mr-2 bg-[#714B67] hover:bg-[#5c3c53] text-white text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 shadow-sm"
+            >
+              <Plus className="w-4 h-4" />
+              إضافة ترخيص
+            </button>
+          )}
         </div>
       </div>
 
@@ -401,7 +429,8 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
             documents={companyDocuments}
             company={companyForPrint}
             onSaveDocument={handleSaveCompanyDoc} 
-            onDeleteDocument={handleDeleteCompanyDoc} 
+            onDeleteDocument={handleDeleteCompanyDoc}
+            openAddRequestNonce={companyLicenseAddNonce || undefined}
           />
         </div>
       ) : (

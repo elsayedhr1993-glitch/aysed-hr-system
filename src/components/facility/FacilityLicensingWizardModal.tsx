@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   X, Check, ChevronRight, ChevronLeft, Building2, ShieldCheck, 
   FileText, Upload, AlertTriangle, Calendar, Award, Flame, 
-  Store, Send, Image, Sparkles, Building, CheckCircle2, RefreshCw
+  Store, Send, Image, Sparkles, Building, CheckCircle2, RefreshCw, Plus
 } from 'lucide-react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db, getCompaniesCollectionName } from '../../lib/firebase';
@@ -160,6 +160,8 @@ interface FacilityLicensingWizardModalProps {
   onClose: () => void;
   onSaved?: (data: FacilityLicenseData) => void;
   companyId?: string;
+  /** يفتح تطبيق أرشيف المستندات → تراخيص المنشأة → نموذج إضافة ترخيص حر */
+  onOpenCompanyLicenseArchive?: () => void;
 }
 
 export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModalProps> = ({
@@ -167,6 +169,7 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
   onClose,
   onSaved,
   companyId,
+  onOpenCompanyLicenseArchive,
 }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FacilityLicenseData>(createEmptyFacilityData());
@@ -272,8 +275,8 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
       <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header Bar */}
-        <div className="bg-gradient-to-r from-[#714B67] via-[#5c3c54] to-purple-950 text-white p-4 flex items-center justify-between shrink-0 shadow-md">
-          <div className="flex items-center gap-3">
+        <div className="bg-gradient-to-r from-[#714B67] via-[#5c3c54] to-purple-950 text-white p-4 flex items-center justify-between shrink-0 shadow-md gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <div className="p-2 bg-white/10 rounded-xl border border-white/20">
               <Building2 className="w-6 h-6 text-amber-300" />
             </div>
@@ -287,15 +290,31 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
               <p className="text-xs text-purple-200 font-medium">
                 تثبيت السجل التجاري، ترخيص MOH، القوى العاملة PAM، وتراخيص الإطفاء والبلدية للمنشأة
               </p>
+              <p className="text-[10px] text-amber-200/90 mt-1">
+                لإضافة ترخيص إضافي أو نوع حر (غير الحقول المعيارية) استخدم أرشيف المستندات وليس هذا المعالج فقط.
+              </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
-            title="إغلاق"
-          >
-            <X size={20} />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {onOpenCompanyLicenseArchive && (
+              <button
+                type="button"
+                onClick={onOpenCompanyLicenseArchive}
+                className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black transition cursor-pointer"
+                title="فتح نموذج إضافة ترخيص في أرشيف المستندات"
+              >
+                <Plus size={16} />
+                إضافة ترخيص (أرشيف)
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
+              title="إغلاق"
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         {/* Step Stepper Header */}
