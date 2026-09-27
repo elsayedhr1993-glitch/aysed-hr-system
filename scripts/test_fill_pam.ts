@@ -20,7 +20,7 @@ async function testFillPamPdf() {
 
   const drawItem = (targetPage: any, rawText: string, x: number, y: number, size = 8, align: 'left' | 'right' | 'center' = 'right', isEn = false) => {
     if (!rawText) return;
-    const textToDraw = shapeAndReverseArabic(rawText, isEn);
+    const textToDraw = preparePdfText(rawText, isEn);
     const fontSize = size;
     const width = customFont.widthOfTextAtSize(textToDraw, fontSize);
     let drawX = x;

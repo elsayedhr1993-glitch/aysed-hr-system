@@ -6,8 +6,8 @@ import 'dotenv/config';
 import { getAdminAuth, getAdminFirestore } from '../server/firebaseAdmin.ts';
 
 const ELITE_COMPANY_ID = 'comp-1788435917695';
-const ELITE_ADMIN_EMAIL = 'admin@eliteclinic.com';
-const DEFAULT_PASSWORD = process.env.ELITE_ADMIN_RESET_PASSWORD || 'Aysed2026#Secure';
+const ELITE_ADMIN_EMAIL = (process.env.ELITE_ADMIN_EMAIL || 'admin@elite.com').toLowerCase();
+const DEFAULT_PASSWORD = process.env.ELITE_ADMIN_RESET_PASSWORD || '20262026';
 
 async function main() {
   const auth = getAdminAuth();
