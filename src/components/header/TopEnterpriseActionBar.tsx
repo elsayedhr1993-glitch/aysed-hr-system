@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { parseFlexibleDate, checkDocumentExpiry } from '../../utils/dateUtils';
+import { collectCompanyDocumentAlerts, type CompanyDocument } from '../../types/companyDocuments';
 import { useTenant } from '../../context/TenantContext';
 import { 
   Scan, ArrowRight, Clock, UserCircle, Layers, Shield, Key,
@@ -242,7 +243,13 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
     return alerts.sort((a, b) => a.daysRemaining - b.daysRemaining);
   }, [employees]);
 
+  const companyLicenseAlerts = useMemo(
+    () => collectCompanyDocumentAlerts(documents as CompanyDocument[], activeCompany?.id),
+    [documents, activeCompany?.id]
+  );
+
   const facilityLicenseAlert = useMemo(() => {
+    if (companyLicenseAlerts.length > 0) return null;
     if (facilityExpiryStatus.minDays >= 999 || !facilityExpiryStatus.nearestLabel) return null;
     if (facilityExpiryStatus.minDays > 90) return null;
 
@@ -251,9 +258,10 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
       daysRemaining: facilityExpiryStatus.minDays,
       isExpired: facilityExpiryStatus.minDays < 0,
     };
-  }, [facilityExpiryStatus]);
+  }, [facilityExpiryStatus, companyLicenseAlerts.length]);
 
-  const totalAlertsCount = expiringAlerts.length + (facilityLicenseAlert ? 1 : 0);
+  const totalAlertsCount =
+    expiringAlerts.length + companyLicenseAlerts.length + (facilityLicenseAlert ? 1 : 0);
 
   const handlePasswordResetRequest = async () => {
     const userEmail = (user?.email || '').toString().trim();
@@ -727,6 +735,40 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
 
               {/* Expiry alerts list */}
               <div className="max-h-64 overflow-y-auto p-1 divide-y divide-slate-100">
+                {companyLicenseAlerts.map((lic) => (
+                  <div
+                    key={lic.id}
+                    onClick={() => {
+                      setShowAlertsMenu(false);
+                      if (onOpenCompanyLicenseArchive) onOpenCompanyLicenseArchive();
+                    }}
+                    className="p-2.5 hover:bg-slate-50 transition cursor-pointer flex items-start gap-2.5 rounded-xl"
+                  >
+                    <div
+                      className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                        lic.isExpired ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'
+                      }`}
+                    >
+                      <Award size={15} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="font-bold text-xs text-slate-800 truncate">ترخيص منشأة: {lic.name}</span>
+                        <span
+                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded font-mono shrink-0 ${
+                            lic.isExpired ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
+                          }`}
+                        >
+                          {lic.isExpired ? 'منتهي' : `${lic.daysRemaining} يوم`}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        ينتهي: <strong className="font-mono text-slate-700">{lic.expiryDate}</strong>
+                      </p>
+                    </div>
+                  </div>
+                ))}
+
                 {facilityLicenseAlert && (
                   <div
                     onClick={() => {
@@ -742,7 +784,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-1">
-                        <span className="font-bold text-xs text-slate-800 truncate">تنبيه تراخيص المنشأة</span>
+                        <span className="font-bold text-xs text-slate-800 truncate">تنبيه تراخيص المنشأة (معالج)</span>
                         <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded font-mono shrink-0 ${
                           facilityLicenseAlert.isExpired ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
                         }`}>
@@ -756,13 +798,13 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                   </div>
                 )}
 
-                {expiringAlerts.length === 0 ? (
+                {expiringAlerts.length === 0 && companyLicenseAlerts.length === 0 && !facilityLicenseAlert ? (
                   <div className="p-6 text-center text-slate-500 text-xs">
                     <CheckCircle2 size={24} className="mx-auto text-emerald-500 mb-1.5" />
                     <p className="font-bold text-slate-700">لا توجد مستندات منتهية أو تشرف على الانتهاء</p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">جميع البطاقات المدنية والإقامات وتراخيص MOH سارية</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">تراخيص المنشأة وبطاقات الموظفين وتراخيص MOH سارية</p>
                   </div>
-                ) : (
+                ) : expiringAlerts.length > 0 ? (
                   expiringAlerts.map((alert, idx) => (
                     <div 
                       key={idx}
@@ -792,18 +834,29 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                       </div>
                     </div>
                   ))
-                )}
+                ) : null}
               </div>
 
-              <div className="p-2 border-t border-slate-100 bg-slate-50 text-center">
+              <div className="p-2 border-t border-slate-100 bg-slate-50 text-center flex flex-col gap-1">
+                {onOpenCompanyLicenseArchive && (
+                  <button
+                    onClick={() => {
+                      setShowAlertsMenu(false);
+                      onOpenCompanyLicenseArchive();
+                    }}
+                    className="text-xs font-bold text-[#714B67] hover:underline cursor-pointer"
+                  >
+                    أرشيف تراخيص المنشأة
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setShowAlertsMenu(false);
                     setActiveApp('employees');
                   }}
-                  className="text-xs font-bold text-[#714B67] hover:underline cursor-pointer"
+                  className="text-xs font-bold text-slate-600 hover:underline cursor-pointer"
                 >
-                  فتح شؤون الموظفين ومراجعة السجلات الكاملة
+                  شؤون الموظفين والسجلات
                 </button>
               </div>
             </div>

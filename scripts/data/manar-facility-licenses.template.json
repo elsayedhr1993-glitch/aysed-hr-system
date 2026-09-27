@@ -1,0 +1,78 @@
+{
+  "_readme": "املأ الحقول ثم: npx tsx scripts/apply-manar-facility-licenses-admin.ts scripts/data/manar-facility-licenses.json",
+  "companyId": "comp-1788442584841",
+  "companyPatch": {
+    "regulatoryRegime": "MOH_MEDICAL",
+    "nameAr": "المنار كلينك",
+    "nameEn": "Al Manar Clinic"
+  },
+  "facility": {
+    "nameAr": "المنار كلينك",
+    "nameEn": "Al Manar Clinic",
+    "commercialRegNo": "",
+    "paciCivilId": "",
+    "mainBranchName": "الفرع الرئيسي",
+    "branchesList": [],
+    "mohLicenseNo": "",
+    "mohStartDate": "",
+    "mohExpiryDate": "",
+    "mohApprovedDepts": [],
+    "mohSpecialDevices": [],
+    "pamFileCode": "",
+    "authorizedSignatoryName": "",
+    "authorizedSignatoryCivilId": "",
+    "wpsBankCode": "",
+    "wpsEmployerId": "",
+    "kffLicenseNo": "",
+    "kffExpiryDate": "",
+    "baladiyaLicenseNo": "",
+    "baladiyaExpiryDate": "",
+    "isCompleted": true
+  },
+  "extraDocuments": [
+    {
+      "id": "lic-comp-1788442584841-moh",
+      "name": "ترخيص وزارة الصحة",
+      "documentType": "ترخيص صحي/طبي",
+      "documentNumber": "",
+      "issuingAuthority": "وزارة الصحة — دولة الكويت",
+      "issueDate": "",
+      "expiryDate": "",
+      "fileUrl": "",
+      "notes": ""
+    },
+    {
+      "id": "lic-comp-1788442584841-pam",
+      "name": "ملف الشؤون — القوى العاملة (PAM/WPS)",
+      "documentType": "ملف الشؤون PAM/WPS",
+      "documentNumber": "",
+      "issuingAuthority": "الهيئة العامة للقوى العاملة",
+      "issueDate": "",
+      "expiryDate": "2099-12-31",
+      "fileUrl": "",
+      "notes": ""
+    },
+    {
+      "id": "lic-comp-1788442584841-kff",
+      "name": "ترخيص الإطفاء / الدفاع المدني",
+      "documentType": "دفاع مدني",
+      "documentNumber": "",
+      "issuingAuthority": "إدارة الإطفاء العام — دولة الكويت",
+      "issueDate": "",
+      "expiryDate": "",
+      "fileUrl": "",
+      "notes": ""
+    },
+    {
+      "id": "lic-comp-1788442584841-baladiya",
+      "name": "رخصة البلدية",
+      "documentType": "رخصة بلدية",
+      "documentNumber": "",
+      "issuingAuthority": "بلدية الكويت",
+      "issueDate": "",
+      "expiryDate": "",
+      "fileUrl": "",
+      "notes": ""
+    }
+  ]
+}

@@ -77,3 +77,46 @@ export function getDocumentStatus(expiryDateStr: string): {
     };
   }
 }
+
+export interface CompanyDocumentAlert {
+  id: string;
+  name: string;
+  documentType: string;
+  expiryDate: string;
+  daysRemaining: number;
+  isExpired: boolean;
+  status: 'expiring_soon' | 'expired';
+}
+
+/** تراخيص المنشأة التي انتهت أو تنتهي خلال نافذة التنبيه (افتراضي 60 يوماً — مطابق لـ Kanban). */
+export function collectCompanyDocumentAlerts(
+  documents: CompanyDocument[],
+  companyId?: string,
+  alertWithinDays = 60
+): CompanyDocumentAlert[] {
+  const tenantId = String(companyId || '').trim();
+  const alerts: CompanyDocumentAlert[] = [];
+
+  for (const doc of documents) {
+    if (tenantId) {
+      const docCo = String(doc.companyId || tenantId).trim();
+      if (docCo && docCo !== tenantId) continue;
+    }
+    if (!doc.expiryDate) continue;
+
+    const { status, daysRemaining } = getDocumentStatus(doc.expiryDate);
+    if (status === 'valid' && daysRemaining > alertWithinDays) continue;
+
+    alerts.push({
+      id: doc.id,
+      name: doc.name,
+      documentType: doc.documentType,
+      expiryDate: doc.expiryDate,
+      daysRemaining,
+      isExpired: status === 'expired',
+      status: status === 'expired' ? 'expired' : 'expiring_soon',
+    });
+  }
+
+  return alerts.sort((a, b) => a.daysRemaining - b.daysRemaining);
+}

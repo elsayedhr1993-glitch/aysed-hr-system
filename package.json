@@ -30,7 +30,8 @@
     "fanar:probe": "tsx scripts/probe-fanar-company-admin.ts",
     "fanar:list-employees": "tsx scripts/list-fanar-employees-admin.ts",
     "contracts:report": "tsx scripts/report-contracts-vs-employees-admin.ts",
-    "contracts:dedupe": "tsx scripts/dedupe-duplicate-contracts-admin.ts --all-companies"
+    "contracts:dedupe": "tsx scripts/dedupe-duplicate-contracts-admin.ts --all-companies",
+    "manar:apply-licenses": "tsx scripts/apply-manar-facility-licenses-admin.ts scripts/data/manar-facility-licenses.json"
   },
   "dependencies": {
     "@fontsource/cairo": "^5.3.0",
