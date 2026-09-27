@@ -10,6 +10,7 @@ import 'dotenv/config';
 import { readdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join, extname, basename } from 'node:path';
 import { getGeminiClient } from '../server/geminiServer.ts';
+import { getOcrModelCandidates } from '../src/config/aiConfig.ts';
 import type { CompanyDocument } from '../src/types/companyDocuments.ts';
 import type { FacilityLicenseData } from '../src/types/facilityLicense.ts';
 import { createEmptyFacilityData } from '../src/types/facilityLicense.ts';
@@ -102,13 +103,7 @@ function classifyFile(fileName: string, extracted: Extracted) {
 
 async function extractFromFile(client: NonNullable<ReturnType<typeof getGeminiClient>>, filePath: string): Promise<Extracted> {
   const b64 = readFileSync(filePath).toString('base64');
-  const r = await client.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: {
-      parts: [
-        { inlineData: { data: b64, mimeType: mimeFor(filePath) } },
-        {
-          text: `You extract Kuwait clinic/facility license metadata from this document.
+  const prompt = `You extract Kuwait clinic/facility license metadata from this document.
 Return JSON only with keys:
 licenseName (Arabic preferred),
 documentNumber,
@@ -118,14 +113,28 @@ expiryDate (YYYY-MM-DD if possible),
 facilityNameAr,
 notes (short),
 confidence (high|medium|low).
-Use empty string for unknown fields. Do not invent numbers.`,
+Use empty string for unknown fields. Do not invent numbers.`;
+
+  let lastError: unknown;
+  for (const model of getOcrModelCandidates()) {
+    try {
+      const r = await client.models.generateContent({
+        model,
+        contents: {
+          parts: [
+            { inlineData: { data: b64, mimeType: mimeFor(filePath) } },
+            { text: prompt },
+          ],
         },
-      ],
-    },
-    config: { temperature: 0, responseMimeType: 'application/json' },
-  });
-  const raw = r.text || '{}';
-  return JSON.parse(raw) as Extracted;
+        config: { temperature: 0, responseMimeType: 'application/json' },
+      });
+      const raw = r.text || '{}';
+      return JSON.parse(raw) as Extracted;
+    } catch (e) {
+      lastError = e;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 
 function applyToFacility(facility: FacilityLicenseData, doc: CompanyDocument, kind: string) {
