@@ -42,6 +42,13 @@ const SLUG_BY_HINT: Array<{ hint: RegExp; id: string; documentType: string; name
     authority: 'إدارة الإطفاء العام — دولة الكويت',
   },
   {
+    hint: /اعتماد|توقيع|signature/i,
+    id: `lic-${COMPANY_ID}-signature-auth`,
+    documentType: 'signature_auth',
+    name: 'شهادة اعتماد توقيع صاحب عمل',
+    authority: 'الهيئة العامة للقوى العاملة',
+  },
+  {
     hint: /pam|قوى|شؤون|wps|workforce/i,
     id: `lic-${COMPANY_ID}-pam`,
     documentType: 'ملف الشؤون PAM/WPS',

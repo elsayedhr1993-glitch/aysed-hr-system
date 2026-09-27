@@ -1,0 +1,42 @@
+{
+  "companyId": "comp-1788442584841",
+  "companyPatch": {
+    "regulatoryRegime": "MOH_MEDICAL",
+    "nameAr": "المنار كلينك",
+    "nameEn": "Al Manar Clinic",
+    "mohLicense": "32"
+  },
+  "facility": {
+    "nameAr": "مستوصف المنار كلينك",
+    "nameEn": "Al Manar Clinic",
+    "mainBranchName": "محافظة حولي — السالمية، قطعة 6، قسيمة 15518، الدور الأول",
+    "mohLicenseNo": "32",
+    "mohStartDate": "2024-04-25",
+    "mohExpiryDate": "2029-04-25",
+    "mohApprovedDepts": ["الأمراض الجلدية والتناسلية", "الممارس العام", "الأسنان"],
+    "pamFileCode": "100031031",
+    "authorizedSignatoryName": "ناديه رابح مفرح الرشيدي",
+    "authorizedSignatoryCivilId": "265082400641",
+    "isCompleted": true
+  },
+  "extraDocuments": [
+    {
+      "id": "lic-comp-1788442584841-moh",
+      "name": "ترخيص بفتح منشأة صحية — مستوصف المنار كلينك",
+      "documentType": "ترخيص صحي/طبي",
+      "documentNumber": "32",
+      "issuingAuthority": "وزارة الصحة — إدارة التراخيص الصحية",
+      "issueDate": "2024-04-25",
+      "expiryDate": "2029-04-25"
+    },
+    {
+      "id": "lic-comp-1788442584841-signature-auth",
+      "name": "شهادة اعتماد توقيع صاحب عمل — مستوصف المنار كلينك",
+      "documentType": "signature_auth",
+      "documentNumber": "100031031",
+      "issuingAuthority": "الهيئة العامة للقوى العاملة",
+      "issueDate": "2025-12-17",
+      "expiryDate": "2026-12-12"
+    }
+  ]
+}
