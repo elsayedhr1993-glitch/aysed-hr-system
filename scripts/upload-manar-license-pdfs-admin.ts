@@ -11,7 +11,7 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { getStorage } from 'firebase-admin/storage';
-import { getAdminApp } from '../server/firebaseAdmin.ts';
+import { getAdminApp, getAdminFirestore } from '../server/firebaseAdmin.ts';
 
 const COMPANY_ID = 'comp-1788442584841';
 const INBOX = join(process.cwd(), 'scripts/data/manar-licenses-inbox');
@@ -23,6 +23,12 @@ const UPLOADS: Array<{ docId: string; inboxFile: string }> = [
   { docId: `lic-${COMPANY_ID}-kff`, inboxFile: 'kff-fire-10-11-2027.pdf' },
   { docId: `lic-${COMPANY_ID}-traffic`, inboxFile: 'traffic-approval-4-2029.pdf' },
   { docId: `lic-${COMPANY_ID}-bank-iban`, inboxFile: 'manar-clinic-kfh-account-iban.pdf' },
+];
+
+/** Rows built from facility wizard without inbox PDF — mirror attachment from related doc. */
+const FILE_URL_ALIASES: Array<{ targetId: string; sourceId: string }> = [
+  { targetId: `lic-${COMPANY_ID}-baladiya`, sourceId: `lic-${COMPANY_ID}-traffic` },
+  { targetId: `lic-${COMPANY_ID}-pam`, sourceId: `lic-${COMPANY_ID}-signature-auth` },
 ];
 
 function loadStorageBucketCandidates(): string[] {
@@ -129,6 +135,8 @@ async function main() {
   writeFileSync(JSON_PATH, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
   console.log(JSON.stringify({ ok: true, uploaded, bucketCandidates }, null, 2));
 
+  const urlByDocId = new Map(uploaded.map((u) => [u.docId, u.url]));
+
   if (applyFirestore) {
     const { spawnSync } = await import('node:child_process');
     const r = spawnSync(
@@ -137,6 +145,24 @@ async function main() {
       { stdio: 'inherit', shell: true, cwd: process.cwd() }
     );
     if (r.status !== 0) process.exit(r.status ?? 1);
+
+    const db = getAdminFirestore();
+    if (db) {
+      const aliasResults: Array<{ targetId: string; sourceId: string; fileUrl: string }> = [];
+      for (const { targetId, sourceId } of FILE_URL_ALIASES) {
+        let fileUrl = urlByDocId.get(sourceId);
+        if (!fileUrl) {
+          const snap = await db.collection('company_documents').doc(sourceId).get();
+          fileUrl = String(snap.data()?.fileUrl || '');
+        }
+        if (!fileUrl) continue;
+        await db.collection('company_documents').doc(targetId).set({ fileUrl }, { merge: true });
+        aliasResults.push({ targetId, sourceId, fileUrl });
+      }
+      if (aliasResults.length > 0) {
+        console.log(JSON.stringify({ fileUrlAliases: aliasResults }, null, 2));
+      }
+    }
   }
 }
 
