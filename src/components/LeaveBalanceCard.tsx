@@ -1,19 +1,19 @@
 import React from 'react';
-import { 
-  calculateUnifiedLeaveBalance, 
-  LeaveRecord, 
+import {
   EmployeeLeaveSummary,
-  buildLeaveRecordsFromEmployee 
+  getEmployeeUnifiedSummary,
+  normalizeLeaveBalanceInputs,
 } from '../utils/leaveEngine';
 import { Employee, HrLeaveAllocation, LeaveRequest } from '../types';
-import { 
-  Calendar, ShieldCheck, DollarSign, ArrowUpRight, 
-  Clock, Plus, CheckCircle2, AlertCircle, Sparkles, Scale
+import {
+  Calendar, DollarSign,
+  Clock, Plus, AlertCircle, Sparkles, Scale
 } from 'lucide-react';
 
 export interface LeaveBalanceCardProps {
   employee: Employee | any;
-  leaveRecords?: LeaveRecord[];
+  /** @deprecated Use `allocations` + `leaves`; summary comes from getEmployeeUnifiedSummary */
+  leaveRecords?: unknown;
   allocations?: HrLeaveAllocation[];
   leaves?: LeaveRequest[];
   onOpenSettlement?: (summary: EmployeeLeaveSummary) => void;
@@ -24,7 +24,6 @@ export interface LeaveBalanceCardProps {
 
 export const LeaveBalanceCard: React.FC<LeaveBalanceCardProps> = ({
   employee,
-  leaveRecords,
   allocations = [],
   leaves = [],
   onOpenSettlement,
@@ -34,26 +33,14 @@ export const LeaveBalanceCard: React.FC<LeaveBalanceCardProps> = ({
 }) => {
   if (!employee) return null;
 
-  // استخراج البيانات واستدعاء نفس المحرك الموحد
-  let summary: EmployeeLeaveSummary;
-
-  if (leaveRecords && Array.isArray(leaveRecords)) {
-    const accrued = Number(employee.accruedAnnualLeave ?? employee.carriedOverBalance ?? employee.carriedOverLeave2025 ?? 0);
-    const basic = Number(employee.basicSalary || employee.salary || 0);
-    const allowances = Number(employee.allowances || (Number(employee.housingAllowance || 0) + Number(employee.transportAllowance || 0) + Number(employee.otherAllowance || 0)));
-    summary = calculateUnifiedLeaveBalance(accrued, leaveRecords, basic, allowances);
-  } else {
-    const data = buildLeaveRecordsFromEmployee(employee, allocations, leaves);
-    summary = calculateUnifiedLeaveBalance(
-      data.accruedAnnual,
-      data.records,
-      data.basicSalary,
-      data.allowances
-    );
-  }
+  const { allocations: normAlloc, leaves: normLeaves } = normalizeLeaveBalanceInputs(allocations, leaves);
+  const summary = getEmployeeUnifiedSummary(employee as Employee, normAlloc, normLeaves);
 
   const visibleNetBalance = Math.max(0, Number(summary.netBalance ?? summary.totalAvailableDays ?? 0));
   const unpaidExcess = Number(summary.unpaidLeaveDays ?? 0);
+  const annualPoolDisplay = Number(
+    (Number(summary.carriedOverDays || 0) + Number(summary.accruedAnnualDays || 0)).toFixed(2)
+  );
 
   if (compact) {
     return (
@@ -66,8 +53,8 @@ export const LeaveBalanceCard: React.FC<LeaveBalanceCardProps> = ({
         </div>
         <div className="grid grid-cols-3 gap-1.5 text-[11px] text-slate-600 bg-slate-50 p-2 rounded-lg">
           <div>
-            <span className="text-slate-400 block text-[9px]">المكتسب:</span>
-            <span className="font-semibold text-slate-800">{summary.accruedAnnualDays}</span>
+            <span className="text-slate-400 block text-[9px]">مرحل + مستحق:</span>
+            <span className="font-semibold text-slate-800">{annualPoolDisplay}</span>
           </div>
           <div>
             <span className="text-slate-400 block text-[9px]">بدل عطلات:</span>
@@ -89,7 +76,6 @@ export const LeaveBalanceCard: React.FC<LeaveBalanceCardProps> = ({
 
   return (
     <div className={`p-5 bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 text-right ${className}`} dir="rtl">
-      {/* Header */}
       <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
         <div className="flex items-center gap-2.5">
           <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
@@ -111,7 +97,6 @@ export const LeaveBalanceCard: React.FC<LeaveBalanceCardProps> = ({
         </div>
       </div>
 
-      {/* Main Metric Hero */}
       <div className="p-4 bg-gradient-to-br from-blue-50/70 via-indigo-50/40 to-slate-50 border border-blue-100/80 rounded-xl mb-4">
         <div className="flex items-center justify-between">
           <div>
@@ -135,14 +120,23 @@ export const LeaveBalanceCard: React.FC<LeaveBalanceCardProps> = ({
         </div>
       </div>
 
-      {/* Detail Breakdown */}
       <div className="space-y-2 text-xs mb-4">
         <div className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100">
           <div className="flex items-center gap-2 text-slate-700">
             <Calendar className="w-4 h-4 text-blue-600" />
-            <span>الرصيد السنوي المكتسب والمرحل:</span>
+            <span>الرصيد المرحل من 2025:</span>
           </div>
           <span className="font-bold text-slate-900 tabular-nums">
+            {summary.carriedOverDays ?? 0} يوم
+          </span>
+        </div>
+
+        <div className="flex items-center justify-between p-2 rounded-lg bg-indigo-50/60 border border-indigo-100">
+          <div className="flex items-center gap-2 text-indigo-900">
+            <Calendar className="w-4 h-4 text-indigo-600" />
+            <span>المستحق لعام 2026 (نسبة وتناسب):</span>
+          </div>
+          <span className="font-bold text-indigo-800 tabular-nums">
             {summary.accruedAnnualDays} يوم
           </span>
         </div>
@@ -180,7 +174,6 @@ export const LeaveBalanceCard: React.FC<LeaveBalanceCardProps> = ({
         </div>
       </div>
 
-      {/* Action Buttons */}
       {(onOpenSettlement || onOpenLeaveRequest) && (
         <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
           {onOpenSettlement && (

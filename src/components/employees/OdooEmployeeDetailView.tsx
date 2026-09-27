@@ -54,7 +54,7 @@ import { useCompany } from '../../context/CompanyContext';
 import { triggerContractRunningLeaveAllocation } from '../../utils/contractLeaveTrigger';
 import { TabDocumentScanner } from '../TabDocumentScanner';
 import { EditableField, EditableSelect } from '../EditableField';
-import { getCarriedOverBalance, calculate2026AccruedDays, getGlobalCompensatoryDays } from '../../utils/kuwaitLaw';
+import { getCarriedOverBalance } from '../../utils/kuwaitLaw';
 import { buildEmployeeBaselineAllocations, computeFifoLeaveAllocations } from '../../services/leaveService';
 import { getEmployeeUnifiedSummary } from '../../utils/leaveEngine';
 import { calculateKuwaitDailyRate } from '../../utils/kuwaitPayrollMath';

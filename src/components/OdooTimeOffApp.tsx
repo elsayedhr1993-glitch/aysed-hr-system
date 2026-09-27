@@ -43,7 +43,7 @@ import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { exportToExcel } from '../utils/exportUtils';
 import { toast } from 'react-hot-toast';
 import { LeaveSettlementCalculator } from './LeaveSettlementCalculator';
-import { calculate2026AccruedDays, getCarriedOverBalance, getGlobalCompensatoryDays, calculateActualLeaveDays } from '../utils/kuwaitLaw';
+import { getCarriedOverBalance, calculateActualLeaveDays } from '../utils/kuwaitLaw';
 import { approveLeaveRequest } from '../services/leaveApprovalService';
 import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { db, cleanFirestoreData } from '../lib/firebase';

@@ -70,6 +70,7 @@ function eachMonthKeyBetween(startIso: string, endIso: string): string[] {
   return keys;
 }
 
+/** @deprecated Accrual uses proportional work-days in `computeAccrual2026Unified`; month freeze is no longer applied. */
 export function getExternalAccrualFrozenMonthKeys(
   leaves: Array<Partial<LeaveRequest> & Record<string, unknown>> | undefined,
   employeeId?: string,

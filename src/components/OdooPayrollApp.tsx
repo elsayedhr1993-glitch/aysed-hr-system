@@ -713,7 +713,6 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
       carriedOverLeave2025: (emp as any)?.carriedOverLeave2025,
       openingBalance: (emp as any)?.openingBalance,
       openingLeaveBalance: (emp as any)?.openingLeaveBalance,
-      accruedAnnualLeave: (emp as any)?.accruedAnnualLeave,
       allowances: (emp as any)?.allowances ?? (basicSalary + housingAllowance + transportAllowance + medicalAllowance),
       housingAllowance,
       transportAllowance,

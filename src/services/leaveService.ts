@@ -1,5 +1,6 @@
 import { Employee, LeaveRequest, HrLeaveAllocation, AttendanceRecord } from '../types';
 import { calculate2026AccruedDays, isEmployeeHiredIn2026OrLater, getGlobalOpeningBalance, getGlobalAccrued2026, getGlobalCompensatoryDays } from '../utils/kuwaitLaw';
+import { sumCompensatoryFromAllocations } from '../utils/leaveEngine';
 import { normalizeLeaveStatus, normalizeLeaveType } from '../utils/leaveModel';
 
 export const LEAVE_ACCRUAL_RATE_PER_MONTH = 2.5; // 30 days per year / 12 months = 2.5 days/month according to Kuwait Labor Law
@@ -383,8 +384,9 @@ export function buildEmployeeBaselineAllocations(
   // Filter out any invalid/duplicate compensatory allocations
   const nonCompAllocs = result.filter(a => !isCompAlloc(a));
   const rawCompAllocs = result.filter(isCompAlloc);
-  const existingCompTotal = rawCompAllocs.reduce((sum, a) => sum + (Number(a.numberOfDays) || 0), 0);
-  const authoritativeCompDays = Math.max(compDays, existingCompTotal);
+  const existingCompTotal = sumCompensatoryFromAllocations(emp, rawCompAllocs);
+  const authoritativeCompDays =
+    existingCompTotal > 0 ? existingCompTotal : Math.max(compDays, rawCompAllocs.reduce((sum, a) => sum + (Number(a.numberOfDays) || 0), 0));
 
   if (rawCompAllocs.length === 0 && compDays <= 0) {
     // No compensatory entitlement and no explicit comp allocation exists; keep only non-comp buckets.

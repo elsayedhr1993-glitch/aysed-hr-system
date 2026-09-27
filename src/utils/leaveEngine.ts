@@ -190,7 +190,7 @@ export function sumCompensatoryFromAllocations(
   return cleanDayDecimals(total);
 }
 
-function resolveHolidayCompensationDays(
+export function resolveHolidayCompensationDays(
   employee: Employee,
   allocations: HrLeaveAllocation[] = []
 ): number {
@@ -208,7 +208,7 @@ function resolveHolidayCompensationDays(
 }
 
 /** Live 2026 accrual (proportional); do not use stale `accruedAnnualLeave` on the employee record. */
-function resolveAccruedAnnualDays(employee: Employee, leaves: LeaveRequest[] = []): number {
+export function resolveAccruedAnnualDays(employee: Employee, leaves: LeaveRequest[] = []): number {
   return cleanDayDecimals(Number(getGlobalAccrued2026(employee, new Date(), leaves) ?? 0));
 }
 
@@ -494,7 +494,7 @@ export function buildLeaveRecordsFromEmployee(
 
   const carriedOver = resolveCarriedOverDays(employee, allocations);
   const accrued2026 = resolveAccruedAnnualDays(employee, leaves) || 0;
-  const compensatoryDays = Number(getGlobalCompensatoryDays(employee) ?? 0) || 0;
+  const compensatoryDays = resolveHolidayCompensationDays(employee, allocations);
   const recordMap: LeaveRecord[] = [];
 
   (allocations || []).forEach((allocation: any) => {
