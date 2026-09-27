@@ -36,7 +36,7 @@ export function leaveScopeFromRecord(leave: Partial<LeaveRequest> & Record<strin
   );
 }
 
-/** Approved external travel freezes monthly 2.5-day accrual for overlapping calendar months. */
+/** @deprecated Accrual uses proportional days in leaveAccrual2026 — kept for legacy callers. */
 export function isExternalAccrualFreezeLeave(leave: Partial<LeaveRequest> & Record<string, unknown>): boolean {
   if (leave.isHistorical) return false;
   const status = normalizeLeaveStatus(String(leave.status || ''));

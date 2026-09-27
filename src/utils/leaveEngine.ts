@@ -158,17 +158,31 @@ function resolveHolidayCompensationDays(
       const allowedState = ['approved', 'validate', 'validated', 'confirm', 'done', ''];
       if (!allowedState.includes(state)) return false;
       const allocationType = String(allocation.allocationType || '').toLowerCase();
-      const notes = String(allocation.name || allocation.notes || '').toLowerCase();
-      const isCompType = allocationType === 'compensatory_off' || allocationType === 'compensatory';
+      const name = String(allocation.name || '').toLowerCase();
+      const notes = String(allocation.notes || allocation.name || '').toLowerCase();
+      if (allocationType === 'regular' || allocationType === 'carried_over') return false;
+      if (allocationType === 'accrual' && /استحقاق|accrual|شهري|monthly/i.test(name) && !/عطلة|holiday|تعويض/i.test(notes)) {
+        return false;
+      }
+      const isCompType =
+        allocationType === 'compensatory_off' ||
+        allocationType === 'compensatory' ||
+        allocationType === 'holiday_comp' ||
+        allocationType === 'holiday';
       const isHolidayAccrual =
         allocationType === 'accrual' &&
         /عطلة|تعويض|مادة\s*68|holiday|إضافة للرصيد|comp[- ]?off/i.test(notes);
-      const isCompLabel = /تعويضي|عطلة|compensatory|comp_off|day in lieu/i.test(notes);
+      const isCompLabel = /تعويضي|عطلة|compensatory|comp_off|day in lieu|مادة\s*68/i.test(notes);
       return isCompType || isCompLabel || isHolidayAccrual;
     })
     .reduce((sum, allocation: any) => sum + Number(allocation.numberOfDays ?? allocation.days ?? 0), 0);
 
-  return Math.max(fromLedger, ledgerCompDays, Number(allocationCompDays || 0));
+  const ledgerTotal = Math.max(Number(fromLedger || 0), Number(ledgerCompDays || 0));
+  const allocTotal = Number(allocationCompDays || 0);
+  if (allocTotal > 0) {
+    return cleanDayDecimals(Math.max(allocTotal, ledgerTotal));
+  }
+  return cleanDayDecimals(ledgerTotal);
 }
 
 export function aggregateAnnualLeaveDeductions(

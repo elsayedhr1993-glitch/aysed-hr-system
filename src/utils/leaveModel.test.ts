@@ -56,29 +56,52 @@ test('buildLeaveRecordsFromEmployee does not treat sick leave as annual balance 
   assert.equal(records.records.some((record: any) => record.type === 'annual' && record.days === 3), false);
 });
 
-test('computeAccrual2026Unified skips months covered by approved external leave', () => {
+test('computeAccrual2026Unified uses proportional accrual when leave covers a full month', () => {
   const leaves = [
     {
       employeeId: 'EMP-1',
       startDate: '2026-03-01',
       endDate: '2026-03-31',
+      totalDays: 31,
+      leaveType: 'annual',
       status: 'APPROVED',
-      leaveScope: 'EXTERNAL',
+      leaveScope: 'INTERNAL',
     },
   ];
+  // Jan–Feb + Apr–Aug full (7×2.5) + Sep partial through 15th (15/30×2.5); March = 0
   assert.equal(
     computeAccrual2026Unified('2026-01-01', new Date('2026-09-15'), {
       employeeId: 'EMP-1',
       leaves,
     }),
-    20
+    18.75
   );
+});
+
+test('computeAccrual2026Unified accrues partial month for August with 16 leave days', () => {
+  const leaves = [
+    {
+      employeeId: 'EMP-1',
+      startDate: '2026-08-01',
+      endDate: '2026-08-16',
+      totalDays: 16,
+      leaveType: 'annual',
+      status: 'APPROVED',
+    },
+  ];
+  const throughAugust = computeAccrual2026Unified('2023-06-01', new Date('2026-08-31'), {
+    employeeId: 'EMP-1',
+    leaves,
+  });
+  const janThroughJuly = 7 * 2.5;
+  const augustExpected = ((31 - 16) / 31) * 2.5;
+  assert.equal(throughAugust, Number((janThroughJuly + augustExpected).toFixed(2)));
 });
 
 test('computeAccrual2026Unified accrues 2.5 days per inclusive month capped at 30', () => {
   assert.equal(
     computeAccrual2026Unified('2026-01-01', new Date('2026-09-15')),
-    22.5
+    21.25
   );
   assert.equal(
     computeAccrual2026Unified('2026-06-01', new Date('2026-08-31')),

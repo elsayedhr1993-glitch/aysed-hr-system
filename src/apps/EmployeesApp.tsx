@@ -245,25 +245,7 @@ const generateLeavePrintHtml = (printData: any, companyName: string, companyName
         `}
       </div>
 
-      <div style="margin-top: 40px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; text-align: center; font-size: 12px;">
-        <div>
-          <p style="font-weight: bold; color: #475569; margin-bottom: 50px;">توقيع وإقرار الموظف</p>
-          <div style="border-bottom: 1px solid #94a3b8; width: 80%; margin: 0 auto 5px auto;"></div>
-          <span style="font-size: 10px; color: #94a3b8;">التوقيع: ............................</span>
-        </div>
-        <div>
-          <p style="font-weight: bold; color: #475569; margin-bottom: 50px;">مسؤول شؤون الموظفين</p>
-          <div style="border-bottom: 1px solid #94a3b8; width: 80%; margin: 0 auto 5px auto;"></div>
-          <span style="font-size: 10px; color: #94a3b8;">التوقيع والختم</span>
-        </div>
-        <div>
-          <p style="font-weight: bold; color: #475569; margin-bottom: 50px;">اعتماد إدارة الموارد البشرية</p>
-          <div style="border-bottom: 1px solid #94a3b8; width: 80%; margin: 0 auto 5px auto;"></div>
-          <span style="font-size: 10px; color: #94a3b8;">التوقيع والختم الرسمي</span>
-        </div>
-      </div>
-
-      <div style="margin-top: 60px; border-top: 1px solid #e2e8f0; padding-top: 10px; text-align: center; font-size: 10px; color: #94a3b8;">
+      <div style="margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 10px; text-align: center; font-size: 10px; color: #94a3b8;">
         تم إنشاؤه تلقائياً بواسطة نظام المنارة لتقنية المعلومات والموارد البشرية (Odoo 18 ERP) - تاريخ الاستخراج: ${new Date().toLocaleDateString('ar-KW')}
       </div>
     </div>
@@ -2292,24 +2274,6 @@ export function EmployeesApp(props?: any) {
                           )}
                         </div>
 
-                        {/* Official Signatures Section */}
-                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm grid grid-cols-3 gap-6 text-center text-xs pt-8">
-                          <div className="space-y-12">
-                            <div className="font-bold text-slate-600">إقرار وتوقيع الموظف</div>
-                            <div className="border-b border-slate-300 w-3/4 mx-auto"></div>
-                            <div className="text-[10px] text-slate-400">التوقيع: ............................</div>
-                          </div>
-                          <div className="space-y-12">
-                            <div className="font-bold text-slate-600">مسؤول شؤون الموظفين</div>
-                            <div className="border-b border-slate-300 w-3/4 mx-auto"></div>
-                            <div className="text-[10px] text-slate-400">التوقيع والختم</div>
-                          </div>
-                          <div className="space-y-12">
-                            <div className="font-bold text-slate-600">اعتماد مدير الموارد البشرية</div>
-                            <div className="border-b border-slate-300 w-3/4 mx-auto"></div>
-                            <div className="text-[10px] text-slate-400">التوقيع والختم الرسمي</div>
-                          </div>
-                        </div>
                       </div>
                     );
                   }

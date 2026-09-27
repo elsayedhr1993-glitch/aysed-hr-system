@@ -4,7 +4,7 @@ import {
   ACCRUAL_2026_MONTHLY_RATE,
 } from '../config/kuwaitLaborConstants';
 import type { LeaveRequest } from '../types';
-import { getExternalAccrualFrozenMonthKeys } from './leaveScopeAccrual';
+import { normalizeLeaveStatus, normalizeLeaveType } from './leaveModel';
 
 export { ACCRUAL_2026_ANNUAL_CAP, ACCRUAL_2026_EPOCH, ACCRUAL_2026_MONTHLY_RATE };
 
@@ -28,6 +28,86 @@ function resolveAsOfDate(asOfDate?: string | Date | null): Date {
   return isNaN(asOf.getTime()) ? new Date() : asOf;
 }
 
+function startOfDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function daysInCalendarMonth(year: number, monthIndex: number): number {
+  return new Date(year, monthIndex + 1, 0).getDate();
+}
+
+function inclusiveDaySpan(start: Date, end: Date): number {
+  const s = startOfDay(start).getTime();
+  const e = startOfDay(end).getTime();
+  if (e < s) return 0;
+  return Math.floor((e - s) / (24 * 60 * 60 * 1000)) + 1;
+}
+
+function leaveMatchesEmployee(
+  leave: Partial<LeaveRequest> & Record<string, unknown>,
+  employeeId?: string,
+  employeeCode?: string
+): boolean {
+  const lid = String(leave.employeeId || '').trim();
+  const empId = String(employeeId || '').trim();
+  const empCode = String(employeeCode || '').trim();
+  if (!empId && !empCode) return true;
+  if (!lid) return true;
+  return lid === empId || (empCode && lid === empCode);
+}
+
+function isApprovedAccrualAffectingLeave(leave: Partial<LeaveRequest> & Record<string, unknown>): boolean {
+  if (leave.isHistorical) return false;
+  const status = normalizeLeaveStatus(String(leave.status || ''));
+  if (status !== 'APPROVED' && status !== 'RETURNED') return false;
+  const type = normalizeLeaveType(leave.leaveType as string);
+  return type === 'ANNUAL' || type === 'COMPENSATORY';
+}
+
+/** Approved leave days overlapping a calendar month (for proportional accrual). */
+export function countApprovedLeaveDaysInMonth(
+  leaves: Array<Partial<LeaveRequest> & Record<string, unknown>> | undefined,
+  year: number,
+  monthIndex: number,
+  employeeId?: string,
+  employeeCode?: string
+): number {
+  if (!leaves?.length) return 0;
+
+  const monthStart = new Date(year, monthIndex, 1);
+  const monthEnd = new Date(year, monthIndex, daysInCalendarMonth(year, monthIndex));
+
+  let total = 0;
+  for (const leave of leaves) {
+    if (!leaveMatchesEmployee(leave, employeeId, employeeCode)) continue;
+    if (!isApprovedAccrualAffectingLeave(leave)) continue;
+
+    const startDate = String(leave.startDate || '');
+    const endDate = String(leave.endDate || leave.startDate || '');
+    if (!startDate) continue;
+
+    const leaveStart = startOfDay(new Date(startDate));
+    const leaveEnd = startOfDay(new Date(endDate));
+    if (isNaN(leaveStart.getTime()) || isNaN(leaveEnd.getTime())) continue;
+
+    const overlapStart = leaveStart > monthStart ? leaveStart : monthStart;
+    const overlapEnd = leaveEnd < monthEnd ? leaveEnd : monthEnd;
+    if (overlapEnd < overlapStart) continue;
+
+    const stored = Number(leave.totalDays ?? leave.daysCount ?? leave.numberOfDays ?? leave.days ?? 0);
+    const overlapDays = inclusiveDaySpan(overlapStart, overlapEnd);
+    const leaveSpan = inclusiveDaySpan(leaveStart, leaveEnd);
+
+    if (stored > 0 && leaveSpan > 0 && stored <= leaveSpan) {
+      total += Math.min(overlapDays, stored);
+    } else {
+      total += overlapDays;
+    }
+  }
+
+  return Math.min(total, daysInCalendarMonth(year, monthIndex));
+}
+
 export interface Accrual2026Context {
   employeeId?: string;
   employeeCode?: string;
@@ -35,40 +115,55 @@ export interface Accrual2026Context {
 }
 
 /**
- * Monthly accrual from Jan 2026 (or join date if later) through asOf (inclusive month count).
- * External leave (خارج البلاد) freezes 2.5-day credit for each overlapping calendar month.
+ * Monthly accrual from Jan 2026 (or join date if later) through asOf.
+ * Per month: (actual work days ÷ calendar days in month) × 2.5
+ * Work days = eligible service days in month minus approved annual/comp leave days in that month.
  */
 export function computeAccrual2026Unified(
   joinDateStr?: string | Date | null,
   asOfDate?: string | Date | null,
   context?: Accrual2026Context
 ): number {
-  const asOf = resolveAsOfDate(asOfDate);
-  const joinDate = resolveJoinDate(joinDateStr);
-  const jan2026 = new Date(ACCRUAL_2026_EPOCH);
+  const asOf = startOfDay(resolveAsOfDate(asOfDate));
+  const joinDate = startOfDay(resolveJoinDate(joinDateStr));
+  const jan2026 = startOfDay(new Date(ACCRUAL_2026_EPOCH));
 
   const effectiveStart = joinDate > jan2026 ? joinDate : jan2026;
   if (effectiveStart > asOf || asOf.getFullYear() < 2026) {
     return 0;
   }
 
-  const startYear = effectiveStart.getFullYear();
-  const startMonth = effectiveStart.getMonth();
+  const leaves = context?.leaves as Array<Partial<LeaveRequest> & Record<string, unknown>> | undefined;
+
+  let totalAccrued = 0;
+  let y = effectiveStart.getFullYear();
+  let m = effectiveStart.getMonth();
   const asOfYear = asOf.getFullYear();
   const asOfMonth = asOf.getMonth();
 
-  const frozenMonths = getExternalAccrualFrozenMonthKeys(
-    context?.leaves as Array<Partial<LeaveRequest> & Record<string, unknown>>,
-    context?.employeeId,
-    context?.employeeCode
-  );
-
-  let eligibleMonths = 0;
-  let y = startYear;
-  let m = startMonth;
   while (y < asOfYear || (y === asOfYear && m <= asOfMonth)) {
-    const key = `${y}-${String(m + 1).padStart(2, '0')}`;
-    if (!frozenMonths.has(key)) eligibleMonths += 1;
+    const calendarDays = daysInCalendarMonth(y, m);
+    const monthStart = new Date(y, m, 1);
+    const monthEnd = new Date(y, m, calendarDays);
+
+    let periodStart = monthStart;
+    let periodEnd = monthEnd;
+
+    if (y === effectiveStart.getFullYear() && m === effectiveStart.getMonth()) {
+      periodStart = effectiveStart;
+    }
+    if (y === asOfYear && m === asOfMonth) {
+      periodEnd = asOf;
+    }
+
+    const serviceDays = inclusiveDaySpan(periodStart, periodEnd);
+    if (serviceDays > 0) {
+      const leaveDays = countApprovedLeaveDaysInMonth(leaves, y, m, context?.employeeId, context?.employeeCode);
+      const leaveInService = Math.min(leaveDays, serviceDays);
+      const workDays = Math.max(0, serviceDays - leaveInService);
+      totalAccrued += (workDays / calendarDays) * ACCRUAL_2026_MONTHLY_RATE;
+    }
+
     m += 1;
     if (m > 11) {
       m = 0;
@@ -76,9 +171,7 @@ export function computeAccrual2026Unified(
     }
   }
 
-  const accrued = Math.min(ACCRUAL_2026_ANNUAL_CAP, eligibleMonths * ACCRUAL_2026_MONTHLY_RATE);
-
-  return cleanAccrualDays(accrued);
+  return cleanAccrualDays(Math.min(ACCRUAL_2026_ANNUAL_CAP, totalAccrued));
 }
 
 /** Extract hire/join date string from employee-like objects. */
