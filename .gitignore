@@ -10,3 +10,8 @@ dist/
 server.cjs
 server.cjs.map
 
+# Manar license PDFs (metadata JSON is committed after review)
+scripts/data/manar-licenses-inbox/*
+!scripts/data/manar-licenses-inbox/README.md
+scripts/data/manar-facility-licenses.json
+

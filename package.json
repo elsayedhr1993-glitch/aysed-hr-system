@@ -31,7 +31,9 @@
     "fanar:list-employees": "tsx scripts/list-fanar-employees-admin.ts",
     "contracts:report": "tsx scripts/report-contracts-vs-employees-admin.ts",
     "contracts:dedupe": "tsx scripts/dedupe-duplicate-contracts-admin.ts --all-companies",
-    "manar:apply-licenses": "tsx scripts/apply-manar-facility-licenses-admin.ts scripts/data/manar-facility-licenses.json"
+    "manar:apply-licenses": "tsx scripts/apply-manar-facility-licenses-admin.ts scripts/data/manar-facility-licenses.json",
+    "manar:import-licenses": "tsx scripts/import-manar-licenses-from-inbox.ts --apply",
+    "manar:probe-licenses": "tsx scripts/probe-manar-licenses-admin.ts"
   },
   "dependencies": {
     "@fontsource/cairo": "^5.3.0",
