@@ -32,6 +32,7 @@
     "contracts:report": "tsx scripts/report-contracts-vs-employees-admin.ts",
     "contracts:dedupe": "tsx scripts/dedupe-duplicate-contracts-admin.ts --all-companies",
     "manar:apply-licenses": "tsx scripts/apply-manar-facility-licenses-admin.ts scripts/data/manar-facility-licenses.json",
+    "manar:upload-license-pdfs": "tsx scripts/upload-manar-license-pdfs-admin.ts --apply-firestore",
     "manar:import-licenses": "tsx scripts/import-manar-licenses-from-inbox.ts --apply",
     "manar:probe-licenses": "tsx scripts/probe-manar-licenses-admin.ts"
   },

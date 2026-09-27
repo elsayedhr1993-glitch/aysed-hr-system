@@ -3,6 +3,10 @@ import { DocumentItem, Employee, Company } from '../../types';
 import { X, Printer } from 'lucide-react';
 import { OfficialA4CompanyLetterhead } from '../print/OfficialA4CompanyLetterhead';
 import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
+import {
+  employeeDocumentTypeLabel,
+  validityBadgeLabelFromEmployeeStatus,
+} from '../../utils/documentDisplayLabels';
 
 interface DocumentCompliancePrintModalProps {
   isOpen: boolean;
@@ -113,48 +117,53 @@ export const DocumentCompliancePrintModal: React.FC<DocumentCompliancePrintModal
 
           {/* Documents Table */}
           <div className="overflow-hidden border border-slate-300 rounded-lg mb-6">
-            <table className="w-full text-right text-xs">
+            <table className="w-full text-right text-xs table-fixed">
               <thead className="bg-slate-100 font-bold text-slate-700 border-b border-slate-300">
                 <tr>
-                  <th className="p-2.5 w-10 text-center">#</th>
-                  <th className="p-2.5">اسم المستند / الوثيقة</th>
-                  <th className="p-2.5">الموظف المعني</th>
-                  <th className="p-2.5 font-mono">الرقم المدني</th>
-                  <th className="p-2.5">القسم</th>
-                  <th className="p-2.5 font-mono">تاريخ الانتهاء</th>
-                  <th className="p-2.5 text-center">حالة السريان</th>
+                  <th className="p-2 w-10 text-center">#</th>
+                  <th className="p-2 w-[18%]">نوع الوثيقة</th>
+                  <th className="p-2 w-[22%]">الموظف المعني</th>
+                  <th className="p-2 font-mono w-[14%]">الرقم المدني</th>
+                  <th className="p-2 w-[14%]">القسم</th>
+                  <th className="p-2 font-mono w-[12%]">تاريخ الانتهاء</th>
+                  <th className="p-2 text-center w-[10%]">حالة السريان</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
                 {documents.map((doc, idx) => {
                   const emp = employees.find(e => e.id === doc.employeeId);
-                  
-                  let days = null;
-                  let statusBadge = 'ساري';
-                  let statusColor = 'text-emerald-700 bg-emerald-50';
 
+                  let isExpired = false;
                   if (doc.expiryDate) {
-                    const diff = Math.ceil((new Date(doc.expiryDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-                    days = diff;
-                    if (diff < 0) {
-                      statusBadge = `منتهي (${Math.abs(diff)} يوم)`;
-                      statusColor = 'text-rose-700 bg-rose-50 font-bold';
-                    } else if (diff <= 60) {
-                      statusBadge = `ينتهي قريباً (${diff} يوم)`;
-                      statusColor = 'text-amber-700 bg-amber-50 font-bold';
-                    }
+                    const diff = Math.ceil(
+                      (new Date(doc.expiryDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+                    );
+                    isExpired = diff < 0;
                   }
+
+                  const statusBadge = validityBadgeLabelFromEmployeeStatus(
+                    isExpired ? 'expired' : 'active'
+                  );
+                  const statusColor = isExpired
+                    ? 'text-rose-700 bg-rose-50 font-bold'
+                    : 'text-emerald-700 bg-emerald-50';
+
+                  const typeLabel = employeeDocumentTypeLabel(doc);
 
                   return (
                     <tr key={doc.id} className={idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}>
-                      <td className="p-2 text-center text-slate-400 font-mono">{idx + 1}</td>
-                      <td className="p-2 font-bold text-slate-900">{doc.title}</td>
-                      <td className="p-2 text-slate-800">{emp ? emp.fullNameAr : 'وثيقة منشأة عامة'}</td>
-                      <td className="p-2 font-mono text-slate-600">{emp?.civilId || '—'}</td>
-                      <td className="p-2 text-slate-600">{emp?.department || '—'}</td>
-                      <td className="p-2 font-mono text-slate-800 font-bold">{doc.expiryDate || '—'}</td>
-                      <td className="p-2 text-center">
-                        <span className={`px-2 py-0.5 rounded text-[11px] ${statusColor}`}>
+                      <td className="p-2 text-center text-slate-400 font-mono whitespace-nowrap">{idx + 1}</td>
+                      <td className="p-2 font-bold text-slate-900 whitespace-nowrap truncate max-w-0" title={typeLabel}>
+                        {typeLabel}
+                      </td>
+                      <td className="p-2 text-slate-800 whitespace-nowrap truncate max-w-0" title={emp?.fullNameAr || ''}>
+                        {emp ? emp.fullNameAr : 'وثيقة منشأة عامة'}
+                      </td>
+                      <td className="p-2 font-mono text-slate-600 whitespace-nowrap">{emp?.civilId || '—'}</td>
+                      <td className="p-2 text-slate-600 whitespace-nowrap truncate max-w-0">{emp?.department || '—'}</td>
+                      <td className="p-2 font-mono text-slate-800 font-bold whitespace-nowrap">{doc.expiryDate || '—'}</td>
+                      <td className="p-2 text-center whitespace-nowrap">
+                        <span className={`inline-block px-2 py-0.5 rounded text-[11px] ${statusColor}`}>
                           {statusBadge}
                         </span>
                       </td>

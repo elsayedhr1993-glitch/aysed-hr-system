@@ -14,6 +14,10 @@ import {
   resolveEmployeeDisplayName,
 } from '../utils/employeeDisplayName';
 import { resolveTenantCompanyId } from '../utils/tenantCompanyId';
+import {
+  employeeDocumentTypeLabel,
+  validityBadgeLabelFromEmployeeStatus,
+} from '../utils/documentDisplayLabels';
 import { contractQueryCompanyIds, normalizeTenantCompanyId } from '../utils/contractTenantRules';
 import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
 import { syncTenantLicensesAndCompanyProfile } from '../services/companyLicenseSync';
@@ -720,8 +724,9 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
                           <h4 
                             onClick={() => setSelectedDocForPreview(doc)}
                             className="font-bold text-slate-900 text-sm line-clamp-1 hover:text-[#714B67] cursor-pointer transition"
+                            title={doc.title}
                           >
-                            {doc.title}
+                            {employeeDocumentTypeLabel(doc)}
                           </h4>
 
                           <div className="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
@@ -741,18 +746,16 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
                         </div>
 
                         {/* Card Footer: Expiry Badge & Date */}
-                        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs gap-2">
                           {doc.expiryDate ? (
-                            <span className={`text-[10px] px-2 py-0.5 rounded-md border ${badgeClass} font-mono`}>
-                              {doc.daysToExpiry !== null && (
-                                <span>{doc.daysToExpiry > 0 ? `متبقي ${doc.daysToExpiry} يوم` : `منتهي (${Math.abs(doc.daysToExpiry)} يوم)`}</span>
-                              )}
+                            <span className={`text-[10px] px-2 py-0.5 rounded-md border ${badgeClass} shrink-0`}>
+                              {validityBadgeLabelFromEmployeeStatus(doc.currentStatus)}
                             </span>
                           ) : (
-                            <span className="text-[10px] text-slate-400">بدون انتهاء</span>
+                            <span className="text-[10px] text-slate-400 shrink-0">بدون انتهاء</span>
                           )}
 
-                          <span className="text-[11px] font-mono text-slate-400">
+                          <span className="text-[11px] font-mono text-slate-500 whitespace-nowrap">
                             {doc.expiryDate || '—'}
                           </span>
                         </div>
@@ -783,14 +786,12 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
                     <tbody className="divide-y divide-slate-100">
                       {filteredDocs.map((doc, idx) => {
                         let badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-                        let badgeText = 'ساري المفعول';
+                        const badgeText = validityBadgeLabelFromEmployeeStatus(doc.currentStatus);
 
                         if (doc.currentStatus === 'expired') {
                           badgeColor = 'bg-rose-50 text-rose-700 border-rose-200 font-bold';
-                          badgeText = 'منتهي الصلاحية';
                         } else if (doc.currentStatus === 'near_expiry') {
                           badgeColor = 'bg-amber-50 text-amber-800 border-amber-200 font-bold';
-                          badgeText = 'يوشك على الانتهاء';
                         }
 
                         return (
@@ -800,9 +801,10 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
                                 <FileText className="w-4 h-4 text-[#714B67]" />
                                 <span 
                                   onClick={() => setSelectedDocForPreview(doc)} 
-                                  className="hover:text-[#714B67] cursor-pointer"
+                                  className="hover:text-[#714B67] cursor-pointer whitespace-nowrap"
+                                  title={doc.title}
                                 >
-                                  {doc.title}
+                                  {employeeDocumentTypeLabel(doc)}
                                 </span>
                               </div>
                             </td>

@@ -16,7 +16,6 @@ import {
   Download,
   X,
   Shield,
-  Building,
   LayoutGrid,
   List,
   FileSpreadsheet,
@@ -334,49 +333,49 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
       {viewMode === 'kanban' && filteredDocs.length > 0 && (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {filteredDocs.map((doc) => {
-          const { badgeColor, badgeLabel, status, daysRemaining } = getDocumentStatus(doc.expiryDate);
+          const { badgeColor, badgeLabel, status } = getDocumentStatus(doc.expiryDate, {
+            compactLabel: true,
+          });
 
           return (
             <div 
               key={doc.id} 
-              className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all p-5 flex flex-col justify-between group">
+              className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all p-4 flex flex-col justify-between group min-h-[168px]">
               
-              <div>
-                <div className="flex justify-between items-start mb-3">
-                  <span className={`text-xs px-2.5 py-1 rounded-full font-semibold border ${badgeColor}`}>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center gap-2">
+                  <span className={`text-[11px] px-2 py-0.5 rounded-full font-semibold border shrink-0 ${badgeColor}`}>
                     {badgeLabel}
                   </span>
-                  <span className="text-xs text-slate-400 font-mono bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
-                    #{doc.documentNumber}
+                  <span className="text-[11px] text-slate-500 font-mono truncate" title={doc.documentNumber}>
+                    {doc.documentNumber}
                   </span>
                 </div>
 
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-[#714B67] mb-1">
-                  <Building className="w-3.5 h-3.5" />
-                  <span>{formatCompanyDocumentType(doc.documentType)}</span>
-                </div>
-
-                <h3 className="font-bold text-slate-900 text-base mb-1 group-hover:text-[#714B67] transition">
+                <h3
+                  className="font-bold text-slate-900 text-sm leading-snug line-clamp-2 group-hover:text-[#714B67] transition"
+                  title={doc.name}
+                >
                   {doc.name}
                 </h3>
-                <p className="text-xs text-slate-500 mb-4">{doc.issuingAuthority}</p>
 
-                <div className="space-y-2 text-xs text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">تاريخ الإصدار:</span>
-                    <span className="font-medium font-mono">{doc.issueDate}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">تاريخ الانتهاء:</span>
-                    <span className={`font-medium font-mono ${status === 'expired' ? 'text-red-600 font-bold' : status === 'expiring_soon' ? 'text-amber-600 font-bold' : 'text-emerald-700'}`}>
-                      {doc.expiryDate}
-                    </span>
-                  </div>
-                  {doc.notes && (
-                    <div className="text-[11px] text-slate-500 pt-1 border-t border-slate-200/40 italic">
-                      {doc.notes}
-                    </div>
-                  )}
+                <p className="text-xs text-slate-500 truncate" title={doc.issuingAuthority}>
+                  {doc.issuingAuthority}
+                </p>
+
+                <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
+                  <span className="text-slate-400 shrink-0">تاريخ الانتهاء</span>
+                  <span
+                    className={`font-mono font-semibold whitespace-nowrap ${
+                      status === 'expired'
+                        ? 'text-rose-600'
+                        : status === 'expiring_soon'
+                          ? 'text-amber-600'
+                          : 'text-slate-700'
+                    }`}
+                  >
+                    {doc.expiryDate || '—'}
+                  </span>
                 </div>
               </div>
 
@@ -451,7 +450,9 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredDocs.map(doc => {
-                const { badgeColor, badgeLabel, status } = getDocumentStatus(doc.expiryDate);
+                const { badgeColor, badgeLabel, status } = getDocumentStatus(doc.expiryDate, {
+                  compactLabel: true,
+                });
                 return (
                   <tr key={doc.id} className="hover:bg-slate-50/80">
                     <td className="p-3 font-bold text-slate-900">{doc.name}</td>
@@ -689,8 +690,18 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
                 </div>
                 {detailDoc.notes && (
                   <div>
-                    <span className="text-slate-400 block mb-0.5">ملاحظات:</span>
-                    <p className="p-2 bg-slate-50 rounded border border-slate-100 text-slate-600">{detailDoc.notes}</p>
+                    <span className="text-slate-400 block mb-0.5">ملاحظات وتفاصيل المصدر:</span>
+                    <p className="p-2 bg-slate-50 rounded border border-slate-100 text-slate-600 text-[11px] leading-relaxed whitespace-pre-wrap break-words">
+                      {detailDoc.notes}
+                    </p>
+                  </div>
+                )}
+                {detailDoc.fileUrl && detailDoc.fileUrl !== '#' && (
+                  <div>
+                    <span className="text-slate-400 block mb-0.5">رابط الملف:</span>
+                    <p className="p-2 bg-slate-50 rounded border border-slate-100 text-slate-500 text-[10px] font-mono break-all">
+                      {detailDoc.fileUrl}
+                    </p>
                   </div>
                 )}
               </div>

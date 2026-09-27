@@ -39,9 +39,24 @@ export function formatCompanyDocumentType(documentType: string): string {
   return COMPANY_DOCUMENT_TYPE_LABELS[key] || key;
 }
 
+export type DocumentValidityStatus = 'valid' | 'expiring_soon' | 'expired';
+
+export type GetDocumentStatusOptions = {
+  /** شارة مختصرة للكانبان والطباعة: ساري | منتهي */
+  compactLabel?: boolean;
+};
+
+/** شارة سريان مختصرة (أودو) */
+export function validityLabelShort(status: DocumentValidityStatus): 'ساري' | 'منتهي' {
+  return status === 'expired' ? 'منتهي' : 'ساري';
+}
+
 // دالة حساب الحالة والتنبيهات بأسلوب Odoo (Computed Status)
-export function getDocumentStatus(expiryDateStr: string): {
-  status: 'valid' | 'expiring_soon' | 'expired';
+export function getDocumentStatus(
+  expiryDateStr: string,
+  options?: GetDocumentStatusOptions
+): {
+  status: DocumentValidityStatus;
   daysRemaining: number;
   badgeColor: string;
   badgeLabel: string;
@@ -54,28 +69,30 @@ export function getDocumentStatus(expiryDateStr: string): {
   const diffTime = expiryDate.getTime() - today.getTime();
   const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
+  let status: DocumentValidityStatus;
+  let badgeColor: string;
+
   if (daysRemaining < 0) {
-    return {
-      status: 'expired',
-      daysRemaining,
-      badgeColor: 'bg-rose-100 text-rose-800 border-rose-300',
-      badgeLabel: `منتهي منذ ${Math.abs(daysRemaining)} يوم`
-    };
+    status = 'expired';
+    badgeColor = 'bg-rose-100 text-rose-800 border-rose-300';
   } else if (daysRemaining <= 60) {
-    return {
-      status: 'expiring_soon',
-      daysRemaining,
-      badgeColor: 'bg-amber-100 text-amber-800 border-amber-300',
-      badgeLabel: `ينتهي خلال ${daysRemaining} يوم`
-    };
+    status = 'expiring_soon';
+    badgeColor = 'bg-amber-100 text-amber-800 border-amber-300';
   } else {
-    return {
-      status: 'valid',
-      daysRemaining,
-      badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-300',
-      badgeLabel: 'ساري المفعول'
-    };
+    status = 'valid';
+    badgeColor = 'bg-emerald-100 text-emerald-800 border-emerald-300';
   }
+
+  const compact = options?.compactLabel === true;
+  const badgeLabel = compact
+    ? validityLabelShort(status)
+    : status === 'expired'
+      ? `منتهي منذ ${Math.abs(daysRemaining)} يوم`
+      : status === 'expiring_soon'
+        ? `ينتهي خلال ${daysRemaining} يوم`
+        : 'ساري المفعول';
+
+  return { status, daysRemaining, badgeColor, badgeLabel };
 }
 
 export interface CompanyDocumentAlert {

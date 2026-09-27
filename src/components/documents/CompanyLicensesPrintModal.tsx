@@ -80,7 +80,7 @@ export const CompanyLicensesPrintModal: React.FC<CompanyLicensesPrintModalProps>
             </span>
           </div>
 
-          <table className="w-full text-right text-xs border border-slate-300 rounded-lg overflow-hidden">
+          <table className="w-full text-right text-xs border border-slate-300 rounded-lg overflow-hidden table-fixed">
             <thead className="bg-slate-100 font-bold text-slate-700">
               <tr>
                 <th className="p-2 w-8 text-center">#</th>
@@ -94,7 +94,7 @@ export const CompanyLicensesPrintModal: React.FC<CompanyLicensesPrintModalProps>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {documents.map((doc, idx) => {
-                const { badgeLabel, status } = getDocumentStatus(doc.expiryDate);
+                const { badgeLabel, status } = getDocumentStatus(doc.expiryDate, { compactLabel: true });
                 const rowClass =
                   status === 'expired'
                     ? 'text-rose-800'
@@ -104,12 +104,12 @@ export const CompanyLicensesPrintModal: React.FC<CompanyLicensesPrintModalProps>
                 return (
                   <tr key={doc.id} className={idx % 2 === 1 ? 'bg-slate-50/60' : ''}>
                     <td className="p-2 text-center text-slate-400">{idx + 1}</td>
-                    <td className="p-2 font-bold">{doc.name}</td>
-                    <td className="p-2">{formatCompanyDocumentType(doc.documentType)}</td>
-                    <td className="p-2 font-mono">{doc.documentNumber}</td>
-                    <td className="p-2">{doc.issuingAuthority}</td>
-                    <td className="p-2 font-mono">{doc.expiryDate}</td>
-                    <td className={`p-2 text-center text-[11px] font-semibold ${rowClass}`}>{badgeLabel}</td>
+                    <td className="p-2 font-bold whitespace-nowrap truncate max-w-0" title={doc.name}>{doc.name}</td>
+                    <td className="p-2 whitespace-nowrap truncate max-w-0">{formatCompanyDocumentType(doc.documentType)}</td>
+                    <td className="p-2 font-mono whitespace-nowrap">{doc.documentNumber}</td>
+                    <td className="p-2 whitespace-nowrap truncate max-w-0" title={doc.issuingAuthority}>{doc.issuingAuthority}</td>
+                    <td className="p-2 font-mono whitespace-nowrap">{doc.expiryDate}</td>
+                    <td className={`p-2 text-center text-[11px] font-semibold whitespace-nowrap ${rowClass}`}>{badgeLabel}</td>
                   </tr>
                 );
               })}

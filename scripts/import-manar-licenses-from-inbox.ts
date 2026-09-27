@@ -28,6 +28,13 @@ const SLUG_BY_HINT: Array<{ hint: RegExp; id: string; documentType: string; name
     authority: 'وزارة الصحة — دولة الكويت',
   },
   {
+    hint: /مرور|traffic/i,
+    id: `lic-${COMPANY_ID}-traffic`,
+    documentType: 'اعتماد مرور',
+    name: 'اعتماد مرور',
+    authority: 'بلدية الكويت',
+  },
+  {
     hint: /بلد|municip|baladiya/i,
     id: `lic-${COMPANY_ID}-baladiya`,
     documentType: 'رخصة بلدية',
@@ -47,6 +54,13 @@ const SLUG_BY_HINT: Array<{ hint: RegExp; id: string; documentType: string; name
     documentType: 'signature_auth',
     name: 'شهادة اعتماد توقيع صاحب عمل',
     authority: 'الهيئة العامة للقوى العاملة',
+  },
+  {
+    hint: /iban|ايبان|آيبان|حساب|account|nbk|nbok/i,
+    id: `lic-${COMPANY_ID}-bank-iban`,
+    documentType: 'حساب بنكي / آيبان',
+    name: 'شهادة رقم حساب وآيبان',
+    authority: 'بيت التمويل الكويتي (Kuwait Finance House)',
   },
   {
     hint: /pam|قوى|شؤون|wps|workforce/i,

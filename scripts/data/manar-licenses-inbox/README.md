@@ -11,4 +11,7 @@ npx tsx scripts/import-manar-licenses-from-inbox.ts --apply
 
 ```bash
 npm run manar:apply-licenses
+npm run manar:upload-license-pdfs   # بعد تفعيل Firebase Storage
 ```
+
+ملف الآيبان البنكي: `manar-clinic-kfh-account-iban.pdf` (بيت التمويل الكويتي — KFH).
