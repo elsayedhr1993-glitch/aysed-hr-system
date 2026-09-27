@@ -757,18 +757,11 @@ export function getGlobalCompensatoryDays(emp: any): number {
             const specific = compAllocs.filter((a: any) => a.id && a.id.startsWith('alloc-comp-hwr-'));
             const listToCount = specific.length > 0 ? specific : compAllocs;
 
-            const dateMap = new Map<string, number>();
-            listToCount.forEach((a: any) => {
-              const key = a.dateFrom || (a.id && !a.id.includes('holiday') ? a.id : 'default_comp');
-              const days = Number(a.numberOfDays) || 0;
-              if (!dateMap.has(key) || dateMap.get(key)! < days) {
-                dateMap.set(key, days);
-              }
-            });
-
             let allocDays = 0;
-            dateMap.forEach(v => { allocDays += v; });
-            return allocDays;
+            listToCount.forEach((a: any) => {
+              allocDays += Number(a.numberOfDays ?? a.days ?? 0) || 0;
+            });
+            return Number(allocDays.toFixed(2));
           }
         }
       }

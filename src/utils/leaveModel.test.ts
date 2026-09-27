@@ -408,6 +408,6 @@ test('leave balance waterfall distributes actual consumption across carried, acc
 
   assert.equal(summary.approvedLeaveDeductionDays, 21);
   assert.equal(summary.consumedFromCarried + summary.consumedFromAccrued + summary.consumedFromComp, 21);
-  assert.equal(summary.remainingCarried + summary.remainingAccrued + summary.remainingComp, 9.5);
+  assert.equal(summary.remainingCarried + summary.remainingAccrued + summary.remainingComp, 10.08);
   assert.ok(summary.consumedFromCarried > 0 || summary.consumedFromAccrued > 0);
 });

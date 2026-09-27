@@ -143,6 +143,53 @@ function distributePaidLeaveAcrossBuckets(
   };
 }
 
+function isCompensatoryLeaveAllocation(allocation: HrLeaveAllocation & Record<string, unknown>): boolean {
+  const state = String(allocation.state || allocation.status || '').toLowerCase();
+  const allowedState = ['approved', 'validate', 'validated', 'confirm', 'done', ''];
+  if (!allowedState.includes(state)) return false;
+
+  const allocationType = String(allocation.allocationType || '').toLowerCase();
+  const name = String(allocation.name || '').toLowerCase();
+  const notes = String(allocation.notes || allocation.name || '').toLowerCase();
+  const leaveType = normalizeLeaveType(String(allocation.leaveType || ''));
+
+  if (allocationType === 'regular' || allocationType === 'carried_over') return false;
+  if (leaveType === 'COMPENSATORY') return true;
+  if (
+    allocationType === 'accrual' &&
+    /استحقاق|accrual|شهري|monthly/i.test(name) &&
+    !/عطلة|holiday|تعويض/i.test(notes) &&
+    !/عطلة|holiday|تعويض/i.test(name)
+  ) {
+    return false;
+  }
+
+  const isCompType =
+    allocationType === 'compensatory_off' ||
+    allocationType === 'compensatory' ||
+    allocationType === 'holiday_comp' ||
+    allocationType === 'holiday';
+  const isHolidayAccrual =
+    allocationType === 'accrual' &&
+    /عطلة|تعويض|مادة\s*68|holiday|إضافة للرصيد|comp[- ]?off/i.test(`${notes} ${name}`);
+  const isCompLabel = /تعويضي|عطلة|compensatory|comp_off|day in lieu|مادة\s*68|بديل/i.test(`${notes} ${name}`);
+  return isCompType || isCompLabel || isHolidayAccrual;
+}
+
+export function sumCompensatoryFromAllocations(
+  employee: Employee,
+  allocations: HrLeaveAllocation[] = []
+): number {
+  let total = 0;
+  for (const allocation of allocations || []) {
+    const row = allocation as HrLeaveAllocation & Record<string, unknown>;
+    if (!matchesEmployeeIdentity(row, employee)) continue;
+    if (!isCompensatoryLeaveAllocation(row)) continue;
+    total += Number(row.numberOfDays ?? row.days ?? 0) || 0;
+  }
+  return cleanDayDecimals(total);
+}
+
 function resolveHolidayCompensationDays(
   employee: Employee,
   allocations: HrLeaveAllocation[] = []
@@ -151,38 +198,18 @@ function resolveHolidayCompensationDays(
   const companyId = String((employee as any).companyId || (employee as any).company_id || '').trim();
   const fromLedger = employeeId ? getApprovedHolidayWorkBalanceDays(employeeId, companyId || undefined) : 0;
   const ledgerCompDays = Number(getGlobalCompensatoryDays(employee) ?? 0);
-  const allocationCompDays = (allocations || [])
-    .filter((allocation: any) => {
-      if (!matchesEmployeeIdentity(allocation, employee)) return false;
-      const state = String(allocation.state || allocation.status || '').toLowerCase();
-      const allowedState = ['approved', 'validate', 'validated', 'confirm', 'done', ''];
-      if (!allowedState.includes(state)) return false;
-      const allocationType = String(allocation.allocationType || '').toLowerCase();
-      const name = String(allocation.name || '').toLowerCase();
-      const notes = String(allocation.notes || allocation.name || '').toLowerCase();
-      if (allocationType === 'regular' || allocationType === 'carried_over') return false;
-      if (allocationType === 'accrual' && /استحقاق|accrual|شهري|monthly/i.test(name) && !/عطلة|holiday|تعويض/i.test(notes)) {
-        return false;
-      }
-      const isCompType =
-        allocationType === 'compensatory_off' ||
-        allocationType === 'compensatory' ||
-        allocationType === 'holiday_comp' ||
-        allocationType === 'holiday';
-      const isHolidayAccrual =
-        allocationType === 'accrual' &&
-        /عطلة|تعويض|مادة\s*68|holiday|إضافة للرصيد|comp[- ]?off/i.test(notes);
-      const isCompLabel = /تعويضي|عطلة|compensatory|comp_off|day in lieu|مادة\s*68/i.test(notes);
-      return isCompType || isCompLabel || isHolidayAccrual;
-    })
-    .reduce((sum, allocation: any) => sum + Number(allocation.numberOfDays ?? allocation.days ?? 0), 0);
+  const allocTotal = sumCompensatoryFromAllocations(employee, allocations);
 
-  const ledgerTotal = Math.max(Number(fromLedger || 0), Number(ledgerCompDays || 0));
-  const allocTotal = Number(allocationCompDays || 0);
   if (allocTotal > 0) {
-    return cleanDayDecimals(Math.max(allocTotal, ledgerTotal));
+    return allocTotal;
   }
+  const ledgerTotal = Math.max(Number(fromLedger || 0), Number(ledgerCompDays || 0));
   return cleanDayDecimals(ledgerTotal);
+}
+
+/** Live 2026 accrual (proportional); do not use stale `accruedAnnualLeave` on the employee record. */
+function resolveAccruedAnnualDays(employee: Employee, leaves: LeaveRequest[] = []): number {
+  return cleanDayDecimals(Number(getGlobalAccrued2026(employee, new Date(), leaves) ?? 0));
 }
 
 export function aggregateAnnualLeaveDeductions(
@@ -355,9 +382,7 @@ export function buildUnifiedLeaveSummary(
 ): EmployeeLeaveSummary {
   const approvedLeaves = getApprovedEmployeeLeaveRequests(employee, leaves);
   const carriedOverDays = resolveCarriedOverDays(employee, allocations);
-  const accruedAnnualDays = Number(
-    (employee as any).accruedAnnualLeave ?? getGlobalAccrued2026(employee, new Date(), leaves) ?? 0
-  );
+  const accruedAnnualDays = resolveAccruedAnnualDays(employee, leaves);
   const holidayCompensationDays = resolveHolidayCompensationDays(employee, allocations);
   const manualAdjustments = 0;
   const grossPool = Number((carriedOverDays + accruedAnnualDays + holidayCompensationDays + manualAdjustments).toFixed(2));
@@ -468,8 +493,7 @@ export function buildLeaveRecordsFromEmployee(
   const allowances = Number((employee as any).housingAllowance ?? 0) + Number((employee as any).transportAllowance ?? 0) + Number((employee as any).otherAllowance ?? 0) + Number((employee as any).otherAllowances ?? 0);
 
   const carriedOver = resolveCarriedOverDays(employee, allocations);
-  const accrued2026 =
-    Number((employee as any).accruedAnnualLeave ?? getGlobalAccrued2026(employee, new Date(), leaves) ?? 0) || 0;
+  const accrued2026 = resolveAccruedAnnualDays(employee, leaves) || 0;
   const compensatoryDays = Number(getGlobalCompensatoryDays(employee) ?? 0) || 0;
   const recordMap: LeaveRecord[] = [];
 
