@@ -1,5 +1,5 @@
 import { Employee, Contract, LeaveRequest, HrLeaveAllocation } from '../types';
-import { getGlobalOpeningBalance, getGlobalAccrued2026, getGlobalCompensatoryDays } from './kuwaitLaw';
+import { getCarriedOverBalance, getGlobalOpeningBalance, getGlobalAccrued2026, getGlobalCompensatoryDays } from './kuwaitLaw';
 import { getApprovedHolidayWorkBalanceDays } from '../services/leaveBalanceLedgerService';
 import { computeFifoLeaveAllocations, buildEmployeeBaselineAllocations } from '../services/leaveService';
 import { normalizeLeaveStatus, normalizeLeaveType } from './leaveModel';
@@ -272,6 +272,67 @@ export function calculateUnifiedLeaveBalance(
   };
 }
 
+function isCarriedOverAllocation(allocation: HrLeaveAllocation & Record<string, unknown>): boolean {
+  const type = String(allocation.allocationType || allocation.type || '').toLowerCase();
+  const name = String(allocation.name || allocation.notes || '');
+  const dateFrom = String(allocation.dateFrom || allocation.allocationDate || '');
+  const fromYear = String(allocation.fromYear || '');
+  return (
+    type === 'carried_over' ||
+    (type === 'regular' &&
+      (name.includes('مرحل') ||
+        name.includes('افتتاحي') ||
+        fromYear === '2025' ||
+        dateFrom.startsWith('2025') ||
+        String(allocation.id || '').includes('opening-balance')))
+  );
+}
+
+/** Sum carried-over days from Firestore `leave_allocations` (SSOT when employee scalar fields are empty). */
+export function sumCarriedOverFromAllocations(
+  employee: Employee,
+  allocations: HrLeaveAllocation[] = []
+): number {
+  let total = 0;
+  for (const allocation of allocations || []) {
+    const row = allocation as HrLeaveAllocation & Record<string, unknown>;
+    if (!matchesEmployeeIdentity(row, employee)) continue;
+    if (!isCarriedOverAllocation(row)) continue;
+    const state = String(row.state || 'validate').toLowerCase();
+    if (state === 'rejected' || state === 'cancelled' || state === 'cancel') continue;
+    const days = Number(row.numberOfDays ?? row.days ?? 0) || 0;
+    total += days;
+  }
+  return cleanDayDecimals(total);
+}
+
+/**
+ * Carried balance: explicit employee fields first; otherwise allocations (`carried_over` / opening rows).
+ */
+export function resolveCarriedOverDays(
+  employee: Employee,
+  allocations: HrLeaveAllocation[] = []
+): number {
+  const emp = employee as Record<string, unknown>;
+  const hasExplicitScalar =
+    (emp.carriedOverLeave2025 !== undefined && emp.carriedOverLeave2025 !== null && emp.carriedOverLeave2025 !== '') ||
+    (emp.carriedOverBalance !== undefined && emp.carriedOverBalance !== null && emp.carriedOverBalance !== '') ||
+    (emp.openingBalance !== undefined && emp.openingBalance !== null && emp.openingBalance !== '') ||
+    (emp.openingLeaveBalance !== undefined && emp.openingLeaveBalance !== null && emp.openingLeaveBalance !== '') ||
+    (emp.aysed_carried_over !== undefined && emp.aysed_carried_over !== null && emp.aysed_carried_over !== '');
+
+  if (hasExplicitScalar) {
+    return cleanDayDecimals(getCarriedOverBalance(employee));
+  }
+
+  const fromAllocations = sumCarriedOverFromAllocations(employee, allocations);
+  if (fromAllocations > 0) {
+    return fromAllocations;
+  }
+
+  return cleanDayDecimals(getCarriedOverBalance(employee));
+}
+
 export function buildUnifiedLeaveSummary(
   employee: Employee,
   allocations: HrLeaveAllocation[] = [],
@@ -279,7 +340,7 @@ export function buildUnifiedLeaveSummary(
   contract?: Contract
 ): EmployeeLeaveSummary {
   const approvedLeaves = getApprovedEmployeeLeaveRequests(employee, leaves);
-  const carriedOverDays = Number((employee as any).carriedOverBalance ?? (employee as any).carriedOverLeave2025 ?? getGlobalOpeningBalance(employee) ?? 0);
+  const carriedOverDays = resolveCarriedOverDays(employee, allocations);
   const accruedAnnualDays = Number(
     (employee as any).accruedAnnualLeave ?? getGlobalAccrued2026(employee, new Date(), leaves) ?? 0
   );
@@ -392,7 +453,7 @@ export function buildLeaveRecordsFromEmployee(
   const basicSalary = Number((employee as any).basicSalary ?? (employee as any).basic_salary ?? (employee as any).salary ?? 0) || 0;
   const allowances = Number((employee as any).housingAllowance ?? 0) + Number((employee as any).transportAllowance ?? 0) + Number((employee as any).otherAllowance ?? 0) + Number((employee as any).otherAllowances ?? 0);
 
-  const carriedOver = Number((employee as any).carriedOverBalance ?? (employee as any).carriedOverLeave2025 ?? getGlobalOpeningBalance(employee) ?? 0) || 0;
+  const carriedOver = resolveCarriedOverDays(employee, allocations);
   const accrued2026 =
     Number((employee as any).accruedAnnualLeave ?? getGlobalAccrued2026(employee, new Date(), leaves) ?? 0) || 0;
   const compensatoryDays = Number(getGlobalCompensatoryDays(employee) ?? 0) || 0;

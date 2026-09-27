@@ -305,7 +305,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
   const getCarriedOverForDisplay = () => {
     try {
       const summary = getLeaveEngineSummary();
-      return Number(summary.remainingCarried ?? summary.carriedOverDays ?? 0);
+      return Number(summary.carriedOverDays ?? summary.remainingCarried ?? 0);
     } catch {
       return getCarriedOverBalance(employee);
     }
