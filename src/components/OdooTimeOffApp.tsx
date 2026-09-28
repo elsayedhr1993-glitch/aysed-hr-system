@@ -58,7 +58,7 @@ import {
 import { normalizeLeaveStatus, normalizeLeaveType, isLeaveRequestInConflict, canTransitionLeaveStatus, isAnnualLeaveType } from '../utils/leaveModel';
 import { calculateKuwaitLeaveCashAmount } from '../utils/kuwaitPayrollMath';
 import { upsertLeaveAllocationToSupabase } from '../services/leaveSupabaseSync';
-import { HrLeaveAllocation } from '../types';
+import { HrLeaveAllocation, LeaveSettlementVoucher } from '../types';
 import { LEAVE_SCOPE_LABELS, type LeaveScope } from '../utils/leaveScopeAccrual';
 
 // Time Off Sub-components
@@ -148,10 +148,12 @@ export const OdooTimeOffApp: React.FC = () => {
 
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [allocations, setAllocations] = useState<LeaveAllocation[]>([]);
+  const [settlementVouchers, setSettlementVouchers] = useState<LeaveSettlementVoucher[]>([]);
 
   useEffect(() => {
     setRequests([]);
     setAllocations([]);
+    setSettlementVouchers([]);
     const requestsQuery = query(collection(db, 'leave_requests'), where('companyId', '==', companyId));
     const allocationsQuery = query(collection(db, 'leave_allocations'), where('companyId', '==', companyId));
     const unsubscribeRequests = onSnapshot(requestsQuery, snapshot => {
@@ -160,9 +162,20 @@ export const OdooTimeOffApp: React.FC = () => {
     const unsubscribeAllocations = onSnapshot(allocationsQuery, snapshot => {
       setAllocations(snapshot.docs.map(item => ({ ...item.data(), id: item.id } as LeaveAllocation)));
     }, error => console.error('Failed to load leave allocations from Firestore', error));
+    const settlementsQuery = query(collection(db, 'leave_settlements'), where('companyId', '==', companyId));
+    const unsubscribeSettlements = onSnapshot(
+      settlementsQuery,
+      (snapshot) => {
+        setSettlementVouchers(
+          snapshot.docs.map((item) => ({ ...(item.data() as import('../types').LeaveSettlementVoucher), id: item.id }))
+        );
+      },
+      (error) => console.error('Failed to load leave settlements from Firestore', error)
+    );
     return () => {
       unsubscribeRequests();
       unsubscribeAllocations();
+      unsubscribeSettlements();
     };
   }, [companyId]);
 
@@ -1865,6 +1878,7 @@ export const OdooTimeOffApp: React.FC = () => {
                 activeCompany={activeCompany as any}
                 leavePolicy={leavePolicy}
                 onUpdateAllocations={handleUpdateAllocations}
+                firestoreSettlementVouchers={settlementVouchers}
               />
             </div>
           )}

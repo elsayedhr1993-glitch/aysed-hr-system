@@ -76,6 +76,7 @@ async function main() {
     leave_settlements_count: settlements.length,
     leave_settlements: settlements.map((s) => ({
       id: s.id,
+      companyId: s.companyId,
       voucherNumber: s.voucherNumber,
       status: s.status,
       settlementMode: s.settlementMode,

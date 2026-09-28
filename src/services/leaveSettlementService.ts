@@ -715,6 +715,12 @@ function dedupeSettlementVouchers(vouchers: LeaveSettlementVoucher[]): LeaveSett
   );
 }
 
+export function isSettlementArchiveCompanyId(companyId?: string | null): boolean {
+  if (!companyId) return false;
+  const blocked = new Set(['comp-super-admin', 'all', 'SAAS_PLATFORM', '']);
+  return !blocked.has(companyId);
+}
+
 function filterVouchersByCompany(vouchers: LeaveSettlementVoucher[], companyId?: string): LeaveSettlementVoucher[] {
   if (!companyId || companyId === 'comp-super-admin' || companyId === 'all') {
     return vouchers;
@@ -732,7 +738,7 @@ function mapFirestoreSettlementDoc(id: string, data: Record<string, unknown>): L
 export async function fetchSettlementVouchersFromFirestore(
   companyId: string
 ): Promise<LeaveSettlementVoucher[]> {
-  if (!companyId || companyId === 'comp-super-admin' || companyId === 'all') {
+  if (!isSettlementArchiveCompanyId(companyId)) {
     return [];
   }
   const q = query(collection(db, 'leave_settlements'), where('companyId', '==', companyId));
@@ -746,7 +752,7 @@ export function subscribeLeaveSettlementVouchers(
   onData: (vouchers: LeaveSettlementVoucher[]) => void,
   onError?: (err: unknown) => void
 ): () => void {
-  if (!companyId || companyId === 'comp-super-admin' || companyId === 'all') {
+  if (!isSettlementArchiveCompanyId(companyId)) {
     onData([]);
     return () => undefined;
   }
@@ -758,9 +764,8 @@ export function subscribeLeaveSettlementVouchers(
       onData(dedupeSettlementVouchers(vouchers));
     },
     (err) => {
-      console.warn('[subscribeLeaveSettlementVouchers]', err);
+      console.error('[subscribeLeaveSettlementVouchers]', err);
       onError?.(err);
-      onData([]);
     }
   );
 }

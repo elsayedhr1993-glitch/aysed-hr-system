@@ -110,6 +110,8 @@ export interface LeaveSettlementCalculatorProps {
   onSaveLeave?: (leave: LeaveRequest) => void;
   onUpdateAllocations?: (updated: HrLeaveAllocation[]) => void;
   onUpdateEmployee?: (updated: Employee) => void;
+  /** When provided (e.g. from OdooTimeOffApp), SSOT listener lives on parent with same companyId as allocations */
+  firestoreSettlementVouchers?: LeaveSettlementVoucher[];
 }
 
 export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps> = ({
@@ -126,6 +128,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
   onSaveLeave,
   onUpdateAllocations,
   onUpdateEmployee,
+  firestoreSettlementVouchers,
 }) => {
   const { company: companyForPrint } = useCompanyForPrint(activeCompany?.id);
   const { lang, t } = useLang();
@@ -506,6 +509,11 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
   );
 
   useEffect(() => {
+    if (firestoreSettlementVouchers) {
+      setSavedVouchers(firestoreSettlementVouchers);
+      setVouchersLoading(false);
+      return;
+    }
     setVouchersLoading(true);
     const unsub = subscribeLeaveSettlementVouchers(
       activeCompany?.id,
@@ -513,10 +521,13 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
         setSavedVouchers(vouchers);
         setVouchersLoading(false);
       },
-      () => setVouchersLoading(false)
+      () => {
+        setVouchersLoading(false);
+        toast.error('تعذّر تحميل أرشيف سندات التسوية من Firestore — تحقق من الصلاحيات أو حدّث الصفحة');
+      }
     );
     return () => unsub();
-  }, [activeCompany?.id]);
+  }, [activeCompany?.id, firestoreSettlementVouchers]);
 
   // Compute Universal Settlement Result live
   const settlementResult = useMemo(() => {
