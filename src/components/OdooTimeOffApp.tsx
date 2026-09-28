@@ -167,7 +167,7 @@ export const OdooTimeOffApp: React.FC = () => {
       settlementsQuery,
       (snapshot) => {
         setSettlementVouchers(
-          snapshot.docs.map((item) => ({ ...(item.data() as import('../types').LeaveSettlementVoucher), id: item.id }))
+          snapshot.docs.map((item) => ({ ...(item.data() as LeaveSettlementVoucher), id: item.id }))
         );
       },
       (error) => console.error('Failed to load leave settlements from Firestore', error)
