@@ -15,9 +15,9 @@ import {
   calculateKuwaitHourlyRate,
   calculatePhysicalWorkedDays,
   calculateUniversalLeaveSettlement,
-  getSavedSettlementVouchers,
-  saveSettlementVoucher,
-  deleteSettlementVoucher,
+  subscribeLeaveSettlementVouchers,
+  persistSettlementVoucher,
+  deleteSettlementVoucherFromFirestore,
   liquidateLeaveBalanceInAllocations,
   calculateWorkingLeaveDays,
   cleanDayDecimals,
@@ -439,10 +439,8 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
   const [isExporting, setIsExporting] = useState<boolean>(false);
 
-  // Saved vouchers in persistent storage
-  const [savedVouchers, setSavedVouchers] = useState<LeaveSettlementVoucher[]>(() => {
-    return getSavedSettlementVouchers(activeCompany?.id);
-  });
+  const [savedVouchers, setSavedVouchers] = useState<LeaveSettlementVoucher[]>([]);
+  const [vouchersLoading, setVouchersLoading] = useState(true);
   const [viewingVoucher, setViewingVoucher] = useState<LeaveSettlementVoucher | null>(null);
 
   // Unlock Modal State
@@ -507,9 +505,17 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
     `LST-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`
   );
 
-  // Refresh saved vouchers on company switch
   useEffect(() => {
-    setSavedVouchers(getSavedSettlementVouchers(activeCompany?.id));
+    setVouchersLoading(true);
+    const unsub = subscribeLeaveSettlementVouchers(
+      activeCompany?.id,
+      (vouchers) => {
+        setSavedVouchers(vouchers);
+        setVouchersLoading(false);
+      },
+      () => setVouchersLoading(false)
+    );
+    return () => unsub();
   }, [activeCompany?.id]);
 
   // Compute Universal Settlement Result live
@@ -630,7 +636,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
   const [isSavingVoucher, setIsSavingVoucher] = useState(false);
 
   // Save Voucher Handler
-  const handleSaveVoucher = () => {
+  const handleSaveVoucher = async () => {
     if (!settlementResult || !selectedEmp || isSavingVoucher) return;
 
     // 🔒 Odoo-style Constraint Check
@@ -652,23 +658,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
       const existingLockedVoucher = savedVouchers.find(v => (v.employeeId === selectedEmp.id || v.voucherNumber === settlementResult.voucherNumber) && (v.status === 'settled_locked' || v.status === 'paid'));
       if (existingLockedVoucher && settlementState !== 'paid') {
         toast.error(`عذراً، الموظف ${selectedEmp.fullNameAr} أو سند التسوية برقم (${settlementResult.voucherNumber}) مسجل ومقفل مسبقاً.`);
-        setIsSavingVoucher(false);
         return;
-      }
-
-      // Automatically liquidate / deduct days if encashment or leave consumption is selected
-      const daysToLiquidate = settlementMode === 'ENCASHMENT_LIQUIDATION'
-        ? (encashmentDays > 0 ? encashmentDays : netAvailable)
-        : (consumedLeaveDays + (includeEncashment ? encashmentDays : 0));
-      if (daysToLiquidate > 0 && onUpdateAllocations) {
-        liquidateLeaveBalanceInAllocations(
-          selectedEmp.id,
-          daysToLiquidate,
-          allocations,
-          onUpdateAllocations,
-          selectedEmp,
-          onUpdateEmployee
-        );
       }
 
       const newVoucher: LeaveSettlementVoucher = {
@@ -714,10 +704,31 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
         createdAt: new Date().toISOString(),
       };
 
-      const updatedList = saveSettlementVoucher(newVoucher);
-      setSavedVouchers(updatedList);
+      await persistSettlementVoucher(newVoucher);
+
+      const daysToLiquidate = settlementMode === 'ENCASHMENT_LIQUIDATION'
+        ? (encashmentDays > 0 ? encashmentDays : netAvailable)
+        : (consumedLeaveDays + (includeEncashment ? encashmentDays : 0));
+      if (daysToLiquidate > 0 && onUpdateAllocations) {
+        const res = liquidateLeaveBalanceInAllocations(
+          selectedEmp.id,
+          daysToLiquidate,
+          allocations,
+          onUpdateAllocations,
+          selectedEmp,
+          onUpdateEmployee,
+          { settlementVoucherId: newVoucher.id, settlementVoucherNumber: newVoucher.voucherNumber }
+        );
+        if (!res.success) {
+          toast.error(res.message || 'تم حفظ السند لكن فشل تسييل الرصيد — راجع التخصيصات');
+        }
+      }
+
       setSettlementState('paid');
-      toast.success(`تم حفظ وقفل سند التسوية رقم (${newVoucher.voucherNumber}) ومزامنة الأيام نهائياً!`);
+      toast.success(`تم حفظ وقفل سند التسوية رقم (${newVoucher.voucherNumber}) في Firestore ثم تسييل الرصيد.`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'فشل حفظ سند التسوية';
+      toast.error(msg);
     } finally {
       setIsSavingVoucher(false);
     }
@@ -740,22 +751,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
       setEncashmentDays(safeEncashmentDays);
     }
 
-    const res = liquidateLeaveBalanceInAllocations(
-      selectedEmp.id,
-      safeEncashmentDays,
-      allocations,
-      onUpdateAllocations,
-      selectedEmp,
-      onUpdateEmployee
-    );
-
-    if (res.success) {
-      setSettlementState('paid');
-      handleSaveVoucher();
-      toast.success(res.message, { duration: 5000 });
-    } else {
-      toast.error(res.message);
-    }
+    void handleSaveVoucher();
   };
 
   // Manager Rollback / Unlock Settlement
@@ -765,14 +761,18 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
     setShowUnlockModal(true);
   };
 
-  const confirmUnlockVoucher = () => {
+  const confirmUnlockVoucher = async () => {
     if (!unlockTarget || !unlockReasonInput.trim()) {
       toast.error('يرجى إدخال سبب إلغاء القفل وصلاحية المدير.');
       return;
     }
-    const updated = deleteSettlementVoucher(unlockTarget.id);
-    setSavedVouchers(updated);
-    toast.success(`تم إلغاء قفل وتراجع سند التسوية رقم (${unlockTarget.voucherNumber}) بنجاح. سبب الإلغاء: ${unlockReasonInput}`);
+    try {
+      await deleteSettlementVoucherFromFirestore(unlockTarget.id);
+      toast.success(`تم حذف سند التسوية رقم (${unlockTarget.voucherNumber}) من Firestore. سبب الإلغاء: ${unlockReasonInput}`);
+    } catch {
+      toast.error('فشل حذف السند من Firestore');
+      return;
+    }
     setShowUnlockModal(false);
     setUnlockTarget(null);
     setUnlockReasonInput('');
@@ -1741,7 +1741,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                   سجل سندات التسوية وتصفية الإجازات المحفوظة ({savedVouchers.length} سند)
                 </span>
                 <span className="text-xs text-slate-500">
-                  يتم حفظ جميع التسويات بشكل دائم في قاعدة البيانات
+                  {vouchersLoading ? 'جاري التحميل من Firestore…' : 'المصدر: مجموعة leave_settlements (متزامن لكل الأجهزة)'}
                 </span>
               </div>
 

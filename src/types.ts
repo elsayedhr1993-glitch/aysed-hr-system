@@ -249,6 +249,7 @@ export interface LeaveRequest {
   id: string;
   employeeId: string;
   companyId: string;
+  employeeName?: string;
   leaveType: 'ANNUAL' | 'SICK' | 'MATERNITY' | 'HAJJ' | 'UNPAID' | 'COMPASSIONATE' | 'BEREAVEMENT' | 'HOURLY_PERMISSION' | 'COMPENSATORY';
   startDate: string;
   endDate: string;

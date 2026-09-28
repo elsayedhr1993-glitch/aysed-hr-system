@@ -1,8 +1,17 @@
 // src/services/leaveSettlementService.ts
 import { MANARA_STORAGE_KEYS, getPersistentData, setPersistentData } from '../utils/persistentStorage';
-import { doc, setDoc } from 'firebase/firestore';
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  onSnapshot,
+  query,
+  setDoc,
+  where,
+} from 'firebase/firestore';
 import { db, cleanFirestoreData } from '../lib/firebase';
-import { getDoc } from 'firebase/firestore';
 import { 
   UniversalSettlementItem, 
   UniversalSettlementInput, 
@@ -691,16 +700,7 @@ export function validateSettlementConstraints(voucherOrInput: any): SettlementVa
   };
 }
 
-/**
- * 8. إدارة وحفظ سندات التسوية في التخزين الدائم (Vouchers Persistence Engine)
- */
-export function getSavedSettlementVouchers(companyId?: string): LeaveSettlementVoucher[] {
-  let vouchers = getPersistentData<LeaveSettlementVoucher[]>(
-    MANARA_STORAGE_KEYS.LEAVE_SETTLEMENT_VOUCHERS, 
-    []
-  );
-
-  // Automatic deduplication by voucherNumber or id
+function dedupeSettlementVouchers(vouchers: LeaveSettlementVoucher[]): LeaveSettlementVoucher[] {
   const seenMap = new Map<string, LeaveSettlementVoucher>();
   const cleaned: LeaveSettlementVoucher[] = [];
   for (const v of vouchers) {
@@ -710,66 +710,110 @@ export function getSavedSettlementVouchers(companyId?: string): LeaveSettlementV
       cleaned.push(v);
     }
   }
-  if (cleaned.length !== vouchers.length) {
-    setPersistentData(MANARA_STORAGE_KEYS.LEAVE_SETTLEMENT_VOUCHERS, cleaned);
-    vouchers = cleaned;
-  }
+  return cleaned.sort(
+    (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+  );
+}
 
+function filterVouchersByCompany(vouchers: LeaveSettlementVoucher[], companyId?: string): LeaveSettlementVoucher[] {
   if (!companyId || companyId === 'comp-super-admin' || companyId === 'all') {
     return vouchers;
   }
-  return vouchers.filter(v => v.companyId === companyId);
+  return vouchers.filter((v) => v.companyId === companyId);
 }
 
-export function saveSettlementVoucher(voucher: LeaveSettlementVoucher): LeaveSettlementVoucher[] {
-  // 🔒 Odoo-style Constraint Validation before saving
+function mapFirestoreSettlementDoc(id: string, data: Record<string, unknown>): LeaveSettlementVoucher {
+  return { ...(data as LeaveSettlementVoucher), id };
+}
+
+/**
+ * 8. سندات التسوية — المصدر الموحّد: Firestore `leave_settlements` (لا localStorage).
+ */
+export async function fetchSettlementVouchersFromFirestore(
+  companyId: string
+): Promise<LeaveSettlementVoucher[]> {
+  if (!companyId || companyId === 'comp-super-admin' || companyId === 'all') {
+    return [];
+  }
+  const q = query(collection(db, 'leave_settlements'), where('companyId', '==', companyId));
+  const snap = await getDocs(q);
+  const vouchers = snap.docs.map((d) => mapFirestoreSettlementDoc(d.id, d.data() as Record<string, unknown>));
+  return dedupeSettlementVouchers(vouchers);
+}
+
+export function subscribeLeaveSettlementVouchers(
+  companyId: string | undefined,
+  onData: (vouchers: LeaveSettlementVoucher[]) => void,
+  onError?: (err: unknown) => void
+): () => void {
+  if (!companyId || companyId === 'comp-super-admin' || companyId === 'all') {
+    onData([]);
+    return () => undefined;
+  }
+  const q = query(collection(db, 'leave_settlements'), where('companyId', '==', companyId));
+  return onSnapshot(
+    q,
+    (snap) => {
+      const vouchers = snap.docs.map((d) => mapFirestoreSettlementDoc(d.id, d.data() as Record<string, unknown>));
+      onData(dedupeSettlementVouchers(vouchers));
+    },
+    (err) => {
+      console.warn('[subscribeLeaveSettlementVouchers]', err);
+      onError?.(err);
+      onData([]);
+    }
+  );
+}
+
+/** @deprecated Use Firestore subscription / fetchSettlementVouchersFromFirestore */
+export function getSavedSettlementVouchers(companyId?: string): LeaveSettlementVoucher[] {
+  return filterVouchersByCompany([], companyId);
+}
+
+export async function persistSettlementVoucher(voucher: LeaveSettlementVoucher): Promise<LeaveSettlementVoucher> {
   const validation = validateSettlementConstraints(voucher);
   if (!validation.isValid) {
     console.error('[Settlement Save Blocked by Odoo Constraints]:', validation.errors);
     throw new Error(validation.errors.join(' | '));
   }
 
-  const existing = getPersistentData<LeaveSettlementVoucher[]>(
-    MANARA_STORAGE_KEYS.LEAVE_SETTLEMENT_VOUCHERS, 
-    []
-  );
-  // Check if voucher with same id or voucherNumber already exists
-  const index = existing.findIndex(v => v.id === voucher.id || (voucher.voucherNumber && v.voucherNumber === voucher.voucherNumber));
-  let updated: LeaveSettlementVoucher[];
-  if (index >= 0) {
-    updated = [...existing];
-    updated[index] = { ...voucher, updatedAt: new Date().toISOString() };
-  } else {
-    // Also check if any other duplicate exists by voucherNumber
-    const duplicateByNum = existing.find(v => v.voucherNumber && v.voucherNumber === voucher.voucherNumber);
-    if (duplicateByNum) {
-      // Update existing instead of creating new duplicate
-      const dupIdx = existing.findIndex(v => v.id === duplicateByNum.id);
-      updated = [...existing];
-      updated[dupIdx] = { ...voucher, id: duplicateByNum.id, updatedAt: new Date().toISOString() };
-    } else {
-      updated = [voucher, ...existing];
-    }
-  }
-  setPersistentData(MANARA_STORAGE_KEYS.LEAVE_SETTLEMENT_VOUCHERS, updated);
-  const savedVoucher = updated.find(v => v.id === voucher.id) || voucher;
-  void setDoc(
+  const savedVoucher: LeaveSettlementVoucher = {
+    ...voucher,
+    companyId: voucher.companyId,
+    updatedAt: new Date().toISOString(),
+  };
+
+  await setDoc(
     doc(db, 'leave_settlements', savedVoucher.id),
     cleanFirestoreData({ ...savedVoucher, companyId: savedVoucher.companyId }),
     { merge: true }
-  ).catch(err => console.warn('[saveSettlementVoucher] Firestore mirror failed:', err));
+  );
+
+  const written = await getDoc(doc(db, 'leave_settlements', savedVoucher.id));
+  if (!written.exists()) {
+    throw new Error('فشل التحقق من حفظ سند التسوية في Firestore');
+  }
+
   void upsertLeaveSettlementToSupabase(savedVoucher, savedVoucher.companyId).catch(() => false);
-  return updated;
+  return savedVoucher;
 }
 
+/** @deprecated Use persistSettlementVoucher — returns single-item list for legacy callers */
+export async function saveSettlementVoucher(voucher: LeaveSettlementVoucher): Promise<LeaveSettlementVoucher[]> {
+  const saved = await persistSettlementVoucher(voucher);
+  return [saved];
+}
+
+export async function deleteSettlementVoucherFromFirestore(voucherId: string): Promise<void> {
+  await deleteDoc(doc(db, 'leave_settlements', voucherId));
+}
+
+/** @deprecated Use deleteSettlementVoucherFromFirestore */
 export function deleteSettlementVoucher(voucherId: string): LeaveSettlementVoucher[] {
-  const existing = getPersistentData<LeaveSettlementVoucher[]>(
-    MANARA_STORAGE_KEYS.LEAVE_SETTLEMENT_VOUCHERS, 
-    []
+  void deleteSettlementVoucherFromFirestore(voucherId).catch((err) =>
+    console.warn('[deleteSettlementVoucher] Firestore delete failed:', err)
   );
-  const updated = existing.filter(v => v.id !== voucherId);
-  setPersistentData(MANARA_STORAGE_KEYS.LEAVE_SETTLEMENT_VOUCHERS, updated);
-  return updated;
+  return [];
 }
 
 /**
@@ -781,7 +825,8 @@ export function liquidateLeaveBalanceInAllocations(
   allocations: HrLeaveAllocation[],
   onUpdateAllocations: (updated: HrLeaveAllocation[]) => void,
   employee?: Employee,
-  onUpdateEmployee?: (updated: Employee) => void
+  onUpdateEmployee?: (updated: Employee) => void,
+  options?: { settlementVoucherId?: string; settlementVoucherNumber?: string }
 ): { success: boolean; deductedDays: number; message: string } {
   if (encashedDays <= 0) {
     return { success: false, deductedDays: 0, message: 'عدد أيام التصفية يجب أن يكون أكبر من الصفر' };
@@ -877,10 +922,12 @@ export function liquidateLeaveBalanceInAllocations(
     try {
       const todayStr = new Date().toISOString().split('T')[0];
       const leaveId = `encash-leave-${Date.now()}`;
+      const voucherRef = options?.settlementVoucherNumber || options?.settlementVoucherId || '';
       const newLeaveReq: LeaveRequest = {
         id: leaveId,
         employeeId: employee.id,
         companyId: employee.companyId || '',
+        employeeName: employee.fullNameAr || employee.fullNameEn || '',
         leaveType: 'ANNUAL',
         startDate: todayStr,
         endDate: todayStr,
@@ -889,7 +936,9 @@ export function liquidateLeaveBalanceInAllocations(
         status: 'APPROVED',
         validatedBy: 'System HR Engine',
         validatedAt: new Date().toISOString(),
-        hrNote: 'خصم تلقائي ناتج عن اعتماد تسييل ورصد البدل النقدي',
+        hrNote: voucherRef
+          ? `خصم تلقائي مرتبط بسند التسوية ${voucherRef}`
+          : 'خصم تلقائي ناتج عن اعتماد تسييل ورصد البدل النقدي',
         createdAt: new Date().toISOString(),
       };
       void setDoc(
@@ -1003,13 +1052,23 @@ export async function on_approve_settlement(
   employees: Employee[],
   onUpdateEmployees: (updated: Employee[]) => void
 ): Promise<{ success: boolean; message: string }> {
-  const vouchers = getSavedSettlementVouchers();
-  const voucherIndex = vouchers.findIndex(v => v.id === settlementId || v.voucherNumber === settlementId);
-  if (voucherIndex === -1) {
+  const voucherSnap = await getDoc(doc(db, 'leave_settlements', settlementId));
+  let voucher: LeaveSettlementVoucher | null = voucherSnap.exists()
+    ? mapFirestoreSettlementDoc(voucherSnap.id, voucherSnap.data() as Record<string, unknown>)
+    : null;
+
+  if (!voucher) {
+    const companyId = employees[0]?.companyId;
+    if (companyId) {
+      const all = await fetchSettlementVouchersFromFirestore(companyId);
+      voucher = all.find((v) => v.id === settlementId || v.voucherNumber === settlementId) || null;
+    }
+  }
+
+  if (!voucher) {
     return { success: false, message: `سند التسوية غير موجود برقم ${settlementId}` };
   }
 
-  const voucher = vouchers[voucherIndex];
   if (voucher.status === 'settled_locked' || voucher.status === 'paid') {
     return { success: false, message: `سند التسوية هذا (${voucher.voucherNumber}) معتمد ومقفل مسبقاً لمنع النقر المزدوج والتكرار.` };
   }
@@ -1032,7 +1091,8 @@ export async function on_approve_settlement(
           newEmps[empIndex] = updatedEmp;
           onUpdateEmployees(newEmps);
         }
-      }
+      },
+      { settlementVoucherId: voucher.id, settlementVoucherNumber: voucher.voucherNumber }
     );
   }
 
@@ -1054,12 +1114,11 @@ export async function on_approve_settlement(
   );
 
   // 4. Lock settlement record (Disable duplicate clicks / set status to settled_locked)
-  vouchers[voucherIndex] = {
+  await persistSettlementVoucher({
     ...voucher,
     status: 'settled_locked',
     updatedAt: new Date().toISOString(),
-  };
-  setPersistentData(MANARA_STORAGE_KEYS.LEAVE_SETTLEMENT_VOUCHERS, vouchers);
+  });
 
   return {
     success: true,
