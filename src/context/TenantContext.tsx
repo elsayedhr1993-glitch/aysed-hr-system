@@ -3,6 +3,7 @@ import { TenantCompany } from '../types';
 import { db, createTenantUserSafely, getCompaniesCollectionName } from '../lib/firebase';
 import { collection, doc, setDoc, deleteDoc, updateDoc, onSnapshot, query, documentId, where } from 'firebase/firestore';
 import { useAuth } from './AuthContext';
+import { isSuperAdminPrincipal } from '../config/superAdminAccess';
 import { isTenantPurged } from '../lib/firebase';
 import { dedupeTenantCompanies } from '../utils/companyDedupe';
 
@@ -61,7 +62,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const { user } = useAuth();
   const authCompanyId = user?.companyId || null;
   
-  const isActualSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const isActualSuperAdmin = isSuperAdminPrincipal({ role: user?.role, email: user?.email });
   const [isTenantViewEnabled, setIsTenantViewEnabledState] = useState(() => {
     return localStorage.getItem('saas_tenant_view_enabled') === 'true';
   });

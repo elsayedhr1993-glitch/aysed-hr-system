@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { parseKuwaitCivilId, validateKuwaitCivilId } from './utils/kuwaitLaw';
-import { resolveTenantCompanyId } from './utils/tenantCompanyId';
+import { useEffectiveTenantCompanyId } from './hooks/useEffectiveTenantCompanyId';
+import { isQueryableTenantCompanyId } from './utils/tenantCompanyId';
 import { TenantProvider, useTenant } from './context/TenantContext';
 import { LayoutStudioProvider } from './context/LayoutStudioContext';
 import { LayoutStudioDrawer } from './components/studio/LayoutStudioDrawer';
@@ -115,11 +116,10 @@ function MainAppLayout() {
     isImpersonating,
     startImpersonation,
     exitImpersonation: exitCompanyImpersonation,
-    activeCompanyId: companyContextId,
   } = useCompany();
 
   /** Align launcher stats with Odoo modules (CompanyContext is canonical for app data). */
-  const effectiveCompanyId = resolveTenantCompanyId(companyContextId, activeCompany?.id);
+  const effectiveCompanyId = useEffectiveTenantCompanyId();
 
   const { employees, attendance, computedPayslips, addEmployee, updateEmployee } = useOdooHierarchy();
 
@@ -174,7 +174,7 @@ function MainAppLayout() {
   };
 
   useEffect(() => {
-    if (!effectiveCompanyId || effectiveCompanyId === 'SAAS_PLATFORM') {
+    if (!isQueryableTenantCompanyId(effectiveCompanyId)) {
       setLeaveStats({ pending: 0, onLeaveToday: 0 });
       return;
     }
@@ -267,7 +267,7 @@ function MainAppLayout() {
 
   // Employee documents — live Firestore SSOT
   useEffect(() => {
-    if (!effectiveCompanyId || effectiveCompanyId === 'SAAS_PLATFORM') {
+    if (!isQueryableTenantCompanyId(effectiveCompanyId)) {
       setDocuments([]);
       return;
     }
@@ -289,7 +289,7 @@ function MainAppLayout() {
   }, [effectiveCompanyId]);
 
   useEffect(() => {
-    if (!effectiveCompanyId || effectiveCompanyId === 'SAAS_PLATFORM') {
+    if (!isQueryableTenantCompanyId(effectiveCompanyId)) {
       setCompanyDocumentsCount(0);
       return;
     }

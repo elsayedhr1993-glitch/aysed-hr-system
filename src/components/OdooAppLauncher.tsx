@@ -12,6 +12,7 @@ import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useLang } from '../lib/i18n';
 import { computeCompanyDocumentComplianceStats } from '../utils/employeeDocumentCompliance';
+import { useEffectiveTenantCompanyId } from '../hooks/useEffectiveTenantCompanyId';
 
 interface OdooAppLauncherProps {
   onSelectApp: (app: ActiveApp) => void;
@@ -48,7 +49,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
   const { lang } = useLang();
   const isSuperAdmin = currentUserRole === 'SUPER_ADMIN' || currentUserEmail.toLowerCase() === 'admin@aysed.com'.toLowerCase() || currentUserEmail.toLowerCase() === 'elsayedhr1993@gmail.com'.toLowerCase();
   const companyDisplayName = lang === 'ar' ? (activeCompany?.nameAr || activeCompany?.nameEn || 'Aysed HR S 2026') : (activeCompany?.nameEn || activeCompany?.nameAr || 'Aysed HR S 2026');
-  const currentCompanyId = activeCompany?.id || 'comp-super-admin';
+  const currentCompanyId = useEffectiveTenantCompanyId();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'ALL' | 'HR_PAYROLL' | 'ATTENDANCE_TIME' | 'DOCS_OPERATIONS'>('ALL');

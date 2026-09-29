@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Company } from '../types';
 import { useAuth } from './AuthContext';
+import { isSuperAdminPrincipal } from '../config/superAdminAccess';
 
 const ALMANAR_COMPANY_ID = 'comp-1788442584841';
 const ALMANAR_COMPANY_NAME_AR = 'مستوصف المنار الطبي (Almanar Clinic)';
@@ -70,10 +71,21 @@ const CompanyContext = createContext<CompanyContextType | undefined>(undefined);
 
 const getPreferredCompanyId = (
   authCompanyId: string | null,
-  isSuperAdmin: boolean
+  isSuperAdmin: boolean,
+  authEmail?: string | null
 ) => {
-  // Non–Super Admin: never trust URL or stale localStorage — bind to profile companyId only
+  const urlCompanyId =
+    typeof window !== 'undefined'
+      ? (new URLSearchParams(window.location.search).get('companyId') ||
+          new URLSearchParams(window.location.search).get('company_id') ||
+          '')
+      : '';
+
+  // Tenant: profile companyId only, unless deep link matches the bound tenant
   if (!isSuperAdmin) {
+    if (authCompanyId && urlCompanyId && urlCompanyId === authCompanyId) {
+      return authCompanyId;
+    }
     return authCompanyId || '';
   }
 
@@ -93,7 +105,7 @@ const getPreferredCompanyId = (
 export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const authCompanyId = user?.companyId || null;
-  const isActualSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const isActualSuperAdmin = isSuperAdminPrincipal({ role: user?.role, email: user?.email });
 
   // Master Company State (Persisted) - Default strictly to Almanar Clinic
   const [masterCompany, setMasterCompany] = useState<Company>(() => {
@@ -147,7 +159,7 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
   });
 
-  const preferredCompanyId = getPreferredCompanyId(authCompanyId, !!isActualSuperAdmin);
+  const preferredCompanyId = getPreferredCompanyId(authCompanyId, !!isActualSuperAdmin, user?.email);
 
   const [tenantFirestoreOverlay, setTenantFirestoreOverlay] = useState<Partial<Company> | null>(null);
 

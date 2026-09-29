@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { KUWAIT_LABOR_CONFIG } from '../config/kuwaitLaborConfig';
-import { useCompany } from './CompanyContext';
 import { TenantDatabaseService } from '../services/tenantDataService';
-import { resolveTenantCompanyId } from '../utils/tenantCompanyId';
+import { useEffectiveTenantCompanyId } from '../hooks/useEffectiveTenantCompanyId';
 import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import {
   getAttendanceRecordDocId,
@@ -230,8 +229,7 @@ const getAttendanceDate = (date?: string) => date || new Date().toISOString().sp
 const getAttendanceKey = (companyId: string, employeeId: string, date: string) => `${companyId}_${employeeId}_${date}`;
 
 export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { activeCompany, activeCompanyId } = useCompany();
-  const currentCompanyId = resolveTenantCompanyId(activeCompanyId, activeCompany?.id) || 'comp-super-admin';
+  const currentCompanyId = useEffectiveTenantCompanyId();
 
   // بيانات العقود المركزية
   const [employees, setEmployees] = useState<EmployeeContract[]>([]);
