@@ -30,10 +30,13 @@ import { LeaveClearanceDocument } from './LeaveClearanceDocument';
 import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
 import {
   LeaveBalanceEngine,
+  getEmployeeUnifiedSummary,
+  matchesEmployeeIdentity,
   resolveAnnualTicketAllowanceKwd,
   resolveLeaveBalancePoolHint,
   resolveLeavePaidUnpaidSplit
 } from '../utils/leaveEngine';
+import { buildLeavePrintLogRows, type LeavePrintLogRow } from '../utils/leavePrintReport';
 import { LeavePolicyData } from './leaves/LeavePolicyWizardModal';
 import { normalizeContractStatus } from '../utils/contractStatus';
 import toast from 'react-hot-toast';
@@ -528,6 +531,20 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
     );
     return () => unsub();
   }, [activeCompany?.id, firestoreSettlementVouchers]);
+
+  const settlementVouchersForHistory = firestoreSettlementVouchers ?? savedVouchers;
+
+  const employeeHistoryLogRows = useMemo((): LeavePrintLogRow[] => {
+    if (!selectedEmp) return [];
+    const emp = selectedEmp as Record<string, unknown>;
+    const normalizedLeaves = leaves.filter((l) => matchesEmployeeIdentity(l, emp));
+    const summary = getEmployeeUnifiedSummary(selectedEmp, allocations, normalizedLeaves);
+    const openingPool =
+      Number(summary.carriedOverDays || 0) +
+      Number(summary.accruedAnnualDays || 0) +
+      Number(summary.holidayCompensationDays || 0);
+    return buildLeavePrintLogRows(emp, normalizedLeaves, settlementVouchersForHistory, openingPool);
+  }, [selectedEmp, leaves, allocations, settlementVouchersForHistory, ledgerVersion]);
 
   // Compute Universal Settlement Result live
   const settlementResult = useMemo(() => {
@@ -1866,27 +1883,50 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 bg-white">
-                    {leaves.filter(l => l.employeeId === selectedEmp?.id).length === 0 ? (
+                    {employeeHistoryLogRows.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="p-8 text-center text-slate-400 font-bold">
-                          لا توجد إجازات مسجلة لهذا الموظف
+                          لا توجد إجازات أو سندات تسوية مسجلة لهذا الموظف
                         </td>
                       </tr>
                     ) : (
-                      leaves.filter(l => l.employeeId === selectedEmp?.id).map((l, idx) => (
-                        <tr key={l.id || idx} className="hover:bg-slate-50">
+                      employeeHistoryLogRows.map((row) => (
+                        <tr key={row.key} className="hover:bg-slate-50">
                           <td className="p-3.5 font-bold text-slate-900">
-                            {l.leaveType === 'BEREAVEMENT' ? 'إجازة وفاة (م77)' : l.leaveType === 'ANNUAL' ? 'إجازة سنوية' : l.leaveType}
+                            {row.kind === 'encashment'
+                              ? 'تسييل / تصفية نقدية'
+                              : row.kind === 'settlement_voucher'
+                                ? 'سند تسوية معتمد'
+                                : 'إجازة سنوية'}
                           </td>
                           <td className="p-3.5 text-[10px] font-bold text-slate-700">
-                            {LEAVE_SCOPE_LABELS[leaveScopeFromRecord(l as Record<string, unknown>)]}
+                            {row.kind === 'annual_leave' ? 'سنوية / رصيد مدفوع' : row.kind === 'encashment' ? 'تسييل بدون إجازة' : 'مالية / أرشيف'}
                           </td>
-                          <td className="p-3.5 font-mono text-slate-600">{l.startDate} إلى {l.endDate}</td>
-                          <td className="p-3.5 text-center font-mono font-bold text-[#714B67]">{l.totalDays} يوم</td>
-                          <td className="p-3.5 text-slate-600">{l.reason || '-'}</td>
+                          <td className="p-3.5 font-mono text-slate-600">
+                            {row.startDate}
+                            {row.endDate !== row.startDate ? ` إلى ${row.endDate}` : ''}
+                          </td>
+                          <td className="p-3.5 text-center font-mono font-bold text-[#714B67]">
+                            {row.totalDays} يوم
+                            {row.netPayoutKwd != null && row.netPayoutKwd > 0 ? (
+                              <div className="text-[9px] text-emerald-700 font-bold">{row.netPayoutKwd.toFixed(3)} د.ك</div>
+                            ) : null}
+                          </td>
+                          <td className="p-3.5 text-slate-600">
+                            {row.reason}
+                            {row.voucherNumber ? (
+                              <span className="block text-[10px] font-mono text-[#714B67] mt-0.5">{row.voucherNumber}</span>
+                            ) : null}
+                          </td>
                           <td className="p-3.5 text-center">
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                              {l.status}
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                row.kind === 'encashment' || row.kind === 'settlement_voucher'
+                                  ? 'bg-amber-100 text-amber-900'
+                                  : 'bg-emerald-100 text-emerald-800'
+                              }`}
+                            >
+                              {row.statusLabel}
                             </span>
                           </td>
                         </tr>

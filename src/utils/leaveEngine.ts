@@ -52,15 +52,22 @@ export function matchesEmployeeIdentity(record: any, employee: any): boolean {
   if (!record || !employee) return false;
 
   const employeeId = String(employee?.id ?? employee?.employeeId ?? '').trim();
+  const employeeCode = String(employee?.employeeCode ?? employee?.employee_code ?? '').trim();
   const employeeCivil = String(employee?.civilId ?? employee?.civil_id_number ?? employee?.civil_id ?? '').replace(/\D/g, '');
   const recordEmployeeId = String(record?.employeeId ?? record?.employee_id ?? '').trim();
+  const recordEmployeeCode = String(record?.employeeCode ?? record?.employee_code ?? '').trim();
   const recordCivil = String(record?.civilId ?? record?.civil_id ?? record?.civil_id_number ?? '').replace(/\D/g, '');
 
   const employeeMatchesId = Boolean(employeeId && recordEmployeeId && employeeId === recordEmployeeId);
+  const employeeMatchesCode = Boolean(
+    (employeeCode && recordEmployeeCode && employeeCode === recordEmployeeCode) ||
+    (employeeCode && recordEmployeeId && employeeCode === recordEmployeeId) ||
+    (employeeId && recordEmployeeCode && employeeId === recordEmployeeCode)
+  );
   const employeeMatchesCivil = Boolean(employeeCivil && recordCivil && employeeCivil === recordCivil);
   const crossMatch = Boolean((employeeId && recordCivil && employeeId === recordCivil) || (recordEmployeeId && employeeCivil && recordEmployeeId === employeeCivil));
 
-  return employeeMatchesId || employeeMatchesCivil || crossMatch;
+  return employeeMatchesId || employeeMatchesCode || employeeMatchesCivil || crossMatch;
 }
 
 export function isApprovedLeaveStatus(status?: string): boolean {

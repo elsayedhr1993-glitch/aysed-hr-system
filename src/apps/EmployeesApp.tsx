@@ -33,8 +33,9 @@ import { TenantDatabaseService } from '../services/tenantDataService';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { getPersistentData } from '../utils/persistentStorage';
 import { checkDocumentExpiry } from '../utils/dateUtils';
-import { getEmployeeUnifiedSummary, matchesEmployeeIdentity, resolveLeavePaidUnpaidSplit } from '../utils/leaveEngine';
-import { isAnnualLeaveType, normalizeLeaveStatus } from '../utils/leaveModel';
+import { getEmployeeUnifiedSummary, matchesEmployeeIdentity } from '../utils/leaveEngine';
+import { buildLeavePrintLogRows, sumEncashmentDaysFromLog } from '../utils/leavePrintReport';
+import { useCompanyLeaveFinanceSnapshots } from '../hooks/useCompanyLeaveFinanceSnapshots';
 import { collection, deleteDoc, doc, getDocs, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { cleanFirestoreData, db } from '../lib/firebase';
 import { changeEmployeeStatus } from '../services/employeeLifecycleService';
@@ -81,14 +82,16 @@ export const safePrintA4Document = (htmlContent: string) => {
   safePrintAction('طباعة المستند');
 };
 
-const generateLeavePrintHtml = (printData: any, companyName: string, companyNameEn: string, leaveRequests: any[] = [], leaveAllocations: any[] = []) => {
+const generateLeavePrintHtml = (
+  printData: any,
+  companyName: string,
+  companyNameEn: string,
+  leaveRequests: any[] = [],
+  leaveAllocations: any[] = [],
+  settlementVouchers: LeaveSettlementVoucher[] = []
+) => {
   const employeeLeaves = leaveRequests.filter((l: any) => matchesEmployeeIdentity(l, printData));
   const summary = getEmployeeUnifiedSummary(printData as any, leaveAllocations as any, employeeLeaves as any);
-  const empLeaves = employeeLeaves.filter((l: any) => {
-    if (!matchesEmployeeIdentity(l, printData)) return false;
-    const status = normalizeLeaveStatus(l.status);
-    return isAnnualLeaveType(l.leaveType) && (status === 'APPROVED' || status === 'RETURNED');
-  });
 
   const totalTaken = Number(summary.usedLeaveDays || 0);
   const unpaidExcess = Number(summary.unpaidLeaveDays || 0);
@@ -97,8 +100,9 @@ const generateLeavePrintHtml = (printData: any, companyName: string, companyName
   const compensatory = Number(summary.holidayCompensationDays || 0);
   const netAvailable = Math.max(0, Number(summary.totalAvailableDays || 0));
   const openingPool = carriedOver + accrued2026 + compensatory;
-  let runningPool = openingPool;
-  const empLeavesSorted = [...empLeaves].sort((a, b) => String(a.startDate || '').localeCompare(String(b.startDate || '')));
+  const logRows = buildLeavePrintLogRows(printData, employeeLeaves as any, settlementVouchers, openingPool);
+  const encashTaken = sumEncashmentDaysFromLog(logRows);
+  const annualTaken = Math.max(0, Number((totalTaken - encashTaken).toFixed(2)));
   const fifoBreakdown = summary.fifoBreakdown || {
     consumedFromCarried: Number(summary.consumedFromCarried || 0),
     consumedFromAccrued: Number(summary.consumedFromAccrued || 0),
@@ -160,8 +164,9 @@ const generateLeavePrintHtml = (printData: any, companyName: string, companyName
               <div style="font-size: 15px; font-weight: bold; color: #15803d;">+${compensatory} يوم</div>
             </td>
             <td style="background-color: #fef2f2; border: 1px solid #fee2e2; padding: 12px; border-radius: 6px; width: 16%;">
-              <div style="font-size: 10px; color: #991b1b; font-weight: bold; margin-bottom: 5px;">المخصوم من الرصيد (مدفوع)</div>
+              <div style="font-size: 10px; color: #991b1b; font-weight: bold; margin-bottom: 5px;">المخصوم (إجازات + تسييل)</div>
               <div style="font-size: 15px; font-weight: bold; color: #b91c1c;">-${totalTaken} يوم</div>
+              <div style="font-size: 9px; color: #9f1239; margin-top: 4px;">إجازات: ${annualTaken} | تسييل: ${encashTaken}</div>
             </td>
             <td style="background-color: #fff7ed; border: 1px solid #fed7aa; padding: 12px; border-radius: 6px; width: 16%;">
               <div style="font-size: 10px; color: #9a3412; font-weight: bold; margin-bottom: 5px;">إجازة بدون راتب / تجاوز رصيد</div>
@@ -208,9 +213,9 @@ const generateLeavePrintHtml = (printData: any, companyName: string, companyName
       </div>
 
       <div style="margin-bottom: 35px;">
-        <h4 style="margin: 0 0 12px 0; color: #714b67; font-size: 14px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">سجل حركات الإجازات السنوية المصدقة</h4>
-        ${empLeaves.length === 0 ? `
-          <div style="text-align: center; padding: 15px; color: #94a3b8; font-size: 12px; border: 1px dashed #cbd5e1; border-radius: 6px;">لا يوجد طلبات إجازات معتمدة مسجلة للموظف.</div>
+        <h4 style="margin: 0 0 12px 0; color: #714b67; font-size: 14px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">سجل حركات الإجازات والتسويات (إجازات + تسييل + سندات)</h4>
+        ${logRows.length === 0 ? `
+          <div style="text-align: center; padding: 15px; color: #94a3b8; font-size: 12px; border: 1px dashed #cbd5e1; border-radius: 6px;">لا يوجد حركات إجازات أو تسويات معتمدة مسجلة للموظف.</div>
         ` : `
           <table style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: right;">
             <thead>
@@ -221,22 +226,24 @@ const generateLeavePrintHtml = (printData: any, companyName: string, companyName
                 <th style="padding: 8px; border: 1px solid #e2e8f0; text-align: center;">من الرصيد</th>
                 <th style="padding: 8px; border: 1px solid #e2e8f0; text-align: center;">بدون راتب</th>
                 <th style="padding: 8px; border: 1px solid #e2e8f0;">السبب / البيان</th>
-                <th style="padding: 8px; border: 1px solid #e2e8f0; text-align: center;">الحالة</th>
+                <th style="padding: 8px; border: 1px solid #e2e8f0; text-align: center;">النوع / الحالة</th>
               </tr>
             </thead>
             <tbody>
-              ${empLeavesSorted.slice(0, 10).map(l => {
-                const split = resolveLeavePaidUnpaidSplit(l, runningPool);
-                runningPool = Math.max(0, runningPool - split.paid);
+              ${logRows.slice(0, 12).map((row) => {
+                const badgeBg = row.kind === 'annual_leave' ? '#dcfce7' : row.kind === 'encashment' ? '#fef3c7' : '#ede9fe';
+                const badgeColor = row.kind === 'annual_leave' ? '#166534' : row.kind === 'encashment' ? '#92400e' : '#5b21b6';
+                const payout = row.netPayoutKwd && row.netPayoutKwd > 0 ? ` | ${row.netPayoutKwd.toFixed(3)} د.ك` : '';
+                const voucher = row.voucherNumber ? ` [${row.voucherNumber}]` : '';
                 return `
                 <tr style="border-bottom: 1px solid #f1f5f9;">
-                  <td style="padding: 8px; border: 1px solid #e2e8f0; font-family: monospace;">${l.startDate}</td>
-                  <td style="padding: 8px; border: 1px solid #e2e8f0; font-family: monospace;">${l.endDate}</td>
-                  <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold;">${split.total} يوم</td>
-                  <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; color: #b91c1c;">${split.paid} يوم</td>
-                  <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; color: #c2410c;">${split.unpaid} يوم</td>
-                  <td style="padding: 8px; border: 1px solid #e2e8f0;">${l.reason || 'إجازة سنوية اعتيادية'}</td>
-                  <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center; color: #15803d; font-weight: bold;">معتمد</td>
+                  <td style="padding: 8px; border: 1px solid #e2e8f0; font-family: monospace;">${row.startDate}</td>
+                  <td style="padding: 8px; border: 1px solid #e2e8f0; font-family: monospace;">${row.endDate}</td>
+                  <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold;">${row.totalDays} يوم</td>
+                  <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; color: #b91c1c;">${row.paidDays} يوم</td>
+                  <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; color: #c2410c;">${row.unpaidDays} يوم</td>
+                  <td style="padding: 8px; border: 1px solid #e2e8f0;">${row.reason}${voucher}${payout}</td>
+                  <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center;"><span style="background: ${badgeBg}; color: ${badgeColor}; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">${row.statusLabel}</span></td>
                 </tr>
               `;
               }).join('')}
@@ -302,31 +309,8 @@ export function EmployeesApp(props?: any) {
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printTitle, setPrintTitle] = useState('');
   const [printData, setPrintData] = useState<any>(null);
-  const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
-  const [leaveAllocations, setLeaveAllocations] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (!currentCompanyId) {
-      setLeaveRequests([]);
-      setLeaveAllocations([]);
-      return;
-    }
-
-    const requestsQuery = query(collection(db, 'leave_requests'), where('companyId', '==', currentCompanyId));
-    const allocationsQuery = query(collection(db, 'leave_allocations'), where('companyId', '==', currentCompanyId));
-    const unsubscribeRequests = onSnapshot(requestsQuery, snapshot => {
-      const records = snapshot.docs.map(item => ({ ...item.data(), id: item.id }));
-      setLeaveRequests(records);
-    }, error => console.error('Failed to load leave requests for printing:', error));
-    const unsubscribeAllocations = onSnapshot(allocationsQuery, snapshot => {
-      setLeaveAllocations(snapshot.docs.map(item => ({ ...item.data(), id: item.id })));
-    }, error => console.error('Failed to load leave allocations for printing:', error));
-
-    return () => {
-      unsubscribeRequests();
-      unsubscribeAllocations();
-    };
-  }, [currentCompanyId]);
+  const { leaveRequests, leaveAllocations, leaveSettlements } =
+    useCompanyLeaveFinanceSnapshots(currentCompanyId);
 
   const handleTriggerPrint = (title: string, data: any) => {
     setPrintTitle(title);
@@ -2123,11 +2107,6 @@ export function EmployeesApp(props?: any) {
                   if (isLeaveReport) {
                     const normalizedLeaveRequests = leaveRequests.filter((l: any) => matchesEmployeeIdentity(l, printData));
                     const summary = getEmployeeUnifiedSummary(printData as any, leaveAllocations as any, normalizedLeaveRequests as any);
-                    const empLeaves = normalizedLeaveRequests.filter((l: any) => {
-                      if (!matchesEmployeeIdentity(l, printData)) return false;
-                      const status = normalizeLeaveStatus(l.status);
-                      return isAnnualLeaveType(l.leaveType) && (status === 'APPROVED' || status === 'RETURNED');
-                    });
                     const totalTaken = Number(summary.usedLeaveDays || 0);
                     const unpaidExcess = Number(summary.unpaidLeaveDays || 0);
                     const carriedOver = Number(summary.carriedOverDays || 0);
@@ -2135,8 +2114,9 @@ export function EmployeesApp(props?: any) {
                     const compensatory = Number(summary.holidayCompensationDays || 0);
                     const netAvailable = Math.max(0, Number(summary.totalAvailableDays || 0));
                     const openingPool = carriedOver + accrued2026 + compensatory;
-                    let runningPool = openingPool;
-                    const empLeavesSorted = [...empLeaves].sort((a, b) => String(a.startDate || '').localeCompare(String(b.startDate || '')));
+                    const logRows = buildLeavePrintLogRows(printData, normalizedLeaveRequests as any, leaveSettlements, openingPool);
+                    const encashTaken = sumEncashmentDaysFromLog(logRows);
+                    const annualTaken = Math.max(0, Number((totalTaken - encashTaken).toFixed(2)));
                     const fifoBreakdown = summary.fifoBreakdown || {
                       consumedFromCarried: Number(summary.consumedFromCarried || 0),
                       consumedFromAccrued: Number(summary.consumedFromAccrued || 0),
@@ -2188,8 +2168,9 @@ export function EmployeesApp(props?: any) {
                               <div className="text-base font-black text-emerald-800 font-mono">+{compensatory} يوم</div>
                             </div>
                             <div className="p-3 rounded-lg bg-rose-50/50 border border-rose-200">
-                              <div className="text-[10px] text-rose-900 font-bold mb-1">المخصوم من الرصيد (مدفوع)</div>
+                              <div className="text-[10px] text-rose-900 font-bold mb-1">المخصوم (إجازات + تسييل)</div>
                               <div className="text-base font-black text-rose-800 font-mono">-{totalTaken} يوم</div>
+                              <div className="text-[9px] text-rose-700 mt-1 font-mono">إجازات: {annualTaken} | تسييل: {encashTaken}</div>
                             </div>
                             <div className="p-3 rounded-lg bg-orange-50 border border-orange-200">
                               <div className="text-[10px] text-orange-950 font-bold mb-1">إجازة بدون راتب / تجاوز رصيد</div>
@@ -2232,10 +2213,10 @@ export function EmployeesApp(props?: any) {
                         {/* Recent Leave Requests List */}
                         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-3">
                           <h4 className="text-xs font-bold text-slate-800 border-b pb-2 mb-1 flex items-center gap-1.5">
-                            <span>📅</span> سجل طلبات الإجازات السنوية المصدقة (Annual Leaves Log)
+                            <span>📅</span> سجل حركات الإجازات والتسويات (إجازات + تسييل + سندات)
                           </h4>
-                          {empLeaves.length === 0 ? (
-                            <div className="text-center py-4 text-slate-400 font-bold text-xs">لا يوجد حركات إجازات معتمدة مسجلة لهذا الموظف.</div>
+                          {logRows.length === 0 ? (
+                            <div className="text-center py-4 text-slate-400 font-bold text-xs">لا يوجد حركات إجازات أو تسويات معتمدة مسجلة لهذا الموظف.</div>
                           ) : (
                             <div className="overflow-x-auto">
                               <table className="w-full text-right text-xs table-auto">
@@ -2247,23 +2228,31 @@ export function EmployeesApp(props?: any) {
                                     <th className="p-2 border text-center">من الرصيد</th>
                                     <th className="p-2 border text-center">بدون راتب</th>
                                     <th className="p-2 border">السبب / نوع الطلب</th>
-                                    <th className="p-2 border text-center">الحالة</th>
+                                    <th className="p-2 border text-center">النوع / الحالة</th>
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {empLeavesSorted.slice(0, 8).map((l, i) => {
-                                    const split = resolveLeavePaidUnpaidSplit(l, runningPool);
-                                    runningPool = Math.max(0, runningPool - split.paid);
+                                  {logRows.slice(0, 12).map((row) => {
+                                    const badgeClass =
+                                      row.kind === 'annual_leave'
+                                        ? 'bg-emerald-100 text-emerald-900'
+                                        : row.kind === 'encashment'
+                                          ? 'bg-amber-100 text-amber-900'
+                                          : 'bg-violet-100 text-violet-900';
                                     return (
-                                    <tr key={i} className="hover:bg-slate-50">
-                                      <td className="p-2 border font-mono">{l.startDate}</td>
-                                      <td className="p-2 border font-mono">{l.endDate}</td>
-                                      <td className="p-2 border text-center font-mono font-bold">{split.total} يوم</td>
-                                      <td className="p-2 border text-center font-mono font-bold text-rose-800">{split.paid} يوم</td>
-                                      <td className="p-2 border text-center font-mono font-bold text-orange-800">{split.unpaid} يوم</td>
-                                      <td className="p-2 border">{l.reason || 'إجازة سنوية اعتيادية'}</td>
+                                    <tr key={row.key} className="hover:bg-slate-50">
+                                      <td className="p-2 border font-mono">{row.startDate}</td>
+                                      <td className="p-2 border font-mono">{row.endDate}</td>
+                                      <td className="p-2 border text-center font-mono font-bold">{row.totalDays} يوم</td>
+                                      <td className="p-2 border text-center font-mono font-bold text-rose-800">{row.paidDays} يوم</td>
+                                      <td className="p-2 border text-center font-mono font-bold text-orange-800">{row.unpaidDays} يوم</td>
+                                      <td className="p-2 border">
+                                        {row.reason}
+                                        {row.voucherNumber ? ` [${row.voucherNumber}]` : ''}
+                                        {row.netPayoutKwd && row.netPayoutKwd > 0 ? ` — ${row.netPayoutKwd.toFixed(3)} د.ك` : ''}
+                                      </td>
                                       <td className="p-2 border text-center">
-                                        <span className="bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded text-[10px] font-bold">معتمد</span>
+                                        <span className={`${badgeClass} px-2 py-0.5 rounded text-[10px] font-bold`}>{row.statusLabel}</span>
                                       </td>
                                     </tr>
                                   );
@@ -2310,7 +2299,7 @@ export function EmployeesApp(props?: any) {
                 onClick={() => {
                   const isLeaveReport = printTitle.includes('كشف رصيد إجازات');
                   if (isLeaveReport && printData) {
-                    const html = generateLeavePrintHtml(printData, activeCompany?.nameAr || activeCompany?.name || 'تقرير المنشأة', activeCompany?.nameEn || 'State of Kuwait', leaveRequests, leaveAllocations);
+                    const html = generateLeavePrintHtml(printData, activeCompany?.nameAr || activeCompany?.name || 'تقرير المنشأة', activeCompany?.nameEn || 'State of Kuwait', leaveRequests, leaveAllocations, leaveSettlements);
                     safePrintA4Document(html);
                     setShowPrintModal(false);
                   } else {

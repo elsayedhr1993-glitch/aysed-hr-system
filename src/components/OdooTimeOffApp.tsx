@@ -46,6 +46,7 @@ import { LeaveSettlementCalculator } from './LeaveSettlementCalculator';
 import { getCarriedOverBalance, calculateActualLeaveDays } from '../utils/kuwaitLaw';
 import { approveLeaveRequest } from '../services/leaveApprovalService';
 import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
+import { useCompanyLeaveFinanceSnapshots } from '../hooks/useCompanyLeaveFinanceSnapshots';
 import { db, cleanFirestoreData } from '../lib/firebase';
 import {
   getEmployeeUnifiedSummary,
@@ -146,38 +147,11 @@ export const OdooTimeOffApp: React.FC = () => {
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const companyId = activeCompany?.id || 'comp-super-admin';
 
-  const [requests, setRequests] = useState<LeaveRequest[]>([]);
-  const [allocations, setAllocations] = useState<LeaveAllocation[]>([]);
-  const [settlementVouchers, setSettlementVouchers] = useState<LeaveSettlementVoucher[]>([]);
-
-  useEffect(() => {
-    setRequests([]);
-    setAllocations([]);
-    setSettlementVouchers([]);
-    const requestsQuery = query(collection(db, 'leave_requests'), where('companyId', '==', companyId));
-    const allocationsQuery = query(collection(db, 'leave_allocations'), where('companyId', '==', companyId));
-    const unsubscribeRequests = onSnapshot(requestsQuery, snapshot => {
-      setRequests(snapshot.docs.map(item => ({ ...item.data(), id: item.id } as LeaveRequest)));
-    }, error => console.error('Failed to load leave requests from Firestore', error));
-    const unsubscribeAllocations = onSnapshot(allocationsQuery, snapshot => {
-      setAllocations(snapshot.docs.map(item => ({ ...item.data(), id: item.id } as LeaveAllocation)));
-    }, error => console.error('Failed to load leave allocations from Firestore', error));
-    const settlementsQuery = query(collection(db, 'leave_settlements'), where('companyId', '==', companyId));
-    const unsubscribeSettlements = onSnapshot(
-      settlementsQuery,
-      (snapshot) => {
-        setSettlementVouchers(
-          snapshot.docs.map((item) => ({ ...(item.data() as LeaveSettlementVoucher), id: item.id }))
-        );
-      },
-      (error) => console.error('Failed to load leave settlements from Firestore', error)
-    );
-    return () => {
-      unsubscribeRequests();
-      unsubscribeAllocations();
-      unsubscribeSettlements();
-    };
-  }, [companyId]);
+  const {
+    leaveRequests: requests,
+    leaveAllocations: allocations,
+    leaveSettlements: settlementVouchers,
+  } = useCompanyLeaveFinanceSnapshots(companyId);
 
   useEffect(() => {
     const absenceQuery = query(collection(db, 'attendance_records'), where('companyId', '==', companyId));
