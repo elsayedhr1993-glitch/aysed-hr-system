@@ -6,12 +6,25 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function authEmailLower() {
+      return signedIn() && request.auth.token.email != null
+        ? request.auth.token.email.lower()
+        : '';
+    }
+
+    // Must stay aligned with src/config/superAdminAccess.ts SUPER_ADMIN_EMAILS
+    function isPlatformSuperAdminEmail() {
+      return authEmailLower() == 'admin@aysed.com'
+        || authEmailLower() == 'elsayedhr1993@gmail.com';
+    }
+
     function userDoc() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
     function isSuperAdmin() {
       return signedIn() && (
+        isPlatformSuperAdminEmail() ||
         request.auth.token.role == 'SUPER_ADMIN' ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid))
           && userDoc().role == 'SUPER_ADMIN')
@@ -36,6 +49,21 @@ service cloud.firestore {
 
     function callerCompanyId() {
       return tokenCompanyId() != null ? tokenCompanyId() : profileCompanyId();
+    }
+
+    function companyFieldEmailLower(fieldName) {
+      return fieldName in resource.data
+        && resource.data[fieldName] is string
+        && resource.data[fieldName].lower() == authEmailLower()
+        && authEmailLower() != '';
+    }
+
+    function ownsCompanyRecord() {
+      return signedIn() && authEmailLower() != '' && (
+        companyFieldEmailLower('adminUsername') ||
+        companyFieldEmailLower('email') ||
+        companyFieldEmailLower('adminEmail')
+      );
     }
 
     function sameTenantResource() {
@@ -81,7 +109,8 @@ service cloud.firestore {
     match /companies/{companyId} {
       allow read: if isSuperAdmin()
         || (signedIn() && callerCompanyId() == companyId)
-        || (isCompanyAdmin() && profileCompanyId() == companyId);
+        || (isCompanyAdmin() && profileCompanyId() == companyId)
+        || ownsCompanyRecord();
       allow write: if isSuperAdmin();
 
       match /custom_layouts/{screenId} {
@@ -91,7 +120,9 @@ service cloud.firestore {
     }
 
     match /dev_companies/{companyId} {
-      allow read: if isSuperAdmin() || (signedIn() && callerCompanyId() == companyId);
+      allow read: if isSuperAdmin()
+        || (signedIn() && callerCompanyId() == companyId)
+        || ownsCompanyRecord();
       allow write: if isSuperAdmin();
     }
 

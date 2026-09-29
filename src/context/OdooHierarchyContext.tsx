@@ -283,7 +283,13 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
         setEmployees([]);
       }
     }, (error) => {
+      const code = String((error as { code?: string })?.code || '');
       console.error('Error in realtime employee sync:', error);
+      if (code === 'permission-denied') {
+        console.warn(
+          '[employees] Firestore permission denied — sign in with a company admin or super admin account, or deploy firestore.rules to the named database.'
+        );
+      }
     });
 
     return () => unsubscribe();

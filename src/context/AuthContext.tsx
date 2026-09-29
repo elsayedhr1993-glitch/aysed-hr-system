@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
 import { auth, db, getCompaniesCollectionName, isTenantPurged } from '../lib/firebase';
-import { dedupeTenantCompanies, remapCompanyId, resolveCompanyIdForAdminEmail } from '../utils/companyDedupe';
+import { resolveTenantCompanyIdForEmail } from '../services/tenantCompanyLookup';
 import { doc, getDoc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { isSuperAdminEmail } from '../config/superAdminAccess';
@@ -139,49 +139,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             currentCompanyId?: string,
             currentRole?: string
           ) => {
-            const { getDocs, collection, setDoc: writeUser } = await import('firebase/firestore');
-            const companiesSnap = await getDocs(collection(db, getCompaniesCollectionName())).catch(() => null);
-            if (!companiesSnap) return { companyId: currentCompanyId, role: currentRole };
+            const { setDoc: writeUser } = await import('firebase/firestore');
+            let nextRole = String(currentRole || 'COMPANY_ADMIN').toUpperCase();
+            if (nextRole === 'TENANT_ADMIN') nextRole = 'COMPANY_ADMIN';
+            if (isSuperAdminEmail(email)) nextRole = 'SUPER_ADMIN';
 
-            const rawCompanies = companiesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-            const { companies: deduped, idRemap } = dedupeTenantCompanies(
-              rawCompanies.map((c: any) => ({
-                id: c.id,
-                nameAr: c.nameAr || c.name || '—',
-                nameEn: c.nameEn || c.name || '—',
-                adminUsername: c.adminUsername || c.email || '',
-                adminPassword: '',
-                contactPhone: c.contactPhone || c.phone || '',
-                pamFileNumber: c.pamFileNumber || '',
-                commercialReg: c.commercialReg || '',
-                mohLicense: c.mohLicense || '',
-                iban: c.iban || '',
-                bankName: c.bankName || '',
-                isActive: true,
-                createdAt: c.createdAt || '',
-              }))
-            );
-
-            const fromEmail = resolveCompanyIdForAdminEmail(email, deduped as any[]);
-            const remapped = remapCompanyId(currentCompanyId, idRemap);
-            const canonicalCompanyId = fromEmail || remapped || currentCompanyId;
-
-            let role = String(currentRole || 'COMPANY_ADMIN').toUpperCase();
-            if (role === 'TENANT_ADMIN') role = 'COMPANY_ADMIN';
-            if (isSuperAdminEmail(email)) role = 'SUPER_ADMIN';
-
-            if (canonicalCompanyId && canonicalCompanyId !== currentCompanyId) {
+            if (isSuperAdminEmail(email)) {
               await writeUser(
                 doc(db, 'users', uid),
-                {
-                  email,
-                  companyId: canonicalCompanyId,
-                },
+                { email, role: 'SUPER_ADMIN', name: name || 'مدير النظام' },
+                { merge: true }
+              ).catch(() => {});
+              return { companyId: currentCompanyId, role: nextRole };
+            }
+
+            const canonicalCompanyId = await resolveTenantCompanyIdForEmail(email, currentCompanyId);
+            if (canonicalCompanyId) {
+              await writeUser(
+                doc(db, 'users', uid),
+                { email, companyId: canonicalCompanyId, role: nextRole },
                 { merge: true }
               ).catch(() => {});
             }
 
-            return { companyId: canonicalCompanyId, role };
+            return { companyId: canonicalCompanyId || currentCompanyId, role: nextRole };
           };
 
           // Attempt to fetch profile & check account status with timeout
@@ -285,7 +266,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           let jwt = 'session-token';
           try {
-            jwt = await firebaseUser.getIdToken();
+            jwt = await firebaseUser.getIdToken(true);
           } catch (_) {}
           
           const fullUser: User = {
