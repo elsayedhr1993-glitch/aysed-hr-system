@@ -44,6 +44,7 @@ import {
 // استيراد التطبيقات الكاملة الـ 11
 import EmployeesApp from './apps/EmployeesApp';
 import OdooAppLauncher from './components/OdooAppLauncher';
+import { OdooAppCanvas } from './components/layout/OdooAppCanvas';
 import { TopEnterpriseActionBar } from './components/header/TopEnterpriseActionBar';
 import { GlobalSpotlightSearchModal } from './components/header/GlobalSpotlightSearchModal';
 import { KuwaitHrQuickCalculatorModal } from './components/modals/KuwaitHrQuickCalculatorModal';
@@ -712,11 +713,11 @@ function MainAppLayout() {
 
       {debugMode && <OdooDebugMenu />}
       {/* حاوية العرض الصارمة المانعة للتداخل (Strict Single-View Canvas) */}
-      <div className="flex-1 flex overflow-hidden w-full relative bg-slate-100">
+      <div className="flex-1 flex overflow-hidden w-full relative bg-slate-100 odoo-system-root">
         
         {/* الحالة 1: شاشة مبدل التطبيقات والأيقونات فقط (Odoo App Launcher) */}
         {activeApp === 'switcher' && (
-          <div className="flex-1 overflow-y-auto w-full bg-gradient-to-br from-[#f8fafc] via-[#f1f5f9] to-[#e2e8f0] p-2 sm:p-3 md:p-4">
+          <OdooAppCanvas variant="launcher">
             <OdooAppLauncher
               onSelectApp={(selectedApp) => {
                 switch (selectedApp) {
@@ -798,26 +799,23 @@ function MainAppLayout() {
                 leaveCostKwd: computedPayslips?.reduce((total: number, payslip: any) => total + Number(payslip.attendanceDeduction || 0) + Number(payslip.loanDeduction || 0), 0) || 0
               }}
             />
-          </div>
+          </OdooAppCanvas>
         )}
 
         {/* الحالة 2: الموظفون (Employees Directory) */}
         {activeApp === 'employees' && (
-          <main className="flex-1 overflow-y-auto w-full">
-            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
+          <OdooAppCanvas>
               <EmployeesApp
                 {...employeeAppProps}
                 isSuperAdmin={isSuperAdmin}
                 onNavigateToApp={(appId: string) => setActiveApp(appId as typeof activeApp)}
               />
-            </div>
-          </main>
+          </OdooAppCanvas>
         )}
 
         {/* تطبيق التوظيف والمقابلات الذكية المستقل (Recruitment & ATS) */}
         {activeApp === 'recruitment' && (
-          <main className="flex-1 overflow-y-auto w-full">
-            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
+          <OdooAppCanvas>
               <RecruitmentApp
                 candidates={candidates}
                 activeCompany={activeCompany || {
@@ -835,62 +833,50 @@ function MainAppLayout() {
                 onSaveCandidate={handleSaveCandidate}
                 onConvertCandidateToEmployee={handleConvertCandidateToEmployee}
               />
-            </div>
-          </main>
+          </OdooAppCanvas>
         )}
 
         {/* تطبيق عقود العمل والبدلات وقانون العمل المستقل (Odoo Contracts & PAM) */}
         {activeApp === 'contracts' && (
-          <main className="flex-1 overflow-y-auto w-full">
-            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
+          <OdooAppCanvas>
               <OdooContractsApp />
-            </div>
-          </main>
+          </OdooAppCanvas>
         )}
 
         {/* الحالة 3: الحضور والبصمة (Attendance) */}
         {activeApp === 'attendance' && (
-          <main className="flex-1 overflow-y-auto w-full">
-            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
+          <OdooAppCanvas>
               <OdooAttendanceApp />
-            </div>
-          </main>
+          </OdooAppCanvas>
         )}
 
         {/* الحالة 5: الإجازات والغياب (Leaves) */}
         {activeApp === 'leaves' && (
-          <main className="flex-1 overflow-y-auto w-full">
-            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
+          <OdooAppCanvas>
               <OdooTimeOffApp />
-            </div>
-          </main>
+          </OdooAppCanvas>
         )}
 
         {/* الحالة 6: الرواتب و WPS (Payroll) */}
         {activeApp === 'payroll' && (
-          <main className="flex-1 overflow-y-auto w-full">
-            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
+          <OdooAppCanvas>
               <OdooPayrollApp
                 initialSettlementEmployeeId={payrollSettlementDeepLink?.employeeId}
                 openFinalSettlementTriggerKey={payrollSettlementDeepLink?.key}
               />
-            </div>
-          </main>
+          </OdooAppCanvas>
         )}
 
         {/* الحالة 7: المعدات والعهد (Equipments & Custody) */}
         {activeApp === 'custody' && (
-          <main className="flex-1 overflow-y-auto w-full">
-            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
+          <OdooAppCanvas>
               <OdooOperationsApp />
-            </div>
-          </main>
+          </OdooAppCanvas>
         )}
 
         {/* الحالة 8: أرشيف المستندات (Documents) */}
         {activeApp === 'archive' && (
-          <main className="flex-1 overflow-y-auto w-full">
-            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
+          <OdooAppCanvas>
               <DocumentsApp
                 documents={documents}
                 employees={employees as any}
@@ -903,14 +889,12 @@ function MainAppLayout() {
                 documentsUiIntent={documentsUiIntent}
                 onDocumentsUiIntentConsumed={() => setDocumentsUiIntent(null)}
               />
-            </div>
-          </main>
+          </OdooAppCanvas>
         )}
 
         {/* الحالة المحورية: الماسح الضوئي الذكي (Scanner App) */}
         {activeApp === 'scanner' && (
-          <main className="flex-1 overflow-y-auto w-full">
-            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
+          <OdooAppCanvas>
               <ScannerApp
                 documents={documents}
                 employees={employees as any}
@@ -920,50 +904,40 @@ function MainAppLayout() {
                 onAutoAddEmpFromOCR={handleAutoAddEmpFromOCR}
                 onNavigateToApp={(app) => setActiveApp(app)}
               />
-            </div>
-          </main>
+          </OdooAppCanvas>
         )}
 
         {/* الحالة 9: النماذج والخطابات الرسمية (Templates) */}
         {activeApp === 'letters' && (
-          <main className="flex-1 overflow-y-auto w-full">
-            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
+          <OdooAppCanvas>
               <OdooTemplatesApp />
-            </div>
-          </main>
+          </OdooAppCanvas>
         )}
 
         {/* الحالة 10: العطلات الرسمية (Kuwait Holidays) */}
         {activeApp === 'holidays' && (
-          <main className="flex-1 overflow-y-auto w-full">
-            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
+          <OdooAppCanvas>
               <OdooPublicHolidaysApp />
-            </div>
-          </main>
+          </OdooAppCanvas>
         )}
 
         {/* الحالة 11: لوحة القيادة والتقارير (Reports Dashboard) */}
         {activeApp === 'reports' && (
-          <main className="flex-1 overflow-y-auto w-full">
-            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
+          <OdooAppCanvas>
               <OdooReportsApp />
-            </div>
-          </main>
+          </OdooAppCanvas>
         )}
 
         {/* الحالة الطبية: تراخيص وزارة الصحة والكادر الطبي (MOH Medical Hub) */}
         {activeApp === 'moh' && (
-          <main className="flex-1 overflow-y-auto w-full">
-            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
+          <OdooAppCanvas>
               <OdooMohMedicalHubApp />
-            </div>
-          </main>
+          </OdooAppCanvas>
         )}
 
         {/* تطبيق سجل الرقابة وتتبع العمليات (Audit Logs & Diagnostic Center) */}
         {activeApp === 'audit' && (
-          <main className="flex-1 overflow-y-auto w-full">
-            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
+          <OdooAppCanvas>
               <AuditLogsApp
                 activeCompany={activeCompany}
                 employees={employees}
@@ -975,20 +949,18 @@ function MainAppLayout() {
                 documentTemplates={[]}
                 onAddEmployee={addEmployee}
               />
-            </div>
-          </main>
+          </OdooAppCanvas>
         )}
 
         {/* الحالة 12: شاشة إعدادات المنشأة والنظام */}
         {activeApp === 'settings' && (
-          <main className="flex-1 overflow-y-auto w-full relative">
+          <OdooAppCanvas>
             <OdooSettingsFull />
-          </main>
+          </OdooAppCanvas>
         )}
 
         {activeApp === 'companies' && isSuperAdmin && (
-          <main className="flex-1 overflow-y-auto w-full">
-            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
+          <OdooAppCanvas>
               <CompaniesApp
                 companies={(companies || []) as Company[]}
                 activeCompany={activeCompany as Company}
@@ -1006,14 +978,12 @@ function MainAppLayout() {
                   void deleteCompany(companyId);
                 }}
               />
-            </div>
-          </main>
+          </OdooAppCanvas>
         )}
 
         {/* الحالة 13: السوبر أدمن */}
         {activeApp === 'saas_admin' && (
-          <main className="flex-1 overflow-y-auto w-full">
-            <div className="w-full px-3 sm:px-5 lg:px-6 py-4">
+          <OdooAppCanvas>
               <SuperAdminDashboard 
                 currentUserEmail={user?.email || ''}
                 onLogout={logout}
@@ -1040,8 +1010,7 @@ function MainAppLayout() {
                   toast.success(`تم التبديل بنجاح! أنت الآن تتصفح وتدير شركة: ${targetComp.nameAr || companyName}`);
                 }}
               />
-            </div>
-          </main>
+          </OdooAppCanvas>
         )}
 
       </div>

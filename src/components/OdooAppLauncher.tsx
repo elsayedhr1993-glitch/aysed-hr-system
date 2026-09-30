@@ -375,10 +375,10 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
   }, [allApps, currentUserRole, selectedCategory, searchQuery]);
 
   return (
-    <div className="dashboard-container w-full h-full bg-transparent flex flex-col items-center relative z-10 space-y-4 pb-8 px-2 sm:px-4" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+    <div className="dashboard-container w-full h-full bg-transparent flex flex-col relative z-10 space-y-4 pb-6" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       
       {/* 🔍 Top Search & View Mode Header */}
-      <div className="w-full max-w-[1700px] mx-auto space-y-2.5 pt-1">
+      <div className="w-full space-y-2.5 pt-1">
         
         {/* Search Field & View Style Switcher */}
         <div className="flex items-center gap-2.5">
@@ -487,7 +487,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
       </div>
 
       {/* 📊 Executive Live KPI Bar - مدمج ومرن */}
-      <div className="w-full max-w-[1700px] mx-auto grid grid-cols-2 md:grid-cols-4 gap-2.5 px-1">
+      <div className="odoo-kpi-grid">
         
         {/* Metric 1 */}
         <div className="bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-xl p-2.5 sm:p-3 flex items-center justify-between shadow-xs hover:border-slate-300 transition">
@@ -545,7 +545,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
       </div>
 
       {/* 🧩 Odoo Enterprise App Launchpad - شبكة التطبيقات الـ 16 العصرية */}
-      <div className="w-full max-w-[1700px] mx-auto py-2">
+      <div className="w-full py-2">
         {filteredApps.length === 0 ? (
           <div className="text-center py-12 bg-white/80 rounded-2xl border border-dashed border-slate-300">
             <p className="text-slate-500 font-bold text-sm">لا توجد تطبيقات تطابق كلمة البحث "{searchQuery}"</p>
@@ -558,7 +558,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
           </div>
         ) : viewStyle === 'launchpad' ? (
           /* 🌟 1. النمط الحديث: Launchpad Squircle App Grid (Apple / Odoo 18 Style) */
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3 sm:gap-4 justify-items-stretch">
+          <div className="odoo-app-launchpad-grid justify-items-stretch">
             {filteredApps.map((app) => {
               const IconComponent = app.icon;
               return (
@@ -598,7 +598,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
           </div>
         ) : (
           /* 🗂️ 2. النمط الثاني: بطاقات الـ Bento SaaS التفصيلية */
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3.5">
+          <div className="odoo-app-cards-grid">
             {filteredApps.map((app) => {
               const IconComponent = app.icon;
               return (
@@ -641,7 +641,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
       </div>
 
       {/* 📊 Odoo-Style Compact Charts Section */}
-      <div className="w-full max-w-[1700px] space-y-2 pt-4 border-t border-slate-200">
+      <div className="w-full space-y-2 pt-4 border-t border-slate-200">
         <div className="flex items-center justify-between px-1">
           <div>
             <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
@@ -728,7 +728,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
       </div>
 
       {/* Footer Info */}
-      <div className="text-slate-500 text-[10px] text-center flex items-center justify-center gap-3 border-t border-slate-200 pt-3 max-w-[1700px] w-full font-medium">
+      <div className="text-slate-500 text-[10px] text-center flex items-center justify-center gap-3 border-t border-slate-200 pt-3 w-full font-medium">
         <span>عملة النظام: <strong className="font-mono text-slate-800">KWD (0.000)</strong></span>
         <span>•</span>
         <span>قانون العمل الكويتي: <strong className="text-slate-800">رقم 6 لسنة 2010</strong></span>

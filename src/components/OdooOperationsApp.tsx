@@ -343,7 +343,7 @@ export const OdooOperationsApp: React.FC = () => {
   }
 
   return (
-    <div className="space-y-5 font-sans dir-rtl text-right text-slate-800 animate-fade-in" dir="rtl">
+    <div className="odoo-app-surface space-y-5 font-sans dir-rtl text-right text-slate-800 animate-fade-in" dir="rtl">
       
       {/* 1. ODOO ENTERPRISE HEADER */}
       <div className="bg-white p-4.5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -383,7 +383,7 @@ export const OdooOperationsApp: React.FC = () => {
       </div>
 
       {/* 2. KPIS METRICS OVERVIEW */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div className="odoo-kanban-grid gap-3.5">
         
         {/* Metric 1: Total Value */}
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">

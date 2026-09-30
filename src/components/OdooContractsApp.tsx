@@ -632,7 +632,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
   };
 
   return (
-    <div className="space-y-6 text-right font-sans dir-rtl text-slate-800" dir="rtl">
+    <div className="odoo-app-surface space-y-6 text-right font-sans dir-rtl text-slate-800" dir="rtl">
       
       {/* 1. Header Banner & Action Toolbar */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -724,7 +724,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
       </div>
 
       {/* 3. Filter and Search Bar */}
-      <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row gap-3 items-center justify-between text-xs font-bold">
+      <div className="odoo-filter-toolbar flex-col sm:flex-row">
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           {/* Status Filter */}
           <button

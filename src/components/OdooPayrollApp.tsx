@@ -750,7 +750,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
   }, [employees, activeCompany?.id]);
 
   return (
-    <div className="space-y-5 font-sans dir-rtl text-right text-slate-800 animate-fade-in" dir="rtl">
+    <div className="odoo-app-surface space-y-5 font-sans dir-rtl text-right text-slate-800 animate-fade-in" dir="rtl">
       
       {/* 1. ODOO CONTROL PANEL & HEADER */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -1137,7 +1137,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
             /* ODOO TREE / TABLE VIEW FOR ALL PAYSLIPS */
             <div className="space-y-4">
               {/* Filter Toolbar */}
-              <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="odoo-filter-toolbar">
                 <div className="flex items-center gap-2 flex-1 min-w-[240px]">
                   <div className="relative w-full max-w-xs">
                     <Search className="absolute right-3 top-2.5 text-slate-400" size={15} />
@@ -1178,7 +1178,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
               </div>
 
               {/* KPI Summary Banner */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="odoo-kpi-grid">
                 <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
                   <span className="text-slate-500 text-[10px] block">إجمالي المسيرات</span>
                   <div className="text-lg font-black font-mono text-slate-900 mt-1">{filteredPayslips.length}</div>
@@ -1438,7 +1438,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
 
       {/* 5. SUBTAB: SETTLEMENTS & EOS */}
       {activeSubTab === 'settlements' && (
-        <div className="grid grid-cols-1 gap-4 max-w-2xl">
+        <div className="odoo-master-form-sheet grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 w-full">
           {/* Card 1: Final Settlement & Discharge */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xs flex flex-col justify-between space-y-4">
             <div>

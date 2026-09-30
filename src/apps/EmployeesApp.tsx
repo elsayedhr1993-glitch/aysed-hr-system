@@ -1393,7 +1393,7 @@ export function EmployeesApp(props?: any) {
                   )}
                 </div>
               ) : viewMode === 'cards' ? (
-                <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5 auto-rows-fr">
+                <div className="odoo-kanban-grid auto-rows-fr gap-3.5">
                   {filteredEmployees.map((emp) => {
                     const civilExp = emp.civilIdExpiry || (emp as any).civilIdExpiryDate || (emp as any).civil_id_expiry || (emp as any).raw_payload?.civilIdExpiry;
                     const passExp = emp.passportExpiry || (emp as any).passportExpiryDate;

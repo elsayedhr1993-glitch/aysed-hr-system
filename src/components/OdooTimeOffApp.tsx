@@ -983,7 +983,7 @@ export const OdooTimeOffApp: React.FC = () => {
   const activeLeavesTodayCount = requests.filter(r => normalizeLeaveStatus(r.status) === 'APPROVED' && r.startDate <= todayStr && r.endDate >= todayStr).length;
 
   return (
-    <div className="space-y-6 font-sans dir-rtl text-right text-slate-800" dir="rtl">
+    <div className="odoo-app-surface space-y-6 font-sans dir-rtl text-right text-slate-800" dir="rtl">
       
       {/* Top Header with Clean Enterprise Actions */}
       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
@@ -1105,7 +1105,7 @@ export const OdooTimeOffApp: React.FC = () => {
       </div>
 
       {/* Metric Cards - Live Odoo Balances */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="odoo-kpi-grid gap-4">
         
         {/* Card 1: Annual Legal Quota */}
         <div 

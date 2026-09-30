@@ -299,7 +299,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
   };
 
   return (
-    <div className="flex flex-col min-h-[calc(100vh-10rem)] bg-white rounded-xl overflow-hidden shadow-xs border border-slate-200" dir="rtl">
+    <div className="odoo-app-surface flex flex-col min-h-[calc(100vh-10rem)] bg-white rounded-xl overflow-hidden shadow-xs border border-slate-200 w-full" dir="rtl" data-master-layout="wide">
       
       {/* 1. Header Workspace Selector & Main Tabs */}
       <div className="bg-white border-b border-slate-200 px-6 py-3 flex flex-wrap items-center justify-between gap-4 shrink-0">
@@ -360,7 +360,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
       {/* 2. Top KPI Metric Summary Cards (Shown for Employee Docs) */}
       {workspaceTab === 'EMPLOYEE_DOCS' && (
         <div className="bg-white border-b border-slate-200 px-6 py-3 shrink-0">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="odoo-kpi-grid">
             
             {/* Total */}
             <div 
@@ -676,7 +676,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
 
               {/* View 1: Kanban Cards Grid */}
               {viewMode === 'kanban' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div className="odoo-kanban-grid">
                   {filteredDocs.map(doc => {
                     let borderClass = 'border-slate-200';
                     let badgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';

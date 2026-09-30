@@ -567,11 +567,12 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
 
   return (
     <div
-      className="min-h-screen bg-slate-100/60 py-3 sm:py-4 text-right font-sans text-slate-900 w-full -mx-3 sm:-mx-5 lg:-mx-6 px-[2.5%] sm:px-[2%]"
+      className="min-h-screen bg-slate-100/60 py-2 sm:py-3 text-right font-sans text-slate-900 w-full"
       dir="rtl"
+      data-master-layout="wide"
       data-employee-master-layout="wide-toolbar-v2"
     >
-      <div className="mx-auto w-full max-w-[1400px] space-y-4">
+      <div className="odoo-workspace-inner space-y-4">
       
       {/* Breadcrumb — سطر مستقل */}
       <div className="w-full bg-white border border-slate-200/90 rounded-xl px-4 py-2.5 shadow-2xs">
@@ -952,7 +953,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
           ))}
         </div>
 
-        <div className="w-full pt-2 employee-master-form-sheet">
+        <div className="w-full pt-2 odoo-master-form-sheet employee-master-form-sheet">
         {(activeTab === 'commencement' || activeTab === 'hr') && (
           <div className="flex items-center gap-2 text-xs text-slate-600 pt-2">
             <button
