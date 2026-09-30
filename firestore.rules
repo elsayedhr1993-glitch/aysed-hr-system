@@ -15,7 +15,8 @@ service cloud.firestore {
     // Must stay aligned with src/config/superAdminAccess.ts SUPER_ADMIN_EMAILS
     function isPlatformSuperAdminEmail() {
       return authEmailLower() == 'admin@aysed.com'
-        || authEmailLower() == 'elsayedhr1993@gmail.com';
+        || authEmailLower() == 'elsayedhr1993@gmail.com'
+        || authEmailLower() == 'sayed@hr.com';
     }
 
     function userDoc() {
@@ -68,6 +69,32 @@ service cloud.firestore {
       );
     }
 
+    function companyDocData(companyId) {
+      return get(/databases/$(database)/documents/companies/$(companyId)).data;
+    }
+
+    function companyDataFieldMatchesAuthEmail(data, fieldName) {
+      return fieldName in data
+        && data[fieldName] is string
+        && data[fieldName].lower() == authEmailLower()
+        && authEmailLower() != '';
+    }
+
+    // Tenant admin by company record email (works even if users/{uid}.companyId is missing)
+    function isAuthEmailCompanyAdmin(companyId) {
+      return signedIn()
+        && authEmailLower() != ''
+        && companyId != null
+        && exists(/databases/$(database)/documents/companies/$(companyId))
+        && (
+          companyDataFieldMatchesAuthEmail(companyDocData(companyId), 'adminUsername') ||
+          companyDataFieldMatchesAuthEmail(companyDocData(companyId), 'email') ||
+          companyDataFieldMatchesAuthEmail(companyDocData(companyId), 'adminEmail') ||
+          companyDataFieldMatchesAuthEmail(companyDocData(companyId), 'ownerEmail') ||
+          companyDataFieldMatchesAuthEmail(companyDocData(companyId), 'contactEmail')
+        );
+    }
+
     function sameTenantResource() {
       return resource.data.companyId != null
         && callerCompanyId() != null
@@ -81,7 +108,9 @@ service cloud.firestore {
     }
 
     function canReadTenantDoc() {
-      return isSuperAdmin() || sameTenantResource();
+      return isSuperAdmin()
+        || sameTenantResource()
+        || (resource.data.companyId != null && isAuthEmailCompanyAdmin(resource.data.companyId));
     }
 
     function canWriteTenantDoc() {

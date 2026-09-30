@@ -1,5 +1,9 @@
 /** Platform owners — must match server auth and launcher UI. */
-export const SUPER_ADMIN_EMAILS = ['admin@aysed.com', 'elsayedhr1993@gmail.com'] as const;
+export const SUPER_ADMIN_EMAILS = [
+  'admin@aysed.com',
+  'elsayedhr1993@gmail.com',
+  'sayed@hr.com',
+] as const;
 
 export function normalizeAuthEmail(email: string | undefined | null): string {
   return String(email || '').trim().toLowerCase();

@@ -3,6 +3,7 @@ import { onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth
 import { auth, db, getCompaniesCollectionName, isTenantPurged } from '../lib/firebase';
 import { resolveTenantCompanyIdForEmail } from '../services/tenantCompanyLookup';
 import { readCompanyIdFromUrl } from '../utils/tenantCompanyId';
+import { ensureSessionTenantBinding } from '../services/sessionTenantBindingService';
 import { doc, getDoc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { isSuperAdminEmail } from '../config/superAdminAccess';
@@ -281,6 +282,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             } catch {
               /* non-blocking */
             }
+          }
+
+          if (!isSuperAdminEmail(userEmail)) {
+            const boundCompanyId = await ensureSessionTenantBinding(
+              firebaseUser.uid,
+              userEmail,
+              role
+            );
+            if (boundCompanyId) companyId = boundCompanyId;
+          } else {
+            await ensureSessionTenantBinding(firebaseUser.uid, userEmail, 'SUPER_ADMIN');
           }
 
           let jwt = 'session-token';

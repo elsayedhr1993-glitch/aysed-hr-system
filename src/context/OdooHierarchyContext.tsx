@@ -234,6 +234,13 @@ const getAttendanceKey = (companyId: string, employeeId: string, date: string) =
 export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isLoading: authLoading } = useAuth();
   const currentCompanyId = useEffectiveTenantCompanyId();
+  const [tenantBindTick, setTenantBindTick] = useState(0);
+
+  useEffect(() => {
+    const onTenantBound = () => setTenantBindTick((t) => t + 1);
+    window.addEventListener('aysed_tenant_bound', onTenantBound);
+    return () => window.removeEventListener('aysed_tenant_bound', onTenantBound);
+  }, []);
 
   // بيانات العقود المركزية
   const [employees, setEmployees] = useState<EmployeeContract[]>([]);
@@ -301,7 +308,7 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
     });
 
     return () => unsubscribe();
-  }, [currentCompanyId, authLoading]);
+  }, [currentCompanyId, authLoading, tenantBindTick]);
 
   // حركات البصمة
   const [attendance, setAttendance] = useState<Record<string, AttendanceLog>>({});
