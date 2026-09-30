@@ -62,11 +62,7 @@ import { deleteEmployeeDocument, saveEmployeeDocument } from '../../services/doc
 import { syncEmployeeDocumentsToArchive } from '../../services/employeeDocumentArchiveSync';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { CompactTabBar } from '../ui/CompactTabBar';
-import {
-  EMPLOYEE_DETAIL_COMPACT_STORAGE_KEY,
-  readEmployeeDetailCompactPreference,
-} from '../../config/uiPilotFlags';
+import { OdooSmartButtons, type SmartButtonStat } from '../ui/OdooSmartButtons';
 import { employeeRequiresMohCompliance, mohComplianceGaps } from '../../utils/employeeCompliance';
 import { attachSignedContractFileToEmployee } from '../../utils/signedContractUpload';
 
@@ -107,8 +103,8 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
   });
 
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'work' | 'contract' | 'commencement' | 'private' | 'documents' | 'hr'>('work');
-  const [compactEmployeeUI, setCompactEmployeeUI] = useState(() => readEmployeeDetailCompactPreference());
+  type EmployeeDetailTab = 'work' | 'private' | 'contract' | 'licenses' | 'commencement' | 'hr';
+  const [activeTab, setActiveTab] = useState<EmployeeDetailTab>('work');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
@@ -312,6 +308,22 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
   };
 
   const calculatedBalance = getDynamicBalance();
+  const docsCount = employee.documentFiles ? Object.keys(employee.documentFiles).length : 0;
+  const leaveRequestsCount = leaveRequests.length;
+  const pendingLeavesCount = leaveRequests.filter((r: any) => {
+    const s = String(r.status || '').toUpperCase();
+    return ['PENDING', 'PENDING_MANAGER', 'PENDING_HR', 'SUBMITTED', 'DRAFT'].includes(s);
+  }).length;
+
+  const startDateStr =
+    employee.commencementDate || employee.hireDate || employee.join_date || employee.startDate;
+  const isCommenced = Boolean(startDateStr);
+  const contractCount = employee.contractId || employee.pamContractId ? 1 : 1;
+
+  const masterTabId: 'work' | 'private' | 'contract' | 'licenses' =
+    activeTab === 'commencement' || activeTab === 'hr'
+      ? 'licenses'
+      : activeTab;
 
   // Contract status
   const contractStatus = employee.contractStatus || employee.status || 'ساري';
@@ -320,6 +332,62 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
                             contractStatus === 'ساري';
 
   const mohGaps = mohComplianceGaps(employee);
+
+  const smartButtonStats: SmartButtonStat[] = [
+    {
+      id: 'contract',
+      label: 'العقد',
+      value: contractCount,
+      icon: FileText,
+      colorTheme: 'purple',
+      onClick: () => setActiveTab('contract'),
+    },
+    {
+      id: 'leaves',
+      label: 'الإجازات',
+      value: leaveRequestsCount,
+      icon: Plane,
+      colorTheme: 'blue',
+      badge: pendingLeavesCount > 0 ? String(pendingLeavesCount) : undefined,
+      onClick: () => (onOpenLeaves ? onOpenLeaves() : setActiveTab('hr')),
+    },
+    {
+      id: 'balance',
+      label: 'رصيد الإجازة',
+      value: `${calculatedBalance}`,
+      icon: Calendar,
+      colorTheme: 'emerald',
+      onClick: () =>
+        onTriggerPrint(`كشف رصيد إجازات الموظف - ${employee.nameAr || employee.id}`, employee),
+    },
+    {
+      id: 'documents',
+      label: 'الوثائق',
+      value: docsCount,
+      icon: FolderArchive,
+      colorTheme: 'indigo',
+      onClick: () => setActiveTab('licenses'),
+    },
+    ...(onOpenPayroll
+      ? [
+          {
+            id: 'payroll',
+            label: 'مسير الرواتب',
+            value: totalSalary > 0 ? `${totalSalary} د.ك` : '—',
+            icon: DollarSign,
+            colorTheme: 'amber' as const,
+            onClick: onOpenPayroll,
+          },
+        ]
+      : []),
+  ];
+
+  const masterTabs: { id: 'work' | 'private' | 'contract' | 'licenses'; label: string; icon: React.ReactNode }[] = [
+    { id: 'work', label: 'معلومات العمل', icon: <Briefcase size={16} /> },
+    { id: 'private', label: 'البيانات الشخصية', icon: <User size={16} /> },
+    { id: 'contract', label: 'عقد العمل والراتب', icon: <FileText size={16} /> },
+    { id: 'licenses', label: 'التراخيص والإقامات (PAM / MOH)', icon: <Stethoscope size={16} /> },
+  ];
 
   // Dynamic Legal Documents Checklist (Inherited from Onboarding Plan or Defaults)
   const requiredChecklist: Record<string, boolean> = {
@@ -687,100 +755,41 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
         )}
       </div>
 
-      {/* Odoo Official Document Sheet (White Paper on bg-slate-100) */}
-      <div className="bg-white border border-slate-200/90 rounded-2xl shadow-sm w-full p-5 sm:p-7 md:p-9 space-y-6">
-        
-        {/* ترويسة البطاقة: أزرار Odoo مصغّرة (يسار) + وسم العرض */}
-        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-4">
-          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 min-w-0">
-            <span className="font-bold text-slate-400 shrink-0">بطاقة الموظف</span>
-            <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200/80 text-[10px] font-bold">
+      {/* Odoo HR Master Form */}
+      <div className="bg-white border border-slate-200/90 rounded-2xl shadow-sm w-full p-5 sm:p-6 md:p-8 space-y-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          {/* Status ribbon — مصغّر أعلى اليسار (في RTL: نهاية الصف) */}
+          <div className="flex flex-wrap items-center gap-1.5 order-2 sm:order-1 ms-auto sm:ms-0">
+            {[
+              { key: 'docs', label: 'مستندات', ok: docsCount >= 3, onClick: () => setActiveTab('licenses') },
+              { key: 'start', label: 'مباشرة', ok: isCommenced, onClick: () => setActiveTab('commencement') },
+              { key: 'wps', label: 'WPS', ok: totalSalary > 0 && !!(employee.iban || employee.iban_number), onClick: () => setActiveTab('contract') },
+              { key: 'duty', label: isContractRunning ? 'نشط' : 'غير نشط', ok: isContractRunning, onClick: () => setActiveTab('work') },
+            ].map((chip) => (
               <button
+                key={chip.key}
                 type="button"
-                onClick={() => {
-                  setCompactEmployeeUI(true);
-                  try {
-                    localStorage.setItem(EMPLOYEE_DETAIL_COMPACT_STORAGE_KEY, '1');
-                  } catch {}
-                }}
-                className={`px-2 py-0.5 rounded-md cursor-pointer transition ${
-                  compactEmployeeUI ? 'bg-white text-[#714B67] shadow-2xs' : 'text-slate-500'
+                onClick={chip.onClick}
+                className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition cursor-pointer ${
+                  chip.ok
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                    : 'bg-slate-50 text-slate-500 border-slate-200'
                 }`}
               >
-                مبسّط
+                {chip.label}
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setCompactEmployeeUI(false);
-                  try {
-                    localStorage.setItem(EMPLOYEE_DETAIL_COMPACT_STORAGE_KEY, '0');
-                  } catch {}
-                }}
-                className={`px-2 py-0.5 rounded-md cursor-pointer transition ${
-                  !compactEmployeeUI ? 'bg-white text-slate-800 shadow-2xs' : 'text-slate-500'
-                }`}
-              >
-                كلاسيكي
-              </button>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab('contract');
-                import('react-hot-toast').then((m) => m.toast.success('بيانات العقد والأجر'));
-              }}
-              className="border border-slate-200 hover:border-[#714B67]/50 bg-slate-50/80 hover:bg-purple-50/40 rounded-lg px-2 py-1.5 flex items-center gap-1.5 cursor-pointer transition text-[10px] font-bold text-slate-800"
-              title="عقد العمل"
-            >
-              <FileText size={13} className="text-[#714B67]" />
-              <span className="text-slate-500 font-semibold">عقد</span>
-              <span className="font-mono text-[#714B67]">1</span>
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                onTriggerPrint(`كشف رصيد إجازات الموظف - ${employee.nameAr || employee.id}`, employee)
-              }
-              className="border border-slate-200 hover:border-emerald-400 bg-slate-50/80 hover:bg-emerald-50/50 rounded-lg px-2 py-1.5 flex items-center gap-1.5 cursor-pointer transition text-[10px] font-bold"
-              title="رصيد الإجازات"
-            >
-              <Plane size={13} className="text-emerald-700" />
-              <span className="text-slate-500 font-semibold">إجازات</span>
-              <span className="font-mono text-emerald-800">{calculatedBalance}</span>
-            </button>
-            {onOpenPayroll && (
-              <button
-                type="button"
-                onClick={onOpenPayroll}
-                className="border border-slate-200 hover:border-amber-400 bg-slate-50/80 hover:bg-amber-50/50 rounded-lg px-2 py-1.5 flex items-center gap-1.5 cursor-pointer transition text-[10px] font-bold"
-                title="المسير"
-              >
-                <DollarSign size={13} className="text-amber-700" />
-                <span className="text-slate-600">مسير</span>
-              </button>
+            ))}
+            {mohGaps.length > 0 && (
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200">
+                MOH {mohGaps.length}
+              </span>
             )}
-            <button
-              type="button"
-              onClick={() =>
-                onTriggerPrint(`بطاقة هوية الموظف - ${employee.nameAr || employee.id}`, {
-                  ...employee,
-                  type: 'ID_CARD',
-                })
-              }
-              className="border border-slate-200 hover:border-blue-400 bg-slate-50/80 hover:bg-blue-50/50 rounded-lg px-2 py-1.5 flex items-center gap-1.5 cursor-pointer transition text-[10px] font-bold"
-              title="طباعة QR"
-            >
-              <CreditCard size={13} className="text-blue-700" />
-              <span className="text-slate-600">QR</span>
-            </button>
           </div>
         </div>
 
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-6 items-start border-b border-slate-100 pb-5">
         {/* Profile Header Block: Avatar + Name + Subtitle + Badge */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-5 pt-1">
+        <div className="flex flex-col sm:flex-row sm:items-start gap-4">
           <div className={`w-20 h-20 rounded-2xl ${employee.avatarColor || 'bg-[#714B67]'} text-white flex items-center justify-center font-bold text-2xl shadow-xs shrink-0 overflow-hidden relative`}>
             {employee.avatarUrl ? (
               <img src={employee.avatarUrl} alt="" className="w-full h-full object-cover" />
@@ -854,27 +863,24 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
               </span>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2.5 text-xs text-slate-600 font-medium pt-0.5">
-              {isEditMode ? (
-                <input
-                  type="text"
-                  value={employee.nameEn || ''}
-                  onChange={(e) => handleFieldChange('nameEn', e.target.value)}
-                  placeholder="English Name"
-                  className="font-semibold text-slate-700 border border-slate-300 rounded px-2 py-0.5 bg-white focus:outline-none"
-                />
-              ) : (
-                <span className="font-semibold text-slate-500 font-mono">{employee.nameEn || employee.fullNameEn || '—'}</span>
-              )}
-              <span className="text-slate-300">•</span>
-              <span className="text-slate-800 font-bold">{employee.jobTitle || 'المسمى الوظيفي'}</span>
-              <span className="text-slate-300">•</span>
-              <span className="text-slate-600">{employee.dept || employee.department || 'القسم العام'}</span>
-              <span className="text-slate-300">•</span>
-              <span className="font-semibold text-[#714B67]">
-                🏢 {displayCompanyName}
-              </span>
-            </div>
+            <p className="text-sm font-bold text-[#714B67] pt-0.5">
+              {employee.jobTitle || 'المسمى الوظيفي'}
+            </p>
+            <p className="text-xs text-slate-500 font-medium">
+              {employee.dept || employee.department || '—'} · {displayCompanyName}
+            </p>
+            {!isEditMode && (
+              <p className="text-[11px] text-slate-400 font-mono">{employee.nameEn || employee.fullNameEn || ''}</p>
+            )}
+            {isEditMode && (
+              <input
+                type="text"
+                value={employee.nameEn || ''}
+                onChange={(e) => handleFieldChange('nameEn', e.target.value)}
+                placeholder="English Name"
+                className="mt-1 text-xs font-semibold text-slate-700 border border-slate-300 rounded px-2 py-1 bg-white focus:outline-none w-full max-w-md"
+              />
+            )}
 
             {/* شريط تحذير مباشر إذا كانت هناك وثيقة منتهية للموظف */}
             {(() => {
@@ -888,7 +894,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
                       <span>⚠️ البطاقة المدنية لهذا الموظف {civilStatus.badgeText} بتاريخ ({civilDate}). يرجى تجديد البطاقة وتحديث الملف.</span>
                     </div>
                     <button 
-                      onClick={() => setActiveTab('documents')}
+                      onClick={() => setActiveTab('licenses')}
                       className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-bold transition cursor-pointer shrink-0"
                     >
                       تحديث الوثيقة 🪪
@@ -904,7 +910,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
                       <span>⏰ البطاقة المدنية {civilStatus.badgeText} بتاريخ ({civilDate}).</span>
                     </div>
                     <button 
-                      onClick={() => setActiveTab('documents')}
+                      onClick={() => setActiveTab('licenses')}
                       className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[11px] font-bold transition cursor-pointer shrink-0"
                     >
                       مراجعة الوثيقة
@@ -917,360 +923,43 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Visual Lifecycle Timeline (الربط الديناميكي الاحترافي بدورة حياة الموظف) */}
-        {(() => {
-          // Calculations
-          const docsCount = employee.documentFiles ? Object.keys(employee.documentFiles).length : 0;
-          const totalReqDocs = 6;
-          const docsProgress = Math.min(100, Math.round((docsCount / totalReqDocs) * 100));
+        <div className="min-w-0 lg:border-r lg:border-slate-100 lg:pr-6">
+          <OdooSmartButtons stats={smartButtonStats} />
+        </div>
+        </div>
 
-          const startDateStr = employee.commencementDate || employee.hireDate || employee.join_date || employee.startDate;
-          let isCommenced = !!startDateStr;
-          
-          let probationDaysPassed = 0;
-          let probationRemaining = 100;
-          let probationPercentage = 0;
-          let isProbationPassed = false;
-          if (startDateStr) {
-            const start = new Date(startDateStr);
-            const today = new Date();
-            const diffTime = today.getTime() - start.getTime();
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            probationDaysPassed = Math.max(0, diffDays);
-            if (probationDaysPassed >= 100) {
-              isProbationPassed = true;
-              probationPercentage = 100;
-              probationRemaining = 0;
-            } else {
-              probationPercentage = Math.round((probationDaysPassed / 100) * 100);
-              probationRemaining = 100 - probationDaysPassed;
-            }
-          }
 
-          const hasWpsSalary = (parseFloat(employee.basicSalary) || parseFloat(employee.salary) || 0) > 0;
-          const hasIban = !!(employee.iban || employee.iban_number);
-          const hasBank = !!(employee.bankName || employee.bank_name);
-          const isWpsEnrolled = hasWpsSalary && hasIban && hasBank;
-
-          const isFullyActive = isCommenced && isProbationPassed && isWpsEnrolled && (employee.status === 'على رأس العمل' || !employee.status || employee.status === 'ACTIVE');
-
-          return (
-            <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 md:p-5 space-y-4 shadow-3xs" id="employee_lifecycle_timeline">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="p-1.5 bg-purple-100 text-[#714B67] rounded-lg">
-                    <RefreshCw size={15} className="animate-spin-slow" />
-                  </span>
-                  <span className="font-bold text-xs text-slate-800">تتبع دورة حياة الموظف المهنية المترابطة (Employee Lifecycle)</span>
-                </div>
-                <span className="text-[10px] font-bold text-[#714B67] bg-purple-50 border border-purple-200 px-2.5 py-1 rounded-full">
-                  الربط التلقائي النشط
-                </span>
-              </div>
-
-              {/* Horizontal Stepper Timeline */}
-              <div className="relative flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-2 pt-2 pb-1">
-                {/* Connector line (desktop only) */}
-                <div className="absolute top-[26px] right-8 left-8 h-[2px] bg-slate-200 -z-0 hidden md:block" />
-
-                {/* Step 1: Onboarding Docs */}
-                <div 
-                  onClick={() => setActiveTab('documents')}
-                  className="flex items-center md:flex-col gap-3 md:gap-2 text-right md:text-center flex-1 cursor-pointer group z-10 w-full md:w-auto"
-                >
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition duration-200 border-2 ${
-                    docsCount >= 3 
-                      ? 'bg-emerald-600 text-white border-emerald-600' 
-                      : 'bg-white text-slate-500 border-slate-300 group-hover:border-purple-500'
-                  }`}>
-                    {docsCount >= 3 ? '✓' : '1'}
-                  </div>
-                  <div>
-                    <span className="font-bold text-[11px] text-slate-800 block group-hover:text-[#714B67] transition">أرشفة وتهيئة المستندات</span>
-                    <span className="text-[10px] text-slate-500 block font-mono">
-                      {docsCount} وثائق مرفقة ({docsProgress}%)
-                    </span>
-                  </div>
-                </div>
-
-                {/* Step 2: Commencement */}
-                <div 
-                  onClick={() => setActiveTab('commencement')}
-                  className="flex items-center md:flex-col gap-3 md:gap-2 text-right md:text-center flex-1 cursor-pointer group z-10 w-full md:w-auto"
-                >
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition duration-200 border-2 ${
-                    isCommenced 
-                      ? 'bg-emerald-600 text-white border-emerald-600' 
-                      : 'bg-white text-slate-500 border-slate-300 group-hover:border-purple-500'
-                  }`}>
-                    {isCommenced ? '✓' : '2'}
-                  </div>
-                  <div>
-                    <span className="font-bold text-[11px] text-slate-800 block group-hover:text-[#714B67] transition">مباشرة العمل الفعلية</span>
-                    <span className="text-[10px] text-slate-500 block">
-                      {isCommenced ? `تمت في ${startDateStr}` : 'بانتظار تأكيد المباشرة'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Step 3: Probation */}
-                <div 
-                  className="flex items-center md:flex-col gap-3 md:gap-2 text-right md:text-center flex-1 z-10 w-full md:w-auto"
-                >
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition duration-200 border-2 ${
-                    !isCommenced 
-                      ? 'bg-slate-50 text-slate-300 border-slate-200'
-                      : isProbationPassed 
-                        ? 'bg-emerald-600 text-white border-emerald-600' 
-                        : 'bg-amber-500 text-white border-amber-500 animate-pulse'
-                  }`}>
-                    {isProbationPassed ? '✓' : '3'}
-                  </div>
-                  <div>
-                    <span className="font-bold text-[11px] text-slate-800 block">فترة التجربة (100 يوم)</span>
-                    <span className="text-[10px] text-slate-500 block font-mono">
-                      {isCommenced 
-                        ? (isProbationPassed ? 'اجتاز فترة التجربة' : `متبقي ${probationRemaining} يوماً (${probationPercentage}%)`) 
-                        : 'معلقة لحين المباشرة'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Step 4: Payroll & WPS */}
-                <div 
-                  onClick={() => setActiveTab('contract')}
-                  className="flex items-center md:flex-col gap-3 md:gap-2 text-right md:text-center flex-1 cursor-pointer group z-10 w-full md:w-auto"
-                >
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition duration-200 border-2 ${
-                    isWpsEnrolled 
-                      ? 'bg-emerald-600 text-white border-emerald-600' 
-                      : 'bg-white text-slate-500 border-slate-300 group-hover:border-purple-500'
-                  }`}>
-                    {isWpsEnrolled ? '✓' : '4'}
-                  </div>
-                  <div>
-                    <span className="font-bold text-[11px] text-slate-800 block group-hover:text-[#714B67] transition">نظام الرواتب والـ WPS</span>
-                    <span className="text-[10px] text-slate-500 block">
-                      {isWpsEnrolled ? 'مسجل ومثبت' : (hasWpsSalary ? 'بانتظار الآيبان والبنك' : 'غير مسجل بالرواتب')}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Step 5: Active Duty */}
-                <div 
-                  onClick={() => setActiveTab('hr')}
-                  className="flex items-center md:flex-col gap-3 md:gap-2 text-right md:text-center flex-1 cursor-pointer group z-10 w-full md:w-auto"
-                >
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition duration-200 border-2 ${
-                    isFullyActive 
-                      ? 'bg-emerald-600 text-white border-emerald-600' 
-                      : 'bg-white text-slate-500 border-slate-300 group-hover:border-purple-500'
-                  }`}>
-                    {isFullyActive ? '✓' : '5'}
-                  </div>
-                  <div>
-                    <span className="font-bold text-[11px] text-slate-800 block group-hover:text-[#714B67] transition">كادر دائم نشط</span>
-                    <span className="text-[10px] text-slate-500 block">
-                      {isFullyActive ? 'مكتمل بالكامل وبلا نواقص' : 'بانتظار استيفاء الشروط'}
-                    </span>
-                  </div>
-                </div>
-
-              </div>
-
-              {/* Informative alerts / stats block connected to the current active stage */}
-              <div className="border border-slate-200/60 bg-white rounded-lg p-3 text-xs text-slate-700 leading-relaxed font-sans space-y-2">
-                {mohGaps.length > 0 && (
-                  <div className="flex items-start gap-2 text-rose-900 bg-rose-50 border border-rose-200 rounded-lg p-2.5">
-                    <AlertTriangle size={14} className="shrink-0 mt-0.5 text-rose-600" />
-                    <span>
-                      <strong>نواقص امتثال MOH:</strong> {mohGaps.join(' · ')}
-                    </span>
-                  </div>
-                )}
-                {!isCommenced ? (
-                  <div className="flex items-start gap-2 text-amber-900">
-                    <AlertTriangle size={15} className="text-amber-600 shrink-0 mt-0.5" />
-                    <div>
-                      <strong>تنبيه الموارد البشرية:</strong> الموظف مسجل في قاعدة البيانات كـ <span className="underline font-bold">مسودة أو تحت التهيئة</span>. يرجى استكمال المستندات اللازمة وتحديد تاريخ مباشرة العمل الفعلية في علامة تبويب "إقرار المباشرة" لتنشيط ملفه بشكل كامل وتوليد عقده بشكل تلقائي.
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Column 1: Probation Warning System */}
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-1.5 text-slate-900 font-bold text-[11px]">
-                        <Clock size={14} className="text-[#714B67]" />
-                        <span>نظام فترة التجربة والتحذير المسبق:</span>
-                      </div>
-                      {isProbationPassed ? (
-                        <p className="text-[11px] text-emerald-800 font-bold">
-                          ✓ اجتاز الموظف فترة التجربة القانونية بنجاح (100 يوم) من تاريخ مباشرة العمل ({startDateStr}) وتم تثبيته رسمياً كعضو كادر دائم بالمنشأة بموجب قانون العمل الكويتي.
-                        </p>
-                      ) : (
-                        <div className="space-y-1.5">
-                          <p className="text-[11px] text-slate-600">
-                            الموظف حالياً في <span className="font-bold text-[#714B67]">فترة التجربة القانونية</span>. مضى منها <span className="font-mono font-bold">{probationDaysPassed} يوم</span> ومتبقي <span className="font-mono font-bold text-amber-700">{probationRemaining} يوم</span>.
-                          </p>
-                          {/* Mini Progress Bar */}
-                          <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                            <div className="bg-amber-50 h-1.5 rounded-full" style={{ width: `${probationPercentage}%` }} />
-                          </div>
-                          {probationRemaining <= 15 && (
-                            <p className="text-[10px] text-rose-700 font-bold animate-pulse">
-                              🚨 تحذير: متبقي أقل من 15 يوماً لاتخاذ قرار التثبيت أو إنهاء الخدمة قبل انتهاء فترة التجربة القانونية!
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Column 2: Payroll WPS Integration */}
-                    <div className="space-y-1 border-r border-slate-100 pr-4">
-                      <div className="flex items-center gap-1.5 text-slate-900 font-bold text-[11px]">
-                        <ShieldCheck size={14} className="text-emerald-600" />
-                        <span>جاهزية نظام حماية الأجور والـ WPS:</span>
-                      </div>
-                      <div className="text-[11px] space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className={hasWpsSalary ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>
-                            {hasWpsSalary ? "✓" : "✗"}
-                          </span>
-                          <span>إدراج الأجر الأساسي والبدلات ({totalSalary} د.ك)</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className={hasBank ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>
-                            {hasBank ? "✓" : "✗"}
-                          </span>
-                          <span>الحساب البنكي: {employee.bankName || "غير محدد"}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className={hasIban ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>
-                            {hasIban ? "✓" : "✗"}
-                          </span>
-                          <span>الآيبان البنكي (IBAN): {employee.iban || "غير محدد"}</span>
-                        </div>
-                        {isWpsEnrolled ? (
-                          <p className="text-[10px] text-emerald-800 font-bold pt-1">
-                            ✓ الموظف جاهز ومدرج تلقائياً في ملف حماية الأجور والـ WPS للدورة القادمة.
-                          </p>
-                        ) : (
-                          <p className="text-[10px] text-amber-700 font-bold pt-1">
-                            ⚠️ يرجى إدخال البيانات المصرفية الناقصة في تبويب "البيانات الشخصية" لتجنب مخالفات الشؤون في ملف WPS.
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })()}
-
-        {compactEmployeeUI ? (
-          <CompactTabBar
-            tabs={[
-              { id: 'work', label: 'العام — العمل والدوام', shortLabel: 'العام', icon: <Briefcase size={15} /> },
-              {
-                id: 'contract',
-                label: 'عقد العمل والبدلات',
-                shortLabel: 'العقد والبدلات',
-                icon: <FileText size={15} />,
-              },
-              {
-                id: 'documents',
-                label: 'المستندات والتراخيص',
-                shortLabel: 'المستندات',
-                icon: <FileSpreadsheet size={15} />,
-              },
-            ]}
-            moreItems={[
-              { id: 'private', label: 'البيانات الشخصية والبنكية', icon: <UserCheck size={14} /> },
-              { id: 'commencement', label: 'إقرار المباشرة', icon: <span>🚀</span> },
-              { id: 'hr', label: 'إعدادات الموارد البشرية', icon: <Building2 size={14} /> },
-            ]}
-            activeTabId={
-              ['work', 'contract', 'documents'].includes(activeTab) ? activeTab : ''
-            }
-            activeMoreId={['private', 'commencement', 'hr'].includes(activeTab) ? activeTab : undefined}
-            onTabChange={(id) => setActiveTab(id as typeof activeTab)}
-            onMoreChange={(id) => setActiveTab(id as typeof activeTab)}
-          />
-        ) : (
-          <div className="border-b border-slate-200 flex items-center gap-2 overflow-x-auto pt-2">
+        <div className="flex flex-wrap gap-1 border-b-2 border-slate-200 pt-1">
+          {masterTabs.map((tab) => (
             <button
+              key={tab.id}
               type="button"
-              onClick={() => setActiveTab('work')}
-              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 shrink-0 cursor-pointer duration-200 ${
-                activeTab === 'work'
-                  ? 'bg-white text-[#714B67] shadow-sm ring-1 ring-slate-200/50'
-                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-2.5 text-sm font-bold rounded-t-lg transition flex items-center gap-2 shrink-0 cursor-pointer border-b-2 -mb-[2px] ${
+                masterTabId === tab.id
+                  ? 'bg-white text-[#714B67] border-[#714B67]'
+                  : 'text-slate-500 border-transparent hover:text-slate-800 hover:bg-slate-50'
               }`}
             >
-              <Briefcase size={15} />
-              <span>معلومات العمل (Work Information)</span>
+              {tab.icon}
+              <span>{tab.label}</span>
             </button>
+          ))}
+        </div>
+
+        {(activeTab === 'commencement' || activeTab === 'hr') && (
+          <div className="flex items-center gap-2 text-xs text-slate-600 pt-2">
             <button
               type="button"
-              onClick={() => setActiveTab('contract')}
-              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 shrink-0 cursor-pointer duration-200 ${
-                activeTab === 'contract'
-                  ? 'bg-white text-[#714B67] shadow-sm ring-1 ring-slate-200/50'
-                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
-              }`}
+              onClick={() => setActiveTab('licenses')}
+              className="text-[#714B67] font-bold hover:underline cursor-pointer"
             >
-              <span>📄</span>
-              <span>عقد العمل والبدلات (Contract & Salary)</span>
+              ← العودة للتبويبات الرئيسية
             </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('commencement')}
-              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 shrink-0 cursor-pointer duration-200 ${
-                activeTab === 'commencement'
-                  ? 'bg-white text-[#714B67] shadow-sm ring-1 ring-slate-200/50'
-                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
-              }`}
-            >
-              <span>🚀</span>
-              <span>إقرار المباشرة والجاهزية (Job Commencement)</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('private')}
-              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 shrink-0 cursor-pointer duration-200 ${
-                activeTab === 'private'
-                  ? 'bg-white text-[#714B67] shadow-sm ring-1 ring-slate-200/50'
-                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
-              }`}
-            >
-              <UserCheck size={15} />
-              <span>البيانات الشخصية (Private Information)</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('documents')}
-              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 shrink-0 cursor-pointer duration-200 ${
-                activeTab === 'documents'
-                  ? 'bg-white text-[#714B67] shadow-sm ring-1 ring-slate-200/50'
-                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
-              }`}
-            >
-              <FileSpreadsheet size={15} />
-              <span>المستندات والتراخيص الكويتية (Documents)</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('hr')}
-              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 shrink-0 cursor-pointer duration-200 ${
-                activeTab === 'hr'
-                  ? 'bg-white text-[#714B67] shadow-sm ring-1 ring-slate-200/50'
-                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
-              }`}
-            >
-              <Building2 size={15} />
-              <span>إعدادات الموارد البشرية (HR Settings)</span>
-            </button>
+            <span className="text-slate-300">|</span>
+            <span className="font-semibold">
+              {activeTab === 'commencement' ? 'إقرار المباشرة' : 'رصيد الإجازات والموارد البشرية'}
+            </span>
           </div>
         )}
 
@@ -1283,7 +972,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
             onOpenContracts={onOpenContracts}
             onOpenLeaveSettings={() => setActiveTab('hr')}
             displayedCarriedOverDays={getCarriedOverForDisplay()}
-            compact={compactEmployeeUI}
+            compact
           />
         )}
 
@@ -1314,10 +1003,10 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
             isEditMode={isEditMode}
             handleFieldChange={handleFieldChange}
             handleOcrResult={handleOcrResult}
-            compact={compactEmployeeUI}
+            compact
           />
         )}
-        {activeTab === 'documents' && (
+        {activeTab === 'licenses' && (
           <EmployeeDocumentsTab
             employee={employee}
             setEmployee={setEmployee}
