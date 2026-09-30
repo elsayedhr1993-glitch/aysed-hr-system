@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
 import { auth, db, getCompaniesCollectionName, isTenantPurged } from '../lib/firebase';
 import { resolveTenantCompanyIdForEmail } from '../services/tenantCompanyLookup';
+import { readCompanyIdFromUrl } from '../utils/tenantCompanyId';
 import { doc, getDoc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { isSuperAdminEmail } from '../config/superAdminAccess';
@@ -153,7 +154,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               return { companyId: currentCompanyId, role: nextRole };
             }
 
-            const canonicalCompanyId = await resolveTenantCompanyIdForEmail(email, currentCompanyId);
+            const canonicalCompanyId = await resolveTenantCompanyIdForEmail(
+              email,
+              currentCompanyId,
+              readCompanyIdFromUrl()
+            );
             if (canonicalCompanyId) {
               await writeUser(
                 doc(db, 'users', uid),
@@ -232,7 +237,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }, { merge: true }).catch(() => {});
             }
           } catch (e) {
-            console.warn('Auth profile lookup skipped.');
+            console.warn('Auth profile lookup skipped — binding company from email/URL.');
+            if (!isSuperAdminEmail(userEmail) && userEmail) {
+              try {
+                const synced = await syncCompanyAdminBinding(
+                  firebaseUser.uid,
+                  userEmail,
+                  companyId,
+                  role
+                );
+                companyId = synced.companyId;
+                role = synced.role || role;
+              } catch {
+                /* non-blocking */
+              }
+            }
           }
 
           if (isSuperAdminEmail(userEmail)) {

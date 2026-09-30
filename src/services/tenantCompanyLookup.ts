@@ -1,11 +1,35 @@
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { db, getCompaniesCollectionName } from '../lib/firebase';
 import { isSuperAdminEmail } from '../config/superAdminAccess';
 import {
   dedupeTenantCompanies,
   resolveCompanyIdForAdminEmail,
 } from '../utils/companyDedupe';
+import { isQueryableTenantCompanyId, readCompanyIdFromUrl } from '../utils/tenantCompanyId';
 import type { TenantCompany } from '../types';
+
+function companyAdminEmails(data: Record<string, unknown>): string[] {
+  return ['adminUsername', 'email', 'adminEmail', 'ownerEmail', 'contactEmail']
+    .map((key) => String(data[key] || '').trim().toLowerCase())
+    .filter(Boolean);
+}
+
+async function resolveCompanyIdFromUrlHint(email: string, urlHint?: string): Promise<string | undefined> {
+  const normalized = email.trim().toLowerCase();
+  const urlCompanyId = String(urlHint || readCompanyIdFromUrl()).trim();
+  if (!normalized || !isQueryableTenantCompanyId(urlCompanyId)) return undefined;
+
+  const col = getCompaniesCollectionName();
+  const snap = await getDoc(doc(db, col, urlCompanyId)).catch(() => null);
+  if (!snap?.exists()) return undefined;
+
+  const data = snap.data() as Record<string, unknown>;
+  if (isSuperAdminEmail(email)) return urlCompanyId;
+
+  const admins = companyAdminEmails(data);
+  if (admins.includes(normalized)) return urlCompanyId;
+  return undefined;
+}
 
 function mapCompanyDoc(id: string, data: Record<string, unknown>): TenantCompany {
   return {
@@ -58,8 +82,12 @@ export async function fetchCompaniesForAdminEmail(email: string): Promise<Tenant
 
 export async function resolveTenantCompanyIdForEmail(
   email: string,
-  currentCompanyId?: string
+  currentCompanyId?: string,
+  urlHint?: string
 ): Promise<string | undefined> {
+  const fromUrl = await resolveCompanyIdFromUrlHint(email, urlHint);
+  if (fromUrl) return fromUrl;
+
   const companies = await fetchCompaniesForAdminEmail(email);
   if (companies.length === 0) return currentCompanyId;
 

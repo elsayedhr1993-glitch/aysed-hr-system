@@ -2,6 +2,9 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { KUWAIT_LABOR_CONFIG } from '../config/kuwaitLaborConfig';
 import { TenantDatabaseService } from '../services/tenantDataService';
 import { useEffectiveTenantCompanyId } from '../hooks/useEffectiveTenantCompanyId';
+import { useAuth } from './AuthContext';
+import { isQueryableTenantCompanyId } from '../utils/tenantCompanyId';
+import toast from 'react-hot-toast';
 import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import {
   getAttendanceRecordDocId,
@@ -229,6 +232,7 @@ const getAttendanceDate = (date?: string) => date || new Date().toISOString().sp
 const getAttendanceKey = (companyId: string, employeeId: string, date: string) => `${companyId}_${employeeId}_${date}`;
 
 export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isLoading: authLoading } = useAuth();
   const currentCompanyId = useEffectiveTenantCompanyId();
 
   // بيانات العقود المركزية
@@ -236,7 +240,12 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // مزامنة الموظفين حياً من قاعدة البيانات للشركة النشطة (Real-time Sync)
   useEffect(() => {
-    if (!currentCompanyId) return;
+    if (authLoading) return;
+    if (!isQueryableTenantCompanyId(currentCompanyId)) {
+      setEmployees([]);
+      return;
+    }
+
     setEmployees([]); // Clear immediately on company change to prevent cross-company bleed
 
     const q = query(collection(db, 'employees'), where('companyId', '==', currentCompanyId));
@@ -284,14 +293,15 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
       const code = String((error as { code?: string })?.code || '');
       console.error('Error in realtime employee sync:', error);
       if (code === 'permission-denied') {
-        console.warn(
-          '[employees] Firestore permission denied — sign in with a company admin or super admin account, or deploy firestore.rules to the named database.'
+        toast.error(
+          'تعذّر قراءة بيانات الموظفين (صلاحيات Firestore). سجّل الخروج ثم الدخول مرة أخرى، أو تأكد من ربط حسابك بشركة المنار.',
+          { id: 'employees-permission-denied', duration: 8000 }
         );
       }
     });
 
     return () => unsubscribe();
-  }, [currentCompanyId]);
+  }, [currentCompanyId, authLoading]);
 
   // حركات البصمة
   const [attendance, setAttendance] = useState<Record<string, AttendanceLog>>({});

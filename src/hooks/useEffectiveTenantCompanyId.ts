@@ -43,10 +43,6 @@ export function useEffectiveTenantCompanyId(): string {
       return resolved as string;
     }
 
-    if (isQueryableTenantCompanyId(urlCompanyId)) {
-      return urlCompanyId;
-    }
-
     return 'comp-super-admin';
   }, [user?.role, user?.companyId, user?.email, activeCompanyId, activeCompany?.id]);
 }

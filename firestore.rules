@@ -62,7 +62,9 @@ service cloud.firestore {
       return signedIn() && authEmailLower() != '' && (
         companyFieldEmailLower('adminUsername') ||
         companyFieldEmailLower('email') ||
-        companyFieldEmailLower('adminEmail')
+        companyFieldEmailLower('adminEmail') ||
+        companyFieldEmailLower('ownerEmail') ||
+        companyFieldEmailLower('contactEmail')
       );
     }
 

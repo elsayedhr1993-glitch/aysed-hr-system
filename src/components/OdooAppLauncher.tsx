@@ -13,6 +13,8 @@ import { db } from '../lib/firebase';
 import { useLang } from '../lib/i18n';
 import { computeCompanyDocumentComplianceStats } from '../utils/employeeDocumentCompliance';
 import { useEffectiveTenantCompanyId } from '../hooks/useEffectiveTenantCompanyId';
+import { isQueryableTenantCompanyId } from '../utils/tenantCompanyId';
+import { useAuth } from '../context/AuthContext';
 
 interface OdooAppLauncherProps {
   onSelectApp: (app: ActiveApp) => void;
@@ -49,6 +51,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
   const { lang } = useLang();
   const isSuperAdmin = currentUserRole === 'SUPER_ADMIN' || currentUserEmail.toLowerCase() === 'admin@aysed.com'.toLowerCase() || currentUserEmail.toLowerCase() === 'elsayedhr1993@gmail.com'.toLowerCase();
   const companyDisplayName = lang === 'ar' ? (activeCompany?.nameAr || activeCompany?.nameEn || 'Aysed HR S 2026') : (activeCompany?.nameEn || activeCompany?.nameAr || 'Aysed HR S 2026');
+  const { isLoading: authLoading } = useAuth();
   const currentCompanyId = useEffectiveTenantCompanyId();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -73,6 +76,10 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
   }, [currentCompanyId]);
 
   useEffect(() => {
+    if (authLoading || !isQueryableTenantCompanyId(currentCompanyId)) {
+      setRealEmployees([]);
+      return;
+    }
     setRealEmployees([]);
     const employeesQuery = query(
       collection(db, 'employees'),
@@ -87,7 +94,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
         console.error('Failed to load launcher employees:', error);
       }
     );
-  }, [currentCompanyId]);
+  }, [currentCompanyId, authLoading]);
 
   // حساب طلبات الإجازات بانتظار الاعتماد الحقيقية
   const pendingLeavesCount = useMemo(() => {
