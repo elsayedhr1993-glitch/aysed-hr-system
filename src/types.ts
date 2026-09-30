@@ -922,6 +922,51 @@ export interface SystemIntegrationsConfig {
 }
 
 // -------------------------------------------------------------------------
+// Employee onboarding checklist (employees/{id}/onboarding/checklist)
+// -------------------------------------------------------------------------
+export interface EmployeeOnboardingStep {
+  id: string;
+  title: string;
+  order: number;
+  completed: boolean;
+  completedAt?: string | null;
+  notes?: string;
+}
+
+export interface EmployeeOnboardingChecklistDoc {
+  id: string;
+  companyId: string;
+  employeeId: string;
+  steps: EmployeeOnboardingStep[];
+  progressPercent: number;
+  updatedAt: string;
+  version: number;
+}
+
+// -------------------------------------------------------------------------
+// Company facility compliance (companies/{id}/compliance/licences)
+// -------------------------------------------------------------------------
+export interface CompanyComplianceTrack {
+  key: 'health' | 'municipality' | 'fire';
+  label: string;
+  expiryDate: string | null;
+  status: 'valid' | 'expiring_soon' | 'expired' | 'missing';
+  daysRemaining: number | null;
+  documentId?: string;
+  documentNumber?: string;
+}
+
+export interface CompanyComplianceDoc {
+  id: string;
+  companyId: string;
+  tracks: CompanyComplianceTrack[];
+  overallPercent: number;
+  alertCount: number;
+  updatedAt: string;
+  version: number;
+}
+
+// -------------------------------------------------------------------------
 // Odoo Onboarding Models (hr.onboarding.plan / hr.onboarding.task)
 // -------------------------------------------------------------------------
 export interface OnboardingTask {

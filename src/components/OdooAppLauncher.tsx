@@ -15,9 +15,11 @@ import { computeCompanyDocumentComplianceStats } from '../utils/employeeDocument
 import { useEffectiveTenantCompanyId } from '../hooks/useEffectiveTenantCompanyId';
 import { isQueryableTenantCompanyId } from '../utils/tenantCompanyId';
 import { useAuth } from '../context/AuthContext';
+import { CompanyOnboardingLicensesWidget } from './onboarding/CompanyOnboardingLicensesWidget';
 
 interface OdooAppLauncherProps {
   onSelectApp: (app: ActiveApp) => void;
+  onOpenCompanyDocuments?: () => void;
   currentUserEmail?: string;
   currentUserRole?: string;
   activeCompany?: Company;
@@ -42,7 +44,8 @@ interface OdooAppLauncherProps {
 }
 
 export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({ 
-  onSelectApp, 
+  onSelectApp,
+  onOpenCompanyDocuments,
   currentUserEmail = '', 
   currentUserRole = '', 
   activeCompany, 
@@ -543,6 +546,11 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
         </div>
 
       </div>
+
+      <CompanyOnboardingLicensesWidget
+        companyId={currentCompanyId}
+        onOpenDocuments={onOpenCompanyDocuments}
+      />
 
       {/* 🧩 Odoo Enterprise App Launchpad - شبكة التطبيقات الـ 16 العصرية */}
       <div className="w-full py-2">

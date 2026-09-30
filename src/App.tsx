@@ -775,6 +775,7 @@ function MainAppLayout() {
                     break;
                 }
               }}
+              onOpenCompanyDocuments={() => openCompanyLicenseArchive(false)}
               currentUserEmail={user?.email || ''}
               currentUserRole={isSuperAdmin ? 'SUPER_ADMIN' : 'COMPANY_ADMIN'}
               activeCompany={activeCompany}

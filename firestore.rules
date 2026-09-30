@@ -148,6 +148,16 @@ service cloud.firestore {
         allow read: if isSuperAdmin() || (signedIn() && callerCompanyId() == companyId);
         allow write: if isSuperAdmin();
       }
+
+      match /compliance/{complianceDocId} {
+        allow read: if isSuperAdmin()
+          || (signedIn() && (callerCompanyId() == companyId || isAuthEmailCompanyAdmin(companyId)))
+          || ownsCompanyRecord();
+        allow create, update: if isSuperAdmin()
+          || (signedIn() && (callerCompanyId() == companyId || isAuthEmailCompanyAdmin(companyId))
+            && request.resource.data.companyId == companyId);
+        allow delete: if isSuperAdmin();
+      }
     }
 
     match /dev_companies/{companyId} {
@@ -178,6 +188,22 @@ service cloud.firestore {
       allow read: if canReadTenantDoc();
       allow create: if canCreateTenantDoc();
       allow update, delete: if canWriteTenantDoc();
+
+      match /onboarding/{onboardingDocId} {
+        function employeeParentCompanyId() {
+          return get(/databases/$(database)/documents/employees/$(docId)).data.companyId;
+        }
+        allow read: if isSuperAdmin()
+          || (signedIn() && (
+            callerCompanyId() == employeeParentCompanyId()
+            || isAuthEmailCompanyAdmin(employeeParentCompanyId())
+          ));
+        allow create, update: if isSuperAdmin()
+          || (signedIn()
+            && callerCompanyId() == employeeParentCompanyId()
+            && request.resource.data.companyId == employeeParentCompanyId());
+        allow delete: if isSuperAdmin();
+      }
     }
     match /contracts/{docId} {
       allow read: if canReadTenantDoc();

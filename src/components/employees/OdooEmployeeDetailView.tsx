@@ -48,7 +48,8 @@ import {
   Mail,
   MapPin,
   Landmark,
-  BadgeCheck
+  BadgeCheck,
+  ListChecks
 } from 'lucide-react';
 import { useCompany } from '../../context/CompanyContext';
 import { triggerContractRunningLeaveAllocation } from '../../utils/contractLeaveTrigger';
@@ -65,6 +66,8 @@ import { db } from '../../lib/firebase';
 import { OdooSmartButtons, type SmartButtonStat } from '../ui/OdooSmartButtons';
 import { employeeRequiresMohCompliance, mohComplianceGaps } from '../../utils/employeeCompliance';
 import { attachSignedContractFileToEmployee } from '../../utils/signedContractUpload';
+import { EmployeeOnboardingChecklistModal } from '../onboarding/EmployeeOnboardingChecklistModal';
+import { subscribeEmployeeOnboardingChecklist } from '../../services/employeeOnboardingChecklistService';
 
 interface Props {
   employee: any;
@@ -111,6 +114,8 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
   const [leaveAllocations, setLeaveAllocations] = useState<any[]>([]);
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
   const [isUploadingSignedContract, setIsUploadingSignedContract] = useState(false);
+  const [onboardingProgress, setOnboardingProgress] = useState(0);
+  const [showOnboardingChecklist, setShowOnboardingChecklist] = useState(false);
   const actionsMenuRef = useRef<HTMLDivElement>(null);
 
   const resolvedCompanyId =
@@ -197,6 +202,21 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
     activeCompany?.id,
     contextActiveCompany?.id
   ]);
+
+  useEffect(() => {
+    const employeeId = employee?.id || initialEmployee?.id;
+    if (!employeeId || !resolvedCompanyId) {
+      setOnboardingProgress(0);
+      return;
+    }
+    return subscribeEmployeeOnboardingChecklist(
+      employeeId,
+      resolvedCompanyId,
+      employee,
+      (doc) => setOnboardingProgress(doc.progressPercent),
+      () => setOnboardingProgress(0)
+    );
+  }, [employee, initialEmployee?.id, resolvedCompanyId]);
 
   useEffect(() => {
     const employeeId = initialEmployee?.id;
@@ -367,6 +387,14 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
       icon: FolderArchive,
       colorTheme: 'indigo',
       onClick: () => setActiveTab('licenses'),
+    },
+    {
+      id: 'onboarding_plan',
+      label: 'خطة التهيئة',
+      value: `${onboardingProgress}%`,
+      icon: ListChecks,
+      colorTheme: 'slate',
+      onClick: () => setShowOnboardingChecklist(true),
     },
     ...(onOpenPayroll
       ? [
@@ -1040,6 +1068,15 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
         </div>
       </div>
       </div>
+
+      <EmployeeOnboardingChecklistModal
+        isOpen={showOnboardingChecklist}
+        onClose={() => setShowOnboardingChecklist(false)}
+        employeeId={String(employee?.id || '')}
+        companyId={String(resolvedCompanyId || '')}
+        employee={employee}
+        employeeName={employee?.nameAr || employee?.fullNameAr}
+      />
     </div>
   );
 };

@@ -30,6 +30,8 @@ export const OdooSmartButtons: React.FC<OdooSmartButtonsProps> = ({ stats, varia
         return 'border-rose-200 hover:border-rose-400 bg-rose-50/40 text-rose-900';
       case 'indigo':
         return 'border-indigo-200 hover:border-indigo-400 bg-indigo-50/40 text-indigo-900';
+      case 'slate':
+        return 'border-slate-200 hover:border-slate-400 bg-slate-50/80 text-slate-900';
       case 'purple':
       default:
         return 'border-purple-200 hover:border-purple-400 bg-purple-50/40 text-purple-900';
@@ -43,19 +45,22 @@ export const OdooSmartButtons: React.FC<OdooSmartButtonsProps> = ({ stats, varia
       case 'amber': return 'text-amber-600';
       case 'rose': return 'text-rose-600';
       case 'indigo': return 'text-indigo-600';
+      case 'slate': return 'text-slate-600';
       case 'purple':
       default: return 'text-[#714B67]';
     }
   };
 
   if (variant === 'toolbar') {
+    const colCount = Math.max(1, Math.min(stats.length, 6));
     return (
       <div
-        className="grid grid-cols-5 gap-1.5 w-full min-w-0 py-1 flex-nowrap"
+        className="grid gap-1.5 w-full min-w-0 py-1 flex-nowrap"
+        style={{ gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))` }}
         dir="rtl"
         role="toolbar"
         aria-label="أزرار ذكية"
-        data-smart-buttons-layout="toolbar-grid-5"
+        data-smart-buttons-layout={`toolbar-grid-${colCount}`}
       >
         {stats.map((stat) => {
           const IconComponent = stat.icon;
