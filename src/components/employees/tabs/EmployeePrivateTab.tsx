@@ -35,7 +35,7 @@ export const EmployeePrivateTab: React.FC<Props> = ({
           />
         </div>
       )}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 w-full">
         <EditableField
           label="انتهاء البطاقة المدنية"
           value={employee.civilIdExpiry ? employee.civilIdExpiry.slice(0, 10) : ''}
@@ -130,7 +130,7 @@ export const EmployeePrivateTab: React.FC<Props> = ({
           <span>الرقم المدني، الجنسية، التواصل، والآيبان لـ WPS</span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 w-full">
           <EditableField
             label="الرقم المدني"
             value={employee.civilId || employee.civil_id_number || ''}
@@ -211,7 +211,7 @@ export const EmployeePrivateTab: React.FC<Props> = ({
       )}
       
       {/* 2-Columns Standard Form Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 w-full">
         
         {/* Right Column: الهوية والجنسية */}
         <div className="space-y-4">

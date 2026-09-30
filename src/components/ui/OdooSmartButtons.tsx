@@ -13,9 +13,11 @@ export interface SmartButtonStat {
 
 interface OdooSmartButtonsProps {
   stats: SmartButtonStat[];
+  /** صف علوي موحّد (Odoo oe_button_box) — يمنع انزلاق زر واحد لسطر ثانٍ */
+  variant?: 'default' | 'toolbar';
 }
 
-export const OdooSmartButtons: React.FC<OdooSmartButtonsProps> = ({ stats }) => {
+export const OdooSmartButtons: React.FC<OdooSmartButtonsProps> = ({ stats, variant = 'default' }) => {
   const getColorClasses = (theme?: string) => {
     switch (theme) {
       case 'emerald':
@@ -46,6 +48,45 @@ export const OdooSmartButtons: React.FC<OdooSmartButtonsProps> = ({ stats }) => 
     }
   };
 
+  if (variant === 'toolbar') {
+    return (
+      <div
+        className="grid grid-cols-5 gap-1.5 w-full min-w-0 py-1 flex-nowrap"
+        dir="rtl"
+        role="toolbar"
+        aria-label="أزرار ذكية"
+        data-smart-buttons-layout="toolbar-grid-5"
+      >
+        {stats.map((stat) => {
+          const IconComponent = stat.icon;
+          return (
+            <button
+              key={stat.id}
+              type="button"
+              onClick={stat.onClick}
+              className={`group relative flex flex-col items-center justify-center gap-1 px-1.5 py-2 rounded-lg border transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-sm bg-white min-h-[4.25rem] min-w-0 ${getColorClasses(stat.colorTheme)}`}
+            >
+              <div className={`p-1.5 rounded-md bg-white border border-slate-100 shrink-0 ${getIconColor(stat.colorTheme)}`}>
+                <IconComponent className="w-3.5 h-3.5" />
+              </div>
+              <span className="font-mono font-bold text-[11px] tracking-tight text-slate-900 leading-none truncate max-w-full px-0.5">
+                {stat.value}
+              </span>
+              <span className="text-[9px] font-bold text-slate-500 group-hover:text-slate-800 text-center leading-tight line-clamp-2 px-0.5">
+                {stat.label}
+              </span>
+              {stat.badge && (
+                <span className="absolute top-0.5 left-0.5 px-1 py-0.5 bg-purple-700 text-white text-[8px] font-mono font-bold rounded-full shadow-xs">
+                  {stat.badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-wrap items-center gap-3 py-2" dir="rtl">
       {stats.map((stat) => {
@@ -57,12 +98,10 @@ export const OdooSmartButtons: React.FC<OdooSmartButtonsProps> = ({ stats }) => 
             onClick={stat.onClick}
             className={`group relative flex items-center gap-3 px-3.5 py-2 rounded-xl border transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-md bg-white hover:scale-[1.02] active:scale-95 ${getColorClasses(stat.colorTheme)}`}
           >
-            {/* Side Icon */}
             <div className={`p-2 rounded-lg bg-white shadow-xs border border-slate-100 shrink-0 ${getIconColor(stat.colorTheme)}`}>
               <IconComponent className="w-4 h-4" />
             </div>
 
-            {/* Value & Description Stacked Lines */}
             <div className="text-right flex flex-col min-w-[70px]">
               <span className="font-mono font-bold text-sm tracking-tight text-slate-900 leading-tight">
                 {stat.value}

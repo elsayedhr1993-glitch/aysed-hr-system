@@ -566,7 +566,12 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-100/60 p-2 sm:p-4 md:p-6 space-y-4 text-right font-sans text-slate-900 w-full" dir="rtl">
+    <div
+      className="min-h-screen bg-slate-100/60 py-3 sm:py-4 text-right font-sans text-slate-900 w-full -mx-3 sm:-mx-5 lg:-mx-6 px-[2.5%] sm:px-[2%]"
+      dir="rtl"
+      data-employee-master-layout="wide-toolbar-v2"
+    >
+      <div className="mx-auto w-full max-w-[1400px] space-y-4">
       
       {/* Breadcrumb — سطر مستقل */}
       <div className="w-full bg-white border border-slate-200/90 rounded-xl px-4 py-2.5 shadow-2xs">
@@ -757,9 +762,9 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
 
       {/* Odoo HR Master Form */}
       <div className="bg-white border border-slate-200/90 rounded-2xl shadow-sm w-full p-5 sm:p-6 md:p-8 space-y-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          {/* Status ribbon — مصغّر أعلى اليسار (في RTL: نهاية الصف) */}
-          <div className="flex flex-wrap items-center gap-1.5 order-2 sm:order-1 ms-auto sm:ms-0">
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
+          {/* Status ribbon */}
+          <div className="flex flex-wrap items-center gap-1.5">
             {[
               { key: 'docs', label: 'مستندات', ok: docsCount >= 3, onClick: () => setActiveTab('licenses') },
               { key: 'start', label: 'مباشرة', ok: isCommenced, onClick: () => setActiveTab('commencement') },
@@ -787,9 +792,9 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-6 items-start border-b border-slate-100 pb-5">
+        <div className="flex flex-col gap-4 border-b border-slate-100 pb-5">
         {/* Profile Header Block: Avatar + Name + Subtitle + Badge */}
-        <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-start gap-4 w-full min-w-0">
           <div className={`w-20 h-20 rounded-2xl ${employee.avatarColor || 'bg-[#714B67]'} text-white flex items-center justify-center font-bold text-2xl shadow-xs shrink-0 overflow-hidden relative`}>
             {employee.avatarUrl ? (
               <img src={employee.avatarUrl} alt="" className="w-full h-full object-cover" />
@@ -923,8 +928,8 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
           </div>
         </div>
 
-        <div className="min-w-0 lg:border-r lg:border-slate-100 lg:pr-6">
-          <OdooSmartButtons stats={smartButtonStats} />
+        <div className="w-full min-w-0 border-t border-slate-100 pt-3">
+          <OdooSmartButtons stats={smartButtonStats} variant="toolbar" />
         </div>
         </div>
 
@@ -947,6 +952,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
           ))}
         </div>
 
+        <div className="w-full pt-2 employee-master-form-sheet">
         {(activeTab === 'commencement' || activeTab === 'hr') && (
           <div className="flex items-center gap-2 text-xs text-slate-600 pt-2">
             <button
@@ -1030,6 +1036,8 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
             holidayWorkReadOnly={Boolean(onOpenLeaves)}
           />
         )}
+        </div>
+      </div>
       </div>
     </div>
   );

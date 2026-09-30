@@ -81,7 +81,7 @@ export const EmployeeContractTab: React.FC<Props> = ({
         onUpload={onUploadSignedContract}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 w-full">
         <div className="space-y-4">
           <div className="border-b border-slate-100 pb-2 mb-2">
             <h5 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">

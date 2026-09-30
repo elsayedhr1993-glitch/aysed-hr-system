@@ -222,7 +222,7 @@ export const EmployeeWorkTab: React.FC<Props> = ({
 
         {complianceFieldsBlock}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 w-full">
           <EditableField
             label="المسمى الوظيفي"
             value={employee.jobTitle || ''}
@@ -337,7 +337,7 @@ export const EmployeeWorkTab: React.FC<Props> = ({
       {complianceFieldsBlock}
 
       {/* 2-Columns Standard Form Grid: Job & Contact Info */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 w-full">
         
         {/* Right Column: الوظيفة والتنظيم الإداري */}
         <div className="space-y-4">
