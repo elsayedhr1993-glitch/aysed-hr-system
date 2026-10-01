@@ -1,4 +1,5 @@
 import { Employee } from '../types';
+import { sanitizeEmployeeRecordForFirestore } from './employeeDocumentStorage';
 
 export function normalizeEmployeeRecord(raw: Partial<Employee> & Record<string, any>, companyId?: string): Employee {
   const resolvedCompanyId = companyId || raw.companyId || raw.company_id || 'comp-super-admin';
@@ -58,7 +59,10 @@ export function normalizeEmployeeRecord(raw: Partial<Employee> & Record<string, 
 
 export function toEmployeeFirestoreData(employee: Partial<Employee> & Record<string, any>, companyId?: string) {
   const normalized = normalizeEmployeeRecord(employee, companyId);
-  return { ...normalized, updatedAt: new Date().toISOString() };
+  return sanitizeEmployeeRecordForFirestore({
+    ...(normalized as Record<string, unknown>),
+    updatedAt: new Date().toISOString(),
+  }) as ReturnType<typeof normalizeEmployeeRecord> & { updatedAt: string };
 }
 
 /** UI view model for EmployeesApp (cards, detail, list). */

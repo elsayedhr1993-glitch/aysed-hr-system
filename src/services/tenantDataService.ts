@@ -732,12 +732,13 @@ export const TenantDatabaseService = {
     try {
       const cleanDoc = cleanFirestoreData(toEmployeeFirestoreData(employee as any, compId));
       await setDoc(doc(db, 'employees', employee.id), cleanDoc, { merge: true });
-      try {
-        const { syncEmployeeDocumentsToArchive } = await import('./employeeDocumentArchiveSync');
-        await syncEmployeeDocumentsToArchive(cleanDoc as Record<string, unknown>);
-      } catch (syncErr) {
-        console.warn('[TenantDatabaseService] Employee document archive sync failed:', syncErr);
-      }
+      void import('./employeeDocumentArchiveSync')
+        .then(({ syncEmployeeDocumentsToArchive }) =>
+          syncEmployeeDocumentsToArchive(cleanDoc as Record<string, unknown>)
+        )
+        .catch(syncErr => {
+          console.warn('[TenantDatabaseService] Employee document archive sync failed:', syncErr);
+        });
       return true;
     } catch (fsErr) {
       console.warn('[TenantDatabaseService] Firestore save failed:', fsErr);

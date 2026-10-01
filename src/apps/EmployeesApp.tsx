@@ -770,10 +770,26 @@ export function EmployeesApp(props?: any) {
     };
     delete payload.isNewRecord;
 
-    const saved = await TenantDatabaseService.saveEmployee(payload as any, activeCompanyId);
+    let saved = false;
+    try {
+      saved = await Promise.race([
+        TenantDatabaseService.saveEmployee(payload as any, activeCompanyId),
+        new Promise<boolean>((_, reject) => {
+          setTimeout(
+            () => reject(new Error('انتهت مهلة الحفظ (45 ثانية). تحقق من الاتصال أو حجم المرفقات.')),
+            45_000
+          );
+        }),
+      ]);
+    } catch (saveErr: any) {
+      const msg = saveErr?.message || 'تعذر حفظ بيانات الموظف';
+      toast.error(msg);
+      throw saveErr instanceof Error ? saveErr : new Error(msg);
+    }
     if (!saved) {
-      toast.error(`فشل حفظ بيانات الموظف (${payload.nameAr}) في قاعدة البيانات`);
-      return;
+      const failMsg = `فشل حفظ بيانات الموظف (${payload.nameAr}) في قاعدة البيانات`;
+      toast.error(failMsg);
+      throw new Error(failMsg);
     }
 
     const viewEmployee = mapEmployeeForEmployeesAppView(payload, activeCompanyId);
