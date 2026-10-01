@@ -57,8 +57,8 @@ export const DocumentCompliancePrintModal: React.FC<DocumentCompliancePrintModal
   }).length;
 
   return (
-    <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto" dir="rtl">
-      <div className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[95vh]">
+    <div className="fixed printable-modal-root inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto print:bg-white" dir="rtl">
+      <div className="printable-modal-sheet bg-white rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[95vh]">
         
         {/* Modal Action Bar (Hidden on Print) */}
         <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 print:hidden">
@@ -85,7 +85,7 @@ export const DocumentCompliancePrintModal: React.FC<DocumentCompliancePrintModal
         {/* Printable A4 Content */}
         <div
           id="document-compliance-print-root"
-          className="odoo-report-sheet p-8 overflow-y-auto flex-1 bg-white text-slate-900 font-sans print:p-0 print:overflow-visible"
+          className="odoo-report-sheet odoo-report-sheet--compact-portrait odoo-report-sheet--framed p-6 sm:p-8 overflow-y-auto flex-1 bg-white text-slate-900 font-sans print:p-0 print:overflow-visible mx-auto max-w-[210mm]"
         >
           
           <OfficialA4CompanyLetterhead

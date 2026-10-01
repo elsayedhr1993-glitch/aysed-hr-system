@@ -39,6 +39,30 @@ export function formatCompanyDocumentType(documentType: string): string {
   return COMPANY_DOCUMENT_TYPE_LABELS[key] || key;
 }
 
+/** تواريخ انتهاء بعيدة جداً (مثل 2099) تُعرض كسريان دائم في التقارير */
+export function formatCompanyDocumentExpiryDisplay(expiryDateStr?: string | null): string {
+  const raw = String(expiryDateStr || '').trim();
+  if (!raw || raw === '—') return 'غير محدد';
+  const year = parseInt(raw.slice(0, 4), 10);
+  if (!Number.isFinite(year)) return raw;
+  if (year >= 2090) return 'دائم';
+  return raw;
+}
+
+/** سطر واحد للطباعة: الاسم مع تصنيف النوع فقط إن كان مختلفاً */
+export function companyDocumentPrintTitle(name: string, documentType: string): {
+  primary: string;
+  secondary?: string;
+} {
+  const primary = String(name || '').trim() || '—';
+  const typeLabel = formatCompanyDocumentType(documentType);
+  const norm = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase();
+  if (!typeLabel || typeLabel === '—' || norm(typeLabel) === norm(primary)) {
+    return { primary };
+  }
+  return { primary, secondary: typeLabel };
+}
+
 export type DocumentValidityStatus = 'valid' | 'expiring_soon' | 'expired';
 
 export type GetDocumentStatusOptions = {

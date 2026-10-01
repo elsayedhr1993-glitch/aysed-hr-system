@@ -958,7 +958,7 @@ table {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 12mm 10mm 15mm 10mm;
+    margin: 8mm 10mm 10mm 10mm;
   }
 
   /* 1. Hide all navigation, topbars, buttons, tooltips and dev tools */
@@ -1076,6 +1076,28 @@ table {
   .odoo-report-table thead th {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+  }
+
+  body.aysed-native-print > *:not(.odoo-report-print-root) {
+    display: none !important;
+  }
+
+  body.aysed-native-print .odoo-report-print-root {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+  }
+
+  .odoo-report-sheet--compact-portrait {
+    font-size: 9px !important;
+    line-height: 1.28 !important;
+  }
+
+  .odoo-report-sheet--framed {
+    border: 1px solid #714b67 !important;
+    padding: 4mm !important;
   }
 }
 

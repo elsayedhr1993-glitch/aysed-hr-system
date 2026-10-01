@@ -46,6 +46,15 @@ import {
   isEmployeeOnLeave,
   normalizeEmployeeStatus,
 } from '../utils/employeeLifecycle';
+import { OfficialA4CompanyLetterhead } from '../components/print/OfficialA4CompanyLetterhead';
+import {
+  OdooReportFooter,
+  OdooReportKpiCell,
+  OdooReportKpiStrip,
+  OdooReportLegalNotice,
+} from '../components/print/OdooReportPrimitives';
+import { getCompanyPrintProfile } from '../utils/companyPrintProfile';
+import { OdooPdf } from '../services/odooPdfService';
 
 export const safePrintA4Document = (htmlContent: string) => {
   try {
@@ -2080,9 +2089,9 @@ export function EmployeesApp(props?: any) {
 
       {/* Print Preview Modal */}
       {showPrintModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-300" dir="rtl">
-            <div className="bg-slate-800 text-white px-6 py-4 flex items-center justify-between">
+        <div className="fixed printable-modal-root inset-0 bg-black/70 backdrop-blur-sm z-[999] flex items-center justify-center p-4 print:bg-white print:backdrop-blur-none">
+          <div className="printable-modal-sheet bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-300 print:max-w-none print:shadow-none print:border-none" dir="rtl">
+            <div className="bg-[#714B67] text-white px-6 py-4 flex items-center justify-between print:hidden">
               <div className="flex items-center gap-2 font-bold text-sm">
                 <span>🖨️</span> معاينة الطباعة الرسمية - {printTitle}
               </div>
@@ -2094,13 +2103,11 @@ export function EmployeesApp(props?: any) {
               </button>
             </div>
 
-            <div className="p-8 overflow-y-auto space-y-6 flex-1 text-slate-800 bg-slate-50 font-sans">
-              <div className="text-center border-b border-slate-300 pb-6 space-y-2">
-                <div className="text-xl font-bold text-purple-900">{activeCompany?.nameAr || activeCompany?.name || 'تقرير المنشأة'}</div>
-                <div className="text-xs text-slate-500">{activeCompany?.nameEn || 'State of Kuwait'}</div>
-                <div className="text-sm font-semibold text-slate-700 mt-2">{printTitle}</div>
-              </div>
-
+            <div className="printable-scroll p-4 sm:p-6 overflow-y-auto flex-1 bg-slate-100/60 font-sans print:p-0 print:bg-white">
+              <div
+                id="employee-leave-print-sheet"
+                className="odoo-report-sheet odoo-report-sheet--compact-portrait odoo-report-sheet--framed odoo-report-compact-one-page space-y-3 bg-white border border-slate-200 rounded-xl p-4 sm:p-5 print:border-none print:shadow-none print:rounded-none"
+              >
               {printData && (
                 (() => {
                   const isLeaveReport = printTitle.includes('كشف رصيد إجازات');
@@ -2133,12 +2140,25 @@ export function EmployeesApp(props?: any) {
                     const remainingComp = Number((summary.remainingComp ?? fifoBreakdown.remainingComp ?? 0).toFixed(2));
 
                     return (
-                      <div className="space-y-6">
-                        {/* Summary Cards */}
-                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
-                          <h4 className="text-xs font-bold text-slate-800 border-b pb-2 mb-3 flex items-center gap-1.5">
-                            <span>👤</span> بيانات الموظف الأساسية (Employee Info)
-                          </h4>
+                      <div className="space-y-5">
+                        <OfficialA4CompanyLetterhead
+                          company={activeCompany}
+                          subtitle="دولة الكويت — سجل الإجازات والامتثال"
+                          centerSlot={
+                            <div className="odoo-report-center-title text-xs">
+                              <h2 className="text-sm font-bold text-slate-900">{printTitle}</h2>
+                            </div>
+                          }
+                          rightSlot={
+                            <div className="text-[10px] font-mono text-slate-500 text-left">
+                              <div>{new Date().toLocaleDateString('ar-KW')}</div>
+                              <div>REF: LVE-{printData.civilId?.slice(-6) || printData.id}</div>
+                            </div>
+                          }
+                        />
+
+                        <div className="odoo-report-meta-strip space-y-3">
+                          <h4 className="text-xs font-bold text-[#714B67]">بيانات الموظف الأساسية</h4>
                           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs">
                             <div><strong className="text-slate-500">اسم الموظف:</strong> <span className="font-bold text-slate-900">{printData.nameAr || printData.fullNameAr || 'غير متوفر'}</span></div>
                             <div><strong className="text-slate-500">الرقم المدني:</strong> <span className="font-mono">{printData.civilId || printData.civil_id_number || 'غير متوفر'}</span></div>
@@ -2149,90 +2169,42 @@ export function EmployeesApp(props?: any) {
                           </div>
                         </div>
 
-                        {/* Leave Balance Sheet Table */}
-                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
-                          <h4 className="text-xs font-bold text-slate-800 border-b pb-2 mb-3 flex items-center gap-1.5">
-                            <span>📊</span> تفاصيل رصيد الإجازات المعتمد (Approved Balances)
-                          </h4>
-                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 text-center">
-                            <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-                              <div className="text-[10px] text-slate-500 font-bold mb-1">الرصيد المرحل</div>
-                              <div className="text-base font-black text-slate-800 font-mono">{carriedOver} يوم</div>
-                            </div>
-                            <div className="p-3 rounded-lg bg-purple-50/50 border border-purple-200">
-                              <div className="text-[10px] text-purple-900 font-bold mb-1">المستحق لعام 2026</div>
-                              <div className="text-base font-black text-[#714B67] font-mono">+{accrued2026} يوم</div>
-                            </div>
-                            <div className="p-3 rounded-lg bg-emerald-50/50 border border-emerald-200">
-                              <div className="text-[10px] text-emerald-900 font-bold mb-1">أيام تعويضية مضافة</div>
-                              <div className="text-base font-black text-emerald-800 font-mono">+{compensatory} يوم</div>
-                            </div>
-                            <div className="p-3 rounded-lg bg-rose-50/50 border border-rose-200">
-                              <div className="text-[10px] text-rose-900 font-bold mb-1">المخصوم (إجازات + تسييل)</div>
-                              <div className="text-base font-black text-rose-800 font-mono">-{totalTaken} يوم</div>
-                              <div className="text-[9px] text-rose-700 mt-1 font-mono">إجازات: {annualTaken} | تسييل: {encashTaken}</div>
-                            </div>
-                            <div className="p-3 rounded-lg bg-orange-50 border border-orange-200">
-                              <div className="text-[10px] text-orange-950 font-bold mb-1">إجازة بدون راتب / تجاوز رصيد</div>
-                              <div className="text-base font-black text-orange-800 font-mono">{unpaidExcess} يوم</div>
-                            </div>
-                            <div className="p-3 rounded-lg bg-teal-50 border border-teal-200">
-                              <div className="text-[10px] text-teal-950 font-bold mb-1">الرصيد المتاح الصافي</div>
-                              <div className="text-lg font-black text-teal-900 font-mono">{netAvailable} يوم</div>
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-center border-t border-slate-100 pt-4">
-                            <div className="p-3 rounded-lg bg-orange-50 border border-orange-200">
-                              <div className="text-[10px] text-orange-900 font-bold mb-1">خصم من المرحل</div>
-                              <div className="text-base font-black text-orange-800 font-mono">-{fifoBreakdown?.consumedFromCarried ?? 0} يوم</div>
-                            </div>
-                            <div className="p-3 rounded-lg bg-violet-50 border border-violet-200">
-                              <div className="text-[10px] text-violet-900 font-bold mb-1">خصم من المستحق</div>
-                              <div className="text-base font-black text-violet-800 font-mono">-{fifoBreakdown?.consumedFromAccrued ?? 0} يوم</div>
-                            </div>
-                            <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200">
-                              <div className="text-[10px] text-emerald-900 font-bold mb-1">خصم من التعويضي</div>
-                              <div className="text-base font-black text-emerald-800 font-mono">-{fifoBreakdown?.consumedFromComp ?? 0} يوم</div>
-                            </div>
-                            <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-                              <div className="text-[10px] text-slate-600 font-bold mb-1">المتبقي من المرحل</div>
-                              <div className="text-base font-black text-slate-800 font-mono">{fifoBreakdown?.remainingCarried ?? 0} يوم</div>
-                            </div>
-                            <div className="p-3 rounded-lg bg-indigo-50 border border-indigo-200">
-                              <div className="text-[10px] text-indigo-900 font-bold mb-1">المتبقي من المستحق</div>
-                              <div className="text-base font-black text-indigo-800 font-mono">{fifoBreakdown?.remainingAccrued ?? 0} يوم</div>
-                            </div>
-                            <div className="p-3 rounded-lg bg-teal-50 border border-teal-200">
-                              <div className="text-[10px] text-teal-900 font-bold mb-1">المتبقي من التعويضي</div>
-                              <div className="text-base font-black text-teal-800 font-mono">{fifoBreakdown?.remainingComp ?? 0} يوم</div>
-                            </div>
-                          </div>
+                        <div className="space-y-3">
+                          <h4 className="text-xs font-bold text-[#714B67]">تفاصيل رصيد الإجازات المعتمد</h4>
+                          <OdooReportKpiStrip>
+                            <OdooReportKpiCell label="الرصيد المرحل" value={`${carriedOver} يوم`} />
+                            <OdooReportKpiCell label="المستحق لعام 2026" value={<span className="font-mono text-[#714B67]">+{accrued2026} يوم</span>} />
+                            <OdooReportKpiCell label="أيام تعويضية" value={<span className="font-mono text-emerald-800">+{compensatory} يوم</span>} />
+                            <OdooReportKpiCell label="المخصوم" value={<span className="font-mono text-rose-800">-{totalTaken} يوم</span>} />
+                          </OdooReportKpiStrip>
+                          <OdooReportKpiStrip>
+                            <OdooReportKpiCell label="بدون راتب / تجاوز" value={`${unpaidExcess} يوم`} />
+                            <OdooReportKpiCell label="الرصيد الصافي" value={<span className="font-mono text-lg text-teal-900">{netAvailable} يوم</span>} />
+                            <OdooReportKpiCell label="إجازات / تسييل" value={<span className="font-mono text-[10px]">{annualTaken} / {encashTaken}</span>} />
+                            <OdooReportKpiCell label="FIFO متبقي" value={<span className="font-mono text-[10px]">{remainingCarried} · {remainingAccrued} · {remainingComp}</span>} />
+                          </OdooReportKpiStrip>
                         </div>
 
-                        {/* Recent Leave Requests List */}
-                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-3">
-                          <h4 className="text-xs font-bold text-slate-800 border-b pb-2 mb-1 flex items-center gap-1.5">
-                            <span>📅</span> سجل حركات الإجازات والتسويات (إجازات + تسييل + سندات)
-                          </h4>
+                        <div className="space-y-3">
+                          <h4 className="text-xs font-bold text-[#714B67]">سجل حركات الإجازات والتسويات</h4>
                           {logRows.length === 0 ? (
                             <div className="text-center py-4 text-slate-400 font-bold text-xs">لا يوجد حركات إجازات أو تسويات معتمدة مسجلة لهذا الموظف.</div>
                           ) : (
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-right text-xs table-auto">
-                                <thead className="bg-slate-100 text-slate-700 font-bold">
+                            <div className="odoo-report-table-wrap overflow-x-auto">
+                              <table className="odoo-report-table w-full text-right text-[10px] table-auto">
+                                <thead>
                                   <tr>
-                                    <th className="p-2 border">تاريخ البدء</th>
-                                    <th className="p-2 border">تاريخ الانتهاء</th>
-                                    <th className="p-2 border text-center">المدة (أيام)</th>
-                                    <th className="p-2 border text-center">من الرصيد</th>
-                                    <th className="p-2 border text-center">بدون راتب</th>
-                                    <th className="p-2 border">السبب / نوع الطلب</th>
-                                    <th className="p-2 border text-center">النوع / الحالة</th>
+                                    <th className="p-2">تاريخ البدء</th>
+                                    <th className="p-2">تاريخ الانتهاء</th>
+                                    <th className="p-2 text-center">المدة (أيام)</th>
+                                    <th className="p-2 text-center">من الرصيد</th>
+                                    <th className="p-2 text-center">بدون راتب</th>
+                                    <th className="p-2">السبب / نوع الطلب</th>
+                                    <th className="p-2 text-center">النوع / الحالة</th>
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {logRows.slice(0, 12).map((row) => {
+                                  {logRows.slice(0, 8).map((row) => {
                                     const badgeClass =
                                       row.kind === 'annual_leave'
                                         ? 'bg-emerald-100 text-emerald-900'
@@ -2240,18 +2212,18 @@ export function EmployeesApp(props?: any) {
                                           ? 'bg-amber-100 text-amber-900'
                                           : 'bg-violet-100 text-violet-900';
                                     return (
-                                    <tr key={row.key} className="hover:bg-slate-50">
-                                      <td className="p-2 border font-mono">{row.startDate}</td>
-                                      <td className="p-2 border font-mono">{row.endDate}</td>
-                                      <td className="p-2 border text-center font-mono font-bold">{row.totalDays} يوم</td>
-                                      <td className="p-2 border text-center font-mono font-bold text-rose-800">{row.paidDays} يوم</td>
-                                      <td className="p-2 border text-center font-mono font-bold text-orange-800">{row.unpaidDays} يوم</td>
-                                      <td className="p-2 border">
+                                    <tr key={row.key}>
+                                      <td className="p-2 font-mono">{row.startDate}</td>
+                                      <td className="p-2 font-mono">{row.endDate}</td>
+                                      <td className="p-2 text-center font-mono font-bold">{row.totalDays} يوم</td>
+                                      <td className="p-2 text-center font-mono font-bold text-rose-800">{row.paidDays} يوم</td>
+                                      <td className="p-2 text-center font-mono font-bold text-orange-800">{row.unpaidDays} يوم</td>
+                                      <td className="p-2">
                                         {row.reason}
                                         {row.voucherNumber ? ` [${row.voucherNumber}]` : ''}
                                         {row.netPayoutKwd && row.netPayoutKwd > 0 ? ` — ${row.netPayoutKwd.toFixed(3)} د.ك` : ''}
                                       </td>
-                                      <td className="p-2 border text-center">
+                                      <td className="p-2 text-center">
                                         <span className={`${badgeClass} px-2 py-0.5 rounded text-[10px] font-bold`}>{row.statusLabel}</span>
                                       </td>
                                     </tr>
@@ -2263,13 +2235,29 @@ export function EmployeesApp(props?: any) {
                           )}
                         </div>
 
+                        <OdooReportLegalNotice title="إقرار المطابقة">
+                          <p>يُعد هذا الكشف من سجل الإجازات الموحد (leaveEngine) ويُستخدم للمراجعة الداخلية والتدقيق وفق قانون العمل الكويتي.</p>
+                        </OdooReportLegalNotice>
+
+                        {activeCompany && (
+                          <OdooReportFooter
+                            companyName={getCompanyPrintProfile(activeCompany).displayNameAr}
+                            reportRef={`LVE-${printData.civilId?.slice(-6) || printData.id}`}
+                          />
+                        )}
+
                       </div>
                     );
                   }
 
                   // Default view for other prints
                   return (
-                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4 text-xs">
+                    <div className="space-y-4 text-xs">
+                      <OfficialA4CompanyLetterhead company={activeCompany} />
+                      <div className="odoo-report-center-title text-xs">
+                        <h2 className="font-bold">{printTitle}</h2>
+                      </div>
+                    <div className="odoo-report-meta-strip space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div><strong className="text-slate-500">الاسم:</strong> {printData.nameAr || printData.employeeName || printData.refTitle || 'غير متوفر'}</div>
                         <div><strong className="text-slate-500">المعرف / الرقم:</strong> {printData.id || printData.employeeId || 'N/A'}</div>
@@ -2278,17 +2266,18 @@ export function EmployeesApp(props?: any) {
                         <div><strong className="text-slate-500">القسم:</strong> {printData.dept || printData.department || 'غير متوفر'}</div>
                         <div><strong className="text-slate-500">تاريخ التعيين / الإصدار:</strong> {printData.hireDate || printData.startDate || printData.commencementDate || '2026-01-01'}</div>
                       </div>
-                      <div className="border-t pt-4 mt-4 flex justify-between items-center text-[11px] text-slate-500">
-                        <div>معتمد من إدارة الموارد البشرية والشؤون الإدارية (Odoo 18 ERP)</div>
-                        <div>تاريخ الطباعة: {new Date().toLocaleDateString('ar-KW')}</div>
-                      </div>
+                      {activeCompany && (
+                        <OdooReportFooter companyName={getCompanyPrintProfile(activeCompany).displayNameAr} />
+                      )}
+                    </div>
                     </div>
                   );
                 })()
               )}
+              </div>
             </div>
 
-            <div className="bg-slate-100 border-t border-slate-200 px-6 py-3 flex items-center justify-between">
+            <div className="bg-slate-100 border-t border-slate-200 px-6 py-3 flex items-center justify-between print:hidden">
               <button
                 onClick={() => setShowPrintModal(false)}
                 className="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-xs font-bold transition"
@@ -2299,14 +2288,15 @@ export function EmployeesApp(props?: any) {
                 onClick={() => {
                   const isLeaveReport = printTitle.includes('كشف رصيد إجازات');
                   if (isLeaveReport && printData) {
-                    const html = generateLeavePrintHtml(printData, activeCompany?.nameAr || activeCompany?.name || 'تقرير المنشأة', activeCompany?.nameEn || 'State of Kuwait', leaveRequests, leaveAllocations, leaveSettlements);
-                    safePrintA4Document(html);
-                    setShowPrintModal(false);
+                    void OdooPdf.report.print(
+                      'employee-leave-print-sheet',
+                      printTitle || 'كشف_رصيد_إجازات'
+                    );
                   } else {
-                    safePrintAction(printTitle || 'مستند رسمي');
+                    void OdooPdf.report.print('employee-leave-print-sheet', printTitle || 'مستند_رسمي');
                   }
                 }}
-                className="bg-purple-900 hover:bg-purple-950 text-white px-5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-md cursor-pointer"
+                className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-md cursor-pointer"
               >
                 <span>🖨️</span> طباعة المستند الآن (Print)
               </button>

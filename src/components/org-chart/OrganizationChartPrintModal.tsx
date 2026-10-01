@@ -5,6 +5,7 @@ import { Printer, X } from 'lucide-react';
 import { OfficialA4CompanyLetterhead } from '../print/OfficialA4CompanyLetterhead';
 import { OdooReportFooter } from '../print/OdooReportPrimitives';
 import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
+import { OdooPdf } from '../../services/odooPdfService';
 
 interface OrganizationChartPrintModalProps {
   isOpen: boolean;
@@ -31,10 +32,10 @@ export const OrganizationChartPrintModal: React.FC<OrganizationChartPrintModalPr
   const reportRef = `ORG-${Date.now().toString().slice(-6)}`;
   return (
     <div
-      className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-[60] flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
+      className="fixed printable-modal-root inset-0 bg-slate-950/70 backdrop-blur-sm z-[60] flex items-center justify-center p-3 sm:p-6 overflow-y-auto print:bg-white"
       dir="rtl"
     >
-      <div className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[95vh]">
+      <div className="printable-modal-sheet bg-white rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[95vh]">
         <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 print:hidden">
           <div className="flex items-center gap-2">
             <Printer className="w-5 h-5 text-[#714B67]" />
@@ -43,7 +44,7 @@ export const OrganizationChartPrintModal: React.FC<OrganizationChartPrintModalPr
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => window.print()}
+              onClick={() => void OdooPdf.report.print('org-chart-print-area', `ORG_${reportRef}`)}
               className="bg-[#714B67] hover:bg-[#5a3a51] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5"
             >
               <Printer className="w-4 h-4" /> طباعة / PDF
@@ -54,7 +55,11 @@ export const OrganizationChartPrintModal: React.FC<OrganizationChartPrintModalPr
           </div>
         </div>
 
-        <div className="odoo-report-sheet p-8 overflow-y-auto flex-1 bg-white text-slate-900 print:p-0" id="org-chart-print-area">
+        <div className="printable-scroll p-4 sm:p-6 overflow-y-auto flex-1 bg-slate-100/50 print:p-0 print:bg-white">
+        <div
+          id="org-chart-print-area"
+          className="odoo-report-sheet odoo-report-sheet--compact-portrait odoo-report-sheet--framed p-6 sm:p-8 bg-white text-slate-900 mx-auto max-w-[210mm]"
+        >
           <OfficialA4CompanyLetterhead
             company={company}
             subtitle="الهيكل التنظيمي والتسلسل الإداري"
@@ -124,6 +129,7 @@ export const OrganizationChartPrintModal: React.FC<OrganizationChartPrintModalPr
               <p className="text-slate-400">التوقيع: ............</p>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>

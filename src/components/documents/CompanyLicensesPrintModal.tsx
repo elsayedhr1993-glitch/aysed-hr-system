@@ -1,10 +1,16 @@
 import React from 'react';
 import { Company } from '../../types';
-import { CompanyDocument, formatCompanyDocumentType, getDocumentStatus } from '../../types/companyDocuments';
+import {
+  CompanyDocument,
+  companyDocumentPrintTitle,
+  formatCompanyDocumentExpiryDisplay,
+  getDocumentStatus,
+} from '../../types/companyDocuments';
 import { X, Printer } from 'lucide-react';
 import { OfficialA4CompanyLetterhead } from '../print/OfficialA4CompanyLetterhead';
 import { OdooReportFooter } from '../print/OdooReportPrimitives';
 import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
+import { OdooPdf } from '../../services/odooPdfService';
 
 interface CompanyLicensesPrintModalProps {
   isOpen: boolean;
@@ -33,10 +39,10 @@ export const CompanyLicensesPrintModal: React.FC<CompanyLicensesPrintModalProps>
 
   return (
     <div
-      className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
+      className="fixed printable-modal-root inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto print:bg-white"
       dir="rtl"
     >
-      <div className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[95vh]">
+      <div className="printable-modal-sheet bg-white rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[95vh]">
         <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 print:hidden">
           <div className="flex items-center gap-2">
             <Printer className="w-5 h-5 text-[#714B67]" />
@@ -47,7 +53,7 @@ export const CompanyLicensesPrintModal: React.FC<CompanyLicensesPrintModalProps>
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => window.print()}
+              onClick={() => void OdooPdf.report.print('company-licenses-print-sheet', `تراخيص_${reportRef}`)}
               className="bg-[#714B67] hover:bg-[#5a3a51] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5"
             >
               <Printer className="w-4 h-4" /> طباعة
@@ -58,7 +64,11 @@ export const CompanyLicensesPrintModal: React.FC<CompanyLicensesPrintModalProps>
           </div>
         </div>
 
-        <div className="odoo-report-sheet p-8 overflow-y-auto flex-1 bg-white text-slate-900 print:p-0">
+        <div className="printable-scroll p-4 sm:p-6 overflow-y-auto flex-1 bg-slate-100/50 print:p-0 print:bg-white">
+        <div
+          id="company-licenses-print-sheet"
+          className="odoo-report-sheet odoo-report-sheet--compact-portrait odoo-report-sheet--framed odoo-report-compact-one-page p-6 sm:p-8 bg-white text-slate-900 mx-auto max-w-[210mm]"
+        >
           <OfficialA4CompanyLetterhead
             company={company}
             subtitle="كشف تراخيص المنشأة والامتثال الحكومي"
@@ -83,21 +93,30 @@ export const CompanyLicensesPrintModal: React.FC<CompanyLicensesPrintModalProps>
           </div>
 
           <div className="odoo-report-table-wrap">
-          <table className="odoo-report-table w-full text-right text-xs table-fixed">
+          <table className="odoo-report-table odoo-report-table--wrap w-full text-right text-xs">
+            <colgroup>
+              <col style={{ width: '4%' }} />
+              <col style={{ width: '32%' }} />
+              <col style={{ width: '14%' }} />
+              <col style={{ width: '22%' }} />
+              <col style={{ width: '12%' }} />
+              <col style={{ width: '10%' }} />
+            </colgroup>
             <thead>
               <tr>
-                <th className="p-2 w-8 text-center">#</th>
-                <th className="p-2">اسم الترخيص</th>
-                <th className="p-2">النوع</th>
+                <th className="p-2 text-center">#</th>
+                <th className="p-2">بيان الترخيص</th>
                 <th className="p-2 font-mono">رقم الترخيص</th>
                 <th className="p-2">جهة الإصدار</th>
-                <th className="p-2 font-mono">الانتهاء</th>
+                <th className="p-2">الانتهاء</th>
                 <th className="p-2 text-center">الحالة</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200">
+            <tbody>
               {documents.map((doc, idx) => {
                 const { badgeLabel, status } = getDocumentStatus(doc.expiryDate, { compactLabel: true });
+                const title = companyDocumentPrintTitle(doc.name, doc.documentType);
+                const expiryLabel = formatCompanyDocumentExpiryDisplay(doc.expiryDate);
                 const rowClass =
                   status === 'expired'
                     ? 'text-rose-800'
@@ -106,13 +125,17 @@ export const CompanyLicensesPrintModal: React.FC<CompanyLicensesPrintModalProps>
                       : 'text-slate-800';
                 return (
                   <tr key={doc.id}>
-                    <td className="p-2 text-center text-slate-400">{idx + 1}</td>
-                    <td className="p-2 font-bold whitespace-nowrap truncate max-w-0" title={doc.name}>{doc.name}</td>
-                    <td className="p-2 whitespace-nowrap truncate max-w-0">{formatCompanyDocumentType(doc.documentType)}</td>
-                    <td className="p-2 font-mono whitespace-nowrap">{doc.documentNumber}</td>
-                    <td className="p-2 whitespace-nowrap truncate max-w-0" title={doc.issuingAuthority}>{doc.issuingAuthority}</td>
-                    <td className="p-2 font-mono whitespace-nowrap">{doc.expiryDate}</td>
-                    <td className={`p-2 text-center text-[11px] font-semibold whitespace-nowrap ${rowClass}`}>{badgeLabel}</td>
+                    <td className="p-2 text-center text-slate-500 align-top">{idx + 1}</td>
+                    <td className="p-2 align-top whitespace-normal break-words text-wrap">
+                      <span className="font-bold text-slate-900 block leading-snug">{title.primary}</span>
+                      {title.secondary && (
+                        <span className="text-[9px] text-slate-500 block mt-0.5 leading-snug">{title.secondary}</span>
+                      )}
+                    </td>
+                    <td className="p-2 font-mono align-top whitespace-normal break-all text-[10px]">{doc.documentNumber || '—'}</td>
+                    <td className="p-2 align-top whitespace-normal break-words text-wrap leading-snug">{doc.issuingAuthority || '—'}</td>
+                    <td className="p-2 align-top font-mono text-[10px] whitespace-normal">{expiryLabel}</td>
+                    <td className={`p-2 text-center text-[10px] font-semibold align-top ${rowClass}`}>{badgeLabel}</td>
                   </tr>
                 );
               })}
@@ -129,6 +152,7 @@ export const CompanyLicensesPrintModal: React.FC<CompanyLicensesPrintModalProps>
             reportRef={reportRef}
           />
 
+        </div>
         </div>
       </div>
     </div>
