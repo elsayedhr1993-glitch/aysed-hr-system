@@ -28,7 +28,10 @@ import {
   Minimize2,
   Edit3,
   RotateCcw,
-  UserCheck
+  UserCheck,
+  PanelLeftClose,
+  PanelLeftOpen,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
 import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
@@ -42,7 +45,7 @@ import { TenantDatabaseService } from '../services/tenantDataService';
 import { DocumentItem } from '../types';
 import { toast } from 'react-hot-toast';
 import OdooPamContractModal from './OdooPamContractModal';
-import OdooRichDocumentEditor from './OdooRichDocumentEditor';
+import OdooRichDocumentEditor, { SMART_PLACEHOLDERS } from './OdooRichDocumentEditor';
 
 export type TemplateCategory = 'ALL' | 'CONTRACTS' | 'BANKING' | 'ADMIN';
 export type WorkspaceView = 'split' | 'editor' | 'preview';
@@ -429,6 +432,9 @@ export const OdooTemplatesApp: React.FC = () => {
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [useLetterhead, setUseLetterhead] = useState<boolean>(true); // true = print company header, false = for pre-printed letterhead
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('split');
+  const [smartPanelOpen, setSmartPanelOpen] = useState(true);
+  const [smartPanelTab, setSmartPanelTab] = useState<'context' | 'fields'>('context');
+  const insertPlaceholderRef = useRef<((tag: string) => void) | null>(null);
   // Editable Form & Context State
   const [empName, setEmpName] = useState('');
   const [civilId, setCivilId] = useState('');
@@ -717,347 +723,397 @@ export const OdooTemplatesApp: React.FC = () => {
     return t.category === activeCategory;
   });
 
+  const insertSmartField = (tag: string) => {
+    insertPlaceholderRef.current?.(tag);
+  };
+
+  const showTemplatesCol = workspaceView !== 'preview';
+  const showEditorCol = workspaceView === 'split' || workspaceView === 'editor';
+  const showPreviewCol = workspaceView === 'split' || workspaceView === 'preview';
+
   return (
-    <div className="space-y-5 font-sans dir-rtl text-right text-slate-800 animate-fade-in" dir="rtl">
-      
-      {/* 1. Header Toolbar (Odoo 18 Studio Suite) */}
-      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 print:hidden">
-        
-        {/* Left: Branding & Meta */}
-        <div className="flex items-center gap-3">
-          <div className="p-3 bg-[#714B67]/10 text-[#714B67] rounded-2xl">
-            <FileText className="w-7 h-7" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-black text-slate-900">استوديو النماذج والخطابات وعقود العمل الذكي</h1>
-              <span className="bg-purple-100 text-[#714B67] text-[11px] font-bold px-2.5 py-0.5 rounded-full">
-                Odoo 18 Document Studio
-              </span>
+    <div
+      className="flex flex-col font-sans text-slate-800 animate-fade-in print:block min-h-[calc(100vh-8rem)]"
+      dir="rtl"
+    >
+      {/* Odoo-style control panel */}
+      <header className="shrink-0 bg-white border border-slate-200 rounded-t-xl shadow-sm print:hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 border-b border-slate-100">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-lg bg-[#714B67] text-white flex items-center justify-center shrink-0">
+              <FileText className="w-5 h-5" />
             </div>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">
-              المنشأة: <strong className="text-[#714B67]">{companyDisplayName}</strong> | تحرير وتفقيت وضبط لغوي وأرشفة فورية
-            </p>
-          </div>
-        </div>
-
-        {/* Right: Workspace & Action Controls */}
-        <div className="flex flex-wrap items-center gap-2">
-          
-          {/* Workspace Views Switcher */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
-            <button
-              onClick={() => setWorkspaceView('split')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
-                workspaceView === 'split' ? 'bg-white text-[#714B67] shadow-2xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-              title="تقسيم الشاشة: تحرير على اليمين ومعاينة حية على اليسار"
-            >
-              <Columns2 size={13} />
-              <span>تقسيم الشاشة</span>
-            </button>
-            <button
-              onClick={() => setWorkspaceView('editor')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
-                workspaceView === 'editor' ? 'bg-white text-[#714B67] shadow-2xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-              title="محرر الورقة الكامل"
-            >
-              <Edit3 size={13} />
-              <span>المحرر فقط</span>
-            </button>
-            <button
-              onClick={() => setWorkspaceView('preview')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
-                workspaceView === 'preview' ? 'bg-white text-[#714B67] shadow-2xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-              title="معاينة الورقة النهائية والطباعة"
-            >
-              <Eye size={13} />
-              <span>المعاينة فقط</span>
-            </button>
+            <div className="min-w-0">
+              <h1 className="text-sm font-black text-slate-900 truncate">
+                استوديو النماذج والخطابات
+              </h1>
+              <p className="text-[11px] text-slate-500 truncate">
+                {companyDisplayName}
+                <span className="text-slate-300 mx-1">·</span>
+                <span className="font-mono text-slate-600">{referenceNumber}</span>
+              </p>
+            </div>
           </div>
 
-          {/* Letterhead toggle */}
-          <button
-            onClick={() => setUseLetterhead(!useLetterhead)}
-            className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition border cursor-pointer ${
-              useLetterhead 
-                ? 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200' 
-                : 'bg-amber-50 border-amber-300 text-amber-900 font-black'
-            }`}
-            title="تبديل بين طباعة ترويسة المنشأة الرقمية أو استخدام ورق الشركة المطبوع مسبقاً"
-          >
-            <span>{useLetterhead ? '📄 ورق أبيض (مع الترويسة)' : '🖨️ ورق مسبق (هامش 48mm)'}</span>
-          </button>
-
-          {/* Reset Template */}
-          <button
-            onClick={handleResetTemplate}
-            className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition cursor-pointer"
-            title="إعادة ضبط نص القالب للأصل"
-          >
-            <RotateCcw size={15} />
-          </button>
-
-          {activeTemplateDef.isPamModal ? (
-            <button
-              onClick={() => setShowPamModal(true)}
-              className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition shadow-sm cursor-pointer"
-            >
-              <span>🏛️</span> فتح مولد عقد PAM 2
-            </button>
-          ) : (
-            <>
-              {/* Word (.doc) */}
-              <button
-                onClick={handleExportWord}
-                className="bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
-                title="تنزيل كملف Word"
-              >
-                <Download size={13} /> Word
-              </button>
-
-              {/* PDF */}
-              <button
-                onClick={handleExportPdf}
-                disabled={isExportingPdf}
-                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
-                title="تصدير ملف PDF مباشر عالي الدقة"
-              >
-                {isExportingPdf ? <RefreshCw size={13} className="animate-spin" /> : <FileCheck2 size={13} />}
-                <span>{isExportingPdf ? 'جاري التصدير...' : 'PDF'}</span>
-              </button>
-
-              {/* Archive */}
-              <button
-                onClick={handleArchiveDocument}
-                className="bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
-                title="حفظ وأرشفة الوثيقة في أرشيف مستندات الموظف"
-              >
-                <FolderArchive size={13} /> أرشفة
-              </button>
-
-              {/* Print A4 */}
-              <button
-                onClick={handlePrint}
-                className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-sm cursor-pointer"
-              >
-                <Printer size={14} /> طباعة A4
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* 2. Employee Quick Auto-Fill & Gender Adjustment Bar */}
-      <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3 text-xs print:hidden">
-        
-        {/* Employee Selector */}
-        <div className="flex items-center gap-2 flex-1 min-w-[280px]">
-          <span className="font-bold text-slate-700 flex items-center gap-1 whitespace-nowrap">
-            <Users size={14} className="text-[#714B67]" /> الموظف المستهدف:
-          </span>
-          <select
-            value={selectedEmpId}
-            onChange={(e) => setSelectedEmpId(e.target.value)}
-            className="flex-1 p-2 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-900 outline-none focus:border-[#714B67] transition cursor-pointer"
-          >
-            <option value="">-- اختر الموظف لملء البيانات تلقائياً --</option>
-            {employees.map(emp => (
-              <option key={emp.id} value={emp.id}>
-                {emp.name} ({emp.civilId || emp.id}) - {emp.jobTitle}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Gender Auto-Tuning Pill */}
-        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 p-1 rounded-xl">
-          <span className="text-[11px] font-bold text-slate-600 px-1">الضبط اللغوي:</span>
-          <button
-            onClick={() => setGender('male')}
-            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-              gender === 'male' ? 'bg-[#714B67] text-white shadow-2xs' : 'text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            ذكر (تذكير)
-          </button>
-          <button
-            onClick={() => setGender('female')}
-            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-              gender === 'female' ? 'bg-[#714B67] text-white shadow-2xs' : 'text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            أنثى (تأنيث)
-          </button>
-        </div>
-
-        {/* Meta badge */}
-        <div className="font-mono text-[11px] text-slate-500 bg-slate-100 px-3 py-1.5 rounded-xl">
-          المرجع: <strong className="text-slate-800">{referenceNumber}</strong>
-        </div>
-      </div>
-
-      {/* 3. Main Workspace Area */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        {/* Left Sidebar: Templates Navigation (3 Cols on Desktop, hidden in full preview) */}
-        <div className={`lg:col-span-3 space-y-4 print:hidden ${workspaceView === 'preview' ? 'hidden' : ''}`}>
-          
-          {/* Category Navigation Pills */}
-          <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
-            <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl mb-2">
-              {[
-                { id: 'ALL', label: `الكل (${TEMPLATES_LIST.length})` },
-                { id: 'CONTRACTS', label: 'عقود العمل' },
-                { id: 'ADMIN', label: 'إداري' }
-              ].map(cat => (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
+              {(
+                [
+                  { id: 'split' as WorkspaceView, icon: Columns2, label: 'ثلاثي' },
+                  { id: 'editor' as WorkspaceView, icon: Edit3, label: 'محرر' },
+                  { id: 'preview' as WorkspaceView, icon: Eye, label: 'معاينة' },
+                ] as const
+              ).map(v => (
                 <button
-                  key={cat.id}
-                  onClick={() => setActiveCategory(cat.id as TemplateCategory)}
-                  className={`flex-1 py-1.5 px-1 rounded-lg text-[11px] font-bold transition cursor-pointer ${
-                    activeCategory === cat.id
-                      ? 'bg-white text-[#714B67] shadow-2xs'
-                      : 'text-slate-600 hover:text-slate-900'
+                  key={v.id}
+                  type="button"
+                  onClick={() => setWorkspaceView(v.id)}
+                  className={`px-2.5 py-1.5 rounded-md text-[11px] font-bold flex items-center gap-1 cursor-pointer transition ${
+                    workspaceView === v.id ? 'bg-white text-[#714B67] shadow-2xs' : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  {cat.label}
+                  <v.icon size={13} />
+                  {v.label}
                 </button>
               ))}
             </div>
 
-            {/* Template List Cards */}
-            <div className="space-y-1.5 max-h-[500px] overflow-y-auto pr-1">
+            <button
+              type="button"
+              onClick={() => setSmartPanelOpen(o => !o)}
+              className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold border flex items-center gap-1 cursor-pointer transition ${
+                smartPanelOpen
+                  ? 'bg-[#714B67]/10 border-[#714B67]/30 text-[#714B67]'
+                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <SlidersHorizontal size={13} />
+              السياق والحقول
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setUseLetterhead(!useLetterhead)}
+              className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 cursor-pointer"
+              title="ترويسة رقمية أو ورق مسبق"
+            >
+              {useLetterhead ? 'ترويسة رقمية' : 'ورق مسبق 48mm'}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleResetTemplate}
+              className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 cursor-pointer"
+              title="إعادة القالب"
+            >
+              <RotateCcw size={14} />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 px-4 py-2 bg-slate-50/80">
+          {activeTemplateDef.isPamModal ? (
+            <button
+              type="button"
+              onClick={() => setShowPamModal(true)}
+              className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
+            >
+              فتح مولد عقد PAM (2)
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+              >
+                <Printer size={13} /> طباعة A4
+              </button>
+              <button
+                type="button"
+                onClick={handleExportPdf}
+                disabled={isExportingPdf}
+                className="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-emerald-200 bg-white text-emerald-800 hover:bg-emerald-50 cursor-pointer disabled:opacity-50"
+              >
+                {isExportingPdf ? 'PDF…' : 'PDF'}
+              </button>
+              <button
+                type="button"
+                onClick={handleExportWord}
+                className="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 cursor-pointer"
+              >
+                Word
+              </button>
+              <button
+                type="button"
+                onClick={handleArchiveDocument}
+                className="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 cursor-pointer"
+              >
+                <FolderArchive size={13} className="inline ml-1" />
+                أرشفة
+              </button>
+            </>
+          )}
+          <span className="text-[10px] text-slate-400 mr-auto hidden sm:inline">
+            {activeTemplateDef.title}
+          </span>
+        </div>
+      </header>
+
+      {/* 3-pane studio: templates (right) · editor (center) · preview (left) — RTL order */}
+      <div
+        className="flex flex-1 min-h-[560px] border border-t-0 border-slate-200 rounded-b-xl overflow-hidden bg-slate-100 print:hidden"
+      >
+        {showTemplatesCol && (
+          <aside className="w-[17rem] shrink-0 bg-white border-s border-slate-200 flex flex-col min-h-0">
+            <div className="px-3 py-2 border-b border-slate-100 text-[11px] font-black text-slate-700">
+              مكتبة النماذج
+            </div>
+            <div className="p-2 border-b border-slate-100">
+              <div className="flex gap-0.5 p-0.5 bg-slate-100 rounded-lg">
+                {[
+                  { id: 'ALL', label: `الكل (${TEMPLATES_LIST.length})` },
+                  { id: 'CONTRACTS', label: 'عقود' },
+                  { id: 'ADMIN', label: 'إداري' },
+                ].map(cat => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setActiveCategory(cat.id as TemplateCategory)}
+                    className={`flex-1 py-1 rounded-md text-[10px] font-bold cursor-pointer transition ${
+                      activeCategory === cat.id ? 'bg-white text-[#714B67] shadow-2xs' : 'text-slate-600'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-1 min-h-0">
               {filteredTemplates.map(t => {
                 const isSelected = selectedTemplate === t.id;
                 return (
                   <button
                     key={t.id}
+                    type="button"
                     onClick={() => setSelectedTemplate(t.id)}
-                    className={`w-full text-right p-2.5 rounded-xl border transition cursor-pointer flex items-start gap-2 ${
+                    className={`w-full text-right p-2 rounded-lg border text-xs transition cursor-pointer flex gap-2 ${
                       isSelected
-                        ? 'bg-[#714B67]/10 border-[#714B67] shadow-2xs'
-                        : 'border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                        ? 'bg-[#714B67]/10 border-[#714B67]/40'
+                        : 'border-transparent hover:bg-slate-50 hover:border-slate-200'
                     }`}
                   >
-                    <span className="text-lg mt-0.5">{t.icon}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className={`text-xs font-black truncate ${isSelected ? 'text-[#714B67]' : 'text-slate-800'}`}>
-                          {t.title}
-                        </span>
-                        {isSelected && <CheckCircle2 size={13} className="text-[#714B67] shrink-0" />}
-                      </div>
-                      <p className="text-[10px] text-slate-500 line-clamp-1 mt-0.5">
-                        {t.subtitle}
-                      </p>
-                    </div>
+                    <span className="text-base leading-none">{t.icon}</span>
+                    <span className="flex-1 min-w-0">
+                      <span className={`font-bold block truncate ${isSelected ? 'text-[#714B67]' : 'text-slate-800'}`}>
+                        {t.title}
+                      </span>
+                      <span className="text-[10px] text-slate-500 line-clamp-2">{t.subtitle}</span>
+                    </span>
                   </button>
                 );
               })}
             </div>
-          </div>
+          </aside>
+        )}
 
-          {/* Quick Context Summary Box */}
-          <div className="bg-purple-50/60 p-3.5 rounded-2xl border border-purple-200 text-xs space-y-1.5">
-            <div className="font-bold text-[#714B67] flex items-center gap-1">
-              <Sparkles size={13} /> ملخص المتغيرات الحية:
+        {showEditorCol && (
+          <section className="flex-1 min-w-0 flex flex-col bg-white border-s border-slate-200 min-h-0">
+            <div className="shrink-0 px-3 py-1.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <span className="text-[11px] font-black text-slate-700 flex items-center gap-1">
+                <Edit3 size={13} className="text-[#714B67]" />
+                محرر النص
+              </span>
             </div>
-            <div className="text-[11px] text-slate-600 space-y-0.5 font-medium">
-              <div>الموظف: <strong>{empName || '—'}</strong></div>
-              <div>المدني: <strong className="font-mono">{civilId || '—'}</strong></div>
-              <div>الراتب الشامل: <strong className="font-mono text-[#714B67]">{totalSalary} د.ك</strong></div>
-              <div>الصياغة اللغوية: <strong>{gender === 'female' ? 'مؤنث (السيدة/تعمل)' : 'مذكر (السيد/يعمل)'}</strong></div>
+            <div className="flex-1 min-h-0">
+              <OdooRichDocumentEditor
+                value={editorContent}
+                onChange={setEditorContent}
+                employeeGender={gender}
+                useLetterhead={useLetterhead}
+                minHeight="100%"
+                hideSmartPlaceholders
+                insertPlaceholderRef={insertPlaceholderRef}
+                className="h-full border-0 shadow-none rounded-none"
+              />
             </div>
-          </div>
-        </div>
+          </section>
+        )}
 
-        {/* Center / Right: Interactive Split-Screen or Full View (9 or 12 Cols) */}
-        <div className={workspaceView === 'preview' ? 'lg:col-span-12' : 'lg:col-span-9'}>
-          
-          <div className={`grid gap-6 ${workspaceView === 'split' ? 'grid-cols-1 xl:grid-cols-2' : 'grid-cols-1'}`}>
-            
-            {/* 1. Rich Document Editor (Visible in 'split' or 'editor' mode) */}
-            {(workspaceView === 'split' || workspaceView === 'editor') && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between px-1">
-                  <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
-                    <Edit3 size={14} className="text-[#714B67]" /> محرر صياغة الوثيقة التفاعلي (Rich WYSIWYG):
-                  </span>
-                  <span className="text-[11px] font-bold text-slate-400">
-                    عدل النص أو أدرج الحقول الذكية بنقرة واحدة
-                  </span>
-                </div>
+        {smartPanelOpen && showEditorCol && (
+          <aside className="w-[15.5rem] shrink-0 bg-white border-s border-slate-200 flex flex-col min-h-0 z-10 shadow-[inset_4px_0_12px_-8px_rgba(0,0,0,0.08)]">
+            <div className="flex border-b border-slate-100">
+              <button
+                type="button"
+                onClick={() => setSmartPanelTab('context')}
+                className={`flex-1 py-2 text-[10px] font-bold cursor-pointer ${
+                  smartPanelTab === 'context' ? 'text-[#714B67] border-b-2 border-[#714B67]' : 'text-slate-500'
+                }`}
+              >
+                سياق الوثيقة
+              </button>
+              <button
+                type="button"
+                onClick={() => setSmartPanelTab('fields')}
+                className={`flex-1 py-2 text-[10px] font-bold cursor-pointer ${
+                  smartPanelTab === 'fields' ? 'text-[#714B67] border-b-2 border-[#714B67]' : 'text-slate-500'
+                }`}
+              >
+                حقول ذكية
+              </button>
+              <button
+                type="button"
+                onClick={() => setSmartPanelOpen(false)}
+                className="px-2 text-slate-400 hover:text-slate-700 cursor-pointer"
+                title="إخفاء اللوحة"
+              >
+                <PanelLeftClose size={14} />
+              </button>
+            </div>
 
-                <OdooRichDocumentEditor
-                  value={editorContent}
-                  onChange={setEditorContent}
-                  employeeGender={gender}
-                  useLetterhead={useLetterhead}
-                  minHeight={workspaceView === 'split' ? '650px' : '750px'}
-                />
-              </div>
-            )}
+            <div className="flex-1 overflow-y-auto p-3 text-xs min-h-0">
+              {smartPanelTab === 'context' ? (
+                <div className="space-y-3">
+                  <label className="block">
+                    <span className="text-[10px] font-bold text-slate-600 mb-1 flex items-center gap-1">
+                      <Users size={12} /> الموظف المستهدف
+                    </span>
+                    <select
+                      value={selectedEmpId}
+                      onChange={e => setSelectedEmpId(e.target.value)}
+                      className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg font-bold text-slate-900 text-[11px] outline-none focus:border-[#714B67]"
+                    >
+                      <option value="">— اختر موظفاً —</option>
+                      {employees.map(emp => (
+                        <option key={emp.id} value={emp.id}>
+                          {emp.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
 
-            {/* 2. Live A4 Printable Preview Sheet (Visible in 'split' or 'preview' mode) */}
-            {(workspaceView === 'split' || workspaceView === 'preview') && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between px-1">
-                  <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
-                    <Eye size={14} className="text-emerald-700" /> المعاينة الحية المباشرة لورقة A4 (Live Preview):
-                  </span>
-                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                    مخرجات الطباعة الحقيقية
-                  </span>
-                </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-600 mb-1 block">الضبط اللغوي</span>
+                    <div className="flex gap-1 p-0.5 bg-slate-100 rounded-lg">
+                      <button
+                        type="button"
+                        onClick={() => setGender('male')}
+                        className={`flex-1 py-1 rounded-md text-[10px] font-bold cursor-pointer ${
+                          gender === 'male' ? 'bg-[#714B67] text-white' : 'text-slate-600'
+                        }`}
+                      >
+                        مذكر
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setGender('female')}
+                        className={`flex-1 py-1 rounded-md text-[10px] font-bold cursor-pointer ${
+                          gender === 'female' ? 'bg-[#714B67] text-white' : 'text-slate-600'
+                        }`}
+                      >
+                        مؤنث
+                      </button>
+                    </div>
+                  </div>
 
-                {/* Printable Canvas Wrapper */}
-                <div className="bg-slate-200/70 p-4 sm:p-6 rounded-2xl border border-slate-300 flex justify-center overflow-x-auto print:p-0 print:bg-white print:border-none">
-                  <div
-                    ref={previewSheetRef}
-                    id="live-printable-a4"
-                    className="bg-white text-slate-900 shadow-xl print:shadow-none w-full max-w-[210mm] min-h-[297mm] p-8 md:p-12 relative flex flex-col justify-between"
-                    style={{
-                      fontFamily: "'Cairo', 'Segoe UI', Tahoma, sans-serif",
-                      lineHeight: 1.85,
-                      paddingTop: useLetterhead ? '40px' : '48mm'
-                    }}
-                  >
-
-                    {/* Official Company Header (Rendered only if useLetterhead is true) */}
-                    {useLetterhead ? (
-                      <OfficialA4CompanyLetterhead
-                        company={companyForPrint}
-                        className="border-[#714B67] mb-6 pb-5"
-                        rightSlot={
-                          <div className="font-mono text-[11px] text-slate-600 space-y-1">
-                            <div><strong className="text-slate-800">التاريخ:</strong> {todayFormattedAr}</div>
-                            <div><strong className="text-slate-800">الرقم المرجعي:</strong> {referenceNumber}</div>
-                          </div>
-                        }
-                      />
-                    ) : (
-                      <div className="text-center font-mono text-[10px] text-slate-300 pb-4 border-b border-dashed border-slate-200 mb-6 print:hidden">
-                        --- منطقة الترويسة المسبقة للورق الرسمي (Pre-printed Letterhead 48mm) ---
-                      </div>
-                    )}
-
-                    {/* Live Compiled Document Body */}
-                    <div 
-                      className="flex-1 text-sm md:text-[14px] leading-relaxed text-slate-900"
-                      dangerouslySetInnerHTML={{ __html: compiledHtml }}
-                    />
-
+                  <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-2 space-y-1 text-[10px] text-slate-600">
+                    <div>
+                      المدني: <span className="font-mono font-bold text-slate-800">{civilId || '—'}</span>
+                    </div>
+                    <div>
+                      الراتب: <span className="font-mono font-bold text-[#714B67]">{totalSalary} د.ك</span>
+                    </div>
+                    <div>
+                      المسمى: <span className="font-bold">{jobTitle || '—'}</span>
+                    </div>
                   </div>
                 </div>
+              ) : (
+                <div className="space-y-3">
+                  {SMART_PLACEHOLDERS.map(cat => (
+                    <div key={cat.category}>
+                      <div className="text-[10px] font-black text-[#714B67] mb-1.5">{cat.category}</div>
+                      <div className="space-y-1">
+                        {cat.items.map(item => (
+                          <button
+                            key={item.tag}
+                            type="button"
+                            onClick={() => insertSmartField(item.tag)}
+                            className="w-full text-right px-2 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-[#714B67] hover:text-white hover:border-[#714B67] text-[10px] font-bold transition cursor-pointer"
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </aside>
+        )}
+
+        {!smartPanelOpen && showEditorCol && (
+          <button
+            type="button"
+            onClick={() => setSmartPanelOpen(true)}
+            className="shrink-0 w-8 border-s border-slate-200 bg-white hover:bg-slate-50 text-[#714B67] flex items-center justify-center cursor-pointer"
+            title="إظهار السياق والحقول"
+          >
+            <PanelLeftOpen size={16} />
+          </button>
+        )}
+
+        {showPreviewCol && (
+          <aside className="w-[min(44%,28rem)] shrink-0 flex flex-col min-h-0 bg-slate-200/60 border-s border-slate-200">
+            <div className="shrink-0 px-3 py-1.5 border-b border-slate-300/50 bg-slate-100 flex items-center justify-between">
+              <span className="text-[11px] font-black text-slate-700 flex items-center gap-1">
+                <Eye size={13} className="text-emerald-700" />
+                معاينة A4
+              </span>
+              <span className="text-[9px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded">
+                حية
+              </span>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 flex justify-center min-h-0">
+              <div
+                ref={previewSheetRef}
+                id="live-printable-a4"
+                className="bg-white text-slate-900 shadow-lg w-full max-w-[210mm] min-h-[297mm] p-8 md:p-10 flex flex-col"
+                style={{
+                  fontFamily: "'Cairo', 'Segoe UI', Tahoma, sans-serif",
+                  lineHeight: 1.85,
+                  paddingTop: useLetterhead ? '40px' : '48mm',
+                }}
+              >
+                {useLetterhead ? (
+                  <OfficialA4CompanyLetterhead
+                    company={companyForPrint}
+                    className="border-[#714B67] mb-6 pb-5"
+                    rightSlot={
+                      <div className="font-mono text-[11px] text-slate-600 space-y-1">
+                        <div>
+                          <strong className="text-slate-800">التاريخ:</strong> {todayFormattedAr}
+                        </div>
+                        <div>
+                          <strong className="text-slate-800">المرجع:</strong> {referenceNumber}
+                        </div>
+                      </div>
+                    }
+                  />
+                ) : (
+                  <div className="text-center font-mono text-[10px] text-slate-300 pb-4 border-b border-dashed border-slate-200 mb-6 print:hidden">
+                    هامش ورق مسبق (48mm)
+                  </div>
+                )}
+                <div
+                  className="flex-1 text-sm leading-relaxed text-slate-900"
+                  dangerouslySetInnerHTML={{ __html: compiledHtml }}
+                />
               </div>
-            )}
-
-          </div>
-
-        </div>
-
+            </div>
+          </aside>
+        )}
       </div>
 
       {/* PAM Modal Integration */}

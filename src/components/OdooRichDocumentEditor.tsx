@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { 
   Bold, 
   Italic, 
@@ -28,6 +28,10 @@ interface RichEditorProps {
   employeeGender?: 'male' | 'female';
   minHeight?: string;
   useLetterhead?: boolean;
+  /** Hide the stacked placeholder buttons (use studio side drawer instead). */
+  hideSmartPlaceholders?: boolean;
+  insertPlaceholderRef?: React.MutableRefObject<((tag: string) => void) | null>;
+  className?: string;
 }
 
 export const SMART_PLACEHOLDERS = [
@@ -86,7 +90,10 @@ export const OdooRichDocumentEditor: React.FC<RichEditorProps> = ({
   onChange,
   employeeGender = 'male',
   minHeight = '650px',
-  useLetterhead = true
+  useLetterhead = true,
+  hideSmartPlaceholders = false,
+  insertPlaceholderRef,
+  className = '',
 }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const isInternalUpdate = useRef(false);
@@ -118,7 +125,7 @@ export const OdooRichDocumentEditor: React.FC<RichEditorProps> = ({
   };
 
   // Insert Smart Placeholder at caret
-  const insertPlaceholder = (tag: string) => {
+  const insertPlaceholder = useCallback((tag: string) => {
     if (editorRef.current) {
       editorRef.current.focus();
       const selection = window.getSelection();
@@ -130,19 +137,23 @@ export const OdooRichDocumentEditor: React.FC<RichEditorProps> = ({
         placeholderSpan.contentEditable = 'false';
         placeholderSpan.innerText = tag;
         range.insertNode(placeholderSpan);
-        
-        // Move caret after inserted node
+
         range.setStartAfter(placeholderSpan);
         range.setEndAfter(placeholderSpan);
         selection.removeAllRanges();
         selection.addRange(range);
       } else {
-        // Fallback append
         editorRef.current.innerHTML += `<span class="smart-tag font-mono font-bold text-[#714B67] bg-[#714B67]/10 px-1 py-0.5 rounded border border-[#714B67]/20 mx-0.5" contenteditable="false">${tag}</span>`;
       }
       handleInput();
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (insertPlaceholderRef) {
+      insertPlaceholderRef.current = insertPlaceholder;
+    }
+  }, [insertPlaceholder, insertPlaceholderRef]);
 
   // Insert standard table
   const insertTable = () => {
@@ -168,8 +179,12 @@ export const OdooRichDocumentEditor: React.FC<RichEditorProps> = ({
     format('insertHTML', tableHtml);
   };
 
+  const fillHeight = minHeight === '100%';
+
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+    <div
+      className={`bg-white border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full min-h-0 ${className}`}
+    >
       
       {/* 1. Main Rich Editor Toolbar */}
       <div className="p-2.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center gap-1 text-slate-700 select-none">
@@ -352,47 +367,40 @@ export const OdooRichDocumentEditor: React.FC<RichEditorProps> = ({
 
       </div>
 
-      {/* 2. Smart Placeholders Quick Bar */}
-      <div className="p-3 bg-purple-50/50 border-b border-purple-100 text-xs">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-1.5 font-bold text-[#714B67]">
-            <Sparkles size={14} />
-            <span>لوحة الحقول الذكية (Dynamic Placeholders) - انقر للإدراج فوراً مكان المؤشر:</span>
+      {!hideSmartPlaceholders && (
+        <div className="p-3 bg-purple-50/50 border-b border-purple-100 text-xs">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-1.5 font-bold text-[#714B67]">
+              <Sparkles size={14} />
+              <span>لوحة الحقول الذكية — انقر للإدراج مكان المؤشر</span>
+            </div>
+            <div className="text-[11px] font-mono text-purple-900 bg-purple-100/80 px-2 py-0.5 rounded-md font-bold">
+              {employeeGender === 'female' ? 'تأنيث' : 'تذكير'}
+            </div>
           </div>
-          <div className="text-[11px] font-mono text-purple-900 bg-purple-100/80 px-2 py-0.5 rounded-md font-bold">
-            جنس الموظف: {employeeGender === 'female' ? 'أنثى (تأنيث الصياغة)' : 'ذكر (تذكير الصياغة)'}
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
-          {SMART_PLACEHOLDERS.map((cat, catIdx) => (
-            <React.Fragment key={cat.category}>
-              {cat.items.map((item) => (
+          <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
+            {SMART_PLACEHOLDERS.flatMap(cat =>
+              cat.items.map(item => (
                 <button
                   key={item.tag}
                   type="button"
                   onClick={() => insertPlaceholder(item.tag)}
-                  className="bg-white hover:bg-[#714B67] hover:text-white text-slate-700 border border-purple-200 hover:border-[#714B67] px-2 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1 shadow-2xs cursor-pointer"
-                  title={`إدراج ${item.label}`}
+                  className="bg-white hover:bg-[#714B67] hover:text-white text-slate-700 border border-purple-200 hover:border-[#714B67] px-2 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer"
                 >
-                  <span>+</span>
-                  <span>{item.label}</span>
+                  + {item.label}
                 </button>
-              ))}
-              {catIdx < SMART_PLACEHOLDERS.length - 1 && (
-                <span className="text-purple-300 self-center px-1">•</span>
-              )}
-            </React.Fragment>
-          ))}
+              ))
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* 3. A4 Paper Canvas Editor */}
-      <div className="p-6 md:p-8 bg-slate-200/60 overflow-y-auto flex justify-center print:bg-white print:p-0">
-        <div 
-          className="bg-white text-slate-900 shadow-xl print:shadow-none w-full max-w-[210mm] p-8 md:p-12 relative border border-slate-200 rounded-sm"
+      {/* A4 Paper Canvas Editor */}
+      <div className={`p-4 md:p-6 bg-slate-100/80 overflow-y-auto flex justify-center print:bg-white print:p-0 flex-1 min-h-0`}>
+        <div
+          className="bg-white text-slate-900 shadow-md print:shadow-none w-full max-w-[210mm] p-8 md:p-10 relative border border-slate-200 rounded-sm"
           style={{
-            minHeight,
+            minHeight: fillHeight ? 'min(100%, 720px)' : minHeight,
             fontFamily: "'Cairo', 'Segoe UI', Tahoma, sans-serif",
             lineHeight: 1.9,
             direction: 'rtl',
