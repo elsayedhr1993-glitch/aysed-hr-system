@@ -1,6 +1,7 @@
 import { deleteDoc, doc, setDoc } from 'firebase/firestore';
 import { db, cleanFirestoreData } from '../lib/firebase';
 import { mapEmployeeDocKeyToCategory } from '../utils/documentArchiveUtils';
+import { isInlineDataUrlTooLargeForFirestore } from '../utils/employeeDocumentStorage';
 
 export interface EmployeeDocument {
   id: string;
@@ -46,7 +47,12 @@ export async function saveEmployeeDocument(document: EmployeeDocument): Promise<
   }
 
   const category = mapEmployeeDocKeyToCategory(docKey);
-  const fileUrl = document.fileUrl || document.url || '';
+  let fileUrl = document.fileUrl || document.url || '';
+  if (isInlineDataUrlTooLargeForFirestore(fileUrl)) {
+    throw new Error(
+      'حجم الملف يتجاوز حد قاعدة البيانات (1 ميجابايت). يُرفع الملف تلقائياً إلى التخزين السحابي — أعد المحاولة بعد تحديث الصفحة.'
+    );
+  }
 
   const centralPayload = {
     id: document.id,

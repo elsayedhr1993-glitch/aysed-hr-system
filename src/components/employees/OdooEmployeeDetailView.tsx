@@ -442,53 +442,78 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
   const handleDocFileUpload = (docKey: string, e: React.ChangeEvent<HTMLInputElement>, customTitle?: string) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64Url = reader.result as string;
-      const fileInfo = {
-        id: `${employee.id}-${docKey}`,
-        employeeId: employee.id,
-        companyId:
-          employee.companyId || activeCompany?.id || contextActiveCompany?.id || '',
-        docKey,
-        employeeNameAr: employee.fullNameAr || employee.nameAr || employee.name || '',
-        civilId: employee.civilId || '',
-        category: 'عقود وإقرارات قانونية (Contracts & Declarations)' as const,
-        docTitleAr: customTitle || docKey,
-        docTitleEn: customTitle || docKey,
-        fileType: file.type.includes('pdf') ? 'PDF' as const : 'JPG' as const,
-        fileName: file.name,
-        name: file.name,
-        url: base64Url,
-        fileSize: `${(file.size / 1024).toFixed(1)} KB`,
-        uploadDate: new Date().toISOString().slice(0, 10),
-        title: customTitle || docKey,
-        type: file.type.includes('pdf') ? 'pdf' : 'image',
-        status: 'verified'
-      };
-
-      setEmployee((prev: any) => {
-        const currentFiles = prev.documentFiles || {};
-        const next = {
-          ...prev,
-          documentFiles: {
-            ...currentFiles,
-            [docKey]: fileInfo
-          }
-        };
-        void saveEmployeeDocument(fileInfo as any)
-          .then(() => syncEmployeeDocumentsToArchive(next as Record<string, unknown>))
-          .catch(error => {
-            console.error('Failed to persist employee document:', error);
-          });
-        return next;
-      });
-
-      import('react-hot-toast').then(m => m.default.success(`تم حفظ وإرفاق مستند (${file.name}) بنجاح.`));
-    };
-    reader.readAsDataURL(file);
     e.target.value = '';
+
+    const companyId =
+      employee.companyId || activeCompany?.id || contextActiveCompany?.id || '';
+    if (!companyId) {
+      import('react-hot-toast').then(m =>
+        m.default.error('تعذر رفع المستند: لم يتم تحديد الشركة النشطة.')
+      );
+      return;
+    }
+
+    void (async () => {
+      const toast = (await import('react-hot-toast')).default;
+      try {
+        const { uploadEmployeeDocumentToStorage } = await import('../../utils/employeeDocumentStorage');
+        const { downloadUrl, storagePath } = await uploadEmployeeDocumentToStorage({
+          companyId,
+          employeeId: String(employee.id),
+          docKey,
+          file,
+        });
+
+        const fileInfo = {
+          id: `${employee.id}-${docKey}`,
+          employeeId: employee.id,
+          companyId,
+          docKey,
+          employeeNameAr: employee.fullNameAr || employee.nameAr || employee.name || '',
+          civilId: employee.civilId || '',
+          category: 'عقود وإقرارات قانونية (Contracts & Declarations)' as const,
+          docTitleAr: customTitle || docKey,
+          docTitleEn: customTitle || docKey,
+          fileType: file.type.includes('pdf') ? 'PDF' as const : 'JPG' as const,
+          fileName: file.name,
+          name: file.name,
+          url: downloadUrl,
+          fileUrl: downloadUrl,
+          storagePath,
+          fileSize: `${(file.size / 1024).toFixed(1)} KB`,
+          uploadDate: new Date().toISOString().slice(0, 10),
+          title: customTitle || docKey,
+          type: file.type.includes('pdf') ? 'pdf' : 'image',
+          status: 'verified',
+        };
+
+        setEmployee((prev: any) => {
+          const currentFiles = prev.documentFiles || {};
+          const next = {
+            ...prev,
+            documentFiles: {
+              ...currentFiles,
+              [docKey]: fileInfo,
+            },
+            ...(docKey === 'signedContract'
+              ? { signedContractUrl: downloadUrl, contractSigned: true }
+              : {}),
+          };
+          void saveEmployeeDocument(fileInfo as any)
+            .then(() => syncEmployeeDocumentsToArchive(next as Record<string, unknown>))
+            .catch(error => {
+              console.error('Failed to persist employee document:', error);
+              toast.error(error?.message || 'تعذر أرشفة المستند في قاعدة البيانات');
+            });
+          return next;
+        });
+
+        toast.success(`تم حفظ وإرفاق مستند (${file.name}) بنجاح.`);
+      } catch (error: any) {
+        console.error('Employee document upload failed:', error);
+        toast.error(error?.message || 'تعذر رفع المستند إلى التخزين السحابي');
+      }
+    })();
   };
 
   const handleRemoveDocFile = (docKey: string) => {

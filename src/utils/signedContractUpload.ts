@@ -2,6 +2,7 @@ import { saveEmployeeDocument } from '../services/documentService';
 import { syncEmployeeDocumentsToArchive } from '../services/employeeDocumentArchiveSync';
 import { TenantDatabaseService } from '../services/tenantDataService';
 import type { Employee } from '../types';
+import { uploadEmployeeDocumentToStorage } from './employeeDocumentStorage';
 
 export async function attachSignedContractFileToEmployee(
   employee: Record<string, unknown>,
@@ -11,11 +12,11 @@ export async function attachSignedContractFileToEmployee(
   const employeeId = String(employee.id || '');
   if (!employeeId) throw new Error('معرّف الموظف غير متوفر');
 
-  const base64Url = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(new Error('تعذر قراءة الملف'));
-    reader.readAsDataURL(file);
+  const { downloadUrl, storagePath } = await uploadEmployeeDocumentToStorage({
+    companyId,
+    employeeId,
+    docKey: 'signedContract',
+    file,
   });
 
   const fileInfo = {
@@ -31,7 +32,9 @@ export async function attachSignedContractFileToEmployee(
     fileType: file.type.includes('pdf') ? 'PDF' as const : 'JPG' as const,
     fileName: file.name,
     name: file.name,
-    url: base64Url,
+    url: downloadUrl,
+    fileUrl: downloadUrl,
+    storagePath,
     fileSize: `${(file.size / 1024).toFixed(1)} KB`,
     uploadDate: new Date().toISOString().slice(0, 10),
     title: 'عقد العمل',
@@ -44,6 +47,8 @@ export async function attachSignedContractFileToEmployee(
   const nextEmployee = {
     ...employee,
     companyId: companyId || employee.companyId,
+    signedContractUrl: downloadUrl,
+    contractSigned: true,
     documentFiles: {
       ...((employee.documentFiles as Record<string, unknown>) || {}),
       signedContract: fileInfo,

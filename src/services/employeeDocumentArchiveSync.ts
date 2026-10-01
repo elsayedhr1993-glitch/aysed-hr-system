@@ -2,6 +2,7 @@ import { setDoc, doc } from 'firebase/firestore';
 import { cleanFirestoreData, db } from '../lib/firebase';
 import { checkDocumentExpiryStatus } from './documentService';
 import { resolveEmployeeDisplayName } from '../utils/employeeDisplayName';
+import { isInlineDataUrlTooLargeForFirestore } from '../utils/employeeDocumentStorage';
 
 export const EMPLOYEE_ARCHIVE_SYNC_SLOTS = ['civilIdScan', 'residency', 'signedContract'] as const;
 export type EmployeeArchiveSyncSlot = (typeof EMPLOYEE_ARCHIVE_SYNC_SLOTS)[number];
@@ -134,7 +135,10 @@ export function buildEmployeeArchiveDocuments(
     if (!slotHasSignal(def, employee)) continue;
 
     const file = def.fileSlot(employee);
-    const fileUrl = pickFirstNonEmpty(file?.url, file?.fileUrl);
+    let fileUrl = pickFirstNonEmpty(file?.url, file?.fileUrl);
+    if (isInlineDataUrlTooLargeForFirestore(fileUrl)) {
+      fileUrl = '';
+    }
     const expiryDate = def.expiry(employee);
     const expiryStatus = checkDocumentExpiryStatus(expiryDate || undefined);
 
