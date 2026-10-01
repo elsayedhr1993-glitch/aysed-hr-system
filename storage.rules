@@ -1,0 +1,101 @@
+rules_version = '2';
+
+// Keep tenant checks aligned with firestore.rules (super admin + companyId + company email admin).
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function authEmailLower() {
+      return signedIn() && request.auth.token.email != null
+        ? request.auth.token.email.lower()
+        : '';
+    }
+
+    function isPlatformSuperAdminEmail() {
+      return authEmailLower() == 'admin@aysed.com'
+        || authEmailLower() == 'elsayedhr1993@gmail.com'
+        || authEmailLower() == 'sayed@hr.com';
+    }
+
+    function firestoreDb() {
+      return 'ai-studio-remixaysedshr202-98c882d5-9491-4f4b-a838-c6b0b10a0472';
+    }
+
+    function userDocPath() {
+      return /databases/$(firestoreDb())/documents/users/$(request.auth.uid);
+    }
+
+    function userExists() {
+      return firestore.exists(userDocPath());
+    }
+
+    function userDoc() {
+      return firestore.get(userDocPath()).data;
+    }
+
+    function isSuperAdmin() {
+      return signedIn() && (
+        isPlatformSuperAdminEmail() ||
+        request.auth.token.role == 'SUPER_ADMIN' ||
+        (userExists() && userDoc().role == 'SUPER_ADMIN')
+      );
+    }
+
+    function callerCompanyId() {
+      return userExists() && userDoc().companyId != null
+        ? userDoc().companyId
+        : (request.auth.token.companyId != null ? request.auth.token.companyId : '');
+    }
+
+    function companyDocData(companyId) {
+      return firestore.get(/databases/$(firestoreDb())/documents/companies/$(companyId)).data;
+    }
+
+    function companyDataFieldMatchesAuthEmail(data, fieldName) {
+      return fieldName in data
+        && data[fieldName] is string
+        && data[fieldName].lower() == authEmailLower()
+        && authEmailLower() != '';
+    }
+
+    function isAuthEmailCompanyAdmin(companyId) {
+      return signedIn()
+        && authEmailLower() != ''
+        && firestore.exists(/databases/$(firestoreDb())/documents/companies/$(companyId))
+        && (
+          companyDataFieldMatchesAuthEmail(companyDocData(companyId), 'adminUsername') ||
+          companyDataFieldMatchesAuthEmail(companyDocData(companyId), 'email') ||
+          companyDataFieldMatchesAuthEmail(companyDocData(companyId), 'adminEmail') ||
+          companyDataFieldMatchesAuthEmail(companyDocData(companyId), 'ownerEmail') ||
+          companyDataFieldMatchesAuthEmail(companyDocData(companyId), 'contactEmail')
+        );
+    }
+
+    function canAccessTenantStorage(companyId) {
+      return isSuperAdmin()
+        || (signedIn() && callerCompanyId() == companyId)
+        || isAuthEmailCompanyAdmin(companyId);
+    }
+
+    function isAllowedUploadSize() {
+      return request.resource.size < 25 * 1024 * 1024;
+    }
+
+    match /employee_documents/{companyId}/{allPaths=**} {
+      allow read: if canAccessTenantStorage(companyId);
+      allow write: if canAccessTenantStorage(companyId) && isAllowedUploadSize();
+    }
+
+    match /company_documents/{companyId}/{allPaths=**} {
+      allow read: if canAccessTenantStorage(companyId);
+      allow write: if canAccessTenantStorage(companyId) && isAllowedUploadSize();
+    }
+
+    match /documents/{companyId}/{allPaths=**} {
+      allow read: if canAccessTenantStorage(companyId);
+      allow write: if canAccessTenantStorage(companyId) && isAllowedUploadSize();
+    }
+  }
+}
