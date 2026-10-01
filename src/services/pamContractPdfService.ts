@@ -1,3 +1,6 @@
+/**
+ * مسار النماذج الرسمية (Form rail) — للاستهلاك من التطبيق استخدم `services/odooPdfService` (`OdooPdf.form`).
+ */
 import { PDFDocument, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import reshaperPkg from 'arabic-persian-reshaper';

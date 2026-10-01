@@ -85,7 +85,7 @@ export const LeaveClearanceDocument: React.FC<Props> = ({
   const returnDate = (settlement as any).returnDate as string | undefined;
 
   return (
-    <div className={`w-full max-w-4xl mx-auto bg-white p-8 sm:p-10 border border-gray-300 shadow-sm print:shadow-none print:border-none print:p-0 font-['Tajawal','Cairo',sans-serif] text-slate-800 ${textAlignClass} leading-normal`} dir={direction}>
+    <div className={`odoo-report-sheet w-full max-w-4xl mx-auto bg-white p-8 sm:p-10 border border-gray-300 shadow-sm print:shadow-none print:border-none print:p-0 font-['Tajawal','Cairo',sans-serif] text-slate-800 ${textAlignClass} leading-normal`} dir={direction}>
       
       <div className="mb-6">
         <OfficialA4CompanyLetterheadCompact
@@ -100,8 +100,8 @@ export const LeaveClearanceDocument: React.FC<Props> = ({
           }
         />
 
-        <div className="mt-4 text-center">
-          <h2 className="text-xl font-black text-[#71639e] inline-block border-b-2 border-dashed border-[#71639e] pb-1 px-4">
+        <div className="odoo-report-center-title mt-4">
+          <h2 className="text-base font-bold text-[#714B67]">
             {(settlement as any).settlementMode === 'ENCASHMENT_LIQUIDATION'
               ? 'سند صرف وتصفية البدل النقدي لرصيد الإجازات (Leave Encashment Voucher)'
               : 'سند تصفية مستحقات وبدل الإجازات (Leave Settlement Voucher)'}
@@ -176,10 +176,10 @@ export const LeaveClearanceDocument: React.FC<Props> = ({
         <h3 className="text-xs font-black text-slate-900 border-r-3 border-[#71639e] pr-2 mb-2">
           ١. {t('approved_balances')} (Leave Balance Ledger - FIFO)
         </h3>
-        <div className="border border-slate-300 rounded-lg overflow-hidden text-xs">
-          <table className="w-full text-center border-collapse">
+        <div className="odoo-report-table-wrap text-xs">
+          <table className="odoo-report-table w-full text-center">
             <thead>
-              <tr className="bg-slate-100 font-bold text-slate-800 border-b border-slate-300">
+              <tr>
                 <th className="p-2 border-l border-slate-300">{lang === 'ar' ? 'الرصيد المرحل' : 'Carried Balance'}</th>
                 <th className="p-2 border-l border-slate-300">{lang === 'ar' ? 'المكتسب 2026' : 'Accrued 2026'}</th>
                 <th className="p-2 border-l border-slate-300 bg-purple-50 text-[#71639e]">{t('leave_balance')}</th>
@@ -229,10 +229,10 @@ export const LeaveClearanceDocument: React.FC<Props> = ({
         </h3>
 
         {isUniversal && items.length > 0 ? (
-          <div className="border border-slate-300 rounded-lg overflow-hidden text-xs mb-4">
-            <table className="w-full border-collapse">
+          <div className="odoo-report-table-wrap text-xs mb-4">
+            <table className="odoo-report-table w-full">
               <thead>
-                <tr className="bg-slate-100 font-bold text-slate-800 border-b border-slate-300">
+                <tr>
                   <th className="p-2 text-right w-1/12">#</th>
                   <th className="p-2 text-right w-5/12">بيان البند المالي (Description)</th>
                   <th className="p-2 text-center w-2/12">الكمية / الأساس</th>

@@ -3,6 +3,8 @@ import { X, Printer, Building2 } from 'lucide-react';
 import { safePrintAction } from '../../guards/SystemIntegrityGuard';
 import type { Company } from '../../types';
 import { OfficialA4CompanyLetterhead } from '../print/OfficialA4CompanyLetterhead';
+import { OdooReportFooter, OdooReportLegalNotice } from '../print/OdooReportPrimitives';
+import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
 
 interface OfficialAttendancePrintModalProps {
   isOpen: boolean;
@@ -70,7 +72,7 @@ export const OfficialAttendancePrintModal: React.FC<OfficialAttendancePrintModal
         <div className="overflow-y-auto p-8 bg-slate-100/50 flex justify-center">
           <div 
             ref={printableRef}
-            className="bg-white w-full max-w-4xl p-8 border border-slate-300 shadow-sm rounded-lg text-right font-sans text-slate-900"
+            className="odoo-report-sheet bg-white w-full max-w-[210mm] p-8 border border-slate-300 shadow-sm rounded-lg text-right font-sans text-slate-900"
             dir="rtl"
           >
             
@@ -89,18 +91,18 @@ export const OfficialAttendancePrintModal: React.FC<OfficialAttendancePrintModal
             />
 
             {/* Document Title Banner */}
-            <div className="bg-slate-100 p-3 rounded-lg border border-slate-300 text-center mb-5">
-              <h1 className="text-base font-black text-slate-900">{reportData.title}</h1>
+            <div className="odoo-report-center-title mb-5">
+              <h1 className="text-base font-bold text-slate-900">{reportData.title}</h1>
               <div className="text-xs text-slate-600 mt-0.5 font-bold">
                 عن الفترة / التاريخ: <span className="font-mono text-[#714B67]">{reportData.dateOrMonth}</span>
               </div>
             </div>
 
             {/* Printable Table */}
-            <div className="overflow-x-auto mb-6">
-              <table className="w-full text-right text-[11px] border border-slate-300 border-collapse">
+            <div className="odoo-report-table-wrap overflow-x-auto mb-6">
+              <table className="odoo-report-table w-full text-right text-[10px]">
                 <thead>
-                  <tr className="bg-slate-200/80 text-slate-800 font-bold border-b border-slate-300">
+                  <tr>
                     <th className="p-2 border-l border-slate-300">م</th>
                     <th className="p-2 border-l border-slate-300">كود الموظف</th>
                     <th className="p-2 border-l border-slate-300">اسم الموظف</th>
@@ -128,7 +130,7 @@ export const OfficialAttendancePrintModal: React.FC<OfficialAttendancePrintModal
                 </thead>
                 <tbody className="divide-y divide-slate-200">
                   {reportData.rows.map((row, idx) => (
-                    <tr key={idx} className={idx % 2 === 1 ? 'bg-slate-50' : 'bg-white'}>
+                    <tr key={idx}>
                       <td className="p-2 text-center font-mono border-l border-slate-200">{idx + 1}</td>
                       <td className="p-2 font-mono font-bold border-l border-slate-200">{row.employeeId}</td>
                       <td className="p-2 font-bold border-l border-slate-200">{row.employeeName}</td>
@@ -165,11 +167,15 @@ export const OfficialAttendancePrintModal: React.FC<OfficialAttendancePrintModal
             </div>
 
             {/* Legal Disclaimers & Notes */}
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-[10px] text-slate-600 mb-8 space-y-1">
-              <div>• احتسبت ساعات العمل الإضافي وفق المادة 66 من قانون العمل الكويتي (1.25x للأيام العادية).</div>
-              <div>• احتسبت بدلات وأجور اليوم على أساس قسمة الراتب الإجمالي على 26 يوم عمل.</div>
-              <div>• هذا المستند رسمي ومعد للإرفاق مع ملف مسير الرواتب المرفوع لنظام حماية الأجور (WPS).</div>
-            </div>
+            <OdooReportLegalNotice title="ملاحظات قانونية — الحضور والانصراف">
+              <p>• احتسبت ساعات العمل الإضافي وفق المادة 66 من قانون العمل الكويتي (1.25x للأيام العادية).</p>
+              <p>• احتسبت بدلات وأجور اليوم على أساس قسمة الراتب الإجمالي على 26 يوم عمل.</p>
+              <p>• هذا المستند رسمي ومعد للإرفاق مع ملف مسير الرواتب المرفوع لنظام حماية الأجور (WPS).</p>
+            </OdooReportLegalNotice>
+
+            {company && (
+              <OdooReportFooter companyName={getCompanyPrintProfile(company).displayNameAr} />
+            )}
 
             {/* Triple Official Approval Signatures */}
           </div>

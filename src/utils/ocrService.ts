@@ -1,12 +1,6 @@
-import * as pdfjsLib from 'pdfjs-dist';
-// Vite will statically analyze this and serve the file correctly
-import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import { renderPdfFileToPageImages } from '../lib/pdfjsClient';
 import { buildAuthedJsonHeaders } from '../lib/clientAuth';
 import { parseKuwaitCivilId } from './kuwaitLaw';
-
-if (typeof window !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
-}
 
 export interface ScannedData {
   documentType?: 'civil_id' | 'license' | 'contract' | 'passport' | 'other';
@@ -59,28 +53,7 @@ interface PdfRenderOutput {
  */
 async function convertPdfPagesToImages(file: File, maxPages: number = 4): Promise<PdfRenderOutput> {
   try {
-    const arrayBuffer = await file.arrayBuffer();
-    const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) });
-    const pdf = await loadingTask.promise;
-
-    const pageCount = Math.min(pdf.numPages || 1, Math.max(1, maxPages));
-    const pagesBase64: string[] = [];
-
-    for (let pageNo = 1; pageNo <= pageCount; pageNo++) {
-      const page = await pdf.getPage(pageNo);
-      const viewport = page.getViewport({ scale: 2.0 });
-
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
-
-      if (!context) throw new Error('فشل في إنشاء سياق Canvas');
-
-      await page.render({ canvasContext: context, viewport, canvas: canvas as any }).promise;
-      pagesBase64.push(canvas.toDataURL('image/jpeg', 0.95));
-    }
-
+    const pagesBase64 = await renderPdfFileToPageImages(file, maxPages);
     return {
       pagesBase64,
       mimeType: 'image/jpeg'

@@ -12,6 +12,8 @@ import {
 } from '../../utils/leaveEngine';
 import type { Company } from '../../types';
 import { OfficialA4CompanyLetterheadCompact } from '../print/OfficialA4CompanyLetterhead';
+import { OdooReportFooter, OdooReportLegalNotice } from '../print/OdooReportPrimitives';
+import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
 
 export interface FinalSettlementEmployee {
   id: string;
@@ -323,7 +325,7 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
           {/* Printable Official Document */}
           <div
             id="official-final-settlement-print"
-            className="bg-white p-8 sm:p-12 rounded-xl shadow-xs border border-slate-200 max-w-3xl mx-auto print:border-none print:shadow-none print:p-0 print:m-0 text-slate-800"
+            className="odoo-report-sheet bg-white p-8 sm:p-12 rounded-xl shadow-xs border border-slate-200 max-w-3xl mx-auto print:border-none print:shadow-none print:p-0 print:m-0 text-slate-800"
             dir="rtl"
           >
             <OfficialA4CompanyLetterheadCompact
@@ -341,8 +343,13 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
               }
             />
 
+            <div className="odoo-report-center-title mb-5">
+              <h2 className="text-base font-bold text-slate-900">مخالصة نهائية وإبراء ذمة عمالي</h2>
+              <p className="text-[11px] text-slate-600 mt-0.5">تسوية مستحقات نهاية الخدمة وفق قانون العمل 6/2010</p>
+            </div>
+
             {/* Employee Metadata */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 mb-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="odoo-report-meta-strip mb-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div>
                 <span className="text-[10px] text-slate-500 block">اسم الموظف:</span>
                 <strong className="text-slate-900">{currentEmp?.name}</strong>
@@ -393,10 +400,10 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
             </div>
 
             {/* Settlement Detailed Table */}
-            <div className="border border-slate-200 rounded-xl overflow-hidden mb-5">
-              <table className="w-full text-right border-collapse">
+            <div className="odoo-report-table-wrap mb-5">
+              <table className="odoo-report-table w-full text-right text-[11px]">
                 <thead>
-                  <tr className="bg-slate-100 text-slate-700 text-[11px] border-b border-slate-200">
+                  <tr>
                     <th className="p-2.5">البيان والتفاصيل القانونية (قانون العمل الكويتي رقم 6 لسنة 2010)</th>
                     <th className="p-2.5 w-32 text-left">الاستحقاق (+)</th>
                     <th className="p-2.5 w-32 text-left">الاستقطاع (-)</th>
@@ -473,7 +480,7 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
                   )}
                 </tbody>
                 <tfoot>
-                  <tr className="bg-slate-100/90 font-bold border-t-2 border-slate-300">
+                  <tr className="font-bold">
                     <td className="p-2.5 text-slate-800">إجمالي المبالغ</td>
                     <td className="p-2.5 text-left font-mono text-emerald-800">+{totalEntitlements.toFixed(3)} د.ك</td>
                     <td className="p-2.5 text-left font-mono text-rose-800">-{totalSettlementDeductions.toFixed(3)} د.ك</td>
@@ -497,12 +504,20 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
             </div>
 
             {/* Legal Discharge Statement */}
-            <div className="border border-slate-300 bg-slate-50 p-3.5 rounded-xl text-justify text-[11px] leading-relaxed text-slate-700 mb-8">
-              <strong className="text-slate-900 block mb-1">إقرار وتنازل وإبراء ذمة شامل (قانون العمل الكويتي):</strong>
-              أقر أنا الموقع أدناه / <strong>{currentEmp?.name}</strong>، حامل البطاقة المدنية رقم (<span className="font-mono">{currentEmp?.civilId}</span>)،
-              بأنني قد استلمت كافة مستحقاتي العمالية والمالية من رواتب، ومكافأة نهاية خدمة، وبدل إجازات سنوية، وتذاكر سفر، وكافة التعويضات المقررة بموجب عقد العمل وقانون العمل الكويتي في القطاع الأهلي رقم 6 لسنة 2010.
-              وبذلك أبرئ ذمة الشركة المذكورة أعلاه إبراءً شاملاً ومانعاً لأي مطالبة حالية أو مستقبلية، وتعتبر هذه الوثيقة مخالصة عمالية نهائية تامة لا رجعة فيها.
-            </div>
+            <OdooReportLegalNotice title="إقرار وتنازل وإبراء ذمة شامل (قانون العمل الكويتي)">
+              <p>
+                أقر أنا الموقع أدناه / <strong>{currentEmp?.name}</strong>، حامل البطاقة المدنية رقم (
+                <span className="font-mono">{currentEmp?.civilId}</span>)، بأنني قد استلمت كافة مستحقاتي العمالية والمالية من رواتب، ومكافأة نهاية خدمة، وبدل إجازات سنوية، وتذاكر سفر، وكافة التعويضات المقررة بموجب عقد العمل وقانون العمل الكويتي في القطاع الأهلي رقم 6 لسنة 2010.
+                وبذلك أبرئ ذمة الشركة المذكورة أعلاه إبراءً شاملاً ومانعاً لأي مطالبة حالية أو مستقبلية، وتعتبر هذه الوثيقة مخالصة عمالية نهائية تامة لا رجعة فيها.
+              </p>
+            </OdooReportLegalNotice>
+
+            {company && (
+              <OdooReportFooter
+                companyName={getCompanyPrintProfile(company).displayNameAr}
+                reportRef={`EOS-${currentEmp?.id}-${terminationDate.replace(/-/g, '')}`}
+              />
+            )}
 
           </div>
         </div>

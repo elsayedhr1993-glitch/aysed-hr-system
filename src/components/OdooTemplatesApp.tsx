@@ -36,7 +36,7 @@ import { employerLicenseTokenForTemplates } from '../utils/mohMedicalFacility';
 import { OfficialA4CompanyLetterhead } from './print/OfficialA4CompanyLetterhead';
 import { useOdooHierarchy, EmployeeContract } from '../context/OdooHierarchyContext';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
-import { exportElementToPdf } from '../utils/printUtils';
+import { OdooPdf } from '../services/odooPdfService';
 import { tafqeet } from '../utils/tafqeet';
 import { TenantDatabaseService } from '../services/tenantDataService';
 import { DocumentItem } from '../types';
@@ -620,7 +620,7 @@ export const OdooTemplatesApp: React.FC = () => {
     setIsExportingPdf(true);
     try {
       const fileName = `${activeTemplateDef.title}_${empName}_${civilId}`;
-      const success = await exportElementToPdf(previewSheetRef.current, fileName);
+      const success = await OdooPdf.report.exportElement(previewSheetRef.current, fileName);
       if (success) {
         toast.success('تم تصدير ملف PDF بنجاح فائق الدقة!');
       } else {

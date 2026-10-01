@@ -1066,6 +1066,17 @@ table {
     padding-bottom: 12px !important;
     margin-bottom: 20px !important;
   }
+
+  .odoo-report-sheet {
+    box-shadow: none !important;
+    border: none !important;
+    max-width: none !important;
+  }
+
+  .odoo-report-table thead th {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
 }
 
 

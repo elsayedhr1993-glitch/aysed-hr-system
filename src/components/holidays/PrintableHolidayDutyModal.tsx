@@ -5,6 +5,8 @@ import { HolidayDutyAssignment } from '../OdooPublicHolidaysApp';
 import type { Company } from '../../types';
 import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
 import { formatEmployerRegistryLine } from '../../utils/mohMedicalFacility';
+import { OdooReportFooter } from '../print/OdooReportPrimitives';
+import { OfficialA4CompanyLetterheadCompact } from '../print/OfficialA4CompanyLetterhead';
 
 interface PrintableHolidayDutyModalProps {
   duty: HolidayDutyAssignment | null;
@@ -58,32 +60,21 @@ export const PrintableHolidayDutyModal: React.FC<PrintableHolidayDutyModalProps>
         </div>
 
         {/* Printable Official Document Container */}
-        <div id="printable-holiday-duty-form" className="p-6 border-2 border-slate-800 rounded-xl space-y-6 text-slate-900 bg-white">
+        <div id="printable-holiday-duty-form" className="odoo-report-sheet p-6 border border-slate-200 rounded-xl space-y-6 text-slate-900 bg-white">
           
-          {/* Header */}
-          <div className="flex items-start justify-between border-b-2 border-slate-800 pb-4">
-            <div className="space-y-1">
-              <div className="text-base font-black text-slate-900">{profile.displayNameAr}</div>
-              <div className="text-[11px] text-slate-600">{formatEmployerRegistryLine(profile, company)}</div>
-            </div>
-
-            <div className="text-center">
-              <div className="text-xs font-black uppercase tracking-wider text-slate-700">دولة الكويت</div>
-              <div className="text-xs font-bold text-slate-500">قانون العمل في القطاع الأهلي</div>
-              <div className="text-[10px] text-purple-900 font-bold mt-1 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
-                تنفيذاً للمادة 68 من القانون 6/2010
+          <OfficialA4CompanyLetterheadCompact
+            company={company}
+            rightSlot={
+              <div className="text-left font-mono text-[10px] text-slate-500 space-y-1">
+                <div>رقم التكليف: <strong className="text-slate-900">{formRef}</strong></div>
+                <div>تاريخ الإصدار: <strong className="text-slate-900">{todayStr}</strong></div>
+                <div className="text-emerald-700 font-bold">الحالة: معتمد وموثق</div>
               </div>
-            </div>
+            }
+          />
+          <p className="text-[10px] text-slate-600 -mt-2">{formatEmployerRegistryLine(profile, company)}</p>
 
-            <div className="text-left font-mono text-[10px] text-slate-500 space-y-1">
-              <div>رقم التكليف: <strong className="text-slate-900">{formRef}</strong></div>
-              <div>تاريخ الإصدار: <strong className="text-slate-900">{todayStr}</strong></div>
-              <div className="text-emerald-700 font-bold">الحالة: معتمد وموثق</div>
-            </div>
-          </div>
-
-          {/* Document Title */}
-          <div className="text-center py-2 bg-slate-50 border border-slate-300 rounded-lg">
+          <div className="odoo-report-center-title">
             <h2 className="text-sm font-black text-slate-900">
               قرار وأمر تكليف بالعمل أثناء العطلة الرسمية والراحة الأسبوعية
             </h2>
@@ -128,8 +119,9 @@ export const PrintableHolidayDutyModal: React.FC<PrintableHolidayDutyModalProps>
               ثانياً: تفاصيل التكليف والتعويض المقرر (المادة 68)
             </div>
             
-            <table className="w-full text-right border border-slate-300 rounded-lg overflow-hidden text-[11px]">
-              <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-300">
+            <div className="odoo-report-table-wrap">
+            <table className="odoo-report-table w-full text-right text-[11px]">
+              <thead>
                 <tr>
                   <th className="p-2.5">مناسبة العطلة الرسمية</th>
                   <th className="p-2.5">تاريخ التكليف الفعلي</th>
@@ -162,13 +154,10 @@ export const PrintableHolidayDutyModal: React.FC<PrintableHolidayDutyModalProps>
                 </tr>
               </tbody>
             </table>
+            </div>
           </div>
 
-          {/* Footer Official Notice */}
-          <div className="border-t pt-3 flex items-center justify-between text-[9px] text-slate-400 font-mono">
-            <span>نسخة محفوظة في ملف خدمة الموظف | نسخة لقسم الرواتب والأجور</span>
-            <span>نظام أودو 18 للموارد البشرية - مطابقة التفتيش العمالي PAM</span>
-          </div>
+          <OdooReportFooter companyName={profile.displayNameAr} reportRef={formRef} />
 
         </div>
 

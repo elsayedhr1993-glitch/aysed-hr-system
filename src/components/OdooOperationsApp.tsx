@@ -35,7 +35,7 @@ import { useOdooHierarchy, EmployeeContract } from '../context/OdooHierarchyCont
 import { CustodyItem } from '../types';
 import { formatKWD } from '../utils/kuwaitLaw';
 import { exportToExcel } from '../utils/exportUtils';
-import { printDocument, exportElementToPdf } from '../utils/printUtils';
+import { OdooPdf } from '../services/odooPdfService';
 import { toast } from 'react-hot-toast';
 import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { cleanFirestoreData, db } from '../lib/firebase';
@@ -967,13 +967,13 @@ export const OdooOperationsApp: React.FC = () => {
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => exportElementToPdf('custody-voucher-print-area', printableRecord.type === 'HANDOVER' ? 'Custody_Handover_Voucher' : 'Custody_Clearance_Certificate')}
+                  onClick={() => OdooPdf.report.exportElement('custody-voucher-print-area', printableRecord.type === 'HANDOVER' ? 'Custody_Handover_Voucher' : 'Custody_Clearance_Certificate')}
                   className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
                 >
                   <Download size={14} /> تصدير PDF
                 </button>
                 <button
-                  onClick={() => printDocument('custody-voucher-print-area', printableRecord.type === 'HANDOVER' ? 'سند_استلام_عهدة' : 'شهادة_إخلاء_طرف_عهدة')}
+                  onClick={() => OdooPdf.report.print('custody-voucher-print-area', printableRecord.type === 'HANDOVER' ? 'سند_استلام_عهدة' : 'شهادة_إخلاء_طرف_عهدة')}
                   className="px-4 py-1.5 bg-[#714B67] hover:bg-[#583950] text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
                 >
                   <Printer size={14} /> طباعة رسمية
@@ -988,7 +988,7 @@ export const OdooOperationsApp: React.FC = () => {
             </div>
 
             {/* Printable Document Area */}
-            <div id="custody-voucher-print-area" className="p-4 space-y-6 text-slate-900 bg-white" dir="rtl">
+            <div id="custody-voucher-print-area" className="odoo-report-sheet p-4 space-y-6 text-slate-900 bg-white" dir="rtl">
               
               <OfficialA4CompanyLetterhead
                 company={companyForPrint}
@@ -1007,8 +1007,8 @@ export const OdooOperationsApp: React.FC = () => {
               />
 
               {/* Title */}
-              <div className="text-center space-y-1 py-2">
-                <h3 className="text-lg font-black text-slate-900 underline decoration-[#714B67] decoration-2 underline-offset-8">
+              <div className="odoo-report-center-title space-y-1 py-2">
+                <h3 className="text-base font-bold text-slate-900">
                   {printableRecord.type === 'HANDOVER' 
                     ? 'إقرار تسليم واستلام عهدة عينية رسمية' 
                     : 'سند إخلاء طرف واسترداد عهدة وممتلكات'}
@@ -1050,8 +1050,9 @@ export const OdooOperationsApp: React.FC = () => {
                 <div className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
                   <Package size={14} className="text-[#714B67]" /> تفاصيل العهدة المسجلة:
                 </div>
-                <table className="w-full text-right text-xs border border-slate-300 rounded-lg overflow-hidden">
-                  <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-300">
+                <div className="odoo-report-table-wrap">
+                <table className="odoo-report-table w-full text-right text-xs">
+                  <thead>
                     <tr>
                       <th className="p-2.5">كود العهدة</th>
                       <th className="p-2.5">اسم ووصف الأصل</th>
@@ -1070,6 +1071,7 @@ export const OdooOperationsApp: React.FC = () => {
                     </tr>
                   </tbody>
                 </table>
+                </div>
               </div>
 
               {/* Legal Acknowledgment Statement */}

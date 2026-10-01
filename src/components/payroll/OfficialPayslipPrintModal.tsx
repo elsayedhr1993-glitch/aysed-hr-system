@@ -3,6 +3,8 @@ import { X, Printer, Download, CheckCircle, ShieldCheck, DollarSign } from 'luci
 import { tafqitKuwaiti } from '../../utils/tafqit';
 import type { Company } from '../../types';
 import { OfficialA4CompanyLetterheadCompact } from '../print/OfficialA4CompanyLetterhead';
+import { OdooReportFooter } from '../print/OdooReportPrimitives';
+import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
 
 export interface PayslipPrintData {
   payslipNumber: string;
@@ -83,7 +85,7 @@ export const OfficialPayslipPrintModal: React.FC<OfficialPayslipPrintModalProps>
           <div
             ref={printContentRef}
             id="official-payslip-sheet"
-            className="bg-white p-8 sm:p-10 rounded-xl shadow-xs border border-slate-200 max-w-2xl mx-auto print:border-none print:shadow-none print:p-0 print:m-0 print:max-w-none text-slate-800 text-xs"
+            className="odoo-report-sheet bg-white p-8 sm:p-10 rounded-xl shadow-xs border border-slate-200 max-w-2xl mx-auto print:border-none print:shadow-none print:p-0 print:m-0 print:max-w-none text-slate-800 text-xs"
             dir="rtl"
           >
             <OfficialA4CompanyLetterheadCompact
@@ -236,9 +238,17 @@ export const OfficialPayslipPrintModal: React.FC<OfficialPayslipPrintModalProps>
             </div>
 
             {/* Legal Notice */}
-            <div className="text-[9px] text-slate-500 mb-8 border-r-2 border-[#714B67] pr-2">
+            <div className="odoo-report-legal-notice mb-6">
+              <p className="odoo-report-legal-title">إشعار قانوني</p>
               <p>تم احتساب هذا المسير وفقاً لأحكام قانون العمل الكويتي في القطاع الأهلي (رقم 6 لسنة 2010) وقرارات وزارة الشؤون الاجتماعية ونظام حماية الأجور (WPS).</p>
             </div>
+
+            {company && (
+              <OdooReportFooter
+                companyName={getCompanyPrintProfile(company).displayNameAr}
+                reportRef={payslip.payslipNumber}
+              />
+            )}
 
           </div>
         </div>

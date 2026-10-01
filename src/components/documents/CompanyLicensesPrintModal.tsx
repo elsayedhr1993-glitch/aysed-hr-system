@@ -3,6 +3,8 @@ import { Company } from '../../types';
 import { CompanyDocument, formatCompanyDocumentType, getDocumentStatus } from '../../types/companyDocuments';
 import { X, Printer } from 'lucide-react';
 import { OfficialA4CompanyLetterhead } from '../print/OfficialA4CompanyLetterhead';
+import { OdooReportFooter } from '../print/OdooReportPrimitives';
+import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
 
 interface CompanyLicensesPrintModalProps {
   isOpen: boolean;
@@ -56,7 +58,7 @@ export const CompanyLicensesPrintModal: React.FC<CompanyLicensesPrintModalProps>
           </div>
         </div>
 
-        <div className="p-8 overflow-y-auto flex-1 bg-white text-slate-900 print:p-0">
+        <div className="odoo-report-sheet p-8 overflow-y-auto flex-1 bg-white text-slate-900 print:p-0">
           <OfficialA4CompanyLetterhead
             company={company}
             subtitle="كشف تراخيص المنشأة والامتثال الحكومي"
@@ -69,7 +71,7 @@ export const CompanyLicensesPrintModal: React.FC<CompanyLicensesPrintModalProps>
             }
           />
 
-          <div className="bg-slate-100 rounded-xl p-3 mb-6 text-xs flex flex-wrap justify-between gap-2">
+          <div className="odoo-report-meta-strip mb-6 text-xs flex flex-wrap justify-between gap-2">
             <span>
               <strong>النطاق:</strong> {filterLabel}
             </span>
@@ -80,8 +82,9 @@ export const CompanyLicensesPrintModal: React.FC<CompanyLicensesPrintModalProps>
             </span>
           </div>
 
-          <table className="w-full text-right text-xs border border-slate-300 rounded-lg overflow-hidden table-fixed">
-            <thead className="bg-slate-100 font-bold text-slate-700">
+          <div className="odoo-report-table-wrap">
+          <table className="odoo-report-table w-full text-right text-xs table-fixed">
+            <thead>
               <tr>
                 <th className="p-2 w-8 text-center">#</th>
                 <th className="p-2">اسم الترخيص</th>
@@ -102,7 +105,7 @@ export const CompanyLicensesPrintModal: React.FC<CompanyLicensesPrintModalProps>
                       ? 'text-amber-800'
                       : 'text-slate-800';
                 return (
-                  <tr key={doc.id} className={idx % 2 === 1 ? 'bg-slate-50/60' : ''}>
+                  <tr key={doc.id}>
                     <td className="p-2 text-center text-slate-400">{idx + 1}</td>
                     <td className="p-2 font-bold whitespace-nowrap truncate max-w-0" title={doc.name}>{doc.name}</td>
                     <td className="p-2 whitespace-nowrap truncate max-w-0">{formatCompanyDocumentType(doc.documentType)}</td>
@@ -115,10 +118,16 @@ export const CompanyLicensesPrintModal: React.FC<CompanyLicensesPrintModalProps>
               })}
             </tbody>
           </table>
+          </div>
 
           {documents.length === 0 && (
             <p className="text-center text-slate-500 text-sm py-8">لا توجد تراخيص في هذا النطاق.</p>
           )}
+
+          <OdooReportFooter
+            companyName={getCompanyPrintProfile(company).displayNameAr}
+            reportRef={reportRef}
+          />
 
         </div>
       </div>

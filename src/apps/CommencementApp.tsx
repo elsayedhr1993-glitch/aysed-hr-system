@@ -1207,7 +1207,7 @@ class HrCommencement(models.Model):
             </div>
 
             {/* Printable Document Sheet (Odoo Official Letterhead) */}
-            <div className="p-8 space-y-6 text-slate-900 bg-white" id="printable-commencement-document">
+            <div className="odoo-report-sheet p-8 space-y-6 text-slate-900 bg-white" id="printable-commencement-document">
               
               <OfficialA4CompanyLetterhead
                 company={companyForPrint}
@@ -1225,8 +1225,8 @@ class HrCommencement(models.Model):
               />
 
               {/* Document Title */}
-              <div className="text-center py-2">
-                <h3 className="text-base font-black text-slate-900 underline underline-offset-8 decoration-2 decoration-[#714B67]">
+              <div className="odoo-report-center-title py-2">
+                <h3 className="text-base font-bold text-slate-900">
                   إقرار واستلام مباشرة عمل الموظف
                 </h3>
               </div>

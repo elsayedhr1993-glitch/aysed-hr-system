@@ -3,6 +3,8 @@ import { Company } from '../../types';
 import { OrgChartPrintLine } from '../../utils/orgChartUtils';
 import { Printer, X } from 'lucide-react';
 import { OfficialA4CompanyLetterhead } from '../print/OfficialA4CompanyLetterhead';
+import { OdooReportFooter } from '../print/OdooReportPrimitives';
+import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
 
 interface OrganizationChartPrintModalProps {
   isOpen: boolean;
@@ -52,7 +54,7 @@ export const OrganizationChartPrintModal: React.FC<OrganizationChartPrintModalPr
           </div>
         </div>
 
-        <div className="p-8 overflow-y-auto flex-1 bg-white text-slate-900 print:p-0" id="org-chart-print-area">
+        <div className="odoo-report-sheet p-8 overflow-y-auto flex-1 bg-white text-slate-900 print:p-0" id="org-chart-print-area">
           <OfficialA4CompanyLetterhead
             company={company}
             subtitle="الهيكل التنظيمي والتسلسل الإداري"
@@ -66,15 +68,16 @@ export const OrganizationChartPrintModal: React.FC<OrganizationChartPrintModalPr
             }
           />
 
-          <div className="bg-slate-100 rounded-xl p-3 mb-6 text-xs flex flex-wrap justify-between gap-2">
+          <div className="odoo-report-meta-strip mb-6 text-xs flex flex-wrap justify-between gap-2">
             <span><strong>النطاق:</strong> {scopeLabel}</span>
             <span className="font-mono">
               الموظفون: {totalEmployees} · جذور الشجرة: {rootCount} · صفوف التقرير: {lines.length}
             </span>
           </div>
 
-          <table className="w-full text-right text-xs border border-slate-300 rounded-lg overflow-hidden">
-            <thead className="bg-slate-100 font-bold text-slate-700">
+          <div className="odoo-report-table-wrap">
+          <table className="odoo-report-table w-full text-right text-xs">
+            <thead>
               <tr>
                 <th className="p-2 w-10 text-center">م</th>
                 <th className="p-2">الاسم</th>
@@ -86,7 +89,7 @@ export const OrganizationChartPrintModal: React.FC<OrganizationChartPrintModalPr
             </thead>
             <tbody className="divide-y divide-slate-200">
               {lines.map((line, idx) => (
-                <tr key={`${line.employeeCode}-${idx}`} className={idx % 2 === 1 ? 'bg-slate-50/60' : ''}>
+                <tr key={`${line.employeeCode}-${idx}`}>
                   <td className="p-2 text-center text-slate-400">{idx + 1}</td>
                   <td className="p-2 font-bold" style={{ paddingRight: `${8 + line.depth * 12}px` }}>
                     {line.depth > 0 && <span className="text-slate-400 font-normal">{'└ '.repeat(1)}</span>}
@@ -100,12 +103,18 @@ export const OrganizationChartPrintModal: React.FC<OrganizationChartPrintModalPr
               ))}
             </tbody>
           </table>
+          </div>
 
           {lines.length === 0 && (
             <p className="text-center text-slate-500 text-sm py-8">لا توجد بيانات هيكل في هذا النطاق.</p>
           )}
 
-          <div className="grid grid-cols-2 gap-8 pt-10 mt-8 border-t border-slate-200 text-center text-xs">
+          <OdooReportFooter
+            companyName={getCompanyPrintProfile(company).displayNameAr}
+            reportRef={reportRef}
+          />
+
+          <div className="grid grid-cols-2 gap-8 pt-6 mt-4 border-t border-slate-200 text-center text-xs">
             <div>
               <p className="font-bold mb-10">مدير الموارد البشرية</p>
               <p className="text-slate-400">التوقيع: ............</p>

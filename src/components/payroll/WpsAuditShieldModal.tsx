@@ -8,6 +8,14 @@ import { exportToExcel } from '../../utils/exportUtils';
 import toast from 'react-hot-toast';
 import type { Company } from '../../types';
 import { OfficialA4CompanyLetterheadCompact } from '../print/OfficialA4CompanyLetterhead';
+import {
+  OdooReportFooter,
+  OdooReportKpiCell,
+  OdooReportKpiStrip,
+  OdooReportLegalNotice,
+} from '../print/OdooReportPrimitives';
+import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
+import { OdooPdf } from '../../services/odooPdfService';
 
 export interface WpsAuditItem {
   id: string;
@@ -152,7 +160,11 @@ export const WpsAuditShieldModal: React.FC<WpsAuditShieldModalProps> = ({
   };
 
   const handlePrintCoverLetter = () => {
-    window.print();
+    void OdooPdf.report.print('wps-bank-cover-letter-print', `WPS_Cover_Letter_${period}`);
+  };
+
+  const handlePrintAuditReport = () => {
+    void OdooPdf.report.print('wps-audit-print-sheet', `WPS_Audit_${period}`);
   };
 
   return (
@@ -193,81 +205,88 @@ export const WpsAuditShieldModal: React.FC<WpsAuditShieldModalProps> = ({
         {/* Content Body */}
         <div className="printable-scroll p-6 overflow-y-auto flex-1 bg-slate-50 text-xs">
           {activeView === 'audit' ? (
-            <div className="space-y-6">
-              {/* Scorecard KPI Cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
-                  <span className="text-slate-500 text-[10px] block">إجمالي الموظفين بالمسير</span>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <Users size={16} className="text-[#714B67]" />
-                    <span className="text-lg font-black font-mono text-slate-900">{payslips.length}</span>
-                  </div>
-                </div>
-                <div className="bg-white p-3.5 rounded-xl border border-emerald-200 shadow-2xs">
-                  <span className="text-emerald-700 text-[10px] block">مطابق لمعايير WPS تماماً</span>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <CheckCircle size={16} className="text-emerald-600" />
-                    <span className="text-lg font-black font-mono text-emerald-700">{totalValid}</span>
-                  </div>
-                </div>
-                <div className="bg-white p-3.5 rounded-xl border border-amber-200 shadow-2xs">
-                  <span className="text-amber-700 text-[10px] block">تنبيهات تفاوت (قوى عاملة)</span>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <AlertTriangle size={16} className="text-amber-600" />
-                    <span className="text-lg font-black font-mono text-amber-700">{totalWarnings}</span>
-                  </div>
-                </div>
-                <div className="bg-white p-3.5 rounded-xl border border-rose-200 shadow-2xs">
-                  <span className="text-rose-700 text-[10px] block">أخطاء حرجة تمنع التحويل</span>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <XCircle size={16} className="text-rose-600" />
-                    <span className="text-lg font-black font-mono text-rose-700">{totalErrors}</span>
-                  </div>
-                </div>
+            <div className="space-y-4">
+              <div className="flex flex-wrap justify-end gap-2 print:hidden">
+                <button
+                  type="button"
+                  onClick={handlePrintAuditReport}
+                  className="px-3.5 py-2 bg-[#714B67] hover:bg-[#583950] text-white rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                >
+                  <Printer size={14} /> طباعة تقرير التدقيق (A4)
+                </button>
+                <button
+                  onClick={handleExportAuditExcel}
+                  className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                >
+                  <Download size={14} /> كشف التدقيق (Excel)
+                </button>
+                <button
+                  onClick={handleDownloadSIF}
+                  disabled={totalErrors > 0}
+                  className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer ${
+                    totalErrors > 0
+                      ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                      : 'bg-emerald-700 hover:bg-emerald-800 text-white'
+                  }`}
+                >
+                  <FileText size={14} /> تصدير ملف البنك (.SIF)
+                </button>
               </div>
 
-              {/* Financial Totals Banner */}
-              <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-wrap justify-between items-center gap-3">
-                <div>
-                  <span className="text-slate-500 text-[11px] block">إجمالي صافي المبالغ المستحقة للتحويل البنكي (WPS):</span>
-                  <div className="text-xl font-black font-mono text-emerald-700 mt-0.5">
-                    {totalNetSalary.toFixed(3)} <span className="text-xs font-normal">د.ك</span>
+              <div id="wps-audit-print-sheet" className="odoo-report-sheet space-y-5 bg-white rounded-xl border border-slate-200 p-6 shadow-2xs">
+                <OfficialA4CompanyLetterheadCompact
+                  company={company ?? null}
+                  rightSlot={
+                    <div className="text-left font-mono text-[10px] text-slate-500">
+                      <div>فترة المسير: {period}</div>
+                      <div>REF: WPS-AUDIT/{period.replace('-', '')}</div>
+                    </div>
+                  }
+                />
+
+                <div className="odoo-report-center-title">
+                  <h2 className="text-base font-bold text-slate-900">تقرير تدقيق حماية الأجور (WPS Compliance)</h2>
+                  <p className="text-[11px] text-slate-600 mt-0.5">فحص الآيبان والرقم المدني ومطابقة الصافي لإذن العمل</p>
+                </div>
+
+                <OdooReportKpiStrip>
+                  <OdooReportKpiCell label="إجمالي الموظفين بالمسير" value={payslips.length} />
+                  <OdooReportKpiCell
+                    label="مطابق لمعايير WPS"
+                    value={<span className="text-emerald-700">{totalValid}</span>}
+                  />
+                  <OdooReportKpiCell
+                    label="تنبيهات تفاوت"
+                    value={<span className="text-amber-700">{totalWarnings}</span>}
+                  />
+                  <OdooReportKpiCell
+                    label="أخطاء حرجة"
+                    value={<span className="text-rose-700">{totalErrors}</span>}
+                  />
+                </OdooReportKpiStrip>
+
+                <div className="odoo-report-meta-strip flex flex-wrap justify-between items-center gap-3">
+                  <div>
+                    <span className="text-slate-500 text-[11px] block">إجمالي صافي التحويل البنكي (WPS):</span>
+                    <div className="text-lg font-bold font-mono text-emerald-700">
+                      {totalNetSalary.toFixed(3)} د.ك
+                    </div>
+                    <p className="text-[10px] text-slate-500">{totalNetInWords}</p>
                   </div>
-                  <p className="text-[10px] text-slate-500 mt-0.5 font-medium">{totalNetInWords}</p>
+                  <div className="text-[10px] text-slate-500 font-mono">
+                    إجمالي الأساسي: {totalGrossSalary.toFixed(3)} · الاستقطاعات: {totalDeductions.toFixed(3)}
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleExportAuditExcel}
-                    className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                  >
-                    <Download size={14} /> كشف التدقيق (Excel)
-                  </button>
-                  <button
-                    onClick={handleDownloadSIF}
-                    disabled={totalErrors > 0}
-                    className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer ${
-                      totalErrors > 0
-                        ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
-                        : 'bg-[#714B67] hover:bg-[#583950] text-white'
-                    }`}
-                  >
-                    <FileText size={14} /> تصدير ملف البنك المعتمد (.SIF)
-                  </button>
-                </div>
-              </div>
-
-              {/* Audit Table */}
-              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
-                <div className="px-4 py-3 bg-slate-100 border-b border-slate-200 flex justify-between items-center">
-                  <span className="font-bold text-slate-800">تفاصيل فحص سجلات الموظفين (Compliance Checklist)</span>
-                  <span className="text-[11px] text-slate-500">تم الفحص وفق متطلبات بنك الكويت المركزي والهيئة العامة للقوى العاملة</span>
+                <div className="odoo-report-meta-strip py-2 flex justify-between items-center gap-2">
+                  <span className="font-bold text-slate-800">تفاصيل فحص سجلات الموظفين</span>
+                  <span className="text-[10px] text-slate-500">بنك الكويت المركزي · الهيئة العامة للقوى العاملة</span>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-right border-collapse">
+                <div className="odoo-report-table-wrap overflow-x-auto">
+                  <table className="odoo-report-table w-full text-right text-[10px]">
                     <thead>
-                      <tr className="bg-slate-50 text-slate-600 text-[11px] border-b border-slate-200">
+                      <tr>
                         <th className="p-3">الموظف</th>
                         <th className="p-3">الرقم المدني</th>
                         <th className="p-3">الآيبان البنكي (IBAN)</th>
@@ -325,11 +344,26 @@ export const WpsAuditShieldModal: React.FC<WpsAuditShieldModalProps> = ({
                     </tbody>
                   </table>
                 </div>
+
+                <OdooReportLegalNotice title="إقرار المطابقة">
+                  <p>
+                    تم إعداد هذا التقرير آلياً من مسير الرواتب لشهر {period}. يجب معالجة جميع الأخطاء الحرجة قبل رفع ملف SIF إلى البنك أو نظام حماية الأجور.
+                  </p>
+                </OdooReportLegalNotice>
+
+                <OdooReportFooter
+                  companyName={company ? getCompanyPrintProfile(company).displayNameAr : companyInfo.nameAr}
+                  reportRef={`WPS-AUDIT/${period.replace('-', '')}`}
+                />
               </div>
             </div>
           ) : (
             /* Official Bank Cover Letter View */
-            <div className="bg-white p-8 sm:p-12 rounded-xl shadow-xs border border-slate-200 max-w-2xl mx-auto print:border-none print:shadow-none print:p-0 print:m-0 text-slate-800 print-avoid-break" dir="rtl">
+            <div
+              id="wps-bank-cover-letter-print"
+              className="odoo-report-sheet bg-white p-8 sm:p-12 rounded-xl shadow-xs border border-slate-200 max-w-2xl mx-auto print:border-none print:shadow-none print:p-0 print:m-0 text-slate-800 print-avoid-break"
+              dir="rtl"
+            >
               <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-200 print:hidden">
                 <span className="font-bold text-sm text-slate-800">خطاب تحويل الرواتب الرسمي الموجه للبنك</span>
                 <button
@@ -360,8 +394,10 @@ export const WpsAuditShieldModal: React.FC<WpsAuditShieldModalProps> = ({
               </div>
 
               {/* Subject */}
-              <div className="bg-slate-100 p-2.5 rounded-lg font-bold text-center text-slate-900 mb-5 text-xs border border-slate-200">
-                الموضوع: تحويل مسير رواتب الموظفين لشهر ({period}) - نظام حماية الأجور (WPS)
+              <div className="odoo-report-center-title mb-5 text-xs">
+                <p className="font-bold text-slate-900">
+                  الموضوع: تحويل مسير رواتب الموظفين لشهر ({period}) — نظام حماية الأجور (WPS)
+                </p>
               </div>
 
               {/* Body */}
@@ -393,6 +429,17 @@ export const WpsAuditShieldModal: React.FC<WpsAuditShieldModalProps> = ({
                 </p>
                 <p className="text-slate-600 text-[11px]">شاكرين لكم حسن تعاونكم الدائم،،،</p>
               </div>
+
+              <OdooReportLegalNotice title="تعهد المطابقة">
+                <p>
+                  نقر بأن الكشف والملف الإلكتروني (.SIF) مطابقان لسجلات الشركة ومتطلبات WPS والهيئة العامة للقوى العاملة.
+                </p>
+              </OdooReportLegalNotice>
+
+              <OdooReportFooter
+                companyName={company ? getCompanyPrintProfile(company).displayNameAr : companyInfo.nameAr}
+                reportRef={`PAY-WPS/${period.replace('-', '')}`}
+              />
 
             </div>
           )}

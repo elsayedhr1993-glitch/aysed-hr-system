@@ -8,7 +8,7 @@ import {
   Trash2, Eye, RefreshCw, Layers, Check, Coins, ArrowRight,
   TrendingUp, Clock, FileCheck, ArrowDownRight, Tag, Lock, AlertTriangle
 } from 'lucide-react';
-import { printDocument, exportElementToPdf } from '../utils/printUtils';
+import { OdooPdf } from '../services/odooPdfService';
 import { LEAVE_SCOPE_LABELS, type LeaveScope, leaveScopeFromRecord } from '../utils/leaveScopeAccrual';
 import { 
   calculateKuwaitDailyRate,
@@ -808,13 +808,13 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
 
   // Print & PDF Export handlers
   const handlePrint = () => {
-    printDocument('leave-clearance-print-area', `سند_تسوية_${selectedEmp?.fullNameAr || 'موظف'}`);
+    OdooPdf.report.print('leave-clearance-print-area', `سند_تسوية_${selectedEmp?.fullNameAr || 'موظف'}`);
   };
 
   const handlePdfExport = async () => {
     try {
       setIsExporting(true);
-      await exportElementToPdf('leave-clearance-print-area', `سند_تسوية_${selectedEmp?.fullNameAr || 'موظف'}.pdf`);
+      await OdooPdf.report.exportElement('leave-clearance-print-area', `سند_تسوية_${selectedEmp?.fullNameAr || 'موظف'}.pdf`);
       toast.success('تم تصدير مستند التسوية كملف PDF بنجاح');
     } catch (err) {
       toast.error('حدث خطأ أثناء تصدير ملف PDF');

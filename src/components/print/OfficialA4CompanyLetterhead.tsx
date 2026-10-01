@@ -40,7 +40,8 @@ export const OfficialA4CompanyLetterhead: React.FC<OfficialA4CompanyLetterheadPr
   const layout = centerSlot ? 'grid grid-cols-1 sm:grid-cols-3 gap-4 items-start' : 'flex justify-between items-start gap-4';
 
   return (
-    <div className={`border-b-2 border-slate-900 pb-4 ${className}`}>
+    <header className={`odoo-report-letterhead pb-4 mb-1 ${className}`}>
+      <div className="odoo-report-letterhead-accent" aria-hidden />
       <div className={layout}>
         <div className="flex items-start gap-3 min-w-0">
           {profile.logoUrl ? (
@@ -62,7 +63,7 @@ export const OfficialA4CompanyLetterhead: React.FC<OfficialA4CompanyLetterheadPr
                 دولة الكويت — وزارة الشؤون الاجتماعية والعمل
               </div>
             )}
-            <h2 className="text-xl font-black text-slate-900 leading-tight">{profile.displayNameAr}</h2>
+            <h2 className="text-lg font-bold text-slate-900 leading-tight odoo-report-company-name">{profile.displayNameAr}</h2>
             {profile.displayNameEn && profile.displayNameEn !== '—' && profile.displayNameEn !== profile.displayNameAr && (
               <p className="text-[11px] font-bold text-slate-500" dir="ltr">{profile.displayNameEn}</p>
             )}
@@ -94,7 +95,7 @@ export const OfficialA4CompanyLetterhead: React.FC<OfficialA4CompanyLetterheadPr
 
         {rightSlot && <div className="text-left shrink-0">{rightSlot}</div>}
       </div>
-    </div>
+    </header>
   );
 };
 
@@ -106,9 +107,10 @@ export const OfficialA4CompanyLetterheadCompact: React.FC<{
 }> = ({ company, rightSlot, className = '' }) => {
   const profile = getCompanyPrintProfile(company);
   return (
-    <div className={`border-b-2 border-slate-800 pb-5 mb-5 flex justify-between items-start gap-4 ${className}`}>
+    <header className={`odoo-report-letterhead odoo-report-letterhead--compact pb-4 mb-4 flex justify-between items-start gap-4 ${className}`}>
+      <div className="odoo-report-letterhead-accent" aria-hidden />
       <div className="min-w-0">
-        <h1 className="text-base font-black text-slate-900">{profile.displayNameAr}</h1>
+        <h1 className="text-sm font-bold text-slate-900 odoo-report-company-name">{profile.displayNameAr}</h1>
         {profile.displayNameEn !== '—' && (
           <p className="text-[11px] font-semibold text-slate-500">{profile.displayNameEn}</p>
         )}
@@ -117,6 +119,6 @@ export const OfficialA4CompanyLetterheadCompact: React.FC<{
         </p>
       </div>
       {rightSlot}
-    </div>
+    </header>
   );
 };

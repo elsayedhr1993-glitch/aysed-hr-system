@@ -1,11 +1,12 @@
 import React, { useMemo } from 'react';
 import { X, Printer, Building2, Sparkles, Award } from 'lucide-react';
-import { printDocument } from '../../utils/printUtils';
+import { OdooPdf } from '../../services/odooPdfService';
 import { PublicHoliday, HolidayDutyAssignment } from './holidayTypes';
 import { getCompensatedHolidays2026 } from '../../data/kuwaitPublicHolidays2026';
 import type { Company } from '../../types';
 import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
 import { OfficialA4CompanyLetterhead } from '../print/OfficialA4CompanyLetterhead';
+import { OdooReportFooter, OdooReportLegalNotice } from '../print/OdooReportPrimitives';
 
 interface OfficialPublicHolidaysPrintModalProps {
   isOpen: boolean;
@@ -70,7 +71,7 @@ export const OfficialPublicHolidaysPrintModal: React.FC<OfficialPublicHolidaysPr
   if (!isOpen) return null;
 
   const handlePrint = () => {
-    void printDocument(printRootId, `سجل_العطلات_والتكليفات_${calendarYear}`);
+    void OdooPdf.report.print(printRootId, `سجل_العطلات_والتكليفات_${calendarYear}`);
   };
 
   return (
@@ -106,7 +107,7 @@ export const OfficialPublicHolidaysPrintModal: React.FC<OfficialPublicHolidaysPr
         <div className="overflow-y-auto p-6 sm:p-8 bg-slate-100/60 flex justify-center">
           <div
             id={printRootId}
-            className="bg-white w-full max-w-[210mm] min-h-[297mm] p-8 sm:p-10 border border-slate-300 shadow-sm text-slate-900 text-right font-sans"
+            className="odoo-report-sheet bg-white w-full max-w-[210mm] min-h-[297mm] p-8 sm:p-10 border border-slate-300 shadow-sm text-slate-900 text-right font-sans"
             dir="rtl"
           >
             <OfficialA4CompanyLetterhead
@@ -126,8 +127,8 @@ export const OfficialPublicHolidaysPrintModal: React.FC<OfficialPublicHolidaysPr
               }
             />
 
-            <div className="bg-slate-100 border border-slate-300 rounded-lg p-3 text-center mb-6">
-              <h1 className="text-base font-black text-slate-900 flex items-center justify-center gap-2">
+            <div className="odoo-report-center-title mb-6">
+              <h1 className="text-base font-bold text-slate-900 flex items-center justify-center gap-2">
                 <Sparkles size={16} className="text-[#714B67]" />
                 السجل الرسمي للعطلات الرسمية لعام {calendarYear}م
               </h1>
@@ -136,32 +137,34 @@ export const OfficialPublicHolidaysPrintModal: React.FC<OfficialPublicHolidaysPr
               </p>
             </div>
 
-            <table className="w-full text-[10px] border border-slate-400 border-collapse mb-3">
+            <div className="odoo-report-table-wrap mb-3">
+            <table className="odoo-report-table w-full text-[10px]">
               <thead>
-                <tr className="bg-slate-200 font-bold text-slate-800">
-                  <th className="p-2 border border-slate-400 w-8">م</th>
-                  <th className="p-2 border border-slate-400">المناسبة</th>
-                  <th className="p-2 border border-slate-400">المرسوم / القرار</th>
-                  <th className="p-2 border border-slate-400">التصنيف</th>
-                  <th className="p-2 border border-slate-400 font-mono">من</th>
-                  <th className="p-2 border border-slate-400 font-mono">إلى</th>
-                  <th className="p-2 border border-slate-400 text-center">الأيام</th>
+                <tr>
+                  <th className="p-2 w-8">م</th>
+                  <th className="p-2">المناسبة</th>
+                  <th className="p-2">المرسوم / القرار</th>
+                  <th className="p-2">التصنيف</th>
+                  <th className="p-2 font-mono">من</th>
+                  <th className="p-2 font-mono">إلى</th>
+                  <th className="p-2 text-center">الأيام</th>
                 </tr>
               </thead>
               <tbody>
                 {holidays.map((h, idx) => (
-                  <tr key={h.id} className={idx % 2 === 1 ? 'bg-slate-50' : 'bg-white'}>
-                    <td className="p-2 border border-slate-300 text-center font-mono">{idx + 1}</td>
-                    <td className="p-2 border border-slate-300 font-bold">{h.nameAr}</td>
-                    <td className="p-2 border border-slate-300 text-slate-700">{h.decreeNumber || 'مرسوم رسمي'}</td>
-                    <td className="p-2 border border-slate-300">{holidayTypeLabel[h.type]}</td>
-                    <td className="p-2 border border-slate-300 font-mono">{h.startDate}</td>
-                    <td className="p-2 border border-slate-300 font-mono">{h.endDate}</td>
-                    <td className="p-2 border border-slate-300 text-center font-bold">{h.daysCount}</td>
+                  <tr key={h.id}>
+                    <td className="p-2 text-center font-mono">{idx + 1}</td>
+                    <td className="p-2 font-bold">{h.nameAr}</td>
+                    <td className="p-2 text-slate-700">{h.decreeNumber || 'مرسوم رسمي'}</td>
+                    <td className="p-2">{holidayTypeLabel[h.type]}</td>
+                    <td className="p-2 font-mono">{h.startDate}</td>
+                    <td className="p-2 font-mono">{h.endDate}</td>
+                    <td className="p-2 text-center font-bold">{h.daysCount}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            </div>
 
             <div className="text-[10px] text-slate-600 mb-6 flex flex-wrap gap-4 justify-between">
               <span>
@@ -177,7 +180,7 @@ export const OfficialPublicHolidaysPrintModal: React.FC<OfficialPublicHolidaysPr
             </div>
 
             <div
-              className="bg-slate-100 border border-slate-300 rounded-lg p-3 text-center mb-4 break-before-page"
+              className="odoo-report-center-title mb-4 break-before-page"
               style={{ breakBefore: 'page', pageBreakBefore: 'always' }}
             >
               <h2 className="text-sm font-black text-slate-900 flex items-center justify-center gap-2">
@@ -189,41 +192,42 @@ export const OfficialPublicHolidaysPrintModal: React.FC<OfficialPublicHolidaysPr
               </p>
             </div>
 
-            <table className="w-full text-[10px] border border-slate-400 border-collapse mb-4">
+            <div className="odoo-report-table-wrap mb-4">
+            <table className="odoo-report-table w-full text-[10px]">
               <thead>
-                <tr className="bg-slate-200 font-bold text-slate-800">
-                  <th className="p-2 border border-slate-400 w-8">م</th>
-                  <th className="p-2 border border-slate-400">رقم التكليف</th>
-                  <th className="p-2 border border-slate-400">الموظف</th>
-                  <th className="p-2 border border-slate-400 font-mono">المدني</th>
-                  <th className="p-2 border border-slate-400">العطلة</th>
-                  <th className="p-2 border border-slate-400 font-mono">تاريخ العمل</th>
-                  <th className="p-2 border border-slate-400">التعويض</th>
-                  <th className="p-2 border border-slate-400">البدل النقدي</th>
-                  <th className="p-2 border border-slate-400 text-center">الحالة</th>
+                <tr>
+                  <th className="p-2 w-8">م</th>
+                  <th className="p-2">رقم التكليف</th>
+                  <th className="p-2">الموظف</th>
+                  <th className="p-2 font-mono">المدني</th>
+                  <th className="p-2">العطلة</th>
+                  <th className="p-2 font-mono">تاريخ العمل</th>
+                  <th className="p-2">التعويض</th>
+                  <th className="p-2">البدل النقدي</th>
+                  <th className="p-2 text-center">الحالة</th>
                 </tr>
               </thead>
               <tbody>
                 {duties.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="p-4 text-center text-slate-500 font-bold border border-slate-300">
+                    <td colSpan={9} className="p-4 text-center text-slate-500 font-bold">
                       لا توجد تكليفات مسجلة حتى تاريخ هذا التقرير.
                     </td>
                   </tr>
                 ) : (
                   duties.map((d, idx) => (
-                    <tr key={d.id} className={idx % 2 === 1 ? 'bg-slate-50' : 'bg-white'}>
-                      <td className="p-2 border border-slate-300 text-center font-mono">{idx + 1}</td>
-                      <td className="p-2 border border-slate-300 font-mono text-[9px]">{d.id}</td>
-                      <td className="p-2 border border-slate-300 font-bold">{d.employeeName}</td>
-                      <td className="p-2 border border-slate-300 font-mono">{d.civilId || '—'}</td>
-                      <td className="p-2 border border-slate-300">{d.holidayName}</td>
-                      <td className="p-2 border border-slate-300 font-mono">{d.dutyDate}</td>
-                      <td className="p-2 border border-slate-300">{compensationLabel(d.compensationType)}</td>
-                      <td className="p-2 border border-slate-300 font-mono font-bold text-emerald-900">
+                    <tr key={d.id}>
+                      <td className="p-2 text-center font-mono">{idx + 1}</td>
+                      <td className="p-2 font-mono text-[9px]">{d.id}</td>
+                      <td className="p-2 font-bold">{d.employeeName}</td>
+                      <td className="p-2 font-mono">{d.civilId || '—'}</td>
+                      <td className="p-2">{d.holidayName}</td>
+                      <td className="p-2 font-mono">{d.dutyDate}</td>
+                      <td className="p-2">{compensationLabel(d.compensationType)}</td>
+                      <td className="p-2 font-mono font-bold text-emerald-900">
                         {dutyAmountDisplay(d)}
                       </td>
-                      <td className="p-2 border border-slate-300 text-center">
+                      <td className="p-2 text-center">
                         {d.status === 'settled' ? 'رُحل للرواتب' : 'معتمد'}
                       </td>
                     </tr>
@@ -231,21 +235,23 @@ export const OfficialPublicHolidaysPrintModal: React.FC<OfficialPublicHolidaysPr
                 )}
               </tbody>
             </table>
+            </div>
 
             <div className="text-[10px] text-slate-700 mb-8">
               إجمالي البدلات النقدية المستحقة (200%):{' '}
               <strong className="font-mono text-emerald-800">{totalDutyCash.toFixed(3)} د.ك</strong>
             </div>
 
-            <div className="text-[10px] text-slate-600 bg-slate-50 border border-slate-200 rounded-lg p-3 mb-8 space-y-1">
-              <div>• العطلات مستمدة من المصدر الموحد لنظام أيسد (SSOT) لعام {calendarYear} مع تعويض الجمعة الرسمي.</div>
-              <div>• احتسب بدل المادة (68) على أساس الراتب الشامل ÷ 26 × 2 لليوم المكلف.</div>
-              <div>• هذا السجل معد للمراجعة الداخلية وملف الشؤون والهيئة العامة للقوى العاملة عند الطلب.</div>
-            </div>
+            <OdooReportLegalNotice title="ملاحظات الامتثال — العطلات الرسمية">
+              <p>• العطلات مستمدة من المصدر الموحد لنظام أيسد (SSOT) لعام {calendarYear} مع تعويض الجمعة الرسمي.</p>
+              <p>• احتسب بدل المادة (68) على أساس الراتب الشامل ÷ 26 × 2 لليوم المكلف.</p>
+              <p>• هذا السجل معد للمراجعة الداخلية وملف الشؤون والهيئة العامة للقوى العاملة عند الطلب.</p>
+            </OdooReportLegalNotice>
 
-            <div className="mt-6 text-center text-[9px] text-slate-400 border-t border-slate-100 pt-2">
-              مستند مولّد آلياً من تطبيق العطلات الرسمية — منظومة أيسد للموارد البشرية
-            </div>
+            <OdooReportFooter
+              companyName={company ? getCompanyPrintProfile(company).displayNameAr : undefined}
+              reportRef={reportRef}
+            />
           </div>
         </div>
       </div>

@@ -2,6 +2,7 @@ import React from 'react';
 import { DocumentItem, Employee, Company } from '../../types';
 import { X, Printer } from 'lucide-react';
 import { OfficialA4CompanyLetterhead } from '../print/OfficialA4CompanyLetterhead';
+import { OdooReportFooter } from '../print/OdooReportPrimitives';
 import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
 import {
   employeeDocumentTypeLabel,
@@ -84,7 +85,7 @@ export const DocumentCompliancePrintModal: React.FC<DocumentCompliancePrintModal
         {/* Printable A4 Content */}
         <div
           id="document-compliance-print-root"
-          className="p-8 overflow-y-auto flex-1 bg-white text-slate-900 font-sans print:p-0 print:overflow-visible"
+          className="odoo-report-sheet p-8 overflow-y-auto flex-1 bg-white text-slate-900 font-sans print:p-0 print:overflow-visible"
         >
           
           <OfficialA4CompanyLetterhead
@@ -103,7 +104,7 @@ export const DocumentCompliancePrintModal: React.FC<DocumentCompliancePrintModal
           />
 
           {/* Title & Filter Info */}
-          <div className="bg-slate-100 rounded-xl p-3.5 mb-6 flex justify-between items-center text-xs">
+          <div className="odoo-report-meta-strip mb-6 flex justify-between items-center text-xs">
             <div>
               <span className="text-slate-500 font-medium">نوع التقرير: </span>
               <strong className="text-slate-900 font-bold text-sm">كشف حالة الوثائق والتراخيص الرسمية ({filterTitle})</strong>
@@ -116,9 +117,9 @@ export const DocumentCompliancePrintModal: React.FC<DocumentCompliancePrintModal
           </div>
 
           {/* Documents Table */}
-          <div className="overflow-hidden border border-slate-300 rounded-lg mb-6">
-            <table className="w-full text-right text-xs table-fixed">
-              <thead className="bg-slate-100 font-bold text-slate-700 border-b border-slate-300">
+          <div className="odoo-report-table-wrap mb-6">
+            <table className="odoo-report-table w-full text-right text-xs table-fixed">
+              <thead>
                 <tr>
                   <th className="p-2 w-10 text-center">#</th>
                   <th className="p-2 w-[18%]">نوع الوثيقة</th>
@@ -151,7 +152,7 @@ export const DocumentCompliancePrintModal: React.FC<DocumentCompliancePrintModal
                   const typeLabel = employeeDocumentTypeLabel(doc);
 
                   return (
-                    <tr key={doc.id} className={idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}>
+                    <tr key={doc.id}>
                       <td className="p-2 text-center text-slate-400 font-mono whitespace-nowrap">{idx + 1}</td>
                       <td className="p-2 font-bold text-slate-900 whitespace-nowrap truncate max-w-0" title={typeLabel}>
                         {typeLabel}
@@ -174,10 +175,7 @@ export const DocumentCompliancePrintModal: React.FC<DocumentCompliancePrintModal
             </table>
           </div>
 
-          {/* Footer notice */}
-          <div className="mt-8 text-center text-[10px] text-slate-400 border-t border-slate-100 pt-3">
-            تم استخراج هذا التقرير آلياً لصالح {profile.displayNameAr} — أرشيف ومستندات المنشأة — صالح لمراجعة الجهات الرسمية والهيئة العامة للقوى العاملة.
-          </div>
+          <OdooReportFooter companyName={profile.displayNameAr} reportRef={reportRef} />
 
         </div>
 

@@ -14,15 +14,8 @@ import {
   Briefcase,
   DollarSign
 } from 'lucide-react';
-import { 
-  PamContractData, 
-  DEFAULT_PAM_COORDINATES, 
-  generatePamContractBlob, 
-  downloadPamContractPdf, 
-  printPamContractPdf,
-  PamCoordinatesConfig,
-  PamFontChoice
-} from '../services/pamContractPdfService';
+import { DEFAULT_PAM_COORDINATES, PamCoordinatesConfig, PamFontChoice } from '../services/pamContractPdfService';
+import { OdooPdf, type PamContractData } from '../services/odooPdfService';
 import toast from 'react-hot-toast';
 import { useCompany } from '../context/CompanyContext';
 import { useAuth } from '../context/AuthContext';
@@ -180,7 +173,10 @@ export const OdooPamContractModal: React.FC<Props> = ({
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl);
       }
-      const { url } = await generatePamContractBlob(formData, coords, selectedFont);
+      const { url } = await OdooPdf.form.pamContract.generateBlob(formData, {
+        coords,
+        fontChoice: selectedFont,
+      });
       setPreviewUrl(url);
     } catch (err: any) {
       console.error('Error generating preview:', err);
@@ -205,11 +201,10 @@ export const OdooPamContractModal: React.FC<Props> = ({
   const handleDownload = async () => {
     try {
       toast.loading('جاري تجهيز وتحميل ملف عقد العمل الحكومي...', { id: 'pam-dl' });
-      await downloadPamContractPdf(
-        formData, 
-        `PAM_Form2_${formData.employeeNameAr || formData.employeeNameEn || 'Contract'}.pdf`,
-        coords,
-        fontChoice
+      await OdooPdf.form.pamContract.download(
+        formData,
+        { coords, fontChoice },
+        `PAM_Form2_${formData.employeeNameAr || formData.employeeNameEn || 'Contract'}.pdf`
       );
       toast.success('تم تحميل العقد الحكومي بنجاح!', { id: 'pam-dl' });
     } catch (err: any) {
@@ -220,7 +215,7 @@ export const OdooPamContractModal: React.FC<Props> = ({
   const handlePrint = async () => {
     try {
       toast.loading('جاري إرسال العقد لأمر الطباعة...', { id: 'pam-print' });
-      await printPamContractPdf(formData, coords, fontChoice);
+      await OdooPdf.form.pamContract.print(formData, { coords, fontChoice });
       toast.success('تم إرسال أمر الطباعة!', { id: 'pam-print' });
     } catch (err: any) {
       toast.error(`فشل الطباعة: ${err.message}`, { id: 'pam-print' });

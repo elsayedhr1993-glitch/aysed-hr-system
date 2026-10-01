@@ -1,4 +1,4 @@
-import { printDocument } from '../utils/printUtils';
+import { OdooPdf } from '../services/odooPdfService';
 import React, { useState } from 'react';
 import { 
   Employee, Company, ViewMode, CustodyItem, LoanAdvance, DisciplinaryWarning, EmployeeNote 
@@ -1332,7 +1332,7 @@ export const CustodyLoansApp: React.FC<CustodyLoansAppProps> = ({
       {/* ==================== PRINTABLE RECEIPT MODAL ==================== */}
       {printableRecord && (
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div id="print-area" className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-2xl w-full p-8 space-y-6 print:p-0 print:border-none print:shadow-none">
+          <div id="print-area" className="odoo-report-sheet bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-2xl w-full p-8 space-y-6 print:p-0 print:border-none print:shadow-none">
             <OfficialA4CompanyLetterhead
               company={companyForPrint}
               className="border-[#714B67] pb-4"
@@ -1349,8 +1349,8 @@ export const CustodyLoansApp: React.FC<CustodyLoansAppProps> = ({
             />
 
             {/* Document Title */}
-            <div className="text-center space-y-1">
-              <h3 className="text-lg font-bold text-slate-800 underline decoration-[#714B67] decoration-2 underline-offset-8">
+            <div className="odoo-report-center-title space-y-1">
+              <h3 className="text-base font-bold text-slate-800">
                 {printableRecord.type === 'CUSTODY' ? 'إقرار واستلام عهدة عينية' :
                  printableRecord.type === 'WARNING' ? 'إخطار إنذار جزائي (قانون العمل الكويتي)' : 'سند استلام سلفة مالية'}
               </h3>
@@ -1415,7 +1415,7 @@ export const CustodyLoansApp: React.FC<CustodyLoansAppProps> = ({
                 إغلاق
               </button>
               <button
-                onClick={() => printDocument('print-area', 'document')}
+                onClick={() => OdooPdf.report.print('print-area', 'document')}
                 className="px-4 py-2 text-xs font-bold bg-[#714B67] hover:bg-[#5a3a52] text-white rounded-lg shadow transition flex items-center gap-1.5"
               >
                 <Printer className="w-4 h-4" />

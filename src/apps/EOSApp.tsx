@@ -1,4 +1,4 @@
-import { printDocument, exportElementToPdf } from '../utils/printUtils';
+import { OdooPdf } from '../services/odooPdfService';
 import React, { useState, useMemo, useEffect } from 'react';
 import { Employee, Company, Contract, EOSCalculation, LeaveRequest } from '../types';
 import { formatKWD } from '../utils/kuwaitLaw';
@@ -12,6 +12,8 @@ import { TenantDatabaseService } from '../services/tenantDataService';
 import { getEmployeeStatusMeta, normalizeEmployeeStatus } from '../utils/employeeLifecycle';
 import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
 import { OfficialA4CompanyLetterhead } from '../components/print/OfficialA4CompanyLetterhead';
+import { OdooReportFooter, OdooReportLegalNotice } from '../components/print/OdooReportPrimitives';
+import { getCompanyPrintProfile } from '../utils/companyPrintProfile';
 
 interface EOSAppProps {
   employees: Employee[];
@@ -151,14 +153,14 @@ export const EOSApp: React.FC<EOSAppProps> = ({
   }) : null;
 
   const handlePrint = () => {
-    printDocument('print-area', `سند_مخالصة_نهاية_الخدمة_${eosResult?.employeeName || 'موظف'}`);
+    OdooPdf.report.print('print-area', `سند_مخالصة_نهاية_الخدمة_${eosResult?.employeeName || 'موظف'}`);
   };
 
   const handleExportPdf = async () => {
     if (isExportingPdf) return;
     setIsExportingPdf(true);
     try {
-      await exportElementToPdf('print-area', `سند_مخالصة_نهاية_الخدمة_${eosResult?.employeeName || 'موظف'}`);
+      await OdooPdf.report.exportElement('print-area', `سند_مخالصة_نهاية_الخدمة_${eosResult?.employeeName || 'موظف'}`);
     } finally {
       setIsExportingPdf(false);
     }
@@ -459,7 +461,7 @@ export const EOSApp: React.FC<EOSAppProps> = ({
         </div>
 
         {/* Right Output Official Settlement Sheet */}
-        <div id="print-area" className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-8 shadow-sm printable-area text-slate-800 print:shadow-none print:border-none">
+        <div id="print-area" className="odoo-report-sheet lg:col-span-2 bg-white rounded-xl border border-slate-200 p-8 shadow-sm printable-area text-slate-800 print:shadow-none print:border-none">
           {eosResult ? (
             <div>
               <OfficialA4CompanyLetterhead
@@ -475,8 +477,13 @@ export const EOSApp: React.FC<EOSAppProps> = ({
                 }
               />
 
+              <div className="odoo-report-center-title mb-6">
+                <h2 className="text-base font-bold text-slate-900">سند مخالصة وإبراء ذمة نهاية الخدمة</h2>
+                <p className="text-[11px] text-[#714B67] font-semibold mt-0.5">قانون العمل الكويتي — المواد 51 و 53 و 70</p>
+              </div>
+
               {/* Employee Summary Card */}
-              <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 mb-6 text-xs grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="odoo-report-meta-strip mb-6 text-xs grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <span className="text-slate-400 block text-[10px]">اسم الموظف:</span>
                   <span className="font-bold text-slate-900">{eosResult.employeeName}</span>
@@ -539,9 +546,9 @@ export const EOSApp: React.FC<EOSAppProps> = ({
                     <span className="text-[11px] font-bold text-slate-700 block mb-1.5">
                       تفاصيل فترات الإجازة بدون راتب المستبعدة طوال فترة خدمة الموظف:
                     </span>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-right text-[11px] bg-white rounded border border-slate-200">
-                        <thead className="bg-slate-100 text-slate-700 font-bold">
+                    <div className="odoo-report-table-wrap overflow-x-auto">
+                      <table className="odoo-report-table w-full text-right text-[11px]">
+                        <thead>
                           <tr>
                             <th className="p-2 border-b">م</th>
                             <th className="p-2 border-b">تاريخ البداية</th>
@@ -638,13 +645,14 @@ export const EOSApp: React.FC<EOSAppProps> = ({
                 </div>
               </div>
 
-              {/* Legal Clearance Declaration */}
-              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-[11px] text-slate-600 mb-6 leading-relaxed">
-                <strong>إقرار إبراء الذمة:</strong> أقر أنا الموظف المذكور أعلاه باستلامي لكافة مستحقاتي المالية والقانونية المبينة في هذا السند، بما في ذلك مكافأة نهاية الخدمة وبدل رصيد الإجازات السنوية، بعد استبعاد أيام الإجازات بدون راتب المستحقة نظاماً، وأبرئ ذمة الشركة إبراءً تاماً شاملاً لا رجعة فيه من أي حقوق مالية أو عمالية سابقة.
-              </div>
+              <OdooReportLegalNotice title="إقرار إبراء الذمة">
+                <p>
+                  أقر أنا الموظف المذكور أعلاه باستلامي لكافة مستحقاتي المالية والقانونية المبينة في هذا السند، بما في ذلك مكافأة نهاية الخدمة وبدل رصيد الإجازات السنوية، بعد استبعاد أيام الإجازات بدون راتب المستحقة نظاماً، وأبرئ ذمة الشركة إبراءً تاماً شاملاً لا رجعة فيه من أي حقوق مالية أو عمالية سابقة.
+                </p>
+              </OdooReportLegalNotice>
 
               {/* Execution Action Callout */}
-              <div className="mb-6 p-4 rounded-xl border border-rose-200 bg-rose-50/50 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="mb-6 p-4 rounded-xl border border-rose-200 bg-rose-50/50 flex flex-col sm:flex-row items-center justify-between gap-3 print:hidden">
                 <div className="flex items-center gap-2.5 text-right">
                   <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
                     <UserX size={20} />
@@ -672,6 +680,11 @@ export const EOSApp: React.FC<EOSAppProps> = ({
                   </button>
                 )}
               </div>
+
+              <OdooReportFooter
+                companyName={companyForPrint ? getCompanyPrintProfile(companyForPrint).displayNameAr : undefined}
+                reportRef={`EOS-${eosResult.civilId?.slice(-6) || 'SETTLE'}`}
+              />
 
               {/* Official Signatures Bar */}
               <div className="grid grid-cols-2 gap-8 pt-6 border-t border-slate-300 text-xs text-center">

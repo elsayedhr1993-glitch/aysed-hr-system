@@ -3,6 +3,8 @@ import html2canvasPro from 'html2canvas-pro';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
 
 /**
+ * مسار التقارير (Report rail) — يُفضَّل الاستيراد من `services/odooPdfService` (`OdooPdf.report`).
+ *
  * دالة تصدير أي عنصر HTML مباشرة إلى ملف PDF عالي الجودة
  * تستخدم html2canvas-pro + jsPDF لضمان دقة اللغة العربية والتنسيق 100%
  */
@@ -121,8 +123,8 @@ export async function printDocument(htmlContentOrId: string, fileName: string = 
             }
           </style>
         </head>
-        <body>
-          <div class="printable-content">
+        <body class="odoo-report-print-root">
+          <div class="printable-content odoo-report-sheet">
             ${htmlToPrint}
           </div>
           <script>

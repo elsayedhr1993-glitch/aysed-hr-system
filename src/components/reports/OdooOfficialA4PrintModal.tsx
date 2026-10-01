@@ -14,11 +14,19 @@ import {
   CreditCard,
   Briefcase
 } from 'lucide-react';
-import { printDocument } from '../../utils/printUtils';
+import { OdooPdf } from '../../services/odooPdfService';
 import { exportToExcel } from '../../utils/exportUtils';
 import { MedicalEmployeeAnalyticsRecord, ReportCategory } from '../OdooReportsApp';
 import type { Company } from '../../types';
 import { OfficialA4CompanyLetterhead } from '../print/OfficialA4CompanyLetterhead';
+import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
+import {
+  OdooReportSheet,
+  OdooReportKpiStrip,
+  OdooReportKpiCell,
+  OdooReportFooter,
+  OdooReportLegalNotice,
+} from '../print/OdooReportPrimitives';
 
 interface OdooOfficialA4PrintModalProps {
   isOpen: boolean;
@@ -54,7 +62,7 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
   if (!isOpen) return null;
 
   const handlePrint = async () => {
-    await printDocument('odoo-official-report-a4-sheet', `${reportTitle} - ${selectedMonth}`);
+    await OdooPdf.report.print('odoo-official-report-a4-sheet', `${reportTitle} - ${selectedMonth}`);
   };
 
   const handleExport = () => {
@@ -124,20 +132,14 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
 
         {/* جسم مستند A4 الرسمي */}
         <div className="p-4 sm:p-8 overflow-y-auto flex-1 bg-slate-100/60 print:bg-white print:p-0">
-          <div 
-            id="odoo-official-report-a4-sheet"
-            ref={printAreaRef}
-            className="bg-white border border-slate-300 print:border-none p-8 sm:p-12 max-w-4xl mx-auto shadow-sm print:shadow-none space-y-6 text-slate-800"
-            style={{ fontFamily: "'Cairo', 'Tajawal', sans-serif" }}
-          >
+          <OdooReportSheet id="odoo-official-report-a4-sheet" ref={printAreaRef}>
             <OfficialA4CompanyLetterhead
               company={company}
               subtitle="دولة الكويت — منظومة حماية الأجور والامتثال"
-              className="pb-5 mb-0 border-b-2 border-slate-900"
               centerSlot={
-                <div className="border-2 border-slate-900 bg-slate-50 px-6 py-2 rounded-xl text-center">
-                  <h1 className="text-lg font-black text-slate-900">{reportTitle}</h1>
-                  <span className="text-[11px] font-bold text-[#714B67] block mt-0.5">فترة الكشف: {selectedMonth}</span>
+                <div className="odoo-report-center-title">
+                  <h1 className="text-base font-bold text-slate-900">{reportTitle}</h1>
+                  <span className="text-[11px] font-semibold text-[#714B67] block mt-0.5">فترة الكشف: {selectedMonth}</span>
                   <span className="text-[9px] font-mono text-slate-400 block mt-1 tracking-widest uppercase">
                     OFFICIAL AUDIT REPORT
                   </span>
@@ -152,35 +154,28 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
               }
             />
 
-            {/* 2. ملخص الإجماليات الإحصائية للكشف */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
-              <div className="space-y-0.5">
-                <span className="text-slate-500 block text-[11px]">عدد السجلات المدرجة:</span>
-                <span className="font-bold text-slate-900 text-sm">{data.length} موظفاً</span>
-              </div>
-              <div className="space-y-0.5">
-                <span className="text-slate-500 block text-[11px]">إجمالي الأجور الشاملة:</span>
-                <span className="font-bold text-slate-900 text-sm font-mono">{totalGrossSalaries.toFixed(3)} د.ك</span>
-              </div>
-              <div className="space-y-0.5">
-                <span className="text-slate-500 block text-[11px]">صافي التحويل البنكي (WPS):</span>
-                <span className="font-bold text-emerald-800 text-sm font-mono">{totalNetPayable.toFixed(3)} د.ك</span>
-              </div>
-              <div className="space-y-0.5">
-                <span className="text-slate-500 block text-[11px]">مخصص نهاية الخدمة:</span>
-                <span className="font-bold text-purple-900 text-sm font-mono">
-                  {totalEosAccrual.toFixed(3)} د.ك
-                </span>
-              </div>
-            </div>
+            <OdooReportKpiStrip>
+              <OdooReportKpiCell label="عدد السجلات المدرجة" value={`${data.length} موظفاً`} />
+              <OdooReportKpiCell
+                label="إجمالي الأجور الشاملة"
+                value={<span className="font-mono">{totalGrossSalaries.toFixed(3)} د.ك</span>}
+              />
+              <OdooReportKpiCell
+                label="صافي التحويل البنكي (WPS)"
+                value={<span className="font-mono text-emerald-800">{totalNetPayable.toFixed(3)} د.ك</span>}
+              />
+              <OdooReportKpiCell
+                label="مخصص نهاية الخدمة"
+                value={<span className="font-mono text-[#714B67]">{totalEosAccrual.toFixed(3)} د.ك</span>}
+              />
+            </OdooReportKpiStrip>
 
-            {/* 3. جدول البيانات التفصيلي المهيأ للطباعة */}
-            <div className="border border-slate-200 rounded-xl overflow-hidden">
+            <div className="odoo-report-table-wrap">
               
               {reportCategory === 'wps_reconciliation' ? (
                 /* كشف مسيرات الرواتب وحماية الأجور WPS */
-                <table className="w-full text-right text-xs">
-                  <thead className="bg-slate-100 text-slate-800 font-bold border-b border-slate-300 font-sans">
+                <table className="odoo-report-table w-full text-right text-[10px]">
+                  <thead>
                     <tr>
                       <th className="p-2.5">م</th>
                       <th className="p-2.5">الموظف / الرقم المدني</th>
@@ -193,9 +188,9 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
                       <th className="p-2.5">البنك</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200 font-mono">
+                  <tbody className="font-mono">
                     {data.map((emp, idx) => (
-                      <tr key={emp.id} className={idx % 2 === 1 ? 'bg-slate-50/70' : 'bg-white'}>
+                      <tr key={emp.id}>
                         <td className="p-2.5 font-bold">{idx + 1}</td>
                         <td className="p-2.5 font-sans">
                           <div className="font-bold text-slate-900">{emp.name}</div>
@@ -213,7 +208,7 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
                       </tr>
                     ))}
                   </tbody>
-                  <tfoot className="bg-slate-100 font-black border-t-2 border-slate-900 text-xs font-mono">
+                  <tfoot className="font-mono text-[10px]">
                     <tr>
                       <td colSpan={3} className="p-2.5 font-sans text-slate-900">إجمالي مسير الرواتب:</td>
                       <td className="p-2.5 text-left">{data.reduce((s, e) => s + e.basicSalary, 0).toFixed(3)}</td>
@@ -228,8 +223,8 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
                   </tfoot>
                 </table>
               ) : reportCategory === 'gov_compliance' ? (
-                <table className="w-full text-right text-xs">
-                  <thead className="bg-slate-100 text-slate-800 font-bold border-b border-slate-300 font-sans">
+                <table className="odoo-report-table w-full text-right text-[10px]">
+                  <thead>
                     <tr>
                       <th className="p-2.5">م</th>
                       <th className="p-2.5">الموظف</th>
@@ -239,9 +234,9 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
                       <th className="p-2.5 text-center">حالة الامتثال</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200 font-mono">
+                  <tbody className="font-mono">
                     {data.map((emp, idx) => (
-                      <tr key={emp.id} className={idx % 2 === 1 ? 'bg-slate-50/70' : 'bg-white'}>
+                      <tr key={emp.id}>
                         <td className="p-2.5 font-bold">{idx + 1}</td>
                         <td className="p-2.5 font-sans">
                           <div className="font-bold text-slate-900">{emp.name}</div>
@@ -262,8 +257,8 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
                   </tbody>
                 </table>
               ) : reportCategory === 'attendance_overtime_analytics' ? (
-                <table className="w-full text-right text-xs">
-                  <thead className="bg-slate-100 text-slate-800 font-bold border-b border-slate-300 font-sans">
+                <table className="odoo-report-table w-full text-right text-[10px]">
+                  <thead>
                     <tr>
                       <th className="p-2.5">م</th>
                       <th className="p-2.5">الموظف</th>
@@ -275,9 +270,9 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
                       <th className="p-2.5 text-left">خصم الغياب</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200 font-mono">
+                  <tbody className="font-mono">
                     {data.map((emp, idx) => (
-                      <tr key={emp.id} className={idx % 2 === 1 ? 'bg-slate-50/70' : 'bg-white'}>
+                      <tr key={emp.id}>
                         <td className="p-2.5 font-bold">{idx + 1}</td>
                         <td className="p-2.5 font-sans font-bold">{emp.name}</td>
                         <td className="p-2.5 text-center">{emp.overtimeHours}</td>
@@ -292,8 +287,8 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
                 </table>
               ) : (
                 /* الكشف العام للتقارير المالية (إجازات / نهاية خدمة) */
-                <table className="w-full text-right text-xs">
-                  <thead className="bg-slate-100 text-slate-800 font-bold border-b border-slate-300 font-sans">
+                <table className="odoo-report-table w-full text-right text-[10px]">
+                  <thead>
                     <tr>
                       <th className="p-2.5">م</th>
                       <th className="p-2.5">الموظف / الرقم المدني</th>
@@ -304,9 +299,9 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
                       <th className="p-2.5 text-left font-mono font-black text-purple-900">مكافأة نهاية الخدمة</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200 font-mono">
+                  <tbody className="font-mono">
                     {data.map((emp, idx) => (
-                      <tr key={emp.id} className={idx % 2 === 1 ? 'bg-slate-50/70' : 'bg-white'}>
+                      <tr key={emp.id}>
                         <td className="p-2.5 font-bold">{idx + 1}</td>
                         <td className="p-2.5 font-sans">
                           <div className="font-bold text-slate-900">{emp.name}</div>
@@ -323,7 +318,7 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
                       </tr>
                     ))}
                   </tbody>
-                  <tfoot className="bg-slate-100 font-black border-t-2 border-slate-900 text-xs font-mono">
+                  <tfoot className="font-mono text-[10px]">
                     <tr>
                       <td colSpan={3} className="p-2.5 font-sans text-slate-900">الإجماليات العامة:</td>
                       <td className="p-2.5 text-left">{totalGrossSalaries.toFixed(3)}</td>
@@ -337,18 +332,22 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
 
             </div>
 
-            {/* 4. إشعار الامتثال القانوني الرسمي */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-[11px] text-slate-600 space-y-1">
-              <p className="font-black text-slate-800 flex items-center gap-1.5">
-                <ShieldCheck size={14} className="text-[#714B67]" />
-                إقرار المطابقة والامتثال للتشريعات الكويتية:
+            <OdooReportLegalNotice title="إقرار المطابقة والامتثال للتشريعات الكويتية">
+              <p className="flex items-center gap-1.5 font-semibold text-slate-800 mb-1">
+                <ShieldCheck size={14} className="text-[#714B67] shrink-0" />
+                يُعد هذا الكشف للمراجعة الرسمية والتدقيق الداخلي.
               </p>
               <p>• تم إعداد هذا الكشف وفقاً لأحكام قانون العمل في القطاع الأهلي الكويتي (رقم 6 لسنة 2010) وقرارات الهيئة العامة للقوى العاملة (PAM).</p>
               <p>• احتساب أجر يوم الإجازة وبدلاتها تم وفق معيار (الراتب الأساسي ÷ 26 يوم عمل) طبقاً للمادتين (70 و 71).</p>
               <p>• بيانات الرواتب والحضور في هذا الكشف مرتبطة بفترة التقرير المحددة ومسيرات الرواتب/ترحيل الحضور الشهري عند توفرها.</p>
-            </div>
+            </OdooReportLegalNotice>
 
-          </div>
+            <OdooReportFooter
+              companyName={company ? getCompanyPrintProfile(company).displayNameAr : undefined}
+              reportRef={reportRef ? `REP-${reportRef}` : `REP-${selectedMonth}`}
+            />
+
+          </OdooReportSheet>
         </div>
 
         {/* الشريط السفلي للإجراءات */}
