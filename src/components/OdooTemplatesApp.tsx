@@ -46,12 +46,26 @@ import { DocumentItem } from '../types';
 import { toast } from 'react-hot-toast';
 import OdooPamContractModal from './OdooPamContractModal';
 import OdooRichDocumentEditor, { SMART_PLACEHOLDERS } from './OdooRichDocumentEditor';
+import { PAM_CONTRACT_ENGLISH_BODY } from '../templates/pamContractEnglishBody';
+
+function formatPamContractDateEn(isoDate: string): string {
+  const d = new Date(isoDate);
+  if (Number.isNaN(d.getTime())) return isoDate || '—';
+  return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+}
+
+function weekdayEnFromIso(isoDate: string): string {
+  const d = new Date(isoDate);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-US', { weekday: 'long' });
+}
 
 export type TemplateCategory = 'ALL' | 'CONTRACTS' | 'BANKING' | 'ADMIN';
 export type WorkspaceView = 'split' | 'editor' | 'preview';
 
 export type TemplateId = 
-  | 'pam_contract' 
+  | 'pam_contract'
+  | 'pam_contract_en'
   | 'leave_request_form'
   | 'custody_handover'
   | 'custody_clearance'
@@ -72,6 +86,10 @@ interface TemplateDef {
   badge: string;
   icon: string;
   isPamModal?: boolean;
+  /** Preview / print text direction for the document body */
+  previewDir?: 'rtl' | 'ltr';
+  /** Skip digital letterhead (official forms with built-in header) */
+  skipLetterhead?: boolean;
 }
 
 const TEMPLATES_LIST: TemplateDef[] = [
@@ -83,6 +101,16 @@ const TEMPLATES_LIST: TemplateDef[] = [
     badge: 'PAM نموذج 2',
     icon: '🏛️',
     isPamModal: true
+  },
+  {
+    id: 'pam_contract_en',
+    category: 'CONTRACTS',
+    title: 'عقد عمل القوى العاملة - باللغة الإنجليزية (PAM Contract - English)',
+    subtitle: 'نموذج الهيئة العامة للقوى العاملة — المواد 1–16 (LTR) مع تعبئة تلقائية من بيانات الموظف',
+    badge: 'PAM English',
+    icon: '🌐',
+    previewDir: 'ltr',
+    skipLetterhead: true,
   },
 
   // الإجراءات الإدارية والقانونية
@@ -178,6 +206,7 @@ const TEMPLATES_LIST: TemplateDef[] = [
 
 // Default HTML template bodies with smart placeholders embedded
 const DEFAULT_TEMPLATE_BODIES: Partial<Record<TemplateId, string>> = {
+  pam_contract_en: PAM_CONTRACT_ENGLISH_BODY,
   commencement: `
 <div style="text-align: center; margin: 15px 0;">
   <h1 style="font-size: 20px; font-weight: 900; border-bottom: 2px solid #0f172a; display: inline-block; padding-bottom: 6px;">
@@ -454,6 +483,14 @@ export const OdooTemplatesApp: React.FC = () => {
   );
   const [serviceYears, setServiceYears] = useState('3');
   const [eosAmount, setEosAmount] = useState('0.000');
+  const [employeeResidence, setEmployeeResidence] = useState('');
+  const [pamLabourDepartment, setPamLabourDepartment] = useState('Hawally');
+  const [businessField, setBusinessField] = useState('MEDICAL');
+  const [contractTermLabel, setContractTermLabel] = useState('ONE year');
+  const [annualLeaveDays, setAnnualLeaveDays] = useState('30');
+  const [probationDays, setProbationDays] = useState('100');
+  const [payPeriodEn, setPayPeriodEn] = useState('MONTH');
+  const [secondaryContractLanguage, setSecondaryContractLanguage] = useState('English');
 
   // Active Template HTML Content (loaded in the rich editor)
   const [editorContent, setEditorContent] = useState<string>('');
@@ -465,6 +502,9 @@ export const OdooTemplatesApp: React.FC = () => {
   const referenceNumber = `HR-DOC-${new Date().getFullYear()}-${civilId ? civilId.slice(-6) : '001234'}`;
 
   const companyDisplayName = printProfile.displayNameAr;
+  const companyDisplayNameEn = printProfile.displayNameEn;
+  const companySignatoryName = printProfile.authorizedSignatory;
+  const companySignatoryCivilId = printProfile.civilIdCompany;
   const companyCommercialReg = employerLicenseTokenForTemplates(printProfile, companyForPrint);
   const companyPaci = printProfile.paciNumber;
   const companyLogoUrl = printProfile.logoUrl;
@@ -475,6 +515,8 @@ export const OdooTemplatesApp: React.FC = () => {
   useEffect(() => {
     const defaultBody = DEFAULT_TEMPLATE_BODIES[selectedTemplate];
     setEditorContent(defaultBody || '');
+    const def = TEMPLATES_LIST.find(t => t.id === selectedTemplate);
+    if (def?.skipLetterhead) setUseLetterhead(false);
   }, [selectedTemplate]);
 
   // Auto-fill when employee is selected
@@ -489,6 +531,15 @@ export const OdooTemplatesApp: React.FC = () => {
         
         const anyEmp = emp as any;
         setNationality(anyEmp.nationality || (emp.isKuwaiti ? 'كويتي' : 'غير كويتي'));
+        setEmployeeResidence(
+          String(
+            anyEmp.residenceNumber ||
+              anyEmp.residencyNumber ||
+              anyEmp.residenceNo ||
+              anyEmp.pamResidence ||
+              ''
+          ).trim()
+        );
         setBankName(emp.bankName || 'بيت التمويل الكويتي (KFH)');
         setIban(emp.iban || 'KW82CBKU0000000000001234567890');
 
@@ -576,7 +627,31 @@ export const OdooTemplatesApp: React.FC = () => {
       '{السجل_التجاري}': companyCommercialReg || '—',
       '{الرقم_الآلي}': companyPaci || '—',
       '{تاريخ_اليوم}': todayFormattedAr || '—',
-      '{الرقم_المرجعي}': referenceNumber || '—'
+      '{الرقم_المرجعي}': referenceNumber || '—',
+
+      // PAM English contract (LTR)
+      '{employee_name}': empName || '—',
+      '{employee_nationality}': nationality || '—',
+      '{employee_civil_id}': civilId || '—',
+      '{employee_residence}': employeeResidence || '—',
+      '{job_title}': jobTitle || '—',
+      '{company_name}': companyDisplayNameEn || companyDisplayName || '—',
+      '{signatory_name}': companySignatoryName || '—',
+      '{signatory_civil_id}': companySignatoryCivilId || '—',
+      '{contract_weekday}': weekdayEnFromIso(joinDate),
+      '{contract_date}': formatPamContractDateEn(joinDate),
+      '{contract_start_date}': formatPamContractDateEn(joinDate),
+      '{probation_days}': probationDays || '100',
+      '{salary_amount}': totalSalary || '0.000',
+      '{pay_period}': payPeriodEn || 'MONTH',
+      '{contract_term_label}': contractTermLabel || 'ONE year',
+      '{annual_leave_days}': annualLeaveDays || '30',
+      '{pam_labour_department}': pamLabourDepartment || 'Hawally',
+      '{business_field}': businessField || 'MEDICAL',
+      '{secondary_contract_language}': secondaryContractLanguage || 'English',
+      '{special_condition_1}': '—',
+      '{special_condition_2}': '—',
+      '{special_condition_3}': '—',
     };
 
     for (const [tag, val] of Object.entries(replacements)) {
@@ -611,10 +686,24 @@ export const OdooTemplatesApp: React.FC = () => {
     companyCommercialReg, 
     companyPaci, 
     todayFormattedAr, 
-    referenceNumber
+    referenceNumber,
+    companyDisplayNameEn,
+    companySignatoryName,
+    companySignatoryCivilId,
+    employeeResidence,
+    pamLabourDepartment,
+    businessField,
+    contractTermLabel,
+    annualLeaveDays,
+    probationDays,
+    payPeriodEn,
+    secondaryContractLanguage,
   ]);
 
   const activeTemplateDef = TEMPLATES_LIST.find(t => t.id === selectedTemplate) || TEMPLATES_LIST[0];
+  const previewDir = activeTemplateDef.previewDir || 'rtl';
+  const hideLetterheadForTemplate = Boolean(activeTemplateDef.skipLetterhead);
+  const showLetterheadInPreview = useLetterhead && !hideLetterheadForTemplate;
 
   // Actions
   const handlePrint = () => {
@@ -652,7 +741,7 @@ export const OdooTemplatesApp: React.FC = () => {
         <meta charset='utf-8'>
         <title>${docTitle}</title>
         <style>
-          body { font-family: 'Cairo', Arial, sans-serif; direction: rtl; text-align: right; }
+          body { font-family: ${previewDir === 'ltr' ? "'Times New Roman', Georgia, serif" : "'Cairo', Arial, sans-serif"}; direction: ${previewDir}; text-align: ${previewDir === 'ltr' ? 'left' : 'right'}; }
           table { width: 100%; border-collapse: collapse; margin: 15px 0; }
           th, td { border: 1px solid #cbd5e1; padding: 8px 12px; font-size: 11pt; }
         </style>
@@ -1027,6 +1116,65 @@ export const OdooTemplatesApp: React.FC = () => {
                       المسمى: <span className="font-bold">{jobTitle || '—'}</span>
                     </div>
                   </div>
+
+                  {selectedTemplate === 'pam_contract_en' && (
+                    <div className="space-y-2 pt-1 border-t border-slate-200">
+                      <div className="text-[10px] font-black text-[#714B67]">حقول عقد PAM (English)</div>
+                      <label className="block">
+                        <span className="text-[10px] font-bold text-slate-600">إدارة العمل (PAM)</span>
+                        <input
+                          value={pamLabourDepartment}
+                          onChange={e => setPamLabourDepartment(e.target.value)}
+                          className="w-full mt-0.5 p-1.5 border border-slate-200 rounded text-[11px]"
+                          placeholder="Hawally"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-[10px] font-bold text-slate-600">مجال المنشأة</span>
+                        <input
+                          value={businessField}
+                          onChange={e => setBusinessField(e.target.value)}
+                          className="w-full mt-0.5 p-1.5 border border-slate-200 rounded text-[11px]"
+                          placeholder="MEDICAL"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-[10px] font-bold text-slate-600">رقم الإقامة</span>
+                        <input
+                          value={employeeResidence}
+                          onChange={e => setEmployeeResidence(e.target.value)}
+                          className="w-full mt-0.5 p-1.5 border border-slate-200 rounded text-[11px] font-mono"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-[10px] font-bold text-slate-600">مدة العقد (نص إنجليزي)</span>
+                        <input
+                          value={contractTermLabel}
+                          onChange={e => setContractTermLabel(e.target.value)}
+                          className="w-full mt-0.5 p-1.5 border border-slate-200 rounded text-[11px]"
+                          placeholder="ONE year"
+                        />
+                      </label>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <label className="block">
+                          <span className="text-[10px] font-bold text-slate-600">أيام التجربة</span>
+                          <input
+                            value={probationDays}
+                            onChange={e => setProbationDays(e.target.value)}
+                            className="w-full mt-0.5 p-1.5 border border-slate-200 rounded text-[11px] font-mono"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="text-[10px] font-bold text-slate-600">إجازة سنوية</span>
+                          <input
+                            value={annualLeaveDays}
+                            onChange={e => setAnnualLeaveDays(e.target.value)}
+                            className="w-full mt-0.5 p-1.5 border border-slate-200 rounded text-[11px] font-mono"
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -1079,14 +1227,23 @@ export const OdooTemplatesApp: React.FC = () => {
               <div
                 ref={previewSheetRef}
                 id="live-printable-a4"
-                className="bg-white text-slate-900 shadow-lg w-full max-w-[210mm] min-h-[297mm] p-8 md:p-10 flex flex-col"
+                dir={previewDir}
+                className={`bg-white text-slate-900 shadow-lg w-full max-w-[210mm] min-h-[297mm] p-8 md:p-10 flex flex-col ${
+                  previewDir === 'ltr' ? 'text-left' : 'text-right'
+                }`}
                 style={{
-                  fontFamily: "'Cairo', 'Segoe UI', Tahoma, sans-serif",
-                  lineHeight: 1.85,
-                  paddingTop: useLetterhead ? '40px' : '48mm',
+                  fontFamily:
+                    previewDir === 'ltr'
+                      ? "'Times New Roman', Georgia, serif"
+                      : "'Cairo', 'Segoe UI', Tahoma, sans-serif",
+                  lineHeight: previewDir === 'ltr' ? 1.45 : 1.85,
+                  paddingTop: showLetterheadInPreview ? '40px' : previewDir === 'ltr' ? '18mm' : '48mm',
+                  paddingBottom: previewDir === 'ltr' ? '18mm' : undefined,
+                  paddingLeft: previewDir === 'ltr' ? '20mm' : undefined,
+                  paddingRight: previewDir === 'ltr' ? '20mm' : undefined,
                 }}
               >
-                {useLetterhead ? (
+                {showLetterheadInPreview ? (
                   <OfficialA4CompanyLetterhead
                     company={companyForPrint}
                     className="border-[#714B67] mb-6 pb-5"
