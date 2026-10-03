@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Building2, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Building2, AlertTriangle, ShieldCheck, GitBranch } from 'lucide-react';
 import type { CompanyComplianceDoc } from '../../types';
 import { subscribeCompanyCompliance } from '../../services/companyComplianceService';
 import { isQueryableTenantCompanyId } from '../../utils/tenantCompanyId';
@@ -7,9 +7,14 @@ import { isQueryableTenantCompanyId } from '../../utils/tenantCompanyId';
 interface Props {
   companyId: string;
   onOpenDocuments?: () => void;
+  onOpenComplianceTree?: () => void;
 }
 
-export const CompanyOnboardingLicensesWidget: React.FC<Props> = ({ companyId, onOpenDocuments }) => {
+export const CompanyOnboardingLicensesWidget: React.FC<Props> = ({
+  companyId,
+  onOpenDocuments,
+  onOpenComplianceTree,
+}) => {
   const [compliance, setCompliance] = useState<CompanyComplianceDoc | null>(null);
 
   useEffect(() => {
@@ -81,15 +86,29 @@ export const CompanyOnboardingLicensesWidget: React.FC<Props> = ({ companyId, on
         ))}
       </div>
 
-      {onOpenDocuments && (
-        <button
-          type="button"
-          onClick={onOpenDocuments}
-          className="mt-3 w-full py-2 text-xs font-bold text-[#714B67] border border-[#714B67]/30 rounded-xl hover:bg-purple-50 transition cursor-pointer flex items-center justify-center gap-1.5"
-        >
-          <ShieldCheck size={14} />
-          فتح أرشيف تراخيص المنشأة
-        </button>
+      {(onOpenDocuments || onOpenComplianceTree) && (
+        <div className="mt-3 flex flex-col sm:flex-row gap-2">
+          {onOpenComplianceTree && (
+            <button
+              type="button"
+              onClick={onOpenComplianceTree}
+              className="flex-1 py-2 text-xs font-bold text-white bg-[#714B67] border border-[#714B67] rounded-xl hover:bg-[#5d3d55] transition cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              <GitBranch size={14} />
+              شجرة الامتثال الحكومي
+            </button>
+          )}
+          {onOpenDocuments && (
+            <button
+              type="button"
+              onClick={onOpenDocuments}
+              className="flex-1 py-2 text-xs font-bold text-[#714B67] border border-[#714B67]/30 rounded-xl hover:bg-purple-50 transition cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              <ShieldCheck size={14} />
+              أرشيف تراخيص المنشأة
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

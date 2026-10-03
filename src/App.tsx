@@ -54,6 +54,7 @@ import { OdooPayrollApp } from './components/OdooPayrollApp';
 import { OdooOperationsApp } from './components/OdooOperationsApp';
 import { DocumentsApp } from './apps/DocumentsApp';
 import { OdooTemplatesApp } from './components/OdooTemplatesApp';
+import { CompanyComplianceTreeApp } from './components/CompanyComplianceTreeApp';
 import { OdooPublicHolidaysApp } from './components/OdooPublicHolidaysApp';
 import { OdooReportsApp } from './components/OdooReportsApp';
 import { OdooSettingsFull } from './components/OdooSettingsFull';
@@ -97,6 +98,7 @@ type AppId =
   | 'saas_admin'
   | 'scanner'
   | 'moh'
+  | 'compliance_tree'
   | 'audit';
 
 function MainAppLayout() {
@@ -172,6 +174,10 @@ function MainAppLayout() {
       nonce: Date.now(),
     });
     setActiveApp('archive');
+  };
+
+  const openCompanyComplianceTree = () => {
+    setActiveApp('compliance_tree');
   };
 
   useEffect(() => {
@@ -599,6 +605,7 @@ function MainAppLayout() {
       case 'holidays': return lang === 'ar' ? 'العطلات الرسمية (Public Holidays)' : 'Public Holidays';
       case 'reports': return lang === 'ar' ? 'التقارير والتحليلات (Reports & Analytics)' : 'Reports & Analytics';
       case 'moh': return lang === 'ar' ? 'إدارة التراخيص الطبية والكادر الصحي (MOH Medical Hub)' : 'MOH Medical Hub';
+      case 'compliance_tree': return lang === 'ar' ? 'شجرة الامتثال الحكومي والتراخيص' : 'Government Compliance Tree';
       case 'audit': return lang === 'ar' ? 'سجل الرقابة وتتبع العمليات (Audit Logs & Diagnostic Center)' : 'Audit Logs & Diagnostic Center';
       case 'settings': return lang === 'ar' ? (isSuperAdmin ? 'الإعدادات والمشتركين (Settings & SaaS Tenants)' : 'بيانات المنشأة والإعدادات (Company Profile & Settings)') : (isSuperAdmin ? 'Settings & SaaS Tenants' : 'Company Profile & Settings');
       case 'companies': return lang === 'ar' ? 'الشركات والمؤسسات (Companies & Clinics)' : 'Companies & Clinics';
@@ -776,6 +783,7 @@ function MainAppLayout() {
                 }
               }}
               onOpenCompanyDocuments={() => openCompanyLicenseArchive(false)}
+              onOpenComplianceTree={openCompanyComplianceTree}
               currentUserEmail={user?.email || ''}
               currentUserRole={isSuperAdmin ? 'SUPER_ADMIN' : 'COMPANY_ADMIN'}
               activeCompany={activeCompany}
@@ -933,6 +941,12 @@ function MainAppLayout() {
         {activeApp === 'moh' && (
           <OdooAppCanvas>
               <OdooMohMedicalHubApp />
+          </OdooAppCanvas>
+        )}
+
+        {activeApp === 'compliance_tree' && (
+          <OdooAppCanvas>
+            <CompanyComplianceTreeApp />
           </OdooAppCanvas>
         )}
 

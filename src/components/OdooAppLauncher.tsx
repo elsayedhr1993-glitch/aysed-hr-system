@@ -20,6 +20,7 @@ import { CompanyOnboardingLicensesWidget } from './onboarding/CompanyOnboardingL
 interface OdooAppLauncherProps {
   onSelectApp: (app: ActiveApp) => void;
   onOpenCompanyDocuments?: () => void;
+  onOpenComplianceTree?: () => void;
   currentUserEmail?: string;
   currentUserRole?: string;
   activeCompany?: Company;
@@ -46,6 +47,7 @@ interface OdooAppLauncherProps {
 export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({ 
   onSelectApp,
   onOpenCompanyDocuments,
+  onOpenComplianceTree,
   currentUserEmail = '', 
   currentUserRole = '', 
   activeCompany, 
@@ -550,6 +552,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
       <CompanyOnboardingLicensesWidget
         companyId={currentCompanyId}
         onOpenDocuments={onOpenCompanyDocuments}
+        onOpenComplianceTree={onOpenComplianceTree}
       />
 
       {/* 🧩 Odoo Enterprise App Launchpad - شبكة التطبيقات الـ 16 العصرية */}
