@@ -28,6 +28,22 @@ import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
 import { useOdooHierarchy } from '../context/OdooHierarchyContext';
 import { exportToExcel } from '../utils/exportUtils';
 import { OdooOfficialA4PrintModal } from './reports/OdooOfficialA4PrintModal';
+import { UiStudioTableHead } from './studio/UiStudioTableHead';
+
+const WPS_RECONCILIATION_COLUMNS = [
+  { key: 'reports.wps.col.emp_code', ar: 'كود الموظف', en: 'Employee code', className: 'p-3.5' },
+  { key: 'reports.wps.col.employee', ar: 'الموظف / الرقم المدني', en: 'Employee / Civil ID', className: 'p-3.5' },
+  { key: 'reports.wps.col.dept', ar: 'القسم والمسمى', en: 'Dept & title', className: 'p-3.5' },
+  { key: 'reports.wps.col.basic', ar: 'الأساسي (د.ك)', en: 'Basic (KWD)', className: 'p-3.5 text-left' },
+  { key: 'reports.wps.col.allowances', ar: 'البدلات (د.ك)', en: 'Allowances (KWD)', className: 'p-3.5 text-left' },
+  { key: 'reports.wps.col.extra', ar: 'الإضافي (+)', en: 'Extra (+)', className: 'p-3.5 text-left' },
+  { key: 'reports.wps.col.deduction', ar: 'الخصم (-)', en: 'Deduction (-)', className: 'p-3.5 text-left' },
+  { key: 'reports.wps.col.net', ar: 'صافي المحول WPS', en: 'Net WPS', className: 'p-3.5 text-left text-emerald-800' },
+  { key: 'reports.wps.col.bank', ar: 'البنك والآيبان', en: 'Bank & IBAN', className: 'p-3.5' },
+  { key: 'reports.wps.col.status', ar: 'حالة الدفعة', en: 'Payment status', className: 'p-3.5 text-center' },
+] as const;
+
+const WPS_COLUMN_KEYS = WPS_RECONCILIATION_COLUMNS.map(c => c.key);
 import { getEmployeeUnifiedSummary } from '../utils/leaveEngine';
 import { computeNetPayrollFromComponents } from '../utils/kuwaitPayrollMath';
 import {
@@ -965,16 +981,15 @@ export const OdooReportsApp: React.FC = () => {
               <table className="w-full text-right text-xs">
                 <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 font-sans">
                   <tr>
-                    <th className="p-3.5">كود الموظف</th>
-                    <th className="p-3.5">الموظف / الرقم المدني</th>
-                    <th className="p-3.5">القسم والمسمى</th>
-                    <th className="p-3.5 text-left">الأساسي (د.ك)</th>
-                    <th className="p-3.5 text-left">البدلات (د.ك)</th>
-                    <th className="p-3.5 text-left">الإضافي (+)</th>
-                    <th className="p-3.5 text-left">الخصم (-)</th>
-                    <th className="p-3.5 text-left text-emerald-800">صافي المحول WPS</th>
-                    <th className="p-3.5">البنك والآيبان</th>
-                    <th className="p-3.5 text-center">حالة الدفعة</th>
+                    {WPS_RECONCILIATION_COLUMNS.map(col => (
+                      <UiStudioTableHead
+                        key={col.key}
+                        uiKey={col.key}
+                        defaults={{ label: { ar: col.ar, en: col.en } }}
+                        reorderGroupKeys={[...WPS_COLUMN_KEYS]}
+                        className={col.className}
+                      />
+                    ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-mono">

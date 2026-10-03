@@ -4,6 +4,7 @@ import { useEffectiveTenantCompanyId } from './hooks/useEffectiveTenantCompanyId
 import { isQueryableTenantCompanyId } from './utils/tenantCompanyId';
 import { TenantProvider, useTenant } from './context/TenantContext';
 import { LayoutStudioProvider } from './context/LayoutStudioContext';
+import { UiStudioProvider } from './context/UiStudioContext';
 import { LayoutStudioDrawer } from './components/studio/LayoutStudioDrawer';
 import { useCompany } from './context/CompanyContext';
 import { OdooHierarchyProvider, useOdooHierarchy } from './context/OdooHierarchyContext';
@@ -1210,11 +1211,13 @@ function MainAppLayout() {
 export default function App() {
   return (
     <TenantProvider>
-      <LayoutStudioProvider>
-        <OdooHierarchyProvider>
-          <MainAppLayout />
-        </OdooHierarchyProvider>
-      </LayoutStudioProvider>
+      <UiStudioProvider>
+        <LayoutStudioProvider>
+          <OdooHierarchyProvider>
+            <MainAppLayout />
+          </OdooHierarchyProvider>
+        </LayoutStudioProvider>
+      </UiStudioProvider>
     </TenantProvider>
   );
 }

@@ -149,6 +149,11 @@ service cloud.firestore {
         allow write: if isSuperAdmin();
       }
 
+      match /ui_overrides/{docId} {
+        allow read: if isSuperAdmin() || (signedIn() && callerCompanyId() == companyId);
+        allow write: if isSuperAdmin();
+      }
+
       match /compliance/{complianceDocId} {
         allow read: if isSuperAdmin()
           || (signedIn() && (callerCompanyId() == companyId || isAuthEmailCompanyAdmin(companyId)))

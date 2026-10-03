@@ -10,6 +10,8 @@ import {
 import type { LayoutLocale, ResolvedScreenLayout } from '../../types/customLayout';
 import { resolveLabel } from '../../utils/customLayoutUtils';
 import { useLayoutStudio } from '../../context/LayoutStudioContext';
+import { useUiStudio } from '../../context/UiStudioContext';
+import { UiStudioTarget } from './UiStudioTarget';
 
 const ICON_MAP: Record<string, LucideIcon> = {
   CalendarDays,
@@ -20,6 +22,8 @@ const ICON_MAP: Record<string, LucideIcon> = {
 };
 
 export interface DynamicTabsContainerProps {
+  /** e.g. leaves, employees — used for Studio uiKey prefix */
+  screenId?: string;
   layout: ResolvedScreenLayout;
   locale: LayoutLocale;
   activeTabId: string;
@@ -31,6 +35,7 @@ export interface DynamicTabsContainerProps {
 }
 
 export const DynamicTabsContainer: React.FC<DynamicTabsContainerProps> = ({
+  screenId = 'screen',
   layout,
   locale,
   activeTabId,
@@ -40,7 +45,20 @@ export const DynamicTabsContainer: React.FC<DynamicTabsContainerProps> = ({
   className = '',
 }) => {
   const { studioMode } = useLayoutStudio();
-  const visibleTabs = layout.visibleTabs;
+  const { resolveElement, uiStudioActive } = useUiStudio();
+  const visibleTabs = layout.visibleTabs.filter(tab => {
+    const uiKey = `screen.${screenId}.tab.${tab.id}`;
+    const resolved = resolveElement(uiKey, {
+      kind: 'tab',
+      label: tab.label,
+      order: tab.order,
+      locked: tab.locked,
+    });
+    if (tab.locked) return true;
+    return !resolved.hidden || uiStudioActive;
+  });
+
+  const tabUiKeys = visibleTabs.map(tab => `screen.${screenId}.tab.${tab.id}`);
 
   useEffect(() => {
     if (!visibleTabs.length) return;
@@ -63,6 +81,7 @@ export const DynamicTabsContainer: React.FC<DynamicTabsContainerProps> = ({
           icons[tab.id] || (tab.icon ? ICON_MAP[tab.icon] : undefined) || CalendarDays;
         const suffix = tabSuffix[tab.id] || '';
         const label = resolveLabel(tab.label, locale);
+        const uiKey = `screen.${screenId}.tab.${tab.id}`;
         const isActive = activeTabId === tab.id;
 
         return (
@@ -75,8 +94,15 @@ export const DynamicTabsContainer: React.FC<DynamicTabsContainerProps> = ({
             }`}
           >
             <Icon size={15} className={tab.id === 'operational_absence' ? 'text-amber-600' : undefined} />
-            {label}
-            {suffix ? ` ${suffix}` : ''}
+            <UiStudioTarget
+              uiKey={uiKey}
+              kind="tab"
+              defaults={{ label: tab.label, order: tab.order, locked: tab.locked }}
+              reorderGroupKeys={tabUiKeys}
+            >
+              {label}
+              {suffix ? ` ${suffix}` : ''}
+            </UiStudioTarget>
           </button>
         );
       })}

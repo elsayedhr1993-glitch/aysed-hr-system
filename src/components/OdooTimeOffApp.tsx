@@ -1231,6 +1231,7 @@ export const OdooTimeOffApp: React.FC = () => {
           </div>
         ) : (
           <DynamicTabsContainer
+            screenId="leaves"
             layout={leavesLayout}
             locale={layoutLocale}
             activeTabId={activeMainTab}

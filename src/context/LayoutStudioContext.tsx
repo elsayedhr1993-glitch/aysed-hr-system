@@ -18,6 +18,7 @@ import {
   toEditableScreenLayout,
 } from '../utils/customLayoutStudio';
 import { toast } from 'react-hot-toast';
+import { useUiStudio } from './UiStudioContext';
 
 export interface StudioSession {
   screenId: ScreenId;
@@ -45,6 +46,7 @@ interface LayoutStudioContextValue {
 const LayoutStudioContext = createContext<LayoutStudioContextValue | undefined>(undefined);
 
 export const LayoutStudioProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { uiStudioActive } = useUiStudio();
   const { isActualSuperAdmin } = useTenant();
   const { activeCompanyId, activeCompany } = useCompany();
   const { user } = useAuth();
@@ -181,7 +183,7 @@ export const LayoutStudioProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const value = useMemo<LayoutStudioContextValue>(
     () => ({
       canEditCustomLayout: isActualSuperAdmin,
-      studioMode: isActualSuperAdmin && drawerOpen,
+      studioMode: isActualSuperAdmin && (drawerOpen || uiStudioActive),
       drawerOpen: isActualSuperAdmin && drawerOpen,
       studioSession: isActualSuperAdmin ? studioSession : null,
       openStudio,
@@ -197,6 +199,7 @@ export const LayoutStudioProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }),
     [
       isActualSuperAdmin,
+      uiStudioActive,
       drawerOpen,
       studioSession,
       openStudio,

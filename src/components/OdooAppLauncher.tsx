@@ -16,6 +16,9 @@ import { useEffectiveTenantCompanyId } from '../hooks/useEffectiveTenantCompanyI
 import { isQueryableTenantCompanyId } from '../utils/tenantCompanyId';
 import { useAuth } from '../context/AuthContext';
 import { CompanyOnboardingLicensesWidget } from './onboarding/CompanyOnboardingLicensesWidget';
+import { useUiStudio } from '../context/UiStudioContext';
+import { UiStudioTarget } from './studio/UiStudioTarget';
+import { sortByUiOrder } from '../utils/uiOverrideUtils';
 
 interface OdooAppLauncherProps {
   onSelectApp: (app: ActiveApp) => void;
@@ -54,6 +57,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
   stats 
 }) => {
   const { lang } = useLang();
+  const { resolveElement, overridesDoc } = useUiStudio();
   const isSuperAdmin = currentUserRole === 'SUPER_ADMIN' || currentUserEmail.toLowerCase() === 'admin@aysed.com'.toLowerCase() || currentUserEmail.toLowerCase() === 'elsayedhr1993@gmail.com'.toLowerCase();
   const companyDisplayName = lang === 'ar' ? (activeCompany?.nameAr || activeCompany?.nameEn || 'Aysed HR S 2026') : (activeCompany?.nameEn || activeCompany?.nameAr || 'Aysed HR S 2026');
   const { isLoading: authLoading } = useAuth();
@@ -379,6 +383,26 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
     });
   }, [allApps, currentUserRole, selectedCategory, searchQuery]);
 
+  const displayApps = useMemo(() => {
+    const meta = filteredApps.map((app, idx) => ({
+      app,
+      uiKey: `launcher.app.${app.id}`,
+      baseOrder: idx,
+    }));
+    const sorted = sortByUiOrder(meta, overridesDoc?.elements ?? {});
+    return sorted.filter(row => {
+      const resolved = resolveElement(row.uiKey, {
+        kind: 'app',
+        label: { ar: row.app.titleAr, en: row.app.titleEn },
+        help: { ar: row.app.description, en: row.app.description },
+        order: row.baseOrder,
+      });
+      return !resolved.hidden;
+    });
+  }, [filteredApps, overridesDoc, resolveElement]);
+
+  const launcherAppUiKeys = useMemo(() => displayApps.map(d => d.uiKey), [displayApps]);
+
   return (
     <div className="dashboard-container w-full h-full bg-transparent flex flex-col relative z-10 space-y-4 pb-6" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       
@@ -557,7 +581,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
 
       {/* 🧩 Odoo Enterprise App Launchpad - شبكة التطبيقات الـ 16 العصرية */}
       <div className="w-full py-2">
-        {filteredApps.length === 0 ? (
+        {displayApps.length === 0 ? (
           <div className="text-center py-12 bg-white/80 rounded-2xl border border-dashed border-slate-300">
             <p className="text-slate-500 font-bold text-sm">لا توجد تطبيقات تطابق كلمة البحث "{searchQuery}"</p>
             <button 
@@ -570,7 +594,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
         ) : viewStyle === 'launchpad' ? (
           /* 🌟 1. النمط الحديث: Launchpad Squircle App Grid (Apple / Odoo 18 Style) */
           <div className="odoo-app-launchpad-grid justify-items-stretch">
-            {filteredApps.map((app) => {
+            {displayApps.map(({ app, uiKey }) => {
               const IconComponent = app.icon;
               return (
                 <button
@@ -597,10 +621,27 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
                   {/* App Text Info */}
                   <div className="w-full space-y-0.5">
                     <h3 className="font-extrabold text-xs sm:text-[13px] text-slate-800 group-hover:text-[#714B67] leading-tight transition-colors line-clamp-1">
-                      {lang === 'ar' ? app.titleAr : app.titleEn}
+                      <UiStudioTarget
+                        uiKey={uiKey}
+                        kind="app"
+                        defaults={{
+                          label: { ar: app.titleAr, en: app.titleEn },
+                          help: { ar: app.description, en: app.description },
+                        }}
+                        reorderGroupKeys={launcherAppUiKeys}
+                        className="w-full justify-center"
+                      >
+                        {lang === 'ar' ? app.titleAr : app.titleEn}
+                      </UiStudioTarget>
                     </h3>
                     <p className="text-[10px] text-slate-400 group-hover:text-slate-600 font-medium leading-tight line-clamp-1 transition-colors">
-                      {app.description}
+                      <UiStudioTarget
+                        uiKey={`${uiKey}.description`}
+                        kind="help"
+                        defaults={{ label: { ar: app.description, en: app.description } }}
+                      >
+                        {app.description}
+                      </UiStudioTarget>
                     </p>
                   </div>
                 </button>
@@ -610,7 +651,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
         ) : (
           /* 🗂️ 2. النمط الثاني: بطاقات الـ Bento SaaS التفصيلية */
           <div className="odoo-app-cards-grid">
-            {filteredApps.map((app) => {
+            {displayApps.map(({ app, uiKey }) => {
               const IconComponent = app.icon;
               return (
                 <button
@@ -626,8 +667,18 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
                   {/* Details */}
                   <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex items-center justify-between gap-1">
-                      <h3 className="font-extrabold text-xs sm:text-sm text-slate-900 group-hover:text-[#714B67] leading-tight truncate transition-colors">
-                        {lang === 'ar' ? app.titleAr : app.titleEn}
+                      <h3 className="font-extrabold text-xs sm:text-sm text-slate-900 group-hover:text-[#714B67] leading-tight truncate transition-colors min-w-0">
+                        <UiStudioTarget
+                          uiKey={uiKey}
+                          kind="app"
+                          defaults={{
+                            label: { ar: app.titleAr, en: app.titleEn },
+                            help: { ar: app.description, en: app.description },
+                          }}
+                          reorderGroupKeys={launcherAppUiKeys}
+                        >
+                          {lang === 'ar' ? app.titleAr : app.titleEn}
+                        </UiStudioTarget>
                       </h3>
                       {app.badge && (
                         <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">

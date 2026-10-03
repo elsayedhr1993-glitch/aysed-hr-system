@@ -14,6 +14,7 @@ import { getFacilityMasterData, FacilityLicenseData, defaultFacilityData } from 
 import { useLang } from '../../lib/i18n';
 import { auth } from '../../lib/firebase';
 import { sendPasswordResetEmail } from 'firebase/auth';
+import { GlobalStudioModeToggle } from '../studio/GlobalStudioModeToggle';
 
 interface TopEnterpriseActionBarProps {
   activeApp: string;
@@ -310,6 +311,8 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
         </button>
 
         {/* زر لوحة الإدارة العليا (Super Admin Dashboard) */}
+        <GlobalStudioModeToggle />
+
         {(isSuperAdmin) && (
           <button 
             onClick={() => setActiveApp('saas_admin')} 
