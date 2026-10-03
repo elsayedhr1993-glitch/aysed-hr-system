@@ -27,6 +27,9 @@ import {
 } from '../utils/kuwaitPayrollMath';
 import { collection, doc, getDoc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { employerPamOrEstablishmentCode, isMohMedicalEstablishment } from '../utils/mohMedicalFacility';
+import { UiStudioScreenTitle } from './studio/UiStudioScreenTitle';
+import { UI_KEYS } from '../utils/uiStudioKeys';
+import { UiStudioTarget } from './studio/UiStudioTarget';
 
 export interface PayslipItem {
   id: string;
@@ -776,10 +779,23 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
             )}
           </div>
 
-          <h1 className="text-xl font-black text-slate-900 flex items-center gap-2">
-            <CreditCard className="text-[#714B67]" size={22} />
-            {activePayslip ? `قسيمة راتب: ${activePayslip.employeeName}` : 'مسير الرواتب ونظام حماية الأجور (Odoo Kuwait WPS)'}
-          </h1>
+          <UiStudioScreenTitle
+            uiKey={UI_KEYS.appTitle('payroll')}
+            defaults={{
+              label: {
+                ar: 'مسير الرواتب ونظام حماية الأجور (Odoo Kuwait WPS)',
+                en: 'Payroll & WPS',
+              },
+            }}
+            icon={<CreditCard className="text-[#714B67]" size={22} />}
+            subtitleUiKey={UI_KEYS.appSubtitle('payroll')}
+            subtitleDefaults={{
+              label: {
+                ar: 'حسابات قانون العمل الكويتي (أساس 26 يوماً / 8 ساعات)',
+                en: 'Kuwait labour payroll rules',
+              },
+            }}
+          />
           <p className="text-[11px] text-slate-500">
             المنشأة: <strong className="text-[#714B67]">{activeCompany?.nameAr || 'المؤسسة الطبية'}</strong> | حسابات قانون العمل الكويتي (أساس 26 يوماً / 8 ساعات)
           </p>
@@ -793,7 +809,14 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                   activeSubTab === 'payslips' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <CreditCard size={14} /> مسيرات الرواتب
+                <CreditCard size={14} />
+                <UiStudioTarget
+                  uiKey={UI_KEYS.appSubTab('payroll', 'payslips')}
+                  kind="tab"
+                  defaults={{ label: { ar: 'مسيرات الرواتب', en: 'Payslips' } }}
+                >
+                  مسيرات الرواتب
+                </UiStudioTarget>
               </button>
               <button
                 type="button"
@@ -802,7 +825,14 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                   activeSubTab === 'wps' ? 'bg-white text-emerald-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <ShieldCheck size={14} className="text-emerald-600" /> حماية الأجور (WPS & SIF)
+                <ShieldCheck size={14} className="text-emerald-600" />
+                <UiStudioTarget
+                  uiKey={UI_KEYS.appSubTab('payroll', 'wps')}
+                  kind="tab"
+                  defaults={{ label: { ar: 'حماية الأجور (WPS & SIF)', en: 'WPS & SIF' } }}
+                >
+                  حماية الأجور (WPS & SIF)
+                </UiStudioTarget>
               </button>
               <button
                 type="button"
@@ -811,7 +841,14 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                   activeSubTab === 'loans' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <DollarSign size={14} /> السلف والأقساط
+                <DollarSign size={14} />
+                <UiStudioTarget
+                  uiKey={UI_KEYS.appSubTab('payroll', 'loans')}
+                  kind="tab"
+                  defaults={{ label: { ar: 'السلف والأقساط', en: 'Loans' } }}
+                >
+                  السلف والأقساط
+                </UiStudioTarget>
               </button>
               <button
                 type="button"

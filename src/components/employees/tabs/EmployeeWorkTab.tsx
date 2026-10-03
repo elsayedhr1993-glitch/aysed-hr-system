@@ -60,6 +60,7 @@ export const EmployeeWorkTab: React.FC<Props> = ({
       {showMoh && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 rounded-xl border border-blue-200 bg-blue-50/40">
           <EditableField
+            studioFieldKey="mohLicense"
             label="رقم ترخيص MOH"
             value={employee.mohLicense || employee.mohLicenseNo || ''}
             onChange={(val) => {
@@ -70,6 +71,7 @@ export const EmployeeWorkTab: React.FC<Props> = ({
             type="text"
           />
           <EditableField
+            studioFieldKey="mohLicenseExpiry"
             label="تاريخ انتهاء الترخيص"
             value={(employee.mohLicenseExpiry || '').toString().slice(0, 10)}
             onChange={(val) => handleFieldChange('mohLicenseExpiry', val)}
@@ -77,6 +79,7 @@ export const EmployeeWorkTab: React.FC<Props> = ({
             type="date"
           />
           <EditableField
+            studioFieldKey="mohSpecialty"
             label="المسمى / التخصص الطبي"
             value={employee.mohSpecialty || employee.specialty || ''}
             onChange={(val) => {
@@ -94,6 +97,7 @@ export const EmployeeWorkTab: React.FC<Props> = ({
       {showBadges && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50">
           <EditableField
+            studioFieldKey="workBadgeNo"
             label="رقم بطاقة العمل"
             value={employee.workBadgeNo || employee.badgeId || ''}
             onChange={(val) => {
@@ -104,6 +108,7 @@ export const EmployeeWorkTab: React.FC<Props> = ({
             type="text"
           />
           <EditableField
+            studioFieldKey="workBadgeExpiry"
             label="تاريخ انتهاء البطاقة"
             value={(employee.workBadgeExpiry || '').toString().slice(0, 10)}
             onChange={(val) => handleFieldChange('workBadgeExpiry', val)}
@@ -115,6 +120,7 @@ export const EmployeeWorkTab: React.FC<Props> = ({
       {showDriving && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 rounded-xl border border-amber-200 bg-amber-50/50">
           <EditableField
+            studioFieldKey="drivingLicenseNo"
             label="رقم رخصة القيادة"
             value={employee.drivingLicenseNo || ''}
             onChange={(val) => handleFieldChange('drivingLicenseNo', val)}
@@ -122,6 +128,7 @@ export const EmployeeWorkTab: React.FC<Props> = ({
             type="text"
           />
           <EditableField
+            studioFieldKey="drivingLicenseClass"
             label="فئة الرخصة"
             value={employee.drivingLicenseClass || ''}
             onChange={(val) => handleFieldChange('drivingLicenseClass', val)}
@@ -129,6 +136,7 @@ export const EmployeeWorkTab: React.FC<Props> = ({
             type="text"
           />
           <EditableField
+            studioFieldKey="drivingLicenseExpiry"
             label="تاريخ انتهاء الرخصة"
             value={(employee.drivingLicenseExpiry || '').toString().slice(0, 10)}
             onChange={(val) => handleFieldChange('drivingLicenseExpiry', val)}
@@ -224,6 +232,7 @@ export const EmployeeWorkTab: React.FC<Props> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 w-full">
           <EditableField
+            studioFieldKey="jobTitle"
             label="المسمى الوظيفي"
             value={employee.jobTitle || ''}
             onChange={(val) => handleFieldChange('jobTitle', val)}
@@ -232,6 +241,7 @@ export const EmployeeWorkTab: React.FC<Props> = ({
             placeholder="مثال: مسؤول موارد بشرية"
           />
           <EditableField
+            studioFieldKey="dept"
             label="القسم / الإدارة"
             value={employee.dept || employee.department || ''}
             onChange={(val) => {
@@ -243,6 +253,7 @@ export const EmployeeWorkTab: React.FC<Props> = ({
             placeholder="الشؤون الإدارية"
           />
           <EditableField
+            studioFieldKey="phone"
             label="هاتف العمل"
             value={employee.phone || ''}
             onChange={(val) => handleFieldChange('phone', val)}
@@ -251,6 +262,7 @@ export const EmployeeWorkTab: React.FC<Props> = ({
             placeholder="+965"
           />
           <EditableField
+            studioFieldKey="email"
             label="بريد العمل"
             value={employee.email || ''}
             onChange={(val) => handleFieldChange('email', val)}
@@ -267,6 +279,7 @@ export const EmployeeWorkTab: React.FC<Props> = ({
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 pt-2">
             <EditableField
+            studioFieldKey="manager"
               label="المدير المباشر"
               value={employee.manager || employee.directSupervisor || ''}
               onChange={(val) => {
@@ -277,6 +290,7 @@ export const EmployeeWorkTab: React.FC<Props> = ({
               type="text"
             />
             <EditableField
+            studioFieldKey="workLocation"
               label="موقع العمل"
               value={employee.workLocation || ''}
               onChange={(val) => handleFieldChange('workLocation', val)}
@@ -303,6 +317,7 @@ export const EmployeeWorkTab: React.FC<Props> = ({
               )}
             </div>
             <EditableSelect
+            studioFieldKey="workingSchedule"
               label="جدول العمل"
               value={employee.workingSchedule || 'standard_48h'}
               onChange={(val) => handleFieldChange('workingSchedule', val)}
@@ -349,6 +364,7 @@ export const EmployeeWorkTab: React.FC<Props> = ({
           </div>
 
           <EditableField
+            studioFieldKey="jobTitle"
             label="المسمى الوظيفي (Job Position)"
             value={employee.jobTitle || ''}
             onChange={(val) => handleFieldChange('jobTitle', val)}
@@ -358,6 +374,7 @@ export const EmployeeWorkTab: React.FC<Props> = ({
           />
 
           <EditableField
+            studioFieldKey="dept"
             label="الإدارة / القسم (Department)"
             value={employee.dept || employee.department || ''}
             onChange={(val) => {
@@ -370,6 +387,7 @@ export const EmployeeWorkTab: React.FC<Props> = ({
           />
 
           <EditableField
+            studioFieldKey="manager"
             label="المدير المباشر (Coach / Manager)"
             value={employee.manager || employee.directSupervisor || ''}
             onChange={(val) => {
@@ -382,6 +400,7 @@ export const EmployeeWorkTab: React.FC<Props> = ({
           />
 
           <EditableField
+            studioFieldKey="workLocation"
             label="موقع العمل / الفرع (Work Location)"
             value={employee.workLocation || ''}
             onChange={(val) => handleFieldChange('workLocation', val)}
@@ -402,6 +421,7 @@ export const EmployeeWorkTab: React.FC<Props> = ({
           </div>
 
           <EditableField
+            studioFieldKey="email"
             label="البريد الإلكتروني للعمل (Work Email)"
             value={employee.email || ''}
             onChange={(val) => handleFieldChange('email', val)}
@@ -411,6 +431,7 @@ export const EmployeeWorkTab: React.FC<Props> = ({
           />
 
           <EditableField
+            studioFieldKey="phone"
             label="هاتف العمل (Work Phone)"
             value={employee.phone || ''}
             onChange={(val) => handleFieldChange('phone', val)}
@@ -454,6 +475,7 @@ export const EmployeeWorkTab: React.FC<Props> = ({
           </div>
 
           <EditableSelect
+            studioFieldKey="workingSchedule"
             label="جدول وساعات العمل (Working Schedule)"
             value={employee.workingSchedule || 'standard_48h'}
             onChange={(val) => handleFieldChange('workingSchedule', val)}

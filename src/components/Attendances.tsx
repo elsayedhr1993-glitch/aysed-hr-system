@@ -51,6 +51,8 @@ import { parseAttendanceFile } from '../utils/attendanceParser';
 import { db, cleanFirestoreData } from '../lib/firebase';
 import { collection, doc, getDoc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { EmployeeShift, ShiftProfile } from '../types';
+import { UiStudioTarget } from './studio/UiStudioTarget';
+import { UI_KEYS } from '../utils/uiStudioKeys';
 import { upsertAttendanceRecordDoc } from '../utils/attendanceRecords';
 import { loadTenantPolicy } from '../services/hrPolicyStorage';
 import { getAttendancePolicyStorageKey } from './attendance/AttendanceSetupWizardModal';
@@ -1165,7 +1167,18 @@ export const Attendances: React.FC = () => {
             </div>
             <div>
               <h1 className="text-base font-black text-slate-900 flex items-center gap-2">
-                <span>الحضور والانصراف وتجميع البصمة (Attendances)</span>
+                <UiStudioTarget
+                  uiKey={UI_KEYS.appTitle('attendance')}
+                  kind="label"
+                  defaults={{
+                    label: {
+                      ar: 'الحضور والانصراف وتجميع البصمة (Attendances)',
+                      en: 'Attendance & biometrics',
+                    },
+                  }}
+                >
+                  الحضور والانصراف وتجميع البصمة (Attendances)
+                </UiStudioTarget>
                 <span className="text-xs bg-[#714B67]/10 text-[#714B67] px-2 py-0.5 rounded-full font-bold">
                   {liveTableData.length} سجل
                 </span>

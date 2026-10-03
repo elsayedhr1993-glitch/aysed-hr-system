@@ -45,6 +45,8 @@ import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { exportToExcel } from '../utils/exportUtils';
 import { triggerContractRunningLeaveAllocation } from '../utils/contractLeaveTrigger';
 import { normalizeContractStatus } from '../utils/contractStatus';
+import { UiStudioScreenTitle } from './studio/UiStudioScreenTitle';
+import { UI_KEYS } from '../utils/uiStudioKeys';
 import {
   canAutoMaterializeContractForEmployee,
   canonicalContractDocId,
@@ -641,10 +643,23 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
             <FileText className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-xl font-black text-slate-900">عقود العمل وهيكل الرواتب والدوام (hr.contract)</h1>
-            <p className="text-xs text-slate-500 font-medium">
-              إدارة العقود الفردية، الدوام الكامل والجزئي (Locum / Hourly)، جداول الساعات المخصصة، والربط الحي مع البصمة و WPS
-            </p>
+            <UiStudioScreenTitle
+              uiKey={UI_KEYS.appTitle('contracts')}
+              defaults={{
+                label: {
+                  ar: 'عقود العمل وهيكل الرواتب والدوام (hr.contract)',
+                  en: 'Employment contracts (hr.contract)',
+                },
+              }}
+              className="text-xl font-black text-slate-900 flex items-center gap-2"
+              subtitleUiKey={UI_KEYS.appSubtitle('contracts')}
+              subtitleDefaults={{
+                label: {
+                  ar: 'إدارة العقود الفردية، الدوام الكامل والجزئي، والربط مع البصمة و WPS',
+                  en: 'Contracts, shifts, attendance & WPS',
+                },
+              }}
+            />
           </div>
         </div>
 

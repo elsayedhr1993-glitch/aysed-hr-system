@@ -47,6 +47,8 @@ import { toast } from 'react-hot-toast';
 import OdooPamContractModal from './OdooPamContractModal';
 import OdooRichDocumentEditor, { SMART_PLACEHOLDERS } from './OdooRichDocumentEditor';
 import { PAM_CONTRACT_ENGLISH_BODY } from '../templates/pamContractEnglishBody';
+import { UiStudioTarget } from './studio/UiStudioTarget';
+import { UI_KEYS } from '../utils/uiStudioKeys';
 
 function formatPamContractDateEn(isoDate: string): string {
   const d = new Date(isoDate);
@@ -524,12 +526,16 @@ export const OdooTemplatesApp: React.FC = () => {
     if (selectedEmpId) {
       const emp = employees.find(e => e.id === selectedEmpId);
       if (emp) {
-        setEmpName(emp.name || '');
+        const anyEmp = emp as any;
+        setEmpName(
+          selectedTemplate === 'pam_contract_en'
+            ? String(anyEmp.nameEn || anyEmp.fullNameEn || emp.name || '').trim()
+            : emp.name || ''
+        );
         setCivilId(emp.civilId || '');
         setJobTitle(emp.jobTitle || 'موظف');
         setDepartment(emp.department || 'الإدارة العامة');
         
-        const anyEmp = emp as any;
         setNationality(anyEmp.nationality || (emp.isKuwaiti ? 'كويتي' : 'غير كويتي'));
         setEmployeeResidence(
           String(
@@ -578,7 +584,7 @@ export const OdooTemplatesApp: React.FC = () => {
     } else if (employees.length > 0 && !selectedEmpId) {
       setSelectedEmpId(employees[0].id);
     }
-  }, [selectedEmpId, employees]);
+  }, [selectedEmpId, employees, selectedTemplate]);
 
   // Compile editor HTML content by replacing all {placeholders} with live context
   const compiledHtml = useMemo(() => {
@@ -1065,7 +1071,16 @@ export const OdooTemplatesApp: React.FC = () => {
                 <div className="space-y-3">
                   <label className="block">
                     <span className="text-[10px] font-bold text-slate-600 mb-1 flex items-center gap-1">
-                      <Users size={12} /> الموظف المستهدف
+                      <Users size={12} />
+                      <UiStudioTarget
+                        uiKey={UI_KEYS.templatesContext('target_employee')}
+                        kind="label"
+                        defaults={{
+                          label: { ar: 'الموظف المستهدف', en: 'Target employee' },
+                        }}
+                      >
+                        الموظف المستهدف
+                      </UiStudioTarget>
                     </span>
                     <select
                       value={selectedEmpId}

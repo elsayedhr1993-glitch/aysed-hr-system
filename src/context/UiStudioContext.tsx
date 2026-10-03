@@ -27,6 +27,7 @@ interface UiStudioContextValue {
   saveElementPatch: (key: string, patch: Partial<UiElementOverride>) => Promise<void>;
   hideElement: (key: string) => Promise<void>;
   reorderKeys: (orderedKeys: string[], baseOrders?: number[]) => Promise<void>;
+  exportOverridesJson: () => void;
 }
 
 const UiStudioContext = createContext<UiStudioContextValue | undefined>(undefined);
@@ -106,6 +107,23 @@ export const UiStudioProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     [saveElementPatch]
   );
 
+  const exportOverridesJson = useCallback(() => {
+    if (!overridesDoc) {
+      toast.error('لا توجد تخصيصات لتصديرها بعد');
+      return;
+    }
+    const blob = new Blob([JSON.stringify(overridesDoc, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ui_overrides_${companyId || 'tenant'}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success('تم تصدير تخصيصات Studio');
+  }, [overridesDoc, companyId]);
+
   const reorderKeys = useCallback(
     async (orderedKeys: string[], baseOrders: number[] = []) => {
       if (!isActualSuperAdmin || !companyId) return;
@@ -141,6 +159,7 @@ export const UiStudioProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       saveElementPatch,
       hideElement,
       reorderKeys,
+      exportOverridesJson,
     }),
     [
       isActualSuperAdmin,
@@ -152,6 +171,7 @@ export const UiStudioProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       saveElementPatch,
       hideElement,
       reorderKeys,
+      exportOverridesJson,
     ]
   );
 

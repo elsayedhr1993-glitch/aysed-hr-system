@@ -37,6 +37,7 @@ export const EmployeePrivateTab: React.FC<Props> = ({
       )}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 w-full">
         <EditableField
+            studioFieldKey="civilIdExpiry"
           label="انتهاء البطاقة المدنية"
           value={employee.civilIdExpiry ? employee.civilIdExpiry.slice(0, 10) : ''}
           onChange={(val) => handleFieldChange('civilIdExpiry', val)}
@@ -44,6 +45,7 @@ export const EmployeePrivateTab: React.FC<Props> = ({
           type="date"
         />
         <EditableField
+            studioFieldKey="dob"
           label="تاريخ الميلاد"
           value={employee.dob ? employee.dob.slice(0, 10) : (employee.birthDate ? employee.birthDate.slice(0, 10) : '')}
           onChange={(val) => {
@@ -75,6 +77,7 @@ export const EmployeePrivateTab: React.FC<Props> = ({
           ]}
         />
         <EditableField
+            studioFieldKey="passportNo"
           label="جواز السفر"
           value={employee.passportNo || ''}
           onChange={(val) => handleFieldChange('passportNo', val)}
@@ -82,6 +85,7 @@ export const EmployeePrivateTab: React.FC<Props> = ({
           type="text"
         />
         <EditableField
+            studioFieldKey="passportExpiry"
           label="انتهاء الجواز"
           value={employee.passportExpiry ? employee.passportExpiry.slice(0, 10) : ''}
           onChange={(val) => handleFieldChange('passportExpiry', val)}
@@ -89,6 +93,7 @@ export const EmployeePrivateTab: React.FC<Props> = ({
           type="date"
         />
         <EditableField
+            studioFieldKey="residencyExpiry"
           label="انتهاء الإقامة"
           value={employee.residencyExpiry ? employee.residencyExpiry.slice(0, 10) : ''}
           onChange={(val) => handleFieldChange('residencyExpiry', val)}
@@ -96,6 +101,7 @@ export const EmployeePrivateTab: React.FC<Props> = ({
           type="date"
         />
         <EditableField
+            studioFieldKey="bankName"
           label="اسم البنك"
           value={employee.bankName || 'بنك الكويت الوطني NBK'}
           onChange={(val) => handleFieldChange('bankName', val)}
@@ -132,6 +138,7 @@ export const EmployeePrivateTab: React.FC<Props> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 w-full">
           <EditableField
+            studioFieldKey="civilId"
             label="الرقم المدني"
             value={employee.civilId || employee.civil_id_number || ''}
             onChange={(val) => {
@@ -143,6 +150,7 @@ export const EmployeePrivateTab: React.FC<Props> = ({
             maxLength={12}
           />
           <EditableField
+            studioFieldKey="nationality"
             label="الجنسية"
             value={employee.nationality || 'كويتي'}
             onChange={(val) => handleFieldChange('nationality', val)}
@@ -150,6 +158,7 @@ export const EmployeePrivateTab: React.FC<Props> = ({
             type="text"
           />
           <EditableField
+            studioFieldKey="personalPhone"
             label="الهاتف الشخصي"
             value={employee.personalPhone || employee.mobile || ''}
             onChange={(val) => {
@@ -223,6 +232,7 @@ export const EmployeePrivateTab: React.FC<Props> = ({
           </div>
 
           <EditableField
+            studioFieldKey="civilId"
             label="الرقم المدني (Civil ID)"
             value={employee.civilId || employee.civil_id_number || ''}
             onChange={(val) => {
@@ -236,6 +246,7 @@ export const EmployeePrivateTab: React.FC<Props> = ({
           />
 
           <EditableField
+            studioFieldKey="civilIdExpiry"
             label="انتهاء البطاقة المدنية (Civil ID Expiry)"
             value={employee.civilIdExpiry ? employee.civilIdExpiry.slice(0, 10) : ''}
             onChange={(val) => handleFieldChange('civilIdExpiry', val)}
@@ -244,6 +255,7 @@ export const EmployeePrivateTab: React.FC<Props> = ({
           />
 
           <EditableField
+            studioFieldKey="nationality"
             label="الجنسية (Nationality)"
             value={employee.nationality || 'كويتي'}
             onChange={(val) => handleFieldChange('nationality', val)}
@@ -253,6 +265,7 @@ export const EmployeePrivateTab: React.FC<Props> = ({
           />
 
           <EditableField
+            studioFieldKey="dob"
             label="تاريخ الميلاد (Date of Birth)"
             value={employee.dob ? employee.dob.slice(0, 10) : (employee.birthDate ? employee.birthDate.slice(0, 10) : '')}
             onChange={(val) => {
@@ -264,6 +277,7 @@ export const EmployeePrivateTab: React.FC<Props> = ({
           />
 
           <EditableSelect
+            studioFieldKey="gender"
             label="الجنس (Gender)"
             value={employee.gender || 'male'}
             onChange={(val) => handleFieldChange('gender', val)}
@@ -272,6 +286,7 @@ export const EmployeePrivateTab: React.FC<Props> = ({
           />
 
           <EditableSelect
+            studioFieldKey="maritalStatus"
             label="الحالة الاجتماعية (Marital Status)"
             value={employee.maritalStatus || 'single'}
             onChange={(val) => handleFieldChange('maritalStatus', val)}
@@ -290,6 +305,7 @@ export const EmployeePrivateTab: React.FC<Props> = ({
           </div>
 
           <EditableField
+            studioFieldKey="passportNo"
             label="رقم جواز السفر (Passport No)"
             value={employee.passportNo || ''}
             onChange={(val) => handleFieldChange('passportNo', val)}
@@ -299,6 +315,7 @@ export const EmployeePrivateTab: React.FC<Props> = ({
           />
 
           <EditableField
+            studioFieldKey="passportExpiry"
             label="انتهاء الجواز (Passport Expiry)"
             value={employee.passportExpiry ? employee.passportExpiry.slice(0, 10) : ''}
             onChange={(val) => handleFieldChange('passportExpiry', val)}
@@ -307,6 +324,7 @@ export const EmployeePrivateTab: React.FC<Props> = ({
           />
 
           <EditableField
+            studioFieldKey="residencyExpiry"
             label="انتهاء الإقامة (Residency Expiry)"
             value={employee.residencyExpiry ? employee.residencyExpiry.slice(0, 10) : ''}
             onChange={(val) => handleFieldChange('residencyExpiry', val)}
@@ -315,6 +333,7 @@ export const EmployeePrivateTab: React.FC<Props> = ({
           />
 
           <EditableField
+            studioFieldKey="personalPhone"
             label="الهاتف الشخصي (Personal Phone)"
             value={employee.personalPhone || employee.mobile || ''}
             onChange={(val) => {
@@ -327,6 +346,7 @@ export const EmployeePrivateTab: React.FC<Props> = ({
           />
 
           <EditableField
+            studioFieldKey="bankName"
             label="اسم البنك الكويتي (Bank Name)"
             value={employee.bankName || 'بنك الكويت الوطني NBK'}
             onChange={(val) => handleFieldChange('bankName', val)}

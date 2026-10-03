@@ -27,6 +27,8 @@ import {
   LayoutGrid, List, FileSpreadsheet, Printer, Eye, Plus, Building2, 
   User, Clock, Filter, Sparkles
 } from 'lucide-react';
+import { UiStudioTarget } from '../components/studio/UiStudioTarget';
+import { UI_KEYS } from '../utils/uiStudioKeys';
 
 interface DocumentsAppProps {
   documents: DocumentItem[];
@@ -309,7 +311,17 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-slate-900">الأرشيف الرقمي والوثائق</h2>
+              <h2 className="text-lg font-bold text-slate-900">
+                <UiStudioTarget
+                  uiKey={UI_KEYS.appTitle('archive')}
+                  kind="label"
+                  defaults={{
+                    label: { ar: 'الأرشيف الرقمي والوثائق', en: 'Digital archive & documents' },
+                  }}
+                >
+                  الأرشيف الرقمي والوثائق
+                </UiStudioTarget>
+              </h2>
               <span className="bg-purple-100 text-[#714B67] text-[10px] font-bold px-2 py-0.5 rounded-full font-mono">
                 Odoo Documents v17
               </span>

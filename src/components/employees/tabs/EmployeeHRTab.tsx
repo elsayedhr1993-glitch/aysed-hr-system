@@ -513,6 +513,7 @@ export const EmployeeHRTab: React.FC<Props> = ({
       {/* 📋 تفاصيل العقد وبطاقة الموارد البشرية والرواتب */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-2">
         <EditableSelect
+            studioFieldKey="contractType"
           label="نوع العقد (Contract Type)"
           value={employee.contractType || 'محدد المدة'}
           onChange={(val) => handleFieldChange('contractType', val)}
@@ -538,6 +539,7 @@ export const EmployeeHRTab: React.FC<Props> = ({
         />
 
         <EditableField
+            studioFieldKey="pin"
           label="رقم البصمة البيومترية (ZKTeco PIN)"
           value={employee.pin || employee.badgeId || employee.id || ''}
           onChange={(val) => handleFieldChange('pin', val)}

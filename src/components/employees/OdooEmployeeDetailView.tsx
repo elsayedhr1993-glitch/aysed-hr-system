@@ -68,6 +68,8 @@ import { employeeRequiresMohCompliance, mohComplianceGaps } from '../../utils/em
 import { attachSignedContractFileToEmployee } from '../../utils/signedContractUpload';
 import { EmployeeOnboardingChecklistModal } from '../onboarding/EmployeeOnboardingChecklistModal';
 import { subscribeEmployeeOnboardingChecklist } from '../../services/employeeOnboardingChecklistService';
+import { UiStudioTarget } from '../studio/UiStudioTarget';
+import { UI_KEYS } from '../../utils/uiStudioKeys';
 
 interface Props {
   employee: any;
@@ -410,12 +412,23 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
       : []),
   ];
 
-  const masterTabs: { id: 'work' | 'private' | 'contract' | 'licenses'; label: string; icon: React.ReactNode }[] = [
-    { id: 'work', label: 'معلومات العمل', icon: <Briefcase size={16} /> },
-    { id: 'private', label: 'البيانات الشخصية', icon: <User size={16} /> },
-    { id: 'contract', label: 'عقد العمل والراتب', icon: <FileText size={16} /> },
-    { id: 'licenses', label: 'التراخيص والإقامات (PAM / MOH)', icon: <Stethoscope size={16} /> },
+  const masterTabs: {
+    id: 'work' | 'private' | 'contract' | 'licenses';
+    label: string;
+    labelEn: string;
+    icon: React.ReactNode;
+  }[] = [
+    { id: 'work', label: 'معلومات العمل', labelEn: 'Work information', icon: <Briefcase size={16} /> },
+    { id: 'private', label: 'البيانات الشخصية', labelEn: 'Personal data', icon: <User size={16} /> },
+    { id: 'contract', label: 'عقد العمل والراتب', labelEn: 'Contract & salary', icon: <FileText size={16} /> },
+    {
+      id: 'licenses',
+      label: 'التراخيص والإقامات (PAM / MOH)',
+      labelEn: 'Licenses & residency',
+      icon: <Stethoscope size={16} />,
+    },
   ];
+  const employeeTabUiKeys = masterTabs.map(t => UI_KEYS.employeeTab(t.id));
 
   // Dynamic Legal Documents Checklist (Inherited from Onboarding Plan or Defaults)
   const requiredChecklist: Record<string, boolean> = {
@@ -1001,7 +1014,14 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
               }`}
             >
               {tab.icon}
-              <span>{tab.label}</span>
+              <UiStudioTarget
+                uiKey={UI_KEYS.employeeTab(tab.id)}
+                kind="tab"
+                defaults={{ label: { ar: tab.label, en: tab.labelEn } }}
+                reorderGroupKeys={employeeTabUiKeys}
+              >
+                {tab.label}
+              </UiStudioTarget>
             </button>
           ))}
         </div>

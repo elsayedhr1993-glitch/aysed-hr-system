@@ -28,22 +28,18 @@ import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
 import { useOdooHierarchy } from '../context/OdooHierarchyContext';
 import { exportToExcel } from '../utils/exportUtils';
 import { OdooOfficialA4PrintModal } from './reports/OdooOfficialA4PrintModal';
-import { UiStudioTableHead } from './studio/UiStudioTableHead';
-
-const WPS_RECONCILIATION_COLUMNS = [
-  { key: 'reports.wps.col.emp_code', ar: 'كود الموظف', en: 'Employee code', className: 'p-3.5' },
-  { key: 'reports.wps.col.employee', ar: 'الموظف / الرقم المدني', en: 'Employee / Civil ID', className: 'p-3.5' },
-  { key: 'reports.wps.col.dept', ar: 'القسم والمسمى', en: 'Dept & title', className: 'p-3.5' },
-  { key: 'reports.wps.col.basic', ar: 'الأساسي (د.ك)', en: 'Basic (KWD)', className: 'p-3.5 text-left' },
-  { key: 'reports.wps.col.allowances', ar: 'البدلات (د.ك)', en: 'Allowances (KWD)', className: 'p-3.5 text-left' },
-  { key: 'reports.wps.col.extra', ar: 'الإضافي (+)', en: 'Extra (+)', className: 'p-3.5 text-left' },
-  { key: 'reports.wps.col.deduction', ar: 'الخصم (-)', en: 'Deduction (-)', className: 'p-3.5 text-left' },
-  { key: 'reports.wps.col.net', ar: 'صافي المحول WPS', en: 'Net WPS', className: 'p-3.5 text-left text-emerald-800' },
-  { key: 'reports.wps.col.bank', ar: 'البنك والآيبان', en: 'Bank & IBAN', className: 'p-3.5' },
-  { key: 'reports.wps.col.status', ar: 'حالة الدفعة', en: 'Payment status', className: 'p-3.5 text-center' },
-] as const;
-
-const WPS_COLUMN_KEYS = WPS_RECONCILIATION_COLUMNS.map(c => c.key);
+import { UiStudioReportHeadRow } from './studio/UiStudioReportHeadRow';
+import { UiStudioTableCell } from './studio/UiStudioTableCell';
+import { UiStudioTarget } from './studio/UiStudioTarget';
+import {
+  ATTENDANCE_OT_COLUMNS,
+  EOS_ACCRUAL_COLUMNS,
+  GOV_COMPLIANCE_COLUMNS,
+  LEAVES_LIABILITY_COLUMNS,
+  REPORT_NAV_ITEMS,
+  WPS_RECONCILIATION_COLUMNS,
+} from '../config/uiStudio/reportColumns';
+import { UI_KEYS } from '../utils/uiStudioKeys';
 import { getEmployeeUnifiedSummary } from '../utils/leaveEngine';
 import { computeNetPayrollFromComponents } from '../utils/kuwaitPayrollMath';
 import {
@@ -733,7 +729,13 @@ export const OdooReportsApp: React.FC = () => {
                     : 'text-slate-700 hover:bg-slate-200/70'
                 }`}
               >
-                <span>1. مطابقة مسيرات الرواتب (شهر الفترة)</span>
+                <UiStudioTarget
+                  uiKey={UI_KEYS.reportNav('wps_reconciliation')}
+                  kind="label"
+                  defaults={{ label: { ar: REPORT_NAV_ITEMS[0].ar, en: REPORT_NAV_ITEMS[0].en } }}
+                >
+                  {REPORT_NAV_ITEMS[0].ar}
+                </UiStudioTarget>
                 <ChevronRight size={14} className={activeReport === 'wps_reconciliation' ? 'text-white' : 'text-slate-400'} />
               </button>
               <button
@@ -745,7 +747,13 @@ export const OdooReportsApp: React.FC = () => {
                 }`}
               >
                 <span className="flex items-center gap-1.5">
-                  2. الإقامات وأذونات PAM وتراخيص MOH
+                  <UiStudioTarget
+                    uiKey={UI_KEYS.reportNav('gov_compliance')}
+                    kind="label"
+                    defaults={{ label: { ar: REPORT_NAV_ITEMS[1].ar, en: REPORT_NAV_ITEMS[1].en } }}
+                  >
+                    {REPORT_NAV_ITEMS[1].ar}
+                  </UiStudioTarget>
                   {expiredComplianceCount > 0 && (
                     <span className="bg-rose-500 text-white text-[9px] px-1.5 py-0.2 rounded-full font-mono">
                       {expiredComplianceCount}
@@ -771,7 +779,13 @@ export const OdooReportsApp: React.FC = () => {
                     : 'text-slate-700 hover:bg-slate-200/70'
                 }`}
               >
-                <span>3. مخصصات نهاية الخدمة (مادة 51)</span>
+                <UiStudioTarget
+                  uiKey={UI_KEYS.reportNav('eos_indemnity_accrual')}
+                  kind="label"
+                  defaults={{ label: { ar: REPORT_NAV_ITEMS[2].ar, en: REPORT_NAV_ITEMS[2].en } }}
+                >
+                  {REPORT_NAV_ITEMS[2].ar}
+                </UiStudioTarget>
                 <ChevronRight size={14} className={activeReport === 'eos_indemnity_accrual' ? 'text-white' : 'text-slate-400'} />
               </button>
               <button
@@ -782,7 +796,13 @@ export const OdooReportsApp: React.FC = () => {
                     : 'text-slate-700 hover:bg-slate-200/70'
                 }`}
               >
-                <span>4. أرصدة الإجازات والالتزام النقدي</span>
+                <UiStudioTarget
+                  uiKey={UI_KEYS.reportNav('leaves_financial_liability')}
+                  kind="label"
+                  defaults={{ label: { ar: REPORT_NAV_ITEMS[3].ar, en: REPORT_NAV_ITEMS[3].en } }}
+                >
+                  {REPORT_NAV_ITEMS[3].ar}
+                </UiStudioTarget>
                 <ChevronRight size={14} className={activeReport === 'leaves_financial_liability' ? 'text-white' : 'text-slate-400'} />
               </button>
             </div>
@@ -802,7 +822,13 @@ export const OdooReportsApp: React.FC = () => {
                     : 'text-slate-700 hover:bg-slate-200/70'
                 }`}
               >
-                <span>5. تحليل التأخير والغياب والإضافي (شهري)</span>
+                <UiStudioTarget
+                  uiKey={UI_KEYS.reportNav('attendance_overtime_analytics')}
+                  kind="label"
+                  defaults={{ label: { ar: REPORT_NAV_ITEMS[4].ar, en: REPORT_NAV_ITEMS[4].en } }}
+                >
+                  {REPORT_NAV_ITEMS[4].ar}
+                </UiStudioTarget>
                 <ChevronRight size={14} className={activeReport === 'attendance_overtime_analytics' ? 'text-white' : 'text-slate-400'} />
               </button>
               <div className="p-2 bg-purple-50/50 rounded-lg text-[10px] text-[#714B67] font-semibold flex items-center gap-1.5 border border-purple-100">
@@ -980,45 +1006,45 @@ export const OdooReportsApp: React.FC = () => {
             {activeReport === 'wps_reconciliation' && (
               <table className="w-full text-right text-xs">
                 <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 font-sans">
-                  <tr>
-                    {WPS_RECONCILIATION_COLUMNS.map(col => (
-                      <UiStudioTableHead
-                        key={col.key}
-                        uiKey={col.key}
-                        defaults={{ label: { ar: col.ar, en: col.en } }}
-                        reorderGroupKeys={[...WPS_COLUMN_KEYS]}
-                        className={col.className}
-                      />
-                    ))}
-                  </tr>
+                  <UiStudioReportHeadRow columns={[...WPS_RECONCILIATION_COLUMNS]} />
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-mono">
                   {filteredData.map((emp, idx) => (
                     <tr key={emp.id} className={`hover:bg-purple-50/40 transition ${idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
-                      <td className="p-3.5 font-bold text-[#714B67]">{emp.id}</td>
-                      <td className="p-3.5">
+                      <UiStudioTableCell uiKey="reports.wps.col.emp_code" defaults={{ label: { ar: 'كود الموظف', en: 'Code' } }} className="p-3.5 font-bold text-[#714B67]">
+                        {emp.id}
+                      </UiStudioTableCell>
+                      <UiStudioTableCell uiKey="reports.wps.col.employee" defaults={{ label: { ar: 'الموظف', en: 'Employee' } }} className="p-3.5">
                         <div className="font-bold text-slate-900 font-sans">{emp.name}</div>
                         <div className="text-[10px] text-slate-400">{emp.civilId}</div>
-                      </td>
-                      <td className="p-3.5 font-sans">
+                      </UiStudioTableCell>
+                      <UiStudioTableCell uiKey="reports.wps.col.dept" defaults={{ label: { ar: 'القسم', en: 'Dept' } }} className="p-3.5 font-sans">
                         <div className="font-semibold text-slate-800">{emp.jobTitle}</div>
                         <div className="text-[10px] text-slate-400">{emp.department}</div>
-                      </td>
-                      <td className="p-3.5 text-left">{emp.basicSalary.toFixed(3)}</td>
-                      <td className="p-3.5 text-left text-slate-600">+{(emp.totalSalary - emp.basicSalary).toFixed(3)}</td>
-                      <td className="p-3.5 text-left text-purple-700">+{emp.overtimeAmount.toFixed(3)}</td>
-                      <td className="p-3.5 text-left text-rose-600">
+                      </UiStudioTableCell>
+                      <UiStudioTableCell uiKey="reports.wps.col.basic" defaults={{ label: { ar: 'الأساسي', en: 'Basic' } }} className="p-3.5 text-left">
+                        {emp.basicSalary.toFixed(3)}
+                      </UiStudioTableCell>
+                      <UiStudioTableCell uiKey="reports.wps.col.allowances" defaults={{ label: { ar: 'البدلات', en: 'Allowances' } }} className="p-3.5 text-left text-slate-600">
+                        +{(emp.totalSalary - emp.basicSalary).toFixed(3)}
+                      </UiStudioTableCell>
+                      <UiStudioTableCell uiKey="reports.wps.col.extra" defaults={{ label: { ar: 'الإضافي', en: 'Extra' } }} className="p-3.5 text-left text-purple-700">
+                        +{emp.overtimeAmount.toFixed(3)}
+                      </UiStudioTableCell>
+                      <UiStudioTableCell uiKey="reports.wps.col.deduction" defaults={{ label: { ar: 'الخصم', en: 'Deduction' } }} className="p-3.5 text-left text-rose-600">
                         -{(emp.delayDeductionAmount + emp.absenceDeductionAmount + emp.loanDeductionAmount).toFixed(3)}
                         {emp.loanDeductionAmount > 0 && (
                           <span className="block text-[9px] text-rose-500 font-sans">سلف: {emp.loanDeductionAmount.toFixed(3)}</span>
                         )}
-                      </td>
-                      <td className="p-3.5 text-left font-black text-emerald-700 text-sm">{emp.netPayableSalary.toFixed(3)} د.ك</td>
-                      <td className="p-3.5 font-sans">
+                      </UiStudioTableCell>
+                      <UiStudioTableCell uiKey="reports.wps.col.net" defaults={{ label: { ar: 'الصافي', en: 'Net' } }} className="p-3.5 text-left font-black text-emerald-700 text-sm">
+                        {emp.netPayableSalary.toFixed(3)} د.ك
+                      </UiStudioTableCell>
+                      <UiStudioTableCell uiKey="reports.wps.col.bank" defaults={{ label: { ar: 'البنك', en: 'Bank' } }} className="p-3.5 font-sans">
                         <div className="text-[11px] font-bold text-slate-800">{emp.bankName}</div>
                         <div className="text-[9px] text-slate-400 font-mono truncate max-w-[180px]">{emp.iban}</div>
-                      </td>
-                      <td className="p-3.5 text-center font-sans">
+                      </UiStudioTableCell>
+                      <UiStudioTableCell uiKey="reports.wps.col.status" defaults={{ label: { ar: 'الحالة', en: 'Status' } }} className="p-3.5 text-center font-sans">
                         <span
                           className={`px-2.5 py-1 rounded-full text-[10px] font-bold inline-flex items-center gap-1 border ${
                             emp.wpsStatus === 'مطابق ومحوّل'
@@ -1031,7 +1057,7 @@ export const OdooReportsApp: React.FC = () => {
                           {emp.wpsStatus === 'مطابق ومحوّل' ? <CheckCircle2 size={11} /> : <AlertTriangle size={11} />}
                           {emp.wpsStatus}
                         </span>
-                      </td>
+                      </UiStudioTableCell>
                     </tr>
                   ))}
                 </tbody>
@@ -1055,14 +1081,7 @@ export const OdooReportsApp: React.FC = () => {
             {activeReport === 'gov_compliance' && (
               <table className="w-full text-right text-xs">
                 <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 font-sans">
-                  <tr>
-                    <th className="p-3.5">الموظف / الرقم المدني</th>
-                    <th className="p-3.5">الجنسية والكادر</th>
-                    <th className="p-3.5">انتهاء الإقامة (Residency)</th>
-                    <th className="p-3.5">إذن العمل (PAM)</th>
-                    <th className="p-3.5">ترخيص مزاولة المهنة (MOH)</th>
-                    <th className="p-3.5 text-center">حالة الامتثال والإنذار</th>
-                  </tr>
+                  <UiStudioReportHeadRow columns={[...GOV_COMPLIANCE_COLUMNS]} />
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-mono">
                   {filteredData.map((emp, idx) => (
@@ -1141,16 +1160,7 @@ export const OdooReportsApp: React.FC = () => {
             {activeReport === 'eos_indemnity_accrual' && (
               <table className="w-full text-right text-xs">
                 <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 font-sans">
-                  <tr>
-                    <th className="p-3.5">الموظف / الرقم المدني</th>
-                    <th className="p-3.5">تاريخ التعيين</th>
-                    <th className="p-3.5">مدة الخدمة</th>
-                    <th className="p-3.5 text-left">الراتب الشامل (د.ك)</th>
-                    <th className="p-3.5 text-left">أجر اليوم (÷26)</th>
-                    <th className="p-3.5">قاعدة الاحتساب (المادة 51)</th>
-                    <th className="p-3.5 text-left text-purple-900">المخصص المتراكم (Accrual)</th>
-                    <th className="p-3.5 text-left text-slate-400">الحد الأقصى (18 شهر)</th>
-                  </tr>
+                  <UiStudioReportHeadRow columns={[...EOS_ACCRUAL_COLUMNS]} />
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-mono">
                   {filteredData.map((emp, idx) => (
@@ -1197,16 +1207,7 @@ export const OdooReportsApp: React.FC = () => {
             {activeReport === 'leaves_financial_liability' && (
               <table className="w-full text-right text-xs">
                 <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 font-sans">
-                  <tr>
-                    <th className="p-3.5">الموظف / الرقم المدني</th>
-                    <th className="p-3.5">المسمى والقسم</th>
-                    <th className="p-3.5 text-center">الاستحقاق السنوي (يوم)</th>
-                    <th className="p-3.5 text-center text-slate-500">المستهلك فعلياً</th>
-                    <th className="p-3.5 text-center">تفصيل FIFO</th>
-                    <th className="p-3.5 text-center font-bold text-purple-900">الرصيد المتبقي (يوم)</th>
-                    <th className="p-3.5 text-left">أجر اليوم (÷26)</th>
-                    <th className="p-3.5 text-left text-amber-800 font-bold">الالتزام النقدي للرصيد (د.ك)</th>
-                  </tr>
+                  <UiStudioReportHeadRow columns={[...LEAVES_LIABILITY_COLUMNS]} />
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-mono">
                   {filteredData.map((emp, idx) => (
@@ -1252,17 +1253,7 @@ export const OdooReportsApp: React.FC = () => {
             {activeReport === 'attendance_overtime_analytics' && (
               <table className="w-full text-right text-xs">
                 <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 font-sans">
-                  <tr>
-                    <th className="p-3.5">الموظف / الرقم المدني</th>
-                    <th className="p-3.5">القسم والكادر</th>
-                    <th className="p-3.5 text-center">ساعات الإضافي (OT)</th>
-                    <th className="p-3.5 text-left text-purple-700 font-bold">مستحق الإضافي (د.ك)</th>
-                    <th className="p-3.5 text-center">دقائق التأخير</th>
-                    <th className="p-3.5 text-left text-rose-600">خصم التأخير (د.ك)</th>
-                    <th className="p-3.5 text-center">أيام الغياب</th>
-                    <th className="p-3.5 text-left text-rose-700">خصم الغياب (د.ك)</th>
-                    <th className="p-3.5 text-left text-emerald-800 font-bold">صافي الأثر المالي</th>
-                  </tr>
+                  <UiStudioReportHeadRow columns={[...ATTENDANCE_OT_COLUMNS]} />
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-mono">
                   {filteredData.map((emp, idx) => {
