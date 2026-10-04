@@ -69,6 +69,7 @@ import { attachSignedContractFileToEmployee } from '../../utils/signedContractUp
 import { EmployeeOnboardingChecklistModal } from '../onboarding/EmployeeOnboardingChecklistModal';
 import { subscribeEmployeeOnboardingChecklist } from '../../services/employeeOnboardingChecklistService';
 import { UiStudioTarget } from '../studio/UiStudioTarget';
+import { useRegisterReorderGroup } from '../../context/UiStudioContext';
 import { UI_KEYS } from '../../utils/uiStudioKeys';
 
 interface Props {
@@ -429,6 +430,8 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
     },
   ];
   const employeeTabUiKeys = masterTabs.map(t => UI_KEYS.employeeTab(t.id));
+  const employeeTabsReorderGroupId = 'employee.master.tabs';
+  useRegisterReorderGroup(employeeTabsReorderGroupId, employeeTabUiKeys);
 
   // Dynamic Legal Documents Checklist (Inherited from Onboarding Plan or Defaults)
   const requiredChecklist: Record<string, boolean> = {
@@ -1018,7 +1021,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
                 uiKey={UI_KEYS.employeeTab(tab.id)}
                 kind="tab"
                 defaults={{ label: { ar: tab.label, en: tab.labelEn } }}
-                reorderGroupKeys={employeeTabUiKeys}
+                reorderGroupId={employeeTabsReorderGroupId}
               >
                 {tab.label}
               </UiStudioTarget>

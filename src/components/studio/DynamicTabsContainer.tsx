@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
   AlertTriangle,
@@ -9,8 +9,7 @@ import {
 } from 'lucide-react';
 import type { LayoutLocale, ResolvedScreenLayout } from '../../types/customLayout';
 import { resolveLabel } from '../../utils/customLayoutUtils';
-import { useLayoutStudio } from '../../context/LayoutStudioContext';
-import { useUiStudio } from '../../context/UiStudioContext';
+import { useUiStudio, useRegisterReorderGroup } from '../../context/UiStudioContext';
 import { UiStudioTarget } from './UiStudioTarget';
 
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -44,8 +43,8 @@ export const DynamicTabsContainer: React.FC<DynamicTabsContainerProps> = ({
   tabSuffix = {},
   className = '',
 }) => {
-  const { studioMode } = useLayoutStudio();
   const { resolveElement, uiStudioActive } = useUiStudio();
+  const reorderGroupId = `screen.${screenId}.tabs`;
   const visibleTabs = layout.visibleTabs.filter(tab => {
     const uiKey = `screen.${screenId}.tab.${tab.id}`;
     const resolved = resolveElement(uiKey, {
@@ -58,7 +57,11 @@ export const DynamicTabsContainer: React.FC<DynamicTabsContainerProps> = ({
     return !resolved.hidden || uiStudioActive;
   });
 
-  const tabUiKeys = visibleTabs.map(tab => `screen.${screenId}.tab.${tab.id}`);
+  const tabUiKeys = useMemo(
+    () => visibleTabs.map(tab => `screen.${screenId}.tab.${tab.id}`),
+    [visibleTabs, screenId]
+  );
+  useRegisterReorderGroup(reorderGroupId, tabUiKeys);
 
   useEffect(() => {
     if (!visibleTabs.length) return;
@@ -71,10 +74,7 @@ export const DynamicTabsContainer: React.FC<DynamicTabsContainerProps> = ({
 
   return (
     <div
-      className={`flex bg-slate-100 p-1 rounded-xl border text-xs font-bold gap-1 w-full overflow-x-auto ${
-        studioMode ? 'border-dashed border-amber-400 ring-1 ring-amber-200/80' : 'border-slate-200'
-      } ${className}`}
-      data-studio-tabs={studioMode ? 'true' : undefined}
+      className={`flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold gap-1 w-full overflow-x-auto ${className}`}
     >
       {visibleTabs.map(tab => {
         const Icon =
@@ -98,7 +98,7 @@ export const DynamicTabsContainer: React.FC<DynamicTabsContainerProps> = ({
               uiKey={uiKey}
               kind="tab"
               defaults={{ label: tab.label, order: tab.order, locked: tab.locked }}
-              reorderGroupKeys={tabUiKeys}
+              reorderGroupId={reorderGroupId}
             >
               {label}
               {suffix ? ` ${suffix}` : ''}

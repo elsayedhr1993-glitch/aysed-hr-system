@@ -4,18 +4,26 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import { useAuth } from './AuthContext';
 import { useCompany } from './CompanyContext';
 import { useTenant } from './TenantContext';
 import { patchUiOverrides, subscribeUiOverrides } from '../services/uiOverrideService';
-import type { UiElementDefaults, UiElementOverride, UiOverridesDocument } from '../types/uiOverrides';
+import type { UiElementDefaults, UiElementOverride, UiOverridesDocument, UiElementKind } from '../types/uiOverrides';
 import { resolveUiElement } from '../utils/uiOverrideUtils';
 import type { ResolvedUiElement } from '../types/uiOverrides';
 import { toast } from 'react-hot-toast';
 
 const SESSION_KEY = 'aysed_ui_studio_mode';
+
+export interface StudioSelection {
+  uiKey: string;
+  defaults: UiElementDefaults;
+  kind?: UiElementKind;
+  reorderGroupId?: string;
+}
 
 interface UiStudioContextValue {
   canUseUiStudio: boolean;
@@ -23,8 +31,17 @@ interface UiStudioContextValue {
   toggleUiStudio: () => void;
   setUiStudioActive: (active: boolean) => void;
   overridesDoc: UiOverridesDocument | null;
+  selection: StudioSelection | null;
+  selectElement: (sel: StudioSelection) => void;
+  clearSelection: () => void;
+  registerReorderGroup: (groupId: string, orderedKeys: string[]) => void;
+  reorderInGroup: (groupId: string, fromKey: string, toKey: string) => Promise<void>;
   resolveElement: (key: string, defaults: UiElementDefaults) => ResolvedUiElement;
-  saveElementPatch: (key: string, patch: Partial<UiElementOverride>) => Promise<void>;
+  saveElementPatch: (
+    key: string,
+    patch: Partial<UiElementOverride>,
+    options?: { quiet?: boolean }
+  ) => Promise<void>;
   hideElement: (key: string) => Promise<void>;
   reorderKeys: (orderedKeys: string[], baseOrders?: number[]) => Promise<void>;
   exportOverridesJson: () => void;
@@ -47,9 +64,12 @@ export const UiStudioProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return sessionStorage.getItem(SESSION_KEY) === '1';
   });
   const [overridesDoc, setOverridesDoc] = useState<UiOverridesDocument | null>(null);
+  const [selection, setSelection] = useState<StudioSelection | null>(null);
+  const reorderGroupsRef = useRef<Record<string, string[]>>({});
 
   const setUiStudioActive = useCallback((active: boolean) => {
     setUiStudioActiveState(active);
+    if (!active) setSelection(null);
     try {
       sessionStorage.setItem(SESSION_KEY, active ? '1' : '0');
     } catch {
@@ -58,9 +78,10 @@ export const UiStudioProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   const toggleUiStudio = useCallback(() => {
-    setUiStudioActive(!uiStudioActive);
-    toast(uiStudioActive ? 'تم إيقاف وضع التخصيص' : 'وضع التخصيص (Studio) مفعّل', {
-      icon: uiStudioActive ? '⏸️' : '🎨',
+    const next = !uiStudioActive;
+    setUiStudioActive(next);
+    toast(next ? 'وضع Studio — انقر عنصراً لتحريره من اللوحة الجانبية' : 'تم إيقاف وضع التخصيص', {
+      icon: next ? '🎨' : '⏸️',
     });
   }, [uiStudioActive, setUiStudioActive]);
 
@@ -72,6 +93,16 @@ export const UiStudioProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return subscribeUiOverrides(companyId, setOverridesDoc);
   }, [companyId]);
 
+  const selectElement = useCallback((sel: StudioSelection) => {
+    setSelection(sel);
+  }, []);
+
+  const clearSelection = useCallback(() => setSelection(null), []);
+
+  const registerReorderGroup = useCallback((groupId: string, orderedKeys: string[]) => {
+    reorderGroupsRef.current[groupId] = orderedKeys;
+  }, []);
+
   const resolveElement = useCallback(
     (key: string, defaults: UiElementDefaults): ResolvedUiElement => {
       const override = overridesDoc?.elements?.[key];
@@ -81,7 +112,11 @@ export const UiStudioProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   );
 
   const saveElementPatch = useCallback(
-    async (key: string, patch: Partial<UiElementOverride>) => {
+    async (
+      key: string,
+      patch: Partial<UiElementOverride>,
+      options?: { quiet?: boolean }
+    ) => {
       if (!isActualSuperAdmin || !companyId) return;
       try {
         const next = await patchUiOverrides(
@@ -91,7 +126,7 @@ export const UiStudioProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           overridesDoc ?? undefined
         );
         setOverridesDoc(next);
-        toast.success('تم حفظ التخصيص');
+        if (!options?.quiet) toast.success('تم حفظ التخصيص');
       } catch (e) {
         console.error(e);
         toast.error('فشل حفظ التخصيص في Firestore');
@@ -139,13 +174,31 @@ export const UiStudioProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           overridesDoc ?? undefined
         );
         setOverridesDoc(next);
-        toast.success('تم تحديث الترتيب');
       } catch (e) {
         console.error(e);
         toast.error('فشل حفظ الترتيب');
       }
     },
     [isActualSuperAdmin, companyId, user, overridesDoc]
+  );
+
+  const reorderInGroup = useCallback(
+    async (groupId: string, fromKey: string, toKey: string) => {
+      let keys = reorderGroupsRef.current[groupId];
+      if (!keys?.length && groupId.startsWith('legacy:')) {
+        keys = groupId.replace('legacy:', '').split('|').filter(Boolean);
+      }
+      if (!keys?.length) return;
+      const from = keys.indexOf(fromKey);
+      const to = keys.indexOf(toKey);
+      if (from < 0 || to < 0) return;
+      const next = [...keys];
+      next.splice(from, 1);
+      next.splice(to, 0, fromKey);
+      reorderGroupsRef.current[groupId] = next;
+      await reorderKeys(next);
+    },
+    [reorderKeys]
   );
 
   const value = useMemo<UiStudioContextValue>(
@@ -155,6 +208,11 @@ export const UiStudioProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       toggleUiStudio,
       setUiStudioActive,
       overridesDoc,
+      selection,
+      selectElement,
+      clearSelection,
+      registerReorderGroup,
+      reorderInGroup,
       resolveElement,
       saveElementPatch,
       hideElement,
@@ -167,6 +225,11 @@ export const UiStudioProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       toggleUiStudio,
       setUiStudioActive,
       overridesDoc,
+      selection,
+      selectElement,
+      clearSelection,
+      registerReorderGroup,
+      reorderInGroup,
       resolveElement,
       saveElementPatch,
       hideElement,
@@ -184,4 +247,12 @@ export function useUiStudio(): UiStudioContextValue {
     throw new Error('useUiStudio must be used within UiStudioProvider');
   }
   return ctx;
+}
+
+/** Call from list parents to enable drag-and-drop reorder for a Studio group. */
+export function useRegisterReorderGroup(groupId: string, orderedKeys: string[]) {
+  const { registerReorderGroup } = useUiStudio();
+  useEffect(() => {
+    registerReorderGroup(groupId, orderedKeys);
+  }, [groupId, orderedKeys, registerReorderGroup]);
 }

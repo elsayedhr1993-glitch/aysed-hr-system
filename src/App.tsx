@@ -5,7 +5,8 @@ import { isQueryableTenantCompanyId } from './utils/tenantCompanyId';
 import { TenantProvider, useTenant } from './context/TenantContext';
 import { LayoutStudioProvider } from './context/LayoutStudioContext';
 import { UiStudioProvider } from './context/UiStudioContext';
-import { LayoutStudioDrawer } from './components/studio/LayoutStudioDrawer';
+import { UiStudioInspectorSidebar } from './components/studio/UiStudioInspectorSidebar';
+import { UiStudioContentGutter } from './components/studio/UiStudioContentGutter';
 import { useCompany } from './context/CompanyContext';
 import { OdooHierarchyProvider, useOdooHierarchy } from './context/OdooHierarchyContext';
 import { useAuth } from './context/AuthContext';
@@ -631,7 +632,7 @@ function MainAppLayout() {
   return (
     <div className="h-screen w-full flex flex-col font-sans overflow-hidden bg-slate-100 text-slate-800" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       <Toaster position="top-center" containerStyle={{ zIndex: 99999 }} reverseOrder={false} />
-      <LayoutStudioDrawer />
+      <UiStudioInspectorSidebar />
 
       {/* شريط تنبيه الدخول كمسؤول (Strict Impersonation Banner) */}
       {isActualSuperAdmin && (impersonatingCompanyId || isImpersonating) && activeApp !== 'saas_admin' && (
@@ -721,7 +722,8 @@ function MainAppLayout() {
 
       {debugMode && <OdooDebugMenu />}
       {/* حاوية العرض الصارمة المانعة للتداخل (Strict Single-View Canvas) */}
-      <div className="flex-1 flex overflow-hidden w-full relative bg-slate-100 odoo-system-root">
+      <UiStudioContentGutter>
+      <div className="flex-1 flex overflow-hidden w-full relative bg-slate-100 odoo-system-root min-h-0">
         
         {/* الحالة 1: شاشة مبدل التطبيقات والأيقونات فقط (Odoo App Launcher) */}
         {activeApp === 'switcher' && (
@@ -1030,6 +1032,7 @@ function MainAppLayout() {
         )}
 
       </div>
+      </UiStudioContentGutter>
 
       {/* نافذة تعديل الصورة الشخصية (Avatar Update Modal) */}
       {showAvatarModal && (

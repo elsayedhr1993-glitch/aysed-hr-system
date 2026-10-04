@@ -1006,7 +1006,7 @@ export const OdooReportsApp: React.FC = () => {
             {activeReport === 'wps_reconciliation' && (
               <table className="w-full text-right text-xs">
                 <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 font-sans">
-                  <UiStudioReportHeadRow columns={[...WPS_RECONCILIATION_COLUMNS]} />
+                  <UiStudioReportHeadRow reorderGroupId="report.wps.columns" columns={[...WPS_RECONCILIATION_COLUMNS]} />
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-mono">
                   {filteredData.map((emp, idx) => (
@@ -1081,7 +1081,7 @@ export const OdooReportsApp: React.FC = () => {
             {activeReport === 'gov_compliance' && (
               <table className="w-full text-right text-xs">
                 <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 font-sans">
-                  <UiStudioReportHeadRow columns={[...GOV_COMPLIANCE_COLUMNS]} />
+                  <UiStudioReportHeadRow reorderGroupId="report.gov.columns" columns={[...GOV_COMPLIANCE_COLUMNS]} />
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-mono">
                   {filteredData.map((emp, idx) => (
@@ -1160,7 +1160,7 @@ export const OdooReportsApp: React.FC = () => {
             {activeReport === 'eos_indemnity_accrual' && (
               <table className="w-full text-right text-xs">
                 <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 font-sans">
-                  <UiStudioReportHeadRow columns={[...EOS_ACCRUAL_COLUMNS]} />
+                  <UiStudioReportHeadRow reorderGroupId="report.eos.columns" columns={[...EOS_ACCRUAL_COLUMNS]} />
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-mono">
                   {filteredData.map((emp, idx) => (
@@ -1207,7 +1207,7 @@ export const OdooReportsApp: React.FC = () => {
             {activeReport === 'leaves_financial_liability' && (
               <table className="w-full text-right text-xs">
                 <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 font-sans">
-                  <UiStudioReportHeadRow columns={[...LEAVES_LIABILITY_COLUMNS]} />
+                  <UiStudioReportHeadRow reorderGroupId="report.leaves.columns" columns={[...LEAVES_LIABILITY_COLUMNS]} />
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-mono">
                   {filteredData.map((emp, idx) => (
@@ -1253,7 +1253,7 @@ export const OdooReportsApp: React.FC = () => {
             {activeReport === 'attendance_overtime_analytics' && (
               <table className="w-full text-right text-xs">
                 <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 font-sans">
-                  <UiStudioReportHeadRow columns={[...ATTENDANCE_OT_COLUMNS]} />
+                  <UiStudioReportHeadRow reorderGroupId="report.attendance.columns" columns={[...ATTENDANCE_OT_COLUMNS]} />
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-mono">
                   {filteredData.map((emp, idx) => {

@@ -5,6 +5,8 @@ import { UiStudioTarget, useUiStudioLabel } from './UiStudioTarget';
 interface Props {
   uiKey: string;
   defaults: UiElementDefaults;
+  reorderGroupId?: string;
+  /** @deprecated */
   reorderGroupKeys?: string[];
   className?: string;
 }
@@ -12,6 +14,7 @@ interface Props {
 export const UiStudioTableHead: React.FC<Props> = ({
   uiKey,
   defaults,
+  reorderGroupId,
   reorderGroupKeys,
   className = 'p-3.5',
 }) => {
@@ -23,6 +26,7 @@ export const UiStudioTableHead: React.FC<Props> = ({
         uiKey={uiKey}
         kind="column"
         defaults={defaults}
+        reorderGroupId={reorderGroupId}
         reorderGroupKeys={reorderGroupKeys}
       >
         {label}

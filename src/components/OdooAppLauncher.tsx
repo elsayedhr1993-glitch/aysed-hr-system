@@ -16,7 +16,7 @@ import { useEffectiveTenantCompanyId } from '../hooks/useEffectiveTenantCompanyI
 import { isQueryableTenantCompanyId } from '../utils/tenantCompanyId';
 import { useAuth } from '../context/AuthContext';
 import { CompanyOnboardingLicensesWidget } from './onboarding/CompanyOnboardingLicensesWidget';
-import { useUiStudio } from '../context/UiStudioContext';
+import { useRegisterReorderGroup, useUiStudio } from '../context/UiStudioContext';
 import { UiStudioTarget } from './studio/UiStudioTarget';
 import { sortByUiOrder } from '../utils/uiOverrideUtils';
 
@@ -402,6 +402,8 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
   }, [filteredApps, overridesDoc, resolveElement]);
 
   const launcherAppUiKeys = useMemo(() => displayApps.map(d => d.uiKey), [displayApps]);
+  const launcherReorderGroupId = 'launcher.apps';
+  useRegisterReorderGroup(launcherReorderGroupId, launcherAppUiKeys);
 
   return (
     <div className="dashboard-container w-full h-full bg-transparent flex flex-col relative z-10 space-y-4 pb-6" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
@@ -628,7 +630,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
                           label: { ar: app.titleAr, en: app.titleEn },
                           help: { ar: app.description, en: app.description },
                         }}
-                        reorderGroupKeys={launcherAppUiKeys}
+                        reorderGroupId={launcherReorderGroupId}
                         className="w-full justify-center"
                       >
                         {lang === 'ar' ? app.titleAr : app.titleEn}
@@ -675,7 +677,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
                             label: { ar: app.titleAr, en: app.titleEn },
                             help: { ar: app.description, en: app.description },
                           }}
-                          reorderGroupKeys={launcherAppUiKeys}
+                          reorderGroupId={launcherReorderGroupId}
                         >
                           {lang === 'ar' ? app.titleAr : app.titleEn}
                         </UiStudioTarget>

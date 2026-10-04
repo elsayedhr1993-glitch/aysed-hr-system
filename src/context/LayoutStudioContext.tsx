@@ -63,18 +63,8 @@ export const LayoutStudioProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setStudioSession(null);
   }, []);
 
-  const openStudio = useCallback(
-    (screenId: ScreenId, resolved: ResolvedScreenLayout) => {
-      if (!isActualSuperAdmin) return;
-      setStudioSession({
-        screenId,
-        draft: toEditableScreenLayout(resolved),
-        dirty: false,
-      });
-      setDrawerOpen(true);
-    },
-    [isActualSuperAdmin]
-  );
+  /** Layout Studio drawer UI retired — custom layout APIs remain for runtime resolution only. */
+  const openStudio = useCallback((_screenId: ScreenId, _resolved: ResolvedScreenLayout) => {}, []);
 
   const updateTab = useCallback((tabId: string, patch: Partial<LayoutTabDefinition>) => {
     setStudioSession(prev => {
@@ -183,8 +173,8 @@ export const LayoutStudioProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const value = useMemo<LayoutStudioContextValue>(
     () => ({
       canEditCustomLayout: isActualSuperAdmin,
-      studioMode: isActualSuperAdmin && (drawerOpen || uiStudioActive),
-      drawerOpen: isActualSuperAdmin && drawerOpen,
+      studioMode: isActualSuperAdmin && uiStudioActive,
+      drawerOpen: false,
       studioSession: isActualSuperAdmin ? studioSession : null,
       openStudio,
       closeStudio,
