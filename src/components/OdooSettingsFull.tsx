@@ -258,7 +258,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({ onCompanySet
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-800 font-sans dir-rtl pb-24" dir="rtl">
 
-      <div className="px-4 sm:px-6 pt-4 max-w-[1400px] mx-auto w-full">
+      <div className="px-4 sm:px-6 pt-4 w-full max-w-full">
         <CompanySetupOnboardingBanner
           company={activeCompany}
           employeesCount={employees?.length || 0}
@@ -340,7 +340,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({ onCompanySet
       </div>
 
       {/* 2. Main Content Layout (Sidebar + Settings Canvas) */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex flex-col md:flex-row gap-6">
+      <div className="w-full max-w-full px-4 sm:px-6 py-6 flex flex-col md:flex-row gap-6">
         
         {/* Navigation Sidebar */}
         <div className="w-full md:w-72 shrink-0">

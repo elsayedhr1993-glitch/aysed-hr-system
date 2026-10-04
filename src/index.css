@@ -121,11 +121,12 @@ body:not(.aysed_owner) button[name="action_create_new_company"] {
 .o_home_menu .o_app_switcher,
 .o_app_switcher {
     display: grid !important;
-    padding: 30px 40px !important;
+    padding: 1rem 1.5rem !important;
     grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)) !important;
     gap: 16px !important;
-    max-width: 1200px;
-    margin: 0 auto;
+    max-width: none;
+    width: 100%;
+    margin: 0;
 }
 
 .o_home_menu .o_app, 
@@ -159,8 +160,8 @@ body:not(.aysed_owner) button[name="action_create_new_company"] {
 /* 2. زيادة كثافة النماذج والبطاقات (Form View Density) */
 .o_form_view .o_form_sheet,
 .o_form_sheet {
-    max-width: 1300px !important;
-    width: 96% !important;
+    max-width: none !important;
+    width: 100% !important;
     padding: 20px 28px !important;
     border-radius: 8px !important;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06) !important;
@@ -230,11 +231,12 @@ tr.o_data_row td {
 }
 
 .dashboard-container {
-  max-width: 100%;
+  width: 100%;
+  max-width: none;
   max-height: calc(100vh - 3.5rem);
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 1rem;
+  padding: 0.25rem 0;
 }
 
 /* شبكة مشغل التطبيقات - نمط Odoo Enterprise */
@@ -242,9 +244,10 @@ tr.o_data_row td {
     display: grid !important;
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important; /* 4 أعمدة منتظمة */
     gap: 24px !important;
-    padding: 40px !important;
-    max-width: 1200px;
-    margin: 0 auto;
+    padding: 1rem 1.5rem !important;
+    max-width: none;
+    width: 100%;
+    margin: 0;
 }
 
 @media (max-width: 1024px) {
@@ -718,8 +721,9 @@ div[class*="bg-gray-50"] {
 }
 
 .o_form_sheet {
-    max-width: 1100px !important;
-    margin: 20px auto !important;
+    max-width: none !important;
+    width: 100% !important;
+    margin: 0 !important;
     background: var(--aysed-white) !important;
     border: 1px solid var(--aysed-border) !important;
     box-shadow: 0 10px 30px rgba(0,0,0,0.05) !important;
@@ -1130,11 +1134,24 @@ table {
 }
 
 /* ——— Global Odoo Design System (Enterprise workspace) ——— */
+.odoo-system-root {
+  width: 100%;
+  max-width: 100%;
+}
+
 .odoo-workspace-canvas {
   width: 100%;
-  padding-left: 2.5%;
-  padding-right: 2.5%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding-left: 1rem;
+  padding-right: 1rem;
   background-color: #f1f5f9;
+}
+@media (min-width: 768px) {
+  .odoo-workspace-canvas {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
 }
 .odoo-workspace-canvas--launcher {
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 45%, #e2e8f0 100%);
@@ -1142,14 +1159,14 @@ table {
   padding-bottom: 1.5rem;
 }
 .odoo-workspace-inner {
-  width: min(95%, 1400px);
-  max-width: 1400px;
-  margin-left: auto;
-  margin-right: auto;
+  width: 100%;
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
 }
 [data-master-layout='wide'] {
   width: 100%;
-  max-width: 1400px;
+  max-width: none;
 }
 
 .odoo-app-surface {
@@ -1215,7 +1232,17 @@ table {
 }
 @media (min-width: 1280px) {
   .odoo-app-launchpad-grid {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1536px) {
+  .odoo-app-launchpad-grid {
+    grid-template-columns: repeat(9, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1920px) {
+  .odoo-app-launchpad-grid {
+    grid-template-columns: repeat(11, minmax(0, 1fr));
   }
 }
 
@@ -1238,6 +1265,16 @@ table {
 @media (min-width: 1024px) {
   .odoo-app-cards-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1280px) {
+  .odoo-app-cards-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1536px) {
+  .odoo-app-cards-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 }
 
