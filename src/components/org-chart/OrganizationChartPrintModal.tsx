@@ -3,7 +3,8 @@ import { Company } from '../../types';
 import { OrgChartPrintLine } from '../../utils/orgChartUtils';
 import { Printer, X } from 'lucide-react';
 import { OfficialA4CompanyLetterhead } from '../print/OfficialA4CompanyLetterhead';
-import { OdooReportFooter } from '../print/OdooReportPrimitives';
+import { OdooReportFooter, OdooReportSheet } from '../print/OdooReportPrimitives';
+import { OdooOfficialA4ReportLayout } from '../print/OdooOfficialA4ReportLayout';
 import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
 import { OdooPdf } from '../../services/odooPdfService';
 
@@ -56,24 +57,29 @@ export const OrganizationChartPrintModal: React.FC<OrganizationChartPrintModalPr
         </div>
 
         <div className="printable-scroll p-4 sm:p-6 overflow-y-auto flex-1 bg-slate-100/50 print:p-0 print:bg-white">
-        <div
-          id="org-chart-print-area"
-          className="odoo-report-sheet odoo-report-sheet--compact-portrait odoo-report-sheet--framed p-6 sm:p-8 bg-white text-slate-900 mx-auto max-w-[210mm]"
-        >
-          <OfficialA4CompanyLetterhead
-            company={company}
-            subtitle="الهيكل التنظيمي والتسلسل الإداري"
-            logoClassName="w-14 h-14"
-            className="mb-6"
-            rightSlot={
-              <div className="text-[10px] font-mono text-slate-500 shrink-0">
-                <div>المرجع: {reportRef}</div>
-                <div>تاريخ الإصدار: {todayStr}</div>
-              </div>
+        <OdooReportSheet id="org-chart-print-area" variant="official-a4" className="p-6 sm:p-8 text-slate-900">
+          <OdooOfficialA4ReportLayout
+            header={
+              <OfficialA4CompanyLetterhead
+                company={company}
+                subtitle="الهيكل التنظيمي والتسلسل الإداري"
+                logoClassName="w-14 h-14"
+                rightSlot={
+                  <div className="text-[10px] font-mono text-slate-500 shrink-0">
+                    <div>المرجع: {reportRef}</div>
+                    <div>تاريخ الإصدار: {todayStr}</div>
+                  </div>
+                }
+              />
             }
-          />
-
-          <div className="odoo-report-meta-strip mb-6 text-xs flex flex-wrap justify-between gap-2">
+            footer={
+              <OdooReportFooter
+                companyName={getCompanyPrintProfile(company).displayNameAr}
+                reportRef={reportRef}
+              />
+            }
+          >
+          <div className="odoo-report-meta-strip text-xs flex flex-wrap justify-between gap-2">
             <span><strong>النطاق:</strong> {scopeLabel}</span>
             <span className="font-mono">
               الموظفون: {totalEmployees} · جذور الشجرة: {rootCount} · صفوف التقرير: {lines.length}
@@ -114,22 +120,8 @@ export const OrganizationChartPrintModal: React.FC<OrganizationChartPrintModalPr
             <p className="text-center text-slate-500 text-sm py-8">لا توجد بيانات هيكل في هذا النطاق.</p>
           )}
 
-          <OdooReportFooter
-            companyName={getCompanyPrintProfile(company).displayNameAr}
-            reportRef={reportRef}
-          />
-
-          <div className="grid grid-cols-2 gap-8 pt-6 mt-4 border-t border-slate-200 text-center text-xs">
-            <div>
-              <p className="font-bold mb-10">مدير الموارد البشرية</p>
-              <p className="text-slate-400">التوقيع: ............</p>
-            </div>
-            <div>
-              <p className="font-bold mb-10">الاعتماد الإداري</p>
-              <p className="text-slate-400">التوقيع: ............</p>
-            </div>
-          </div>
-        </div>
+          </OdooOfficialA4ReportLayout>
+        </OdooReportSheet>
         </div>
       </div>
     </div>

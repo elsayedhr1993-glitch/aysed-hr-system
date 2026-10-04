@@ -53,7 +53,9 @@ import {
   OdooReportKpiCell,
   OdooReportKpiStrip,
   OdooReportLegalNotice,
+  OdooReportSheet,
 } from '../components/print/OdooReportPrimitives';
+import { OdooOfficialA4ReportLayout } from '../components/print/OdooOfficialA4ReportLayout';
 import { getCompanyPrintProfile } from '../utils/companyPrintProfile';
 import { OdooPdf } from '../services/odooPdfService';
 
@@ -2134,9 +2136,10 @@ export function EmployeesApp(props?: any) {
             </div>
 
             <div className="printable-scroll p-4 sm:p-6 overflow-y-auto flex-1 bg-slate-100/60 font-sans print:p-0 print:bg-white">
-              <div
+              <OdooReportSheet
                 id="employee-leave-print-sheet"
-                className="odoo-report-sheet odoo-report-sheet--compact-portrait odoo-report-sheet--framed odoo-report-compact-one-page space-y-3 bg-white border border-slate-200 rounded-xl p-4 sm:p-5 print:border-none print:shadow-none print:rounded-none"
+                variant="official-a4"
+                className="rounded-xl p-4 sm:p-5 print:rounded-none"
               >
               {printData && (
                 (() => {
@@ -2170,23 +2173,33 @@ export function EmployeesApp(props?: any) {
                     const remainingComp = Number((summary.remainingComp ?? fifoBreakdown.remainingComp ?? 0).toFixed(2));
 
                     return (
-                      <div className="space-y-5">
-                        <OfficialA4CompanyLetterhead
-                          company={activeCompany}
-                          subtitle="دولة الكويت — سجل الإجازات والامتثال"
-                          centerSlot={
-                            <div className="odoo-report-center-title text-xs">
-                              <h2 className="text-sm font-bold text-slate-900">{printTitle}</h2>
-                            </div>
-                          }
-                          rightSlot={
-                            <div className="text-[10px] font-mono text-slate-500 text-left">
-                              <div>{new Date().toLocaleDateString('ar-KW')}</div>
-                              <div>REF: LVE-{printData.civilId?.slice(-6) || printData.id}</div>
-                            </div>
-                          }
-                        />
-
+                      <OdooOfficialA4ReportLayout
+                        header={
+                          <OfficialA4CompanyLetterhead
+                            company={activeCompany}
+                            subtitle="دولة الكويت — سجل الإجازات والامتثال"
+                            centerSlot={
+                              <div className="odoo-report-center-title text-xs">
+                                <h2 className="text-sm font-bold text-slate-900">{printTitle}</h2>
+                              </div>
+                            }
+                            rightSlot={
+                              <div className="text-[10px] font-mono text-slate-500 text-left">
+                                <div>{new Date().toLocaleDateString('ar-KW')}</div>
+                                <div>REF: LVE-{printData.civilId?.slice(-6) || printData.id}</div>
+                              </div>
+                            }
+                          />
+                        }
+                        footer={
+                          activeCompany ? (
+                            <OdooReportFooter
+                              companyName={getCompanyPrintProfile(activeCompany).displayNameAr}
+                              reportRef={`LVE-${printData.civilId?.slice(-6) || printData.id}`}
+                            />
+                          ) : null
+                        }
+                      >
                         <div className="odoo-report-meta-strip space-y-3">
                           <h4 className="text-xs font-bold text-[#714B67]">بيانات الموظف الأساسية</h4>
                           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs">
@@ -2268,43 +2281,38 @@ export function EmployeesApp(props?: any) {
                         <OdooReportLegalNotice title="إقرار المطابقة">
                           <p>يُعد هذا الكشف من سجل الإجازات الموحد (leaveEngine) ويُستخدم للمراجعة الداخلية والتدقيق وفق قانون العمل الكويتي.</p>
                         </OdooReportLegalNotice>
-
-                        {activeCompany && (
-                          <OdooReportFooter
-                            companyName={getCompanyPrintProfile(activeCompany).displayNameAr}
-                            reportRef={`LVE-${printData.civilId?.slice(-6) || printData.id}`}
-                          />
-                        )}
-
-                      </div>
+                      </OdooOfficialA4ReportLayout>
                     );
                   }
 
                   // Default view for other prints
                   return (
-                    <div className="space-y-4 text-xs">
-                      <OfficialA4CompanyLetterhead company={activeCompany} />
+                    <OdooOfficialA4ReportLayout
+                      header={<OfficialA4CompanyLetterhead company={activeCompany} />}
+                      footer={
+                        activeCompany ? (
+                          <OdooReportFooter companyName={getCompanyPrintProfile(activeCompany).displayNameAr} />
+                        ) : null
+                      }
+                    >
                       <div className="odoo-report-center-title text-xs">
                         <h2 className="font-bold">{printTitle}</h2>
                       </div>
-                    <div className="odoo-report-meta-strip space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div><strong className="text-slate-500">الاسم:</strong> {printData.nameAr || printData.employeeName || printData.refTitle || 'غير متوفر'}</div>
-                        <div><strong className="text-slate-500">المعرف / الرقم:</strong> {printData.id || printData.employeeId || 'N/A'}</div>
-                        <div><strong className="text-slate-500">الرقم المدني:</strong> {printData.civilId || printData.civil_id_number || 'غير متوفر'}</div>
-                        <div><strong className="text-slate-500">المسمى الوظيفي:</strong> {printData.jobTitle || printData.jobPosition || 'غير متوفر'}</div>
-                        <div><strong className="text-slate-500">القسم:</strong> {printData.dept || printData.department || 'غير متوفر'}</div>
-                        <div><strong className="text-slate-500">تاريخ التعيين / الإصدار:</strong> {printData.hireDate || printData.startDate || printData.commencementDate || '2026-01-01'}</div>
+                      <div className="odoo-report-meta-strip space-y-4 text-xs">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div><strong className="text-slate-500">الاسم:</strong> {printData.nameAr || printData.employeeName || printData.refTitle || 'غير متوفر'}</div>
+                          <div><strong className="text-slate-500">المعرف / الرقم:</strong> {printData.id || printData.employeeId || 'N/A'}</div>
+                          <div><strong className="text-slate-500">الرقم المدني:</strong> {printData.civilId || printData.civil_id_number || 'غير متوفر'}</div>
+                          <div><strong className="text-slate-500">المسمى الوظيفي:</strong> {printData.jobTitle || printData.jobPosition || 'غير متوفر'}</div>
+                          <div><strong className="text-slate-500">القسم:</strong> {printData.dept || printData.department || 'غير متوفر'}</div>
+                          <div><strong className="text-slate-500">تاريخ التعيين / الإصدار:</strong> {printData.hireDate || printData.startDate || printData.commencementDate || '2026-01-01'}</div>
+                        </div>
                       </div>
-                      {activeCompany && (
-                        <OdooReportFooter companyName={getCompanyPrintProfile(activeCompany).displayNameAr} />
-                      )}
-                    </div>
-                    </div>
+                    </OdooOfficialA4ReportLayout>
                   );
                 })()
               )}
-              </div>
+              </OdooReportSheet>
             </div>
 
             <div className="bg-slate-100 border-t border-slate-200 px-6 py-3 flex items-center justify-between print:hidden">

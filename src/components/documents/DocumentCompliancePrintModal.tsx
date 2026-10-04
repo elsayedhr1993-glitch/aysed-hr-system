@@ -2,7 +2,8 @@ import React from 'react';
 import { DocumentItem, Employee, Company } from '../../types';
 import { X, Printer } from 'lucide-react';
 import { OfficialA4CompanyLetterhead } from '../print/OfficialA4CompanyLetterhead';
-import { OdooReportFooter } from '../print/OdooReportPrimitives';
+import { OdooReportFooter, OdooReportSheet } from '../print/OdooReportPrimitives';
+import { OdooOfficialA4ReportLayout } from '../print/OdooOfficialA4ReportLayout';
 import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
 import {
   employeeDocumentTypeLabel,
@@ -83,28 +84,30 @@ export const DocumentCompliancePrintModal: React.FC<DocumentCompliancePrintModal
         </div>
 
         {/* Printable A4 Content */}
-        <div
+        <OdooReportSheet
           id="document-compliance-print-root"
-          className="odoo-report-sheet odoo-report-sheet--compact-portrait odoo-report-sheet--framed p-6 sm:p-8 overflow-y-auto flex-1 bg-white text-slate-900 font-sans print:p-0 print:overflow-visible mx-auto max-w-[210mm]"
+          variant="official-a4"
+          className="p-6 sm:p-8 overflow-y-auto flex-1 text-slate-900 font-sans print:p-0 print:overflow-visible"
         >
-          
-          <OfficialA4CompanyLetterhead
-            company={company}
-            departmentLine="إدارة الشؤون الإدارية والموارد البشرية — قسم الأرشيف الرقمي"
-            className="mb-6"
-            rightSlot={
-              <div className="flex flex-col items-end">
-                <div className="w-16 h-16 border border-slate-300 rounded p-1 bg-slate-50 flex items-center justify-center text-[8px] font-mono text-center text-slate-500 leading-tight">
-                  VERIFY
-                </div>
-                <span className="text-[10px] font-mono text-slate-500 mt-1">المرجع: {reportRef}</span>
-                <span className="text-[10px] font-mono text-slate-500">التاريخ: {todayStr}</span>
-              </div>
+          <OdooOfficialA4ReportLayout
+            header={
+              <OfficialA4CompanyLetterhead
+                company={company}
+                departmentLine="إدارة الشؤون الإدارية والموارد البشرية — قسم الأرشيف الرقمي"
+                rightSlot={
+                  <div className="flex flex-col items-end">
+                    <div className="w-16 h-16 border border-slate-300 rounded p-1 bg-slate-50 flex items-center justify-center text-[8px] font-mono text-center text-slate-500 leading-tight">
+                      VERIFY
+                    </div>
+                    <span className="text-[10px] font-mono text-slate-500 mt-1">المرجع: {reportRef}</span>
+                    <span className="text-[10px] font-mono text-slate-500">التاريخ: {todayStr}</span>
+                  </div>
+                }
+              />
             }
-          />
-
-          {/* Title & Filter Info */}
-          <div className="odoo-report-meta-strip mb-6 flex justify-between items-center text-xs">
+            footer={<OdooReportFooter companyName={profile.displayNameAr} reportRef={reportRef} />}
+          >
+          <div className="odoo-report-meta-strip flex justify-between items-center text-xs">
             <div>
               <span className="text-slate-500 font-medium">نوع التقرير: </span>
               <strong className="text-slate-900 font-bold text-sm">كشف حالة الوثائق والتراخيص الرسمية ({filterTitle})</strong>
@@ -175,9 +178,8 @@ export const DocumentCompliancePrintModal: React.FC<DocumentCompliancePrintModal
             </table>
           </div>
 
-          <OdooReportFooter companyName={profile.displayNameAr} reportRef={reportRef} />
-
-        </div>
+          </OdooOfficialA4ReportLayout>
+        </OdooReportSheet>
 
       </div>
     </div>

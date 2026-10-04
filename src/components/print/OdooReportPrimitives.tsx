@@ -1,18 +1,26 @@
 import React from 'react';
 import { ODOO_REPORT_SHEET_CLASS, ODOO_REPORT_TABLE_CLASS } from './odooReportTheme';
 
+export type OdooReportSheetVariant = 'default' | 'official-a4';
+
 export const OdooReportSheet = React.forwardRef<
   HTMLDivElement,
-  { id?: string; children: React.ReactNode; className?: string }
->(({ id, children, className = '' }, ref) => (
-  <div
-    ref={ref}
-    id={id}
-    className={`${ODOO_REPORT_SHEET_CLASS} bg-white border border-slate-200 print:border-none p-8 sm:p-10 max-w-[210mm] mx-auto shadow-sm print:shadow-none space-y-5 text-slate-800 ${className}`}
-  >
-    {children}
-  </div>
-));
+  { id?: string; children: React.ReactNode; className?: string; variant?: OdooReportSheetVariant }
+>(({ id, children, className = '', variant = 'default' }, ref) => {
+  const official =
+    variant === 'official-a4'
+      ? 'odoo-report-sheet--official-a4 odoo-report-sheet--framed max-w-[210mm] min-h-[297mm] print:min-h-[279mm]'
+      : 'max-w-[210mm] space-y-5';
+  return (
+    <div
+      ref={ref}
+      id={id}
+      className={`${ODOO_REPORT_SHEET_CLASS} bg-white border border-slate-200 print:border-none p-8 sm:p-10 mx-auto shadow-sm print:shadow-none text-slate-800 ${official} ${className}`}
+    >
+      {children}
+    </div>
+  );
+});
 OdooReportSheet.displayName = 'OdooReportSheet';
 
 export const OdooReportTitleBand: React.FC<{

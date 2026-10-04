@@ -75,6 +75,35 @@ export const ODOO_NATIVE_PRINT_CSS = `
     break-inside: avoid-page;
     page-break-inside: avoid;
   }
+  .odoo-report-sheet--official-a4 {
+    min-height: 279mm !important;
+    display: flex !important;
+    flex-direction: column !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .odoo-report-a4-layout {
+    min-height: 265mm !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+  }
+  .odoo-report-a4-layout__bottom {
+    margin-top: auto !important;
+  }
+  .odoo-report-signature-block {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .odoo-report-table thead th,
+  .odoo-report-table tbody tr:nth-child(even) td,
+  .odoo-report-table tfoot td,
+  .odoo-report-kpi-cell,
+  .odoo-report-meta-strip,
+  .odoo-report-legal-notice {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
   button, .print\\:hidden, .no-print {
     display: none !important;
   }

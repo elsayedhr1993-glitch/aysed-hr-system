@@ -8,7 +8,8 @@ import {
 } from '../../types/companyDocuments';
 import { X, Printer } from 'lucide-react';
 import { OfficialA4CompanyLetterhead } from '../print/OfficialA4CompanyLetterhead';
-import { OdooReportFooter } from '../print/OdooReportPrimitives';
+import { OdooReportFooter, OdooReportSheet } from '../print/OdooReportPrimitives';
+import { OdooOfficialA4ReportLayout } from '../print/OdooOfficialA4ReportLayout';
 import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
 import { OdooPdf } from '../../services/odooPdfService';
 
@@ -65,23 +66,28 @@ export const CompanyLicensesPrintModal: React.FC<CompanyLicensesPrintModalProps>
         </div>
 
         <div className="printable-scroll p-4 sm:p-6 overflow-y-auto flex-1 bg-slate-100/50 print:p-0 print:bg-white">
-        <div
-          id="company-licenses-print-sheet"
-          className="odoo-report-sheet odoo-report-sheet--compact-portrait odoo-report-sheet--framed odoo-report-compact-one-page p-6 sm:p-8 bg-white text-slate-900 mx-auto max-w-[210mm]"
-        >
-          <OfficialA4CompanyLetterhead
-            company={company}
-            subtitle="كشف تراخيص المنشأة والامتثال الحكومي"
-            className="mb-6"
-            rightSlot={
-              <div className="text-[10px] font-mono text-slate-500">
-                <div>المرجع: {reportRef}</div>
-                <div>التاريخ: {todayStr}</div>
-              </div>
+        <OdooReportSheet id="company-licenses-print-sheet" variant="official-a4" className="p-6 sm:p-8 text-slate-900">
+          <OdooOfficialA4ReportLayout
+            header={
+              <OfficialA4CompanyLetterhead
+                company={company}
+                subtitle="كشف تراخيص المنشأة والامتثال الحكومي"
+                rightSlot={
+                  <div className="text-[10px] font-mono text-slate-500">
+                    <div>المرجع: {reportRef}</div>
+                    <div>التاريخ: {todayStr}</div>
+                  </div>
+                }
+              />
             }
-          />
-
-          <div className="odoo-report-meta-strip mb-6 text-xs flex flex-wrap justify-between gap-2">
+            footer={
+              <OdooReportFooter
+                companyName={getCompanyPrintProfile(company).displayNameAr}
+                reportRef={reportRef}
+              />
+            }
+          >
+          <div className="odoo-report-meta-strip text-xs flex flex-wrap justify-between gap-2">
             <span>
               <strong>النطاق:</strong> {filterLabel}
             </span>
@@ -147,12 +153,8 @@ export const CompanyLicensesPrintModal: React.FC<CompanyLicensesPrintModalProps>
             <p className="text-center text-slate-500 text-sm py-8">لا توجد تراخيص في هذا النطاق.</p>
           )}
 
-          <OdooReportFooter
-            companyName={getCompanyPrintProfile(company).displayNameAr}
-            reportRef={reportRef}
-          />
-
-        </div>
+          </OdooOfficialA4ReportLayout>
+        </OdooReportSheet>
         </div>
       </div>
     </div>

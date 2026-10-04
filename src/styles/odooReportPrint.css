@@ -184,11 +184,111 @@
   page-break-inside: avoid;
 }
 
+/* ——— قالب A4 الرسمي الموحّد (ترويسة + ملء الصفحة + توقيعات) ——— */
+.odoo-report-sheet--official-a4 {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.odoo-report-a4-layout {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 100%;
+  gap: 14px;
+}
+
+.odoo-report-a4-layout__header {
+  flex: 0 0 auto;
+}
+
+.odoo-report-a4-layout__body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+}
+
+.odoo-report-a4-layout__bottom {
+  flex: 0 0 auto;
+  margin-top: auto;
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.odoo-report-signature-block {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 8px;
+  padding: 12px 8px 4px;
+  border-top: 2px solid #714b67;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.odoo-report-signature-cell {
+  text-align: center;
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.odoo-report-signature-label {
+  font-size: 11px;
+  font-weight: 800;
+  color: #714b67;
+}
+
+.odoo-report-signature-line {
+  width: 88%;
+  border-bottom: 1px solid #495057;
+  min-height: 28px;
+}
+
+.odoo-report-signature-hint {
+  font-size: 9px;
+  color: #6c757d;
+}
+
+.odoo-report-sheet--official-a4 .odoo-report-kpi-cell,
+.odoo-report-sheet--official-a4 .odoo-report-meta-strip,
+.odoo-report-sheet--official-a4 .odoo-report-legal-notice,
+.odoo-report-sheet--official-a4 .odoo-report-table thead th,
+.odoo-report-sheet--official-a4 .odoo-report-table tbody td,
+.odoo-report-sheet--official-a4 .odoo-report-table tfoot td {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
 @media print {
   .odoo-report-sheet {
     box-shadow: none !important;
     max-width: none !important;
     width: 100% !important;
+  }
+
+  .odoo-report-sheet--official-a4 {
+    min-height: 279mm !important;
+    padding: 6mm 8mm !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .odoo-report-a4-layout {
+    min-height: 265mm !important;
+    flex: 1 1 auto !important;
+  }
+
+  .odoo-report-a4-layout__bottom {
+    margin-top: auto !important;
   }
 
   body.aysed-native-print #root {

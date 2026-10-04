@@ -27,6 +27,7 @@ import {
   OdooReportFooter,
   OdooReportLegalNotice,
 } from '../print/OdooReportPrimitives';
+import { OdooOfficialA4ReportLayout } from '../print/OdooOfficialA4ReportLayout';
 
 interface OdooOfficialA4PrintModalProps {
   isOpen: boolean;
@@ -132,28 +133,37 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
 
         {/* جسم مستند A4 الرسمي */}
         <div className="p-4 sm:p-8 overflow-y-auto flex-1 bg-slate-100/60 print:bg-white print:p-0">
-          <OdooReportSheet id="odoo-official-report-a4-sheet" ref={printAreaRef}>
-            <OfficialA4CompanyLetterhead
-              company={company}
-              subtitle="دولة الكويت — منظومة حماية الأجور والامتثال"
-              centerSlot={
-                <div className="odoo-report-center-title">
-                  <h1 className="text-base font-bold text-slate-900">{reportTitle}</h1>
-                  <span className="text-[11px] font-semibold text-[#714B67] block mt-0.5">فترة الكشف: {selectedMonth}</span>
-                  <span className="text-[9px] font-mono text-slate-400 block mt-1 tracking-widest uppercase">
-                    OFFICIAL AUDIT REPORT
-                  </span>
-                </div>
+          <OdooReportSheet id="odoo-official-report-a4-sheet" ref={printAreaRef} variant="official-a4">
+            <OdooOfficialA4ReportLayout
+              header={
+                <OfficialA4CompanyLetterhead
+                  company={company}
+                  subtitle="دولة الكويت — منظومة حماية الأجور والامتثال"
+                  centerSlot={
+                    <div className="odoo-report-center-title">
+                      <h1 className="text-base font-bold text-slate-900">{reportTitle}</h1>
+                      <span className="text-[11px] font-semibold text-[#714B67] block mt-0.5">فترة الكشف: {selectedMonth}</span>
+                      <span className="text-[9px] font-mono text-slate-400 block mt-1 tracking-widest uppercase">
+                        OFFICIAL AUDIT REPORT
+                      </span>
+                    </div>
+                  }
+                  rightSlot={
+                    <div className="text-xs text-slate-600 space-y-1 font-mono">
+                      <p><span className="font-bold font-sans">الرقم المرجعي:</span> REP-{reportRef || `${selectedMonth}`}</p>
+                      <p><span className="font-bold font-sans">تاريخ الإصدار:</span> {new Date().toISOString().split('T')[0]}</p>
+                      <p className="font-sans text-[10px] text-slate-400">{currentDateStr}</p>
+                    </div>
+                  }
+                />
               }
-              rightSlot={
-                <div className="text-xs text-slate-600 space-y-1 font-mono">
-                  <p><span className="font-bold font-sans">الرقم المرجعي:</span> REP-{reportRef || `${selectedMonth}`}</p>
-                  <p><span className="font-bold font-sans">تاريخ الإصدار:</span> {new Date().toISOString().split('T')[0]}</p>
-                  <p className="font-sans text-[10px] text-slate-400">{currentDateStr}</p>
-                </div>
+              footer={
+                <OdooReportFooter
+                  companyName={company ? getCompanyPrintProfile(company).displayNameAr : undefined}
+                  reportRef={reportRef ? `REP-${reportRef}` : `REP-${selectedMonth}`}
+                />
               }
-            />
-
+            >
             <OdooReportKpiStrip>
               <OdooReportKpiCell label="عدد السجلات المدرجة" value={`${data.length} موظفاً`} />
               <OdooReportKpiCell
@@ -342,10 +352,7 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
               <p>• بيانات الرواتب والحضور في هذا الكشف مرتبطة بفترة التقرير المحددة ومسيرات الرواتب/ترحيل الحضور الشهري عند توفرها.</p>
             </OdooReportLegalNotice>
 
-            <OdooReportFooter
-              companyName={company ? getCompanyPrintProfile(company).displayNameAr : undefined}
-              reportRef={reportRef ? `REP-${reportRef}` : `REP-${selectedMonth}`}
-            />
+            </OdooOfficialA4ReportLayout>
 
           </OdooReportSheet>
         </div>
