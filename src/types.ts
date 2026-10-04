@@ -924,12 +924,19 @@ export interface SystemIntegrationsConfig {
 // -------------------------------------------------------------------------
 // Employee onboarding checklist (employees/{id}/onboarding/checklist)
 // -------------------------------------------------------------------------
+export type EmployeeOnboardingTaskStatus = 'pending' | 'completed' | 'overdue';
+
 export interface EmployeeOnboardingStep {
   id: string;
   title: string;
+  titleEn?: string;
+  description?: string;
+  responsible?: string;
   order: number;
   completed: boolean;
   completedAt?: string | null;
+  dueDate?: string | null;
+  status?: EmployeeOnboardingTaskStatus;
   notes?: string;
 }
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { parseKuwaitCivilId, validateKuwaitCivilId } from './utils/kuwaitLaw';
 import { useEffectiveTenantCompanyId } from './hooks/useEffectiveTenantCompanyId';
 import { isQueryableTenantCompanyId } from './utils/tenantCompanyId';
@@ -46,6 +46,7 @@ import {
 // استيراد التطبيقات الكاملة الـ 11
 import EmployeesApp from './apps/EmployeesApp';
 import OdooAppLauncher from './components/OdooAppLauncher';
+import type { CompanySetupStepAction } from './components/onboarding/CompanySetupOnboardingBanner';
 import { OdooAppCanvas } from './components/layout/OdooAppCanvas';
 import { TopEnterpriseActionBar } from './components/header/TopEnterpriseActionBar';
 import { GlobalSpotlightSearchModal } from './components/header/GlobalSpotlightSearchModal';
@@ -495,6 +496,45 @@ function MainAppLayout() {
   } | null>(null);
   const [employeeAppProps, setEmployeeAppProps] = useState<any>({});
 
+  const handleCompanySetupAction = useCallback(
+    (action: CompanySetupStepAction) => {
+      const stashSettingsSection = (section: string) => {
+        try {
+          sessionStorage.setItem('aysed_settings_section', section);
+        } catch {
+          /* ignore */
+        }
+      };
+      switch (action.type) {
+        case 'settings':
+          stashSettingsSection(action.section);
+          setActiveApp('settings');
+          break;
+        case 'compliance_tree':
+          openCompanyComplianceTree();
+          break;
+        case 'company_documents':
+          openCompanyLicenseArchive(false);
+          break;
+        case 'employees_org':
+          setEmployeeAppProps({ initialTab: 'orgchart', triggerKey: Date.now() });
+          setActiveApp('employees');
+          break;
+        case 'leave_wizard':
+          stashSettingsSection('leaves');
+          setActiveApp('settings');
+          break;
+        case 'attendance_setup':
+          stashSettingsSection('attendance');
+          setActiveApp('settings');
+          break;
+        default:
+          break;
+      }
+    },
+    [openCompanyComplianceTree, openCompanyLicenseArchive]
+  );
+
   // Global Keyboard Shortcut: Ctrl + K or Cmd + K
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -787,6 +827,7 @@ function MainAppLayout() {
               }}
               onOpenCompanyDocuments={() => openCompanyLicenseArchive(false)}
               onOpenComplianceTree={openCompanyComplianceTree}
+              onCompanySetupAction={handleCompanySetupAction}
               currentUserEmail={user?.email || ''}
               currentUserRole={isSuperAdmin ? 'SUPER_ADMIN' : 'COMPANY_ADMIN'}
               activeCompany={activeCompany}
@@ -973,7 +1014,7 @@ function MainAppLayout() {
         {/* الحالة 12: شاشة إعدادات المنشأة والنظام */}
         {activeApp === 'settings' && (
           <OdooAppCanvas>
-            <OdooSettingsFull />
+            <OdooSettingsFull onCompanySetupNavigate={handleCompanySetupAction} />
           </OdooAppCanvas>
         )}
 

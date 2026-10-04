@@ -67,6 +67,7 @@ import { OdooSmartButtons, type SmartButtonStat } from '../ui/OdooSmartButtons';
 import { employeeRequiresMohCompliance, mohComplianceGaps } from '../../utils/employeeCompliance';
 import { attachSignedContractFileToEmployee } from '../../utils/signedContractUpload';
 import { EmployeeOnboardingChecklistModal } from '../onboarding/EmployeeOnboardingChecklistModal';
+import { EmployeeOnboardingPlanPanel } from '../onboarding/EmployeeOnboardingPlanPanel';
 import { subscribeEmployeeOnboardingChecklist } from '../../services/employeeOnboardingChecklistService';
 import { UiStudioTarget } from '../studio/UiStudioTarget';
 import { useRegisterReorderGroup } from '../../context/UiStudioContext';
@@ -109,7 +110,14 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
   });
 
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
-  type EmployeeDetailTab = 'work' | 'private' | 'contract' | 'licenses' | 'commencement' | 'hr';
+  type EmployeeDetailTab =
+    | 'work'
+    | 'private'
+    | 'contract'
+    | 'licenses'
+    | 'commencement'
+    | 'hr'
+    | 'onboarding';
   const [activeTab, setActiveTab] = useState<EmployeeDetailTab>('work');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -343,10 +351,12 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
   const isCommenced = Boolean(startDateStr);
   const contractCount = employee.contractId || employee.pamContractId ? 1 : 1;
 
-  const masterTabId: 'work' | 'private' | 'contract' | 'licenses' =
+  const masterTabId: 'work' | 'private' | 'contract' | 'licenses' | 'onboarding' =
     activeTab === 'commencement' || activeTab === 'hr'
       ? 'licenses'
-      : activeTab;
+      : activeTab === 'onboarding'
+        ? 'onboarding'
+        : activeTab;
 
   // Contract status
   const contractStatus = employee.contractStatus || employee.status || 'ساري';
@@ -397,7 +407,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
       value: `${onboardingProgress}%`,
       icon: ListChecks,
       colorTheme: 'slate',
-      onClick: () => setShowOnboardingChecklist(true),
+      onClick: () => setActiveTab('onboarding'),
     },
     ...(onOpenPayroll
       ? [
@@ -414,7 +424,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
   ];
 
   const masterTabs: {
-    id: 'work' | 'private' | 'contract' | 'licenses';
+    id: 'work' | 'private' | 'contract' | 'licenses' | 'onboarding';
     label: string;
     labelEn: string;
     icon: React.ReactNode;
@@ -427,6 +437,12 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
       label: 'التراخيص والإقامات (PAM / MOH)',
       labelEn: 'Licenses & residency',
       icon: <Stethoscope size={16} />,
+    },
+    {
+      id: 'onboarding',
+      label: 'خطة التهيئة',
+      labelEn: 'Onboarding plan',
+      icon: <ListChecks size={16} />,
     },
   ];
   const employeeTabUiKeys = masterTabs.map(t => UI_KEYS.employeeTab(t.id));
@@ -1111,6 +1127,14 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
             onRefresh={() => setEmployee((prev: any) => ({ ...prev, _refreshTrigger: (prev._refreshTrigger || 0) + 1 }))}
             onOpenTimeOffApp={onOpenLeaves}
             holidayWorkReadOnly={Boolean(onOpenLeaves)}
+          />
+        )}
+        {activeTab === 'onboarding' && (
+          <EmployeeOnboardingPlanPanel
+            employeeId={String(employee?.id || '')}
+            companyId={String(resolvedCompanyId || '')}
+            employee={employee as Record<string, unknown>}
+            employeeName={employee.nameAr || employee.name}
           />
         )}
         </div>

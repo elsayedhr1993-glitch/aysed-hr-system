@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { 
   Building2, 
   CreditCard, 
@@ -40,12 +40,34 @@ import {
 } from './leaves/LeavePolicyWizardModal';
 import { loadTenantPolicy } from '../services/hrPolicyStorage';
 import { isMohMedicalEstablishment } from '../utils/mohMedicalFacility';
+import {
+  CompanySetupOnboardingBanner,
+  type CompanySetupStepAction,
+} from './onboarding/CompanySetupOnboardingBanner';
+import { useOdooHierarchy } from '../context/OdooHierarchyContext';
 
-export const OdooSettingsFull: React.FC = () => {
+export interface OdooSettingsFullProps {
+  onCompanySetupNavigate?: (action: CompanySetupStepAction) => void;
+}
+
+export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({ onCompanySetupNavigate }) => {
   const { settings, updateSettings, resetSettings, isSaving, isLoading } = useSystemSettings();
   const { activeCompany, updateActiveCompany } = useCompany();
+  const { employees } = useOdooHierarchy();
 
   const [activeSection, setActiveSection] = useState<string>('company');
+
+  React.useEffect(() => {
+    try {
+      const sec = sessionStorage.getItem('aysed_settings_section');
+      if (sec) {
+        setActiveSection(sec);
+        sessionStorage.removeItem('aysed_settings_section');
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
   const [isBiometricModalOpen, setIsBiometricModalOpen] = useState<boolean>(false);
@@ -203,8 +225,47 @@ export const OdooSettingsFull: React.FC = () => {
     );
   }, [searchQuery]);
 
+  const distinctJobTitles = useMemo(() => {
+    const titles = new Set<string>();
+    for (const e of employees || []) {
+      const t = String(e.jobTitle || '').trim();
+      if (t) titles.add(t);
+    }
+    return titles.size;
+  }, [employees]);
+
+  const handleCompanySetupAction = useCallback(
+    (action: CompanySetupStepAction) => {
+      if (action.type === 'settings') {
+        setActiveSection(action.section);
+        return;
+      }
+      if (action.type === 'leave_wizard') {
+        setActiveSection('leaves');
+        setIsLeaveWizardOpen(true);
+        return;
+      }
+      if (action.type === 'attendance_setup') {
+        setActiveSection('attendance');
+        setIsBiometricModalOpen(true);
+        return;
+      }
+      onCompanySetupNavigate?.(action);
+    },
+    [onCompanySetupNavigate]
+  );
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-800 font-sans dir-rtl pb-24" dir="rtl">
+
+      <div className="px-4 sm:px-6 pt-4 max-w-[1400px] mx-auto w-full">
+        <CompanySetupOnboardingBanner
+          company={activeCompany}
+          employeesCount={employees?.length || 0}
+          distinctJobTitles={distinctJobTitles}
+          onStepAction={handleCompanySetupAction}
+        />
+      </div>
       
       {/* 1. Header (Odoo Enterprise Settings Top Bar) */}
       <div className="bg-white border-b border-slate-200 sticky top-0 z-40 px-6 py-3 shadow-xs flex flex-wrap items-center justify-between gap-4">

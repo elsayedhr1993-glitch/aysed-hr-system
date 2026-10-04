@@ -16,6 +16,10 @@ import { useEffectiveTenantCompanyId } from '../hooks/useEffectiveTenantCompanyI
 import { isQueryableTenantCompanyId } from '../utils/tenantCompanyId';
 import { useAuth } from '../context/AuthContext';
 import { CompanyOnboardingLicensesWidget } from './onboarding/CompanyOnboardingLicensesWidget';
+import {
+  CompanySetupOnboardingBanner,
+  type CompanySetupStepAction,
+} from './onboarding/CompanySetupOnboardingBanner';
 import { useRegisterReorderGroup, useUiStudio } from '../context/UiStudioContext';
 import { UiStudioTarget } from './studio/UiStudioTarget';
 import { sortByUiOrder } from '../utils/uiOverrideUtils';
@@ -24,6 +28,7 @@ interface OdooAppLauncherProps {
   onSelectApp: (app: ActiveApp) => void;
   onOpenCompanyDocuments?: () => void;
   onOpenComplianceTree?: () => void;
+  onCompanySetupAction?: (action: CompanySetupStepAction) => void;
   currentUserEmail?: string;
   currentUserRole?: string;
   activeCompany?: Company;
@@ -51,6 +56,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
   onSelectApp,
   onOpenCompanyDocuments,
   onOpenComplianceTree,
+  onCompanySetupAction,
   currentUserEmail = '', 
   currentUserRole = '', 
   activeCompany, 
@@ -405,6 +411,15 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
   const launcherReorderGroupId = 'launcher.apps';
   useRegisterReorderGroup(launcherReorderGroupId, launcherAppUiKeys);
 
+  const distinctJobTitles = useMemo(() => {
+    const titles = new Set<string>();
+    for (const e of realEmployees) {
+      const t = String(e.jobTitle || e.position || e.job_title || '').trim();
+      if (t) titles.add(t);
+    }
+    return titles.size;
+  }, [realEmployees]);
+
   return (
     <div className="dashboard-container w-full h-full bg-transparent flex flex-col relative z-10 space-y-4 pb-6" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       
@@ -574,6 +589,16 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
         </div>
 
       </div>
+
+      {onCompanySetupAction && (
+        <CompanySetupOnboardingBanner
+          company={activeCompany}
+          employeesCount={stats.employeesCount || realEmployees.length}
+          distinctJobTitles={distinctJobTitles}
+          onStepAction={onCompanySetupAction}
+          className="mb-3"
+        />
+      )}
 
       <CompanyOnboardingLicensesWidget
         companyId={currentCompanyId}
