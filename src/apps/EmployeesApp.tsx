@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Users, Clock, Stethoscope, AlertTriangle, X, FileText, Printer, Calendar, 
   RefreshCw, DollarSign, CheckCircle2, Building2, Briefcase, ExternalLink, Trash2,
-  MoreVertical, Download
+  MoreVertical, Download, FileSpreadsheet
 } from 'lucide-react';
 import { OrganizationChartApp } from '../components/org-chart/OrganizationChartApp';
 import toast from 'react-hot-toast';
@@ -13,6 +13,7 @@ import { CommencementApp } from './CommencementApp';
 import { OnboardingTrackerApp } from '../components/employees/OnboardingTrackerApp';
 import { OnboardingWizardModal } from '../components/employees/OnboardingWizardModal';
 import { EmployeeQuickEditModal } from '../components/employees/EmployeeQuickEditModal';
+import { EmployeeImportModal } from '../components/employees/EmployeeImportModal';
 import { EmployeesAppChrome } from '../components/employees/layout/EmployeesAppChrome';
 import { useScreenLayout } from '../hooks/useScreenLayout';
 import { useCompany } from '../context/CompanyContext';
@@ -334,6 +335,7 @@ export function EmployeesApp(props?: any) {
   const [employeePendingDelete, setEmployeePendingDelete] = useState<{ id: string; name: string } | null>(null);
   const [isDeletingEmployee, setIsDeletingEmployee] = useState(false);
   const [showOnboardingWizardModal, setShowOnboardingWizardModal] = useState(false);
+  const [showEmployeeImportModal, setShowEmployeeImportModal] = useState(false);
   const [quickEditEmployee, setQuickEditEmployee] = useState<any | null>(null);
   const [isResetting, setIsResetting] = useState(false);
 
@@ -1252,6 +1254,18 @@ export function EmployeesApp(props?: any) {
       >
         <Download size={14} className="text-emerald-600" />
         تصدير Excel
+      </button>
+      <button
+        type="button"
+        role="menuitem"
+        onClick={() => {
+          setShowActionsDropdown(false);
+          setShowEmployeeImportModal(true);
+        }}
+        className="w-full text-right px-3 py-2 hover:bg-[#714B67]/10 rounded-lg text-xs font-medium text-[#714B67] flex items-center gap-2 cursor-pointer"
+      >
+        <FileSpreadsheet size={14} />
+        استيراد موظفين (Excel)
       </button>
       {isSuperAdmin && (
         <>
@@ -2453,6 +2467,18 @@ export function EmployeesApp(props?: any) {
       )}
 
       {/* معالج تسجيل الموظف وخطة التهيئة والتعيين الموحد */}
+      <EmployeeImportModal
+        isOpen={showEmployeeImportModal}
+        onClose={() => setShowEmployeeImportModal(false)}
+        companyId={currentCompanyId}
+        existingEmployees={employees}
+        onImported={() => {
+          void TenantDatabaseService.getEmployeesByTenant(currentCompanyId).then((list) => {
+            setEmployees(list.map((e) => mapEmployeeForEmployeesAppView(e, currentCompanyId)));
+          });
+        }}
+      />
+
       <OnboardingWizardModal
         isOpen={showOnboardingWizardModal}
         onClose={() => setShowOnboardingWizardModal(false)}

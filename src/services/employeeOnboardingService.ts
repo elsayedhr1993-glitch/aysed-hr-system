@@ -18,6 +18,8 @@ export interface EmployeeOnboardingInput {
   companyId: string;
   employee: Partial<Employee> & Record<string, any>;
   existingEmployees?: Array<Partial<Employee> & Record<string, any>>;
+  /** Bulk Excel/CSV import — optional email/IBAN and zero salary rows */
+  importMode?: boolean;
 }
 
 export interface EmployeeOnboardingBundle {
@@ -116,23 +118,41 @@ export function validateEmployeeOnboardingInput(input: EmployeeOnboardingInput):
   const draft = normalizeEmployeeDraft(input.employee, companyId);
   const companyEmployees = (input.existingEmployees || []).filter(existing => String(existing.companyId || existing.company_id || '').trim() === companyId && String(existing.id || '') !== String(draft.id || ''));
 
+  if (input.importMode) {
+    if (!draft.email || !String(draft.email).trim()) {
+      draft.email = `import+${draft.civilId || draft.id}@aysed-hr.local`;
+      draft.workEmail = draft.email;
+    }
+    if (!draft.bankName || !String(draft.bankName).trim()) {
+      draft.bankName = 'Pending Import';
+    }
+  }
+
   if (!draft.fullNameAr || !String(draft.fullNameAr).trim()) {
     throw new EmployeeOnboardingValidationError('اسم الموظف مطلوب لإتمام التسجيل.');
   }
   if (!isValidCivilId(draft.civilId)) {
     throw new EmployeeOnboardingValidationError('الرقم المدني يجب أن يكون 12 رقمًا صحيحًا داخل نفس الشركة.');
   }
-  if (!draft.email || !String(draft.email).trim()) {
+  if (!input.importMode && (!draft.email || !String(draft.email).trim())) {
     throw new EmployeeOnboardingValidationError('البريد الوظيفي مطلوب لإتمام التسجيل.');
   }
-  if (!draft.bankName || !String(draft.bankName).trim() || !draft.iban || !String(draft.iban).trim()) {
+  if (
+    !input.importMode &&
+    (!draft.bankName || !String(draft.bankName).trim() || !draft.iban || !String(draft.iban).trim())
+  ) {
     throw new EmployeeOnboardingValidationError('بيانات البنك والآيبان مطلوبة لإخراج الموظف جاهزاً للرواتب.');
   }
   if (!draft.joinDate || Number.isNaN(Date.parse(String(draft.joinDate)))) {
     throw new EmployeeOnboardingValidationError('تاريخ المباشرة غير صحيح.');
   }
-  if (Number(draft.basicSalary) <= 0 || Number(draft.totalSalary) <= 0) {
+  if (!input.importMode && (Number(draft.basicSalary) <= 0 || Number(draft.totalSalary) <= 0)) {
     throw new EmployeeOnboardingValidationError('الراتب الأساسي والإجمالي يجب أن يكونا أرقامًا موجبة.');
+  }
+  if (input.importMode && Number(draft.totalSalary) <= 0) {
+    draft.basicSalary = Number(draft.basicSalary) || 0;
+    draft.totalSalary = Number(draft.basicSalary) || 0;
+    draft.salary = draft.totalSalary;
   }
 
   const duplicateCivilId = companyEmployees.some(existing => isValidCivilId(existing.civilId || existing.civil_id_number || existing.civil_id) && normalizeCivilId(existing.civilId || existing.civil_id_number || existing.civil_id) === draft.civilId);
@@ -145,9 +165,13 @@ export function validateEmployeeOnboardingInput(input: EmployeeOnboardingInput):
     throw new EmployeeOnboardingValidationError('البريد الوظيفي مكرر داخل نفس الشركة.');
   }
 
-  const duplicateIban = companyEmployees.some(existing => normalizeIban(existing.iban || existing.bankIban || existing.bank_iban) === draft.iban);
-  if (duplicateIban) {
-    throw new EmployeeOnboardingValidationError('رقم الآيبان مكرر داخل نفس الشركة.');
+  if (draft.iban && String(draft.iban).trim()) {
+    const duplicateIban = companyEmployees.some(
+      existing => normalizeIban(existing.iban || existing.bankIban || existing.bank_iban) === draft.iban
+    );
+    if (duplicateIban) {
+      throw new EmployeeOnboardingValidationError('رقم الآيبان مكرر داخل نفس الشركة.');
+    }
   }
 
   return draft;
