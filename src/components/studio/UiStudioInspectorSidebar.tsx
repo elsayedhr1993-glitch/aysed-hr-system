@@ -1,6 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Download, Eye, EyeOff, PanelRightClose, Save, Sparkles } from 'lucide-react';
+import { useCompany } from '../../context/CompanyContext';
 import { useUiStudio } from '../../context/UiStudioContext';
+import type { ResolvedUiElement } from '../../types/uiOverrides';
 
 const kindLabel: Record<string, string> = {
   app: 'تطبيق',
@@ -12,6 +14,29 @@ const kindLabel: Record<string, string> = {
   section: 'قسم',
 };
 
+function snapshotFromResolved(resolved: ResolvedUiElement) {
+  return {
+    labelAr: resolved.label.ar,
+    labelEn: resolved.label.en || '',
+    helpAr: resolved.help?.ar || '',
+    helpEn: resolved.help?.en || '',
+    visible: !resolved.hidden,
+  };
+}
+
+function draftsEqual(
+  a: ReturnType<typeof snapshotFromResolved>,
+  b: ReturnType<typeof snapshotFromResolved>
+): boolean {
+  return (
+    a.labelAr === b.labelAr &&
+    a.labelEn === b.labelEn &&
+    a.helpAr === b.helpAr &&
+    a.helpEn === b.helpEn &&
+    a.visible === b.visible
+  );
+}
+
 export const UiStudioInspectorSidebar: React.FC = () => {
   const {
     canUseUiStudio,
@@ -21,7 +46,13 @@ export const UiStudioInspectorSidebar: React.FC = () => {
     resolveElement,
     saveElementPatch,
     exportOverridesJson,
+    overridesDoc,
   } = useUiStudio();
+  const { activeCompanyId, activeCompany } = useCompany();
+  const tenantCompanyId =
+    activeCompanyId && activeCompanyId !== 'SAAS_PLATFORM'
+      ? activeCompanyId
+      : activeCompany?.id || '';
 
   const resolved = selection
     ? resolveElement(selection.uiKey, {
@@ -35,39 +66,73 @@ export const UiStudioInspectorSidebar: React.FC = () => {
   const [helpAr, setHelpAr] = useState('');
   const [helpEn, setHelpEn] = useState('');
   const [visible, setVisible] = useState(true);
-  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  /** Baseline at selection / after successful save — not updated on every overrides tick while editing */
+  const baselineRef = useRef<ReturnType<typeof snapshotFromResolved> | null>(null);
+  const lastSyncKeyRef = useRef<string | null>(null);
+
+  const overridesVersion = overridesDoc?.version ?? 0;
 
   useEffect(() => {
-    if (!resolved || !selection) return;
-    setLabelAr(resolved.label.ar);
-    setLabelEn(resolved.label.en || '');
-    setHelpAr(resolved.help?.ar || '');
-    setHelpEn(resolved.help?.en || '');
-    setVisible(!resolved.hidden);
-    setDirty(false);
-  }, [selection?.uiKey, resolved?.label.ar, resolved?.hidden]);
+    if (!selection || !resolved) {
+      baselineRef.current = null;
+      lastSyncKeyRef.current = null;
+      return;
+    }
+
+    const syncKey = `${selection.uiKey}@${overridesVersion}`;
+    if (lastSyncKeyRef.current === syncKey) return;
+
+    lastSyncKeyRef.current = syncKey;
+    const snap = snapshotFromResolved(resolved);
+    baselineRef.current = snap;
+    setLabelAr(snap.labelAr);
+    setLabelEn(snap.labelEn);
+    setHelpAr(snap.helpAr);
+    setHelpEn(snap.helpEn);
+    setVisible(snap.visible);
+  }, [selection, resolved, overridesVersion]);
+
+  const draft = useMemo(
+    () => ({ labelAr, labelEn, helpAr, helpEn, visible }),
+    [labelAr, labelEn, helpAr, helpEn, visible]
+  );
+
+  const isDirty = useMemo(() => {
+    if (!baselineRef.current) return false;
+    return !draftsEqual(draft, baselineRef.current);
+  }, [draft, overridesVersion, selection?.uiKey]);
+
+  const canPersist = Boolean(
+    canUseUiStudio && selection && tenantCompanyId && tenantCompanyId !== 'SAAS_PLATFORM'
+  );
 
   if (!canUseUiStudio || !uiStudioActive) return null;
 
   const handleSave = async () => {
-    if (!selection) return;
-    await saveElementPatch(
-      selection.uiKey,
-      {
-        kind: selection.kind ?? selection.defaults.kind,
-        label: {
-          ar: labelAr.trim() || selection.defaults.label.ar,
-          en: labelEn.trim() || undefined,
+    if (!selection || !isDirty || saving) return;
+    setSaving(true);
+    try {
+      await saveElementPatch(
+        selection.uiKey,
+        {
+          kind: selection.kind ?? selection.defaults.kind,
+          label: {
+            ar: labelAr.trim() || selection.defaults.label.ar,
+            en: labelEn.trim() || undefined,
+          },
+          help:
+            helpAr.trim() || helpEn.trim()
+              ? { ar: helpAr.trim() || helpEn.trim(), en: helpEn.trim() || undefined }
+              : undefined,
+          hidden: !visible,
         },
-        help:
-          helpAr.trim() || helpEn.trim()
-            ? { ar: helpAr.trim() || helpEn.trim(), en: helpEn.trim() || undefined }
-            : undefined,
-        hidden: !visible,
-      },
-      { quiet: true }
-    );
-    setDirty(false);
+        { quiet: false }
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -116,14 +181,17 @@ export const UiStudioInspectorSidebar: React.FC = () => {
             </div>
           </div>
 
+          {!canPersist && (
+            <p className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2 leading-relaxed">
+              لحفظ التخصيصات، ادخل بمعاينة شركة محددة (انتحال هوية) وليس لوحة المنصة فقط.
+            </p>
+          )}
+
           <label className="block">
             <span className="font-bold text-slate-700">المسمى (عربي)</span>
             <input
               value={labelAr}
-              onChange={e => {
-                setLabelAr(e.target.value);
-                setDirty(true);
-              }}
+              onChange={e => setLabelAr(e.target.value)}
               className="w-full mt-1 border border-slate-200 rounded-lg p-2 text-sm"
             />
           </label>
@@ -131,10 +199,7 @@ export const UiStudioInspectorSidebar: React.FC = () => {
             <span className="font-bold text-slate-700">Label (English)</span>
             <input
               value={labelEn}
-              onChange={e => {
-                setLabelEn(e.target.value);
-                setDirty(true);
-              }}
+              onChange={e => setLabelEn(e.target.value)}
               dir="ltr"
               className="w-full mt-1 border border-slate-200 rounded-lg p-2 text-sm"
             />
@@ -143,10 +208,7 @@ export const UiStudioInspectorSidebar: React.FC = () => {
             <span className="font-bold text-slate-700">شرح / تلميح (عربي)</span>
             <textarea
               value={helpAr}
-              onChange={e => {
-                setHelpAr(e.target.value);
-                setDirty(true);
-              }}
+              onChange={e => setHelpAr(e.target.value)}
               className="w-full mt-1 border border-slate-200 rounded-lg p-2 min-h-[72px] text-sm"
             />
           </label>
@@ -154,10 +216,7 @@ export const UiStudioInspectorSidebar: React.FC = () => {
             <span className="font-bold text-slate-700">Help (English)</span>
             <textarea
               value={helpEn}
-              onChange={e => {
-                setHelpEn(e.target.value);
-                setDirty(true);
-              }}
+              onChange={e => setHelpEn(e.target.value)}
               dir="ltr"
               className="w-full mt-1 border border-slate-200 rounded-lg p-2 min-h-[72px] text-sm"
             />
@@ -172,10 +231,7 @@ export const UiStudioInspectorSidebar: React.FC = () => {
               type="checkbox"
               checked={visible}
               disabled={resolved?.locked}
-              onChange={e => {
-                setVisible(e.target.checked);
-                setDirty(true);
-              }}
+              onChange={e => setVisible(e.target.checked)}
               className="rounded border-slate-300 text-[#714B67] focus:ring-[#714B67]"
             />
           </div>
@@ -198,12 +254,12 @@ export const UiStudioInspectorSidebar: React.FC = () => {
         </button>
         <button
           type="button"
-          disabled={!selection || !dirty}
+          disabled={!selection || !isDirty || saving || !canPersist}
           onClick={() => void handleSave()}
-          className="flex-1 py-2 rounded-lg bg-[#714B67] text-white font-bold cursor-pointer disabled:opacity-40 flex items-center justify-center gap-1"
+          className="flex-1 py-2 rounded-lg bg-[#714B67] text-white font-bold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1"
         >
           <Save size={14} />
-          حفظ
+          {saving ? 'جاري الحفظ…' : 'حفظ'}
         </button>
       </footer>
     </aside>

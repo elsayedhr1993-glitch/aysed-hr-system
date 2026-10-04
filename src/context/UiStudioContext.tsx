@@ -41,7 +41,7 @@ interface UiStudioContextValue {
     key: string,
     patch: Partial<UiElementOverride>,
     options?: { quiet?: boolean }
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   hideElement: (key: string) => Promise<void>;
   reorderKeys: (orderedKeys: string[], baseOrders?: number[]) => Promise<void>;
   exportOverridesJson: () => void;
@@ -116,8 +116,17 @@ export const UiStudioProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       key: string,
       patch: Partial<UiElementOverride>,
       options?: { quiet?: boolean }
-    ) => {
-      if (!isActualSuperAdmin || !companyId) return;
+    ): Promise<boolean> => {
+      if (!isActualSuperAdmin) {
+        if (!options?.quiet) toast.error('حفظ التخصيص متاح لمسؤول المنصة فقط');
+        return false;
+      }
+      if (!companyId || companyId === 'SAAS_PLATFORM') {
+        if (!options?.quiet) {
+          toast.error('اختر شركة نشطة (معاينة/انتحال) قبل حفظ تخصيصات Studio');
+        }
+        return false;
+      }
       try {
         const next = await patchUiOverrides(
           companyId,
@@ -127,9 +136,11 @@ export const UiStudioProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         );
         setOverridesDoc(next);
         if (!options?.quiet) toast.success('تم حفظ التخصيص');
+        return true;
       } catch (e) {
         console.error(e);
-        toast.error('فشل حفظ التخصيص في Firestore');
+        toast.error('فشل حفظ التخصيص في Firestore — تحقق من صلاحيات ui_overrides');
+        return false;
       }
     },
     [isActualSuperAdmin, companyId, user, overridesDoc]
