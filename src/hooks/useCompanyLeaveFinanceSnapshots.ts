@@ -65,5 +65,12 @@ export function useCompanyLeaveFinanceSnapshots(companyId?: string) {
     };
   }, [companyId]);
 
-  return { leaveRequests, leaveAllocations, leaveSettlements, loading };
+  return {
+    leaveRequests,
+    setLeaveRequests,
+    leaveAllocations,
+    setLeaveAllocations,
+    leaveSettlements,
+    loading,
+  };
 }

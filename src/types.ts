@@ -301,7 +301,7 @@ export interface HrLeaveAllocation {
   employeeId: string;
   companyId: string;
   leaveType: 'ANNUAL' | 'SICK' | 'MATERNITY' | 'HAJJ' | 'UNPAID' | 'COMPASSIONATE' | 'BEREAVEMENT' | 'HOURLY_PERMISSION' | 'COMPENSATORY';
-  allocationType: 'regular' | 'accrual' | 'compensatory_off' | 'compensatory'; // 'regular' for fixed opening balance, 'accrual' for monthly plan, 'compensatory_off' for holidays
+  allocationType: 'regular' | 'accrual' | 'compensatory_off' | 'compensatory' | 'carried_over'; // carried_over = opening / prior-year balance
   accrualMonthKey?: string; // e.g. '2026-08'
   numberOfDays: number; // إجمالي الأيام المخصصة
   consumedDays?: number;

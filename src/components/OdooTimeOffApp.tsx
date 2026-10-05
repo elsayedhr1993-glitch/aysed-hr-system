@@ -56,12 +56,14 @@ import {
   normalizeLeaveBalanceInputs,
   resolveAnnualTicketAllowanceKwd,
   resolveLeaveBalancePoolHint,
-  resolveLeavePaidUnpaidSplit
+  resolveLeavePaidUnpaidSplit,
+  sumCarriedOverFromAllocations,
 } from '../utils/leaveEngine';
+import { TenantDatabaseService } from '../services/tenantDataService';
 import { normalizeLeaveStatus, normalizeLeaveType, isLeaveRequestInConflict, canTransitionLeaveStatus, isAnnualLeaveType } from '../utils/leaveModel';
 import { calculateKuwaitLeaveCashAmount } from '../utils/kuwaitPayrollMath';
 import { upsertLeaveAllocationToSupabase } from '../services/leaveSupabaseSync';
-import { HrLeaveAllocation, LeaveSettlementVoucher } from '../types';
+import { Employee, HrLeaveAllocation, LeaveSettlementVoucher } from '../types';
 import { LEAVE_SCOPE_LABELS, type LeaveScope } from '../utils/leaveScopeAccrual';
 
 // Time Off Sub-components
@@ -151,7 +153,9 @@ export const OdooTimeOffApp: React.FC = () => {
 
   const {
     leaveRequests: requests,
+    setLeaveRequests: setRequests,
     leaveAllocations: allocations,
+    setLeaveAllocations: setAllocations,
     leaveSettlements: settlementVouchers,
   } = useCompanyLeaveFinanceSnapshots(companyId);
 
@@ -534,7 +538,7 @@ export const OdooTimeOffApp: React.FC = () => {
     employeeId: companyEmployees[0]?.id || '',
     employeeName: companyEmployees[0]?.name || (companyEmployees[0] as any)?.fullNameAr || '',
     fromYear: '2026',
-    days: '0',
+    days: '',
     leaveType: 'annual',
     notes: ''
   });
@@ -651,34 +655,81 @@ export const OdooTimeOffApp: React.FC = () => {
   };
 
   // Handle Odoo 18 Allocation Creation & Balance Re-computation
-  const handleCreateAllocation = (e: React.FormEvent) => {
+  const handleCreateAllocation = async (e: React.FormEvent) => {
     e.preventDefault();
     const daysNum = parseFloat(newAllocation.days);
     if (isNaN(daysNum) || daysNum <= 0) {
       toast.error('يرجى إدخال عدد أيام صحيح (أكبر من صفر).');
       return;
     }
+    if (!newAllocation.employeeId) {
+      toast.error('يرجى اختيار الموظف المستفيد.');
+      return;
+    }
+    if (!companyId || companyId === 'comp-super-admin') {
+      toast.error('اختر شركة نشطة (معاينة منشأة) قبل تخصيص الرصيد.');
+      return;
+    }
 
-    const createdAlloc: LeaveAllocation = {
-      id: `ALC-${newAllocation.fromYear}-${String(allocations.length + 1).padStart(2, '0')}`,
+    const allocationDate = new Date().toISOString().split('T')[0];
+    const allocationId = `ALC-${companyId}-${newAllocation.employeeId}-${Date.now()}`;
+    const notes = newAllocation.notes?.trim() || 'رصيد إجازات مرحّل';
+
+    const createdAlloc: LeaveAllocation & Record<string, unknown> = {
+      id: allocationId,
+      companyId,
       employeeId: newAllocation.employeeId,
       employeeName: newAllocation.employeeName,
       fromYear: newAllocation.fromYear,
       days: daysNum,
-      leaveType: newAllocation.leaveType,
-      allocationDate: new Date().toISOString().split('T')[0],
-      notes: newAllocation.notes || 'رصيد إجازات مرحّل',
-      allocatedBy: 'مسؤول الموارد البشرية'
+      numberOfDays: daysNum,
+      leaveType: 'ANNUAL',
+      allocationType: 'carried_over',
+      state: 'validate',
+      name: `رصيد مرحل ${newAllocation.fromYear}`,
+      dateFrom: `${newAllocation.fromYear}-01-01`,
+      allocationDate,
+      notes,
+      allocatedBy: user?.email || 'مسؤول الموارد البشرية',
+      consumedDays: 0,
+      encashedDays: 0,
+      remainingDays: daysNum,
+      createdAt: new Date().toISOString(),
     };
 
-    const updatedAllocations = [createdAlloc, ...allocations];
-    setAllocations(updatedAllocations);
-    void setDoc(doc(db, 'leave_allocations', createdAlloc.id), cleanFirestoreData({ ...createdAlloc, companyId }), { merge: true });
+    try {
+      await setDoc(
+        doc(db, 'leave_allocations', allocationId),
+        cleanFirestoreData(createdAlloc),
+        { merge: true }
+      );
+      void upsertLeaveAllocationToSupabase(createdAlloc as HrLeaveAllocation, companyId).catch(() => false);
 
-    setShowAllocationModal(false);
-    toast.success(
-      `تم اعتماد وإضافة ${daysNum} يوم كرصيد مرحّل للموظف (${newAllocation.employeeName}) بنجاح.`
-    );
+      const emp = companyEmployees.find((item) => item.id === newAllocation.employeeId);
+      if (emp) {
+        const mergedAllocRows = [...allocations, createdAlloc] as HrLeaveAllocation[];
+        const carriedTotal = sumCarriedOverFromAllocations(emp as Employee, mergedAllocRows);
+        await TenantDatabaseService.saveEmployee(
+          {
+            ...(emp as Employee),
+            carriedOverBalance: carriedTotal,
+            carriedOverLeave2025: carriedTotal,
+            openingBalance: carriedTotal,
+          },
+          companyId
+        );
+      }
+
+      setAllocations((previous) => [createdAlloc as HrLeaveAllocation, ...previous]);
+      setShowAllocationModal(false);
+      setNewAllocation((prev) => ({ ...prev, days: '', notes: '' }));
+      toast.success(
+        `تم اعتماد وإضافة ${daysNum} يوم كرصيد مرحّل للموظف (${newAllocation.employeeName}) بنجاح.`
+      );
+    } catch (error) {
+      console.error('Failed to save leave allocation', error);
+      toast.error('تعذر حفظ تخصيص الرصيد المرحّل. تحقق من الاتصال وصلاحيات الشركة.');
+    }
   };
 
   const handleDeleteAllocation = async (allocation: Partial<LeaveAllocation> & Record<string, any>) => {
