@@ -435,8 +435,8 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
     { id: 'contract', label: 'عقد العمل والراتب', labelEn: 'Contract & salary', icon: <FileText size={16} /> },
     {
       id: 'licenses',
-      label: 'التراخيص والإقامات (PAM / MOH)',
-      labelEn: 'Licenses & residency',
+      label: 'الوثائق والهوية (مدنية · جواز · PAM · MOH)',
+      labelEn: 'Documents & ID',
       icon: <Stethoscope size={16} />,
     },
     {
@@ -1075,7 +1075,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
           <EmployeeDocumentsTab
             employee={employee}
             setEmployee={setEmployee}
-            isEditMode={false} // شاشة مستندات الموظف تكون فقط للمشاهدة كما هو مطلوب بالكامل
+            isEditMode={isEditMode}
             handleFieldChange={handleFieldChange}
             handleOcrResult={handleOcrResult}
             handleDocFileUpload={handleDocFileUpload}
