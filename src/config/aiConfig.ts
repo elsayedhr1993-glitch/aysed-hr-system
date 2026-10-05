@@ -12,9 +12,9 @@ function readConfigEnv(key: string): string | undefined {
 }
 
 export const AI_MODELS = {
-  chat: readConfigEnv('AI_CHAT_MODEL') || 'gemini-2.5-flash',
-  ocr: readConfigEnv('AI_OCR_MODEL') || 'gemini-2.5-flash',
-  fallback: readConfigEnv('AI_FALLBACK_MODEL') || 'gemini-2.5-pro',
+  chat: readConfigEnv('AI_CHAT_MODEL') || 'gemini-3.8-flash',
+  ocr: readConfigEnv('AI_OCR_MODEL') || 'gemini-3.8-flash',
+  fallback: readConfigEnv('AI_FALLBACK_MODEL') || 'gemini-3.1-pro-preview',
 } as const;
 
 function uniqueModels(candidates: string[]): string[] {
@@ -38,7 +38,7 @@ export function getChatModelCandidates(): string[] {
   return uniqueModels([
     AI_MODELS.chat,
     ...extra,
-    'gemini-2.0-flash',
+    'gemini-3.8-flash',
     AI_MODELS.fallback,
   ]);
 }
@@ -49,12 +49,12 @@ export function getOcrModelCandidates(): string[] {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
-  return uniqueModels([AI_MODELS.ocr, ...extra, AI_MODELS.fallback, 'gemini-2.0-flash']);
+  return uniqueModels([AI_MODELS.ocr, ...extra, AI_MODELS.fallback, 'gemini-3.8-flash']);
 }
 
 /** Lightweight connectivity probe models. */
 export function getConnectivityTestModels(): string[] {
-  return uniqueModels([AI_MODELS.chat, AI_MODELS.fallback, 'gemini-2.0-flash']);
+  return uniqueModels([AI_MODELS.chat, AI_MODELS.fallback, 'gemini-3.8-flash']);
 }
 
 export interface AiConversationTurn {
