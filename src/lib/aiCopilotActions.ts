@@ -12,6 +12,7 @@ const ACTION_TYPES: CopilotActionType[] = [
   'OPEN_MODAL',
   'TRIGGER_FUNCTION',
   'CREATE_EMPLOYEE',
+  'CREATE_LEAVE_DRAFT',
   'OPEN_CALCULATOR',
 ];
 
@@ -66,6 +67,33 @@ export function sanitizeCopilotAction(raw: unknown): CopilotAction | null {
 
   if (type === 'OPEN_CALCULATOR') {
     return { type, title };
+  }
+
+  if (type === 'CREATE_LEAVE_DRAFT') {
+    const ld = (o.leaveDraft && typeof o.leaveDraft === 'object' ? o.leaveDraft : o) as Record<
+      string,
+      unknown
+    >;
+    const employeeId = String(ld.employeeId || '').trim();
+    const civilId = String(ld.civilId || ld.civil_id || '').replace(/\D/g, '') || undefined;
+    const employeeName = String(ld.employeeName || ld.name || ld.nameAr || '').trim();
+    const startDate = String(ld.startDate || ld.from || '').trim();
+    if (!employeeId && !civilId && !employeeName) return null;
+    if (!startDate) return null;
+    return {
+      type,
+      title,
+      leaveDraft: {
+        employeeId: employeeId || undefined,
+        employeeName: employeeName || undefined,
+        civilId,
+        leaveType: String(ld.leaveType || ld.type || 'annual').trim() || 'annual',
+        startDate,
+        endDate: String(ld.endDate || ld.to || startDate).trim() || startDate,
+        reason: String(ld.reason || '').trim() || undefined,
+        submitForApproval: Boolean(ld.submitForApproval),
+      },
+    };
   }
 
   if (type === 'CREATE_EMPLOYEE') {

@@ -3,12 +3,12 @@ import { X, Send, Bot, User } from 'lucide-react';
 import { Company, Employee, Contract } from '../types';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
-import { downloadKuwaitWPSFile } from '../utils/kuwaitLaw';
-import { addDirectEmployeeViaAi } from '../services/tenantDataService';
 import { useLang } from '../lib/i18n';
 import { buildAiPayload } from '../config/aiConfig';
-import { buildCompanyContextSummary } from '../lib/aiCopilotContext';
+import { buildCopilotPayloadContext } from '../lib/aiCopilotContext';
 import type { CopilotAction } from '../lib/aiCopilotTypes';
+import { useCopilotContextOptional } from '../context/CopilotContext';
+import { useCopilotActionExecutor } from '../hooks/useCopilotActionExecutor';
 
 export type { CopilotAction };
 
@@ -29,7 +29,6 @@ interface AysedAICopilotProps {
   employees: Employee[];
   contracts: Contract[];
   leaveSummary?: { pending?: number; onLeaveToday?: number };
-  onQuickAction?: (actionType: string, payload?: any) => void;
 }
 
 function formatSourceLabel(source?: string, isArabic?: boolean): string | null {
@@ -49,11 +48,12 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
   employees = [],
   contracts = [],
   leaveSummary,
-  onQuickAction,
 }) => {
   const { token } = useAuth();
   const { lang } = useLang();
   const isArabic = lang === 'ar';
+  const copilotCtx = useCopilotContextOptional();
+  const { execute: executeCopilotAction } = useCopilotActionExecutor();
   const [messages, setMessages] = useState<CopilotMessage[]>([
     {
       id: '1',
@@ -80,14 +80,26 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
 
   const contextSummary = useMemo(
     () =>
-      buildCompanyContextSummary({
+      buildCopilotPayloadContext({
         company: activeCompany,
         employees: scopedEmployees,
         contracts: scopedContracts,
         companyId,
         leaveSummary,
+        activeApp: copilotCtx?.activeApp,
+        screen: copilotCtx?.screen,
+        screenSummary: copilotCtx?.screenSummary,
       }),
-    [activeCompany, scopedEmployees, scopedContracts, companyId, leaveSummary]
+    [
+      activeCompany,
+      scopedEmployees,
+      scopedContracts,
+      companyId,
+      leaveSummary,
+      copilotCtx?.activeApp,
+      copilotCtx?.screen,
+      copilotCtx?.screenSummary,
+    ]
   );
 
   const quickPrompts = isArabic ? [
@@ -148,6 +160,9 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
             prompt: queryText,
             companyId,
             contextSummary,
+            activeApp: copilotCtx?.activeApp,
+            screen: copilotCtx?.screen ?? undefined,
+            screenSummary: copilotCtx?.screenSummary,
             conversationHistory: messages
               .filter((m) => m.id !== '1')
               .map((m) => ({ role: m.sender === 'user' ? 'user' : 'assistant', content: m.text })),
@@ -250,76 +265,7 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
 
   const handleExecuteAction = async (action: CopilotAction) => {
     console.log('⚡ [Aysed Copilot Action Execution Triggered]:', action);
-
-    if (action.type === 'NAVIGATE' && action.appId) {
-      console.log(`🚀 [Copilot Navigation] Switching activeApp to: "${action.appId}"`);
-      if (onQuickAction) {
-        onQuickAction('navigate', action.appId);
-      }
-      onClose();
-    } else if (action.type === 'OPEN_MODAL') {
-      console.log(`📂 [Copilot Modal Trigger] Opening modal: "${action.modal}"`);
-      if (action.modal === 'new_employee' && onQuickAction) {
-        onQuickAction('new_employee');
-      } else if (action.modal === 'pam_contract' && onQuickAction) {
-        onQuickAction('navigate', 'contracts');
-      } else if (action.modal === 'upload_doc' && onQuickAction) {
-        onQuickAction('navigate', 'scanner');
-      } else if (onQuickAction) {
-        onQuickAction(action.modal || 'new_employee');
-      }
-      onClose();
-    } else if (action.type === 'OPEN_CALCULATOR') {
-      if (onQuickAction) onQuickAction('calculator');
-      onClose();
-    } else if (action.type === 'TRIGGER_FUNCTION') {
-      console.log(`📥 [Copilot Function Execution] Executing: "${action.functionName}"`);
-      if (action.functionName === 'export_wps' || !action.functionName) {
-        const wpsEmployees = scopedEmployees
-          .filter(e => e.civilId && e.iban)
-          .map(e => ({
-            civil_id: e.civilId,
-            bank_code: 'KFH',
-            iban: e.iban,
-            basic_salary: Number((e as any).basicSalary || (e as any).salary) || 0,
-            allowances: 0,
-            deductions: 0,
-            net_salary: Number((e as any).basicSalary || (e as any).salary) || 0
-          }));
-        if (wpsEmployees.length === 0) {
-          toast.error('لا يمكن إنشاء ملف WPS قبل توفر الرقم المدني وIBAN الفعلي للموظفين.');
-          onClose();
-          return;
-        }
-        downloadKuwaitWPSFile(
-          {
-            companyMOSALId: '301122',
-            employerBankCode: 'KFH',
-            payrollMonthYear: new Date().toISOString().slice(0, 7)
-          },
-          wpsEmployees
-        );
-        toast.success('تم تنزيل واستخراج ملف حماية الأجور (WPS SIF) للبنوك بنجاح');
-      }
-      onClose();
-    } else if (action.type === 'CREATE_EMPLOYEE' && action.employeeData) {
-      console.log('👤 [Copilot Direct Employee Creation]:', action.employeeData);
-      try {
-        if (!companyId) {
-          toast.error(isArabic ? 'لا يوجد شركة نشطة.' : 'No active company.');
-          return;
-        }
-        const createdEmployee = await addDirectEmployeeViaAi(companyId, action.employeeData, scopedEmployees);
-        toast.success(`تم إضافة الموظف (${createdEmployee.fullNameAr || action.employeeData.nameAr || 'الجديد'}) بنجاح إلى قاعدة البيانات!`);
-        if (onQuickAction) {
-          onQuickAction('navigate', 'employees');
-        }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'حدث خطأ أثناء إضافة الموظف';
-        toast.error(message);
-      }
-      onClose();
-    }
+    await executeCopilotAction(action);
   };
 
   return (
@@ -382,15 +328,55 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
                   <div className="mt-3 p-3 bg-gradient-to-r from-purple-900 via-[#714B67] to-slate-900 text-white rounded-xl border border-amber-400/50 shadow-lg flex flex-col items-start gap-2">
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-lg bg-amber-400 text-purple-950 font-black flex items-center justify-center text-xs shrink-0 shadow-md">
-                        {msg.action.type === 'CREATE_EMPLOYEE' ? '👤' : '⚡'}
+                        {msg.action.type === 'CREATE_EMPLOYEE'
+                          ? '👤'
+                          : msg.action.type === 'CREATE_LEAVE_DRAFT'
+                            ? '🏖️'
+                            : '⚡'}
                       </div>
                       <div>
                         <div className="text-[9px] text-amber-300 font-bold uppercase tracking-wider">
-                          {msg.action.type === 'CREATE_EMPLOYEE' ? (isArabic ? 'إضافة موظف جديد آلياً' : 'Add new employee automatically') : (isArabic ? 'إجراء تنفيذي آلي جاهز' : 'Ready-to-run automated action')}
+                          {msg.action.type === 'CREATE_EMPLOYEE'
+                            ? isArabic
+                              ? 'إضافة موظف جديد آلياً'
+                              : 'Add new employee automatically'
+                            : msg.action.type === 'CREATE_LEAVE_DRAFT'
+                              ? isArabic
+                                ? 'مسودة طلب إجازة'
+                                : 'Leave request draft'
+                              : isArabic
+                                ? 'إجراء تنفيذي آلي جاهز'
+                                : 'Ready-to-run automated action'}
                         </div>
                         <div className="text-xs font-bold text-white">{msg.action.title}</div>
                       </div>
                     </div>
+
+                    {msg.action.leaveDraft && (
+                      <div className="w-full bg-black/30 rounded-lg p-2.5 text-[11px] space-y-1 border border-white/10 my-1">
+                        <div className="flex justify-between">
+                          <span className="text-purple-300">{isArabic ? 'الموظف:' : 'Employee:'}</span>
+                          <span className="font-bold">
+                            {msg.action.leaveDraft.employeeName ||
+                              msg.action.leaveDraft.employeeId ||
+                              msg.action.leaveDraft.civilId ||
+                              '—'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-purple-300">{isArabic ? 'الفترة:' : 'Dates:'}</span>
+                          <span className="font-mono text-amber-300">
+                            {msg.action.leaveDraft.startDate} → {msg.action.leaveDraft.endDate}
+                          </span>
+                        </div>
+                        {msg.action.leaveDraft.leaveType && (
+                          <div className="flex justify-between">
+                            <span className="text-purple-300">{isArabic ? 'النوع:' : 'Type:'}</span>
+                            <span>{msg.action.leaveDraft.leaveType}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {msg.action.employeeData && (
                       <div className="w-full bg-black/30 rounded-lg p-2.5 text-[11px] space-y-1 border border-white/10 my-1">
@@ -408,7 +394,17 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
                       className="w-full px-3.5 py-2 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-purple-950 font-extrabold text-xs rounded-lg shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer mt-1"
                     >
                       <span>
-                        {msg.action.type === 'CREATE_EMPLOYEE' ? (isArabic ? '👤 اعتماد وإضافة الموظف للنظام الآن' : '👤 Approve and add employee to the system now') : (isArabic ? '🚀 تنفيذ الإجراء وإغلاق المساعد' : '🚀 Execute action and close assistant')}
+                        {msg.action.type === 'CREATE_EMPLOYEE'
+                          ? isArabic
+                            ? '👤 اعتماد وإضافة الموظف للنظام الآن'
+                            : '👤 Approve and add employee to the system now'
+                          : msg.action.type === 'CREATE_LEAVE_DRAFT'
+                            ? isArabic
+                              ? '🏖️ حفظ مسودة الإجازة وفتح التطبيق'
+                              : '🏖️ Save leave draft and open Time Off'
+                            : isArabic
+                              ? '🚀 تنفيذ الإجراء وإغلاق المساعد'
+                              : '🚀 Execute action and close assistant'}
                       </span>
                     </button>
                   </div>

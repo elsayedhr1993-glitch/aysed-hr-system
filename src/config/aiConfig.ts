@@ -66,6 +66,9 @@ export interface AiChatRequest {
   prompt: string;
   companyId?: string;
   contextSummary?: string;
+  activeApp?: string;
+  screen?: Record<string, unknown> | null;
+  screenSummary?: string;
   conversationHistory?: AiConversationTurn[];
 }
 
@@ -73,12 +76,18 @@ export function buildAiPayload(input: {
   prompt: string;
   companyId?: string;
   contextSummary?: string;
+  activeApp?: string;
+  screen?: Record<string, unknown> | null;
+  screenSummary?: string;
   conversationHistory?: AiConversationTurn[];
 }): AiChatRequest {
   return {
     prompt: String(input.prompt ?? '').trim(),
     ...(input.companyId ? { companyId: String(input.companyId) } : {}),
     ...(input.contextSummary ? { contextSummary: String(input.contextSummary) } : {}),
+    ...(input.activeApp ? { activeApp: String(input.activeApp) } : {}),
+    ...(input.screen ? { screen: input.screen } : {}),
+    ...(input.screenSummary ? { screenSummary: String(input.screenSummary) } : {}),
     ...(Array.isArray(input.conversationHistory) && input.conversationHistory.length > 0
       ? {
           conversationHistory: input.conversationHistory.map((item) => ({

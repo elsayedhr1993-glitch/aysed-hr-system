@@ -1,4 +1,8 @@
 import type { Company, Contract, Employee, LeaveRequest } from '../types';
+import {
+  CopilotScreenDescriptor,
+  formatCopilotScreenForPrompt,
+} from './copilotScreenTypes';
 
 function contractTotal(contract: Contract | undefined): number {
   if (!contract) return 0;
@@ -84,6 +88,26 @@ export function buildCompanyContextSummary(input: {
   ]
     .filter(Boolean)
     .join('\n');
+}
+
+export function buildCopilotPayloadContext(input: {
+  company?: Company | null;
+  employees: Employee[];
+  contracts: Contract[];
+  leaves?: LeaveRequest[];
+  companyId?: string;
+  leaveSummary?: { pending?: number; onLeaveToday?: number };
+  activeApp?: string;
+  screen?: CopilotScreenDescriptor | null;
+  screenSummary?: string;
+}): string {
+  const companyBlock = buildCompanyContextSummary(input);
+  const screenBlock = formatCopilotScreenForPrompt(
+    input.activeApp,
+    input.screen ?? null,
+    input.screenSummary
+  );
+  return `${companyBlock}\n\n--- سياق الشاشة الحالية ---\n${screenBlock}`;
 }
 
 export function assertClientCompanyAccess(

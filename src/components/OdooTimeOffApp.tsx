@@ -36,6 +36,7 @@ import {
   Filter
 } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
+import { useRegisterCopilotScreen } from '../context/CopilotContext';
 import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
 import { useOdooHierarchy } from '../context/OdooHierarchyContext';
 import { useAuth } from '../context/AuthContext';
@@ -303,6 +304,24 @@ export const OdooTimeOffApp: React.FC = () => {
   // Filters & Search for Requests
   const [selectedFilter, setSelectedFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  const copilotScreen = useMemo(
+    () => ({
+      model: 'hr.leave',
+      view: activeMainTab,
+      tab: activeMainTab,
+      filters: { listFilter: selectedFilter, search: searchQuery ? 'yes' : '' },
+    }),
+    [activeMainTab, selectedFilter, searchQuery]
+  );
+  const copilotScreenSummary = useMemo(
+    () =>
+      `تطبيق الإجازات — تبويب ${activeMainTab} | ${requests.length} طلب | معلق: ${requests.filter((r) =>
+        ['PENDING_MANAGER', 'PENDING_HR', 'pending', 'pending_manager', 'pending_hr'].includes(String(r.status))
+      ).length}`,
+    [activeMainTab, requests]
+  );
+  useRegisterCopilotScreen(copilotScreen, copilotScreenSummary);
 
   // Modal Control States
   const [showApplyModal, setShowApplyModal] = useState(false);

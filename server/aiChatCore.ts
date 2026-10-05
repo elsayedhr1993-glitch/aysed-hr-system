@@ -25,7 +25,9 @@ action.type المسموح:
 - TRIGGER_FUNCTION + functionName من: ${COPILOT_FUNCTION_NAMES.join(', ')}
 - OPEN_CALCULATOR (حاسبة HR سريعة)
 - CREATE_EMPLOYEE + employeeData (nameAr, civilId, jobTitle, department, basicSalary, ...)
+- CREATE_LEAVE_DRAFT + leaveDraft (employeeId أو civilId أو employeeName، startDate، endDate، leaveType، reason، submitForApproval اختياري)
 
+إذا كان المستخدم داخل تطبيق الإجازات (activeApp=leaves)، فضّل إجراءات وإجابات متعلقة بالإجازات والأرصدة.
 إذا كان السؤال استشارة فقط، action = null.
 لا تُرجع نصاً خارج JSON.`;
 
@@ -48,7 +50,15 @@ export async function handleAiChatRequest(
       };
     }
 
-    const { prompt, contextSummary, conversationHistory, companyId: bodyCompanyId } = body || {};
+    const {
+      prompt,
+      contextSummary,
+      conversationHistory,
+      companyId: bodyCompanyId,
+      activeApp,
+      screen,
+      screenSummary,
+    } = body || {};
     if (!prompt || !String(prompt).trim()) {
       return {
         status: 400,
@@ -94,8 +104,12 @@ export async function handleAiChatRequest(
     }
 
     const parts: { text: string }[] = [];
+    const screenBlock =
+      activeApp || screen || screenSummary
+        ? `\n[سياق الشاشة]\nactiveApp=${String(activeApp || '')}\nscreen=${screen ? JSON.stringify(screen).slice(0, 2000) : '—'}\n${screenSummary ? `ملخص: ${String(screenSummary).slice(0, 1500)}` : ''}`
+        : '';
     parts.push({
-      text: `[سياق الشركة — بيانات مجمّعة فقط]\n${contextSummary || 'لا يوجد سياق إضافي.'}\ncompanyId=${access.companyId}`,
+      text: `[سياق الشركة — بيانات مجمّعة فقط]\n${contextSummary || 'لا يوجد سياق إضافي.'}\ncompanyId=${access.companyId}${screenBlock}`,
     });
 
     if (Array.isArray(conversationHistory)) {
@@ -135,6 +149,7 @@ export async function handleAiChatRequest(
                     modal: { type: Type.STRING },
                     functionName: { type: Type.STRING },
                     employeeData: { type: Type.OBJECT },
+                    leaveDraft: { type: Type.OBJECT },
                   },
                 },
               },

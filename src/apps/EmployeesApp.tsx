@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { 
   Users, Clock, Stethoscope, AlertTriangle, X, FileText, Printer, Calendar, 
   RefreshCw, DollarSign, CheckCircle2, Building2, Briefcase, ExternalLink, Trash2,
@@ -18,6 +18,7 @@ import { EmployeesAppChrome } from '../components/employees/layout/EmployeesAppC
 import { useScreenLayout } from '../hooks/useScreenLayout';
 import { useCompany } from '../context/CompanyContext';
 import { useEffectiveTenantCompanyId } from '../hooks/useEffectiveTenantCompanyId';
+import { useRegisterCopilotScreen } from '../context/CopilotContext';
 import {
   contractQueryCompanyIds,
   employeeBelongsToTenant,
@@ -971,6 +972,30 @@ export function EmployeesApp(props?: any) {
     }
     return employeeBelongsToTenant(emp, currentCompanyId);
   });
+
+  const copilotScreen = useMemo(
+    () => ({
+      model: 'hr.employee',
+      view: selectedEmployee ? 'form' : 'list',
+      tab: activeTab,
+      entityType: selectedEmployee ? 'employee' : undefined,
+      entityId: selectedEmployee?.id ? String(selectedEmployee.id) : undefined,
+      filters: {
+        dept: selectedDept || '',
+        status: selectedStatus || '',
+        search: searchQuery ? 'yes' : '',
+      },
+    }),
+    [activeTab, selectedEmployee?.id, selectedDept, selectedStatus, searchQuery]
+  );
+  const copilotScreenSummary = useMemo(() => {
+    if (selectedEmployee) {
+      const name = selectedEmployee.nameAr || selectedEmployee.fullNameAr || 'موظف';
+      return `ملف موظف: ${name} — ${selectedEmployee.jobTitle || ''}`;
+    }
+    return `دليل الموظفين: ${visibleEmployees.length} سجل ظاهر`;
+  }, [selectedEmployee, visibleEmployees.length]);
+  useRegisterCopilotScreen(copilotScreen, copilotScreenSummary);
 
   // 4. KPI Alert Cards State & Quick Filtering
   const [kpiFilter, setKpiFilter] = useState<'all' | 'on_duty' | 'on_leave' | 'residency_expiring' | 'moh_expiring' | 'expired'>('all');

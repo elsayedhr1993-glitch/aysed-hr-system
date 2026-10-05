@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { parseKuwaitCivilId, validateKuwaitCivilId } from './utils/kuwaitLaw';
 import { useEffectiveTenantCompanyId } from './hooks/useEffectiveTenantCompanyId';
 import { isQueryableTenantCompanyId } from './utils/tenantCompanyId';
@@ -74,7 +74,9 @@ import { RecruitmentApp } from './apps/RecruitmentApp';
 import { OdooContractsApp } from './components/OdooContractsApp';
 import { Candidate } from './types';
 import { MANARA_STORAGE_KEYS, getPersistentData, setPersistentData } from './utils/persistentStorage';
-import { AysedAICopilot } from './components/AysedAICopilot';
+import { CopilotProvider } from './context/CopilotContext';
+import { CopilotShell } from './components/copilot/CopilotShell';
+import { CopilotAppBridge } from './components/copilot/CopilotAppBridge';
 import { ComplianceSmartSentinelModal } from './components/ComplianceSmartSentinelModal';
 import { LegalDocumentBotModal } from './components/LegalDocumentBotModal';
 import { DataPayrollAnalystBotModal } from './components/DataPayrollAnalystBotModal';
@@ -159,7 +161,10 @@ function MainAppLayout() {
   const [documents, setDocuments] = useState<any[]>([]);
   const [companyDocumentsCount, setCompanyDocumentsCount] = useState(0);
   const [leaveStats, setLeaveStats] = useState({ pending: 0, onLeaveToday: 0 });
-  const [isCopilotOpen, setIsCopilotOpen] = useState(false);
+  const openCopilotRef = useRef<() => void>(() => {});
+  const bindOpenCopilot = useCallback((open: () => void) => {
+    openCopilotRef.current = open;
+  }, []);
   const [isSentinelOpen, setIsSentinelOpen] = useState(false);
   const [isLegalBotOpen, setIsLegalBotOpen] = useState(false);
   const [isAnalystBotOpen, setIsAnalystBotOpen] = useState(false);
@@ -547,7 +552,7 @@ function MainAppLayout() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const handleQuickAction = (action: string) => {
+  const handleQuickAction = useCallback((action: string) => {
     switch (action) {
       case 'new_employee':
         setEmployeeAppProps({ initialTab: 'directory', initialOpenOnboarding: true, triggerKey: Date.now() });
@@ -575,7 +580,58 @@ function MainAppLayout() {
       default:
         break;
     }
-  };
+  }, []);
+
+  const handleCopilotQuickAction = useCallback(
+    (actionType: string, payload?: unknown) => {
+      if (actionType === 'navigate' && payload) {
+        setActiveApp(payload as AppId);
+        return;
+      }
+      if (actionType === 'new_employee') {
+        setEmployeeAppProps({
+          initialTab: 'directory',
+          initialOpenOnboarding: true,
+          triggerKey: Date.now(),
+        });
+        setActiveApp('employees');
+        return;
+      }
+      if (actionType === 'open_leave_draft') {
+        setActiveApp('leaves');
+        return;
+      }
+      if (actionType === 'calculator') {
+        setCalculatorTab('eos');
+        setShowCalculator(true);
+        return;
+      }
+      handleQuickAction(actionType);
+    },
+    [handleQuickAction]
+  );
+
+  const copilotRuntime = useMemo(
+    () => ({
+      companyId: effectiveCompanyId,
+      activeCompany,
+      activeApp,
+      employees: employees as any[],
+      contracts,
+      leaveSummary: leaveStats,
+      setActiveApp: (id: string) => setActiveApp(id as AppId),
+      onQuickAction: handleCopilotQuickAction,
+    }),
+    [
+      effectiveCompanyId,
+      activeCompany,
+      activeApp,
+      employees,
+      contracts,
+      leaveStats,
+      handleCopilotQuickAction,
+    ]
+  );
 
   const handleSpotlightSelectEmployee = (emp: any) => {
     setEmployeeAppProps({
@@ -670,6 +726,8 @@ function MainAppLayout() {
   }
 
   return (
+    <CopilotProvider runtime={copilotRuntime} initialActiveApp={activeApp}>
+    <CopilotAppBridge onBindOpen={bindOpenCopilot} />
     <div className="h-screen w-full flex flex-col font-sans overflow-hidden bg-slate-100 text-slate-800" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       <Toaster position="top-center" containerStyle={{ zIndex: 99999 }} reverseOrder={false} />
       <UiStudioInspectorSidebar />
@@ -745,7 +803,7 @@ function MainAppLayout() {
           setCalculatorTab(tab || 'eos');
           setShowCalculator(true);
         }}
-        onOpenCopilot={() => setIsCopilotOpen(true)}
+        onOpenCopilot={() => openCopilotRef.current()}
         onOpenSentinel={() => setIsSentinelOpen(true)}
         onOpenLegalBot={() => setIsLegalBotOpen(true)}
         onOpenAnalystBot={() => setIsAnalystBotOpen(true)}
@@ -1188,29 +1246,7 @@ function MainAppLayout() {
         }}
       />
 
-      {/* Aysed HR AI Copilot Side Drawer */}
-      <AysedAICopilot
-        isOpen={isCopilotOpen}
-        onClose={() => setIsCopilotOpen(false)}
-        companyId={effectiveCompanyId}
-        activeCompany={activeCompany}
-        employees={employees as any}
-        contracts={contracts}
-        leaveSummary={leaveStats}
-        onQuickAction={(actionType, payload) => {
-          if (actionType === 'navigate' && payload) {
-            setActiveApp(payload as any);
-          } else if (actionType === 'new_employee') {
-            setShowAddModal(true);
-          } else if (actionType === 'calculator') {
-            setCalculatorTab('eos');
-            setShowCalculator(true);
-          } else if (actionType === 'employees') {
-            setActiveApp('employees');
-          }
-          setIsCopilotOpen(false);
-        }}
-      />
+      <CopilotShell />
 
       {/* Compliance Smart Sentinel Modal */}
       <ComplianceSmartSentinelModal
@@ -1249,6 +1285,7 @@ function MainAppLayout() {
         }}
       />
     </div>
+    </CopilotProvider>
   );
 }
 

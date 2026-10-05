@@ -3,6 +3,7 @@ export type CopilotActionType =
   | 'OPEN_MODAL'
   | 'TRIGGER_FUNCTION'
   | 'CREATE_EMPLOYEE'
+  | 'CREATE_LEAVE_DRAFT'
   | 'OPEN_CALCULATOR';
 
 export const COPILOT_APP_IDS = [
@@ -31,6 +32,18 @@ export type CopilotModalId = (typeof COPILOT_MODAL_IDS)[number];
 export const COPILOT_FUNCTION_NAMES = ['export_wps', 'export_report'] as const;
 export type CopilotFunctionName = (typeof COPILOT_FUNCTION_NAMES)[number];
 
+export interface CopilotLeaveDraftData {
+  employeeId?: string;
+  employeeName?: string;
+  civilId?: string;
+  leaveType?: string;
+  startDate?: string;
+  endDate?: string;
+  reason?: string;
+  /** If true, status PENDING_MANAGER instead of DRAFT */
+  submitForApproval?: boolean;
+}
+
 export interface CopilotEmployeeData {
   nameAr?: string;
   nameEn?: string;
@@ -52,6 +65,7 @@ export interface CopilotAction {
   modal?: CopilotModalId;
   functionName?: CopilotFunctionName;
   employeeData?: CopilotEmployeeData;
+  leaveDraft?: CopilotLeaveDraftData;
 }
 
 export type AiChatSource =
