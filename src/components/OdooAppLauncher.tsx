@@ -22,7 +22,7 @@ import {
 } from './onboarding/CompanySetupOnboardingBanner';
 import { useRegisterReorderGroup, useUiStudio } from '../context/UiStudioContext';
 import { UiStudioTarget } from './studio/UiStudioTarget';
-import { sortByUiOrder } from '../utils/uiOverrideUtils';
+import { pickUiLabel, sortByUiOrder } from '../utils/uiOverrideUtils';
 
 interface OdooAppLauncherProps {
   onSelectApp: (app: ActiveApp) => void;
@@ -246,7 +246,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
     },
     {
       id: 'LEAVES' as ActiveApp,
-      titleAr: 'الإجازات والغياب',
+      titleAr: 'الإجازات',
       titleEn: 'Time Off',
       icon: Calendar,
       category: 'ATTENDANCE_TIME',
@@ -623,6 +623,21 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
           <div className="odoo-app-launchpad-grid justify-items-stretch">
             {displayApps.map(({ app, uiKey }) => {
               const IconComponent = app.icon;
+              const appDefaults = {
+                kind: 'app' as const,
+                label: { ar: app.titleAr, en: app.titleEn },
+                help: { ar: app.description, en: app.description },
+              };
+              const locale = lang === 'en' ? 'en' : 'ar';
+              const title = pickUiLabel(resolveElement(uiKey, appDefaults), locale);
+              const descKey = `${uiKey}.description`;
+              const description = pickUiLabel(
+                resolveElement(descKey, {
+                  kind: 'help',
+                  label: { ar: app.description, en: app.description },
+                }),
+                locale
+              );
               return (
                 <button
                   key={app.id}
@@ -651,14 +666,11 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
                       <UiStudioTarget
                         uiKey={uiKey}
                         kind="app"
-                        defaults={{
-                          label: { ar: app.titleAr, en: app.titleEn },
-                          help: { ar: app.description, en: app.description },
-                        }}
+                        defaults={appDefaults}
                         reorderGroupId={launcherReorderGroupId}
                         className="w-full justify-center"
                       >
-                        {lang === 'ar' ? app.titleAr : app.titleEn}
+                        {title}
                       </UiStudioTarget>
                     </h3>
                     <p className="text-[10px] text-slate-400 group-hover:text-slate-600 font-medium leading-tight line-clamp-1 transition-colors">
@@ -667,7 +679,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
                         kind="help"
                         defaults={{ label: { ar: app.description, en: app.description } }}
                       >
-                        {app.description}
+                        {description}
                       </UiStudioTarget>
                     </p>
                   </div>
@@ -680,6 +692,21 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
           <div className="odoo-app-cards-grid">
             {displayApps.map(({ app, uiKey }) => {
               const IconComponent = app.icon;
+              const appDefaults = {
+                kind: 'app' as const,
+                label: { ar: app.titleAr, en: app.titleEn },
+                help: { ar: app.description, en: app.description },
+              };
+              const locale = lang === 'en' ? 'en' : 'ar';
+              const title = pickUiLabel(resolveElement(uiKey, appDefaults), locale);
+              const descKey = `${uiKey}.description`;
+              const description = pickUiLabel(
+                resolveElement(descKey, {
+                  kind: 'help',
+                  label: { ar: app.description, en: app.description },
+                }),
+                locale
+              );
               return (
                 <button
                   key={app.id}
@@ -698,13 +725,10 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
                         <UiStudioTarget
                           uiKey={uiKey}
                           kind="app"
-                          defaults={{
-                            label: { ar: app.titleAr, en: app.titleEn },
-                            help: { ar: app.description, en: app.description },
-                          }}
+                          defaults={appDefaults}
                           reorderGroupId={launcherReorderGroupId}
                         >
-                          {lang === 'ar' ? app.titleAr : app.titleEn}
+                          {title}
                         </UiStudioTarget>
                       </h3>
                       {app.badge && (
@@ -714,7 +738,13 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
                       )}
                     </div>
                     <p className="text-[11px] text-slate-500 font-medium leading-snug line-clamp-2">
-                      {app.description}
+                      <UiStudioTarget
+                        uiKey={`${uiKey}.description`}
+                        kind="help"
+                        defaults={{ label: { ar: app.description, en: app.description } }}
+                      >
+                        {description}
+                      </UiStudioTarget>
                     </p>
                   </div>
 

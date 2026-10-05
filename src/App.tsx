@@ -638,7 +638,7 @@ function MainAppLayout() {
       case 'recruitment': return lang === 'ar' ? 'التوظيف والمقابلات الذكية (Recruitment & ATS)' : 'Recruitment & ATS';
       case 'contracts': return lang === 'ar' ? 'عقود العمل والبدلات الرسمية (Odoo Contracts & PAM)' : 'Contracts & PAM';
       case 'attendance': return lang === 'ar' ? 'الحضور والانصراف (Time & Attendance)' : 'Time & Attendance';
-      case 'leaves': return lang === 'ar' ? 'الإجازات والغياب (Time Off & Leaves)' : 'Time Off & Leaves';
+      case 'leaves': return lang === 'ar' ? 'الإجازات (Time Off)' : 'Time Off';
       case 'payroll': return lang === 'ar' ? 'الرواتب وحماية الأجور (Payroll & WPS)' : 'Payroll & WPS';
       case 'custody': return lang === 'ar' ? 'العهد والممتلكات (Assets & Custodies)' : 'Assets & Custodies';
       case 'archive': return lang === 'ar' ? 'أرشيف المستندات (Documents Archive)' : 'Documents Archive';

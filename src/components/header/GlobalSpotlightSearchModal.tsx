@@ -40,7 +40,7 @@ export const GlobalSpotlightSearchModal: React.FC<GlobalSpotlightSearchModalProp
     { id: 'recruitment', name: 'التوظيف والمقابلات الذكية وفرز السير الذاتية (Recruitment & ATS)', icon: Users, category: 'apps' },
     { id: 'contracts', name: 'عقود العمل والبدلات الرسمية وقانون العمل (Employment Contracts)', icon: FileText, category: 'apps' },
     { id: 'attendance', name: 'الحضور والانصراف والبصمة (Time & Attendance)', icon: Clock, category: 'apps' },
-    { id: 'leaves', name: 'الإجازات والغياب (Time Off & Leaves)', icon: Calendar, category: 'apps' },
+    { id: 'leaves', name: 'الإجازات (Time Off)', icon: Calendar, category: 'apps' },
     { id: 'payroll', name: 'الرواتب وحماية الأجور WPS (Payroll & EOS)', icon: CreditCard, category: 'apps' },
     { id: 'scanner', name: 'الماسح الضوئي الذكي (Document Scanner OCR)', icon: Scan, category: 'apps' },
     { id: 'archive', name: 'أرشيف المستندات والوثائق (Documents Archive)', icon: FolderArchive, category: 'apps' },

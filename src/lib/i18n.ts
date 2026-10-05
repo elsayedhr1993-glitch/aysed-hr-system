@@ -65,7 +65,7 @@ export const DICTIONARY: Record<string, { ar: string; en: string }> = {
   // Modules
   employees: { ar: 'الموظفين', en: 'Employees' },
   contracts: { ar: 'عقود العمل', en: 'Contracts' },
-  leaves: { ar: 'الإجازات والغياب', en: 'Time Off' },
+  leaves: { ar: 'الإجازات', en: 'Time Off' },
   attendance: { ar: 'الحضور والانصراف', en: 'Attendance' },
   payroll: { ar: 'الرواتب والأجور', en: 'Payroll' },
   recruitment: { ar: 'التوظيف', en: 'Recruitment' },

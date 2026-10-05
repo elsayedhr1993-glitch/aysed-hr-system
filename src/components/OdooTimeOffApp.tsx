@@ -993,7 +993,7 @@ export const OdooTimeOffApp: React.FC = () => {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-black text-slate-900">نظام إدارة الإجازات والغياب (Time Off)</h1>
+              <h1 className="text-xl font-black text-slate-900">نظام إدارة الإجازات (Time Off)</h1>
               <span className="bg-[#714B67]/10 text-[#714B67] text-[10px] font-bold px-2.5 py-0.5 rounded-full">
                 Odoo 18 Enterprise
               </span>

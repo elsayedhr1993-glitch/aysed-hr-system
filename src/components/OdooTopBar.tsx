@@ -84,7 +84,7 @@ const appTitles: Record<ActiveApp, { ar: string; en: string }> = {
   EMPLOYEES: { ar: 'الموظفين', en: 'Employees' },
   RECRUITMENT: { ar: 'التوظيف', en: 'Recruitment' },
   CONTRACTS: { ar: 'عقود العمل', en: 'Contracts' },
-  LEAVES: { ar: 'الإجازات والغياب', en: 'Time Off' },
+  LEAVES: { ar: 'الإجازات', en: 'Time Off' },
   HOLIDAYS: { ar: 'العطلات الرسمية في دولة الكويت', en: 'Kuwait Official Holidays' },
   SHIFTS: { ar: 'إدارة الورديات وجداول الدوام', en: 'Shifts & Schedules' },
   DAILY_MOVEMENTS: { ar: 'الحركات اليومية (استئذان، مرضية، بدل)', en: 'Daily Movements' },
