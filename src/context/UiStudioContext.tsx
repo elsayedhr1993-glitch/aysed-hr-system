@@ -10,6 +10,7 @@ import React, {
 import { useAuth } from './AuthContext';
 import { useCompany } from './CompanyContext';
 import { useTenant } from './TenantContext';
+import { resolveStudioCompanyId } from '../utils/studioCompanyId';
 import { patchUiOverrides, subscribeUiOverrides } from '../services/uiOverrideService';
 import type { UiElementDefaults, UiElementOverride, UiOverridesDocument, UiElementKind } from '../types/uiOverrides';
 import { resolveUiElement } from '../utils/uiOverrideUtils';
@@ -32,6 +33,7 @@ interface UiStudioContextValue {
   setUiStudioActive: (active: boolean) => void;
   overridesDoc: UiOverridesDocument | null;
   selection: StudioSelection | null;
+  studioCompanyId: string;
   selectElement: (sel: StudioSelection) => void;
   clearSelection: () => void;
   registerReorderGroup: (groupId: string, orderedKeys: string[]) => void;
@@ -50,14 +52,16 @@ interface UiStudioContextValue {
 const UiStudioContext = createContext<UiStudioContextValue | undefined>(undefined);
 
 export const UiStudioProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isActualSuperAdmin } = useTenant();
+  const { isActualSuperAdmin, impersonatingCompanyId } = useTenant();
   const { activeCompanyId, activeCompany } = useCompany();
   const { user } = useAuth();
 
-  const companyId =
-    activeCompanyId && activeCompanyId !== 'SAAS_PLATFORM'
-      ? activeCompanyId
-      : activeCompany?.id || '';
+  const companyId = resolveStudioCompanyId({
+    activeCompanyId,
+    activeCompanyDocId: activeCompany?.id,
+    impersonatingCompanyId,
+    authCompanyId: user?.companyId,
+  });
 
   const [uiStudioActive, setUiStudioActiveState] = useState(() => {
     if (typeof window === 'undefined') return false;
@@ -135,6 +139,23 @@ export const UiStudioProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           overridesDoc ?? undefined
         );
         setOverridesDoc(next);
+        setSelection(prev => {
+          if (!prev || prev.uiKey !== key) return prev;
+          const mergedLabel = patch.label
+            ? {
+                ar: patch.label.ar ?? prev.defaults.label.ar,
+                en: patch.label.en ?? prev.defaults.label.en,
+              }
+            : prev.defaults.label;
+          return {
+            ...prev,
+            defaults: {
+              ...prev.defaults,
+              label: mergedLabel,
+              help: patch.help ?? prev.defaults.help,
+            },
+          };
+        });
         if (!options?.quiet) toast.success('تم حفظ التخصيص');
         return true;
       } catch (e) {
@@ -219,6 +240,7 @@ export const UiStudioProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       toggleUiStudio,
       setUiStudioActive,
       overridesDoc,
+      studioCompanyId: companyId,
       selection,
       selectElement,
       clearSelection,
@@ -236,6 +258,7 @@ export const UiStudioProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       toggleUiStudio,
       setUiStudioActive,
       overridesDoc,
+      companyId,
       selection,
       selectElement,
       clearSelection,

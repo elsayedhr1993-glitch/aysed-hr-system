@@ -1,10 +1,11 @@
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
-import { cleanFirestoreData, db } from '../lib/firebase';
+import { cleanFirestoreData, db, getCompaniesCollectionName } from '../lib/firebase';
 import type { UiElementOverride, UiOverridesDocument } from '../types/uiOverrides';
 import { UI_OVERRIDES_DOC_ID, mergeUiOverridesDoc, uiOverridesCacheKey } from '../utils/uiOverrideUtils';
 
 function overridesDocRef(companyId: string) {
-  return doc(db, 'companies', companyId, 'ui_overrides', UI_OVERRIDES_DOC_ID);
+  const collectionName = getCompaniesCollectionName();
+  return doc(db, collectionName, companyId, 'ui_overrides', UI_OVERRIDES_DOC_ID);
 }
 
 function readCache(companyId: string): Partial<UiOverridesDocument> | null {

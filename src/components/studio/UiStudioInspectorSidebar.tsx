@@ -1,6 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Download, Eye, EyeOff, PanelRightClose, Save, Sparkles } from 'lucide-react';
-import { useCompany } from '../../context/CompanyContext';
 import { useUiStudio } from '../../context/UiStudioContext';
 import type { ResolvedUiElement } from '../../types/uiOverrides';
 
@@ -14,7 +13,15 @@ const kindLabel: Record<string, string> = {
   section: 'قسم',
 };
 
-function snapshotFromResolved(resolved: ResolvedUiElement) {
+type FormSnapshot = {
+  labelAr: string;
+  labelEn: string;
+  helpAr: string;
+  helpEn: string;
+  visible: boolean;
+};
+
+function snapshotFromResolved(resolved: ResolvedUiElement): FormSnapshot {
   return {
     labelAr: resolved.label.ar,
     labelEn: resolved.label.en || '',
@@ -24,10 +31,7 @@ function snapshotFromResolved(resolved: ResolvedUiElement) {
   };
 }
 
-function draftsEqual(
-  a: ReturnType<typeof snapshotFromResolved>,
-  b: ReturnType<typeof snapshotFromResolved>
-): boolean {
+function draftsEqual(a: FormSnapshot, b: FormSnapshot): boolean {
   return (
     a.labelAr === b.labelAr &&
     a.labelEn === b.labelEn &&
@@ -47,19 +51,8 @@ export const UiStudioInspectorSidebar: React.FC = () => {
     saveElementPatch,
     exportOverridesJson,
     overridesDoc,
+    studioCompanyId,
   } = useUiStudio();
-  const { activeCompanyId, activeCompany } = useCompany();
-  const tenantCompanyId =
-    activeCompanyId && activeCompanyId !== 'SAAS_PLATFORM'
-      ? activeCompanyId
-      : activeCompany?.id || '';
-
-  const resolved = selection
-    ? resolveElement(selection.uiKey, {
-        ...selection.defaults,
-        kind: selection.kind ?? selection.defaults.kind,
-      })
-    : null;
 
   const [labelAr, setLabelAr] = useState('');
   const [labelEn, setLabelEn] = useState('');
@@ -68,53 +61,52 @@ export const UiStudioInspectorSidebar: React.FC = () => {
   const [visible, setVisible] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  /** Baseline at selection / after successful save — not updated on every overrides tick while editing */
-  const baselineRef = useRef<ReturnType<typeof snapshotFromResolved> | null>(null);
-  const lastSyncKeyRef = useRef<string | null>(null);
-
+  const selectionKey = selection?.uiKey ?? '';
   const overridesVersion = overridesDoc?.version ?? 0;
 
+  const persistedSnapshot = useMemo((): FormSnapshot | null => {
+    if (!selection) return null;
+    const resolved = resolveElement(selection.uiKey, {
+      ...selection.defaults,
+      kind: selection.kind ?? selection.defaults.kind,
+    });
+    return snapshotFromResolved(resolved);
+  }, [selection, selectionKey, overridesVersion, resolveElement]);
+
   useEffect(() => {
-    if (!selection || !resolved) {
-      baselineRef.current = null;
-      lastSyncKeyRef.current = null;
-      return;
-    }
-
-    const syncKey = `${selection.uiKey}@${overridesVersion}`;
-    if (lastSyncKeyRef.current === syncKey) return;
-
-    lastSyncKeyRef.current = syncKey;
-    const snap = snapshotFromResolved(resolved);
-    baselineRef.current = snap;
-    setLabelAr(snap.labelAr);
-    setLabelEn(snap.labelEn);
-    setHelpAr(snap.helpAr);
-    setHelpEn(snap.helpEn);
-    setVisible(snap.visible);
-  }, [selection, resolved, overridesVersion]);
+    if (!persistedSnapshot) return;
+    setLabelAr(persistedSnapshot.labelAr);
+    setLabelEn(persistedSnapshot.labelEn);
+    setHelpAr(persistedSnapshot.helpAr);
+    setHelpEn(persistedSnapshot.helpEn);
+    setVisible(persistedSnapshot.visible);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync form only on element / version change
+  }, [selectionKey, overridesVersion]);
 
   const draft = useMemo(
     () => ({ labelAr, labelEn, helpAr, helpEn, visible }),
     [labelAr, labelEn, helpAr, helpEn, visible]
   );
 
-  const isDirty = useMemo(() => {
-    if (!baselineRef.current) return false;
-    return !draftsEqual(draft, baselineRef.current);
-  }, [draft, overridesVersion, selection?.uiKey]);
+  const isDirty = persistedSnapshot ? !draftsEqual(draft, persistedSnapshot) : false;
 
-  const canPersist = Boolean(
-    canUseUiStudio && selection && tenantCompanyId && tenantCompanyId !== 'SAAS_PLATFORM'
-  );
+  const resolved = selection
+    ? resolveElement(selection.uiKey, {
+        ...selection.defaults,
+        kind: selection.kind ?? selection.defaults.kind,
+      })
+    : null;
+
+  const canPersist = Boolean(canUseUiStudio && studioCompanyId);
 
   if (!canUseUiStudio || !uiStudioActive) return null;
 
   const handleSave = async () => {
-    if (!selection || !isDirty || saving) return;
+    if (!selection || saving || !isDirty) return;
+
     setSaving(true);
     try {
-      await saveElementPatch(
+      const ok = await saveElementPatch(
         selection.uiKey,
         {
           kind: selection.kind ?? selection.defaults.kind,
@@ -167,15 +159,15 @@ export const UiStudioInspectorSidebar: React.FC = () => {
           <p className="text-[11px] mt-2 leading-relaxed">
             فعّل وضع Studio ثم انقر على تبويب، حقل، عمود، أو عنوان لتعديل المسمى والترجمة والإظهار.
           </p>
-          <p className="text-[10px] mt-3 text-slate-400">
-            لإعادة الترتيب: اسحب العنصر المحدد داخل مجموعته (تبويبات، أعمدة، تطبيقات).
-          </p>
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto p-3 space-y-3 text-xs">
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-2.5">
             <div className="text-[10px] font-bold text-slate-500">المعرّف</div>
             <div className="font-mono text-[10px] text-slate-800 break-all mt-0.5">{selection.uiKey}</div>
+            <div className="mt-1.5 text-[10px] text-slate-500">
+              الشركة: <span className="font-mono font-bold text-slate-800">{studioCompanyId || '—'}</span>
+            </div>
             <div className="mt-1.5 inline-flex text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#714B67]/10 text-[#714B67]">
               {kindLabel[selection.kind || selection.defaults.kind || 'label'] || 'عنصر'}
             </div>
@@ -183,7 +175,7 @@ export const UiStudioInspectorSidebar: React.FC = () => {
 
           {!canPersist && (
             <p className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2 leading-relaxed">
-              لحفظ التخصيصات، ادخل بمعاينة شركة محددة (انتحال هوية) وليس لوحة المنصة فقط.
+              لحفظ التخصيصات، اختر شركة من القائمة أو من لوحة السوبر أدمن (معاينة/انتحال) حتى يظهر معرّف الشركة أعلاه.
             </p>
           )}
 
@@ -254,7 +246,7 @@ export const UiStudioInspectorSidebar: React.FC = () => {
         </button>
         <button
           type="button"
-          disabled={!selection || !isDirty || saving || !canPersist}
+          disabled={!selection || !isDirty || saving}
           onClick={() => void handleSave()}
           className="flex-1 py-2 rounded-lg bg-[#714B67] text-white font-bold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1"
         >

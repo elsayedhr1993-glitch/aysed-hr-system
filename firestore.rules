@@ -170,6 +170,11 @@ service cloud.firestore {
         || (signedIn() && callerCompanyId() == companyId)
         || ownsCompanyRecord();
       allow write: if isSuperAdmin();
+
+      match /ui_overrides/{docId} {
+        allow read: if isSuperAdmin() || (signedIn() && callerCompanyId() == companyId);
+        allow write: if isSuperAdmin();
+      }
     }
 
     // SaaS / platform collections — Super Admin only
