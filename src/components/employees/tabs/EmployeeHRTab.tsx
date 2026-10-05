@@ -23,6 +23,7 @@ import {
   ShieldCheck 
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { AiInlineAssist } from '../../copilot/AiInlineAssist';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 
@@ -570,7 +571,17 @@ export const EmployeeHRTab: React.FC<Props> = ({
         </div>
 
         <div className="col-span-full md:col-span-3 bg-slate-50/50 p-4 rounded-xl border border-slate-200/80">
-          <label className="block text-slate-500 font-bold mb-2">الملاحظات والسجلات الإدارية</label>
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <label className="block text-slate-500 font-bold">الملاحظات والسجلات الإدارية</label>
+            {isEditMode && (
+              <AiInlineAssist
+                fieldKind="hr_notes"
+                value={employee.notes || ''}
+                maxLength={2000}
+                onApply={(text) => handleFieldChange('notes', text)}
+              />
+            )}
+          </div>
           {isEditMode ? (
             <textarea
               rows={3}

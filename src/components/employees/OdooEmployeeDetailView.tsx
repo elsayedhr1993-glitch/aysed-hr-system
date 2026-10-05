@@ -72,6 +72,7 @@ import { subscribeEmployeeOnboardingChecklist } from '../../services/employeeOnb
 import { UiStudioTarget } from '../studio/UiStudioTarget';
 import { useRegisterReorderGroup } from '../../context/UiStudioContext';
 import { UI_KEYS } from '../../utils/uiStudioKeys';
+import { EntityAiSummaryButton } from '../copilot/EntityAiSummaryButton';
 
 interface Props {
   employee: any;
@@ -712,14 +713,22 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
               </button>
             </>
           ) : (
-            <button
-              type="button"
-              onClick={() => setIsEditMode(true)}
-              className="bg-[#714B67] hover:bg-[#5a3b52] text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer"
-            >
-              <Edit3 size={15} />
-              <span>تعديل الملف</span>
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => setIsEditMode(true)}
+                className="bg-[#714B67] hover:bg-[#5a3b52] text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              >
+                <Edit3 size={15} />
+                <span>تعديل الملف</span>
+              </button>
+              <EntityAiSummaryButton
+                employee={employee}
+                leaveRequests={leaveRequests}
+                leaveAllocations={leaveAllocations}
+                commencementRecord={commencementRecord}
+              />
+            </>
           )}
         </div>
 

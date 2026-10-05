@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
 import { useRegisterCopilotScreen } from '../context/CopilotContext';
+import { AiInlineAssist } from './copilot/AiInlineAssist';
 import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
 import { useOdooHierarchy } from '../context/OdooHierarchyContext';
 import { useAuth } from '../context/AuthContext';
@@ -2132,7 +2133,15 @@ export const OdooTimeOffApp: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1">السبب / الملاحظات</label>
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <label className="block font-bold text-slate-700">السبب / الملاحظات</label>
+                      <AiInlineAssist
+                        fieldKind="leave_reason"
+                        value={newRequest.reason}
+                        maxLength={500}
+                        onApply={(text) => setNewRequest({ ...newRequest, reason: text })}
+                      />
+                    </div>
                     <input
                       type="text"
                       value={newRequest.reason}

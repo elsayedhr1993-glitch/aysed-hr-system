@@ -31,6 +31,68 @@ action.type المسموح:
 إذا كان السؤال استشارة فقط، action = null.
 لا تُرجع نصاً خارج JSON.`;
 
+const GENERATE_SYSTEM = `أنت مساعد صياغة نصوص لنظام موارد بشرية كويتي (Aysed HR).
+- أخرج JSON فقط: {"reply":"النص النهائي"}
+- لا action ولا markdown معقد؛ نص جاهز للحقل مباشرة.
+- عربية مهنية، قانون العمل الكويتي عند الحاجة، KWD للرواتب.
+- احترم حد الطول إن وُجد.
+- لا تختلق أسماء موظفين أو أرقاماً مدنية من السياق.`;
+
+const SUMMARIZE_SYSTEM = `أنت محلل موارد بشرية لملخصات إدارية داخلية في الكويت.
+- أخرج JSON فقط: {"reply":"الملخص"}
+- ملخص عربي مهني: نقاط مرقمة، وضوح، بدون اختلاق بيانات غير موجودة في الحزمة.
+- لا action ولا نص خارج JSON.`;
+
+function normalizeAssistMode(raw: unknown): 'chat' | 'generate' | 'summarize' {
+  const m = String(raw || 'chat').trim();
+  if (m === 'generate' || m === 'summarize') return m;
+  return 'chat';
+}
+
+async function generateWithReplySchema(
+  ai: GoogleGenAI,
+  systemInstruction: string,
+  parts: { text: string }[],
+  temperature = 0.35
+): Promise<{ reply: string; source: string } | null> {
+  const models = getChatModelCandidates();
+  let lastErr: unknown = null;
+
+  for (const modelName of models) {
+    try {
+      const response = await ai.models.generateContent({
+        model: modelName,
+        contents: { parts },
+        config: {
+          systemInstruction,
+          temperature,
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              reply: { type: Type.STRING },
+            },
+            required: ['reply'],
+          },
+        },
+      });
+
+      const rawText = response.text || '{}';
+      const { reply } = parseModelCopilotPayload(rawText);
+      return {
+        reply: reply || rawText.trim(),
+        source: `gemini:${modelName}`,
+      };
+    } catch (err) {
+      lastErr = err;
+      console.warn(`[ai-chat] model ${modelName} failed:`, err);
+    }
+  }
+
+  console.error('[ai-chat] all models failed', lastErr);
+  return null;
+}
+
 export interface AiChatHttpResult {
   status: number;
   body: Record<string, unknown>;
@@ -58,8 +120,30 @@ export async function handleAiChatRequest(
       activeApp,
       screen,
       screenSummary,
+      mode: bodyMode,
+      fieldKind,
+      currentValue,
+      maxLength,
+      entityBundle,
+      entityType,
+      entityId,
     } = body || {};
-    if (!prompt || !String(prompt).trim()) {
+
+    const mode = normalizeAssistMode(bodyMode);
+    const promptText = String(prompt || '').trim();
+
+    if (mode === 'summarize') {
+      if (!entityBundle || !String(entityBundle).trim()) {
+        return {
+          status: 400,
+          body: {
+            success: false,
+            error: 'لا توجد بيانات كافية لتلخيص السجل.',
+            code: 'VALIDATION_ERROR',
+          },
+        };
+      }
+    } else if (!promptText) {
       return {
         status: 400,
         body: {
@@ -88,7 +172,8 @@ export async function handleAiChatRequest(
       };
     }
 
-    const regexAction = buildCreateEmployeeActionFromPrompt(String(prompt));
+    const regexAction =
+      mode === 'chat' ? buildCreateEmployeeActionFromPrompt(promptText) : null;
     const ai = getClient();
 
     if (!ai) {
@@ -98,7 +183,80 @@ export async function handleAiChatRequest(
           success: false,
           error: 'محرك الذكاء الاصطناعي غير مهيأ على الخادم (GEMINI_API_KEY).',
           code: 'AI_NOT_CONFIGURED',
-          action: regexAction,
+          ...(mode === 'chat' ? { action: regexAction } : {}),
+        },
+      };
+    }
+
+    if (mode === 'generate') {
+      const genParts: { text: string }[] = [];
+      genParts.push({
+        text: `[سياق مختصر]\ncompanyId=${access.companyId}\n${String(contextSummary || '').slice(0, 2500)}`,
+      });
+      if (activeApp || screenSummary) {
+        genParts.push({
+          text: `[شاشة]\nactiveApp=${String(activeApp || '')}\n${screenSummary ? String(screenSummary).slice(0, 800) : ''}`,
+        });
+      }
+      genParts.push({
+        text: `نوع الحقل: ${String(fieldKind || 'general')}\nالحد الأقصى للأحرف: ${maxLength ? Number(maxLength) : 'غير محدد'}\nالنص الحالي في الحقل:\n${String(currentValue || '').slice(0, 2000) || '—'}\n\nتعليمات المستخدم:\n${promptText}`,
+      });
+
+      const genResult = await generateWithReplySchema(ai, GENERATE_SYSTEM, genParts, 0.4);
+      if (!genResult) {
+        return {
+          status: 503,
+          body: {
+            success: false,
+            error: 'تعذر الاتصال بمحرك الذكاء الاصطناعي. تحقق من الرصيد وأسماء النماذج.',
+            code: 'AI_UNAVAILABLE',
+          },
+        };
+      }
+
+      let reply = genResult.reply;
+      const cap = maxLength ? Number(maxLength) : 0;
+      if (cap > 0 && reply.length > cap) {
+        reply = `${reply.slice(0, cap)}…`;
+      }
+
+      return {
+        status: 200,
+        body: {
+          success: true,
+          reply,
+          source: genResult.source,
+        },
+      };
+    }
+
+    if (mode === 'summarize') {
+      const sumParts: { text: string }[] = [];
+      sumParts.push({
+        text: `[سجل للتلخيص — entityType=${String(entityType || 'entity')} entityId=${String(entityId || '')}]\n${String(entityBundle).slice(0, 12000)}`,
+      });
+      sumParts.push({
+        text: `تعليمات التلخيص:\n${promptText || 'لخّص الحالة الإدارية بشكل مهني ومختصر.'}`,
+      });
+
+      const sumResult = await generateWithReplySchema(ai, SUMMARIZE_SYSTEM, sumParts, 0.3);
+      if (!sumResult) {
+        return {
+          status: 503,
+          body: {
+            success: false,
+            error: 'تعذر الاتصال بمحرك الذكاء الاصطناعي. تحقق من الرصيد وأسماء النماذج.',
+            code: 'AI_UNAVAILABLE',
+          },
+        };
+      }
+
+      return {
+        status: 200,
+        body: {
+          success: true,
+          reply: sumResult.reply,
+          source: sumResult.source,
         },
       };
     }
@@ -121,7 +279,7 @@ export async function handleAiChatRequest(
         });
       }
     }
-    parts.push({ text: `سؤال المستخدم: ${String(prompt).trim()}` });
+    parts.push({ text: `سؤال المستخدم: ${promptText}` });
 
     const models = getChatModelCandidates();
     let lastErr: unknown = null;
