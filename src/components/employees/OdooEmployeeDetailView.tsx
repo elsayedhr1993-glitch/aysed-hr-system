@@ -59,8 +59,7 @@ import { getCarriedOverBalance } from '../../utils/kuwaitLaw';
 import { buildEmployeeBaselineAllocations, computeFifoLeaveAllocations } from '../../services/leaveService';
 import { getEmployeeUnifiedSummary } from '../../utils/leaveEngine';
 import { calculateKuwaitDailyRate } from '../../utils/kuwaitPayrollMath';
-import { deleteEmployeeDocument, saveEmployeeDocument } from '../../services/documentService';
-import { syncEmployeeDocumentsToArchive } from '../../services/employeeDocumentArchiveSync';
+import { deleteEmployeeDocument } from '../../services/documentService';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { OdooSmartButtons, type SmartButtonStat } from '../ui/OdooSmartButtons';
@@ -490,58 +489,15 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
     void (async () => {
       const toast = (await import('react-hot-toast')).default;
       try {
-        const { uploadEmployeeDocumentToStorage } = await import('../../utils/employeeDocumentStorage');
-        const { downloadUrl, storagePath } = await uploadEmployeeDocumentToStorage({
+        const { uploadEmployeeDocumentSlot } = await import('../../services/employeeDocumentIntake');
+        const next = await uploadEmployeeDocumentSlot({
+          employee: employee as Record<string, unknown>,
           companyId,
-          employeeId: String(employee.id),
           docKey,
           file,
+          customTitle,
         });
-
-        const fileInfo = {
-          id: `${employee.id}-${docKey}`,
-          employeeId: employee.id,
-          companyId,
-          docKey,
-          employeeNameAr: employee.fullNameAr || employee.nameAr || employee.name || '',
-          civilId: employee.civilId || '',
-          category: 'عقود وإقرارات قانونية (Contracts & Declarations)' as const,
-          docTitleAr: customTitle || docKey,
-          docTitleEn: customTitle || docKey,
-          fileType: file.type.includes('pdf') ? 'PDF' as const : 'JPG' as const,
-          fileName: file.name,
-          name: file.name,
-          url: downloadUrl,
-          fileUrl: downloadUrl,
-          storagePath,
-          fileSize: `${(file.size / 1024).toFixed(1)} KB`,
-          uploadDate: new Date().toISOString().slice(0, 10),
-          title: customTitle || docKey,
-          type: file.type.includes('pdf') ? 'pdf' : 'image',
-          status: 'verified',
-        };
-
-        setEmployee((prev: any) => {
-          const currentFiles = prev.documentFiles || {};
-          const next = {
-            ...prev,
-            documentFiles: {
-              ...currentFiles,
-              [docKey]: fileInfo,
-            },
-            ...(docKey === 'signedContract'
-              ? { signedContractUrl: downloadUrl, contractSigned: true }
-              : {}),
-          };
-          void saveEmployeeDocument(fileInfo as any)
-            .then(() => syncEmployeeDocumentsToArchive(next as Record<string, unknown>))
-            .catch(error => {
-              console.error('Failed to persist employee document:', error);
-              toast.error(error?.message || 'تعذر أرشفة المستند في قاعدة البيانات');
-            });
-          return next;
-        });
-
+        setEmployee(next);
         toast.success(`تم حفظ وإرفاق مستند (${file.name}) بنجاح.`);
       } catch (error: any) {
         console.error('Employee document upload failed:', error);

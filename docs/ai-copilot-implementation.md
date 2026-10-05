@@ -27,3 +27,10 @@
 ## أمان السياق
 - لا تُرسل قائمة أسماء/رواتب كاملة افتراضياً — ملخص إحصائي فقط.
 - `companyId` في الطلب يُقارَن مع JWT/Firestore `users` (غير السوبر أدمن).
+
+## مستندات الموظف من Copilot (استيعاب آلي)
+- **الخدمة:** `src/services/employeeDocumentIntake.ts`
+  - `runEmployeeDocumentIntake` — OCR (`/api/ocr-scan`) → مطابقة موظف (`screen.entityId` ثم الرقم المدني/الاسم) → `handleOcrResult` → `uploadEmployeeDocumentToStorage` → `saveEmployeeDocument` + `TenantDatabaseService.saveEmployee`.
+  - `uploadEmployeeDocumentSlot` — رفع فقط (يُستخدم من ملف الموظف `OdooEmployeeDetailView`).
+- **مسار Storage (مفعّل في `storage.rules`):** `employee_documents/{companyId}/{employeeId}/{docKey}/...`
+- **واجهة Copilot:** زر مرفق 📎 في `AysedAICopilot.tsx` — لا يمرّ الملف عبر `/api/ai-chat`.

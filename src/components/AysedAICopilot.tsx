@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { X, Send, Bot, User } from 'lucide-react';
+import { X, Send, Bot, User, Paperclip, FileUp } from 'lucide-react';
+import { runEmployeeDocumentIntake } from '../services/employeeDocumentIntake';
 import { Company, Employee, Contract } from '../types';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -66,7 +67,9 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploadingDoc, setIsUploadingDoc] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scopedEmployees = useMemo(() => {
     if (!companyId) return employees;
@@ -268,6 +271,119 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
     await executeCopilotAction(action);
   };
 
+  const appendBotMessage = (text: string) => {
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: Date.now().toString(),
+        sender: 'bot',
+        text,
+        timestamp: new Date().toLocaleTimeString(isArabic ? 'ar-KW' : 'en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+        source: 'document_intake',
+      },
+    ]);
+  };
+
+  const handleDocumentFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || isUploadingDoc || isLoading) return;
+
+    if (!companyId) {
+      toast.error(isArabic ? 'اختر شركة نشطة قبل رفع المستند.' : 'Select an active company before uploading.');
+      return;
+    }
+
+    const preferredEmployeeId =
+      copilotCtx?.screen?.entityType === 'employee' ? copilotCtx.screen.entityId : undefined;
+
+    const userLabel = isArabic
+      ? `📎 رفع مستند: ${file.name}`
+      : `📎 Document upload: ${file.name}`;
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: Date.now().toString(),
+        sender: 'user',
+        text: userLabel,
+        timestamp: new Date().toLocaleTimeString(isArabic ? 'ar-KW' : 'en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+      },
+    ]);
+
+    setIsUploadingDoc(true);
+    appendBotMessage(
+      isArabic
+        ? '⏳ جاري قراءة المستند (OCR)، مطابقة الموظف، ورفع الملف إلى الأرشيف...'
+        : '⏳ Scanning the document, matching the employee, and uploading to the archive...'
+    );
+
+    try {
+      const result = await runEmployeeDocumentIntake({
+        file,
+        companyId,
+        employees: scopedEmployees,
+        preferredEmployeeId,
+      });
+
+      if (!result.ok) {
+        const extra =
+          result.candidates?.length
+            ? `\n${isArabic ? 'مرشحون:' : 'Candidates:'}\n${result.candidates
+                .map((c) => `• ${c.name}${c.civilId ? ` (${c.civilId})` : ''}`)
+                .join('\n')}`
+            : '';
+        appendBotMessage(`⚠️ ${result.message}${extra}`);
+        toast.error(result.message);
+        return;
+      }
+
+      const slotLabel = isArabic
+        ? {
+            civilIdScan: 'البطاقة المدنية',
+            passportScan: 'جواز السفر',
+            pamWorkPermit: 'إذن العمل',
+            mohLicense: 'ترخيص وزارة الصحة',
+            signedContract: 'عقد العمل',
+          }[result.docKey] || result.docKey
+        : result.docKey;
+
+      const matchNote = isArabic
+        ? {
+            screen_context: 'من ملف الموظف المفتوح',
+            civil_id: 'بالرقم المدني',
+            name: 'بالاسم',
+            firestore_civil: 'بالرقم المدني (قاعدة البيانات)',
+          }[result.matchSource] || result.matchSource
+        : result.matchSource;
+
+      let successText = isArabic
+        ? `✅ تم ربط المستند بـ **${result.employeeName}** (${matchNote}).\nنوع المستند: ${slotLabel}\nالملف: ${result.fileName}\nتم تحديث الحقول ورفع النسخة إلى \`employee_documents/${companyId}/${result.employeeId}/...\``
+        : `✅ Document linked to **${result.employeeName}** (${matchNote}).\nType: ${slotLabel}\nFile: ${result.fileName}\nFields updated and file stored under employee_documents/${companyId}/${result.employeeId}/...`;
+
+      if (result.civilIdWarning) {
+        successText += `\n\n⚠️ ${result.civilIdWarning}`;
+      }
+
+      appendBotMessage(successText.replace(/\*\*/g, ''));
+      toast.success(isArabic ? 'تم حفظ المستند وتحديث ملف الموظف.' : 'Document saved and employee record updated.');
+    } catch (err) {
+      console.error('Copilot document intake failed:', err);
+      appendBotMessage(
+        isArabic
+          ? 'حدث خطأ غير متوقع أثناء معالجة المستند.'
+          : 'An unexpected error occurred while processing the document.'
+      );
+    } finally {
+      setIsUploadingDoc(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 overflow-hidden" dir={isArabic ? 'rtl' : 'ltr'}>
       {/* Backdrop for closing drawer */}
@@ -422,10 +538,18 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
             </div>
           ))}
 
-          {isLoading && (
+          {(isLoading || isUploadingDoc) && (
             <div className="flex items-center gap-2 text-slate-500 text-xs bg-white p-3 rounded-xl border border-slate-200 w-fit">
               <span className="animate-spin text-amber-600">⏳</span>
-              <span>{isArabic ? 'جاري المعالجة وتنفيذ الذكاء الاصطناعي...' : 'Processing with the AI assistant...'}</span>
+              <span>
+                {isUploadingDoc
+                  ? isArabic
+                    ? 'جاري قراءة المستند ورفعه...'
+                    : 'Scanning and uploading document...'
+                  : isArabic
+                    ? 'جاري المعالجة وتنفيذ الذكاء الاصطناعي...'
+                    : 'Processing with the AI assistant...'}
+              </span>
             </div>
           )}
 
@@ -451,6 +575,19 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
 
         {/* Drawer Footer Input */}
         <div className="p-3 bg-white border-t border-slate-200">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,.pdf,application/pdf"
+            className="hidden"
+            onChange={handleDocumentFileChange}
+          />
+          <p className="text-[10px] text-slate-500 mb-2 flex items-center gap-1">
+            <FileUp size={12} className="text-purple-700 shrink-0" />
+            {isArabic
+              ? 'ارفع بطاقة مدنية، جواز، إذن عمل، أو ترخيص صحي — يُطابق الموظف تلقائياً ويُحدّث الحقول.'
+              : 'Upload civil ID, passport, work permit, or MOH license — auto-match and field update.'}
+          </p>
           <form 
             onSubmit={(e) => {
               e.preventDefault();
@@ -458,6 +595,15 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
             }}
             className="flex items-center gap-2"
           >
+            <button
+              type="button"
+              disabled={isLoading || isUploadingDoc}
+              onClick={() => fileInputRef.current?.click()}
+              className="px-2.5 py-2.5 bg-slate-100 hover:bg-purple-50 border border-slate-300 text-purple-900 rounded-xl transition flex items-center justify-center cursor-pointer disabled:opacity-50"
+              title={isArabic ? 'رفع مستند موظف' : 'Upload employee document'}
+            >
+              <Paperclip size={16} />
+            </button>
             <input
               type="text"
               value={input}
@@ -467,7 +613,7 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
             />
             <button
               type="submit"
-              disabled={isLoading || !input.trim()}
+              disabled={isLoading || isUploadingDoc || !input.trim()}
               className="px-3.5 py-2.5 bg-[#714B67] hover:bg-[#5a3a52] text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 shadow-md"
             >
               <Send size={15} />
