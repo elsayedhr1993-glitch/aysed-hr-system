@@ -17,6 +17,12 @@ import { EmployeeImportModal } from '../components/employees/EmployeeImportModal
 import { EmployeesAppChrome } from '../components/employees/layout/EmployeesAppChrome';
 import { useScreenLayout } from '../hooks/useScreenLayout';
 import { useCompany } from '../context/CompanyContext';
+import { useEffectiveTenantCompanyId } from '../hooks/useEffectiveTenantCompanyId';
+import {
+  contractQueryCompanyIds,
+  employeeBelongsToTenant,
+  normalizeTenantCompanyId,
+} from '../utils/contractTenantRules';
 import { EmployeeOnboardingValidationError } from '../services/employeeOnboardingService';
 import {
   backfillMissingPlanStatuses,
@@ -287,8 +293,9 @@ export const calculateEmployeeTotalSalary = (emp: any): number => {
 };
 
 export function EmployeesApp(props?: any) {
-  const { activeCompany, activeCompanyId } = useCompany();
-  const currentCompanyId = activeCompanyId || activeCompany?.id || 'comp-super-admin';
+  const { activeCompany } = useCompany();
+  const currentCompanyId = useEffectiveTenantCompanyId();
+  const tenantCompanyId = normalizeTenantCompanyId(currentCompanyId) || currentCompanyId;
   const isSuperAdmin = props?.isSuperAdmin === true;
   const { layout: employeesLayout } = useScreenLayout('employees');
 
@@ -548,10 +555,11 @@ export function EmployeesApp(props?: any) {
     setEmployees([]);
     setIsLoadingDb(true);
 
-    const employeesQuery = query(
-      collection(db, 'employees'),
-      where('companyId', '==', currentCompanyId)
-    );
+    const employeeCompanyIds = contractQueryCompanyIds(currentCompanyId);
+    const employeesQuery =
+      employeeCompanyIds.length === 1
+        ? query(collection(db, 'employees'), where('companyId', '==', employeeCompanyIds[0]))
+        : query(collection(db, 'employees'), where('companyId', 'in', employeeCompanyIds));
 
     const unsubscribe = onSnapshot(
       employeesQuery,
@@ -582,7 +590,12 @@ export function EmployeesApp(props?: any) {
       return;
     }
     void TenantDatabaseService.getContractsByTenant(currentCompanyId).then(setContracts);
-    void getDocs(query(collection(db, 'commencements'), where('companyId', '==', currentCompanyId)))
+    const commencementCompanyIds = contractQueryCompanyIds(currentCompanyId);
+    const commencementsQuery =
+      commencementCompanyIds.length === 1
+        ? query(collection(db, 'commencements'), where('companyId', '==', commencementCompanyIds[0]))
+        : query(collection(db, 'commencements'), where('companyId', 'in', commencementCompanyIds));
+    void getDocs(commencementsQuery)
       .then(snapshot => setCommencements(snapshot.docs.map(item => ({ ...item.data(), id: item.id }))));
   }, [currentCompanyId]);
 
@@ -684,7 +697,7 @@ export function EmployeesApp(props?: any) {
 
   const handleSaveEmployee = async (updatedEmp: any) => {
     if (!updatedEmp) return;
-    const activeCompanyId = currentCompanyId;
+    const activeCompanyId = tenantCompanyId;
     const employeeExists = employees.some(e => e.id === updatedEmp.id);
 
     if (!employeeExists) {
@@ -952,12 +965,11 @@ export function EmployeesApp(props?: any) {
   };
 
   // 3. حظر تسريب الموظفين في العرض (Front-end Strict Filter)
-  const visibleEmployees = employees.filter(emp => {
-    const empCompanyId = emp.companyId || (emp as any).company_id;
+  const visibleEmployees = employees.filter((emp) => {
     if (currentCompanyId === 'comp-super-admin' || !currentCompanyId) {
       return true;
     }
-    return empCompanyId === currentCompanyId;
+    return employeeBelongsToTenant(emp, currentCompanyId);
   });
 
   // 4. KPI Alert Cards State & Quick Filtering
@@ -2350,7 +2362,7 @@ export function EmployeesApp(props?: any) {
           onClose={() => setShowPamContractModal(false)}
           employee={{
             ...selectedEmployee,
-            companyId: selectedEmployee.companyId || activeCompanyId,
+            companyId: selectedEmployee.companyId || tenantCompanyId,
             name: selectedEmployee.nameAr || selectedEmployee.name,
             civilId: selectedEmployee.civilId || selectedEmployee.civil_id_number,
             jobTitle: selectedEmployee.jobTitle,
