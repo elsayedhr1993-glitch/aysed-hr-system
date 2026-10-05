@@ -40,6 +40,7 @@ import { UploadedSignedContractModal } from './contracts/UploadedSignedContractM
 import { resolveSignedContractFile } from '../utils/resolveSignedContractFile';
 import { attachSignedContractFileToEmployee } from '../utils/signedContractUpload';
 import { OdooChatter, ChatterMessage } from './OdooChatter';
+import { AiInlineAssist } from './copilot/AiInlineAssist';
 import { toast } from 'react-hot-toast';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { exportToExcel } from '../utils/exportUtils';
@@ -1381,6 +1382,27 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
                 )}
               </div>
 
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <label className="text-slate-700 font-bold text-xs flex items-center gap-1">
+                    بنود وملاحظات العقد (قانونية / إضافية)
+                  </label>
+                  <AiInlineAssist
+                    fieldKind="contract_clause"
+                    value={selectedContract.notes || ''}
+                    maxLength={2500}
+                    onApply={(text) => setSelectedContract({ ...selectedContract, notes: text })}
+                  />
+                </div>
+                <textarea
+                  rows={4}
+                  value={selectedContract.notes || ''}
+                  onChange={(e) => setSelectedContract({ ...selectedContract, notes: e.target.value })}
+                  placeholder="بنود خاصة، شروط إضافية، أو ملاحق تعاقدية وفق قانون العمل الكويتي…"
+                  className="w-full p-3 border border-slate-300 rounded-xl text-xs leading-relaxed focus:border-[#714B67] outline-none"
+                />
+              </div>
+
             </div>
 
             {/* Modal Actions Footer */}
@@ -1481,7 +1503,8 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
                return (
                  <OdooChatter 
                    recordId="contracts_global" 
-                   model="hr.contract" 
+                   model="hr.contract"
+                   inlineAiFieldKind="admin_decision"
                    followers={[
                      { id: '1', name: 'إدارة الموارد البشرية' },
                      { id: '2', name: 'مسؤول رواتب WPS' }

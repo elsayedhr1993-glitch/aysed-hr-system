@@ -49,6 +49,7 @@ import OdooRichDocumentEditor, { SMART_PLACEHOLDERS } from './OdooRichDocumentEd
 import { PAM_CONTRACT_ENGLISH_BODY } from '../templates/pamContractEnglishBody';
 import { UiStudioTarget } from './studio/UiStudioTarget';
 import { UI_KEYS } from '../utils/uiStudioKeys';
+import type { AiFieldKind } from '../lib/aiAssistTypes';
 
 function formatPamContractDateEn(isoDate: string): string {
   const d = new Date(isoDate);
@@ -205,6 +206,14 @@ const TEMPLATES_LIST: TemplateDef[] = [
     icon: '🎓'
   }
 ];
+
+function resolveTemplateAiFieldKind(templateId: TemplateId): AiFieldKind {
+  const t = TEMPLATES_LIST.find((x) => x.id === templateId);
+  if (!t) return 'general';
+  if (t.category === 'CONTRACTS') return 'contract_clause';
+  if (t.category === 'ADMIN') return 'admin_decision';
+  return 'employee_notice';
+}
 
 // Default HTML template bodies with smart placeholders embedded
 const DEFAULT_TEMPLATE_BODIES: Partial<Record<TemplateId, string>> = {
@@ -1030,6 +1039,7 @@ export const OdooTemplatesApp: React.FC = () => {
                 hideSmartPlaceholders
                 insertPlaceholderRef={insertPlaceholderRef}
                 className="h-full border-0 shadow-none rounded-none"
+                aiFieldKind={resolveTemplateAiFieldKind(selectedTemplate)}
               />
             </div>
           </section>

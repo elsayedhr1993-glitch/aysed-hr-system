@@ -27,6 +27,7 @@ import {
 import { sendWhatsAppMessage } from '../services/whatsappService';
 import { formatKWD } from '../utils/kuwaitLaw';
 import toast from 'react-hot-toast';
+import { AiInlineAssist } from './copilot/AiInlineAssist';
 
 interface QuickNotificationModalProps {
   isOpen: boolean;
@@ -556,7 +557,15 @@ export const QuickNotificationModal: React.FC<QuickNotificationModalProps> = ({
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="sm:col-span-2">
-                  <label className="block font-semibold text-slate-700 mb-1">السبب المطلوب للمراجعة</label>
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <label className="block font-semibold text-slate-700">السبب المطلوب للمراجعة</label>
+                    <AiInlineAssist
+                      fieldKind="admin_decision"
+                      value={actionReason}
+                      maxLength={400}
+                      onApply={setActionReason}
+                    />
+                  </div>
                   <input
                     type="text"
                     value={actionReason}
@@ -739,22 +748,30 @@ export const QuickNotificationModal: React.FC<QuickNotificationModalProps> = ({
 
           {/* Message Preview & Manual Editing */}
           <div>
-            <div className="flex items-center justify-between mb-1.5">
+            <div className="flex items-center justify-between mb-1.5 gap-2 flex-wrap">
               <label className="font-bold text-slate-800 flex items-center gap-1.5">
                 <Sparkles className="w-4 h-4 text-[#714B67]" />
                 <span>معاينة نص الرسالة قبل الإرسال (يمكن التعديل يدوياً)</span>
               </label>
-              <button
-                type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText(editableMessage);
-                  toast.success('تم نسخ نص الرسالة إلى الحافظة');
-                }}
-                className="text-xs text-[#714B67] hover:underline flex items-center gap-1 font-bold"
-              >
-                <Copy className="w-3.5 h-3.5" />
-                <span>نسخ النص</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <AiInlineAssist
+                  fieldKind="employee_notice"
+                  value={editableMessage}
+                  maxLength={1200}
+                  onApply={setEditableMessage}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(editableMessage);
+                    toast.success('تم نسخ نص الرسالة إلى الحافظة');
+                  }}
+                  className="text-xs text-[#714B67] hover:underline flex items-center gap-1 font-bold"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>نسخ النص</span>
+                </button>
+              </div>
             </div>
 
             <textarea

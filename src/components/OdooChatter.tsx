@@ -22,6 +22,8 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { getExpiryStatus, ODOO_ACTIVITY_TYPES, OdooActivityTypeKey } from '../utils/expiryUtils';
+import { AiInlineAssist } from './copilot/AiInlineAssist';
+import type { AiFieldKind } from '../lib/aiAssistTypes';
 
 export interface ScheduledActivity {
   id: string;
@@ -64,6 +66,8 @@ interface OdooChatterProps {
   onSendMessage?: (content: string, type: 'message' | 'note') => void;
   onScheduleActivity?: (activity: ScheduledActivity) => void;
   extraActivities?: ScheduledActivity[];
+  /** عند التعيين: زر الصياغة الذكية بجانب صندوق الإدخال */
+  inlineAiFieldKind?: AiFieldKind | 'auto';
 }
 
 export const OdooChatter: React.FC<OdooChatterProps> = ({
@@ -73,7 +77,8 @@ export const OdooChatter: React.FC<OdooChatterProps> = ({
   followers = [],
   onSendMessage,
   onScheduleActivity,
-  extraActivities = []
+  extraActivities = [],
+  inlineAiFieldKind = 'auto',
 }) => {
   const [activeTab, setActiveTab] = useState<'message' | 'note' | 'activity'>('note');
   const [inputText, setInputText] = useState('');
@@ -400,6 +405,22 @@ export const OdooChatter: React.FC<OdooChatterProps> = ({
 
       {/* Input Area */}
       <div className="p-4 bg-white border-b border-slate-200">
+        {inlineAiFieldKind !== undefined && (
+          <div className="flex justify-end mb-1.5">
+            <AiInlineAssist
+              fieldKind={
+                inlineAiFieldKind === 'auto'
+                  ? activeTab === 'message'
+                    ? 'employee_notice'
+                    : 'hr_notes'
+                  : inlineAiFieldKind
+              }
+              value={inputText}
+              maxLength={2000}
+              onApply={setInputText}
+            />
+          </div>
+        )}
         <div className={`border border-slate-300 rounded-xl overflow-hidden transition-shadow focus-within:ring-2 ${
           activeTab === 'note' ? 'bg-amber-50/60 focus-within:ring-amber-200' : 'bg-white focus-within:ring-[#714B67]/20'
         }`}>

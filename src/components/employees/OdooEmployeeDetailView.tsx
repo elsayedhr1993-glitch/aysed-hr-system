@@ -73,6 +73,7 @@ import { UiStudioTarget } from '../studio/UiStudioTarget';
 import { useRegisterReorderGroup } from '../../context/UiStudioContext';
 import { UI_KEYS } from '../../utils/uiStudioKeys';
 import { EntityAiSummaryButton } from '../copilot/EntityAiSummaryButton';
+import { EmployeeRecordChatter } from '../copilot/EmployeeRecordChatter';
 
 interface Props {
   employee: any;
@@ -1146,6 +1147,12 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
             employeeName={employee.nameAr || employee.name}
           />
         )}
+
+        <EmployeeRecordChatter
+          chatter={Array.isArray(employee.chatter) ? employee.chatter : []}
+          disabled={!isEditMode}
+          onChatterChange={(entries) => handleFieldChange('chatter', entries)}
+        />
         </div>
       </div>
       </div>

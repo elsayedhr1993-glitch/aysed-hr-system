@@ -48,6 +48,7 @@ import { collection, deleteDoc, doc, getDocs, onSnapshot, query, setDoc, where }
 import { cleanFirestoreData, db } from '../lib/firebase';
 import { changeEmployeeStatus } from '../services/employeeLifecycleService';
 import { mapEmployeeForEmployeesAppView } from '../utils/employeeMapper';
+import { AiInlineAssist } from '../components/copilot/AiInlineAssist';
 import {
   getEmployeeStatusMeta,
   isEmployeeOnDuty,
@@ -2113,7 +2114,16 @@ export function EmployeesApp(props?: any) {
                   ))}
                 </div>
 
-                <form onSubmit={(e) => handleAddChatter('commencement', e)} className="flex gap-2 pt-2">
+                <form onSubmit={(e) => handleAddChatter('commencement', e)} className="flex flex-col gap-2 pt-2">
+                  <div className="flex justify-end">
+                    <AiInlineAssist
+                      fieldKind="hr_notes"
+                      value={chatterInput}
+                      maxLength={1200}
+                      onApply={setChatterInput}
+                    />
+                  </div>
+                  <div className="flex gap-2">
                   <input 
                     type="text"
                     value={chatterInput}
@@ -2127,6 +2137,7 @@ export function EmployeesApp(props?: any) {
                   >
                     إرسال وسجل
                   </button>
+                  </div>
                 </form>
               </div>
 

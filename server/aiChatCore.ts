@@ -198,8 +198,17 @@ export async function handleAiChatRequest(
           text: `[شاشة]\nactiveApp=${String(activeApp || '')}\n${screenSummary ? String(screenSummary).slice(0, 800) : ''}`,
         });
       }
+      const fieldHints: Record<string, string> = {
+        admin_decision: 'صياغة قرار إداري رسمي (عربي مهني، مرجعية قانون العمل 6/2010 عند الحاجة).',
+        employee_notice: 'إشعار أو مراسلة موجهة للموظف (واضحة، محترمة، بدون تهديد غير قانوني).',
+        contract_clause: 'بند أو ملحق عقد عمل كويتي (صياغة قانونية مختصرة).',
+        leave_reason: 'سبب طلب إجازة مهني ومختصر.',
+        hr_notes: 'ملاحظة إدارية داخلية على ملف الموظف.',
+      };
+      const kind = String(fieldKind || 'general');
+      const hint = fieldHints[kind] || 'نص عام لنظام موارد بشرية.';
       genParts.push({
-        text: `نوع الحقل: ${String(fieldKind || 'general')}\nالحد الأقصى للأحرف: ${maxLength ? Number(maxLength) : 'غير محدد'}\nالنص الحالي في الحقل:\n${String(currentValue || '').slice(0, 2000) || '—'}\n\nتعليمات المستخدم:\n${promptText}`,
+        text: `نوع الحقل: ${kind}\nتوجيه الصياغة: ${hint}\nالحد الأقصى للأحرف: ${maxLength ? Number(maxLength) : 'غير محدد'}\nالنص الحالي في الحقل:\n${String(currentValue || '').slice(0, 2000) || '—'}\n\nتعليمات المستخدم:\n${promptText}`,
       });
 
       const genResult = await generateWithReplySchema(ai, GENERATE_SYSTEM, genParts, 0.4);

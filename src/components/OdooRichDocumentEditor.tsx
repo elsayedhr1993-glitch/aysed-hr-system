@@ -1,4 +1,6 @@
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback, useMemo } from 'react';
+import { AiInlineAssist } from './copilot/AiInlineAssist';
+import type { AiFieldKind } from '../lib/aiAssistTypes';
 import { 
   Bold, 
   Italic, 
@@ -32,6 +34,7 @@ interface RichEditorProps {
   hideSmartPlaceholders?: boolean;
   insertPlaceholderRef?: React.MutableRefObject<((tag: string) => void) | null>;
   className?: string;
+  aiFieldKind?: AiFieldKind;
 }
 
 export const SMART_PLACEHOLDERS = [
@@ -94,9 +97,32 @@ export const OdooRichDocumentEditor: React.FC<RichEditorProps> = ({
   hideSmartPlaceholders = false,
   insertPlaceholderRef,
   className = '',
+  aiFieldKind,
 }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const isInternalUpdate = useRef(false);
+
+  const plainTextValue = useMemo(() => {
+    if (!value) return '';
+    return value
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }, [value]);
+
+  const applyAiPlainText = useCallback(
+    (text: string) => {
+      const html = text
+        .split(/\n+/)
+        .filter(Boolean)
+        .map((line) => `<p>${line.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`)
+        .join('');
+      onChange(html || '<p></p>');
+    },
+    [onChange]
+  );
 
   // Sync incoming value to editor only if different
   useEffect(() => {
@@ -344,6 +370,16 @@ export const OdooRichDocumentEditor: React.FC<RichEditorProps> = ({
             <RemoveFormatting size={15} />
           </button>
         </div>
+
+        {aiFieldKind && (
+          <AiInlineAssist
+            fieldKind={aiFieldKind}
+            value={plainTextValue}
+            maxLength={4000}
+            onApply={applyAiPlainText}
+            className="shrink-0"
+          />
+        )}
 
         {/* Undo / Redo */}
         <div className="flex items-center bg-white border border-slate-200 rounded-xl p-0.5 shadow-2xs mr-auto">

@@ -1,4 +1,10 @@
-# AI Copilot — خطة تنفيذ P0 + P1
+# AI Copilot — خطة تنفيذ P0–P3 + توسعة Inline
+
+## P2/P3 (منجز)
+- `mode: generate` — `AiInlineAssist` (ملاحظات HR، سبب الإجازة، Chatter، قوالب المستندات، بنود العقد، إشعارات WhatsApp).
+- `mode: summarize` — `EntityAiSummaryButton` في ملف الموظف.
+
+# AI Copilot — خطة تنفيذ P0 + P1 (أساس)
 
 ## الهدف
 مساعد واحد (`AysedAICopilot`) مع سياق شركة مجمّع وآمن، نماذج موحّدة، إجراءات JSON حقيقية، وإزالة الردود/النتائج الوهمية.
