@@ -1,5 +1,4 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { handleAiChatRequest } from './_bundle/aiChatCore.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -14,6 +13,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
 
+  const { handleAiChatRequest } = await import('./_bundle/aiChatCore.mjs');
   const result = await handleAiChatRequest(req.body, req.headers.authorization);
   return res.status(result.status).json(result.body);
 }

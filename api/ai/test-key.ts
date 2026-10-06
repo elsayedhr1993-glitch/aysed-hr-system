@@ -1,5 +1,4 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { handleAiTestKeyRequest } from '../_bundle/aiTestKeyCore.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -14,6 +13,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
 
+  const { handleAiTestKeyRequest } = await import('../_bundle/aiTestKeyCore.mjs');
   const result = await handleAiTestKeyRequest(req.headers.authorization);
   return res.status(result.status).json(result.body);
 }
