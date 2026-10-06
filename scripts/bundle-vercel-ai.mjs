@@ -1,14 +1,11 @@
 /**
- * Bundle server AI handlers for Vercel serverless.
- * - Inlines @google/genai (ESM-only; must not be require()'d from CJS wrappers).
- * - Outputs .mjs for explicit ESM; API handlers load via dynamic import().
+ * Emit self-contained CommonJS Vercel API files (no ESM/CJS mismatch at runtime).
  */
 import * as esbuild from 'esbuild';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, rmSync } from 'node:fs';
 
-mkdirSync('api/_bundle', { recursive: true });
+mkdirSync('api/ai', { recursive: true });
 
-/** firebase-admin stays external (Vercel Node runtime provides it). */
 const external = [
   'firebase-admin',
   'firebase-admin/app',
@@ -16,20 +13,29 @@ const external = [
   'firebase-admin/firestore',
 ];
 
+try {
+  rmSync('api/_bundle', { recursive: true, force: true });
+} catch {
+  /* ok */
+}
+
 await esbuild.build({
   entryPoints: {
-    aiChatCore: 'server/aiChatCore.ts',
-    aiTestKeyCore: 'server/aiTestKeyCore.ts',
+    'ai-chat': 'server/vercel/aiChatApi.ts',
+    'ai/test-key': 'server/vercel/aiTestKeyApi.ts',
   },
-  outdir: 'api/_bundle',
-  outExtension: { '.js': '.mjs' },
+  outdir: 'api',
+  outExtension: { '.js': '.cjs' },
   bundle: true,
   platform: 'node',
-  format: 'esm',
+  format: 'cjs',
   target: 'node20',
   external,
   sourcemap: true,
   logLevel: 'info',
+  define: {
+    'import.meta.env': '{}',
+  },
 });
 
-console.log('[bundle-vercel-ai] Wrote api/_bundle/*.mjs (ESM, genai bundled)');
+console.log('[bundle-vercel-ai] Wrote api/ai-chat.cjs and api/ai/test-key.cjs (CJS)');

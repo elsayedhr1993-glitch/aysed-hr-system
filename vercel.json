@@ -5,10 +5,9 @@
   "outputDirectory": "dist",
   "installCommand": "npm install",
   "functions": {
-    "api/**/*.ts": {
+    "api/**/*.{js,cjs,ts}": {
       "maxDuration": 60,
-      "memory": 1024,
-      "includeFiles": "api/_bundle/**"
+      "memory": 1024
     }
   },
   "rewrites": [{ "source": "/((?!assets/|api/).*)", "destination": "/index.html" }]

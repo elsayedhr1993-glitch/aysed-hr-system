@@ -7,7 +7,12 @@ coverage/
 bun.lock
 bun.lockb
 dist/
-api/_bundle/
+api/ai-chat.cjs
+api/ai-chat.cjs.map
+api/ai/test-key.cjs
+api/ai/test-key.cjs.map
+api/ai-chat.js
+api/ai/test-key.js
 server.cjs
 server.cjs.map
 
