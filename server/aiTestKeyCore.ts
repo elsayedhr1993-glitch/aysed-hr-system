@@ -1,6 +1,6 @@
-import { getConnectivityTestModels } from '../src/config/aiConfig.ts';
-import { requireFirebaseAuthFromHeader } from './apiAuth.ts';
-import { getGeminiClient } from './geminiServer.ts';
+import { getConnectivityTestModels } from '../src/config/aiConfig';
+import { requireFirebaseAuthFromHeader } from './apiAuth';
+import { getGeminiClient } from './geminiServer';
 
 export async function handleAiTestKeyRequest(
   authHeader: string | string[] | undefined

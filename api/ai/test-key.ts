@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { handleAiTestKeyRequest } from '../../server/aiTestKeyCore';
+import { handleAiTestKeyRequest } from '../_bundle/aiTestKeyCore.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');

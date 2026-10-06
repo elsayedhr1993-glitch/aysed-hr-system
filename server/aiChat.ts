@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from 'express';
 import { GoogleGenAI } from '@google/genai';
-import { handleAiChatRequest } from './aiChatCore.ts';
+import { handleAiChatRequest } from './aiChatCore';
 
 type AuthDeps = {
   requireFirebaseAuth: (req: Request, res?: Response) => Promise<any>;

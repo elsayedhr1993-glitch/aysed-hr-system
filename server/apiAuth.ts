@@ -1,5 +1,5 @@
-import { isSuperAdminEmail } from '../src/config/superAdminAccess.ts';
-import { getAdminAuth, getAdminFirestore } from './firebaseAdmin.ts';
+import { isSuperAdminEmail } from '../src/config/superAdminAccess';
+import { getAdminAuth, getAdminFirestore } from './firebaseAdmin';
 
 export type AuthCheckResult =
   | { ok: true; token: string; uid: string; email: string; claims: Record<string, unknown>; status: number }

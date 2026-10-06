@@ -1,15 +1,15 @@
 import { GoogleGenAI, Type } from '@google/genai';
-import { getChatModelCandidates } from '../src/config/aiConfig.ts';
-import { isSuperAdminPrincipal } from '../src/config/superAdminAccess.ts';
+import { getChatModelCandidates } from '../src/config/aiConfig';
+import { isSuperAdminPrincipal } from '../src/config/superAdminAccess';
 import {
   buildCreateEmployeeActionFromPrompt,
   parseModelCopilotPayload,
   sanitizeCopilotAction,
-} from '../src/lib/aiCopilotActions.ts';
-import { assertClientCompanyAccess } from '../src/lib/aiCopilotContext.ts';
-import { COPILOT_APP_IDS, COPILOT_FUNCTION_NAMES, COPILOT_MODAL_IDS } from '../src/lib/aiCopilotTypes.ts';
-import { requireFirebaseAuthFromHeader, resolveCallerRole } from './apiAuth.ts';
-import { getGeminiClient } from './geminiServer.ts';
+} from '../src/lib/aiCopilotActions';
+import { assertClientCompanyAccess } from '../src/lib/aiCopilotContext';
+import { COPILOT_APP_IDS, COPILOT_FUNCTION_NAMES, COPILOT_MODAL_IDS } from '../src/lib/aiCopilotTypes';
+import { requireFirebaseAuthFromHeader, resolveCallerRole } from './apiAuth';
+import { getGeminiClient } from './geminiServer';
 
 const COPILOT_SYSTEM = `أنت مساعد Aysed S HR 2026 للموارد البشرية في الكويت.
 - أجب بالعربية المهنية مع Markdown عند الحاجة.
