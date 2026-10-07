@@ -1055,6 +1055,47 @@ table {
     display: table-footer-group;
   }
 
+  /* hr.contract list — كشف العقود A4 */
+  .contracts-print-root .no-print,
+  .contracts-print-root .odoo-filter-toolbar {
+    display: none !important;
+  }
+
+  .contracts-print-root {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .contracts-print-root .contracts-print-table {
+    width: 100% !important;
+    max-width: 100% !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  .contracts-print-root .contracts-print-table table {
+    width: 100% !important;
+    font-size: 10pt !important;
+  }
+
+  .contracts-print-root .contracts-print-header {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 0 8mm 0 !important;
+  }
+
+  .contracts-print-root .contracts-print-header .no-print {
+    display: none !important;
+  }
+
+  .contracts-print-root th:last-child,
+  .contracts-print-root td:last-child {
+    display: none !important;
+  }
+
   .print-avoid-break,
   .print-avoid-break * {
     break-inside: avoid-page !important;

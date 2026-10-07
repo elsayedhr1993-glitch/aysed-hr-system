@@ -3,7 +3,6 @@ import {
   FileText, 
   Search, 
   Plus, 
-  Edit3, 
   Check, 
   X, 
   ShieldAlert, 
@@ -31,7 +30,8 @@ import {
   Stethoscope,
   ChevronDown,
   ChevronUp,
-  MessageSquare
+  MessageSquare,
+  MoreVertical
 } from 'lucide-react';
 import { useOdooHierarchy, EmployeeContract } from '../context/OdooHierarchyContext';
 import { useCompany } from '../context/CompanyContext';
@@ -59,9 +59,15 @@ import { FileSpreadsheet } from 'lucide-react';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import OdooPamContractModal from './OdooPamContractModal';
+import {
+  formatContractDisplayRef,
+  nextContractDisplaySequence,
+} from '../utils/contractDisplayRef';
 
 export interface DetailedContract extends EmployeeContract {
   contractRef: string;
+  /** User-facing reference (CNT-2026-001); Firestore doc id stays in contractRef */
+  displayRef?: string;
   medicalAllowance: number;
   startDate: string;
   endDate?: string;
@@ -123,6 +129,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
   const [pamPrintEmployee, setPamPrintEmployee] = useState<Record<string, unknown> | null>(null);
   const [contractsLoaded, setContractsLoaded] = useState(false);
   const [firestoreContractDocCount, setFirestoreContractDocCount] = useState(0);
+  const [openRowActionsKey, setOpenRowActionsKey] = useState<string | null>(null);
   const materializingContractIds = useRef(new Set<string>());
   const contractsSnapshotRef = useRef<DetailedContract[]>([]);
   
@@ -185,6 +192,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
           id: c.employeeId || item.id,
           employeeId: c.employeeId,
           contractRef: item.id,
+          displayRef: c.displayRef || c.contractNumber || undefined,
           name: c.employeeName || c.name || 'موظف',
           civilId: c.civilId || '',
           jobTitle: c.jobTitle || 'موظف',
@@ -358,12 +366,14 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
     const id = String(c.id || '').toLowerCase();
     const jobTitle = (c.jobTitle || '').toLowerCase();
     const contractRef = (c.contractRef || '').toLowerCase();
+    const displayRef = formatContractDisplayRef(c).toLowerCase();
     const civilId = String(c.civilId || '').toLowerCase();
 
     const matchesSearch = name.includes(term) || 
                           id.includes(term) || 
                           jobTitle.includes(term) ||
                           contractRef.includes(term) ||
+                          displayRef.includes(term) ||
                           civilId.includes(term);
     const matchesStatus = filterStatus === 'all' || normalizedStatus === filterStatus;
     const matchesEmpType = filterEmploymentType === 'all' || (c.employmentType || 'full_time') === filterEmploymentType;
@@ -387,11 +397,10 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
 
   // Open Create Form
   const handleOpenCreateContract = () => {
-    const maxRefId = contracts.reduce((max, c) => {
-      const num = parseInt(c?.contractRef?.split('/').pop() || '0', 10);
-      return !isNaN(num) && num > max ? num : max;
-    }, 0);
-    const newRef = `CONTRACT/2026/${String(maxRefId + 1).padStart(3, '0')}`;
+    const year = new Date().getFullYear();
+    const nextSeq = nextContractDisplaySequence(contracts, year);
+    const displayRef = `CNT-${year}-${String(nextSeq).padStart(3, '0')}`;
+    const newRef = `CONTRACT/${year}/${String(nextSeq).padStart(3, '0')}`;
     const firstEmp = availableEmployees[0] || {
       id: '',
       name: '',
@@ -409,6 +418,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
     const newContract: DetailedContract = {
       id: firstEmp.id,
       contractRef: newRef,
+      displayRef,
       name: firstEmp.name,
       civilId: firstEmp.civilId,
       jobTitle: firstEmp.jobTitle,
@@ -534,10 +544,15 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
 
     // Persist to Firestore
     try {
+      const displayRef =
+        selectedContract.displayRef ||
+        formatContractDisplayRef(selectedContract);
       const saved = await TenantDatabaseService.saveContract({
         id: selectedContract.contractRef || `CONTRACT-${selectedContract.id}`,
         companyId: currentCompanyId,
         employeeId: selectedContract.id,
+        displayRef,
+        contractNumber: displayRef,
         basicSalary: selectedContract.basicSalary,
         housingAllowance: selectedContract.housingAllowance,
         transportAllowance: selectedContract.transportAllowance,
@@ -570,11 +585,11 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
     });
 
     if (isCreatingNew) {
-      setContracts([selectedContract, ...contracts]);
-      toast.success(`تم إنشاء العقد (${selectedContract.contractRef}) للموظف ${selectedContract.name} واعتماد رصيد 30 يوماً لسنة 2026 تلقائياً`);
+      setContracts([{ ...selectedContract, displayRef }, ...contracts]);
+      toast.success(`تم إنشاء العقد (${displayRef}) للموظف ${selectedContract.name} واعتماد رصيد 30 يوماً لسنة 2026 تلقائياً`);
     } else {
-      setContracts(contracts.map(c => c.contractRef === selectedContract.contractRef ? selectedContract : c));
-      toast.success(`تم تحديث بيانات العقد (${selectedContract.contractRef}) وتحديث رصيد الإجازات لسنة 2026`);
+      setContracts(contracts.map(c => c.contractRef === selectedContract.contractRef ? { ...selectedContract, displayRef } : c));
+      toast.success(`تم تحديث بيانات العقد (${displayRef}) وتحديث رصيد الإجازات لسنة 2026`);
     }
 
     // Sync full contract properties with global hierarchy
@@ -635,10 +650,10 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
   };
 
   return (
-    <div className="odoo-app-surface space-y-6 text-right font-sans dir-rtl text-slate-800" dir="rtl">
+    <div className="odoo-app-surface contracts-print-root space-y-6 text-right font-sans dir-rtl text-slate-800" dir="rtl">
       
       {/* 1. Header Banner & Action Toolbar */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="contracts-print-header bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-[#714B67]/10 text-[#714B67] rounded-xl">
             <FileText className="w-6 h-6" />
@@ -665,13 +680,21 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 no-print">
+          <button
+            type="button"
+            onClick={handleOpenCreateContract}
+            className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+          >
+            <Plus size={16} />
+            <span>إنشاء عقد جديد</span>
+          </button>
           <button
             type="button"
             onClick={() => {
               const exportData = filteredContracts.map((c, idx) => ({
                 'م': idx + 1,
-                'رقم العقد': c.contractRef,
+                'رقم العقد': formatContractDisplayRef(c, idx),
                 'اسم الموظف': c.name,
                 'الرقم المدني': c.civilId,
                 'المسمى الوظيفي': c.jobTitle,
@@ -707,43 +730,11 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
         </div>
       </div>
 
-      {/* 2. Compact Inline KPI Summary Bar */}
-      <div className="bg-white px-4 py-2.5 rounded-xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-3 text-xs font-bold">
-        <div className="flex items-center gap-2 text-[#714B67]">
-          <Calculator className="w-4 h-4" />
-          <span>إجمالي موازنة الرواتب التقديرية:</span>
-          <span className="font-mono text-sm font-black">{totalMonthlyPayroll.toFixed(3)} د.ك</span>
-        </div>
-        <div className="h-4 w-px bg-slate-200 hidden sm:block"></div>
-        <div className="flex items-center gap-4 text-slate-600">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span>عقود سارية: <strong className="font-mono text-emerald-700">{runningCount}</strong></span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-            <span>مسودات: <strong className="font-mono text-amber-700">{draftCount}</strong></span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
-            <span>دوام جزئي/بالساعة: <strong className="font-mono text-indigo-700">{partTimeCount}</strong></span>
-          </div>
-          {firestoreContractDocCount > contracts.length && (
-            <div className="flex items-center gap-1.5 text-amber-800 max-w-md">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-              <span>
-                وُجد {firestoreContractDocCount} مستند عقد في القاعدة؛ يُعرض {contracts.length} بعد دمج التكرار (موظف واحد = صف واحد).
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 3. Filter and Search Bar */}
-      <div className="odoo-filter-toolbar flex-col sm:flex-row">
-        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-          {/* Status Filter */}
+      {/* 2. Merged filters + payroll hint */}
+      <div className="odoo-filter-toolbar no-print flex-col lg:flex-row gap-3 bg-white px-4 py-3 rounded-xl border border-slate-200 shadow-2xs">
+        <div className="flex flex-wrap items-center gap-2 w-full lg:flex-1">
           <button
+            type="button"
             onClick={() => setFilterStatus('all')}
             className={`px-3 py-1.5 rounded-lg border transition cursor-pointer ${
               filterStatus === 'all' ? 'bg-[#714B67] text-white border-[#714B67]' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -751,55 +742,52 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
           >
             الكل ({contracts.length})
           </button>
+          <span className="text-slate-300 hidden sm:inline">|</span>
           <button
+            type="button"
             onClick={() => setFilterStatus('running')}
-            className={`px-3 py-1.5 rounded-lg border transition cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg border transition cursor-pointer ${
               filterStatus === 'running' ? 'bg-emerald-600 text-white border-emerald-600' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
             }`}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-            <span>ساري ({runningCount})</span>
+            عقود سارية ({runningCount})
           </button>
+          <span className="text-slate-300 hidden sm:inline">|</span>
           <button
+            type="button"
             onClick={() => setFilterStatus('draft')}
-            className={`px-3 py-1.5 rounded-lg border transition cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg border transition cursor-pointer ${
               filterStatus === 'draft' ? 'bg-amber-600 text-white border-amber-600' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
             }`}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-            <span>مسودة ({draftCount})</span>
+            مسودات ({draftCount})
           </button>
-
-          {/* Type Filter */}
-          <div className="border-r border-slate-200 pr-2 flex gap-1.5">
-            <button
-              onClick={() => setFilterEmploymentType('all')}
-              className={`px-2.5 py-1.5 rounded-lg border transition cursor-pointer ${
-                filterEmploymentType === 'all' ? 'bg-slate-800 text-white border-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-              }`}
+          <label className="flex items-center gap-1.5 text-[11px] text-slate-500 mr-1">
+            <span className="whitespace-nowrap">نوع الدوام</span>
+            <select
+              value={filterEmploymentType}
+              onChange={(e) => setFilterEmploymentType(e.target.value as 'all' | 'full_time' | 'part_time')}
+              className="py-1.5 px-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-800 text-xs font-bold min-w-[9rem] cursor-pointer"
             >
-              كافة الدوامات
-            </button>
-            <button
-              onClick={() => setFilterEmploymentType('full_time')}
-              className={`px-2.5 py-1.5 rounded-lg border transition cursor-pointer ${
-                filterEmploymentType === 'full_time' ? 'bg-teal-700 text-white border-teal-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              دوام كامل
-            </button>
-            <button
-              onClick={() => setFilterEmploymentType('part_time')}
-              className={`px-2.5 py-1.5 rounded-lg border transition cursor-pointer ${
-                filterEmploymentType === 'part_time' ? 'bg-indigo-700 text-white border-indigo-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              دوام جزئي / بالساعة
-            </button>
+              <option value="all">الكل</option>
+              <option value="full_time">دوام كامل</option>
+              <option value="part_time">دوام جزئي / بالساعة</option>
+            </select>
+          </label>
+          <div className="hidden xl:flex items-center gap-1.5 text-[11px] text-[#714B67] font-bold ms-auto">
+            <Calculator className="w-3.5 h-3.5" />
+            <span>موازنة تقديرية:</span>
+            <span className="font-mono">{totalMonthlyPayroll.toFixed(3)} د.ك</span>
           </div>
+          {firestoreContractDocCount > contracts.length && (
+            <span className="text-[10px] text-amber-800 flex items-center gap-1 w-full lg:w-auto">
+              <AlertTriangle className="w-3 h-3 shrink-0" />
+              {firestoreContractDocCount} مستند؛ يُعرض {contracts.length} بعد الدمج
+            </span>
+          )}
         </div>
 
-        <div className="relative w-full sm:w-72">
+        <div className="relative w-full lg:w-72 shrink-0">
           <Search className="absolute right-3 top-2.5 text-slate-400 w-4 h-4" />
           <input
             type="text"
@@ -811,8 +799,8 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
         </div>
       </div>
 
-      {/* 4. Streamlined Contracts Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden text-xs">
+      {/* 3. Streamlined Contracts Table */}
+      <div className="contracts-print-table bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden text-xs">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-right">
             <thead>
@@ -833,13 +821,25 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
                   ? ((c.hourlyRate || 0) * (c.dailyHours || 4) * 26 + totalAllowances)
                   : ((c.basicSalary || 0) + totalAllowances);
                 
+                const rowKey = `${c.contractRef}-${idx}`;
+                const displayCode = formatContractDisplayRef(c, idx);
+
                 return (
                   <tr 
-                    key={`${c.contractRef}-${idx}`} 
-                    className={`${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} hover:bg-purple-50/30 transition`}
+                    key={rowKey} 
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleOpenEditContract(c)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleOpenEditContract(c);
+                      }
+                    }}
+                    className={`${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} hover:bg-purple-50/40 transition cursor-pointer`}
                   >
                     <td className="p-3 font-mono font-bold text-[#714B67]">
-                      {c.contractRef}
+                      {displayCode}
                     </td>
                     
                     <td className="p-3">
@@ -872,14 +872,14 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
                     
                     {/* Combined Financial Details */}
                     <td className="p-3 text-left font-mono">
-                      <div className="font-black text-sm text-[#714B67]">
-                        {totalGross.toFixed(3)} <span className="text-[10px] font-normal text-slate-500">د.ك (الاستحقاق)</span>
+                      <div className="font-bold text-sm text-slate-900">
+                        {totalGross.toFixed(3)} <span className="text-[10px] font-normal text-slate-500">د.ك</span>
                       </div>
-                      <div className="text-[10px] text-slate-400 font-normal">
+                      <div className="text-[10px] text-slate-500 font-normal">
                         {isPartTime ? (
                           <span>أجر الساعة: {(c.hourlyRate || 0).toFixed(3)} د.ك</span>
                         ) : (
-                          <span>الأساسي: {(c.basicSalary || 0).toFixed(3)} د.ك | البدلات: {totalAllowances.toFixed(3)} د.ك</span>
+                          <span>الأساسي: {(c.basicSalary || 0).toFixed(3)} د.ك | بدلات: {totalAllowances.toFixed(3)} د.ك</span>
                         )}
                       </div>
                     </td>
@@ -906,42 +906,53 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
                       )}
                     </td>
 
-                    {/* Streamlined Actions */}
-                    <td className="p-3 text-center">
-                      <div className="flex items-center justify-center gap-1">
+                    <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
+                      <div className="relative inline-block">
                         <button
                           type="button"
-                          onClick={() => handleOpenEditContract(c)}
-                          className="bg-slate-100 hover:bg-[#714B67] hover:text-white text-slate-700 px-2.5 py-1 rounded-lg text-xs font-bold transition inline-flex items-center gap-1 cursor-pointer"
-                          title="تحرير"
+                          onClick={() => setOpenRowActionsKey(openRowActionsKey === rowKey ? null : rowKey)}
+                          className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition cursor-pointer"
+                          title="إجراءات"
                         >
-                          <Edit3 size={12} />
-                          <span>تعديل</span>
+                          <MoreVertical size={16} />
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => setPamPrintEmployee(employeePayloadForPamContract(c))}
-                          className="bg-[#714B67]/10 hover:bg-[#714B67] hover:text-white text-[#714B67] px-2 py-1 rounded-lg text-[10px] font-bold transition cursor-pointer"
-                          title="نموذج الهيئة العامة للقوى العاملة (PAM) — المعتمد"
-                        >
-                          PAM
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openSignedContractPreview(c)}
-                          className="bg-slate-50 hover:bg-slate-200 text-slate-600 p-1.5 rounded-lg transition cursor-pointer"
-                          title="معاينة / عرض العقد المرفوع (PDF أو صورة)"
-                        >
-                          <Printer size={13} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => handleDeleteContract(c.contractRef || c.id, e)}
-                          className="bg-slate-50 hover:bg-rose-100 text-rose-600 p-1.5 rounded-lg transition cursor-pointer"
-                          title="حذف العقد"
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                        {openRowActionsKey === rowKey && (
+                          <div className="absolute left-0 top-full mt-1 z-20 w-40 bg-white border border-slate-200 rounded-xl shadow-lg p-1 text-right">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenRowActionsKey(null);
+                                setPamPrintEmployee(employeePayloadForPamContract(c));
+                              }}
+                              className="w-full px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#714B67] hover:bg-purple-50 flex items-center gap-2 cursor-pointer"
+                            >
+                              <FileCheck size={13} />
+                              <span>نموذج PAM</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenRowActionsKey(null);
+                                openSignedContractPreview(c);
+                              }}
+                              className="w-full px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                            >
+                              <Printer size={13} />
+                              <span>طباعة / معاينة</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                setOpenRowActionsKey(null);
+                                handleDeleteContract(c.contractRef || c.id, e);
+                              }}
+                              className="w-full px-2.5 py-1.5 rounded-lg text-xs font-medium text-rose-700 hover:bg-rose-50 flex items-center gap-2 cursor-pointer"
+                            >
+                              <Trash2 size={13} />
+                              <span>حذف</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -958,51 +969,87 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
           <div className="bg-white rounded-3xl max-w-4xl w-full shadow-2xl border border-slate-200 overflow-hidden animate-scaleUp text-right flex flex-col max-h-[92vh]">
             
             {/* Modal Top Header & Status Pipeline Bar */}
-            <div className="p-5 border-b border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-3">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-[#714B67] text-white rounded-xl">
-                  <FileText className="w-5 h-5" />
+            <div className="p-5 border-b border-slate-200 bg-slate-50 space-y-3">
+              <div className="flex items-start justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-[#714B67] text-white rounded-xl">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-slate-900 text-base">
+                      {isCreatingNew
+                        ? 'إنشاء عقد عمل جديد'
+                        : `عقد العمل: ${formatContractDisplayRef(selectedContract)}`}
+                    </h3>
+                    <p className="text-[11px] text-slate-500">
+                      الموظف: <strong className="text-[#714B67]">{selectedContract.name}</strong>
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-black text-slate-900 text-base">
-                    {isCreatingNew ? 'إنشاء عقد عمل جديد (New Contract Sheet)' : `عقد العمل: ${selectedContract.contractRef}`}
-                  </h3>
-                  <p className="text-[11px] text-slate-500">
-                    الموظف: <strong className="text-[#714B67]">{selectedContract.name}</strong> | الرقم المدني: {selectedContract.civilId}
-                  </p>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPamPrintEmployee(employeePayloadForPamContract(selectedContract))}
+                    className="bg-[#714B67]/10 hover:bg-[#714B67] hover:text-white text-[#714B67] px-3 py-1.5 rounded-xl text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <FileCheck size={14} />
+                    <span>نموذج PAM الرسمي</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openSignedContractPreview(selectedContract)}
+                    className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 px-3 py-1.5 rounded-xl text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Printer size={14} />
+                    <span>عرض العقد المرفوع</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsContractModalOpen(false)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:bg-white hover:text-slate-700 cursor-pointer"
+                    title="إغلاق"
+                  >
+                    <X size={18} />
+                  </button>
                 </div>
               </div>
 
-              {/* Status State Pipeline */}
-              <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 text-xs font-bold">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600 flex-wrap">
                 <button
                   type="button"
                   onClick={() => setSelectedContract({ ...selectedContract, contractStatus: normalizeContractStatus('draft') })}
-                  className={`px-3 py-1 rounded-lg transition cursor-pointer ${
-                    normalizeContractStatus(selectedContract.contractStatus) === 'draft' ? 'bg-amber-500 text-white shadow-2xs' : 'text-slate-500 hover:bg-slate-50'
+                  className={`px-3 py-1 rounded-lg border transition cursor-pointer ${
+                    normalizeContractStatus(selectedContract.contractStatus) === 'draft'
+                      ? 'bg-amber-500 text-white border-amber-500'
+                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                   }`}
                 >
-                  مسودة (Draft)
+                  مسودة
                 </button>
                 <ChevronRight size={12} className="text-slate-300 rotate-180" />
                 <button
                   type="button"
                   onClick={() => setSelectedContract({ ...selectedContract, contractStatus: normalizeContractStatus('running') })}
-                  className={`px-3 py-1 rounded-lg transition cursor-pointer ${
-                    normalizeContractStatus(selectedContract.contractStatus) === 'running' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-500 hover:bg-slate-50'
+                  className={`px-3 py-1 rounded-lg border transition cursor-pointer ${
+                    normalizeContractStatus(selectedContract.contractStatus) === 'running'
+                      ? 'bg-emerald-600 text-white border-emerald-600'
+                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                   }`}
                 >
-                  ساري (Running)
+                  قيد التنفيذ (ساري)
                 </button>
                 <ChevronRight size={12} className="text-slate-300 rotate-180" />
                 <button
                   type="button"
                   onClick={() => setSelectedContract({ ...selectedContract, contractStatus: normalizeContractStatus('expired') })}
-                  className={`px-3 py-1 rounded-lg transition cursor-pointer ${
-                    normalizeContractStatus(selectedContract.contractStatus) === 'expired' ? 'bg-rose-600 text-white shadow-2xs' : 'text-slate-500 hover:bg-slate-50'
+                  className={`px-3 py-1 rounded-lg border transition cursor-pointer ${
+                    normalizeContractStatus(selectedContract.contractStatus) === 'expired'
+                      ? 'bg-rose-600 text-white border-rose-600'
+                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                   }`}
                 >
-                  منتهي (Expired)
+                  منتهي
                 </button>
               </div>
             </div>
@@ -1080,27 +1127,30 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
                     <label className="text-slate-500 block mb-1">المسمى الوظيفي المعتمد</label>
                     <input
                       type="text"
+                      readOnly
                       value={selectedContract.jobTitle}
-                      onChange={(e) => setSelectedContract({ ...selectedContract, jobTitle: e.target.value })}
-                      className="w-full p-2 bg-white border border-slate-200 rounded-lg font-bold text-slate-800"
+                      className="w-full p-2 bg-slate-100 border border-slate-200 rounded-lg font-bold text-slate-700 cursor-not-allowed"
+                      title="يُجلب تلقائياً من ملف الموظف"
                     />
                   </div>
                   <div>
                     <label className="text-slate-500 block mb-1">القسم / الإدارة</label>
                     <input
                       type="text"
+                      readOnly
                       value={selectedContract.department}
-                      onChange={(e) => setSelectedContract({ ...selectedContract, department: e.target.value })}
-                      className="w-full p-2 bg-white border border-slate-200 rounded-lg font-bold text-slate-800"
+                      className="w-full p-2 bg-slate-100 border border-slate-200 rounded-lg font-bold text-slate-700 cursor-not-allowed"
+                      title="يُجلب تلقائياً من ملف الموظف"
                     />
                   </div>
                   <div>
                     <label className="text-slate-500 block mb-1">الرقم المدني (Civil ID)</label>
                     <input
                       type="text"
+                      readOnly
                       value={selectedContract.civilId}
-                      onChange={(e) => setSelectedContract({ ...selectedContract, civilId: e.target.value })}
-                      className="w-full p-2 bg-white border border-slate-200 rounded-lg font-mono font-bold text-slate-800"
+                      className="w-full p-2 bg-slate-100 border border-slate-200 rounded-lg font-mono font-bold text-slate-700 cursor-not-allowed"
+                      title="يُجلب تلقائياً من ملف الموظف"
                     />
                   </div>
                 </div>
@@ -1406,44 +1456,23 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
             </div>
 
             {/* Modal Actions Footer */}
-            <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+            <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={() => setIsContractModalOpen(false)}
                 className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer"
               >
-                إلغاء (Discard)
+                إلغاء
               </button>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    selectedContract && setPamPrintEmployee(employeePayloadForPamContract(selectedContract))
-                  }
-                  className="bg-[#714B67]/10 hover:bg-[#714B67] hover:text-white text-[#714B67] px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-                >
-                  <FileCheck size={14} />
-                  <span>نموذج PAM الرسمي</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => selectedContract && openSignedContractPreview(selectedContract)}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Printer size={14} />
-                  <span>عرض العقد المرفوع</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleSaveContract}
-                  className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm cursor-pointer"
-                >
-                  <Save size={15} />
-                  <span>حفظ واعتماد العقد (Save Contract)</span>
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={handleSaveContract}
+                className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-6 py-2.5 rounded-xl text-sm font-bold transition flex items-center gap-2 shadow-md cursor-pointer"
+              >
+                <Save size={16} />
+                <span>حفظ واعتماد العقد</span>
+              </button>
             </div>
 
           </div>
