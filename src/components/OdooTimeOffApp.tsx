@@ -30,7 +30,8 @@ import {
   ShieldCheck,
   Ban,
   ChevronRight,
-  Filter
+  Filter,
+  DollarSign
 } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
 import { useRegisterCopilotScreen } from '../context/CopilotContext';
@@ -66,6 +67,9 @@ import { LeaveRejectionModal } from './timeoff/LeaveRejectionModal';
 import { LeavePolicyWizardModal, getLeaveMasterPolicy, LeavePolicyData, TIMEOFF_POLICY_STORAGE_KEY } from './leaves/LeavePolicyWizardModal';
 import { loadTenantPolicy } from '../services/hrPolicyStorage';
 import { AbsenceTimelineView } from './timeoff/AbsenceTimelineView';
+import { OperationalAbsencePanel } from './timeoff/OperationalAbsencePanel';
+import { TimeOffPayrollFinancePanel } from './timeoff/TimeOffPayrollFinancePanel';
+import { useOperationalAbsenceRows } from '../hooks/useOperationalAbsenceRows';
 import { DynamicTabsContainer } from './studio/DynamicTabsContainer';
 import { ScreenLayoutStudioToggle } from './studio/ScreenLayoutStudioToggle';
 import { useScreenLayout } from '../hooks/useScreenLayout';
@@ -212,8 +216,12 @@ export const OdooTimeOffApp: React.FC = () => {
     void seedOpeningBalances();
   }, [companyId, companyEmployees, allocations]);
 
+  type LeavesMainTab = 'requests' | 'allocations' | 'timeline' | 'operational_absence' | 'finance';
+
   // Main navigation tabs: requests, timeline, allocations, finance
-  const [activeMainTab, setActiveMainTab] = useState<'requests' | 'allocations'>('requests');
+  const [activeMainTab, setActiveMainTab] = useState<LeavesMainTab>('requests');
+  const { rows: operationalAbsenceRows, loading: operationalAbsenceLoading } =
+    useOperationalAbsenceRows(companyId);
   const [requestsViewMode, setRequestsViewMode] = useState<'list' | 'calendar'>('list');
   const [compactLeavesUI, setCompactLeavesUI] = useState(() => readLeavesCompactPreference());
 
@@ -1190,11 +1198,7 @@ export const OdooTimeOffApp: React.FC = () => {
                 setShowPolicyWizardModal(true);
                 return;
               }
-              if (tabId === 'timeline' || tabId === 'finance' || tabId === 'operational_absence') {
-                setActiveMainTab('requests');
-                return;
-              }
-              setActiveMainTab(tabId as 'requests' | 'allocations');
+              setActiveMainTab(tabId as LeavesMainTab);
             }}
             tabSuffix={leavesTabSuffix}
             icons={{
@@ -1666,6 +1670,38 @@ export const OdooTimeOffApp: React.FC = () => {
             </div>
           )}
 
+        </div>
+      )}
+
+      {activeMainTab === 'timeline' && (
+        <div className="space-y-4 animate-in fade-in duration-300">
+          <AbsenceTimelineView
+            requests={requests}
+            totalEmployeesCount={companyEmployees.length}
+            onSelectRequest={(req) => setSelectedPrintReq(req)}
+          />
+        </div>
+      )}
+
+      {activeMainTab === 'operational_absence' && (
+        <div className="space-y-4 animate-in fade-in duration-300">
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <h2 className="text-sm font-bold text-slate-900">غياب تشغيلي (من سجلات الحضور)</h2>
+            <p className="text-xs text-slate-500 mt-1">
+              المصدر: تطبيق الحضور والبصمة — للتسجيل التفصيلي استخدم شاشة الحضور.
+            </p>
+          </div>
+          {operationalAbsenceLoading ? (
+            <div className="text-center text-slate-400 text-sm py-8">جاري تحميل سجل الغياب التشغيلي…</div>
+          ) : (
+            <OperationalAbsencePanel rows={operationalAbsenceRows} />
+          )}
+        </div>
+      )}
+
+      {activeMainTab === 'finance' && (
+        <div className="space-y-4 animate-in fade-in duration-300">
+          <TimeOffPayrollFinancePanel />
         </div>
       )}
 
