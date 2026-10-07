@@ -2,20 +2,16 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Users, UserPlus, FileSignature, Calendar, Clock, 
   Banknote, Scale, FolderKanban, Zap, Building2, Sparkles, Scan,
-  Briefcase, FileText, ShieldCheck, Bell, AlertTriangle, TrendingUp, Activity, 
-  PieChart as PieIcon, ArrowUpRight, BarChart3, MessageSquare, Search, Filter,
-  CheckCircle2, Layers, Award, Landmark, LayoutGrid
+  Briefcase, FileText, ShieldCheck, ArrowUpRight, BarChart3, Search,
+  Layers, LayoutGrid
 } from 'lucide-react';
 import { ActiveApp, Company } from '../types';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from 'recharts';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useLang } from '../lib/i18n';
-import { computeCompanyDocumentComplianceStats } from '../utils/employeeDocumentCompliance';
 import { useEffectiveTenantCompanyId } from '../hooks/useEffectiveTenantCompanyId';
 import { isQueryableTenantCompanyId } from '../utils/tenantCompanyId';
 import { useAuth } from '../context/AuthContext';
-import { CompanyOnboardingLicensesWidget } from './onboarding/CompanyOnboardingLicensesWidget';
 import {
   CompanySetupOnboardingBanner,
   type CompanySetupStepAction,
@@ -70,25 +66,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
   const currentCompanyId = useEffectiveTenantCompanyId();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<'ALL' | 'HR_PAYROLL' | 'ATTENDANCE_TIME' | 'DOCS_OPERATIONS'>('ALL');
-
   const [realEmployees, setRealEmployees] = useState<any[]>([]);
-
-  // استخراج طلبات الإجازات الحقيقية من المصدر المركزي
-  const [realLeaves, setRealLeaves] = useState<any[]>([]);
-
-  useEffect(() => {
-    setRealLeaves([]);
-    const leavesQuery = query(
-      collection(db, 'leave_requests'),
-      where('companyId', '==', currentCompanyId)
-    );
-    return onSnapshot(leavesQuery, snapshot => {
-      setRealLeaves(snapshot.docs.map(item => ({ ...item.data(), id: item.id })));
-    }, error => {
-      console.error('Failed to load launcher leave requests:', error);
-    });
-  }, [currentCompanyId]);
 
   useEffect(() => {
     if (authLoading || !isQueryableTenantCompanyId(currentCompanyId)) {
@@ -111,105 +89,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
     );
   }, [currentCompanyId, authLoading]);
 
-  // حساب طلبات الإجازات بانتظار الاعتماد الحقيقية
-  const pendingLeavesCount = useMemo(() => {
-    return realLeaves.filter(req => {
-      const status = String(req.status || '').toUpperCase();
-      return ['PENDING', 'PENDING_MANAGER', 'PENDING_HR', 'WAITING', 'DRAFT', 'قيد الانتظار'].includes(status);
-    }).length;
-  }, [realLeaves]);
-
-  // نسبة الامتثال = المستندات الإلزامية المرفوعة والسارية ÷ إجمالي المطلوب (لكل موظف)
-  const documentComplianceStats = useMemo(
-    () => computeCompanyDocumentComplianceStats(realEmployees),
-    [realEmployees]
-  );
-  const compliancePercentage = documentComplianceStats.percentage;
-  const complianceSlotLabel =
-    documentComplianceStats.total > 0
-      ? `${documentComplianceStats.fulfilled}/${documentComplianceStats.total} مستند`
-      : lang === 'ar'
-        ? 'لا موظفين'
-        : 'No employees';
-  const complianceToneClass =
-    compliancePercentage >= 90
-      ? 'text-emerald-600'
-      : compliancePercentage >= 70
-        ? 'text-amber-600'
-        : 'text-rose-600';
-
-  // حساب توزيع الرواتب الفعلي طبقاً للعقود المسجلة
-  const payrollDeptData = useMemo(() => {
-    if (!realEmployees || realEmployees.length === 0) {
-      return [{ name: 'لا توجد رواتب مسجلة', value: 0, color: '#94a3b8' }];
-    }
-    const deptMap: Record<string, number> = {};
-    const palette = ['#714B67', '#10B981', '#3B82F6', '#F59E0B', '#8B5CF6', '#EC4899'];
-    
-    realEmployees.forEach(emp => {
-      const dept = emp.department || 'إدارة عامة';
-      const basic = Number(emp.basicSalary || emp.salary || 0);
-      const housing = Number(emp.housingAllowance || 0);
-      const transport = Number(emp.transportAllowance || 0);
-      const nature = Number(emp.natureOfWorkAllowance || 0);
-      const total = basic + housing + transport + nature;
-      deptMap[dept] = (deptMap[dept] || 0) + total;
-    });
-
-    const entries = Object.entries(deptMap);
-    if (entries.length === 0 || entries.every(([_, val]) => val === 0)) {
-      return [{ name: 'إجمالي الرواتب 0', value: 0, color: '#94a3b8' }];
-    }
-
-    return entries.map(([deptName, totalVal], idx) => ({
-      name: deptName,
-      value: Number(totalVal.toFixed(3)),
-      color: palette[idx % palette.length]
-    }));
-  }, [realEmployees]);
-
-  // حساب إجمالي الرواتب الشهرية
-  const calculatedTotalPayroll = useMemo(() => {
-    if (!realEmployees || realEmployees.length === 0) return 0;
-    return realEmployees.reduce((sum, emp) => {
-      const basic = Number(emp.basicSalary || emp.salary || 0);
-      const housing = Number(emp.housingAllowance || 0);
-      const transport = Number(emp.transportAllowance || 0);
-      const nature = Number(emp.natureOfWorkAllowance || 0);
-      return sum + basic + housing + transport + nature;
-    }, 0);
-  }, [realEmployees]);
-
-  // حساب طلبات الإجازات الحقيقية
-  const leavesStatusData = useMemo(() => {
-    const counts: Record<string, number> = {
-      'سنوية': 0,
-      'مرضية': 0,
-      'عزاء / مادة 77': 0,
-      'بدون راتب': 0,
-    };
-
-    realLeaves.forEach(req => {
-      const type = req.leaveType || req.type || 'annual';
-      if (type === 'annual' || type === 'ANNUAL') counts['سنوية'] += 1;
-      else if (type === 'sick' || type === 'SICK') counts['مرضية'] += 1;
-      else if (type === 'bereavement' || type === 'BEREAVEMENT') counts['عزاء / مادة 77'] += 1;
-      else if (type === 'unpaid' || type === 'UNPAID') counts['بدون راتب'] += 1;
-    });
-
-    return Object.entries(counts).map(([name, count]) => ({ name, count }));
-  }, [realLeaves]);
-
-  const attendanceData = [
-    { day: 'السبت', حضور: 100, غياب: 0 },
-    { day: 'الأحد', حضور: 100, غياب: 0 },
-    { day: 'الإثنين', حضور: 100, غياب: 0 },
-    { day: 'الثلاثاء', حضور: 100, غياب: 0 },
-    { day: 'الأربعاء', حضور: 100, غياب: 0 },
-    { day: 'الخميس', حضور: 100, غياب: 0 },
-  ];
-
-  // القائمة الكاملة للتطبيقات (16 تطبيقاً)
+  // القائمة الكاملة للتطبيقات
   const allApps = [
     {
       id: 'EMPLOYEES' as ActiveApp,
@@ -374,11 +254,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
       if (currentUserRole === 'EMPLOYEE' && !['ATTENDANCE', 'LEAVES', 'DOCUMENTS'].includes(app.id)) {
         return false;
       }
-      // 2. فلتر التصنيف
-      if (selectedCategory !== 'ALL' && app.category !== selectedCategory) {
-        return false;
-      }
-      // 3. البحث النصي
+      // 2. البحث النصي
       if (searchQuery.trim() !== '') {
         const query = searchQuery.toLowerCase();
         return app.titleAr.toLowerCase().includes(query) || 
@@ -387,7 +263,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
       }
       return true;
     });
-  }, [allApps, currentUserRole, selectedCategory, searchQuery]);
+  }, [allApps, currentUserRole, searchQuery]);
 
   const displayApps = useMemo(() => {
     const meta = filteredApps.map((app, idx) => ({
@@ -423,10 +299,19 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
   return (
     <div className="dashboard-container w-full h-full bg-transparent flex flex-col relative z-10 space-y-4 pb-6" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       
-      {/* 🔍 Top Search & View Mode Header */}
-      <div className="w-full space-y-2.5 pt-1">
-        
-        {/* Search Field & View Style Switcher */}
+      <div className="flex items-end justify-between gap-3 px-0.5">
+        <div>
+          <h1 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
+            {lang === 'ar' ? 'لوحة التطبيقات' : 'App Launcher'}
+          </h1>
+          <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+            {companyDisplayName} · {displayApps.length}{' '}
+            {lang === 'ar' ? 'تطبيق' : 'apps'}
+          </p>
+        </div>
+      </div>
+
+      <div className="w-full space-y-2.5">
         <div className="flex items-center gap-2.5">
           <div className="relative flex-1 group">
             <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-[#714B67] transition-colors">
@@ -436,7 +321,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={lang === 'ar' ? 'بحث سريع في المنظومة (شؤون الموظفين، الرواتب، الإجازات، العقود، المستندات...)' : 'Search the system (employees, payroll, time off, contracts, documents...)'}
+              placeholder={lang === 'ar' ? 'ابحث عن تطبيق أو وحدة…' : 'Search apps and modules…'}
               className="w-full pr-10 pl-20 py-2.5 bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-xl text-xs sm:text-sm font-bold text-slate-800 placeholder-slate-400 shadow-xs focus:border-[#714B67] focus:bg-white focus:outline-none transition-all"
             />
             {searchQuery && (
@@ -483,111 +368,6 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
           </div>
         </div>
 
-        {/* Category Filters */}
-        <div className="flex flex-wrap items-center justify-center gap-1.5">
-          <button
-            onClick={() => setSelectedCategory('ALL')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-              selectedCategory === 'ALL'
-                ? 'bg-[#714B67] text-white shadow-xs scale-102'
-                : 'bg-white/85 hover:bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
-            }`}
-          >
-            {lang === 'ar' ? `🌐 جميع التطبيقات (${allApps.length})` : `🌐 All Apps (${allApps.length})`}
-          </button>
-
-          <button
-            onClick={() => setSelectedCategory('HR_PAYROLL')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-              selectedCategory === 'HR_PAYROLL'
-                ? 'bg-emerald-700 text-white shadow-xs scale-102'
-                : 'bg-white/85 hover:bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
-            }`}
-          >
-            {lang === 'ar' ? '👥 الموارد والرواتب' : '👥 HR & Payroll'}
-          </button>
-
-          <button
-            onClick={() => setSelectedCategory('ATTENDANCE_TIME')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-              selectedCategory === 'ATTENDANCE_TIME'
-                ? 'bg-blue-700 text-white shadow-xs scale-102'
-                : 'bg-white/85 hover:bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
-            }`}
-          >
-            {lang === 'ar' ? '⏰ الحضور والدوام' : '⏰ Attendance & Time'}
-          </button>
-
-          <button
-            onClick={() => setSelectedCategory('DOCS_OPERATIONS')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-              selectedCategory === 'DOCS_OPERATIONS'
-                ? 'bg-purple-800 text-white shadow-xs scale-102'
-                : 'bg-white/85 hover:bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
-            }`}
-          >
-            {lang === 'ar' ? '📁 الوثائق والتشغيل' : '📁 Documents & Operations'}
-          </button>
-        </div>
-
-      </div>
-
-      {/* 📊 Executive Live KPI Bar - مدمج ومرن */}
-      <div className="odoo-kpi-grid">
-        
-        {/* Metric 1 */}
-        <div className="bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-xl p-2.5 sm:p-3 flex items-center justify-between shadow-xs hover:border-slate-300 transition">
-          <div>
-            <div className="text-[11px] font-bold text-slate-500">القوة العاملة النشطة</div>
-            <div className="text-base sm:text-lg font-black text-slate-900 font-mono mt-0.5 leading-none">
-              {stats.employeesCount} <span className="text-[11px] font-bold text-slate-500">موظف</span>
-            </div>
-          </div>
-          <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200/80 flex items-center justify-center font-bold shrink-0 shadow-2xs">
-            <Users size={17} />
-          </div>
-        </div>
-
-        {/* Metric 2 */}
-        <div className="bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-xl p-2.5 sm:p-3 flex items-center justify-between shadow-xs hover:border-slate-300 transition">
-          <div>
-            <div className="text-[11px] font-bold text-slate-500">مسير الرواتب (WPS)</div>
-            <div className="text-base sm:text-lg font-black text-slate-900 font-mono mt-0.5 leading-none">
-              {calculatedTotalPayroll.toLocaleString('ar-KW')} <span className="text-[11px] font-bold text-slate-500">د.ك</span>
-            </div>
-          </div>
-          <div className="w-9 h-9 rounded-xl bg-purple-50 text-[#714B67] border border-purple-200/80 flex items-center justify-center font-bold shrink-0 shadow-2xs">
-            <Banknote size={17} />
-          </div>
-        </div>
-
-        {/* Metric 3 */}
-        <div className="bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-xl p-2.5 sm:p-3 flex items-center justify-between shadow-xs hover:border-slate-300 transition">
-          <div>
-            <div className="text-[11px] font-bold text-slate-500">الإجازات بانتظار الاعتماد</div>
-            <div className="text-base sm:text-lg font-black text-amber-700 font-mono mt-0.5 leading-none">
-              {pendingLeavesCount} <span className="text-[11px] font-bold text-amber-600">طلب</span>
-            </div>
-          </div>
-          <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 border border-amber-200/80 flex items-center justify-center font-bold shrink-0 shadow-2xs">
-            <Calendar size={17} />
-          </div>
-        </div>
-
-        {/* Metric 4 */}
-        <div className="bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-xl p-2.5 sm:p-3 flex items-center justify-between shadow-xs hover:border-slate-300 transition">
-          <div>
-            <div className="text-[11px] font-bold text-slate-500">سلامة المستندات والامتثال</div>
-            <div className="text-base sm:text-lg font-black text-blue-700 font-mono mt-0.5 leading-none">
-              {compliancePercentage}%{' '}
-              <span className={`text-[11px] font-bold ${complianceToneClass}`}>{complianceSlotLabel}</span>
-            </div>
-          </div>
-          <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 border border-blue-200/80 flex items-center justify-center font-bold shrink-0 shadow-2xs">
-            <CheckCircle2 size={17} />
-          </div>
-        </div>
-
       </div>
 
       {onCompanySetupAction && (
@@ -600,19 +380,12 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
         />
       )}
 
-      <CompanyOnboardingLicensesWidget
-        companyId={currentCompanyId}
-        onOpenDocuments={onOpenCompanyDocuments}
-        onOpenComplianceTree={onOpenComplianceTree}
-      />
-
-      {/* 🧩 Odoo Enterprise App Launchpad - شبكة التطبيقات الـ 16 العصرية */}
-      <div className="w-full py-2">
+      <div className="w-full py-1">
         {displayApps.length === 0 ? (
           <div className="text-center py-12 bg-white/80 rounded-2xl border border-dashed border-slate-300">
             <p className="text-slate-500 font-bold text-sm">لا توجد تطبيقات تطابق كلمة البحث "{searchQuery}"</p>
             <button 
-              onClick={() => { setSearchQuery(''); setSelectedCategory('ALL'); }}
+              onClick={() => setSearchQuery('')}
               className="mt-3 text-xs font-bold text-[#714B67] underline cursor-pointer"
             >
               إعادة عرض جميع التطبيقات
@@ -757,102 +530,6 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
             })}
           </div>
         )}
-      </div>
-
-      {/* 📊 Odoo-Style Compact Charts Section */}
-      <div className="w-full space-y-2 pt-4 border-t border-slate-200">
-        <div className="flex items-center justify-between px-1">
-          <div>
-            <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-              <Activity className="w-3.5 h-3.5 text-emerald-600" />
-              <span>مؤشرات الأداء المالية والإدارية (Dafthra Analytics)</span>
-            </h3>
-          </div>
-          <span className="text-[10px] text-slate-500 font-mono">بيانات حية • KWD</span>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-          
-          {/* Chart 1 */}
-          <div className="bg-white/90 p-3 rounded-2xl border border-slate-200 shadow-2xs flex flex-col justify-between max-h-[210px]">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-bold text-slate-800">معدل الحضور الأسبوعي</span>
-              <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                +2.4%
-              </span>
-            </div>
-            <div className="h-28 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={attendanceData}>
-                  <XAxis dataKey="day" stroke="#64748b" fontSize={9} />
-                  <YAxis stroke="#64748b" fontSize={9} domain={[80, 100]} />
-                  <Tooltip contentStyle={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '6px', color: '#0f172a', fontSize: '10px' }} />
-                  <Bar dataKey="حضور" fill="#10B981" radius={[3, 3, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Chart 2 */}
-          <div className="bg-white/90 p-3 rounded-2xl border border-slate-200 shadow-2xs flex flex-col justify-between max-h-[210px]">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-bold text-slate-800">توزيع الرواتب (د.ك)</span>
-              <span className="text-[9px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
-                {stats.employeesCount} موظف
-              </span>
-            </div>
-            <div className="h-28 w-full flex items-center justify-center">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={payrollDeptData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={25}
-                    outerRadius={45}
-                    paddingAngle={3}
-                    dataKey="value"
-                  >
-                    {payrollDeptData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip contentStyle={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '6px', color: '#0f172a', fontSize: '10px' }} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Chart 3 */}
-          <div className="bg-white/90 p-3 rounded-2xl border border-slate-200 shadow-2xs flex flex-col justify-between max-h-[210px]">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-bold text-slate-800">طلبات الإجازات النشطة</span>
-              <span className="text-[9px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                {stats.leavesPendingCount} بانتظار الاعتماد
-              </span>
-            </div>
-            <div className="h-28 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={leavesStatusData} layout="vertical">
-                  <XAxis type="number" stroke="#64748b" fontSize={9} />
-                  <YAxis dataKey="name" type="category" stroke="#64748b" fontSize={9} width={65} />
-                  <Tooltip contentStyle={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '6px', color: '#0f172a', fontSize: '10px' }} />
-                  <Bar dataKey="count" fill="#3B82F6" radius={[0, 3, 3, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      {/* Footer Info */}
-      <div className="text-slate-500 text-[10px] text-center flex items-center justify-center gap-3 border-t border-slate-200 pt-3 w-full font-medium">
-        <span>عملة النظام: <strong className="font-mono text-slate-800">KWD (0.000)</strong></span>
-        <span>•</span>
-        <span>قانون العمل الكويتي: <strong className="text-slate-800">رقم 6 لسنة 2010</strong></span>
-        <span>•</span>
-        <span>بيئة العمل: <strong className="text-emerald-700">Odoo 18 Enterprise Active</strong></span>
       </div>
 
     </div>

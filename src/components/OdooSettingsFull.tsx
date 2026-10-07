@@ -45,12 +45,24 @@ import {
   type CompanySetupStepAction,
 } from './onboarding/CompanySetupOnboardingBanner';
 import { useOdooHierarchy } from '../context/OdooHierarchyContext';
+import { CompanyOnboardingLicensesWidget } from './onboarding/CompanyOnboardingLicensesWidget';
+import { isQueryableTenantCompanyId } from '../utils/tenantCompanyId';
 
 export interface OdooSettingsFullProps {
   onCompanySetupNavigate?: (action: CompanySetupStepAction) => void;
+  debugMode?: boolean;
+  onDebugModeChange?: (enabled: boolean) => void;
+  onOpenCompanyDocuments?: () => void;
+  onOpenComplianceTree?: () => void;
 }
 
-export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({ onCompanySetupNavigate }) => {
+export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
+  onCompanySetupNavigate,
+  debugMode = false,
+  onDebugModeChange,
+  onOpenCompanyDocuments,
+  onOpenComplianceTree,
+}) => {
   const { settings, updateSettings, resetSettings, isSaving, isLoading } = useSystemSettings();
   const { activeCompany, updateActiveCompany } = useCompany();
   const { employees } = useOdooHierarchy();
@@ -390,6 +402,15 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({ onCompanySet
                   </div>
                 </div>
               </div>
+
+              {isQueryableTenantCompanyId(companyId) && (
+                <CompanyOnboardingLicensesWidget
+                  companyId={companyId}
+                  variant="full"
+                  onOpenDocuments={onOpenCompanyDocuments}
+                  onOpenComplianceTree={onOpenComplianceTree}
+                />
+              )}
 
               {/* Logo & Basic Info */}
               <div className="flex flex-col sm:flex-row items-start gap-6 p-4 bg-slate-50 rounded-xl border border-slate-200/80">
@@ -956,6 +977,35 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({ onCompanySet
               <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600">
                 عمليات التصفير وتهيئة الشفتات الجماعية متاحة فقط من لوحة السوبر أدمن → تبويب «عمليات المنشأة».
               </div>
+
+              {onDebugModeChange && (
+                <div className="pt-4 mt-2 border-t border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => onDebugModeChange(!debugMode)}
+                    className="w-full flex items-center justify-between gap-3 p-4 rounded-xl border border-amber-200 bg-amber-50/80 hover:bg-amber-50 transition cursor-pointer text-right"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center">
+                        <Sparkles size={18} />
+                      </div>
+                      <div>
+                        <div className="text-xs font-black text-slate-900">وضع المطور (Developer Mode)</div>
+                        <div className="text-[10px] text-slate-500 font-medium">
+                          أدوات الفحص الميداني، Odoo Inspector، وتشخيص الحقول — للمسؤولين فقط.
+                        </div>
+                      </div>
+                    </div>
+                    <div
+                      className={`w-10 h-5 flex items-center rounded-full p-0.5 transition shrink-0 ${
+                        debugMode ? 'bg-emerald-500 justify-end' : 'bg-slate-300 justify-start'
+                      }`}
+                    >
+                      <div className="w-4 h-4 rounded-full bg-white shadow-xs" />
+                    </div>
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

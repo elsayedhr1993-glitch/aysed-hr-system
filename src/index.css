@@ -1164,9 +1164,22 @@ table {
   margin-left: 0;
   margin-right: 0;
 }
+.odoo-workspace-inner--launcher {
+  max-width: 80rem;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
 [data-master-layout='wide'] {
   width: 100%;
   max-width: none;
+}
+[data-master-layout='launcher'] {
+  width: 100%;
+  max-width: 80rem;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .odoo-app-surface {
@@ -1227,22 +1240,12 @@ table {
 }
 @media (min-width: 1024px) {
   .odoo-app-launchpad-grid {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 @media (min-width: 1280px) {
   .odoo-app-launchpad-grid {
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-  }
-}
-@media (min-width: 1536px) {
-  .odoo-app-launchpad-grid {
-    grid-template-columns: repeat(9, minmax(0, 1fr));
-  }
-}
-@media (min-width: 1920px) {
-  .odoo-app-launchpad-grid {
-    grid-template-columns: repeat(11, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 

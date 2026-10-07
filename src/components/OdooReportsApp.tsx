@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { LauncherExecutiveCharts } from './launcher/LauncherExecutiveCharts';
 import {
   BarChart3,
   Printer,
@@ -710,6 +711,8 @@ export const OdooReportsApp: React.FC = () => {
           </button>
         </div>
       </div>
+
+      <LauncherExecutiveCharts employeesCount={analyticsData.length} />
 
       {/* 2. SUB-MENUS NAVIGATION BAR (شريط القوائم الفرعية للتقارير) */}
       <div className="bg-white rounded-2xl border border-slate-200 p-2 shadow-xs space-y-2">

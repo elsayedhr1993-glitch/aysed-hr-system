@@ -84,8 +84,6 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
   const { lang, setLang } = useLang();
   const [showCompanyMenu, setShowCompanyMenu] = useState(false);
   const [showQuickActionsMenu, setShowQuickActionsMenu] = useState(false);
-  const [showCalculatorsMenu, setShowCalculatorsMenu] = useState(false);
-  const calculatorsMenuRef = useRef<HTMLDivElement>(null);
   const [showAlertsMenu, setShowAlertsMenu] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [facilityData, setFacilityData] = useState<FacilityLicenseData>(defaultFacilityData);
@@ -100,16 +98,6 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
     };
     void loadFacilityData();
   }, [activeCompany?.id]);
-
-  useEffect(() => {
-    const onDocClick = (e: MouseEvent) => {
-      if (calculatorsMenuRef.current && !calculatorsMenuRef.current.contains(e.target as Node)) {
-        setShowCalculatorsMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, []);
 
   useEffect(() => {
     const handleFacilityUpdated = async () => {
@@ -292,23 +280,20 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
             title="العودة لشاشة التطبيقات الرئيسية"
           >
             <ArrowRight size={14} />
-            <span className="hidden sm:inline">{lang === 'ar' ? 'لوحة التطبيقات' : 'App Launcher'}</span>
+            <span className="hidden sm:inline">{lang === 'ar' ? 'الرئيسية' : 'Home'}</span>
           </button>
         )}
 
-        {/* زر شبكة التطبيقات الـ 16 (App Launcher ▦) */}
-        <button 
-          onClick={() => setActiveApp('switcher')} 
-          className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg text-xs font-black transition cursor-pointer shrink-0 border ${
-            activeApp === 'switcher' 
-              ? 'bg-white/35 text-white border-white/50 ring-2 ring-white/30 shadow-inner' 
-              : 'bg-white/10 hover:bg-white/20 text-white/90 border-white/15'
-          }`}
-          title="عرض لوحة التطبيقات والخدمات"
-        >
-          <span className="text-sm font-black select-none">▦</span>
-          <span className="hidden sm:inline">{lang === 'ar' ? 'لوحة التطبيقات' : 'App Launcher'}</span>
-        </button>
+        {activeApp !== 'switcher' && (
+          <button
+            onClick={() => setActiveApp('switcher')}
+            className="flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg text-xs font-black transition cursor-pointer shrink-0 border bg-white/10 hover:bg-white/20 text-white/90 border-white/15"
+            title="لوحة التطبيقات"
+          >
+            <span className="text-sm font-black select-none">▦</span>
+            <span className="hidden sm:inline">{lang === 'ar' ? 'التطبيقات' : 'Apps'}</span>
+          </button>
+        )}
 
         {/* زر لوحة الإدارة العليا (Super Admin Dashboard) */}
         <GlobalStudioModeToggle />
@@ -449,15 +434,14 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
           <span className="hidden lg:inline">{lang === 'ar' ? 'العربية' : 'English'}</span>
         </button>
 
-        {/* ⚡ زر الإجراءات السريعة المنبثقة (+ إجراء سريع) */}
         <div className="relative shrink-0" ref={quickActionsMenuRef}>
           <button
             onClick={() => setShowQuickActionsMenu(!showQuickActionsMenu)}
             className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black px-2 sm:px-2.5 py-1 rounded-lg text-xs transition cursor-pointer shadow-xs border border-emerald-500/50"
-            title="قائمة الإجراءات السريعة الفورية"
+            title="إجراءات سريعة وحاسبات HR"
           >
             <Plus size={14} />
-            <span className="hidden xl:inline">إجراء سريع</span>
+            <span className="hidden md:inline">{lang === 'ar' ? 'إجراء +' : 'Quick +'}</span>
           </button>
 
           {showQuickActionsMenu && (
@@ -581,6 +565,85 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                     <span className="block text-[10px] text-slate-400 font-normal">استخراج البيانات التلقائي من الكاميرا</span>
                   </div>
                 </button>
+
+                <div className="h-px bg-slate-100 my-1 mx-1" />
+                <p className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">الحاسبات السريعة</p>
+                {[
+                  { tab: 'eos' as const, icon: Scale, title: 'مكافأة نهاية الخدمة (EOS)', sub: 'المادة 51 و 53' },
+                  { tab: 'leave' as const, icon: Calendar, title: 'تسييل رصيد الإجازات', sub: 'المادة 70' },
+                  { tab: 'wage' as const, icon: Clock, title: 'الإضافي والعطلات', sub: '125% / 150%' },
+                ].map((item) => (
+                  <button
+                    key={item.tab}
+                    type="button"
+                    onClick={() => {
+                      setShowQuickActionsMenu(false);
+                      onOpenCalculator(item.tab);
+                    }}
+                    className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-purple-50 rounded-xl transition flex items-center gap-2.5 cursor-pointer"
+                  >
+                    <item.icon size={16} className="text-[#714B67]" />
+                    <div>
+                      <span className="block font-bold">{item.title}</span>
+                      <span className="block text-[10px] text-slate-400 font-normal">{item.sub}</span>
+                    </div>
+                  </button>
+                ))}
+
+                <div className="h-px bg-slate-100 my-1 mx-1" />
+                <p className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">أدوات ذكية</p>
+                {onOpenCopilot && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowQuickActionsMenu(false);
+                      onOpenCopilot();
+                    }}
+                    className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-purple-50 rounded-xl transition flex items-center gap-2.5 cursor-pointer"
+                  >
+                    <Sparkles size={16} className="text-amber-500" />
+                    <span>مساعد الذكاء الاصطناعي (Copilot)</span>
+                  </button>
+                )}
+                {onOpenSentinel && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowQuickActionsMenu(false);
+                      onOpenSentinel();
+                    }}
+                    className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-purple-50 rounded-xl transition flex items-center gap-2.5 cursor-pointer"
+                  >
+                    <Shield size={16} className="text-amber-600" />
+                    <span>الحارس الذكي للامتثال</span>
+                  </button>
+                )}
+                {onOpenLegalBot && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowQuickActionsMenu(false);
+                      onOpenLegalBot();
+                    }}
+                    className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-purple-50 rounded-xl transition flex items-center gap-2.5 cursor-pointer"
+                  >
+                    <Scale size={16} className="text-blue-600" />
+                    <span>المستشار القانوني / OCR</span>
+                  </button>
+                )}
+                {onOpenAnalystBot && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowQuickActionsMenu(false);
+                      onOpenAnalystBot();
+                    }}
+                    className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-purple-50 rounded-xl transition flex items-center gap-2.5 cursor-pointer"
+                  >
+                    <BarChart3 size={16} className="text-emerald-600" />
+                    <span>محلل الرواتب والبيانات</span>
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -605,91 +668,6 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
           <span className="font-mono text-[11px] font-black">
             {facilityExpiryStatus.minDays < 999 ? `${facilityExpiryStatus.minDays} يوم` : 'سارية'}
           </span>
-        </button>
-
-        {/* 🧮 الحاسبات السريعة (أسلوب دفترة) */}
-        <div className="relative shrink-0 flex" ref={calculatorsMenuRef}>
-          <button
-            type="button"
-            onClick={() => setShowCalculatorsMenu((v) => !v)}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-black transition cursor-pointer ${
-              showCalculatorsMenu
-                ? 'bg-white text-[#714B67] border-white shadow-md'
-                : 'bg-white/15 hover:bg-white/25 border-white/15 text-white'
-            }`}
-            title="الحاسبات السريعة — EOS · إجازات · إضافي"
-          >
-            <Calculator size={15} className={showCalculatorsMenu ? 'text-[#714B67]' : 'text-amber-200'} />
-            <span className="hidden md:inline">الحاسبات السريعة</span>
-            <ChevronDown size={14} className={showCalculatorsMenu ? 'text-[#714B67]' : 'opacity-80'} />
-          </button>
-
-          {showCalculatorsMenu && (
-            <div className="absolute top-full left-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 z-[80] overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
-              <div className="px-3 py-2.5 bg-gradient-to-r from-[#714B67] to-[#53354c] text-white text-xs font-black">
-                أدوات HR فورية
-              </div>
-              <div className="p-2 space-y-0.5">
-                {[
-                  { tab: 'eos' as const, icon: Scale, title: 'مكافأة نهاية الخدمة (EOS)', sub: 'المادة 51 و 53 — فوري' },
-                  { tab: 'leave' as const, icon: Calendar, title: 'تسييل وبدل رصيد الإجازات', sub: 'المادة 70 — أيام × أجر اليوم' },
-                  { tab: 'wage' as const, icon: Clock, title: 'الإضافي والعطلات', sub: '125% نهاري · 150% ليلي/عطلة' },
-                ].map((item) => (
-                  <button
-                    key={item.tab}
-                    type="button"
-                    onClick={() => {
-                      setShowCalculatorsMenu(false);
-                      onOpenCalculator(item.tab);
-                    }}
-                    className="w-full text-right px-3 py-2.5 rounded-xl hover:bg-purple-50 transition flex items-start gap-2.5 cursor-pointer group"
-                  >
-                    <item.icon size={17} className="text-[#714B67] shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
-                    <div>
-                      <span className="block text-xs font-black text-slate-800">{item.title}</span>
-                      <span className="block text-[10px] text-slate-500 font-medium">{item.sub}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* 🛡️ الحارس الذكي للامتثال */}
-        <button
-          onClick={onOpenSentinel}
-          className="w-8 h-8 rounded-lg bg-white/15 hover:bg-white/25 border border-white/15 flex items-center justify-center transition cursor-pointer text-white shrink-0 relative"
-          title="الحارس الذكي للامتثال الرقابي (Compliance Sentinel)"
-        >
-          <Shield size={15} className="text-amber-400" />
-        </button>
-
-        {/* ⚖️ المستشار القانوني وقارئ العقود */}
-        <button
-          onClick={onOpenLegalBot}
-          className="w-8 h-8 rounded-lg bg-white/15 hover:bg-white/25 border border-white/15 flex items-center justify-center transition cursor-pointer text-white shrink-0 group relative"
-          title="المستشار القانوني وقارئ العقود (Legal & Document OCR Bot)"
-        >
-          <Scale size={15} className="text-blue-300 group-hover:scale-110 transition-transform" />
-        </button>
-
-        {/* 📊 محلل البيانات واستراتيجي الرواتب */}
-        <button
-          onClick={onOpenAnalystBot}
-          className="w-8 h-8 rounded-lg bg-white/15 hover:bg-white/25 border border-white/15 flex items-center justify-center transition cursor-pointer text-white shrink-0 group relative"
-          title="محلل البيانات واستراتيجي الرواتب (Data & Payroll Analyst Bot)"
-        >
-          <BarChart3 size={15} className="text-emerald-300 group-hover:scale-110 transition-transform" />
-        </button>
-
-        {/* ✨ المساعد الذكي */}
-        <button
-          onClick={onOpenCopilot}
-          className="w-8 h-8 rounded-lg bg-white/15 hover:bg-white/25 border border-white/15 flex items-center justify-center transition cursor-pointer text-white shrink-0 group"
-          title="مساعد الذكاء الاصطناعي (AI Copilot)"
-        >
-          <Sparkles size={15} className="text-amber-300 group-hover:animate-pulse" />
         </button>
 
         {/* ⚙️ زر إعدادات المنظومة وبيانات المنشأة */}
@@ -1016,26 +994,10 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                 </>
               )}
 
-              {/* خيارات المطور والتشخيص التقني */}
-              <div className="h-px bg-slate-100 my-1 mx-2"></div>
+              {isActualSuperAdmin && (
+                <div className="h-px bg-slate-100 my-1 mx-2"></div>
+              )}
               <div className="p-1.5 space-y-1">
-                <button 
-                  onClick={() => { 
-                    setDebugMode(!debugMode); 
-                  }}
-                  className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100/80 transition flex items-center justify-between cursor-pointer rounded-xl group"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center group-hover:bg-amber-100 transition">
-                      <Sparkles size={14} />
-                    </div>
-                    <span>وضع المطور والتشخيص</span>
-                  </div>
-                  <div className={`w-8 h-4.5 flex items-center rounded-full p-0.5 transition ${debugMode ? 'bg-emerald-500 justify-end' : 'bg-slate-300 justify-start'}`}>
-                    <div className="w-3.5 h-3.5 rounded-full bg-white shadow-xs"></div>
-                  </div>
-                </button>
-
                 {isActualSuperAdmin && (
                   <button 
                     onClick={() => { 

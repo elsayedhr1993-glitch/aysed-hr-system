@@ -11,7 +11,7 @@ export const OdooAppCanvas: React.FC<OdooAppCanvasProps> = ({ children, variant 
   if (variant === 'launcher') {
     return (
       <main className="flex-1 overflow-y-auto w-full odoo-workspace-canvas odoo-workspace-canvas--launcher">
-        <div className={`${ODOO_WORKSPACE_INNER} w-full max-w-full`} data-master-layout="wide">
+        <div className={`${ODOO_WORKSPACE_INNER} odoo-workspace-inner--launcher w-full`} data-master-layout="launcher">
           {children}
         </div>
       </main>

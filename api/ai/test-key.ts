@@ -1,12 +1,15 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { createRequire } from 'node:module';
+import { loadBundledHandler } from '../loadBundledCjs';
 
-const require = createRequire(import.meta.url);
+let cachedHandler: ReturnType<typeof loadBundledHandler> | null = null;
 
-type VercelHandler = (req: VercelRequest, res: VercelResponse) => Promise<unknown>;
-
-const testKeyHandler = require('./test-key.cjs') as VercelHandler;
+function getHandler() {
+  if (!cachedHandler) {
+    cachedHandler = loadBundledHandler('test-key.cjs');
+  }
+  return cachedHandler;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  return testKeyHandler(req, res);
+  return getHandler()(req, res);
 }

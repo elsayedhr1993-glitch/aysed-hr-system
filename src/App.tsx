@@ -1072,7 +1072,13 @@ function MainAppLayout() {
         {/* الحالة 12: شاشة إعدادات المنشأة والنظام */}
         {activeApp === 'settings' && (
           <OdooAppCanvas>
-            <OdooSettingsFull onCompanySetupNavigate={handleCompanySetupAction} />
+            <OdooSettingsFull
+              onCompanySetupNavigate={handleCompanySetupAction}
+              debugMode={debugMode}
+              onDebugModeChange={setDebugMode}
+              onOpenCompanyDocuments={() => openCompanyLicenseArchive(false)}
+              onOpenComplianceTree={openCompanyComplianceTree}
+            />
           </OdooAppCanvas>
         )}
 

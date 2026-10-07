@@ -8,12 +8,15 @@ interface Props {
   companyId: string;
   onOpenDocuments?: () => void;
   onOpenComplianceTree?: () => void;
+  /** full = legacy banner; compact = sidebar widget on home launcher */
+  variant?: 'full' | 'compact';
 }
 
 export const CompanyOnboardingLicensesWidget: React.FC<Props> = ({
   companyId,
   onOpenDocuments,
   onOpenComplianceTree,
+  variant = 'full',
 }) => {
   const [compliance, setCompliance] = useState<CompanyComplianceDoc | null>(null);
 
@@ -45,6 +48,63 @@ export const CompanyOnboardingLicensesWidget: React.FC<Props> = ({
     return 'ساري';
   };
 
+  if (variant === 'compact') {
+    return (
+      <aside
+        className="w-full xl:w-56 shrink-0 bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl p-3 shadow-xs space-y-2"
+        aria-label="التراخيص والامتثال"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Building2 size={16} className="text-[#714B67] shrink-0" />
+            <span className="text-[11px] font-black text-slate-900 truncate">التراخيص</span>
+          </div>
+          <span className="text-[10px] font-mono font-black text-[#714B67]">{overall}%</span>
+        </div>
+        <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+          <div className="h-full bg-[#714B67] transition-all" style={{ width: `${overall}%` }} />
+        </div>
+        {alerts > 0 && (
+          <span className="flex items-center gap-1 text-[9px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md w-fit">
+            <AlertTriangle size={10} />
+            {alerts}
+          </span>
+        )}
+        <ul className="space-y-1.5">
+          {tracks.map((track) => (
+            <li key={track.key} className="flex items-center justify-between gap-1 text-[10px]">
+              <span className="font-bold text-slate-700 truncate">{track.label}</span>
+              <span className={`shrink-0 text-[8px] font-bold px-1 py-0.5 rounded border ${statusChip(track.status)}`}>
+                {statusLabel(track.status)}
+              </span>
+            </li>
+          ))}
+        </ul>
+        <div className="flex flex-col gap-1 pt-1 border-t border-slate-100">
+          {onOpenDocuments && (
+            <button
+              type="button"
+              onClick={onOpenDocuments}
+              className="text-[10px] font-bold text-[#714B67] hover:underline text-right cursor-pointer"
+            >
+              أرشيف التراخيص
+            </button>
+          )}
+          {onOpenComplianceTree && (
+            <button
+              type="button"
+              onClick={onOpenComplianceTree}
+              className="text-[10px] font-bold text-slate-600 hover:text-[#714B67] text-right cursor-pointer flex items-center gap-1 justify-end"
+            >
+              <GitBranch size={11} />
+              شجرة الامتثال
+            </button>
+          )}
+        </div>
+      </aside>
+    );
+  }
+
   return (
     <div className="w-full bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl p-4 shadow-xs">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
@@ -53,8 +113,8 @@ export const CompanyOnboardingLicensesWidget: React.FC<Props> = ({
             <Building2 size={18} />
           </div>
           <div>
-            <h3 className="text-sm font-black text-slate-900">تهيئة المنشأة والتراخيص</h3>
-            <p className="text-[10px] text-slate-500 font-medium">Company Onboarding &amp; Licences</p>
+            <h3 className="text-sm font-black text-slate-900">الامتثال وتراخيص المنشأة</h3>
+            <p className="text-[10px] text-slate-500 font-medium">MOH · البلدية · الإطفاء · PACI</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
