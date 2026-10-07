@@ -57,7 +57,7 @@ import { OdooPayrollApp } from './components/OdooPayrollApp';
 import { OdooOperationsApp } from './components/OdooOperationsApp';
 import { DocumentsApp } from './apps/DocumentsApp';
 import { OdooTemplatesApp } from './components/OdooTemplatesApp';
-import { CompanyComplianceTreeApp } from './components/CompanyComplianceTreeApp';
+import { GovernmentComplianceApp } from './components/compliance/GovernmentComplianceApp';
 import { OdooPublicHolidaysApp } from './components/OdooPublicHolidaysApp';
 import { OdooReportsApp } from './components/OdooReportsApp';
 import { OdooSettingsFull } from './components/OdooSettingsFull';
@@ -1048,7 +1048,7 @@ function MainAppLayout() {
 
         {activeApp === 'compliance_tree' && (
           <OdooAppCanvas>
-            <CompanyComplianceTreeApp />
+            <GovernmentComplianceApp />
           </OdooAppCanvas>
         )}
 
