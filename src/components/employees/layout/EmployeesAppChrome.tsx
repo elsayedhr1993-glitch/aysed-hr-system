@@ -12,12 +12,21 @@ import {
   Rocket,
   Network,
   Stethoscope,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { CompactTabBar } from '../../ui/CompactTabBar';
 import { ScreenLayoutStudioToggle } from '../../studio/ScreenLayoutStudioToggle';
 import type { ScreenCustomLayout } from '../../../types/customLayout';
 
 export type EmployeesWorkspaceTab = 'directory' | 'contracts' | 'commencement' | 'onboarding' | 'orgchart';
+
+export type DirectoryKpiFilter =
+  | 'all'
+  | 'on_duty'
+  | 'on_leave'
+  | 'residency_expiring'
+  | 'moh_expiring'
+  | 'expired';
 
 const SUB_MODULE_LABELS: Record<Exclude<EmployeesWorkspaceTab, 'directory'>, string> = {
   contracts: 'سجل العقود والرواتب',
@@ -46,7 +55,14 @@ interface EmployeesAppChromeProps {
   onActionsMenuOpenChange: (open: boolean) => void;
   actionsMenu: React.ReactNode;
   employeesLayout: ScreenCustomLayout;
-  kpiBar?: React.ReactNode;
+  kpiFilter?: DirectoryKpiFilter;
+  onKpiFilterChange?: (filter: DirectoryKpiFilter) => void;
+  directoryCounts?: {
+    total: number;
+    onDuty: number;
+    onLeave: number;
+    residencyExpiring: number;
+  };
   isDirectoryLoading?: boolean;
   children: React.ReactNode;
 }
@@ -71,7 +87,9 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
   onActionsMenuOpenChange,
   actionsMenu,
   employeesLayout,
-  kpiBar,
+  kpiFilter = 'all',
+  onKpiFilterChange,
+  directoryCounts,
   isDirectoryLoading = false,
   children,
 }) => {
@@ -81,6 +99,23 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
     null
   );
   const [workspaceMoreOpen, setWorkspaceMoreOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersRef = useRef<HTMLDivElement>(null);
+
+  const activeFacetCount =
+    (selectedDept ? 1 : 0) +
+    (selectedStatus ? 1 : 0) +
+    (kpiFilter !== 'all' ? 1 : 0);
+
+  useEffect(() => {
+    if (!filtersOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (filtersRef.current?.contains(e.target as Node)) return;
+      setFiltersOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [filtersOpen]);
 
   const syncActionsMenuAnchor = () => {
     const rect = actionsTriggerRef.current?.getBoundingClientRect();
@@ -187,7 +222,7 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
             <button
               type="button"
               onClick={onCreateEmployee}
-              className="bg-[#714B67] hover:bg-[#5b3c53] text-white px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+              className="btn btn-primary px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer shadow-sm bg-[#714B67] hover:bg-[#5b3c53] text-white border border-[#5b3c53]"
             >
               <UserPlus size={13} />
               موظف جديد
@@ -266,52 +301,155 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
 
         {showDirectoryTools && (
           <div
-            className={`px-3 py-2 space-y-2 border-b border-slate-100 shrink-0 ${
+            className={`px-3 py-2 border-b border-slate-100 shrink-0 ${
               isDirectoryLoading ? 'opacity-60 pointer-events-none' : ''
             }`}
           >
             <div className="flex flex-wrap items-center gap-2">
-              <div className="relative flex-1 min-w-[160px]">
+              <div className="relative flex-1 min-w-[200px]">
                 <Search size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => onSearchQueryChange(e.target.value)}
-                  placeholder="بحث بالاسم أو المدني..."
-                  className="w-full bg-slate-50/80 border border-slate-200/80 rounded-lg pr-8 pl-7 py-1.5 text-[11px] focus:bg-white focus:border-[#714B67]/50 focus:outline-none"
+                  placeholder="بحث بالاسم أو المدني... (فلاتر ذكية)"
+                  className="w-full bg-slate-50/80 border border-slate-200/80 rounded-lg pr-8 pl-[4.5rem] py-1.5 text-[11px] focus:bg-white focus:border-[#714B67]/50 focus:outline-none"
                 />
-                {searchQuery && (
+                <div className="absolute left-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5" ref={filtersRef}>
                   <button
                     type="button"
-                    onClick={() => onSearchQueryChange('')}
-                    className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    onClick={() => setFiltersOpen((v) => !v)}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border cursor-pointer transition ${
+                      filtersOpen || activeFacetCount > 0
+                        ? 'bg-[#714B67]/10 border-[#714B67]/30 text-[#714B67]'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                    title="فلاتر وتجميع"
                   >
-                    <X size={12} />
+                    <SlidersHorizontal size={12} />
+                    فلاتر
+                    {activeFacetCount > 0 && (
+                      <span className="min-w-[1rem] h-4 px-1 rounded-full bg-[#714B67] text-white text-[9px] flex items-center justify-center">
+                        {activeFacetCount}
+                      </span>
+                    )}
                   </button>
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => onSearchQueryChange('')}
+                      className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                  {filtersOpen && (
+                    <div
+                      className="absolute top-full left-0 mt-1 z-[80] w-[min(100vw-1.5rem,20rem)] bg-white border border-slate-200 rounded-xl shadow-lg p-3 text-right space-y-3"
+                      dir="rtl"
+                    >
+                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-wide">تصفية وتجميع</p>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-600 block mb-1">القسم</label>
+                        <select
+                          value={selectedDept || ''}
+                          onChange={(e) => onDeptChange(e.target.value || null)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] cursor-pointer"
+                        >
+                          <option value="">كل الأقسام</option>
+                          {allDepts.map((dept) => (
+                            <option key={dept} value={dept}>{dept}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-600 block mb-1">حالة الموظف</label>
+                        <select
+                          value={selectedStatus || ''}
+                          onChange={(e) => onStatusChange(e.target.value || null)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] cursor-pointer"
+                        >
+                          <option value="">كل الحالات</option>
+                          <option value="على رأس العمل">على رأس العمل</option>
+                          <option value="في إجازة">في إجازة</option>
+                          <option value="قيد التعيين">قيد التعيين</option>
+                        </select>
+                      </div>
+                      {onKpiFilterChange && directoryCounts && (
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-600 block mb-1.5">فرز سريع (مؤشرات)</label>
+                          <div className="flex flex-wrap gap-1">
+                            {(
+                              [
+                                ['all', `الكل ${directoryCounts.total}`],
+                                ['on_duty', `على رأس العمل ${directoryCounts.onDuty}`],
+                                ['on_leave', `في إجازة ${directoryCounts.onLeave}`],
+                                ['residency_expiring', `إقامات قريبة ${directoryCounts.residencyExpiring}`],
+                              ] as const
+                            ).map(([id, label]) => (
+                              <button
+                                key={id}
+                                type="button"
+                                onClick={() => onKpiFilterChange(id)}
+                                className={`px-2 py-0.5 rounded-md text-[10px] cursor-pointer border ${
+                                  kpiFilter === id
+                                    ? 'bg-[#714B67] text-white border-[#714B67] font-bold'
+                                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {activeFacetCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onDeptChange(null);
+                            onStatusChange(null);
+                            onKpiFilterChange?.('all');
+                            setFiltersOpen(false);
+                          }}
+                          className="w-full text-[10px] font-bold text-rose-700 hover:bg-rose-50 py-1.5 rounded-lg cursor-pointer"
+                        >
+                          مسح كل الفلاتر
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            {activeFacetCount > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                {selectedDept && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-[10px] font-bold text-slate-700">
+                    قسم: {selectedDept}
+                    <button type="button" className="cursor-pointer hover:text-rose-600" onClick={() => onDeptChange(null)}>
+                      <X size={10} />
+                    </button>
+                  </span>
+                )}
+                {selectedStatus && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-[10px] font-bold text-slate-700">
+                    {selectedStatus}
+                    <button type="button" className="cursor-pointer hover:text-rose-600" onClick={() => onStatusChange(null)}>
+                      <X size={10} />
+                    </button>
+                  </span>
+                )}
+                {kpiFilter !== 'all' && onKpiFilterChange && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#714B67]/10 text-[10px] font-bold text-[#714B67]">
+                    مؤشر: {kpiFilter}
+                    <button type="button" className="cursor-pointer" onClick={() => onKpiFilterChange('all')}>
+                      <X size={10} />
+                    </button>
+                  </span>
                 )}
               </div>
-              <select
-                value={selectedDept || ''}
-                onChange={(e) => onDeptChange(e.target.value || null)}
-                className="bg-slate-50/80 border border-slate-200/80 rounded-lg px-2 py-1.5 text-[11px] cursor-pointer shrink-0 max-w-[120px]"
-              >
-                <option value="">الأقسام</option>
-                {allDepts.map((dept) => (
-                  <option key={dept} value={dept}>{dept}</option>
-                ))}
-              </select>
-              <select
-                value={selectedStatus || ''}
-                onChange={(e) => onStatusChange(e.target.value || null)}
-                className="bg-slate-50/80 border border-slate-200/80 rounded-lg px-2 py-1.5 text-[11px] cursor-pointer shrink-0"
-              >
-                <option value="">الحالة</option>
-                <option value="على رأس العمل">على رأس العمل</option>
-                <option value="في إجازة">في إجازة</option>
-                <option value="قيد التعيين">قيد التعيين</option>
-              </select>
-            </div>
-            {kpiBar ? <div className="flex flex-wrap items-center gap-1.5">{kpiBar}</div> : null}
+            )}
           </div>
         )}
 

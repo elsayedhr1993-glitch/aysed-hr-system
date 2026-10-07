@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { checkDocumentExpiry } from '../../../utils/dateUtils';
 import { Camera, FileText, CheckCircle2, Shield, Upload, X, ZoomIn, Search, FileSignature, Folder, FolderOpen, RefreshCw, ZoomOut, FolderArchive, Plus, CheckSquare, Square, FileCheck, Eye, Download, Trash2 } from 'lucide-react';
 import { TabDocumentScanner } from '../../TabDocumentScanner';
+import { EmployeeGovernmentLicensesTable } from '../EmployeeGovernmentLicensesTable';
 import { EditableField } from '../../EditableField';
 import { employeeRequiresMohCompliance } from '../../../utils/employeeCompliance';
 
@@ -81,6 +82,15 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                 <strong>البيانات الشخصية</strong> لنفس الحقول.
               </div>
             )}
+
+            <EmployeeGovernmentLicensesTable
+              employee={employee}
+              isEditMode={isEditMode}
+              handleFieldChange={handleFieldChange}
+              handleDocFileUpload={handleDocFileUpload}
+              handleRemoveDocFile={handleRemoveDocFile}
+              onPreviewFile={(url, title) => setPreviewModal({ isOpen: true, url, title })}
+            />
             
             {/* 1. شريط التحكم بحالة الربط الديناميكي مع خطة التعيين */}
             <div className="bg-slate-900 text-white rounded-2xl p-4.5 shadow-md border border-slate-800 space-y-3.5">

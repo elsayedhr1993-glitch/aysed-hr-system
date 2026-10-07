@@ -1330,57 +1330,6 @@ export function EmployeesApp(props?: any) {
   const hasActiveDirectoryFilters =
     Boolean(searchQuery || selectedDept || selectedStatus || kpiFilter !== 'all');
 
-  const directoryKpiBar =
-    activeTab === 'directory' ? (
-      <>
-        <button
-          type="button"
-          onClick={() => setKpiFilter('all')}
-          className={`px-2 py-0.5 rounded-md text-[10px] cursor-pointer ${
-            kpiFilter === 'all' ? 'bg-slate-700 text-white font-bold' : 'text-slate-500 hover:bg-slate-100'
-          }`}
-        >
-          الكل {totalEmployeesCount}
-        </button>
-        <button
-          type="button"
-          onClick={() => setKpiFilter((prev) => (prev === 'on_duty' ? 'all' : 'on_duty'))}
-          className={`px-2 py-0.5 rounded-md text-[10px] cursor-pointer ${
-            kpiFilter === 'on_duty' ? 'bg-emerald-600 text-white font-bold' : 'text-slate-500 hover:bg-emerald-50'
-          }`}
-        >
-          على رأس العمل {onDutyCount}
-        </button>
-        <button
-          type="button"
-          onClick={() => setKpiFilter((prev) => (prev === 'on_leave' ? 'all' : 'on_leave'))}
-          className={`px-2 py-0.5 rounded-md text-[10px] cursor-pointer ${
-            kpiFilter === 'on_leave' ? 'bg-blue-600 text-white font-bold' : 'text-slate-500 hover:bg-blue-50'
-          }`}
-        >
-          في إجازة {onLeaveCount}
-        </button>
-        <button
-          type="button"
-          onClick={() => setKpiFilter((prev) => (prev === 'residency_expiring' ? 'all' : 'residency_expiring'))}
-          className={`px-2 py-0.5 rounded-md text-[10px] cursor-pointer ${
-            kpiFilter === 'residency_expiring' ? 'bg-amber-600 text-white font-bold' : 'text-slate-500 hover:bg-amber-50'
-          }`}
-        >
-          إقامات قريبة {residencyExpiringCount}
-        </button>
-        {kpiFilter !== 'all' && (
-          <button
-            type="button"
-            onClick={() => setKpiFilter('all')}
-            className="text-[10px] text-slate-400 hover:text-slate-700 underline cursor-pointer mr-1"
-          >
-            إلغاء الفلتر ({filteredEmployees.length}/{totalEmployeesCount})
-          </button>
-        )}
-      </>
-    ) : null;
-
   return (
     <div className="flex-1 flex flex-col w-full font-sans select-none text-slate-800 min-h-0" dir="rtl">
 
@@ -1423,7 +1372,14 @@ export function EmployeesApp(props?: any) {
           onActionsMenuOpenChange={setShowActionsDropdown}
           actionsMenu={employeesActionsMenu}
           employeesLayout={employeesLayout}
-          kpiBar={directoryKpiBar}
+          kpiFilter={kpiFilter}
+          onKpiFilterChange={setKpiFilter}
+          directoryCounts={{
+            total: totalEmployeesCount,
+            onDuty: onDutyCount,
+            onLeave: onLeaveCount,
+            residencyExpiring: residencyExpiringCount,
+          }}
           isDirectoryLoading={isLoadingDb}
         >
       {activeTab === 'directory' && (

@@ -367,32 +367,28 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
 
   const mohGaps = mohComplianceGaps(employee);
 
+  const contractSalaryLabel =
+    totalSalary > 0 ? `${totalSalary.toLocaleString('en-US')} د.ك` : contractCount;
+
   const smartButtonStats: SmartButtonStat[] = [
     {
-      id: 'contract',
-      label: 'العقد',
-      value: contractCount,
+      id: 'contract_payroll',
+      label: 'العقد والراتب',
+      value: contractSalaryLabel,
       icon: FileText,
       colorTheme: 'purple',
-      onClick: () => setActiveTab('contract'),
+      onClick: () => {
+        if (onOpenPayroll && totalSalary > 0) onOpenPayroll();
+        else setActiveTab('contract');
+      },
     },
     {
       id: 'leaves',
       label: 'الإجازات',
-      value: leaveRequestsCount,
+      value: `${calculatedBalance} / ${pendingLeavesCount}`,
       icon: Plane,
       colorTheme: 'blue',
-      badge: pendingLeavesCount > 0 ? String(pendingLeavesCount) : undefined,
       onClick: () => (onOpenLeaves ? onOpenLeaves() : setActiveTab('hr')),
-    },
-    {
-      id: 'balance',
-      label: 'رصيد الإجازة',
-      value: `${calculatedBalance}`,
-      icon: Calendar,
-      colorTheme: 'emerald',
-      onClick: () =>
-        onTriggerPrint(`كشف رصيد إجازات الموظف - ${employee.nameAr || employee.id}`, employee),
     },
     {
       id: 'documents',
@@ -410,19 +406,35 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
       colorTheme: 'slate',
       onClick: () => setActiveTab('onboarding'),
     },
-    ...(onOpenPayroll
-      ? [
-          {
-            id: 'payroll',
-            label: 'مسير الرواتب',
-            value: totalSalary > 0 ? `${totalSalary} د.ك` : '—',
-            icon: DollarSign,
-            colorTheme: 'amber' as const,
-            onClick: onOpenPayroll,
-          },
-        ]
-      : []),
   ];
+
+  type EmploymentPipelineStage = 'draft' | 'docs' | 'commencement' | 'on_duty' | 'ended';
+  const employmentStages: { id: EmploymentPipelineStage; label: string }[] = [
+    { id: 'draft', label: 'مسودة' },
+    { id: 'docs', label: 'استيفاء المستندات' },
+    { id: 'commencement', label: 'مباشرة العمل' },
+    { id: 'on_duty', label: 'على رأس العمل' },
+    { id: 'ended', label: 'منتهي' },
+  ];
+
+  const resolveEmploymentStage = (): EmploymentPipelineStage => {
+    const rawStatus = String(employee.status || employee.employmentStatus || '').toLowerCase();
+    if (
+      rawStatus.includes('منتهي') ||
+      rawStatus.includes('terminated') ||
+      rawStatus.includes('resigned') ||
+      rawStatus.includes('موقوف') ||
+      rawStatus.includes('غير فعال')
+    ) {
+      return 'ended';
+    }
+    if (isContractRunning && isCommenced) return 'on_duty';
+    if (isCommenced || commencementRecord) return 'commencement';
+    if (docsCount < 3) return 'docs';
+    return 'draft';
+  };
+  const currentEmploymentStage = resolveEmploymentStage();
+  const currentStageIndex = employmentStages.findIndex((s) => s.id === currentEmploymentStage);
 
   const masterTabs: {
     id: 'work' | 'private' | 'contract' | 'licenses' | 'onboarding';
@@ -701,19 +713,6 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
             </button>
             {actionsMenuOpen && (
               <div className="absolute left-0 top-full mt-1 z-50 w-56 bg-white border border-slate-200 rounded-xl shadow-lg p-1 text-right animate-in fade-in duration-100">
-                {onQuickEdit && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActionsMenuOpen(false);
-                      onQuickEdit();
-                    }}
-                    className="w-full px-3 py-2 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
-                  >
-                    <Edit3 size={14} className="text-emerald-600" />
-                    تعديل سريع
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={() => {
@@ -736,60 +735,6 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
                   <Printer size={14} />
                   طباعة كشف الإجازات
                 </button>
-                {(onOpenContracts || onOpenCommencement || onOpenLeaves || onOpenPayroll) && (
-                  <>
-                    <div className="border-t border-slate-100 my-1" />
-                    <p className="px-3 py-1 text-[10px] font-bold text-slate-400">انتقال سريع</p>
-                    {onOpenContracts && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActionsMenuOpen(false);
-                          onOpenContracts();
-                        }}
-                        className="w-full px-3 py-2 rounded-lg text-xs font-medium hover:bg-purple-50 text-purple-900 cursor-pointer text-right"
-                      >
-                        العقود
-                      </button>
-                    )}
-                    {onOpenCommencement && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActionsMenuOpen(false);
-                          onOpenCommencement();
-                        }}
-                        className="w-full px-3 py-2 rounded-lg text-xs font-medium hover:bg-emerald-50 text-emerald-900 cursor-pointer text-right"
-                      >
-                        المباشرة
-                      </button>
-                    )}
-                    {onOpenLeaves && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActionsMenuOpen(false);
-                          onOpenLeaves();
-                        }}
-                        className="w-full px-3 py-2 rounded-lg text-xs font-medium hover:bg-blue-50 text-blue-900 cursor-pointer text-right"
-                      >
-                        الإجازات
-                      </button>
-                    )}
-                    {onOpenPayroll && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActionsMenuOpen(false);
-                          onOpenPayroll();
-                        }}
-                        className="w-full px-3 py-2 rounded-lg text-xs font-medium hover:bg-amber-50 text-amber-900 cursor-pointer text-right"
-                      >
-                        المسير
-                      </button>
-                    )}
-                  </>
-                )}
                 {onDelete && employee.id && (
                   <>
                     <div className="border-t border-slate-100 my-1" />
@@ -802,7 +747,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
                       className="w-full px-3 py-2 rounded-lg text-xs font-bold text-rose-700 hover:bg-rose-50 flex items-center gap-2 cursor-pointer"
                     >
                       <Trash2 size={14} />
-                      حذف الموظف
+                      حذف / أرشفة الموظف
                     </button>
                   </>
                 )}
@@ -814,39 +759,53 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
 
       {/* Odoo HR Master Form */}
       <div className="bg-white border border-slate-200/90 rounded-2xl shadow-sm w-full p-5 sm:p-6 md:p-8 space-y-5">
-        <div className="flex flex-wrap items-center justify-end gap-1.5">
-          {/* Status ribbon */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            {[
-              { key: 'docs', label: 'مستندات', ok: docsCount >= 3, onClick: () => setActiveTab('licenses') },
-              { key: 'start', label: 'مباشرة', ok: isCommenced, onClick: () => setActiveTab('commencement') },
-              { key: 'wps', label: 'WPS', ok: totalSalary > 0 && !!(employee.iban || employee.iban_number), onClick: () => setActiveTab('contract') },
-              { key: 'duty', label: isContractRunning ? 'نشط' : 'غير نشط', ok: isContractRunning, onClick: () => setActiveTab('work') },
-            ].map((chip) => (
-              <button
-                key={chip.key}
-                type="button"
-                onClick={chip.onClick}
-                className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition cursor-pointer ${
-                  chip.ok
-                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                    : 'bg-slate-50 text-slate-500 border-slate-200'
-                }`}
-              >
-                {chip.label}
-              </button>
-            ))}
-            {mohGaps.length > 0 && (
-              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200">
-                MOH {mohGaps.length}
-              </span>
-            )}
-          </div>
+        <div className="flex flex-col gap-4 border-b border-slate-100 pb-5">
+        <div
+          className="flex flex-wrap items-center gap-1 w-full"
+          role="list"
+          aria-label="مراحل التوظيف"
+        >
+          {employmentStages.map((stage, index) => {
+            const isPast = index < currentStageIndex;
+            const isCurrent = index === currentStageIndex;
+            const stageTab =
+              stage.id === 'docs'
+                ? 'licenses'
+                : stage.id === 'commencement'
+                  ? 'commencement'
+                  : stage.id === 'on_duty' || stage.id === 'ended'
+                    ? 'work'
+                    : 'onboarding';
+            return (
+              <React.Fragment key={stage.id}>
+                {index > 0 && <span className="text-slate-300 text-[10px] px-0.5 select-none">◄</span>}
+                <button
+                  type="button"
+                  role="listitem"
+                  onClick={() => setActiveTab(stageTab as EmployeeDetailTab)}
+                  className={`px-2.5 py-1 rounded-md text-[10px] font-bold border transition cursor-pointer whitespace-nowrap ${
+                    isCurrent
+                      ? 'bg-[#714B67] text-white border-[#714B67] shadow-xs'
+                      : isPast
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                        : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  {stage.label}
+                </button>
+              </React.Fragment>
+            );
+          })}
+          {mohGaps.length > 0 && (
+            <span className="mr-auto px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200">
+              فجوات MOH: {mohGaps.length}
+            </span>
+          )}
         </div>
 
-        <div className="flex flex-col gap-4 border-b border-slate-100 pb-5">
-        {/* Profile Header Block: Avatar + Name + Subtitle + Badge */}
-        <div className="flex flex-col sm:flex-row sm:items-start gap-4 w-full min-w-0">
+        {/* Profile Header: اسم الموظف + oe_button_box */}
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 w-full min-w-0">
+        <div className="flex flex-col sm:flex-row sm:items-start gap-4 w-full min-w-0 flex-1">
           <div className={`w-20 h-20 rounded-2xl ${employee.avatarColor || 'bg-[#714B67]'} text-white flex items-center justify-center font-bold text-2xl shadow-xs shrink-0 overflow-hidden relative`}>
             {employee.avatarUrl ? (
               <img src={employee.avatarUrl} alt="" className="w-full h-full object-cover" />
@@ -980,8 +939,9 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
           </div>
         </div>
 
-        <div className="w-full min-w-0 border-t border-slate-100 pt-3">
-          <OdooSmartButtons stats={smartButtonStats} variant="toolbar" />
+        <div className="w-full lg:w-auto lg:max-w-[48%] min-w-0">
+          <OdooSmartButtons stats={smartButtonStats} variant="button_box" />
+        </div>
         </div>
         </div>
 

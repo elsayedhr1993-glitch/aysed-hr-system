@@ -14,7 +14,7 @@ export interface SmartButtonStat {
 interface OdooSmartButtonsProps {
   stats: SmartButtonStat[];
   /** صف علوي موحّد (Odoo oe_button_box) — يمنع انزلاق زر واحد لسطر ثانٍ */
-  variant?: 'default' | 'toolbar';
+  variant?: 'default' | 'toolbar' | 'button_box';
 }
 
 export const OdooSmartButtons: React.FC<OdooSmartButtonsProps> = ({ stats, variant = 'default' }) => {
@@ -50,6 +50,47 @@ export const OdooSmartButtons: React.FC<OdooSmartButtonsProps> = ({ stats, varia
       default: return 'text-[#714B67]';
     }
   };
+
+  if (variant === 'button_box') {
+    return (
+      <div
+        className="flex flex-wrap items-stretch justify-start gap-2 max-w-full sm:max-w-[min(100%,42rem)] shrink-0"
+        dir="rtl"
+        role="toolbar"
+        aria-label="أزرار ذكية"
+        data-smart-buttons-layout="oe_button_box"
+      >
+        {stats.map((stat) => {
+          const IconComponent = stat.icon;
+          return (
+            <button
+              key={stat.id}
+              type="button"
+              onClick={stat.onClick}
+              className={`group relative flex items-center gap-2 px-2.5 py-1.5 rounded-lg border transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-sm bg-white min-w-[5.5rem] ${getColorClasses(stat.colorTheme)}`}
+            >
+              <div className={`p-1.5 rounded-md bg-white shadow-xs border border-slate-100 shrink-0 ${getIconColor(stat.colorTheme)}`}>
+                <IconComponent className="w-3.5 h-3.5" />
+              </div>
+              <div className="text-right flex flex-col min-w-0">
+                <span className="font-mono font-bold text-[11px] tracking-tight text-slate-900 leading-tight truncate max-w-[7rem]">
+                  {stat.value}
+                </span>
+                <span className="text-[9px] font-bold text-slate-500 group-hover:text-slate-800 leading-tight line-clamp-2">
+                  {stat.label}
+                </span>
+              </div>
+              {stat.badge && (
+                <span className="absolute -top-1 -left-1 px-1 py-0.5 bg-purple-700 text-white text-[8px] font-mono font-bold rounded-full shadow-xs">
+                  {stat.badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
 
   if (variant === 'toolbar') {
     const colCount = Math.max(1, Math.min(stats.length, 6));

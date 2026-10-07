@@ -3,14 +3,6 @@ import { Briefcase, DollarSign, ExternalLink, Layers } from 'lucide-react';
 import { EditableField, EditableSelect } from '../../EditableField';
 import { calculateKuwaitDailyRate } from '../../../utils/kuwaitPayrollMath';
 import { CompactFormAccordion } from '../../ui/CompactFormAccordion';
-import { EmployeeComplianceToggles } from '../EmployeeComplianceToggles';
-import {
-  employeeRequiresBadges,
-  employeeRequiresDrivingLicense,
-  employeeRequiresMohCompliance,
-  inferDefaultMedicalLicenseFlag,
-} from '../../../utils/employeeCompliance';
-
 interface Props {
   employee: any;
   isEditMode: boolean;
@@ -32,122 +24,6 @@ export const EmployeeWorkTab: React.FC<Props> = ({
   displayedCarriedOverDays,
   compact = false,
 }) => {
-  const showMoh = employeeRequiresMohCompliance(employee);
-  const showBadges = employeeRequiresBadges(employee);
-  const showDriving = employeeRequiresDrivingLicense(employee);
-
-  const complianceFlags = {
-    hasMedicalLicense:
-      employee.hasMedicalLicense !== undefined
-        ? Boolean(employee.hasMedicalLicense)
-        : inferDefaultMedicalLicenseFlag(employee),
-    hasBadges: Boolean(employee.hasBadges),
-    hasDrivingLicense: Boolean(employee.hasDrivingLicense),
-  };
-
-  const patchCompliance = (patch: Partial<typeof complianceFlags>) => {
-    Object.entries(patch).forEach(([key, value]) => handleFieldChange(key, value));
-  };
-
-  const complianceFieldsBlock = (
-    <div className="space-y-4">
-      <EmployeeComplianceToggles
-        flags={complianceFlags}
-        isEditMode={isEditMode}
-        onChange={patchCompliance}
-        compact={compact}
-      />
-      {showMoh && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 rounded-xl border border-blue-200 bg-blue-50/40">
-          <EditableField
-            studioFieldKey="mohLicense"
-            label="رقم ترخيص MOH"
-            value={employee.mohLicense || employee.mohLicenseNo || ''}
-            onChange={(val) => {
-              handleFieldChange('mohLicense', val);
-              handleFieldChange('mohLicenseNo', val);
-            }}
-            isEditMode={isEditMode}
-            type="text"
-          />
-          <EditableField
-            studioFieldKey="mohLicenseExpiry"
-            label="تاريخ انتهاء الترخيص"
-            value={(employee.mohLicenseExpiry || '').toString().slice(0, 10)}
-            onChange={(val) => handleFieldChange('mohLicenseExpiry', val)}
-            isEditMode={isEditMode}
-            type="date"
-          />
-          <EditableField
-            studioFieldKey="mohSpecialty"
-            label="المسمى / التخصص الطبي"
-            value={employee.mohSpecialty || employee.specialty || ''}
-            onChange={(val) => {
-              handleFieldChange('mohSpecialty', val);
-              handleFieldChange('specialty', val);
-            }}
-            isEditMode={isEditMode}
-            type="text"
-          />
-          <p className="text-[10px] text-blue-900 md:col-span-2">
-            مرفق الترخيص يُرفع من تبويب «المستندات» عند تفعيل MOH.
-          </p>
-        </div>
-      )}
-      {showBadges && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50">
-          <EditableField
-            studioFieldKey="workBadgeNo"
-            label="رقم بطاقة العمل"
-            value={employee.workBadgeNo || employee.badgeId || ''}
-            onChange={(val) => {
-              handleFieldChange('workBadgeNo', val);
-              handleFieldChange('badgeId', val);
-            }}
-            isEditMode={isEditMode}
-            type="text"
-          />
-          <EditableField
-            studioFieldKey="workBadgeExpiry"
-            label="تاريخ انتهاء البطاقة"
-            value={(employee.workBadgeExpiry || '').toString().slice(0, 10)}
-            onChange={(val) => handleFieldChange('workBadgeExpiry', val)}
-            isEditMode={isEditMode}
-            type="date"
-          />
-        </div>
-      )}
-      {showDriving && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 rounded-xl border border-amber-200 bg-amber-50/50">
-          <EditableField
-            studioFieldKey="drivingLicenseNo"
-            label="رقم رخصة القيادة"
-            value={employee.drivingLicenseNo || ''}
-            onChange={(val) => handleFieldChange('drivingLicenseNo', val)}
-            isEditMode={isEditMode}
-            type="text"
-          />
-          <EditableField
-            studioFieldKey="drivingLicenseClass"
-            label="فئة الرخصة"
-            value={employee.drivingLicenseClass || ''}
-            onChange={(val) => handleFieldChange('drivingLicenseClass', val)}
-            isEditMode={isEditMode}
-            type="text"
-          />
-          <EditableField
-            studioFieldKey="drivingLicenseExpiry"
-            label="تاريخ انتهاء الرخصة"
-            value={(employee.drivingLicenseExpiry || '').toString().slice(0, 10)}
-            onChange={(val) => handleFieldChange('drivingLicenseExpiry', val)}
-            isEditMode={isEditMode}
-            type="date"
-          />
-        </div>
-      )}
-    </div>
-  );
-
   const basicSalary = parseFloat(employee.basicSalary !== undefined ? employee.basicSalary : (employee.salary || 0)) || 0;
   const housingAllowance = parseFloat(employee.housingAllowance || 0) || 0;
   const transportAllowance = parseFloat(employee.transportAllowance || 0) || 0;
@@ -227,8 +103,6 @@ export const EmployeeWorkTab: React.FC<Props> = ({
           <span className="bg-[#714B67]/10 text-[#714B67] px-2 py-0.5 rounded-md font-bold">أساسي</span>
           <span>المسمى، القسم، وبيانات التواصل — الحقول الإلزامية للتشغيل اليومي</span>
         </div>
-
-        {complianceFieldsBlock}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 w-full">
           <EditableField
@@ -349,8 +223,6 @@ export const EmployeeWorkTab: React.FC<Props> = ({
 
   return (
     <div className="space-y-8 animate-fade-in text-slate-900">
-      {complianceFieldsBlock}
-
       {/* 2-Columns Standard Form Grid: Job & Contact Info */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 w-full">
         
