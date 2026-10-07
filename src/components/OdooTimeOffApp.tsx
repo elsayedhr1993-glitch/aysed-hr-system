@@ -12,9 +12,6 @@ import {
   Check, 
   X, 
   Printer, 
-  Plane, 
-  DollarSign, 
-  Calculator, 
   UserCheck, 
   Building2,
   FileText,
@@ -44,7 +41,7 @@ import { useAuth } from '../context/AuthContext';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { exportToExcel } from '../utils/exportUtils';
 import { toast } from 'react-hot-toast';
-import { LeaveSettlementCalculator } from './LeaveSettlementCalculator';
+import { exportLeavePayrollAccrualOnApproval } from '../services/leavePayrollAccrualService';
 import { getCarriedOverBalance, calculateActualLeaveDays } from '../utils/kuwaitLaw';
 import { approveLeaveRequest } from '../services/leaveApprovalService';
 import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
@@ -54,17 +51,13 @@ import {
   getEmployeeUnifiedSummary,
   matchesEmployeeIdentity,
   normalizeLeaveBalanceInputs,
-  resolveAnnualTicketAllowanceKwd,
-  resolveLeaveBalancePoolHint,
-  resolveLeavePaidUnpaidSplit,
   sumCarriedOverFromAllocations,
 } from '../utils/leaveEngine';
 import { TenantDatabaseService } from '../services/tenantDataService';
 import { normalizeLeaveStatus, normalizeLeaveType, isLeaveRequestInConflict, canTransitionLeaveStatus, isAnnualLeaveType } from '../utils/leaveModel';
-import { calculateKuwaitLeaveCashAmount } from '../utils/kuwaitPayrollMath';
 import { upsertLeaveAllocationToSupabase } from '../services/leaveSupabaseSync';
 import { Employee, HrLeaveAllocation, LeaveSettlementVoucher } from '../types';
-import { LEAVE_SCOPE_LABELS, type LeaveScope } from '../utils/leaveScopeAccrual';
+import type { LeaveScope } from '../utils/leaveScopeAccrual';
 
 // Time Off Sub-components
 import { PrintableLeaveFormModal } from './timeoff/PrintableLeaveFormModal';
@@ -73,7 +66,6 @@ import { LeaveRejectionModal } from './timeoff/LeaveRejectionModal';
 import { LeavePolicyWizardModal, getLeaveMasterPolicy, LeavePolicyData, TIMEOFF_POLICY_STORAGE_KEY } from './leaves/LeavePolicyWizardModal';
 import { loadTenantPolicy } from '../services/hrPolicyStorage';
 import { AbsenceTimelineView } from './timeoff/AbsenceTimelineView';
-import { OperationalAbsencePanel } from './timeoff/OperationalAbsencePanel';
 import { DynamicTabsContainer } from './studio/DynamicTabsContainer';
 import { ScreenLayoutStudioToggle } from './studio/ScreenLayoutStudioToggle';
 import { useScreenLayout } from '../hooks/useScreenLayout';
@@ -103,6 +95,9 @@ export interface LeaveRequest {
   basicSalary: number;
   totalSalary: number;
   settlementDone?: boolean;
+  /** طلب صرف راتب الإجازة مقدماً (مادة 71) — يُرحَّل لمسير الرواتب عند الاعتماد */
+  requestAdvanceSalaryArticle71?: boolean;
+  payrollAccrualId?: string;
   managerApprovedBy?: string;
   managerApprovedAt?: string;
   hrApprovedBy?: string;
@@ -156,23 +151,7 @@ export const OdooTimeOffApp: React.FC = () => {
     setLeaveRequests: setRequests,
     leaveAllocations: allocations,
     setLeaveAllocations: setAllocations,
-    leaveSettlements: settlementVouchers,
   } = useCompanyLeaveFinanceSnapshots(companyId);
-
-  useEffect(() => {
-    const absenceQuery = query(collection(db, 'attendance_records'), where('companyId', '==', companyId));
-    return onSnapshot(absenceQuery, snapshot => {
-      const rows = snapshot.docs
-        .map(item => ({ ...item.data(), id: item.id } as Record<string, unknown>))
-        .filter(row => {
-          const status = String(row.status || '').toLowerCase();
-          const unpaid = Number(row.unpaidAbsenceDays ?? row.unexcusedAbsenceDays ?? 0) > 0;
-          return status === 'absent' || unpaid;
-        })
-        .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
-      setOperationalAbsences(rows.slice(0, 200));
-    }, error => console.error('Failed to load operational absences', error));
-  }, [companyId]);
 
   const handleDeleteRequest = async (id: string, empName: string) => {
     if (window.confirm(`هل أنت متأكد من حذف طلب الإجازة للموظف (${empName}) نهائياً؟`)) {
@@ -193,62 +172,6 @@ export const OdooTimeOffApp: React.FC = () => {
 
   // Unified Employees List
   const companyEmployees = (employees && employees.length > 0) ? employees : [];
-
-  const mappedAllocations = useMemo(
-    () =>
-      allocations.map((allocation: any) => ({
-        ...allocation,
-        numberOfDays: Number(allocation.numberOfDays ?? allocation.days ?? 0) || 0,
-        consumedDays: Number(allocation.consumedDays || 0) || 0,
-        encashedDays: Number(allocation.encashedDays || 0) || 0,
-        remainingDays:
-          allocation.remainingDays !== undefined
-            ? Number(allocation.remainingDays) || 0
-            : Math.max(
-                0,
-                (Number(allocation.numberOfDays ?? allocation.days ?? 0) || 0) -
-                  (Number(allocation.consumedDays || 0) || 0) -
-                  (Number(allocation.encashedDays || 0) || 0)
-              ),
-        allocationType: allocation.allocationType || 'regular',
-        state: allocation.state || 'validate',
-        name: allocation.name || allocation.notes || '',
-        dateFrom: allocation.dateFrom || allocation.allocationDate || `${new Date().getFullYear()}-01-01`,
-        leaveType: normalizeLeaveType(allocation.leaveType || 'ANNUAL'),
-        companyId: allocation.companyId || companyId,
-      })) as HrLeaveAllocation[],
-    [allocations, companyId]
-  );
-
-  const mappedLeaveRequests = useMemo(
-    () =>
-      requests.map(req => ({
-        id: req.id,
-        companyId: req.companyId || companyId,
-        employeeId: req.employeeId,
-        leaveType: normalizeLeaveType(req.leaveType),
-        startDate: req.startDate,
-        endDate: req.endDate,
-        totalDays: Number(req.daysCount ?? req.totalDays ?? 0),
-        status: normalizeLeaveStatus(req.status),
-        reason: req.reason || '',
-        createdAt: req.appliedDate || new Date().toISOString(),
-      })),
-    [requests, companyId]
-  );
-
-  const handleUpdateAllocations = async (updated: HrLeaveAllocation[]) => {
-    await Promise.all(
-      updated.map(async allocation => {
-        await setDoc(
-          doc(db, 'leave_allocations', allocation.id),
-          cleanFirestoreData({ ...allocation, companyId }),
-          { merge: true }
-        );
-        void upsertLeaveAllocationToSupabase(allocation, companyId).catch(() => false);
-      })
-    );
-  };
 
   useEffect(() => {
     if (companyId !== 'comp-1788442584841' || companyEmployees.length === 0) return;
@@ -290,12 +213,9 @@ export const OdooTimeOffApp: React.FC = () => {
   }, [companyId, companyEmployees, allocations]);
 
   // Main navigation tabs: requests, timeline, allocations, finance
-  const [activeMainTab, setActiveMainTab] = useState<
-    'requests' | 'timeline' | 'allocations' | 'finance' | 'operational_absence'
-  >('requests');
+  const [activeMainTab, setActiveMainTab] = useState<'requests' | 'allocations'>('requests');
+  const [requestsViewMode, setRequestsViewMode] = useState<'list' | 'calendar'>('list');
   const [compactLeavesUI, setCompactLeavesUI] = useState(() => readLeavesCompactPreference());
-  const [operationalAbsences, setOperationalAbsences] = useState<Array<Record<string, unknown>>>([]);
-  const [financeSubTab, setFinanceSubTab] = useState<'advance_salary' | 'encashment_calculator'>('advance_salary');
 
   const { layout: leavesLayout, locale: layoutLocale } = useScreenLayout('leaves');
   const leavesTabSuffix = useMemo(
@@ -362,7 +282,6 @@ export const OdooTimeOffApp: React.FC = () => {
     return () => window.removeEventListener('timeoff_policy_updated', handlePolicyUpdated);
   }, [companyId]);
 
-  const [highlightAdvanceRequestId, setHighlightAdvanceRequestId] = useState<string | null>(null);
   const [selectedPrintReq, setSelectedPrintReq] = useState<LeaveRequest | null>(null);
   const [selectedReturnReq, setSelectedReturnReq] = useState<LeaveRequest | null>(null);
   const [rejectionModalState, setRejectionModalState] = useState<{ req: LeaveRequest; stageLabel: string } | null>(null);
@@ -434,32 +353,6 @@ export const OdooTimeOffApp: React.FC = () => {
     };
   };
 
-  const resolveLeaveRequestFinancials = (req: LeaveRequest) => {
-    const emp = companyEmployees.find(e => e.id === req.employeeId);
-    const empAny = emp as any;
-    const basicSalary = Number(req.basicSalary ?? empAny?.basicSalary ?? 0) || 0;
-    const totalSalary =
-      Number(req.totalSalary ?? empAny?.totalSalary ?? empAny?.salary ?? basicSalary) || 0;
-    const daysCount = Number(req.daysCount ?? req.totalDays ?? 0) || 0;
-    const { available } = getEmployeeContractBalance(req.employeeId);
-    const poolBefore =
-      Number(req.totalAvailableBalance ?? 0) > 0
-        ? Number(req.totalAvailableBalance)
-        : Math.max(resolveLeaveBalancePoolHint(req), available + Number(req.paidDays ?? 0));
-    const split = resolveLeavePaidUnpaidSplit(req, poolBefore);
-
-    return {
-      basicSalary,
-      totalSalary,
-      daysCount,
-      paidDays: split.paid,
-      unpaidDays: split.unpaid,
-      employeeName: req.employeeName || empAny?.name || empAny?.fullNameAr || 'موظف',
-      civilId: req.civilId || empAny?.civilId || '',
-      department: req.department || empAny?.department || 'الإدارة العامة',
-    };
-  };
-
   // Form Inputs - Leave Request
   const [newRequest, setNewRequest] = useState({
     employeeId: companyEmployees[0]?.id || '',
@@ -474,7 +367,9 @@ export const OdooTimeOffApp: React.FC = () => {
     basicSalary: companyEmployees[0]?.basicSalary || 0,
     totalSalary: (companyEmployees[0] as any)?.totalSalary || (companyEmployees[0] as any)?.salary || 0,
     excludeHolidays: true,
-    leaveScope: 'INTERNAL' as LeaveScope
+    leaveScope: 'INTERNAL' as LeaveScope,
+    suspendMonthlyAccrual: false,
+    requestAdvanceSalaryArticle71: false,
   });
 
   // Calculate live days breakdown with Kuwait law public holidays & weekend deduction
@@ -629,7 +524,10 @@ export const OdooTimeOffApp: React.FC = () => {
       daysCount: count,
       totalDays: count,
       reason: newRequest.reason || 'إجازة اعتيادية',
-      leaveScope: newRequest.leaveScope || 'INTERNAL',
+      leaveScope:
+        newRequest.suspendMonthlyAccrual || newRequest.leaveType === 'unpaid' ? 'EXTERNAL' : 'INTERNAL',
+      requestAdvanceSalaryArticle71:
+        Boolean(newRequest.requestAdvanceSalaryArticle71) && isAnnualLeaveType(newRequest.leaveType),
       status: normalizeLeaveStatus('PENDING_MANAGER') as LeaveRequest['status'],
       appliedDate: new Date().toISOString().split('T')[0],
       replacementEmployee: newRequest.replacementEmployee,
@@ -870,9 +768,27 @@ export const OdooTimeOffApp: React.FC = () => {
         hrApprovedAt: new Date().toISOString().split('T')[0]
       };
 
-      setRequests(previous => previous.map(req => req.id === id ? approvedRequest : req));
-      await setDoc(doc(db, 'leave_requests', id), cleanFirestoreData(approvedRequest), { merge: true });
-      toast.success(`تم الاعتماد والخصم بنجاح (${result.paidDays} يوم مدفوع، ${result.unpaidDays} يوم غير مدفوع).`);
+      const empRecord = companyEmployees.find((e) => e.id === targetReq.employeeId) as Record<string, unknown> | undefined;
+      let payrollAccrualId: string | undefined;
+      try {
+        payrollAccrualId = await exportLeavePayrollAccrualOnApproval(
+          companyId,
+          approvedRequest,
+          empRecord,
+          leavePolicy as Record<string, unknown>
+        );
+      } catch (accrualErr) {
+        console.error('payroll accrual export failed', accrualErr);
+      }
+      const withAccrual = payrollAccrualId
+        ? { ...approvedRequest, payrollAccrualId }
+        : approvedRequest;
+
+      setRequests(previous => previous.map(req => req.id === id ? withAccrual : req));
+      await setDoc(doc(db, 'leave_requests', id), cleanFirestoreData(withAccrual), { merge: true });
+      toast.success(
+        `تم الاعتماد والخصم (${result.paidDays} يوم مدفوع). ${payrollAccrualId ? 'تم تصدير قيد الاستحقاق لمسير الرواتب.' : ''}`
+      );
     } catch (error) {
       console.error('Failed to approve leave request:', error);
       toast.error(error instanceof Error ? error.message : 'تعذر اعتماد الإجازة وتحديث الرصيد');
@@ -926,46 +842,6 @@ export const OdooTimeOffApp: React.FC = () => {
     } else {
       toast.success('تم تسجيل مباشرة العمل في الموعد المحدد بنجاح.');
     }
-  };
-
-  const goToAdvanceSalaryCenter = (requestId?: string) => {
-    setActiveMainTab('finance');
-    setFinanceSubTab('advance_salary');
-    if (requestId) setHighlightAdvanceRequestId(requestId);
-  };
-
-  useEffect(() => {
-    if (!highlightAdvanceRequestId || activeMainTab !== 'finance') return;
-    const timer = window.setTimeout(() => {
-      document.getElementById(`advance-pay-row-${highlightAdvanceRequestId}`)?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-      });
-    }, 200);
-    return () => window.clearTimeout(timer);
-  }, [highlightAdvanceRequestId, activeMainTab, financeSubTab]);
-
-  const markSettlementPaid = async (id: string) => {
-    const target = requests.find(r => r.id === id);
-    if (!target) return;
-    const updated = { ...target, companyId, settlementDone: true };
-    setRequests(previous => previous.map(req => (req.id === id ? updated : req)));
-    try {
-      await setDoc(doc(db, 'leave_requests', id), cleanFirestoreData(updated), { merge: true });
-      toast.success('تم اعتماد التسوية المسبقة، وتم ترحيل المستحقات لمسير الرواتب بنجاح.');
-    } catch (error) {
-      console.error('markSettlementPaid failed:', error);
-      toast.error('تعذر حفظ حالة السند على الخادم.');
-    }
-  };
-
-  const confirmAdvanceSettlement = (req: LeaveRequest) => {
-    if (req.settlementDone) {
-      goToAdvanceSalaryCenter(req.id);
-      return;
-    }
-    if (!window.confirm('اعتماد صرف راتب الإجازة مقدماً (مادة 71) وترحيل المبلغ لمسير الرواتب؟')) return;
-    void markSettlementPaid(req.id);
   };
 
   // Filter requests
@@ -1037,8 +913,6 @@ export const OdooTimeOffApp: React.FC = () => {
     }
   };
 
-  const totalCarriedDays = validAllocations.reduce((acc, a) => acc + (Number((a as any).days ?? (a as any).numberOfDays) || 0), 0);
-
   // Selected Employee Details for Allocation Preview
   const selectedEmpForAlloc = companyEmployees.find(e => e.id === newAllocation.employeeId) || companyEmployees[0];
   const empAllocatedDaysTotal = validAllocations
@@ -1052,6 +926,23 @@ export const OdooTimeOffApp: React.FC = () => {
   }).length;
   const todayStr = new Date().toISOString().split('T')[0];
   const activeLeavesTodayCount = requests.filter(r => normalizeLeaveStatus(r.status) === 'APPROVED' && r.startDate <= todayStr && r.endDate >= todayStr).length;
+
+  const leavesStartingThisWeekCount = useMemo(() => {
+    const now = new Date();
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    const day = start.getDay();
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+    start.setDate(start.getDate() + diffToMonday);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+    return requests.filter((r) => {
+      const d = new Date(r.startDate);
+      if (Number.isNaN(d.getTime())) return false;
+      return d >= start && d <= end;
+    }).length;
+  }, [requests]);
 
   return (
     <div className="odoo-app-surface space-y-6 font-sans dir-rtl text-right text-slate-800" dir="rtl">
@@ -1199,20 +1090,24 @@ export const OdooTimeOffApp: React.FC = () => {
           </div>
         </div>
 
-        {/* Card 2: Carried Over Balances */}
-        <div 
-          className="bg-white p-4 rounded-xl border border-purple-200 shadow-2xs cursor-pointer hover:border-purple-400 hover:shadow-md transition group" 
-          onClick={() => { setActiveMainTab('allocations'); setShowAllocationModal(true); }}
-          title="انقر لفتح نافذة تخصيص وترحيل الرصيد"
+        {/* Card 2: Operational — leaves starting this week */}
+        <div
+          className="bg-white p-4 rounded-xl border border-blue-200 shadow-2xs cursor-pointer hover:border-blue-400 hover:shadow-md transition group"
+          onClick={() => {
+            setActiveMainTab('requests');
+            setRequestsViewMode('calendar');
+          }}
+          title="عرض تقويم الإجازات لهذا الأسبوع"
         >
           <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-1">
-            <span className="text-purple-900 group-hover:text-[#714B67]">رصيد الإجازات المرحّل</span>
-            <Layers className="w-4 h-4 text-purple-600 group-hover:scale-110 transition-transform" />
+            <span className="text-blue-900 group-hover:text-[#714B67]">إجازات تبدأ هذا الأسبوع</span>
+            <CalendarDays className="w-4 h-4 text-blue-600 group-hover:scale-110 transition-transform" />
           </div>
-          <div className="text-2xl font-black text-purple-700">+{totalCarriedDays.toFixed(1)} <span className="text-xs font-normal text-slate-500">أيام معتمدة</span></div>
-          <div className="text-[10px] text-purple-700 mt-1 flex items-center gap-1 font-bold group-hover:underline">
-            <PlusCircle size={12} /> تخصيص رصيد مرحّل جديد
+          <div className="text-2xl font-black text-blue-700">
+            {leavesStartingThisWeekCount}{' '}
+            <span className="text-xs font-normal text-slate-500">طلب/فترة</span>
           </div>
+          <div className="text-[10px] text-blue-800 mt-1 font-bold">مؤشر تشغيلي لمدير الموارد البشرية</div>
         </div>
 
         {/* Card 3: Pending Approvals */}
@@ -1268,35 +1163,19 @@ export const OdooTimeOffApp: React.FC = () => {
                   </span>
                 ),
               },
-              {
-                id: 'timeline',
-                label: 'التقارير وسجل الإجازات — مخطط التغطية والطباعة',
-                shortLabel: 'التقارير وسجل الإجازات',
-                icon: <FileText size={15} />,
-              },
             ]}
             moreItems={[
-              { id: 'operational_absence', label: 'الغياب التشغيلي', icon: <AlertTriangle size={14} /> },
-              { id: 'finance', label: 'المركز المالي', icon: <DollarSign size={14} /> },
               {
                 id: 'policy',
                 label: 'إعدادات اللائحة',
                 icon: <ShieldCheck size={14} />,
               },
             ]}
-            activeTabId={['requests', 'allocations', 'timeline'].includes(activeMainTab) ? activeMainTab : ''}
-            activeMoreId={
-              ['operational_absence', 'finance'].includes(activeMainTab) ? activeMainTab : undefined
-            }
-            onTabChange={(id) =>
-              setActiveMainTab(id as typeof activeMainTab)
-            }
+            activeTabId={activeMainTab}
+            activeMoreId={undefined}
+            onTabChange={(id) => setActiveMainTab(id as typeof activeMainTab)}
             onMoreChange={(id) => {
-              if (id === 'policy') {
-                setShowPolicyWizardModal(true);
-                return;
-              }
-              setActiveMainTab(id as typeof activeMainTab);
+              if (id === 'policy') setShowPolicyWizardModal(true);
             }}
           />
           </div>
@@ -1306,11 +1185,17 @@ export const OdooTimeOffApp: React.FC = () => {
             layout={leavesLayout}
             locale={layoutLocale}
             activeTabId={activeMainTab}
-            onTabChange={tabId =>
-              setActiveMainTab(
-                tabId as 'requests' | 'timeline' | 'allocations' | 'finance' | 'operational_absence'
-              )
-            }
+            onTabChange={(tabId) => {
+              if (tabId === 'policy') {
+                setShowPolicyWizardModal(true);
+                return;
+              }
+              if (tabId === 'timeline' || tabId === 'finance' || tabId === 'operational_absence') {
+                setActiveMainTab('requests');
+                return;
+              }
+              setActiveMainTab(tabId as 'requests' | 'allocations');
+            }}
             tabSuffix={leavesTabSuffix}
             icons={{
               requests: CalendarDays,
@@ -1356,19 +1241,47 @@ export const OdooTimeOffApp: React.FC = () => {
               ))}
             </div>
 
-            <div className="relative w-full md:w-72">
-              <Search className="w-4 h-4 text-slate-400 absolute right-3 top-2.5" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="بحث بالاسم أو القسم أو الرقم..."
-                className="w-full pr-9 pl-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:border-[#714B67] outline-none transition"
-              />
+            <div className="flex items-center gap-2 w-full md:w-auto">
+              <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200/80 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setRequestsViewMode('list')}
+                  className={`p-1.5 rounded-md cursor-pointer ${requestsViewMode === 'list' ? 'bg-white text-[#714B67] shadow-2xs' : 'text-slate-400'}`}
+                  title="عرض الجدول"
+                >
+                  <List size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRequestsViewMode('calendar')}
+                  className={`p-1.5 rounded-md cursor-pointer ${requestsViewMode === 'calendar' ? 'bg-white text-[#714B67] shadow-2xs' : 'text-slate-400'}`}
+                  title="عرض التقويم / Gantt"
+                >
+                  <Calendar size={14} />
+                </button>
+              </div>
+              <div className="relative flex-1 md:w-72 min-w-[140px]">
+                <Search className="w-4 h-4 text-slate-400 absolute right-3 top-2.5" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="بحث بالاسم أو القسم أو الرقم..."
+                  className="w-full pr-9 pl-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:border-[#714B67] outline-none transition"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Requests Table */}
+          {requestsViewMode === 'calendar' ? (
+            <div className="animate-in fade-in duration-300">
+              <AbsenceTimelineView
+                requests={requests}
+                totalEmployeesCount={companyEmployees.length}
+                onSelectRequest={(req) => setSelectedPrintReq(req)}
+              />
+            </div>
+          ) : (
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-right text-xs">
@@ -1536,20 +1449,13 @@ export const OdooTimeOffApp: React.FC = () => {
                                   <Printer size={12} /> استمارة A4
                                 </button>
 
-                                {isAnnualLeaveType(req.leaveType) && (
-                                  <button
-                                    type="button"
-                                    onClick={() => goToAdvanceSalaryCenter(req.id)}
-                                    className={`px-2 py-1.5 rounded-lg text-[10px] font-bold transition flex items-center gap-1 shadow-2xs cursor-pointer ${
-                                      req.settlementDone
-                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                        : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200'
-                                    }`}
-                                    title="الصرف المسبق يتم من المركز المالي فقط (مادة 71)"
+                                {req.requestAdvanceSalaryArticle71 && (
+                                  <span
+                                    className="px-2 py-1 rounded-lg text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-200"
+                                    title="صرف مادة 71 — يُعالج في مسير الرواتب"
                                   >
-                                    <Plane size={12} />
-                                    <span>{req.settlementDone ? 'المركز المالي (معتمد)' : 'انتقل للصرف (مادة 71)'}</span>
-                                  </button>
+                                    م71 {req.settlementDone ? '✓' : '⏳'}
+                                  </span>
                                 )}
 
                                 <button
@@ -1609,40 +1515,13 @@ export const OdooTimeOffApp: React.FC = () => {
               </table>
             </div>
           </div>
+          )}
 
         </div>
       )}
 
       {/* ======================================================== */}
-      {/* TAB 2: INTERACTIVE ABSENCE TIMELINE & TEAM COVERAGE */}
-      {/* ======================================================== */}
-      {activeMainTab === 'timeline' && (
-        <div className="animate-in fade-in duration-300">
-          <AbsenceTimelineView
-            requests={requests}
-            totalEmployeesCount={companyEmployees.length}
-            onSelectRequest={(req) => setSelectedPrintReq(req)}
-          />
-        </div>
-      )}
-
-      {activeMainTab === 'operational_absence' && (
-        <OperationalAbsencePanel
-          rows={operationalAbsences.map(row => ({
-            id: String(row.id),
-            date: String(row.date || ''),
-            employeeName: String(row.employeeName || ''),
-            employeeId: String(row.employeeId || ''),
-            department: String(row.department || ''),
-            status: String(row.status || ''),
-            notes: String(row.notes || ''),
-            excuseReason: String(row.excuseReason || ''),
-          }))}
-        />
-      )}
-
-      {/* ======================================================== */}
-      {/* TAB 3: ALLOCATIONS & OPENING BALANCES */}
+      {/* TAB: ALLOCATIONS & OPENING BALANCES */}
       {/* ======================================================== */}
       {activeMainTab === 'allocations' && (
         <div className="space-y-4 animate-in fade-in duration-300">
@@ -1791,148 +1670,6 @@ export const OdooTimeOffApp: React.FC = () => {
       )}
 
       {/* ======================================================== */}
-      {/* TAB 4: UNIFIED FINANCIAL SETTLEMENTS & ENCASHMENT */}
-      {/* ======================================================== */}
-      {activeMainTab === 'finance' && (
-        <div className="space-y-4 animate-in fade-in duration-300">
-          
-          {/* Sub Tab Switcher */}
-          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold gap-1 w-fit">
-            <button
-              type="button"
-              onClick={() => setFinanceSubTab('advance_salary')}
-              className={`px-4 py-2 rounded-lg transition flex items-center gap-1.5 cursor-pointer ${
-                financeSubTab === 'advance_salary' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Plane size={14} /> صرف راتب الإجازة مقدماً (المادة 71 قبل السفر)
-            </button>
-            <button
-              type="button"
-              onClick={() => setFinanceSubTab('encashment_calculator')}
-              className={`px-4 py-2 rounded-lg transition flex items-center gap-1.5 cursor-pointer ${
-                financeSubTab === 'encashment_calculator' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Calculator size={14} /> تصفية وبيع رصيد الإجازات (Encashment Calculator)
-            </button>
-          </div>
-
-          {/* Sub-tab 1: Advance Salary Settlements */}
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-[11px] text-slate-700">
-            مخالصة نهاية الخدمة الكاملة وإبراء الذمة من{' '}
-            <strong>تطبيق الرواتب → التسويات</strong>. هذا المركز مخصص لسلف إجازة (مادة 71) وتسييل الرصيد أثناء الخدمة فقط.
-          </div>
-
-          {financeSubTab === 'advance_salary' && (
-            <div className="space-y-4">
-              <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-950 flex items-start gap-2.5">
-                <Info size={16} className="text-amber-700 shrink-0 mt-0.5" />
-                <div>
-                  <strong className="block font-bold mb-0.5">سندات صرف راتب الإجازة السنوية مقدماً (تنفيذاً للمادة 71 من قانون العمل الكويتي):</strong>
-                  <span>
-                    يحق للعامل استلام أجره عن فترة الإجازة السنوية مقدماً قبل السفر مضافاً إليه بدل تذاكر السفر السنوية إن وجدت، ويتم ترحيل المبلغ آلياً لبرنامج الرواتب ليُدرج في ملف البنوك (WPS).
-                  </span>
-                </div>
-              </div>
-
-              {/* Table of Approved Annual Leaves eligible for advance pay */}
-              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                <table className="w-full text-right text-xs">
-                  <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
-                    <tr>
-                      <th className="p-3.5">الموظف</th>
-                      <th className="p-3.5">الرقم المدني</th>
-                      <th className="p-3.5">فترة الإجازة</th>
-                      <th className="p-3.5">الراتب الشامل</th>
-                      <th className="p-3.5">أجر الإجازة المقدم (د.ك)</th>
-                      <th className="p-3.5">بدل التذاكر</th>
-                      <th className="p-3.5">صافي المستحق (WPS)</th>
-                      <th className="p-3.5 text-center">حالة الصرف والإجراءات</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {requests.filter(r => normalizeLeaveStatus(r.status) === 'APPROVED' && isAnnualLeaveType(r.leaveType)).map((req) => {
-                      const fin = resolveLeaveRequestFinancials(req);
-                      const advanceSalary = calculateKuwaitLeaveCashAmount(fin.paidDays, fin.basicSalary);
-                      const empRecord = companyEmployees.find(e => e.id === req.employeeId) as Record<string, unknown> | undefined;
-                      const ticketAllowance = resolveAnnualTicketAllowanceKwd(
-                        empRecord,
-                        leavePolicy as Record<string, unknown>
-                      );
-                      const totalPayable = advanceSalary + ticketAllowance;
-                      const isHighlighted = highlightAdvanceRequestId === req.id;
-
-                      return (
-                        <tr
-                          key={req.id}
-                          id={`advance-pay-row-${req.id}`}
-                          className={`hover:bg-slate-50/70 transition ${isHighlighted ? 'ring-2 ring-[#714B67] bg-purple-50/40' : ''}`}
-                        >
-                          <td className="p-3.5">
-                            <div className="font-bold text-slate-900">{fin.employeeName}</div>
-                            <div className="text-[10px] text-slate-400">{fin.department}</div>
-                          </td>
-                          <td className="p-3.5 font-mono">{fin.civilId}</td>
-                          <td className="p-3.5 font-mono">
-                            <div>{req.startDate}</div>
-                            <div className="text-[10px] text-slate-400 font-bold">
-                              {fin.daysCount} يوم (مدفوع {fin.paidDays} / بدون راتب {fin.unpaidDays})
-                            </div>
-                          </td>
-                          <td className="p-3.5 font-mono font-bold text-slate-800">{fin.totalSalary.toFixed(3)} د.ك</td>
-                          <td className="p-3.5 font-mono font-bold text-purple-900">{advanceSalary.toFixed(3)} د.ك</td>
-                          <td className="p-3.5 font-mono text-slate-600">{ticketAllowance.toFixed(3)} د.ك</td>
-                          <td className="p-3.5 font-mono font-black text-emerald-700 text-sm">{totalPayable.toFixed(3)} د.ك</td>
-                          <td className="p-3.5 text-center">
-                            <button
-                              type="button"
-                              onClick={() => confirmAdvanceSettlement(req)}
-                              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition flex items-center gap-1 mx-auto cursor-pointer ${
-                                req.settlementDone
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : 'bg-[#714B67] hover:bg-[#5a3a52] text-white shadow-2xs'
-                              }`}
-                            >
-                              <Plane size={12} />
-                              <span>{req.settlementDone ? 'سند معتمد' : 'اعتماد وترحيل للرواتب'}</span>
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {requests.filter(r => normalizeLeaveStatus(r.status) === 'APPROVED' && isAnnualLeaveType(r.leaveType)).length === 0 && (
-                      <tr>
-                        <td colSpan={8} className="p-8 text-center text-slate-400 font-bold">
-                          لا توجد إجازات سنوية معتمدة جاهزة للصرف المسبق حالياً.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Sub-tab 2: Comprehensive Encashment Calculator */}
-          {financeSubTab === 'encashment_calculator' && (
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-              <LeaveSettlementCalculator
-                employees={companyEmployees as any}
-                allocations={mappedAllocations}
-                leaves={mappedLeaveRequests as any}
-                activeCompany={activeCompany as any}
-                leavePolicy={leavePolicy}
-                onUpdateAllocations={handleUpdateAllocations}
-                firestoreSettlementVouchers={settlementVouchers}
-              />
-            </div>
-          )}
-
-        </div>
-      )}
-
-      {/* ======================================================== */}
       {/* MODAL 1: NEW LEAVE REQUEST MODAL (With Kuwait Law Holiday Auto-Exclusion & Overlap Alert) */}
       {/* ======================================================== */}
       {showApplyModal && (
@@ -1985,7 +1722,16 @@ export const OdooTimeOffApp: React.FC = () => {
                   <label className="block font-bold text-slate-700 mb-1">نوع الإجازة *</label>
                   <select
                     value={newRequest.leaveType}
-                    onChange={(e) => setNewRequest({ ...newRequest, leaveType: e.target.value as any })}
+                    onChange={(e) => {
+                      const leaveType = e.target.value as LeaveRequest['leaveType'];
+                      setNewRequest({
+                        ...newRequest,
+                        leaveType,
+                        suspendMonthlyAccrual: leaveType === 'unpaid' ? true : newRequest.suspendMonthlyAccrual,
+                        requestAdvanceSalaryArticle71:
+                          leaveType === 'unpaid' ? false : newRequest.requestAdvanceSalaryArticle71,
+                      });
+                    }}
                     className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:border-[#714B67] bg-white font-bold"
                   >
                     <option value="annual">إجازة سنوية (مادة 70)</option>
@@ -1998,60 +1744,56 @@ export const OdooTimeOffApp: React.FC = () => {
                   </select>
                 </div>
 
-                <div className="md:col-span-2">
-                  <label className="block font-bold text-slate-700 mb-1">نطاق الإجازة *</label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {(['INTERNAL', 'EXTERNAL'] as LeaveScope[]).map((scope) => (
-                      <label
-                        key={scope}
-                        className={`flex items-start gap-2 p-2.5 rounded-xl border cursor-pointer text-[11px] leading-snug ${
-                          newRequest.leaveScope === scope
-                            ? 'border-[#714B67] bg-purple-50 text-purple-950'
-                            : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
-                        }`}
+                <div className="md:col-span-2 space-y-2">
+                  <label className="flex items-start gap-2 p-2.5 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={newRequest.suspendMonthlyAccrual || newRequest.leaveType === 'unpaid'}
+                      disabled={newRequest.leaveType === 'unpaid'}
+                      onChange={(e) =>
+                        setNewRequest({ ...newRequest, suspendMonthlyAccrual: e.target.checked })
+                      }
+                    />
+                    <span className="text-[11px] font-bold text-slate-800">
+                      تعليق استحقاق الرصيد الشهري أثناء الإجازة
+                      <span
+                        className="block text-[10px] font-normal text-slate-500 mt-0.5"
+                        title="يوقف إضافة رصيد 2.5 يوم/شهر ومستحقات الفترة تلقائياً"
                       >
-                        <input
-                          type="radio"
-                          name="leaveScope"
-                          className="mt-0.5"
-                          checked={newRequest.leaveScope === scope}
-                          onChange={() => setNewRequest({ ...newRequest, leaveScope: scope })}
-                        />
-                        <span className="font-bold">{LEAVE_SCOPE_LABELS[scope]}</span>
-                      </label>
-                    ))}
-                  </div>
-                  {newRequest.leaveScope === 'EXTERNAL' && (
-                    <p className="text-[10px] text-amber-800 mt-1.5 font-medium">
-                      عند اعتماد الطلب: يُجمَّد استحقاق 2.5 يوم/شهر لكل شهر تقويمي يتداخل مع فترة السفر خارج البلاد.
-                    </p>
+                        يوقف إضافة رصيد الـ 2.5 يوم ومستحقات الفترة تلقائياً (مكافئ الإجازة الخارجية / بدون راتب).
+                      </span>
+                    </span>
+                  </label>
+                  {isAnnualLeaveType(newRequest.leaveType) && (
+                    <label className="flex items-center gap-2 p-2.5 rounded-xl border border-amber-200 bg-amber-50/60 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={newRequest.requestAdvanceSalaryArticle71}
+                        onChange={(e) =>
+                          setNewRequest({ ...newRequest, requestAdvanceSalaryArticle71: e.target.checked })
+                        }
+                      />
+                      <span className="text-[11px] font-bold text-amber-950">
+                        صرف راتب الإجازة مقدماً (مادة 71) — يُرحَّل لمسير الرواتب عند الاعتماد النهائي
+                      </span>
+                    </label>
                   )}
                 </div>
 
-                {/* Annual Balance Preview Bar */}
-                {newRequest.leaveType === 'annual' && (() => {
+                {isAnnualLeaveType(newRequest.leaveType) && (() => {
                   const balanceData = getEmployeeContractBalance(newRequest.employeeId);
+                  const deducted = annualRequestBalanceImpact?.paidDays ?? newRequestWorkingDays;
+                  const remaining = Math.max(0, balanceData.available - deducted);
                   return (
-                    <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl mt-2 space-y-1.5 text-[11px]">
-                      <div className="flex items-center justify-between border-b border-emerald-200/60 pb-1.5 font-bold text-emerald-950">
-                        <span>رصيد العقد المتاح ({balanceData.fiscalYearLabel}):</span>
-                        <span className="font-mono text-emerald-800 font-black text-xs">
-                          {balanceData.available.toFixed(1)} يوم متاح
-                        </span>
+                    <div className="md:col-span-2 p-3 bg-slate-50 border border-slate-200 rounded-xl text-[11px] space-y-1 font-mono">
+                      <div className="flex justify-between font-bold text-slate-800">
+                        <span>الأيام المخصومة (صافي):</span>
+                        <span>{deducted.toFixed(1)} يوم</span>
                       </div>
-                      <div className="grid grid-cols-3 gap-2 text-center pt-1 font-mono text-[10px]">
-                        <div className="bg-white/90 p-1 rounded border border-emerald-100">
-                          <span className="text-slate-400 block text-[9px]">المرحل:</span>
-                          <span className="font-bold text-emerald-800">+{balanceData.carried.toFixed(1)}</span>
-                        </div>
-                        <div className="bg-white/90 p-1 rounded border border-emerald-100">
-                          <span className="text-slate-400 block text-[9px]">المكتسب 2026:</span>
-                          <span className="font-bold text-emerald-800">+{balanceData.earned.toFixed(1)}</span>
-                        </div>
-                        <div className="bg-white/90 p-1 rounded border border-emerald-100">
-                          <span className="text-slate-400 block text-[9px]">المستهلك:</span>
-                          <span className="font-bold text-rose-700">-{balanceData.consumed.toFixed(1)}</span>
-                        </div>
+                      <div className="flex justify-between font-bold text-emerald-800">
+                        <span>الرصيد المتبقي بعد الطلب:</span>
+                        <span>{remaining.toFixed(1)} يوم</span>
                       </div>
                     </div>
                   );
@@ -2079,22 +1821,21 @@ export const OdooTimeOffApp: React.FC = () => {
                 </div>
               </div>
 
-              <div className="p-2.5 bg-purple-50/70 border border-purple-200 rounded-xl text-xs flex items-center justify-between font-bold text-purple-950">
-                <span>مدة الإجازة (أيام عمل):</span>
-                <span className="font-mono text-purple-900 font-black text-sm">{newRequestWorkingDays} يوم</span>
-              </div>
-
-              {/* Medical upload if sick */}
-              {newRequest.leaveType === 'sick' && (
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-2.5">
-                  <Upload className="text-blue-600 mt-0.5" size={18} />
-                  <div className="flex-1">
-                    <label className="block font-bold text-blue-900 mb-0.5">المرفقات والتقارير الطبية (Medical Certificate)</label>
-                    <p className="text-[10px] text-blue-700 mb-1.5">يرجى رفع نسخة من التقرير الطبي المعتمد من وزارة الصحة لتبرير الإجازة المرضية.</p>
-                    <input type="file" className="block w-full text-[10px] text-slate-500 file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-[10px] file:font-semibold file:bg-blue-600 file:text-white cursor-pointer" />
-                  </div>
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-start gap-2.5">
+                <Upload className="text-slate-600 mt-0.5" size={18} />
+                <div className="flex-1">
+                  <label className="block font-bold text-slate-800 mb-0.5">مرفق (إن وُجد)</label>
+                  <p className="text-[10px] text-slate-500 mb-1.5">
+                    {newRequest.leaveType === 'sick'
+                      ? 'تقرير طبي معتمد من وزارة الصحة.'
+                      : 'مستند داعم للطلب (اختياري).'}
+                  </p>
+                  <input
+                    type="file"
+                    className="block w-full text-[10px] text-slate-500 file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-[10px] file:font-semibold file:bg-[#714B67] file:text-white cursor-pointer"
+                  />
                 </div>
-              )}
+              </div>
 
               {isAnnualLeaveType(newRequest.leaveType) && annualRequestBalanceImpact?.hasExcess && (
                 <div className="p-2.5 bg-rose-50 border border-rose-300 rounded-xl text-xs text-rose-950 flex items-start gap-2">
@@ -2130,10 +1871,25 @@ export const OdooTimeOffApp: React.FC = () => {
               )}
 
               <CompactFormAccordion
-                title="معلومات إضافية / تفاصيل متقدمة"
-                subtitle="استبعاد العطلات، الموظف البديل، والملاحظات"
+                title="تفاصيل الحساب القانوني (اختياري)"
+                subtitle="جداول السنوات، العطلات، الموظف البديل، والملاحظات"
                 icon={<Info size={16} />}
               >
+                {newRequest.leaveType === 'annual' && (() => {
+                  const balanceData = getEmployeeContractBalance(newRequest.employeeId);
+                  return (
+                    <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl mb-3 space-y-1.5 text-[11px]">
+                      <div className="font-bold text-emerald-950">
+                        رصيد العقد ({balanceData.fiscalYearLabel}): {balanceData.available.toFixed(1)} يوم
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-center font-mono text-[10px]">
+                        <div className="bg-white/90 p-1 rounded border">مرحل +{balanceData.carried.toFixed(1)}</div>
+                        <div className="bg-white/90 p-1 rounded border">مكتسب +{balanceData.earned.toFixed(1)}</div>
+                        <div className="bg-white/90 p-1 rounded border">مستهلك -{balanceData.consumed.toFixed(1)}</div>
+                      </div>
+                    </div>
+                  );
+                })()}
                 <div className="space-y-3 pt-1">
                   <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border">
                     <input

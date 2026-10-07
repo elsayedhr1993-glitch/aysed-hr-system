@@ -56,6 +56,8 @@ import { UI_KEYS } from '../utils/uiStudioKeys';
 import { upsertAttendanceRecordDoc } from '../utils/attendanceRecords';
 import { loadTenantPolicy } from '../services/hrPolicyStorage';
 import { getAttendancePolicyStorageKey } from './attendance/AttendanceSetupWizardModal';
+import { OperationalAbsencePanel } from './timeoff/OperationalAbsencePanel';
+import { useOperationalAbsenceRows } from '../hooks/useOperationalAbsenceRows';
 
 const seededShiftProfilesNoticeByCompany = new Set<string>();
 const seededEmployeeShiftsNoticeByCompany = new Set<string>();
@@ -111,7 +113,10 @@ export const Attendances: React.FC = () => {
   const activeCompId = activeCompany?.id || 'default_comp';
 
   // Navigation View State
-  const [activeView, setActiveView] = useState<'table' | 'monthly' | 'kiosk'>('table');
+  const [activeView, setActiveView] = useState<'table' | 'monthly' | 'kiosk' | 'operational_absence'>('table');
+  const { rows: operationalAbsenceRows, loading: operationalAbsenceLoading } = useOperationalAbsenceRows(
+    activeCompId
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDept, setSelectedDept] = useState('الكل');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
@@ -1223,6 +1228,16 @@ export const Attendances: React.FC = () => {
               <ScanLine size={14} />
               <span>الكشك (Kiosk)</span>
             </button>
+            <button
+              type="button"
+              onClick={() => setActiveView('operational_absence')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                activeView === 'operational_absence' ? 'bg-white text-rose-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <AlertTriangle size={14} />
+              <span>غياب تشغيلي</span>
+            </button>
           </div>
         </div>
 
@@ -1393,6 +1408,16 @@ export const Attendances: React.FC = () => {
           isMonthPosted={Boolean(postedMonths[selectedMonthForPosting])}
           onOpenPrintModal={handleOpenMonthlyPrintModal}
         />
+      )}
+
+      {activeView === 'operational_absence' && (
+        <div className="space-y-3">
+          {operationalAbsenceLoading ? (
+            <p className="text-xs text-slate-500 text-center py-8">جاري تحميل سجلات الغياب التشغيلي...</p>
+          ) : (
+            <OperationalAbsencePanel rows={operationalAbsenceRows} />
+          )}
+        </div>
       )}
 
       {/* VIEW B: KIOSK MODE */}

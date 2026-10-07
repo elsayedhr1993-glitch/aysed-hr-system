@@ -30,6 +30,7 @@ import { employerPamOrEstablishmentCode, isMohMedicalEstablishment } from '../ut
 import { UiStudioScreenTitle } from './studio/UiStudioScreenTitle';
 import { UI_KEYS } from '../utils/uiStudioKeys';
 import { UiStudioTarget } from './studio/UiStudioTarget';
+import { TimeOffPayrollFinancePanel } from './timeoff/TimeOffPayrollFinancePanel';
 
 export interface PayslipItem {
   id: string;
@@ -77,11 +78,15 @@ interface MonthlyAttendanceRollupEntry {
 export interface OdooPayrollAppProps {
   initialSettlementEmployeeId?: string;
   openFinalSettlementTriggerKey?: number;
+  highlightLeaveAdvanceRequestId?: string | null;
+  openLeaveFinanceTriggerKey?: number;
 }
 
 export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
   initialSettlementEmployeeId,
   openFinalSettlementTriggerKey,
+  highlightLeaveAdvanceRequestId,
+  openLeaveFinanceTriggerKey,
 }) => {
   const { activeCompany } = useCompany();
   const { company: companyForPrint, profile: printProfile } = useCompanyForPrint();
@@ -96,7 +101,9 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
     registerLoanPayment 
   } = useOdooHierarchy();
   
-  const [activeSubTab, setActiveSubTab] = useState<'payslips' | 'wps' | 'loans' | 'settlements'>('payslips');
+  const [activeSubTab, setActiveSubTab] = useState<
+    'payslips' | 'wps' | 'loans' | 'settlements' | 'leave_finance'
+  >('payslips');
   const [selectedMonth, setSelectedMonth] = useState('2026-08');
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'review' | 'confirmed' | 'paid'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -126,6 +133,11 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
     setActiveSubTab('settlements');
     setShowFinalSettlementModal(true);
   }, [openFinalSettlementTriggerKey, initialSettlementEmployeeId]);
+
+  useEffect(() => {
+    if (!openLeaveFinanceTriggerKey) return;
+    setActiveSubTab('leave_finance');
+  }, [openLeaveFinanceTriggerKey]);
 
   useEffect(() => {
     const companyId = activeCompany?.id;
@@ -859,6 +871,15 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
               >
                 <Calculator size={14} className="text-indigo-600" /> التسويات ونهاية الخدمة (EOS)
               </button>
+              <button
+                type="button"
+                onClick={() => setActiveSubTab('leave_finance')}
+                className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer ${
+                  activeSubTab === 'leave_finance' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <FileText size={14} className="text-[#714B67]" /> تسويات وسلف الإجازات (م71)
+              </button>
             </div>
           )}
         </div>
@@ -1474,6 +1495,10 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
       )}
 
       {/* 5. SUBTAB: SETTLEMENTS & EOS */}
+      {activeSubTab === 'leave_finance' && (
+        <TimeOffPayrollFinancePanel highlightAdvanceRequestId={highlightLeaveAdvanceRequestId} />
+      )}
+
       {activeSubTab === 'settlements' && (
         <div className="odoo-master-form-sheet grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 w-full">
           {/* Card 1: Final Settlement & Discharge */}
