@@ -1,20 +1,46 @@
+export const DEFAULT_CHAT_MODEL = 'gemini-3.8-flash';
+
 function readConfigEnv(key: string): string | undefined {
   if (typeof process !== 'undefined' && process.env) {
-    const fromProcess = process.env[key] ?? process.env[`VITE_${key}`];
-    if (fromProcess) return String(fromProcess);
+    const direct = process.env[key];
+    if (direct) {
+      const v = String(direct).trim();
+      if (v) return v;
+    }
+    // Do not map VITE_* into AI_* — avoids stale client build vars on the server.
+    if (!key.startsWith('AI_')) {
+      const mirrored = process.env[`VITE_${key}`];
+      if (mirrored) {
+        const v = String(mirrored).trim();
+        if (v) return v;
+      }
+    }
   }
   const viteEnv =
     typeof import.meta !== 'undefined'
       ? (import.meta.env as Record<string, string | undefined> | undefined)
       : undefined;
   if (!viteEnv) return undefined;
+  if (key.startsWith('AI_')) {
+    return viteEnv[key]?.trim() || undefined;
+  }
   return viteEnv[key] ?? viteEnv[`VITE_${key}`];
 }
 
+export function getPrimaryChatModel(): string {
+  return readConfigEnv('AI_CHAT_MODEL') || DEFAULT_CHAT_MODEL;
+}
+
 export const AI_MODELS = {
-  chat: readConfigEnv('AI_CHAT_MODEL') || 'gemini-3.8-flash',
-  ocr: readConfigEnv('AI_OCR_MODEL') || 'gemini-3.8-flash',
-  fallback: readConfigEnv('AI_FALLBACK_MODEL') || 'gemini-3.1-pro-preview',
+  get chat() {
+    return getPrimaryChatModel();
+  },
+  get ocr() {
+    return readConfigEnv('AI_OCR_MODEL') || DEFAULT_CHAT_MODEL;
+  },
+  get fallback() {
+    return readConfigEnv('AI_FALLBACK_MODEL') || DEFAULT_CHAT_MODEL;
+  },
 } as const;
 
 function uniqueModels(candidates: string[]): string[] {
@@ -35,12 +61,7 @@ export function getChatModelCandidates(): string[] {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
-  return uniqueModels([
-    AI_MODELS.chat,
-    ...extra,
-    'gemini-3.8-flash',
-    AI_MODELS.fallback,
-  ]);
+  return uniqueModels([getPrimaryChatModel(), ...extra, DEFAULT_CHAT_MODEL, AI_MODELS.fallback]);
 }
 
 /** Vision OCR model rotation. */
@@ -49,12 +70,12 @@ export function getOcrModelCandidates(): string[] {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
-  return uniqueModels([AI_MODELS.ocr, ...extra, AI_MODELS.fallback, 'gemini-3.8-flash']);
+  return uniqueModels([AI_MODELS.ocr, ...extra, DEFAULT_CHAT_MODEL, AI_MODELS.fallback]);
 }
 
 /** Lightweight connectivity probe models. */
 export function getConnectivityTestModels(): string[] {
-  return uniqueModels([AI_MODELS.chat, AI_MODELS.fallback, 'gemini-3.8-flash']);
+  return uniqueModels([getPrimaryChatModel(), DEFAULT_CHAT_MODEL, AI_MODELS.fallback]);
 }
 
 export interface AiConversationTurn {

@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from '@google/genai';
-import { getChatModelCandidates } from '../src/config/aiConfig';
+import { getChatModelCandidates } from './aiModelEnv';
 import { isSuperAdminPrincipal } from '../src/config/superAdminAccess';
 import {
   buildCreateEmployeeActionFromPrompt,

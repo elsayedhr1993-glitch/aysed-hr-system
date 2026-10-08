@@ -1,4 +1,4 @@
-import { getConnectivityTestModels } from '../src/config/aiConfig';
+import { getConnectivityTestModels } from './aiModelEnv';
 import { requireFirebaseAuthFromHeader } from './apiAuth';
 import { getGeminiClient } from './geminiServer';
 
