@@ -107,13 +107,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Auth Firewall State Listener with safety timeout to prevent hanging UI
   useEffect(() => {
-    // Safety fallback timer: Ensure loading never hangs if Firebase takes too long or is blocked
+    let initialAuthResolved = false;
+    // Safety fallback: only end boot loading if Firebase never calls back (blocked network)
     const safetyTimer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1200);
+      if (!initialAuthResolved) setIsLoading(false);
+    }, 8000);
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+      initialAuthResolved = true;
       clearTimeout(safetyTimer);
+      if (firebaseUser) setIsLoading(true);
       try {
         if (firebaseUser) {
           const userEmail = (firebaseUser.email || '').toLowerCase();
@@ -311,6 +314,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(fullUser);
           setToken(jwt);
           persistAuthStorage(fullUser, jwt);
+          if (companyId) {
+            try {
+              localStorage.setItem('activeCompanyId', companyId);
+              localStorage.setItem('lastActiveCompanyId', companyId);
+            } catch {
+              /* ignore */
+            }
+          }
+          try {
+            window.dispatchEvent(new Event('aysed_auth_changed'));
+          } catch {
+            /* ignore */
+          }
         } else {
           // No Firebase session — clear any storage-only forged auth
           setUser(null);

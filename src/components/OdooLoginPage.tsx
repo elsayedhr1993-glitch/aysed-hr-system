@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Eye, EyeOff, Globe, Lock, Mail, Shield, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, Globe, Lock, Mail, Shield, ShieldCheck, AlertTriangle, Loader2 } from 'lucide-react';
 import {
   browserLocalPersistence,
   browserSessionPersistence,
@@ -8,8 +8,9 @@ import {
   signInWithEmailAndPassword
 } from 'firebase/auth';
 import { auth } from '../lib/firebase';
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { useLang } from '../lib/i18n';
+import { useAuth } from '../context/AuthContext';
 
 const REMEMBER_ME_KEY = 'aysed_remember_me';
 
@@ -56,8 +57,8 @@ const UI_TEXT: Record<UiLanguage, UiText> = {
     badge: 'بوابة دخول مؤسسية',
     title: 'تسجيل الدخول',
     subtitle: 'أدخل بيانات الحساب المعتمد للوصول إلى بيئة الشركة.',
-    leftTitle: 'Aysed HR Platform',
-    leftSubtitle: 'Enterprise Workforce and Payroll Management',
+    leftTitle: 'منظومة Aysed HR 2026',
+    leftSubtitle: 'الحل المؤسسي الشامل للموارد البشرية والامتثال الكويتي',
     secureCloud: 'بيئة سحابية مؤمنة للشركات',
     emailLabel: 'البريد الإلكتروني',
     passwordLabel: 'كلمة المرور',
@@ -65,7 +66,7 @@ const UI_TEXT: Record<UiLanguage, UiText> = {
     resetSending: 'جاري الإرسال...',
     rememberMe: 'تذكرني على هذا الجهاز',
     submit: 'تسجيل الدخول',
-    loadingSubmit: 'جاري التحقق...',
+    loadingSubmit: 'جاري تسجيل الدخول وتجهيز بيئة الشركة...',
     lockTitle: 'تم قفل المحاولات مؤقتا',
     lockRemaining: 'الوقت المتبقي',
     terms: 'شروط الاستخدام المؤسسي',
@@ -91,8 +92,8 @@ const UI_TEXT: Record<UiLanguage, UiText> = {
     badge: 'Enterprise Access Gateway',
     title: 'Sign In',
     subtitle: 'Use your approved account credentials to access your company workspace.',
-    leftTitle: 'Aysed HR Platform',
-    leftSubtitle: 'Enterprise Workforce and Payroll Management',
+    leftTitle: 'Aysed HR 2026',
+    leftSubtitle: 'Enterprise HR & Kuwait compliance platform',
     secureCloud: 'Secure business cloud environment',
     emailLabel: 'Email Address',
     passwordLabel: 'Password',
@@ -100,7 +101,7 @@ const UI_TEXT: Record<UiLanguage, UiText> = {
     resetSending: 'Sending...',
     rememberMe: 'Remember me on this device',
     submit: 'Sign In',
-    loadingSubmit: 'Verifying...',
+    loadingSubmit: 'Signing in and preparing your workspace...',
     lockTitle: 'Sign-in attempts temporarily locked',
     lockRemaining: 'Time remaining',
     terms: 'Enterprise Terms of Use',
@@ -126,8 +127,22 @@ const UI_TEXT: Record<UiLanguage, UiText> = {
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+const FEATURE_SLIDES: Record<UiLanguage, string[]> = {
+  ar: [
+    'توليد معتمد لملفات حماية الأجور الكويتية (WPS & CBK)',
+    'محرك قانوني لمستحقات العمل، الإجازات، ونهاية الخدمة',
+    'حوكمة مركزية للوثائق والتراخيص الحكومية',
+  ],
+  en: [
+    'Certified Kuwait WPS & CBK payroll file generation',
+    'Legal engine for leave, payroll, and end-of-service entitlements',
+    'Centralized governance for documents and government licenses',
+  ],
+};
+
 export const OdooLoginPage: React.FC = () => {
   const { lang, setLang } = useLang();
+  const { user: sessionUser, isLoading: authHydrating } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState<boolean>(() => {
@@ -138,6 +153,8 @@ export const OdooLoginPage: React.FC = () => {
     }
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  const [featureSlide, setFeatureSlide] = useState(0);
   const [errorMsg, setErrorMsg] = useState('');
   const [feedbackType, setFeedbackType] = useState<'error' | 'success'>('error');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -150,7 +167,44 @@ export const OdooLoginPage: React.FC = () => {
   const isArabic = lang === 'ar';
   const dir = isArabic ? 'rtl' : 'ltr';
   const t = UI_TEXT[language];
-  const isBusy = isLoading || isResettingPassword;
+  const isBusy = isLoading || isResettingPassword || isSigningIn;
+  const featureLines = FEATURE_SLIDES[language];
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setFeatureSlide((prev) => (prev + 1) % featureLines.length);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, [featureLines.length]);
+
+  useEffect(() => {
+    if (!isSigningIn) return;
+    if (!sessionUser || authHydrating) return;
+
+    const role = String(sessionUser.role || '').toUpperCase();
+    const companyId =
+      sessionUser.companyId ||
+      (typeof window !== 'undefined'
+        ? localStorage.getItem('activeCompanyId') || localStorage.getItem('lastActiveCompanyId')
+        : '') ||
+      '';
+
+    if (role === 'SUPER_ADMIN' || companyId) {
+      setIsSigningIn(false);
+      setIsLoading(false);
+    }
+  }, [isSigningIn, sessionUser, authHydrating]);
+
+  useEffect(() => {
+    if (!isSigningIn) return;
+    const timeout = setTimeout(() => {
+      setIsSigningIn(false);
+      setIsLoading(false);
+      setErrorMsg(t.loginGeneric);
+      setFeedbackType('error');
+    }, 30000);
+    return () => clearTimeout(timeout);
+  }, [isSigningIn, t.loginGeneric]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout | undefined;
@@ -189,6 +243,7 @@ export const OdooLoginPage: React.FC = () => {
     setErrorMsg('');
     setFeedbackType('error');
     setIsLoading(true);
+    setIsSigningIn(false);
 
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password.trim();
@@ -211,12 +266,19 @@ export const OdooLoginPage: React.FC = () => {
       return;
     }
 
+    let awaitingSession = false;
     try {
       persistRememberPreference(rememberMe);
       await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
+      awaitingSession = true;
+      setIsSigningIn(true);
       await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
+      await auth.authStateReady();
       setFailedAttempts(0);
+      return;
     } catch (error: any) {
+      awaitingSession = false;
+      setIsSigningIn(false);
       const newFailed = failedAttempts + 1;
       setFailedAttempts(newFailed);
 
@@ -232,7 +294,7 @@ export const OdooLoginPage: React.FC = () => {
         setErrorMsg(t.loginGeneric);
       }
     } finally {
-      setIsLoading(false);
+      if (!awaitingSession) setIsLoading(false);
     }
   };
 
@@ -287,21 +349,46 @@ export const OdooLoginPage: React.FC = () => {
             </div>
             <div>
               <span className="text-2xl font-black tracking-tight text-white block">{t.leftTitle}</span>
-              <span className="text-xs text-white/75 tracking-wide uppercase">{t.leftSubtitle}</span>
+              <span className="text-sm text-slate-300 font-medium leading-snug block mt-1 max-w-md">{t.leftSubtitle}</span>
             </div>
           </div>
 
-          <h1 className="text-4xl leading-tight font-black text-white max-w-xl">
-            {isArabic ? 'بوابة دخول موحدة لإدارة موارد المنشأة' : 'Unified enterprise gateway for workforce operations'}
+          <h1 className="text-3xl sm:text-4xl leading-tight font-black text-white max-w-xl mt-4">
+            {isArabic ? 'منظومة Aysed HR 2026' : 'Aysed HR 2026'}
           </h1>
-          <p className="text-sm text-white/85 mt-5 max-w-xl leading-relaxed">
+          <p className="text-base text-slate-300 mt-3 max-w-xl leading-relaxed font-medium">
             {isArabic
-              ? 'تم تصميم شاشة الدخول لبيئات الأعمال مع حماية الجلسات، صلاحيات المستخدمين، وتدفق آمن للمصادقة.'
-              : 'Built for business environments with secure sessions, role-aware access, and controlled authentication flows.'}
+              ? 'الحل المؤسسي الشامل للموارد البشرية والامتثال الكويتي'
+              : 'Your enterprise suite for HR operations and Kuwait regulatory compliance'}
           </p>
+
+          <div className="mt-10 min-h-[5.5rem] max-w-xl">
+            <AnimatePresence mode="wait">
+              <motion.p
+                key={featureSlide}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.45, ease: 'easeOut' }}
+                className="text-lg sm:text-xl font-bold text-white leading-relaxed"
+              >
+                «{featureLines[featureSlide]}»
+              </motion.p>
+            </AnimatePresence>
+            <div className="flex gap-1.5 mt-4">
+              {featureLines.map((_, idx) => (
+                <span
+                  key={idx}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    idx === featureSlide ? 'w-8 bg-white' : 'w-2 bg-white/35'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
         </div>
 
-        <div className="relative z-10 flex items-center justify-between text-white/80 text-xs border-t border-white/20 pt-5">
+        <div className="relative z-10 flex items-center justify-between text-slate-300 text-xs border-t border-white/20 pt-5">
           <div className="flex items-center gap-2">
             <Globe size={15} />
             <span>{t.secureCloud}</span>
@@ -316,7 +403,13 @@ export const OdooLoginPage: React.FC = () => {
         transition={{ duration: 0.6, ease: 'easeOut', delay: 0.1 }}
         className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 sm:p-10 xl:p-16 bg-[#f8fbfc]"
       >
-        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white shadow-xl p-6 sm:p-8 space-y-6">
+        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white shadow-xl p-6 sm:p-8 space-y-6 relative">
+          {isSigningIn && (
+            <div className="absolute inset-0 z-20 rounded-3xl bg-white/90 backdrop-blur-[2px] flex flex-col items-center justify-center gap-3 text-center px-6">
+              <Loader2 size={28} className="animate-spin text-[#1f6a7a]" />
+              <p className="text-sm font-bold text-slate-800">{t.loadingSubmit}</p>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <div className={`space-y-1 ${cardAlignment}`}>
               <span className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-800 rounded-full text-xs font-bold border border-emerald-200">
@@ -432,11 +525,15 @@ export const OdooLoginPage: React.FC = () => {
 
               <button
                 type="submit"
-                disabled={isBusy}
-                className="w-full bg-[#1f6a7a] hover:bg-[#174f5c] text-white py-3.5 rounded-xl text-xs font-bold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-wait mt-2"
+                disabled={isBusy || isLocked}
+                aria-busy={isBusy}
+                className="w-full bg-[#1f6a7a] hover:bg-[#174f5c] text-white py-3.5 rounded-xl text-xs font-bold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed mt-2"
               >
-                {isLoading ? (
-                  <span className="inline-block animate-spin text-white">{t.loadingSubmit}</span>
+                {isBusy ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin text-white" />
+                    <span>{t.loadingSubmit}</span>
+                  </>
                 ) : (
                   <>
                     <span>{t.submit}</span>
