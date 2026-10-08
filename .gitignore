@@ -24,6 +24,7 @@ scripts/data/manar-facility-licenses.json
 # Local scratch / payroll probes (not for repo)
 tmp-*
 tmp-*.*
+scripts/extract-doc-once.mjs
 
 # Vite bundle artifacts (CJS bundles are committed via build script)
 api/**/*.js.map
