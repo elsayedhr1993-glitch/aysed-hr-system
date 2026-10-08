@@ -21,3 +21,10 @@ scripts/data/manar-licenses-inbox/*
 !scripts/data/manar-licenses-inbox/README.md
 scripts/data/manar-facility-licenses.json
 
+# Local scratch / payroll probes (not for repo)
+tmp-*
+tmp-*.*
+
+# Vite bundle artifacts (CJS bundles are committed via build script)
+api/**/*.js.map
+

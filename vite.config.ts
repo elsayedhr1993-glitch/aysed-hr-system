@@ -30,7 +30,7 @@ export default defineConfig(() => {
             'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
             'vendor-pdf': ['pdf-lib', 'pdfjs-dist'],
             'vendor-data': ['xlsx', 'papaparse', 'recharts'],
-            'vendor-ui': ['html2canvas-pro', 'html2pdf.js', 'motion'],
+            'vendor-ui': ['html2canvas-pro', 'motion'],
             'vendor-ocr': ['@google/genai', 'jsqr', 'qrcode']
           }
         }

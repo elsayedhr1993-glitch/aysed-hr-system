@@ -73,7 +73,6 @@ import { AuditLogsApp } from './apps/AuditLogsApp';
 import { RecruitmentApp } from './apps/RecruitmentApp';
 import { OdooContractsApp } from './components/OdooContractsApp';
 import { Candidate } from './types';
-import { MANARA_STORAGE_KEYS, getPersistentData, setPersistentData } from './utils/persistentStorage';
 import { CopilotProvider } from './context/CopilotContext';
 import { CopilotShell } from './components/copilot/CopilotShell';
 import { CopilotAppBridge } from './components/copilot/CopilotAppBridge';
@@ -204,9 +203,25 @@ function MainAppLayout() {
       });
     }, error => console.error('Failed to load leave statistics from Firestore:', error));
   }, [effectiveCompanyId]);
-  const [contracts, setContracts] = useState<any[]>(() => {
-    return getPersistentData<any[]>(MANARA_STORAGE_KEYS.CONTRACTS, []);
-  });
+  const [contracts, setContracts] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!isQueryableTenantCompanyId(effectiveCompanyId)) {
+      setContracts([]);
+      return;
+    }
+    const contractsQuery = query(
+      collection(db, 'contracts'),
+      where('companyId', '==', effectiveCompanyId)
+    );
+    return onSnapshot(
+      contractsQuery,
+      (snapshot) => {
+        setContracts(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
+      },
+      (error) => console.error('Failed to load contracts for dashboard/sentinel:', error)
+    );
+  }, [effectiveCompanyId]);
 
   // إدارة المرشحين وبيانات التوظيف الذكية (Recruitment & ATS)
   const [candidates, setCandidates] = useState<Candidate[]>([]);

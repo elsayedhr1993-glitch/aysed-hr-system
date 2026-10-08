@@ -893,26 +893,6 @@ body.has_admin_bar .o_main_navbar {
     top: 40px !important;
 }
 
-/* شريط الانتقال العائم */
-.aysed_admin_transition_bar {
-    position: sticky !important;
-    top: 0;
-    z-index: 1060 !important;
-    background: linear-gradient(90deg, #71639e 0%, #4c4c4c 100%) !important;
-    height: 35px !important;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-bottom: 2px solid #008784;
-}
-
-/* Solid Enterprise UI & CLS Prevention */
-* {
-  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  transition-duration: 150ms !important;
-}
-
 table {
   table-layout: fixed;
 }
@@ -920,9 +900,6 @@ table {
 .enterprise-container {
   min-height: calc(100vh - 120px);
 }
-
-
-
 
 /* Odoo Developer Mode Tooltips */
 .odoo-dev-mode-active input:not([type="checkbox"]):hover::after,
