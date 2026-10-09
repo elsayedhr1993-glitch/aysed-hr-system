@@ -7,7 +7,7 @@ coverage/
 bun.lock
 bun.lockb
 dist/
-api/ai-chat.cjs
+# api/ai-chat.cjs is committed so Vercel serverless can load it if build bundling is skipped
 api/ai-chat.cjs.map
 api/ai/test-key.cjs
 api/ai/test-key.cjs.map
