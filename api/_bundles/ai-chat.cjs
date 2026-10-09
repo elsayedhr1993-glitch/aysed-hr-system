@@ -44853,7 +44853,7 @@ function getApiKeyFromEnv() {
 
 // server/aiModelEnv.ts
 init_define_import_meta_env();
-var DEFAULT_CHAT_MODEL = "gemini-2.0-flash";
+var DEFAULT_CHAT_MODEL = "gemini-2.5-flash";
 function envModel(key) {
   const raw = process.env[key];
   if (!raw) return void 0;
@@ -44880,7 +44880,7 @@ function getChatModelCandidates() {
     primary,
     ...extra,
     DEFAULT_CHAT_MODEL,
-    "gemini-2.0-flash-lite",
+    "gemini-2.5-pro",
     "gemini-1.5-flash",
     "gemini-1.5-flash-8b",
     "gemini-3.8-flash",
@@ -45245,36 +45245,64 @@ ${footer}
     return null;
   }
 }
+function hasFirebaseAdminCredentialEnv() {
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
+  if (raw && raw.trim() && !raw.includes("YOUR_")) return true;
+  return Boolean(process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY);
+}
+function parseServiceAccountFromEnv() {
+  const email = process.env.FIREBASE_CLIENT_EMAIL?.trim();
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+  if (email && privateKey) {
+    const validKey = normalizeAndValidatePrivateKey(privateKey);
+    if (!validKey) return null;
+    return {
+      client_email: email,
+      private_key: validKey,
+      project_id: process.env.FIREBASE_PROJECT_ID || void 0
+    };
+  }
+  let rawCreds = process.env.FIREBASE_SERVICE_ACCOUNT;
+  if (!rawCreds || rawCreds.trim() === "" || rawCreds.includes("YOUR_")) {
+    return null;
+  }
+  rawCreds = rawCreds.trim();
+  let parsedServiceAccount;
+  if (rawCreds.startsWith("{")) {
+    parsedServiceAccount = JSON.parse(rawCreds);
+  } else if (rawCreds.startsWith('"{') && rawCreds.endsWith('}"')) {
+    parsedServiceAccount = JSON.parse(JSON.parse(rawCreds));
+  } else {
+    try {
+      const decoded = Buffer.from(rawCreds, "base64").toString("utf8");
+      if (decoded.trim().startsWith("{")) {
+        parsedServiceAccount = JSON.parse(decoded);
+      } else {
+        parsedServiceAccount = JSON.parse(rawCreds);
+      }
+    } catch {
+      parsedServiceAccount = JSON.parse(rawCreds);
+    }
+  }
+  return parsedServiceAccount;
+}
 function getAdminAuth() {
   if (authAdmin) return authAdmin;
   if (firebaseAdminInitAttempted && !adminApp) return null;
+  if (!hasFirebaseAdminCredentialEnv()) {
+    return null;
+  }
   firebaseAdminInitAttempted = true;
   try {
-    let rawCreds = process.env.FIREBASE_SERVICE_ACCOUNT;
-    if (!rawCreds || rawCreds.trim() === "" || rawCreds.includes("YOUR_")) {
+    const parsedServiceAccount = parseServiceAccountFromEnv();
+    if (!parsedServiceAccount) {
+      firebaseAdminInitAttempted = false;
       return null;
-    }
-    rawCreds = rawCreds.trim();
-    let parsedServiceAccount;
-    if (rawCreds.startsWith("{")) {
-      parsedServiceAccount = JSON.parse(rawCreds);
-    } else if (rawCreds.startsWith('"{') && rawCreds.endsWith('}"')) {
-      parsedServiceAccount = JSON.parse(JSON.parse(rawCreds));
-    } else {
-      try {
-        const decoded = Buffer.from(rawCreds, "base64").toString("utf8");
-        if (decoded.trim().startsWith("{")) {
-          parsedServiceAccount = JSON.parse(decoded);
-        } else {
-          parsedServiceAccount = JSON.parse(rawCreds);
-        }
-      } catch {
-        parsedServiceAccount = JSON.parse(rawCreds);
-      }
     }
     if (parsedServiceAccount && (parsedServiceAccount.private_key || parsedServiceAccount.client_email)) {
       const validKey = normalizeAndValidatePrivateKey(parsedServiceAccount.private_key);
       if (!validKey) {
+        firebaseAdminInitAttempted = false;
         return null;
       }
       parsedServiceAccount.private_key = validKey;
@@ -45288,9 +45316,12 @@ function getAdminAuth() {
       authAdmin = (0, import_auth.getAuth)(adminApp);
       return authAdmin;
     }
-  } catch {
+  } catch (err) {
+    console.error("[firebaseAdmin] init failed", err);
+    firebaseAdminInitAttempted = false;
     return null;
   }
+  firebaseAdminInitAttempted = false;
   return null;
 }
 function resolveFirestoreDatabaseId() {
@@ -45454,20 +45485,54 @@ function isDirectLocalCopilotAction(action) {
 }
 
 // src/lib/copilotIntentRouter.ts
+var COMPLIANCE_SEMANTIC_ROOT = /(?:نواقص|ناقص|نقص|وثائق?|ملفات?|ملف|فحص|تدقيق|ثغر|تراخيص?|مزاولة|منته|انتهاء|انتهت|تجديد|صلاحي|امتثال|شجرة\s*الامتثال|بطاقة|إقام|جواز|رخصة|وزارة\s*الصحة|moh|pam|kff|baladiya|gaps?|compliance|expir|license|audit|document)/i;
+function wantsComplianceSemantic(text) {
+  return COMPLIANCE_SEMANTIC_ROOT.test(String(text || "").trim());
+}
 function wantsEmployeeStats(text) {
+  if (wantsComplianceSemantic(text)) return false;
   return /(كم\s*موظف|عدد\s*الموظف|كم\s*عندي|إجمالي\s*الموظف|how\s*many\s*employees|employee\s*count|total\s*employees)/i.test(
     text
   );
 }
 function wantsRunningContracts(text) {
+  if (wantsComplianceSemantic(text)) return false;
   return /(عقود?\s*ساري|العقود?\s*الساري|عدد\s*العقود|كم\s*عقد|running\s*contracts|active\s*contracts)/i.test(
     text
   );
 }
-function wantsComplianceGaps(text) {
-  return /(وثائق?\s*منته|انتهت\s*الإقام|انتهت\s*البطاق|ترخيص\s*منته|قريب\s*من\s*الانتهاء|نواقص|امتثال|شجرة\s*الامتثال|moh|وزارة\s*الصحة)/i.test(
-    text
-  ) && /(من|قائمة|اعرض|كم|فحص|audit|list|show|check|gaps?)/i.test(text);
+function normalizeHint(value) {
+  return value.replace(/[؟?!.،,:;]/g, " ").replace(/\s+/g, " ").trim();
+}
+function extractComplianceToolContext(prompt) {
+  const text = String(prompt || "").trim();
+  const ctx = {};
+  const deptMatch = text.match(/(?:في\s+)?(?:قسم|إدارة|department)\s+([^\s،؟?.!]+(?:\s+[^\s،؟?.!]+){0,2})/i) || text.match(/(?:موظفين|موظفي)\s+([^\s،؟?.!]+(?:\s+[^\s،؟?.!]+){0,2})/i);
+  if (deptMatch?.[1]) {
+    const dept = normalizeHint(deptMatch[1]);
+    if (dept.length >= 2) ctx.departmentHint = dept;
+  }
+  const namePatterns = [
+    /ملف(?:ات)?\s+(?:الموظف\s+|للموظف\s+)?([^\s،؟?.!]+(?:\s+[^\s،؟?.!]+){0,3})/i,
+    /(?:لدى|عند)\s+(?:الموظف\s+)?([^\s،؟?.!]+(?:\s+[^\s،؟?.!]+){0,3})/i,
+    /(?:موظف|الموظف)\s+([^\s،؟?.!]+(?:\s+[^\s،؟?.!]+){0,3})/i,
+    /(?:اسم|اسمه|اسمها)\s+([^\s،؟?.!]+(?:\s+[^\s،؟?.!]+){0,3})/i,
+    /employee\s+([a-zA-Z\u0600-\u06FF]+(?:\s+[a-zA-Z\u0600-\u06FF]+){0,3})/i
+  ];
+  for (const pattern of namePatterns) {
+    const m2 = text.match(pattern);
+    if (m2?.[1]) {
+      let name = normalizeHint(m2[1]);
+      name = name.replace(/^(ال|في|من|على|عند|لدى)\s+/i, "").trim();
+      const stopWords = ["\u0627\u0644\u0645\u0648\u0638\u0641\u064A\u0646", "\u0627\u0644\u0645\u0648\u0638\u0641", "\u0645\u0648\u0638\u0641", "\u0645\u0644\u0641\u0627\u062A", "\u0645\u0644\u0641", "\u0648\u062B\u0627\u0626\u0642", "\u0627\u0644\u0648\u062B\u0627\u0626\u0642"];
+      if (stopWords.includes(name)) continue;
+      if (name.length >= 2) {
+        ctx.employeeNameHint = name;
+        break;
+      }
+    }
+  }
+  return ctx;
 }
 function classifyCopilotIntent(prompt, mode = "chat") {
   const text = String(prompt || "").trim();
@@ -45480,16 +45545,58 @@ function classifyCopilotIntent(prompt, mode = "chat") {
   if (legacyAction && isDirectLocalCopilotAction(legacyAction)) {
     return { tier: "L0", action: legacyAction };
   }
+  if (wantsComplianceSemantic(text)) {
+    return {
+      tier: "L2",
+      toolId: "compliance.documentGaps",
+      toolContext: extractComplianceToolContext(text)
+    };
+  }
   if (wantsEmployeeStats(text) || wantsRunningContracts(text)) {
     return { tier: "L1", toolId: "tenant.employeeStats" };
-  }
-  if (wantsComplianceGaps(text)) {
-    return { tier: "L2", toolId: "compliance.documentGaps" };
   }
   return { tier: "L3" };
 }
 function isToolIntent(intent) {
   return intent.tier === "L1" || intent.tier === "L2";
+}
+
+// src/lib/copilotLocalDashboardFallback.ts
+init_define_import_meta_env();
+async function buildLocalDashboardFallbackReply(input) {
+  const { promptText, contextSummary, isArabic, fetchEmployeeStats, fetchComplianceGaps } = input;
+  const blocks = [];
+  if (isArabic) {
+    blocks.push(
+      "**\u0645\u0644\u062E\u0635 \u062A\u0634\u063A\u064A\u0644\u064A \u0645\u0646 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0645\u0646\u0638\u0648\u0645\u0629**\n_\u062A\u0645 \u062A\u0648\u0644\u064A\u062F \u0627\u0644\u0625\u062C\u0627\u0628\u0629 \u0645\u0646 \u0623\u062F\u0648\u0627\u062A \u0627\u0644\u0646\u0638\u0627\u0645 \u0627\u0644\u0645\u062D\u0644\u064A\u0629 \u062F\u0648\u0646 \u0627\u0644\u0627\u0639\u062A\u0645\u0627\u062F \u0639\u0644\u0649 Gemini._"
+    );
+  } else {
+    blocks.push(
+      "**Operational summary from tenant data**\n_Generated via local system tools without Gemini._"
+    );
+  }
+  if (wantsComplianceSemantic(promptText)) {
+    const compliance = await fetchComplianceGaps(extractComplianceToolContext(promptText));
+    if (compliance?.reply) return compliance.reply;
+  }
+  const stats = await fetchEmployeeStats();
+  if (stats?.reply) blocks.push(stats.reply);
+  const complianceAll = await fetchComplianceGaps({});
+  if (complianceAll?.reply) {
+    const short = complianceAll.reply.split("\n").slice(0, 14).join("\n");
+    blocks.push(short);
+  }
+  const faqStats = parseEmployeeStatsFromContextSummary(String(contextSummary || ""));
+  const faq = tryLocalFaqAnswer(promptText, faqStats, isArabic);
+  if (faq) blocks.push(faq);
+  const ctx = String(contextSummary || "").trim();
+  if (ctx && blocks.length < 3) {
+    blocks.push(ctx.slice(0, 1400));
+  }
+  if (blocks.length <= 1) {
+    return isArabic ? "\u0627\u0644\u0645\u0633\u0627\u0639\u062F \u0627\u0644\u0630\u0643\u064A \u0627\u0644\u062E\u0627\u0631\u062C\u064A \u063A\u064A\u0631 \u0645\u062A\u0627\u062D \u062D\u0627\u0644\u064A\u0627\u064B. \u062C\u0631\u0651\u0628 \u0623\u0648\u0627\u0645\u0631 \u0645\u062B\u0644: \xAB\u0643\u0645 \u0645\u0648\u0638\u0641 \u0639\u0646\u062F\u064A\xBB\u060C \xAB\u0647\u0644 \u064A\u0648\u062C\u062F \u0646\u0648\u0627\u0642\u0635 \u0641\u064A \u0645\u0644\u0641\u0627\u062A \u0627\u0644\u0645\u0648\u0638\u0641\u064A\u0646\xBB\u060C \u0623\u0648 \xAB\u0627\u0641\u062A\u062D \u062A\u0637\u0628\u064A\u0642 \u0627\u0644\u0625\u062C\u0627\u0632\u0627\u062A\xBB." : "External AI is unavailable. Try: employee count, compliance gaps scan, or navigation commands.";
+  }
+  return blocks.join("\n\n");
 }
 
 // server/copilot/toolRunner.ts
@@ -45738,8 +45845,29 @@ function scanField(emp, fieldKeys, label, rows, counts) {
     });
   }
 }
-async function runComplianceDocumentGaps(db, companyId, limit = 25) {
-  const employees = await fetchTenantEmployeeDocs(db, companyId);
+function matchesEmployeeFilters(emp, filters) {
+  if (!filters?.employeeNameHint && !filters?.departmentHint) return true;
+  const name = pickName(emp).toLowerCase();
+  const dept = String(emp.department ?? emp.dept ?? "").toLowerCase();
+  if (filters.departmentHint) {
+    const hint = filters.departmentHint.toLowerCase();
+    if (!dept.includes(hint)) return false;
+  }
+  if (filters.employeeNameHint) {
+    const hint = filters.employeeNameHint.toLowerCase();
+    const tokens = hint.split(/\s+/).filter(Boolean);
+    const tokenMatch = tokens.length > 0 && tokens.every((t2) => name.includes(t2));
+    if (!name.includes(hint) && !tokenMatch) return false;
+  }
+  return true;
+}
+async function runComplianceDocumentGaps(db, companyId, options) {
+  const limit = options?.limit ?? 25;
+  const filters = options?.filters;
+  let employees = await fetchTenantEmployeeDocs(db, companyId);
+  if (filters?.employeeNameHint || filters?.departmentHint) {
+    employees = employees.filter((e2) => matchesEmployeeFilters(e2, filters));
+  }
   const rows = [];
   const counts = { expired: 0, warning: 0, missing: 0 };
   for (const emp of employees) {
@@ -45765,7 +45893,8 @@ async function runComplianceDocumentGaps(db, companyId, limit = 25) {
     expiredCount: counts.expired,
     expiringSoonCount: counts.warning,
     missingDateCount: counts.missing,
-    rows: rows.slice(0, limit)
+    rows: rows.slice(0, limit),
+    filterApplied: filters?.employeeNameHint || filters?.departmentHint ? filters : void 0
   };
 }
 function formatComplianceDocumentGapsReply(result, isArabic) {
@@ -45773,8 +45902,12 @@ function formatComplianceDocumentGapsReply(result, isArabic) {
     const lines2 = result.rows.map(
       (r2) => `- **${r2.name}** (${r2.employeeId})${r2.expiryDate ? ` \u2014 ${r2.expiryDate}` : ""}: ${r2.issue}`
     );
+    const filterLine = result.filterApplied?.employeeNameHint ? `
+_\u0641\u0644\u062A\u0631 \u0627\u0644\u0645\u0648\u0638\u0641: ${result.filterApplied.employeeNameHint}_` : result.filterApplied?.departmentHint ? `
+_\u0641\u0644\u062A\u0631 \u0627\u0644\u0642\u0633\u0645: ${result.filterApplied.departmentHint}_` : "";
     return [
       "**\u0641\u062D\u0635 \u0646\u0648\u0627\u0642\u0635 \u0627\u0644\u0648\u062B\u0627\u0626\u0642 \u0648\u0627\u0644\u062A\u0631\u0627\u062E\u064A\u0635**",
+      filterLine,
       `- \u062A\u0645 \u0641\u062D\u0635 **${result.scannedEmployees}** \u0645\u0648\u0638\u0641\u0627\u064B`,
       `- \u0645\u0646\u062A\u0647\u064A\u0629: **${result.expiredCount}** | \u0642\u0631\u064A\u0628\u0629 \u0645\u0646 \u0627\u0644\u0627\u0646\u062A\u0647\u0627\u0621: **${result.expiringSoonCount}** | \u0628\u064A\u0627\u0646\u0627\u062A \u0646\u0627\u0642\u0635\u0629: **${result.missingDateCount}**`,
       lines2.length ? "\n\u0623\u0647\u0645 \u0627\u0644\u062D\u0627\u0644\u0627\u062A:\n" + lines2.join("\n") : "\n\u0644\u0627 \u062A\u0648\u062C\u062F \u062D\u0627\u0644\u0627\u062A \u062D\u0631\u062C\u0629 \u0641\u064A \u0627\u0644\u0639\u064A\u0646\u0629 \u0627\u0644\u0645\u0639\u0631\u0648\u0636\u0629.",
@@ -45871,7 +46004,9 @@ async function runCopilotTool(db, toolId, companyId, options) {
       };
     }
     case "compliance.documentGaps": {
-      const data = await runComplianceDocumentGaps(db, companyId);
+      const data = await runComplianceDocumentGaps(db, companyId, {
+        filters: options?.complianceFilters
+      });
       return {
         toolId,
         data,
@@ -45986,12 +46121,29 @@ function companyNameFromContextSummary(contextSummary) {
 async function copilotToolSuccessBody(promptText, companyId, contextSummary) {
   const intent = classifyCopilotIntent(promptText, "chat");
   if (!isToolIntent(intent)) return null;
+  const toolId = intent.toolId;
   const db = getAdminFirestore();
-  if (!db) return null;
+  if (!db) {
+    console.error("[ai-chat] copilot tool failed: Firebase Admin Firestore unavailable", {
+      toolId,
+      companyId,
+      hint: "Check FIREBASE_SERVICE_ACCOUNT or FIREBASE_CLIENT_EMAIL/PRIVATE_KEY in .env"
+    });
+    return {
+      status: 503,
+      body: {
+        success: false,
+        error: "\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0625\u062F\u0627\u0631\u064A\u0629 \u063A\u064A\u0631 \u0645\u0647\u064A\u0623\u0629 \u0639\u0644\u0649 \u0627\u0644\u062E\u0627\u062F\u0645 (Firebase Admin).",
+        code: "TOOL_FIRESTORE_UNAVAILABLE",
+        toolId
+      }
+    };
+  }
   try {
-    const result = await runCopilotTool(db, intent.toolId, companyId, {
+    const result = await runCopilotTool(db, toolId, companyId, {
       isArabic: promptLooksArabic(promptText),
-      companyName: companyNameFromContextSummary(contextSummary)
+      companyName: companyNameFromContextSummary(contextSummary),
+      complianceFilters: intent.tier === "L2" ? intent.toolContext : void 0
     });
     return {
       status: 200,
@@ -46003,9 +46155,61 @@ async function copilotToolSuccessBody(promptText, companyId, contextSummary) {
       }
     };
   } catch (err) {
-    console.error("[ai-chat] copilot tool failed", err);
-    return null;
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[ai-chat] copilot tool failed", {
+      toolId,
+      companyId,
+      message,
+      stack: err instanceof Error ? err.stack : void 0
+    });
+    return {
+      status: 503,
+      body: {
+        success: false,
+        error: message || "\u0641\u0634\u0644 \u062A\u0646\u0641\u064A\u0630 \u0623\u062F\u0627\u0629 \u0627\u0644\u0645\u0633\u0627\u0639\u062F",
+        code: "TOOL_FAILED",
+        toolId
+      }
+    };
   }
+}
+async function localDashboardFallbackBody(promptText, companyId, contextSummary) {
+  const isArabic = promptLooksArabic(promptText);
+  const db = getAdminFirestore();
+  const reply = await buildLocalDashboardFallbackReply({
+    promptText,
+    contextSummary,
+    isArabic,
+    fetchEmployeeStats: async () => {
+      if (!db) return null;
+      try {
+        const r2 = await runCopilotTool(db, "tenant.employeeStats", companyId, {
+          isArabic,
+          companyName: companyNameFromContextSummary(contextSummary)
+        });
+        return { reply: r2.reply };
+      } catch {
+        return null;
+      }
+    },
+    fetchComplianceGaps: async (filters) => {
+      if (!db) return null;
+      try {
+        const r2 = await runCopilotTool(db, "compliance.documentGaps", companyId, {
+          isArabic,
+          complianceFilters: filters
+        });
+        return { reply: r2.reply };
+      } catch {
+        return null;
+      }
+    }
+  });
+  if (!reply) return null;
+  return {
+    status: 200,
+    body: { success: true, reply, source: "local_dashboard_fallback" }
+  };
 }
 function localFaqSuccessBody(promptText, contextSummary) {
   const stats = parseEmployeeStatsFromContextSummary(String(contextSummary || ""));
@@ -46092,6 +46296,10 @@ async function handleAiChatRequest(body, authHeader, getClient = getGeminiClient
       if (localOnly) return localOnly;
       const faqOnly = localFaqSuccessBody(promptText, contextSummary);
       if (faqOnly) return faqOnly;
+      if (mode === "chat") {
+        const dashboard = await localDashboardFallbackBody(promptText, access.companyId, contextSummary);
+        if (dashboard) return dashboard;
+      }
       return {
         status: 503,
         body: {
@@ -46266,12 +46474,18 @@ companyId=${access.companyId}${screenBlock}`
     if (localAfterModelFail) return localAfterModelFail;
     const faqAfterModelFail = localFaqSuccessBody(promptText, contextSummary);
     if (faqAfterModelFail) return faqAfterModelFail;
+    const dashboardAfterFail = await localDashboardFallbackBody(
+      promptText,
+      access.companyId,
+      contextSummary
+    );
+    if (dashboardAfterFail) return dashboardAfterFail;
     return {
-      status: 503,
+      status: 200,
       body: {
-        success: false,
-        error: "\u062A\u0639\u0630\u0631 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0645\u062D\u0631\u0643 \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A. \u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u0644\u0631\u0635\u064A\u062F \u0648\u0623\u0633\u0645\u0627\u0621 \u0627\u0644\u0646\u0645\u0627\u0630\u062C.",
-        code: "AI_UNAVAILABLE"
+        success: true,
+        reply: promptLooksArabic(promptText) ? "\u062A\u0639\u0630\u0631 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0645\u062D\u0631\u0643 \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A \u0627\u0644\u062E\u0627\u0631\u062C\u064A. \u062C\u0631\u0651\u0628: \xAB\u0643\u0645 \u0645\u0648\u0638\u0641 \u0639\u0646\u062F\u064A\xBB\u060C \xAB\u0647\u0644 \u064A\u0648\u062C\u062F \u0646\u0648\u0627\u0642\u0635 \u0641\u064A \u0645\u0644\u0641\u0627\u062A \u0627\u0644\u0645\u0648\u0638\u0641\u064A\u0646\xBB\u060C \u0623\u0648 \u0623\u0648\u0627\u0645\u0631 \u0641\u062A\u062D \u0627\u0644\u0634\u0627\u0634\u0627\u062A." : "External AI is unavailable. Try employee stats, compliance gap scan, or navigation commands.",
+        source: "local_dashboard_fallback"
       }
     };
   } catch (error) {
@@ -46283,9 +46497,20 @@ companyId=${access.companyId}${screenBlock}`
     if (localCatch) return localCatch;
     const faqCatch = localFaqSuccessBody(promptText, body?.contextSummary);
     if (faqCatch) return faqCatch;
+    if (mode === "chat") {
+      const companyId = String(body?.companyId || "").trim();
+      if (companyId) {
+        const dash = await localDashboardFallbackBody(promptText, companyId, body?.contextSummary);
+        if (dash) return dash;
+      }
+    }
     return {
-      status: 500,
-      body: { success: false, error: message, code: "AI_UNAVAILABLE" }
+      status: 200,
+      body: {
+        success: true,
+        reply: promptLooksArabic(promptText) ? "\u062D\u062F\u062B \u062E\u0637\u0623 \u062F\u0627\u062E\u0644\u064A \u0645\u0624\u0642\u062A. \u0627\u0633\u062A\u062E\u062F\u0645 \u0623\u0648\u0627\u0645\u0631 \u0627\u0644\u0625\u062D\u0635\u0627\u0621 \u0648\u0627\u0644\u0627\u0645\u062A\u062B\u0627\u0644 \u0627\u0644\u0645\u062D\u0644\u064A\u0629 \u0623\u0648 \u0623\u0639\u062F \u0627\u0644\u0645\u062D\u0627\u0648\u0644\u0629 \u0644\u0627\u062D\u0642\u0627\u064B." : "A temporary error occurred. Use local stats/compliance commands or retry later.",
+        source: "local_dashboard_fallback"
+      }
     };
   }
 }

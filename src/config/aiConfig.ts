@@ -1,4 +1,8 @@
-export const DEFAULT_CHAT_MODEL = 'gemini-2.0-flash';
+/** Default Gemini model when AI_* env vars are unset (chat + OCR). */
+export const DEFAULT_CHAT_MODEL = 'gemini-2.5-flash';
+
+/** Vision / document OCR default (same as chat unless AI_OCR_MODEL is set). */
+export const DEFAULT_OCR_MODEL = 'gemini-2.5-flash';
 
 function readConfigEnv(key: string): string | undefined {
   if (typeof process !== 'undefined' && process.env) {
@@ -36,10 +40,10 @@ export const AI_MODELS = {
     return getPrimaryChatModel();
   },
   get ocr() {
-    return readConfigEnv('AI_OCR_MODEL') || DEFAULT_CHAT_MODEL;
+    return readConfigEnv('AI_OCR_MODEL') || DEFAULT_OCR_MODEL;
   },
   get fallback() {
-    return readConfigEnv('AI_FALLBACK_MODEL') || DEFAULT_CHAT_MODEL;
+    return readConfigEnv('AI_FALLBACK_MODEL') || DEFAULT_OCR_MODEL;
   },
 } as const;
 
@@ -70,7 +74,14 @@ export function getOcrModelCandidates(): string[] {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
-  return uniqueModels([AI_MODELS.ocr, ...extra, DEFAULT_CHAT_MODEL, AI_MODELS.fallback]);
+  return uniqueModels([
+    AI_MODELS.ocr,
+    ...extra,
+    DEFAULT_OCR_MODEL,
+    'gemini-2.5-pro',
+    'gemini-1.5-flash',
+    AI_MODELS.fallback,
+  ]);
 }
 
 /** Lightweight connectivity probe models. */

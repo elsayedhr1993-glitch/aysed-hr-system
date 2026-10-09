@@ -1,7 +1,9 @@
 /** Server-only Gemini model selection (process.env; no VITE_* client mirrors). */
 
 /** Stable fast models; override with AI_CHAT_MODEL in .env */
-export const DEFAULT_CHAT_MODEL = 'gemini-2.0-flash';
+export const DEFAULT_CHAT_MODEL = 'gemini-2.5-flash';
+
+export const DEFAULT_OCR_MODEL = 'gemini-2.5-flash';
 
 function envModel(key: string): string | undefined {
   const raw = process.env[key];
@@ -35,7 +37,7 @@ export function getChatModelCandidates(): string[] {
     primary,
     ...extra,
     DEFAULT_CHAT_MODEL,
-    'gemini-2.0-flash-lite',
+    'gemini-2.5-pro',
     'gemini-1.5-flash',
     'gemini-1.5-flash-8b',
     'gemini-3.8-flash',

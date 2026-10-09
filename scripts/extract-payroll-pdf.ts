@@ -8,7 +8,7 @@ if (!path) throw new Error('Usage: npx tsx scripts/extract-payroll-pdf.ts <pdfPa
 const client = getGeminiClient();
 if (!client) throw new Error('No GEMINI_API_KEY');
 
-const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-3-flash-preview'];
+const models = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3-flash-preview'];
 
 const b64 = readFileSync(path).toString('base64');
 const prompt = `This is a Kuwait clinic payroll sheet (كشف رواتب) for Elite Clinic, August 2026.
