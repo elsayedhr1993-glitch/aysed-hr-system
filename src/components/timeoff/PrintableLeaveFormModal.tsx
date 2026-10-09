@@ -1,5 +1,5 @@
 import React from 'react';
-import { Printer, X, User, FileText } from 'lucide-react';
+import { Printer, X, User, FileText, Calendar, ShieldCheck } from 'lucide-react';
 import { LeaveRequest } from '../OdooTimeOffApp';
 import { safePrintAction } from '../../guards/SystemIntegrityGuard';
 import { resolveLeaveBalancePoolHint, resolveLeavePaidUnpaidSplit } from '../../utils/leaveEngine';

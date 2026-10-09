@@ -350,13 +350,29 @@ export async function handleAiChatRequest(
     }
 
     console.error('[ai-chat] all models failed', lastErr);
+
+    if (regexAction) {
+      const safe = sanitizeCopilotAction(regexAction);
+      if (safe) {
+        return {
+          status: 200,
+          body: {
+            success: true,
+            reply: safe.title || 'تم التعرف على طلبك. يمكنك تنفيذ الإجراء أدناه.',
+            source: 'regex_action',
+            action: safe,
+          },
+        };
+      }
+    }
+
     return {
       status: 503,
       body: {
         success: false,
         error: 'تعذر الاتصال بمحرك الذكاء الاصطناعي. تحقق من الرصيد وأسماء النماذج.',
         code: 'AI_UNAVAILABLE',
-        action: regexAction,
+        action: regexAction ? sanitizeCopilotAction(regexAction) : null,
       },
     };
   } catch (error: unknown) {
