@@ -203,6 +203,29 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
       }
       console.log('🤖 [Aysed Copilot AI Response]:', data);
 
+      const fallbackAction =
+        data.action && typeof data.action === 'object' ? (data.action as CopilotAction) : null;
+
+      if (fallbackAction && (!response.ok || !data.success)) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: (Date.now() + 1).toString(),
+            sender: 'bot',
+            text: isArabic
+              ? `تم التعرف على طلبك بدون اتصال بالذكاء الاصطناعي.\n${fallbackAction.title || ''}`
+              : `Your request was recognized without the AI engine.\n${fallbackAction.title || ''}`,
+            timestamp: new Date().toLocaleTimeString(isArabic ? 'ar-KW' : 'en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+            action: fallbackAction,
+            source: 'regex_action',
+          },
+        ]);
+        return;
+      }
+
       if (!response.ok || !data.success) {
         const errText =
           String(data.error || '') ||

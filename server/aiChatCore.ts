@@ -178,16 +178,28 @@ export async function handleAiChatRequest(
     }
 
     const regexAction = mode === 'chat' ? buildCopilotActionFromPrompt(promptText) : null;
+    const safeRegexAction = regexAction ? sanitizeCopilotAction(regexAction) : null;
+
     const ai = getClient();
 
     if (!ai) {
+      if (safeRegexAction) {
+        return {
+          status: 200,
+          body: {
+            success: true,
+            reply: safeRegexAction.title || 'تم التعرف على طلبك. يمكنك تنفيذ الإجراء أدناه.',
+            source: 'regex_action',
+            action: safeRegexAction,
+          },
+        };
+      }
       return {
         status: 503,
         body: {
           success: false,
           error: 'محرك الذكاء الاصطناعي غير مهيأ على الخادم (GEMINI_API_KEY).',
           code: 'AI_NOT_CONFIGURED',
-          ...(mode === 'chat' ? { action: regexAction } : {}),
         },
       };
     }
@@ -351,19 +363,16 @@ export async function handleAiChatRequest(
 
     console.error('[ai-chat] all models failed', lastErr);
 
-    if (regexAction) {
-      const safe = sanitizeCopilotAction(regexAction);
-      if (safe) {
-        return {
-          status: 200,
-          body: {
-            success: true,
-            reply: safe.title || 'تم التعرف على طلبك. يمكنك تنفيذ الإجراء أدناه.',
-            source: 'regex_action',
-            action: safe,
-          },
-        };
-      }
+    if (safeRegexAction) {
+      return {
+        status: 200,
+        body: {
+          success: true,
+          reply: safeRegexAction.title || 'تم التعرف على طلبك. يمكنك تنفيذ الإجراء أدناه.',
+          source: 'regex_action',
+          action: safeRegexAction,
+        },
+      };
     }
 
     return {
@@ -372,7 +381,6 @@ export async function handleAiChatRequest(
         success: false,
         error: 'تعذر الاتصال بمحرك الذكاء الاصطناعي. تحقق من الرصيد وأسماء النماذج.',
         code: 'AI_UNAVAILABLE',
-        action: regexAction ? sanitizeCopilotAction(regexAction) : null,
       },
     };
   } catch (error: unknown) {
