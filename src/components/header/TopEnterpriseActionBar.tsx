@@ -84,6 +84,139 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
   const { lang, setLang } = useLang();
   const [showCompanyMenu, setShowCompanyMenu] = useState(false);
   const [showQuickActionsMenu, setShowQuickActionsMenu] = useState(false);
+
+  const closeQuickMenu = () => setShowQuickActionsMenu(false);
+
+  const runQuickMenuAction = (fn: () => void) => {
+    closeQuickMenu();
+    fn();
+  };
+
+  type QuickMenuItem = {
+    key: string;
+    icon: React.ComponentType<{ size?: number; className?: string }>;
+    iconClass: string;
+    labelAr: string;
+    labelEn: string;
+    onClick: () => void;
+  };
+
+  const quickMenuItemClass =
+    'w-full flex items-center gap-2.5 px-2.5 py-2 text-xs sm:text-sm text-slate-800 hover:bg-slate-100 rounded-md transition-colors cursor-pointer text-start';
+
+  const odooColumnHeaderClass =
+    'px-3 py-2 text-[11px] font-semibold text-slate-500 border-b border-slate-200 bg-[#f8f9fa] sticky top-0 z-[1]';
+
+  /** العمود الأيمن (RTL): العمليات والسجلات */
+  const operationsColumnItems = useMemo((): QuickMenuItem[] => {
+    const facilityAction = () => {
+      if (onOpenFacilityWizard) onOpenFacilityWizard();
+      else if (onOpenCompanyLicenseArchive) onOpenCompanyLicenseArchive();
+    };
+    return [
+      {
+        key: 'new_employee',
+        icon: Users,
+        iconClass: 'text-[#714B67]',
+        labelAr: 'موظف جديد',
+        labelEn: 'New employee',
+        onClick: () => onQuickAction('new_employee'),
+      },
+      {
+        key: 'new_contract',
+        icon: Briefcase,
+        iconClass: 'text-teal-700',
+        labelAr: 'عقد عمل',
+        labelEn: 'Employment contract',
+        onClick: () => onQuickAction('new_contract'),
+      },
+      {
+        key: 'new_leave',
+        icon: Calendar,
+        iconClass: 'text-amber-600',
+        labelAr: 'طلب إجازة',
+        labelEn: 'Leave request',
+        onClick: () => onQuickAction('new_leave'),
+      },
+      {
+        key: 'facility_license',
+        icon: Award,
+        iconClass: 'text-[#714B67]',
+        labelAr: 'ترخيص منشأة',
+        labelEn: 'Facility license',
+        onClick: facilityAction,
+      },
+    ];
+  }, [onQuickAction, onOpenFacilityWizard, onOpenCompanyLicenseArchive]);
+
+  /** العمود الأيسر (RTL): الحاسبات والأدوات */
+  const toolsColumnItems = useMemo((): QuickMenuItem[] => {
+    const items: QuickMenuItem[] = [
+      {
+        key: 'calc_eos',
+        icon: Scale,
+        iconClass: 'text-[#714B67]',
+        labelAr: 'مكافأة نهاية الخدمة',
+        labelEn: 'End of service (EOS)',
+        onClick: () => onOpenCalculator('eos'),
+      },
+      {
+        key: 'calc_leave',
+        icon: Calculator,
+        iconClass: 'text-amber-600',
+        labelAr: 'تسييل الإجازات',
+        labelEn: 'Leave encashment',
+        onClick: () => onOpenCalculator('leave'),
+      },
+      {
+        key: 'salary_certificate',
+        icon: FileText,
+        iconClass: 'text-blue-600',
+        labelAr: 'استخراج شهادة راتب',
+        labelEn: 'Salary certificate',
+        onClick: () => onQuickAction('new_letter'),
+      },
+      {
+        key: 'scanner',
+        icon: Scan,
+        iconClass: 'text-teal-600',
+        labelAr: 'ماسح OCR',
+        labelEn: 'OCR scanner',
+        onClick: () => onQuickAction('scanner'),
+      },
+    ];
+    if (onOpenCopilot) {
+      items.push({
+        key: 'copilot',
+        icon: Sparkles,
+        iconClass: 'text-violet-600',
+        labelAr: 'مساعد Copilot',
+        labelEn: 'Copilot assistant',
+        onClick: () => onOpenCopilot(),
+      });
+    }
+    return items;
+  }, [onOpenCalculator, onQuickAction, onOpenCopilot]);
+
+  const renderOdooMenuColumn = (titleAr: string, titleEn: string, items: QuickMenuItem[]) => (
+    <div className="flex flex-col min-w-0 max-h-[min(17.5rem,55vh)]">
+      <div className={odooColumnHeaderClass}>{lang === 'ar' ? titleAr : titleEn}</div>
+      <div className="p-1.5 space-y-0.5 overflow-y-auto flex-1">
+        {items.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            role="menuitem"
+            onClick={() => runQuickMenuAction(item.onClick)}
+            className={quickMenuItemClass}
+          >
+            <item.icon size={17} className={`shrink-0 ${item.iconClass}`} />
+            <span className="truncate font-medium">{lang === 'ar' ? item.labelAr : item.labelEn}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
   const [showAlertsMenu, setShowAlertsMenu] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [facilityData, setFacilityData] = useState<FacilityLicenseData>(defaultFacilityData);
@@ -441,209 +574,18 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
             title="إجراءات سريعة وحاسبات HR"
           >
             <Plus size={14} />
-            <span className="hidden md:inline">{lang === 'ar' ? 'إجراء +' : 'Quick +'}</span>
+            <span className="hidden md:inline">{lang === 'ar' ? '+ إجراء' : '+ Action'}</span>
           </button>
 
           {showQuickActionsMenu && (
-            <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden py-1.5 z-50 text-slate-800 animate-in fade-in slide-in-from-top-2 duration-150">
-              <div className="px-3.5 py-2 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-                <span className="font-black text-xs text-slate-800">إجراءات وإدخالات فورية</span>
-                <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
-                  بنقرة واحدة
-                </span>
-              </div>
-
-              <div className="p-1 space-y-0.5">
-                <button
-                  onClick={() => {
-                    setShowQuickActionsMenu(false);
-                    onQuickAction('new_employee');
-                  }}
-                  className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-purple-50 hover:text-[#714B67] rounded-xl transition flex items-center gap-2.5 cursor-pointer"
-                >
-                  <Users size={16} className="text-[#714B67]" />
-                  <div>
-                    <span className="block font-bold">تسجيل وتعيين موظف جديد</span>
-                    <span className="block text-[10px] text-slate-400 font-normal">إضافة بطاقة موظف جديدة بالمنشأة</span>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setShowQuickActionsMenu(false);
-                    onQuickAction('new_contract');
-                  }}
-                  className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-purple-50 hover:text-[#714B67] rounded-xl transition flex items-center gap-2.5 cursor-pointer"
-                >
-                  <FileText size={16} className="text-teal-600" />
-                  <div>
-                    <span className="block font-bold">إصدار أو تجديد عقد عمل</span>
-                    <span className="block text-[10px] text-slate-400 font-normal">عقود القوى العاملة والقطاع الأهلي</span>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setShowQuickActionsMenu(false);
-                    onQuickAction('new_leave');
-                  }}
-                  className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-purple-50 hover:text-[#714B67] rounded-xl transition flex items-center gap-2.5 cursor-pointer"
-                >
-                  <Calendar size={16} className="text-amber-600" />
-                  <div>
-                    <span className="block font-bold">تقديم طلب إجازة سريع</span>
-                    <span className="block text-[10px] text-slate-400 font-normal">تسجيل إجازة سنوية أو مرضية فورية</span>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setShowQuickActionsMenu(false);
-                    onQuickAction('new_letter');
-                  }}
-                  className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-purple-50 hover:text-[#714B67] rounded-xl transition flex items-center gap-2.5 cursor-pointer"
-                >
-                  <FileText size={16} className="text-blue-600" />
-                  <div>
-                    <span className="block font-bold">استخراج شهادة راتب / خطاب</span>
-                    <span className="block text-[10px] text-slate-400 font-normal">توليد كتب لمن يهمه الأمر والسفارات</span>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setShowQuickActionsMenu(false);
-                    onQuickAction('attendance_movement');
-                  }}
-                  className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-purple-50 hover:text-[#714B67] rounded-xl transition flex items-center gap-2.5 cursor-pointer"
-                >
-                  <Clock size={16} className="text-indigo-600" />
-                  <div>
-                    <span className="block font-bold">تسجيل استئذان / حركة دوام</span>
-                    <span className="block text-[10px] text-slate-400 font-normal">عذر طبي أو خروج مؤقت</span>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setShowQuickActionsMenu(false);
-                    if (onOpenFacilityWizard) onOpenFacilityWizard();
-                  }}
-                  className="w-full text-right px-3 py-2 text-xs font-bold text-[#714B67] hover:bg-purple-50 rounded-xl transition flex items-center gap-2.5 cursor-pointer bg-purple-50/50 border border-purple-100"
-                >
-                  <Award size={16} className="text-[#714B67]" />
-                  <div>
-                    <span className="block font-bold">تثبيت وتهيئة تراخيص المنشأة</span>
-                    <span className="block text-[10px] text-purple-600 font-normal">تثبيت ترخيص MOH، PACI، PAM، الإطفاء والبلدية</span>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setShowQuickActionsMenu(false);
-                    if (onOpenCompanyLicenseArchive) onOpenCompanyLicenseArchive();
-                  }}
-                  className="w-full text-right px-3 py-2 text-xs font-bold text-emerald-900 hover:bg-emerald-50 rounded-xl transition flex items-center gap-2.5 cursor-pointer border border-emerald-100"
-                >
-                  <FileText size={16} className="text-emerald-700" />
-                  <div>
-                    <span className="block font-bold">+ إضافة ترخيص جديد (أرشيف)</span>
-                    <span className="block text-[10px] text-emerald-700/80 font-normal">ترخيص حر أو مستند منشأة — تطبيق المستندات</span>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setShowQuickActionsMenu(false);
-                    onQuickAction('scanner');
-                  }}
-                  className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-purple-50 hover:text-[#714B67] rounded-xl transition flex items-center gap-2.5 cursor-pointer"
-                >
-                  <Scan size={16} className="text-teal-600" />
-                  <div>
-                    <span className="block font-bold">مسح مستند ذكي (OCR)</span>
-                    <span className="block text-[10px] text-slate-400 font-normal">استخراج البيانات التلقائي من الكاميرا</span>
-                  </div>
-                </button>
-
-                <div className="h-px bg-slate-100 my-1 mx-1" />
-                <p className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">الحاسبات السريعة</p>
-                {[
-                  { tab: 'eos' as const, icon: Scale, title: 'مكافأة نهاية الخدمة (EOS)', sub: 'المادة 51 و 53' },
-                  { tab: 'leave' as const, icon: Calendar, title: 'تسييل رصيد الإجازات', sub: 'المادة 70' },
-                  { tab: 'wage' as const, icon: Clock, title: 'الإضافي والعطلات', sub: '125% / 150%' },
-                ].map((item) => (
-                  <button
-                    key={item.tab}
-                    type="button"
-                    onClick={() => {
-                      setShowQuickActionsMenu(false);
-                      onOpenCalculator(item.tab);
-                    }}
-                    className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-purple-50 rounded-xl transition flex items-center gap-2.5 cursor-pointer"
-                  >
-                    <item.icon size={16} className="text-[#714B67]" />
-                    <div>
-                      <span className="block font-bold">{item.title}</span>
-                      <span className="block text-[10px] text-slate-400 font-normal">{item.sub}</span>
-                    </div>
-                  </button>
-                ))}
-
-                <div className="h-px bg-slate-100 my-1 mx-1" />
-                <p className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">أدوات ذكية</p>
-                {onOpenCopilot && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowQuickActionsMenu(false);
-                      onOpenCopilot();
-                    }}
-                    className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-purple-50 rounded-xl transition flex items-center gap-2.5 cursor-pointer"
-                  >
-                    <Sparkles size={16} className="text-amber-500" />
-                    <span>مساعد الذكاء الاصطناعي (Copilot)</span>
-                  </button>
-                )}
-                {onOpenSentinel && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowQuickActionsMenu(false);
-                      onOpenSentinel();
-                    }}
-                    className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-purple-50 rounded-xl transition flex items-center gap-2.5 cursor-pointer"
-                  >
-                    <Shield size={16} className="text-amber-600" />
-                    <span>الحارس الذكي للامتثال</span>
-                  </button>
-                )}
-                {onOpenLegalBot && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowQuickActionsMenu(false);
-                      onOpenLegalBot();
-                    }}
-                    className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-purple-50 rounded-xl transition flex items-center gap-2.5 cursor-pointer"
-                  >
-                    <Scale size={16} className="text-blue-600" />
-                    <span>المستشار القانوني / OCR</span>
-                  </button>
-                )}
-                {onOpenAnalystBot && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowQuickActionsMenu(false);
-                      onOpenAnalystBot();
-                    }}
-                    className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-purple-50 rounded-xl transition flex items-center gap-2.5 cursor-pointer"
-                  >
-                    <BarChart3 size={16} className="text-emerald-600" />
-                    <span>محلل الرواتب والبيانات</span>
-                  </button>
-                )}
+            <div
+              className="absolute top-full end-0 mt-1 w-[min(460px,94vw)] sm:w-[480px] bg-white rounded-md shadow-[0_6px_28px_rgba(15,23,42,0.14)] border border-slate-200 overflow-hidden z-50 text-slate-800 animate-in fade-in slide-in-from-top-1 duration-150"
+              role="menu"
+              dir={lang === 'ar' ? 'rtl' : 'ltr'}
+            >
+              <div className="grid grid-cols-2 divide-x divide-slate-200">
+                {renderOdooMenuColumn('العمليات والسجلات', 'Operations & records', operationsColumnItems)}
+                {renderOdooMenuColumn('الحاسبات والأدوات', 'Calculators & tools', toolsColumnItems)}
               </div>
             </div>
           )}
