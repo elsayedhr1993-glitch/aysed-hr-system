@@ -58,10 +58,15 @@ export interface CopilotEmployeeData {
   bankName?: string;
 }
 
+/** In-app tab for NAVIGATE (e.g. leaves → finance = المركز المالي). */
+export type CopilotAppTab = 'finance' | 'requests' | 'allocations' | 'timeline' | 'operational_absence';
+
 export interface CopilotAction {
   type: CopilotActionType;
   title: string;
   appId?: CopilotAppId;
+  /** Sub-view inside app after navigation (Time Off: finance = payroll finance center). */
+  appTab?: CopilotAppTab;
   modal?: CopilotModalId;
   functionName?: CopilotFunctionName;
   employeeData?: CopilotEmployeeData;

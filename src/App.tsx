@@ -510,6 +510,10 @@ function MainAppLayout() {
   const [showSpotlight, setShowSpotlight] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
   const [calculatorTab, setCalculatorTab] = useState<'eos' | 'leave' | 'wage'>('eos');
+  const [leavesMainTabIntent, setLeavesMainTabIntent] = useState<{
+    tab: 'finance' | 'requests' | 'allocations' | 'timeline' | 'operational_absence';
+    key: number;
+  } | null>(null);
   const [payrollSettlementDeepLink, setPayrollSettlementDeepLink] = useState<{
     employeeId?: string;
     key: number;
@@ -600,7 +604,27 @@ function MainAppLayout() {
   const handleCopilotQuickAction = useCallback(
     (actionType: string, payload?: unknown) => {
       if (actionType === 'navigate' && payload) {
-        setActiveApp(payload as AppId);
+        if (payload && typeof payload === 'object' && 'appId' in (payload as object)) {
+          const nav = payload as { appId: string; tab?: string };
+          setActiveApp(nav.appId as AppId);
+          if (nav.appId === 'leaves' && nav.tab) {
+            const allowed = new Set([
+              'finance',
+              'requests',
+              'allocations',
+              'timeline',
+              'operational_absence',
+            ]);
+            if (allowed.has(nav.tab)) {
+              setLeavesMainTabIntent({
+                tab: nav.tab as NonNullable<typeof leavesMainTabIntent>['tab'],
+                key: Date.now(),
+              });
+            }
+          }
+        } else {
+          setActiveApp(payload as AppId);
+        }
         return;
       }
       if (actionType === 'new_employee') {
@@ -979,7 +1003,10 @@ function MainAppLayout() {
         {/* الحالة 5: الإجازات والغياب (Leaves) */}
         {activeApp === 'leaves' && (
           <OdooAppCanvas>
-              <OdooTimeOffApp />
+              <OdooTimeOffApp
+                initialMainTab={leavesMainTabIntent?.tab}
+                mainTabNavigationKey={leavesMainTabIntent?.key}
+              />
           </OdooAppCanvas>
         )}
 

@@ -1,10 +1,12 @@
 import { parseEmployeeCreationPrompt } from './aiEmployeeActionParser';
+import { buildNavigateActionFromPrompt, normalizeCopilotAppId } from './aiCopilotNavigateParser';
 import {
   COPILOT_APP_IDS,
   COPILOT_FUNCTION_NAMES,
   COPILOT_MODAL_IDS,
   CopilotAction,
   CopilotActionType,
+  CopilotAppTab,
 } from './aiCopilotTypes';
 
 const ACTION_TYPES: CopilotActionType[] = [
@@ -15,6 +17,10 @@ const ACTION_TYPES: CopilotActionType[] = [
   'CREATE_LEAVE_DRAFT',
   'OPEN_CALCULATOR',
 ];
+
+export function buildCopilotActionFromPrompt(prompt: string): CopilotAction | null {
+  return buildNavigateActionFromPrompt(prompt) ?? buildCreateEmployeeActionFromPrompt(prompt);
+}
 
 export function buildCreateEmployeeActionFromPrompt(prompt: string): CopilotAction | null {
   const parsed = parseEmployeeCreationPrompt(prompt);
@@ -48,9 +54,21 @@ export function sanitizeCopilotAction(raw: unknown): CopilotAction | null {
   const title = String(o.title || '').trim() || 'إجراء من المساعد';
 
   if (type === 'NAVIGATE') {
-    const appId = String(o.appId || '').trim();
-    if (!COPILOT_APP_IDS.includes(appId as any)) return null;
-    return { type, title, appId: appId as CopilotAction['appId'] };
+    const rawAppId = String(o.appId || o.module || o.open_module || '').trim();
+    const appId = normalizeCopilotAppId(rawAppId);
+    if (!appId || !COPILOT_APP_IDS.includes(appId)) return null;
+    const tabRaw = String(o.appTab || o.tab || '').trim().toLowerCase();
+    const allowedTabs: CopilotAppTab[] = [
+      'finance',
+      'requests',
+      'allocations',
+      'timeline',
+      'operational_absence',
+    ];
+    const appTab = allowedTabs.includes(tabRaw as CopilotAppTab)
+      ? (tabRaw as CopilotAppTab)
+      : undefined;
+    return { type, title, appId, ...(appTab ? { appTab } : {}) };
   }
 
   if (type === 'OPEN_MODAL') {

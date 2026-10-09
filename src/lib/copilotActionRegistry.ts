@@ -35,7 +35,11 @@ export async function executeCopilotAction(
   switch (action.type) {
     case 'NAVIGATE': {
       if (!action.appId) return false;
-      if (onQuickAction) onQuickAction('navigate', action.appId);
+      const payload =
+        action.appTab && action.appId === 'leaves'
+          ? { appId: action.appId, tab: action.appTab }
+          : action.appId;
+      if (onQuickAction) onQuickAction('navigate', payload);
       else setActiveApp?.(action.appId);
       finish();
       return true;

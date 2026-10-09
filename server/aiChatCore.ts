@@ -2,7 +2,7 @@ import { GoogleGenAI, Type } from '@google/genai';
 import { getChatModelCandidates } from './aiModelEnv';
 import { isSuperAdminPrincipal } from '../src/config/superAdminAccess';
 import {
-  buildCreateEmployeeActionFromPrompt,
+  buildCopilotActionFromPrompt,
   parseModelCopilotPayload,
   sanitizeCopilotAction,
 } from '../src/lib/aiCopilotActions';
@@ -20,12 +20,17 @@ const COPILOT_SYSTEM = `أنت مساعد Aysed S HR 2026 للموارد الب�
 {"reply":"نص للمستخدم","action":{...} أو null}
 
 action.type المسموح:
-- NAVIGATE + appId من: ${COPILOT_APP_IDS.join(', ')}
+- NAVIGATE + appId من: ${COPILOT_APP_IDS.join(', ')} (معرّف الإجازات هو leaves وليس timeoff)
+  + appTab اختياري داخل التطبيق: finance | requests | allocations | timeline | operational_absence
 - OPEN_MODAL + modal من: ${COPILOT_MODAL_IDS.join(', ')}
 - TRIGGER_FUNCTION + functionName من: ${COPILOT_FUNCTION_NAMES.join(', ')}
 - OPEN_CALCULATOR (حاسبة HR سريعة)
 - CREATE_EMPLOYEE + employeeData (nameAr, civilId, jobTitle, department, basicSalary, ...)
 - CREATE_LEAVE_DRAFT + leaveDraft (employeeId أو civilId أو employeeName، startDate، endDate، leaveType، reason، submitForApproval اختياري)
+
+أمثلة إجراءات (يجب إرجاع action وليس نصاً فقط):
+- «افتح تطبيق الإجازات والمركز المالي» → {"reply":"سأفتح المركز المالي في تطبيق الإجازات.","action":{"type":"NAVIGATE","appId":"leaves","appTab":"finance","title":"فتح المركز المالي"}}
+- «افتح حاسبة الموارد البشرية» → {"reply":"…","action":{"type":"OPEN_CALCULATOR","title":"فتح الحاسبة السريعة"}}
 
 إذا كان المستخدم داخل تطبيق الإجازات (activeApp=leaves)، فضّل إجراءات وإجابات متعلقة بالإجازات والأرصدة.
 إذا كان السؤال استشارة فقط، action = null.
@@ -172,8 +177,7 @@ export async function handleAiChatRequest(
       };
     }
 
-    const regexAction =
-      mode === 'chat' ? buildCreateEmployeeActionFromPrompt(promptText) : null;
+    const regexAction = mode === 'chat' ? buildCopilotActionFromPrompt(promptText) : null;
     const ai = getClient();
 
     if (!ai) {
@@ -313,6 +317,7 @@ export async function handleAiChatRequest(
                     type: { type: Type.STRING },
                     title: { type: Type.STRING },
                     appId: { type: Type.STRING },
+                    appTab: { type: Type.STRING },
                     modal: { type: Type.STRING },
                     functionName: { type: Type.STRING },
                     employeeData: { type: Type.OBJECT },

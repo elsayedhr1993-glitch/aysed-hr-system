@@ -142,7 +142,18 @@ const leaveTypeLabels: Record<string, { label: string; color: string; maxDaysRul
   unpaid: { label: 'إجازة بدون راتب', color: 'bg-gray-100 text-gray-700 border-gray-300', maxDaysRule: 'بموافقة صاحب العمل' },
 };
 
-export const OdooTimeOffApp: React.FC = () => {
+type LeavesMainTab = 'requests' | 'allocations' | 'timeline' | 'operational_absence' | 'finance';
+
+export interface OdooTimeOffAppProps {
+  initialMainTab?: LeavesMainTab;
+  /** Bumps when copilot navigates to a specific tab while app is already open. */
+  mainTabNavigationKey?: number;
+}
+
+export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
+  initialMainTab,
+  mainTabNavigationKey,
+}) => {
   const { activeCompany } = useCompany();
   const { company: companyForPrint } = useCompanyForPrint();
   const { employees } = useOdooHierarchy();
@@ -216,10 +227,13 @@ export const OdooTimeOffApp: React.FC = () => {
     void seedOpeningBalances();
   }, [companyId, companyEmployees, allocations]);
 
-  type LeavesMainTab = 'requests' | 'allocations' | 'timeline' | 'operational_absence' | 'finance';
-
   // Main navigation tabs: requests, timeline, allocations, finance
-  const [activeMainTab, setActiveMainTab] = useState<LeavesMainTab>('requests');
+  const [activeMainTab, setActiveMainTab] = useState<LeavesMainTab>(initialMainTab || 'requests');
+
+  useEffect(() => {
+    if (!initialMainTab) return;
+    setActiveMainTab(initialMainTab);
+  }, [initialMainTab, mainTabNavigationKey]);
   const { rows: operationalAbsenceRows, loading: operationalAbsenceLoading } =
     useOperationalAbsenceRows(companyId);
   const [requestsViewMode, setRequestsViewMode] = useState<'list' | 'calendar'>('list');
