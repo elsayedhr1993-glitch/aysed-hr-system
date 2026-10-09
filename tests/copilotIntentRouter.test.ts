@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
-import { classifyCopilotIntent, isToolIntent } from '../src/lib/copilotIntentRouter';
+import {
+  classifyCopilotIntent,
+  extractComplianceToolContext,
+  isToolIntent,
+  wantsComplianceSemantic,
+} from '../src/lib/copilotIntentRouter';
 
 function test(name: string, fn: () => void) {
   try {
@@ -33,13 +38,25 @@ test('L1 running contracts', () => {
   if (isToolIntent(intent)) assert.equal(intent.toolId, 'tenant.employeeStats');
 });
 
-test('L2 compliance gaps', () => {
+test('L2 compliance gaps explicit list', () => {
   const intent = classifyCopilotIntent('اعرض قائمة وثائق منتهية', 'chat');
   assert.equal(intent.tier, 'L2');
   if (isToolIntent(intent)) assert.equal(intent.toolId, 'compliance.documentGaps');
 });
 
-test('L3 open question', () => {
+test('L2 semantic: employee file gaps question', () => {
+  const q = 'هل يوجد نواقص في ملفات الموظفين؟';
+  assert.ok(wantsComplianceSemantic(q));
+  const intent = classifyCopilotIntent(q, 'chat');
+  assert.equal(intent.tier, 'L2');
+});
+
+test('L2 extracts employee name hint', () => {
+  const ctx = extractComplianceToolContext('اعرض نواقص ملف كريم بخش');
+  assert.ok(ctx.employeeNameHint?.includes('كريم'));
+});
+
+test('L3 open question without compliance roots', () => {
   const intent = classifyCopilotIntent('ما رأيك في سياسة العمل عن بعد', 'chat');
   assert.equal(intent.tier, 'L3');
 });

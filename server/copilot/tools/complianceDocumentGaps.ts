@@ -12,6 +12,11 @@ export type DocumentGapRow = {
   severity: 'expired' | 'warning' | 'missing';
 };
 
+export type ComplianceGapFilters = {
+  employeeNameHint?: string;
+  departmentHint?: string;
+};
+
 export type ComplianceDocumentGapsResult = {
   companyId: string;
   scannedEmployees: number;
@@ -19,6 +24,7 @@ export type ComplianceDocumentGapsResult = {
   expiringSoonCount: number;
   missingDateCount: number;
   rows: DocumentGapRow[];
+  filterApplied?: ComplianceGapFilters;
 };
 
 function pickName(row: Record<string, unknown>): string {
@@ -83,12 +89,40 @@ function scanField(
   }
 }
 
+function matchesEmployeeFilters(
+  emp: Record<string, unknown>,
+  filters?: ComplianceGapFilters
+): boolean {
+  if (!filters?.employeeNameHint && !filters?.departmentHint) return true;
+  const name = pickName(emp).toLowerCase();
+  const dept = String(emp.department ?? emp.dept ?? '').toLowerCase();
+
+  if (filters.departmentHint) {
+    const hint = filters.departmentHint.toLowerCase();
+    if (!dept.includes(hint)) return false;
+  }
+
+  if (filters.employeeNameHint) {
+    const hint = filters.employeeNameHint.toLowerCase();
+    const tokens = hint.split(/\s+/).filter(Boolean);
+    const tokenMatch = tokens.length > 0 && tokens.every((t) => name.includes(t));
+    if (!name.includes(hint) && !tokenMatch) return false;
+  }
+
+  return true;
+}
+
 export async function runComplianceDocumentGaps(
   db: Firestore,
   companyId: string,
-  limit = 25
+  options?: { limit?: number; filters?: ComplianceGapFilters }
 ): Promise<ComplianceDocumentGapsResult> {
-  const employees = await fetchTenantEmployeeDocs(db, companyId);
+  const limit = options?.limit ?? 25;
+  const filters = options?.filters;
+  let employees = await fetchTenantEmployeeDocs(db, companyId);
+  if (filters?.employeeNameHint || filters?.departmentHint) {
+    employees = employees.filter((e) => matchesEmployeeFilters(e, filters));
+  }
   const rows: DocumentGapRow[] = [];
   const counts = { expired: 0, warning: 0, missing: 0 };
 
@@ -119,6 +153,7 @@ export async function runComplianceDocumentGaps(
     expiringSoonCount: counts.warning,
     missingDateCount: counts.missing,
     rows: rows.slice(0, limit),
+    filterApplied: filters?.employeeNameHint || filters?.departmentHint ? filters : undefined,
   };
 }
 
@@ -131,8 +166,14 @@ export function formatComplianceDocumentGapsReply(
       (r) =>
         `- **${r.name}** (${r.employeeId})${r.expiryDate ? ` — ${r.expiryDate}` : ''}: ${r.issue}`
     );
+    const filterLine = result.filterApplied?.employeeNameHint
+      ? `\n_فلتر الموظف: ${result.filterApplied.employeeNameHint}_`
+      : result.filterApplied?.departmentHint
+        ? `\n_فلتر القسم: ${result.filterApplied.departmentHint}_`
+        : '';
     return [
       '**فحص نواقص الوثائق والتراخيص**',
+      filterLine,
       `- تم فحص **${result.scannedEmployees}** موظفاً`,
       `- منتهية: **${result.expiredCount}** | قريبة من الانتهاء: **${result.expiringSoonCount}** | بيانات ناقصة: **${result.missingDateCount}**`,
       lines.length ? '\nأهم الحالات:\n' + lines.join('\n') : '\nلا توجد حالات حرجة في العينة المعروضة.',

@@ -1,5 +1,6 @@
 import type { Firestore } from 'firebase-admin/firestore';
-import type { CopilotToolId } from '../../src/lib/copilotIntentRouter';
+import type { ComplianceToolContext, CopilotToolId } from '../../src/lib/copilotIntentRouter';
+import type { ComplianceGapFilters } from './tools/complianceDocumentGaps';
 import {
   formatComplianceDocumentGapsReply,
   runComplianceDocumentGaps,
@@ -19,7 +20,11 @@ export async function runCopilotTool(
   db: Firestore,
   toolId: CopilotToolId,
   companyId: string,
-  options?: { isArabic?: boolean; companyName?: string }
+  options?: {
+    isArabic?: boolean;
+    companyName?: string;
+    complianceFilters?: ComplianceGapFilters | ComplianceToolContext;
+  }
 ): Promise<CopilotToolRunResult> {
   const isArabic = options?.isArabic !== false;
 
@@ -33,7 +38,9 @@ export async function runCopilotTool(
       };
     }
     case 'compliance.documentGaps': {
-      const data = await runComplianceDocumentGaps(db, companyId);
+      const data = await runComplianceDocumentGaps(db, companyId, {
+        filters: options?.complianceFilters,
+      });
       return {
         toolId,
         data,

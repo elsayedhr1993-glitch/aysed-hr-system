@@ -49,33 +49,65 @@ function normalizeAndValidatePrivateKey(rawKey: unknown): string | null {
   }
 }
 
+export function hasFirebaseAdminCredentialEnv(): boolean {
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
+  if (raw && raw.trim() && !raw.includes('YOUR_')) return true;
+  return Boolean(process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY);
+}
+
+function parseServiceAccountFromEnv(): Record<string, unknown> | null {
+  const email = process.env.FIREBASE_CLIENT_EMAIL?.trim();
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+  if (email && privateKey) {
+    const validKey = normalizeAndValidatePrivateKey(privateKey);
+    if (!validKey) return null;
+    return {
+      client_email: email,
+      private_key: validKey,
+      project_id: process.env.FIREBASE_PROJECT_ID || undefined,
+    };
+  }
+
+  let rawCreds = process.env.FIREBASE_SERVICE_ACCOUNT;
+  if (!rawCreds || rawCreds.trim() === '' || rawCreds.includes('YOUR_')) {
+    return null;
+  }
+  rawCreds = rawCreds.trim();
+  let parsedServiceAccount: Record<string, unknown>;
+  if (rawCreds.startsWith('{')) {
+    parsedServiceAccount = JSON.parse(rawCreds);
+  } else if (rawCreds.startsWith('"{') && rawCreds.endsWith('}"')) {
+    parsedServiceAccount = JSON.parse(JSON.parse(rawCreds));
+  } else {
+    try {
+      const decoded = Buffer.from(rawCreds, 'base64').toString('utf8');
+      if (decoded.trim().startsWith('{')) {
+        parsedServiceAccount = JSON.parse(decoded);
+      } else {
+        parsedServiceAccount = JSON.parse(rawCreds);
+      }
+    } catch {
+      parsedServiceAccount = JSON.parse(rawCreds);
+    }
+  }
+  return parsedServiceAccount;
+}
+
 export function getAdminAuth(): ReturnType<typeof getAuth> | null {
   if (authAdmin) return authAdmin;
   if (firebaseAdminInitAttempted && !adminApp) return null;
+
+  if (!hasFirebaseAdminCredentialEnv()) {
+    return null;
+  }
+
   firebaseAdminInitAttempted = true;
 
   try {
-    let rawCreds = process.env.FIREBASE_SERVICE_ACCOUNT;
-    if (!rawCreds || rawCreds.trim() === '' || rawCreds.includes('YOUR_')) {
+    const parsedServiceAccount = parseServiceAccountFromEnv();
+    if (!parsedServiceAccount) {
+      firebaseAdminInitAttempted = false;
       return null;
-    }
-    rawCreds = rawCreds.trim();
-    let parsedServiceAccount: Record<string, unknown>;
-    if (rawCreds.startsWith('{')) {
-      parsedServiceAccount = JSON.parse(rawCreds);
-    } else if (rawCreds.startsWith('"{') && rawCreds.endsWith('}"')) {
-      parsedServiceAccount = JSON.parse(JSON.parse(rawCreds));
-    } else {
-      try {
-        const decoded = Buffer.from(rawCreds, 'base64').toString('utf8');
-        if (decoded.trim().startsWith('{')) {
-          parsedServiceAccount = JSON.parse(decoded);
-        } else {
-          parsedServiceAccount = JSON.parse(rawCreds);
-        }
-      } catch {
-        parsedServiceAccount = JSON.parse(rawCreds);
-      }
     }
 
     if (
@@ -84,6 +116,7 @@ export function getAdminAuth(): ReturnType<typeof getAuth> | null {
     ) {
       const validKey = normalizeAndValidatePrivateKey(parsedServiceAccount.private_key);
       if (!validKey) {
+        firebaseAdminInitAttempted = false;
         return null;
       }
       parsedServiceAccount.private_key = validKey;
@@ -98,9 +131,12 @@ export function getAdminAuth(): ReturnType<typeof getAuth> | null {
       authAdmin = getAuth(adminApp);
       return authAdmin;
     }
-  } catch {
+  } catch (err) {
+    console.error('[firebaseAdmin] init failed', err);
+    firebaseAdminInitAttempted = false;
     return null;
   }
+  firebaseAdminInitAttempted = false;
   return null;
 }
 

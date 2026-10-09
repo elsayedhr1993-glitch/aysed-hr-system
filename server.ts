@@ -1,3 +1,4 @@
+import "./server/envBootstrap.ts";
 import express from "express";
 import net from "net";
 import path from "path";
@@ -5,7 +6,6 @@ import crypto from "crypto";
 import zlib from "zlib";
 import { GoogleGenAI, Type } from "@google/genai";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-import dotenv from "dotenv";
 import nodemailer from "nodemailer";
 import { getFirestore, FieldPath } from "firebase-admin/firestore";
 import { 
@@ -31,7 +31,12 @@ import { registerAiChatRoute } from "./server/aiChat.ts";
 import { registerCopilotExecuteRoute } from "./server/copilotExecute.ts";
 import { handleAiTestKeyRequest } from "./server/aiTestKeyCore.ts";
 import { requireFirebaseAuthFromHeader, resolveCallerRole } from "./server/apiAuth.ts";
-import { getAdminApp, getAdminAuth, getAdminFirestore } from "./server/firebaseAdmin.ts";
+import {
+  getAdminApp,
+  getAdminAuth,
+  getAdminFirestore,
+  hasFirebaseAdminCredentialEnv,
+} from "./server/firebaseAdmin.ts";
 import { getGeminiClient } from "./server/geminiServer.ts";
 import { getConnectivityTestModels, getOcrModelCandidates } from "./src/config/aiConfig.ts";
 import {
@@ -43,9 +48,6 @@ import {
   type PamFontChoice,
 } from "./src/services/pamContractPdfService.ts";
 import { loadPamFontBytesSync } from "./server/pamContractFonts.ts";
-
-dotenv.config();
-dotenv.config({ path: ".env.local", override: true });
 
 const app = express();
 const PREFERRED_PORT = Number(process.env.PORT) || 3000;
@@ -2671,8 +2673,15 @@ async function startServer() {
 
     // 2. Firebase
     const fbProject = process.env.FIREBASE_PROJECT_ID || 'gen-lang-client-0326692360';
-    const fbSa = process.env.FIREBASE_SERVICE_ACCOUNT ? '✔ Provided' : 'ℹ Config File Mode';
+    const fbSa = hasFirebaseAdminCredentialEnv()
+      ? '✔ Credentials in env'
+      : '❌ Missing (FIREBASE_SERVICE_ACCOUNT or CLIENT_EMAIL/PRIVATE_KEY)';
+    const adminAuthReady = Boolean(getAdminAuth());
+    const adminDbReady = Boolean(getAdminFirestore());
     console.log(`[Firebase] Project: ${fbProject} | Service Account: ${fbSa}`);
+    console.log(
+      `[Firebase Admin] Auth: ${adminAuthReady ? '✔' : '❌'} | Firestore: ${adminDbReady ? '✔' : '❌'}`
+    );
 
     // 3. UltraMsg & Messaging
     const ultraInst = process.env.VITE_ULTRAMSG_INSTANCE_ID || process.env.ULTRAMSG_INSTANCE_ID || 'instance188430';

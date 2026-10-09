@@ -15,6 +15,7 @@ import {
   tryLocalFaqAnswer,
 } from '../src/lib/copilotLocalFaq';
 import { classifyCopilotIntent, isToolIntent } from '../src/lib/copilotIntentRouter';
+import { buildLocalDashboardFallbackReply } from '../src/lib/copilotLocalDashboardFallback';
 import { getAdminFirestore } from './firebaseAdmin';
 import { runCopilotTool } from './copilot/toolRunner';
 
@@ -147,13 +148,30 @@ async function copilotToolSuccessBody(
   const intent = classifyCopilotIntent(promptText, 'chat');
   if (!isToolIntent(intent)) return null;
 
+  const toolId = intent.toolId;
   const db = getAdminFirestore();
-  if (!db) return null;
+  if (!db) {
+    console.error('[ai-chat] copilot tool failed: Firebase Admin Firestore unavailable', {
+      toolId,
+      companyId,
+      hint: 'Check FIREBASE_SERVICE_ACCOUNT or FIREBASE_CLIENT_EMAIL/PRIVATE_KEY in .env',
+    });
+    return {
+      status: 503,
+      body: {
+        success: false,
+        error: 'قاعدة البيانات الإدارية غير مهيأة على الخادم (Firebase Admin).',
+        code: 'TOOL_FIRESTORE_UNAVAILABLE',
+        toolId,
+      },
+    };
+  }
 
   try {
-    const result = await runCopilotTool(db, intent.toolId, companyId, {
+    const result = await runCopilotTool(db, toolId, companyId, {
       isArabic: promptLooksArabic(promptText),
       companyName: companyNameFromContextSummary(contextSummary),
+      complianceFilters: intent.tier === 'L2' ? intent.toolContext : undefined,
     });
     return {
       status: 200,
@@ -165,9 +183,66 @@ async function copilotToolSuccessBody(
       },
     };
   } catch (err) {
-    console.error('[ai-chat] copilot tool failed', err);
-    return null;
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[ai-chat] copilot tool failed', {
+      toolId,
+      companyId,
+      message,
+      stack: err instanceof Error ? err.stack : undefined,
+    });
+    return {
+      status: 503,
+      body: {
+        success: false,
+        error: message || 'فشل تنفيذ أداة المساعد',
+        code: 'TOOL_FAILED',
+        toolId,
+      },
+    };
   }
+}
+
+async function localDashboardFallbackBody(
+  promptText: string,
+  companyId: string,
+  contextSummary: unknown
+): Promise<AiChatHttpResult | null> {
+  const isArabic = promptLooksArabic(promptText);
+  const db = getAdminFirestore();
+  const reply = await buildLocalDashboardFallbackReply({
+    promptText,
+    contextSummary,
+    isArabic,
+    fetchEmployeeStats: async () => {
+      if (!db) return null;
+      try {
+        const r = await runCopilotTool(db, 'tenant.employeeStats', companyId, {
+          isArabic,
+          companyName: companyNameFromContextSummary(contextSummary),
+        });
+        return { reply: r.reply };
+      } catch {
+        return null;
+      }
+    },
+    fetchComplianceGaps: async (filters) => {
+      if (!db) return null;
+      try {
+        const r = await runCopilotTool(db, 'compliance.documentGaps', companyId, {
+          isArabic,
+          complianceFilters: filters,
+        });
+        return { reply: r.reply };
+      } catch {
+        return null;
+      }
+    },
+  });
+  if (!reply) return null;
+  return {
+    status: 200,
+    body: { success: true, reply, source: 'local_dashboard_fallback' },
+  };
 }
 
 function localFaqSuccessBody(
@@ -271,6 +346,10 @@ export async function handleAiChatRequest(
       if (localOnly) return localOnly;
       const faqOnly = localFaqSuccessBody(promptText, contextSummary);
       if (faqOnly) return faqOnly;
+      if (mode === 'chat') {
+        const dashboard = await localDashboardFallbackBody(promptText, access.companyId, contextSummary);
+        if (dashboard) return dashboard;
+      }
       return {
         status: 503,
         body: {
@@ -446,12 +525,21 @@ export async function handleAiChatRequest(
     const faqAfterModelFail = localFaqSuccessBody(promptText, contextSummary);
     if (faqAfterModelFail) return faqAfterModelFail;
 
+    const dashboardAfterFail = await localDashboardFallbackBody(
+      promptText,
+      access.companyId,
+      contextSummary
+    );
+    if (dashboardAfterFail) return dashboardAfterFail;
+
     return {
-      status: 503,
+      status: 200,
       body: {
-        success: false,
-        error: 'تعذر الاتصال بمحرك الذكاء الاصطناعي. تحقق من الرصيد وأسماء النماذج.',
-        code: 'AI_UNAVAILABLE',
+        success: true,
+        reply: promptLooksArabic(promptText)
+          ? 'تعذر الاتصال بمحرك الذكاء الاصطناعي الخارجي. جرّب: «كم موظف عندي»، «هل يوجد نواقص في ملفات الموظفين»، أو أوامر فتح الشاشات.'
+          : 'External AI is unavailable. Try employee stats, compliance gap scan, or navigation commands.',
+        source: 'local_dashboard_fallback',
       },
     };
   } catch (error: unknown) {
@@ -463,9 +551,22 @@ export async function handleAiChatRequest(
     if (localCatch) return localCatch;
     const faqCatch = localFaqSuccessBody(promptText, body?.contextSummary);
     if (faqCatch) return faqCatch;
+    if (mode === 'chat') {
+      const companyId = String(body?.companyId || '').trim();
+      if (companyId) {
+        const dash = await localDashboardFallbackBody(promptText, companyId, body?.contextSummary);
+        if (dash) return dash;
+      }
+    }
     return {
-      status: 500,
-      body: { success: false, error: message, code: 'AI_UNAVAILABLE' },
+      status: 200,
+      body: {
+        success: true,
+        reply: promptLooksArabic(promptText)
+          ? 'حدث خطأ داخلي مؤقت. استخدم أوامر الإحصاء والامتثال المحلية أو أعد المحاولة لاحقاً.'
+          : 'A temporary error occurred. Use local stats/compliance commands or retry later.',
+        source: 'local_dashboard_fallback',
+      },
     };
   }
 }

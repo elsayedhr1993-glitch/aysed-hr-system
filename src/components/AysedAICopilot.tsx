@@ -51,6 +51,9 @@ function formatSourceLabel(source?: string, isArabic?: boolean): string | null {
     const id = source.replace('tool:', '');
     return isArabic ? `أداة سيرفر (${id})` : `Server tool (${id})`;
   }
+  if (source === 'local_dashboard_fallback') {
+    return isArabic ? 'ملخص محلي (بيانات المنظومة)' : 'Local dashboard summary';
+  }
   return source;
 }
 
