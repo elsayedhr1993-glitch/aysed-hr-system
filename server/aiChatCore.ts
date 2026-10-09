@@ -103,6 +103,25 @@ export interface AiChatHttpResult {
   body: Record<string, unknown>;
 }
 
+function localActionSuccessBody(action: ReturnType<typeof sanitizeCopilotAction>): AiChatHttpResult | null {
+  if (!action) return null;
+  return {
+    status: 200,
+    body: {
+      success: true,
+      reply: action.title || 'تم التعرف على طلبك. يمكنك تنفيذ الإجراء أدناه.',
+      source: 'regex_action',
+      action,
+    },
+  };
+}
+
+function resolveSafeLocalAction(mode: string, promptText: string) {
+  if (mode !== 'chat' || !promptText) return null;
+  const regexAction = buildCopilotActionFromPrompt(promptText);
+  return regexAction ? sanitizeCopilotAction(regexAction) : null;
+}
+
 export async function handleAiChatRequest(
   body: Record<string, unknown> | null | undefined,
   authHeader: string | string[] | undefined,
@@ -177,23 +196,13 @@ export async function handleAiChatRequest(
       };
     }
 
-    const regexAction = mode === 'chat' ? buildCopilotActionFromPrompt(promptText) : null;
-    const safeRegexAction = regexAction ? sanitizeCopilotAction(regexAction) : null;
+    const safeRegexAction = resolveSafeLocalAction(mode, promptText);
 
     const ai = getClient();
 
     if (!ai) {
-      if (safeRegexAction) {
-        return {
-          status: 200,
-          body: {
-            success: true,
-            reply: safeRegexAction.title || 'تم التعرف على طلبك. يمكنك تنفيذ الإجراء أدناه.',
-            source: 'regex_action',
-            action: safeRegexAction,
-          },
-        };
-      }
+      const localOnly = localActionSuccessBody(safeRegexAction);
+      if (localOnly) return localOnly;
       return {
         status: 503,
         body: {
@@ -344,7 +353,7 @@ export async function handleAiChatRequest(
 
         const rawText = response.text || '{}';
         const { reply, action: parsedAction } = parseModelCopilotPayload(rawText);
-        const action = parsedAction || regexAction;
+        const action = parsedAction || safeRegexAction;
 
         return {
           status: 200,
@@ -363,17 +372,8 @@ export async function handleAiChatRequest(
 
     console.error('[ai-chat] all models failed', lastErr);
 
-    if (safeRegexAction) {
-      return {
-        status: 200,
-        body: {
-          success: true,
-          reply: safeRegexAction.title || 'تم التعرف على طلبك. يمكنك تنفيذ الإجراء أدناه.',
-          source: 'regex_action',
-          action: safeRegexAction,
-        },
-      };
-    }
+    const localAfterModelFail = localActionSuccessBody(safeRegexAction);
+    if (localAfterModelFail) return localAfterModelFail;
 
     return {
       status: 503,
@@ -386,6 +386,10 @@ export async function handleAiChatRequest(
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'خطأ داخلي في مساعد الذكاء الاصطناعي';
     console.error('[ai-chat] unexpected', error);
+    const promptText = String((body && body.prompt) || '').trim();
+    const mode = normalizeAssistMode(body?.mode);
+    const localCatch = localActionSuccessBody(resolveSafeLocalAction(mode, promptText));
+    if (localCatch) return localCatch;
     return {
       status: 500,
       body: { success: false, error: message, code: 'AI_UNAVAILABLE' },

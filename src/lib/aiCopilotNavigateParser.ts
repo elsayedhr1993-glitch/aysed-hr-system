@@ -46,11 +46,17 @@ export function buildNavigateActionFromPrompt(prompt: string): CopilotAction | n
     };
   }
 
-  if (hasOpenIntent(text) && /(حضور|attendance|بصمة|دوام)/i.test(text)) {
+  if (
+    (hasOpenIntent(text) || /(سجل|سجلات|logs|time\s*tracking|biometric)/i.test(text)) &&
+    /(حضور|attendance|بصمة|دوام)/i.test(text)
+  ) {
     return { type: 'NAVIGATE', appId: 'attendance', title: 'فتح تطبيق الحضور والدوام' };
   }
 
-  if (hasOpenIntent(text) && /(رواتب|payroll|wps|حماية\s*الأجور)/i.test(text)) {
+  if (
+    (hasOpenIntent(text) || /(كشوف|كشف|reports?)/i.test(text)) &&
+    /(رواتب|payroll|wps|حماية\s*الأجور|wage\s*protection)/i.test(text)
+  ) {
     return { type: 'NAVIGATE', appId: 'payroll', title: 'فتح تطبيق الرواتب' };
   }
 
@@ -62,7 +68,10 @@ export function buildNavigateActionFromPrompt(prompt: string): CopilotAction | n
     return { type: 'NAVIGATE', appId: 'contracts', title: 'فتح تطبيق العقود' };
   }
 
-  if (/(wps|حماية\s*الأجور)/i.test(text) && /(تحميل|تصدير|export|download)/i.test(text)) {
+  if (
+    /(wps|حماية\s*الأجور|wage\s*protection)/i.test(text) &&
+    /(تحميل|تصدير|export|download)/i.test(text)
+  ) {
     return {
       type: 'TRIGGER_FUNCTION',
       functionName: 'export_wps',

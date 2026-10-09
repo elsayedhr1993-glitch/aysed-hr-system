@@ -10,6 +10,12 @@ import { buildCopilotPayloadContext } from '../lib/aiCopilotContext';
 import type { CopilotAction } from '../lib/aiCopilotTypes';
 import { useCopilotContextOptional } from '../context/CopilotContext';
 import { useCopilotActionExecutor } from '../hooks/useCopilotActionExecutor';
+import {
+  isDirectLocalCopilotAction,
+  localCopilotReply,
+  resolveLocalCopilotAction,
+} from '../lib/copilotLocalIntent';
+import { sanitizeCopilotAction } from '../lib/aiCopilotActions';
 
 export type { CopilotAction };
 
@@ -149,6 +155,26 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
 
     setMessages(prev => [...prev, userMsg]);
     if (!customText) setInput('');
+
+    const localAction = resolveLocalCopilotAction(queryText);
+    if (isDirectLocalCopilotAction(localAction)) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          sender: 'bot',
+          text: localCopilotReply(localAction!, isArabic),
+          timestamp: new Date().toLocaleTimeString(isArabic ? 'ar-KW' : 'en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+          action: localAction,
+          source: 'regex_action',
+        },
+      ]);
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -203,18 +229,19 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
       }
       console.log('🤖 [Aysed Copilot AI Response]:', data);
 
-      const fallbackAction =
-        data.action && typeof data.action === 'object' ? (data.action as CopilotAction) : null;
+      const serverAction =
+        data.action && typeof data.action === 'object'
+          ? sanitizeCopilotAction(data.action) || (data.action as CopilotAction)
+          : null;
+      const fallbackAction = serverAction || localAction;
 
-      if (fallbackAction && (!response.ok || !data.success)) {
+      if (fallbackAction && isDirectLocalCopilotAction(fallbackAction) && (!response.ok || !data.success)) {
         setMessages((prev) => [
           ...prev,
           {
             id: (Date.now() + 1).toString(),
             sender: 'bot',
-            text: isArabic
-              ? `تم التعرف على طلبك بدون اتصال بالذكاء الاصطناعي.\n${fallbackAction.title || ''}`
-              : `Your request was recognized without the AI engine.\n${fallbackAction.title || ''}`,
+            text: localCopilotReply(fallbackAction, isArabic),
             timestamp: new Date().toLocaleTimeString(isArabic ? 'ar-KW' : 'en-US', {
               hour: '2-digit',
               minute: '2-digit',
@@ -275,15 +302,38 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
       setMessages(prev => [...prev, botMsg]);
     } catch (err) {
       console.error('Copilot Chat Error:', err);
-      setMessages(prev => [
-        ...prev,
-        {
-          id: (Date.now() + 1).toString(),
-          sender: 'bot',
-          text: isArabic ? 'حدث خطأ أثناء الاتصال بالمساعد الذكي. يرجى المحاولة مرة أخرى.' : 'The AI assistant connection failed. Please try again.',
-          timestamp: new Date().toLocaleTimeString(isArabic ? 'ar-KW' : 'en-US', { hour: '2-digit', minute: '2-digit' })
-        }
-      ]);
+      const offlineAction = resolveLocalCopilotAction(queryText);
+      if (isDirectLocalCopilotAction(offlineAction)) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: (Date.now() + 1).toString(),
+            sender: 'bot',
+            text: localCopilotReply(offlineAction!, isArabic),
+            timestamp: new Date().toLocaleTimeString(isArabic ? 'ar-KW' : 'en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+            action: offlineAction,
+            source: 'regex_action',
+          },
+        ]);
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: (Date.now() + 1).toString(),
+            sender: 'bot',
+            text: isArabic
+              ? 'حدث خطأ أثناء الاتصال بالمساعد الذكي. يرجى المحاولة مرة أخرى.'
+              : 'The AI assistant connection failed. Please try again.',
+            timestamp: new Date().toLocaleTimeString(isArabic ? 'ar-KW' : 'en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+          },
+        ]);
+      }
     } finally {
       setIsLoading(false);
     }
