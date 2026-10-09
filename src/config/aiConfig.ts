@@ -4,6 +4,17 @@ export const DEFAULT_CHAT_MODEL = 'gemini-2.5-flash';
 /** Vision / document OCR default (same as chat unless AI_OCR_MODEL is set). */
 export const DEFAULT_OCR_MODEL = 'gemini-2.5-flash';
 
+/** Built-in OCR fallbacks when env lists are empty (vision-capable, current API). */
+export const OCR_BUILTIN_FALLBACKS = ['gemini-2.5-pro', 'gemini-3.8-flash'] as const;
+
+/** Models removed from Google API — never use for Vision/OCR even if listed in .env */
+const RETIRED_VISION_MODEL_RE =
+  /^gemini-(?:1\.5|2\.0)(?:-|$)/i;
+
+export function isRetiredVisionModel(model: string): boolean {
+  return RETIRED_VISION_MODEL_RE.test(String(model || '').trim());
+}
+
 function readConfigEnv(key: string): string | undefined {
   if (typeof process !== 'undefined' && process.env) {
     const direct = process.env[key];
@@ -52,7 +63,7 @@ function uniqueModels(candidates: string[]): string[] {
   const out: string[] = [];
   for (const raw of candidates) {
     const m = String(raw || '').trim();
-    if (!m || seen.has(m)) continue;
+    if (!m || seen.has(m) || isRetiredVisionModel(m)) continue;
     seen.add(m);
     out.push(m);
   }
@@ -74,12 +85,13 @@ export function getOcrModelCandidates(): string[] {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
+  const primaryChat = getPrimaryChatModel();
   return uniqueModels([
     AI_MODELS.ocr,
     ...extra,
     DEFAULT_OCR_MODEL,
-    'gemini-2.5-pro',
-    'gemini-1.5-flash',
+    ...OCR_BUILTIN_FALLBACKS,
+    primaryChat !== AI_MODELS.ocr ? primaryChat : '',
     AI_MODELS.fallback,
   ]);
 }

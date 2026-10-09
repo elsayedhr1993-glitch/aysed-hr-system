@@ -1154,6 +1154,7 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
 
   const modelsToTry = getOcrModelCandidates();
   let lastError: any = null;
+  let firstError: any = null;
 
   for (const modelName of modelsToTry) {
     try {
@@ -1217,6 +1218,7 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
       });
     } catch (err: any) {
       console.error("Model " + modelName + " failed with schema:", err);
+      if (!firstError) firstError = err;
       lastError = err;
       continue;
     }
@@ -1255,13 +1257,15 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
         source: `gemini-vision-${modelName}-noschema`,
       });
     } catch (err: any) {
+      if (!firstError) firstError = err;
       lastError = err;
       continue;
     }
   }
 
 
-  const errorMessage = lastError?.message || lastError?.toString() || "";
+  const errorMessage =
+    firstError?.message || lastError?.message || firstError?.toString() || lastError?.toString() || "";
   let friendlyError = "فشل نظام القراءة الضوئية (OCR) في تحليل المستند.";
   let cause = "حدث خطأ داخلي أثناء معالجة الصورة وتحليل النصوص.";
 

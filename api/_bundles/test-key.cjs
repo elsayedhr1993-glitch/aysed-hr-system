@@ -22538,8 +22538,6 @@ function getChatModelCandidates() {
     ...extra,
     DEFAULT_CHAT_MODEL,
     "gemini-2.5-pro",
-    "gemini-1.5-flash",
-    "gemini-1.5-flash-8b",
     "gemini-3.8-flash",
     ...optionalFallback ? [optionalFallback] : []
   ]);
