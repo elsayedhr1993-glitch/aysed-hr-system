@@ -16,6 +16,8 @@ import {
   resolveLocalCopilotAction,
 } from '../lib/copilotLocalIntent';
 import { sanitizeCopilotAction } from '../lib/aiCopilotActions';
+import { computeCopilotEmployeeStats, tryLocalFaqAnswer } from '../lib/copilotLocalFaq';
+import { employeeBelongsToTenant } from '../utils/contractTenantRules';
 
 export type { CopilotAction };
 
@@ -44,6 +46,7 @@ function formatSourceLabel(source?: string, isArabic?: boolean): string | null {
     return isArabic ? `Gemini (${source.replace('gemini:', '')})` : `Gemini (${source.replace('gemini:', '')})`;
   }
   if (source === 'regex_action') return isArabic ? 'إجراء محلي (تحليل نص)' : 'Local action (text parse)';
+  if (source === 'local_faq') return isArabic ? 'إجابة محلية (بيانات الشركة)' : 'Local answer (tenant data)';
   return source;
 }
 
@@ -79,7 +82,7 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
 
   const scopedEmployees = useMemo(() => {
     if (!companyId) return employees;
-    return employees.filter((e) => e.companyId === companyId || !e.companyId);
+    return employees.filter((e) => employeeBelongsToTenant(e, companyId));
   }, [employees, companyId]);
 
   const scopedContracts = useMemo(() => {
@@ -175,6 +178,28 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
       return;
     }
 
+    const faqStats = computeCopilotEmployeeStats(
+      scopedEmployees,
+      activeCompany?.nameAr || activeCompany?.name
+    );
+    const localFaq = tryLocalFaqAnswer(queryText, faqStats, isArabic);
+    if (localFaq) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          sender: 'bot',
+          text: localFaq,
+          timestamp: new Date().toLocaleTimeString(isArabic ? 'ar-KW' : 'en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+          source: 'local_faq',
+        },
+      ]);
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -234,6 +259,26 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
           ? sanitizeCopilotAction(data.action) || (data.action as CopilotAction)
           : null;
       const fallbackAction = serverAction || localAction;
+
+      if (!response.ok || !data.success) {
+        const faqFallback = tryLocalFaqAnswer(queryText, faqStats, isArabic);
+        if (faqFallback) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: (Date.now() + 1).toString(),
+              sender: 'bot',
+              text: faqFallback,
+              timestamp: new Date().toLocaleTimeString(isArabic ? 'ar-KW' : 'en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+              }),
+              source: 'local_faq',
+            },
+          ]);
+          return;
+        }
+      }
 
       if (fallbackAction && isDirectLocalCopilotAction(fallbackAction) && (!response.ok || !data.success)) {
         setMessages((prev) => [
@@ -302,8 +347,27 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
       setMessages(prev => [...prev, botMsg]);
     } catch (err) {
       console.error('Copilot Chat Error:', err);
-      const offlineAction = resolveLocalCopilotAction(queryText);
-      if (isDirectLocalCopilotAction(offlineAction)) {
+      const faqOffline = tryLocalFaqAnswer(
+        queryText,
+        computeCopilotEmployeeStats(scopedEmployees, activeCompany?.nameAr || activeCompany?.name),
+        isArabic
+      );
+      if (faqOffline) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: (Date.now() + 1).toString(),
+            sender: 'bot',
+            text: faqOffline,
+            timestamp: new Date().toLocaleTimeString(isArabic ? 'ar-KW' : 'en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+            source: 'local_faq',
+          },
+        ]);
+      } else if (isDirectLocalCopilotAction(resolveLocalCopilotAction(queryText))) {
+        const offlineAction = resolveLocalCopilotAction(queryText);
         setMessages((prev) => [
           ...prev,
           {

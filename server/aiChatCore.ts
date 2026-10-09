@@ -10,6 +10,10 @@ import { assertClientCompanyAccess } from '../src/lib/aiCopilotContext';
 import { COPILOT_APP_IDS, COPILOT_FUNCTION_NAMES, COPILOT_MODAL_IDS } from '../src/lib/aiCopilotTypes';
 import { requireFirebaseAuthFromHeader, resolveCallerRole } from './apiAuth';
 import { getGeminiClient } from './geminiServer';
+import {
+  parseEmployeeStatsFromContextSummary,
+  tryLocalFaqAnswer,
+} from '../src/lib/copilotLocalFaq';
 
 const COPILOT_SYSTEM = `أنت مساعد Aysed S HR 2026 للموارد البشرية في الكويت.
 - أجب بالعربية المهنية مع Markdown عند الحاجة.
@@ -122,6 +126,23 @@ function resolveSafeLocalAction(mode: string, promptText: string) {
   return regexAction ? sanitizeCopilotAction(regexAction) : null;
 }
 
+function promptLooksArabic(promptText: string): boolean {
+  return /[\u0600-\u06FF]/.test(promptText);
+}
+
+function localFaqSuccessBody(
+  promptText: string,
+  contextSummary: unknown
+): AiChatHttpResult | null {
+  const stats = parseEmployeeStatsFromContextSummary(String(contextSummary || ''));
+  const reply = tryLocalFaqAnswer(promptText, stats, promptLooksArabic(promptText));
+  if (!reply) return null;
+  return {
+    status: 200,
+    body: { success: true, reply, source: 'local_faq' },
+  };
+}
+
 export async function handleAiChatRequest(
   body: Record<string, unknown> | null | undefined,
   authHeader: string | string[] | undefined,
@@ -203,6 +224,8 @@ export async function handleAiChatRequest(
     if (!ai) {
       const localOnly = localActionSuccessBody(safeRegexAction);
       if (localOnly) return localOnly;
+      const faqOnly = localFaqSuccessBody(promptText, contextSummary);
+      if (faqOnly) return faqOnly;
       return {
         status: 503,
         body: {
@@ -375,6 +398,9 @@ export async function handleAiChatRequest(
     const localAfterModelFail = localActionSuccessBody(safeRegexAction);
     if (localAfterModelFail) return localAfterModelFail;
 
+    const faqAfterModelFail = localFaqSuccessBody(promptText, contextSummary);
+    if (faqAfterModelFail) return faqAfterModelFail;
+
     return {
       status: 503,
       body: {
@@ -390,6 +416,8 @@ export async function handleAiChatRequest(
     const mode = normalizeAssistMode(body?.mode);
     const localCatch = localActionSuccessBody(resolveSafeLocalAction(mode, promptText));
     if (localCatch) return localCatch;
+    const faqCatch = localFaqSuccessBody(promptText, body?.contextSummary);
+    if (faqCatch) return faqCatch;
     return {
       status: 500,
       body: { success: false, error: message, code: 'AI_UNAVAILABLE' },
