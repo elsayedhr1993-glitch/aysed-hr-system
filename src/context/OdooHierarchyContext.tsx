@@ -14,6 +14,8 @@ import {
 import { db, cleanFirestoreData } from '../lib/firebase';
 import { normalizeEmployeeRecord } from '../utils/employeeMapper';
 import { normalizeContractStatus } from '../utils/contractStatus';
+import { employeeBelongsToTenant } from '../utils/contractTenantRules';
+import { buildTenantEmployeesQuery } from '../utils/tenantEmployeeFirestoreQuery';
 
 // 1. المستوى الأول: العقد والبيانات الثابتة (hr.contract & hr.employee)
 export interface EmployeeContract {
@@ -255,10 +257,16 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
 
     setEmployees([]); // Clear immediately on company change to prevent cross-company bleed
 
-    const q = query(collection(db, 'employees'), where('companyId', '==', currentCompanyId));
+    const q = buildTenantEmployeesQuery(currentCompanyId);
+    if (!q) {
+      setEmployees([]);
+      return;
+    }
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (!snapshot.empty) {
-        const mapped: EmployeeContract[] = snapshot.docs.map(docSnap => {
+        const mapped: EmployeeContract[] = snapshot.docs
+          .map((docSnap) => {
               const emp = normalizeEmployeeRecord({ ...docSnap.data(), id: docSnap.id }, currentCompanyId) as any;
               const civilExpiry = emp.civilIdExpiry || emp.civilIdExpiryDate || emp.civil_id_expiry || emp.raw_payload?.civilIdExpiry || emp.raw_payload?.civilIdExpiryDate || emp.raw_payload?.civil_id_expiry || '';
               return {
@@ -291,7 +299,8 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
                 eosReason: emp.eosReason || '',
                 eosSettlementAmount: emp.eosSettlementAmount || 0
               };
-        });
+        })
+          .filter((row) => employeeBelongsToTenant(row, currentCompanyId));
         setEmployees(mapped);
       } else {
         setEmployees([]);

@@ -28,6 +28,7 @@ import {
   validateSettlementConstraints
 } from "./server/leaveCalculatorServer.ts";
 import { registerAiChatRoute } from "./server/aiChat.ts";
+import { registerCopilotExecuteRoute } from "./server/copilotExecute.ts";
 import { handleAiTestKeyRequest } from "./server/aiTestKeyCore.ts";
 import { requireFirebaseAuthFromHeader, resolveCallerRole } from "./server/apiAuth.ts";
 import { getAdminApp, getAdminAuth, getAdminFirestore } from "./server/firebaseAdmin.ts";
@@ -1333,6 +1334,7 @@ function rejectUnauthorized(res: any, authCheck: { error?: string; status?: numb
 }
 
 registerAiChatRoute(app, { requireFirebaseAuth, resolveCallerRole, getGeminiClient });
+registerCopilotExecuteRoute(app);
 
 // ---------------------------------------------------------------------------
 // ZKTECO & BIOMETRIC REALTIME AUTO-SYNC API ENDPOINTS

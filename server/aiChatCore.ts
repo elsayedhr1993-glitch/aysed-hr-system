@@ -14,6 +14,9 @@ import {
   parseEmployeeStatsFromContextSummary,
   tryLocalFaqAnswer,
 } from '../src/lib/copilotLocalFaq';
+import { classifyCopilotIntent, isToolIntent } from '../src/lib/copilotIntentRouter';
+import { getAdminFirestore } from './firebaseAdmin';
+import { runCopilotTool } from './copilot/toolRunner';
 
 const COPILOT_SYSTEM = `أنت مساعد Aysed S HR 2026 للموارد البشرية في الكويت.
 - أجب بالعربية المهنية مع Markdown عند الحاجة.
@@ -130,6 +133,43 @@ function promptLooksArabic(promptText: string): boolean {
   return /[\u0600-\u06FF]/.test(promptText);
 }
 
+function companyNameFromContextSummary(contextSummary: unknown): string | undefined {
+  const ctx = String(contextSummary || '');
+  const m = ctx.match(/الاسم:\s*(.+)/);
+  return m ? m[1].trim() : undefined;
+}
+
+async function copilotToolSuccessBody(
+  promptText: string,
+  companyId: string,
+  contextSummary: unknown
+): Promise<AiChatHttpResult | null> {
+  const intent = classifyCopilotIntent(promptText, 'chat');
+  if (!isToolIntent(intent)) return null;
+
+  const db = getAdminFirestore();
+  if (!db) return null;
+
+  try {
+    const result = await runCopilotTool(db, intent.toolId, companyId, {
+      isArabic: promptLooksArabic(promptText),
+      companyName: companyNameFromContextSummary(contextSummary),
+    });
+    return {
+      status: 200,
+      body: {
+        success: true,
+        reply: result.reply,
+        source: `tool:${result.toolId}`,
+        toolId: result.toolId,
+      },
+    };
+  } catch (err) {
+    console.error('[ai-chat] copilot tool failed', err);
+    return null;
+  }
+}
+
 function localFaqSuccessBody(
   promptText: string,
   contextSummary: unknown
@@ -218,6 +258,11 @@ export async function handleAiChatRequest(
     }
 
     const safeRegexAction = resolveSafeLocalAction(mode, promptText);
+
+    if (mode === 'chat' && promptText) {
+      const toolBody = await copilotToolSuccessBody(promptText, access.companyId, contextSummary);
+      if (toolBody) return toolBody;
+    }
 
     const ai = getClient();
 

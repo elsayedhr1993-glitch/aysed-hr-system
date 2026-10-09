@@ -13,8 +13,8 @@ import { useCopilotActionExecutor } from '../hooks/useCopilotActionExecutor';
 import {
   isDirectLocalCopilotAction,
   localCopilotReply,
-  resolveLocalCopilotAction,
 } from '../lib/copilotLocalIntent';
+import { classifyCopilotIntent, isToolIntent } from '../lib/copilotIntentRouter';
 import { sanitizeCopilotAction } from '../lib/aiCopilotActions';
 import { computeCopilotEmployeeStats, tryLocalFaqAnswer } from '../lib/copilotLocalFaq';
 import { employeeBelongsToTenant } from '../utils/contractTenantRules';
@@ -47,6 +47,10 @@ function formatSourceLabel(source?: string, isArabic?: boolean): string | null {
   }
   if (source === 'regex_action') return isArabic ? 'إجراء محلي (تحليل نص)' : 'Local action (text parse)';
   if (source === 'local_faq') return isArabic ? 'إجابة محلية (بيانات الشركة)' : 'Local answer (tenant data)';
+  if (source?.startsWith('tool:')) {
+    const id = source.replace('tool:', '');
+    return isArabic ? `أداة سيرفر (${id})` : `Server tool (${id})`;
+  }
   return source;
 }
 
@@ -159,19 +163,19 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
     setMessages(prev => [...prev, userMsg]);
     if (!customText) setInput('');
 
-    const localAction = resolveLocalCopilotAction(queryText);
-    if (isDirectLocalCopilotAction(localAction)) {
+    const intent = classifyCopilotIntent(queryText, 'chat');
+    if (intent.tier === 'L0' && isDirectLocalCopilotAction(intent.action)) {
       setMessages((prev) => [
         ...prev,
         {
           id: (Date.now() + 1).toString(),
           sender: 'bot',
-          text: localCopilotReply(localAction!, isArabic),
+          text: localCopilotReply(intent.action, isArabic),
           timestamp: new Date().toLocaleTimeString(isArabic ? 'ar-KW' : 'en-US', {
             hour: '2-digit',
             minute: '2-digit',
           }),
-          action: localAction,
+          action: intent.action,
           source: 'regex_action',
         },
       ]);
@@ -182,22 +186,25 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
       scopedEmployees,
       activeCompany?.nameAr || activeCompany?.name
     );
-    const localFaq = tryLocalFaqAnswer(queryText, faqStats, isArabic);
-    if (localFaq) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: (Date.now() + 1).toString(),
-          sender: 'bot',
-          text: localFaq,
-          timestamp: new Date().toLocaleTimeString(isArabic ? 'ar-KW' : 'en-US', {
-            hour: '2-digit',
-            minute: '2-digit',
-          }),
-          source: 'local_faq',
-        },
-      ]);
-      return;
+
+    if (!isToolIntent(intent)) {
+      const localFaq = tryLocalFaqAnswer(queryText, faqStats, isArabic);
+      if (localFaq) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: (Date.now() + 1).toString(),
+            sender: 'bot',
+            text: localFaq,
+            timestamp: new Date().toLocaleTimeString(isArabic ? 'ar-KW' : 'en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+            source: 'local_faq',
+          },
+        ]);
+        return;
+      }
     }
 
     setIsLoading(true);
@@ -258,7 +265,9 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
         data.action && typeof data.action === 'object'
           ? sanitizeCopilotAction(data.action) || (data.action as CopilotAction)
           : null;
-      const fallbackAction = serverAction || localAction;
+      const fallbackAction =
+        serverAction ||
+        (intent.tier === 'L0' ? intent.action : null);
 
       if (!response.ok || !data.success) {
         const faqFallback = tryLocalFaqAnswer(queryText, faqStats, isArabic);
