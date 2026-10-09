@@ -1,5 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Eye, EyeOff, Globe, Lock, Mail, Shield, ShieldCheck, AlertTriangle, Loader2 } from 'lucide-react';
+import {
+  ArrowRight,
+  Clock,
+  Eye,
+  EyeOff,
+  Globe,
+  Lock,
+  Mail,
+  Phone,
+  Shield,
+  ShieldCheck,
+  AlertTriangle,
+  Loader2,
+} from 'lucide-react';
 import {
   browserLocalPersistence,
   browserSessionPersistence,
@@ -50,7 +63,16 @@ type UiText = {
   hidePassword: string;
   langAr: string;
   langEn: string;
+  contactPerson: string;
+  contactRole: string;
+  contactPhoneLabel: string;
+  contactEmailLabel: string;
+  contactHours: string;
 };
+
+const SUPPORT_WHATSAPP_URL = 'https://wa.me/96566968180';
+const SUPPORT_EMAIL = 'elsayedhr1993@gmail.com';
+const SUPPORT_PHONE_DISPLAY = '+965 66968180';
 
 const UI_TEXT: Record<UiLanguage, UiText> = {
   ar: {
@@ -86,7 +108,12 @@ const UI_TEXT: Record<UiLanguage, UiText> = {
     showPassword: 'إظهار كلمة المرور',
     hidePassword: 'إخفاء كلمة المرور',
     langAr: 'العربية',
-    langEn: 'English'
+    langEn: 'English',
+    contactPerson: 'السيد بخيت سويلم',
+    contactRole: 'تطوير المنظومة والدعم الفني',
+    contactPhoneLabel: 'هاتف / واتساب',
+    contactEmailLabel: 'البريد الإلكتروني',
+    contactHours: 'ساعات العمل: السبت – الخميس (9:00 ص – 9:00 م)',
   },
   en: {
     badge: 'Enterprise Access Gateway',
@@ -121,8 +148,13 @@ const UI_TEXT: Record<UiLanguage, UiText> = {
     showPassword: 'Show password',
     hidePassword: 'Hide password',
     langAr: 'العربية',
-    langEn: 'English'
-  }
+    langEn: 'English',
+    contactPerson: 'Mr. Bukhit Suwailam',
+    contactRole: 'Platform development & technical support',
+    contactPhoneLabel: 'Phone / WhatsApp',
+    contactEmailLabel: 'Email',
+    contactHours: 'Hours: Sat – Thu (9:00 AM – 9:00 PM)',
+  },
 };
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -552,6 +584,56 @@ export const OdooLoginPage: React.FC = () => {
               <span>{t.terms}</span>
               <span>•</span>
               <span>{t.privacy}</span>
+            </div>
+
+            <div
+              className={`w-full mt-2 rounded-xl border border-slate-100 bg-slate-50/60 p-3 sm:p-3.5 space-y-2.5 ${cardAlignment}`}
+              aria-label={isArabic ? 'بيانات التواصل مع الدعم الفني' : 'Technical support contact'}
+            >
+              <div>
+                <p className="text-[11px] sm:text-xs font-black text-slate-800 leading-snug">{t.contactPerson}</p>
+                <p className="text-[10px] text-slate-500 font-medium mt-0.5">{t.contactRole}</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <a
+                  href={SUPPORT_WHATSAPP_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-2.5 py-2 text-slate-700 hover:border-[#1f6a7a]/30 hover:text-[#1f6a7a] transition-colors"
+                >
+                  <span className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md bg-[#1f6a7a]/8 text-[#1f6a7a]">
+                    <Phone size={14} aria-hidden />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide">
+                      {t.contactPhoneLabel}
+                    </span>
+                    <span className="block text-[10px] sm:text-[11px] font-bold dir-ltr text-left" dir="ltr">
+                      {SUPPORT_PHONE_DISPLAY}
+                    </span>
+                  </span>
+                </a>
+                <a
+                  href={`mailto:${SUPPORT_EMAIL}`}
+                  className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-2.5 py-2 text-slate-700 hover:border-[#1f6a7a]/30 hover:text-[#1f6a7a] transition-colors"
+                >
+                  <span className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md bg-[#1f6a7a]/8 text-[#1f6a7a]">
+                    <Mail size={14} aria-hidden />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide">
+                      {t.contactEmailLabel}
+                    </span>
+                    <span className="block text-[10px] sm:text-[11px] font-bold truncate dir-ltr text-left" dir="ltr">
+                      {SUPPORT_EMAIL}
+                    </span>
+                  </span>
+                </a>
+              </div>
+              <div className="flex items-start sm:items-center gap-1.5 text-[10px] text-slate-500 font-medium pt-0.5">
+                <Clock size={13} className="shrink-0 text-slate-400 mt-0.5 sm:mt-0" aria-hidden />
+                <span>{t.contactHours}</span>
+              </div>
             </div>
           </div>
         </div>
