@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Loader2, X } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Loader2, Upload, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useCompany } from '../../context/CompanyContext';
 import { isQueryableTenantCompanyId } from '../../utils/tenantCompanyId';
@@ -10,6 +10,10 @@ import {
   subscribeGovernmentLicenses,
   upsertGovernmentLicense,
 } from '../../services/governmentLicenseService';
+import {
+  uploadGovernmentLicenseAttachmentToStorage,
+  validateGovernmentLicenseAttachment,
+} from '../../utils/governmentLicenseStorage';
 
 export const GovernmentComplianceApp: React.FC = () => {
   const { activeCompany } = useCompany();
@@ -21,6 +25,9 @@ export const GovernmentComplianceApp: React.FC = () => {
   const [loaded, setLoaded] = useState(false);
 
   const [addOpen, setAddOpen] = useState(false);
+  const [savingLicense, setSavingLicense] = useState(false);
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     title: '',
     documentNumber: '',
@@ -81,7 +88,26 @@ export const GovernmentComplianceApp: React.FC = () => {
       vehiclePlate: '',
       fileUrl: '',
     });
+    setAttachmentFile(null);
+    if (attachmentInputRef.current) attachmentInputRef.current.value = '';
     setAddOpen(true);
+  };
+
+  const onAttachmentSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setAttachmentFile(null);
+      return;
+    }
+    const err = validateGovernmentLicenseAttachment(file);
+    if (err) {
+      toast.error(err);
+      e.target.value = '';
+      setAttachmentFile(null);
+      return;
+    }
+    setAttachmentFile(file);
+    setForm((f) => ({ ...f, fileUrl: '' }));
   };
 
   const handleSaveLicense = async (e: React.FormEvent) => {
@@ -91,7 +117,20 @@ export const GovernmentComplianceApp: React.FC = () => {
       toast.error('أكمل المسمى، الرقم، وتاريخ الانتهاء');
       return;
     }
+    setSavingLicense(true);
     try {
+      let fileUrl = form.fileUrl.trim() || undefined;
+      if (attachmentFile) {
+        const uploaded = await uploadGovernmentLicenseAttachmentToStorage({
+          companyId,
+          departmentId: selectedDeptId,
+          folderId: selectedFolderId,
+          documentNumber: form.documentNumber.trim(),
+          file: attachmentFile,
+        });
+        fileUrl = uploaded.downloadUrl;
+      }
+
       await upsertGovernmentLicense(companyId, {
         departmentId: selectedDeptId,
         folderId: selectedFolderId,
@@ -101,13 +140,17 @@ export const GovernmentComplianceApp: React.FC = () => {
         employeeId: form.employeeId.trim() || undefined,
         employeeName: form.employeeName.trim() || undefined,
         vehiclePlate: form.vehiclePlate.trim() || undefined,
-        fileUrl: form.fileUrl.trim() || undefined,
+        fileUrl,
       });
       toast.success('تم حفظ الترخيص في السحابة');
       setAddOpen(false);
+      setAttachmentFile(null);
     } catch (err) {
       console.error(err);
-      toast.error('تعذر حفظ الترخيص');
+      const message = err instanceof Error ? err.message : 'تعذر حفظ الترخيص';
+      toast.error(message);
+    } finally {
+      setSavingLicense(false);
     }
   };
 
@@ -356,7 +399,7 @@ export const GovernmentComplianceApp: React.FC = () => {
                                 rel="noreferrer"
                                 className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded font-semibold transition-colors inline-block"
                               >
-                                معاينة PDF
+                                فتح المرفق
                               </a>
                             ) : (
                               <span className="text-[10px] text-slate-400">—</span>
@@ -442,19 +485,53 @@ export const GovernmentComplianceApp: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="font-bold text-slate-700 block mb-1">رابط المرفق (اختياري)</label>
-                <input
-                  value={form.fileUrl}
-                  onChange={(e) => setForm((f) => ({ ...f, fileUrl: e.target.value }))}
-                  className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-[10px] focus:outline-none"
-                  placeholder="https://..."
-                />
+                <label className="font-bold text-slate-700 block mb-1">مرفق الترخيص (اختياري)</label>
+                <p className="text-[10px] text-slate-500 mb-2">PDF أو صورة PNG/JPG — يُرفع إلى Firebase Storage تلقائياً</p>
+                <label
+                  className="flex flex-col items-center justify-center gap-2 w-full border-2 border-dashed border-slate-200 rounded-xl px-3 py-4 cursor-pointer hover:border-[#714B67]/40 hover:bg-slate-50/80 transition-colors"
+                >
+                  <Upload size={20} className="text-slate-400" />
+                  <span className="text-[11px] font-bold text-slate-600">اختر ملفاً أو اسحبه هنا</span>
+                  <span className="text-[10px] text-slate-400">PDF · PNG · JPG (حد أقصى 25 ميجابايت)</span>
+                  <input
+                    ref={attachmentInputRef}
+                    type="file"
+                    accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
+                    className="hidden"
+                    onChange={onAttachmentSelected}
+                    disabled={savingLicense}
+                  />
+                </label>
+                {attachmentFile && (
+                  <div className="mt-2 flex items-center justify-between gap-2 rounded-lg bg-slate-50 border border-slate-100 px-2.5 py-2">
+                    <span className="text-[10px] font-mono text-slate-700 truncate">{attachmentFile.name}</span>
+                    <button
+                      type="button"
+                      className="text-[10px] text-rose-600 font-bold shrink-0 cursor-pointer"
+                      onClick={() => {
+                        setAttachmentFile(null);
+                        if (attachmentInputRef.current) attachmentInputRef.current.value = '';
+                      }}
+                      disabled={savingLicense}
+                    >
+                      إزالة
+                    </button>
+                  </div>
+                )}
               </div>
               <button
                 type="submit"
-                className="w-full btn btn-primary bg-[#714B67] hover:bg-[#5b3c53] text-white font-bold py-2.5 rounded-lg cursor-pointer"
+                disabled={savingLicense}
+                className="w-full btn btn-primary bg-[#714B67] hover:bg-[#5b3c53] text-white font-bold py-2.5 rounded-lg cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
               >
-                حفظ في السحابة
+                {savingLicense ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    {attachmentFile ? 'جاري رفع المرفق والحفظ…' : 'جاري الحفظ…'}
+                  </>
+                ) : (
+                  'حفظ في السحابة'
+                )}
               </button>
             </form>
           </div>
