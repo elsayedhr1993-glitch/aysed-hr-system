@@ -3,6 +3,7 @@
  * Usage: npx tsx scripts/import-elite-civil-batch.ts [--dry-run]
  */
 import 'dotenv/config';
+import type { Firestore } from 'firebase-admin/firestore';
 import { getAdminFirestore } from '../server/firebaseAdmin.ts';
 import { buildEmployeeOnboardingBundle } from '../src/services/employeeOnboardingService.ts';
 import { toEmployeeFirestoreData } from '../src/utils/employeeMapper.ts';
@@ -510,15 +511,37 @@ function toEmployeePayload(row: Incoming, empId: string, ibanSuffix: string) {
   };
 }
 
-function nextEmpId(existingIds: string[]): string {
-  const nums = existingIds
+async function nextEmpIdGlobal(db: Firestore, pendingIds: string[] = []): Promise<string> {
+  const snap = await db.collection('employees').get();
+  const nums = [...snap.docs.map((d) => d.id), ...pendingIds]
     .map((id) => {
       const m = /^EMP-2026-(\d+)$/i.exec(id);
       return m ? Number(m[1]) : 0;
     })
-    .filter((n) => n > 0 && n < 9000);
+    .filter((n) => n > 0);
   const max = nums.length ? Math.max(...nums) : 0;
   return `EMP-2026-${String(max + 1).padStart(3, '0')}`;
+}
+
+function usedIbanSuffixes(employees: Array<Record<string, unknown>>): Set<string> {
+  const used = new Set<string>();
+  for (const e of employees) {
+    const iban = String(e.iban || e.bankIban || '').replace(/\s/g, '');
+    const tail = iban.slice(-4);
+    if (/^\d{4}$/.test(tail)) used.add(tail);
+  }
+  return used;
+}
+
+/** Unique 4-digit tail for placeholder IBANs (prefer last digits of civil ID). */
+function nextIbanSuffix(used: Set<string>, civilId: string): string {
+  const digits = civilId.replace(/\D/g, '');
+  let candidate = (digits.slice(-4) || '0001').padStart(4, '0');
+  for (let i = 0; i < 10000 && used.has(candidate); i++) {
+    candidate = String((parseInt(candidate, 10) + 1) % 10000).padStart(4, '0');
+  }
+  used.add(candidate);
+  return candidate;
 }
 
 async function main() {
@@ -531,6 +554,7 @@ async function main() {
   const snap = await db.collection('employees').where('companyId', '==', COMPANY_ID).get();
   let existingEmployees = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   const existingIds = snap.docs.map((d) => d.id);
+  const ibanSuffixUsed = usedIbanSuffixes(existingEmployees);
 
   const results: Array<{ status: string; civilId: string; name?: string; employeeId?: string; reason?: string }> = [];
 
@@ -548,9 +572,9 @@ async function main() {
       continue;
     }
 
-    const empId = nextEmpId([...existingIds, ...results.filter((r) => r.employeeId).map((r) => r.employeeId!)]);
+    const empId = await nextEmpIdGlobal(db, existingIds);
     existingIds.push(empId);
-    const ibanSuffix = String(existingIds.length + 200).padStart(4, '0');
+    const ibanSuffix = nextIbanSuffix(ibanSuffixUsed, row.civilId);
     const employee = toEmployeePayload(row, empId, ibanSuffix);
 
     try {
@@ -584,7 +608,12 @@ async function main() {
       }
 
       existingEmployees.push(bundle.employee as any);
-      results.push({ status: dryRun ? 'dry-run' : 'created', civilId: row.civilId, name: row.fullNameAr, employeeId: empId });
+      results.push({
+        status: dryRun ? 'dry-run' : 'created',
+        civilId: row.civilId,
+        name: row.fullNameAr,
+        employeeId: empId,
+      });
     } catch (e) {
       results.push({ status: 'error', civilId: row.civilId, name: row.fullNameAr, reason: (e as Error).message });
     }
