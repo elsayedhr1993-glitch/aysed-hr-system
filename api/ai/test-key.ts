@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createRequire } from 'node:module';
 
-const { loadBundledHandler } = createRequire(import.meta.url)('../loadBundledCjs.cjs') as {
+const { loadBundledHandler } = createRequire(import.meta.url)('../_loadBundledCjs.cjs') as {
   loadBundledHandler: (bundleFileName: string) => (req: VercelRequest, res: VercelResponse) => Promise<unknown>;
 };
 

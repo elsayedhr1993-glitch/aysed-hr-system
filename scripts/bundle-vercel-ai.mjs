@@ -1,10 +1,12 @@
 /**
  * Emit self-contained CommonJS Vercel API files (no ESM/CJS mismatch at runtime).
+ * Output under api/_bundles so Vercel does not treat .cjs as separate Serverless Functions.
  */
 import * as esbuild from 'esbuild';
 import { mkdirSync, rmSync } from 'node:fs';
 
-mkdirSync('api/ai', { recursive: true });
+const bundlesDir = 'api/_bundles';
+mkdirSync(bundlesDir, { recursive: true });
 
 const external = [
   'firebase-admin',
@@ -19,12 +21,19 @@ try {
   /* ok */
 }
 
+try {
+  rmSync('api/ai-chat.cjs', { force: true });
+  rmSync('api/ai/test-key.cjs', { force: true });
+} catch {
+  /* ok */
+}
+
 await esbuild.build({
   entryPoints: {
     'ai-chat': 'server/vercel/aiChatApi.ts',
-    'ai/test-key': 'server/vercel/aiTestKeyApi.ts',
+    'test-key': 'server/vercel/aiTestKeyApi.ts',
   },
-  outdir: 'api',
+  outdir: bundlesDir,
   outExtension: { '.js': '.cjs' },
   bundle: true,
   platform: 'node',
@@ -38,4 +47,4 @@ await esbuild.build({
   },
 });
 
-console.log('[bundle-vercel-ai] Wrote api/ai-chat.cjs and api/ai/test-key.cjs (CJS)');
+console.log(`[bundle-vercel-ai] Wrote ${bundlesDir}/ai-chat.cjs and ${bundlesDir}/test-key.cjs (CJS)`);

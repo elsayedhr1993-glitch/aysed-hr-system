@@ -4,19 +4,23 @@ const { createRequire } = require('node:module');
 const fs = require('node:fs');
 const path = require('node:path');
 
-function resolveFunctionDir() {
-  return __dirname;
-}
+const BUNDLES_DIR = '_bundles';
 
-/** Load esbuild CJS bundle colocated with the Vercel function entry (see scripts/bundle-vercel-ai.mjs). */
-function loadBundledHandler(bundleFileName) {
-  const functionDir = resolveFunctionDir();
-  const candidates = [
-    path.join(functionDir, bundleFileName),
-    path.join(process.cwd(), 'api', bundleFileName),
-    path.join(process.cwd(), 'api', 'ai', bundleFileName),
+function bundleCandidatePaths(bundleFileName) {
+  const apiDir = path.join(process.cwd(), 'api');
+  return [
+    path.join(__dirname, BUNDLES_DIR, bundleFileName),
+    path.join(__dirname, bundleFileName),
+    path.join(apiDir, BUNDLES_DIR, bundleFileName),
+    path.join(apiDir, bundleFileName),
+    path.join(apiDir, 'ai', bundleFileName),
     path.join(process.cwd(), bundleFileName),
   ];
+}
+
+/** Load esbuild CJS bundle from api/_bundles (not deployed as its own function). */
+function loadBundledHandler(bundleFileName) {
+  const candidates = bundleCandidatePaths(bundleFileName);
 
   for (const bundlePath of candidates) {
     if (!fs.existsSync(bundlePath)) continue;

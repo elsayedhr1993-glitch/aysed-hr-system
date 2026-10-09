@@ -7,12 +7,15 @@ coverage/
 bun.lock
 bun.lockb
 dist/
-# api/ai-chat.cjs is committed so Vercel serverless can load it if build bundling is skipped
+# Legacy bundle locations (use api/_bundles instead)
+api/ai-chat.cjs
 api/ai-chat.cjs.map
 api/ai/test-key.cjs
 api/ai/test-key.cjs.map
+api/loadBundledCjs.cjs
 api/ai-chat.js
 api/ai/test-key.js
+api/_bundles/*.map
 server.cjs
 server.cjs.map
 
@@ -28,4 +31,3 @@ scripts/extract-doc-once.mjs
 
 # Vite bundle artifacts (CJS bundles are committed via build script)
 api/**/*.js.map
-

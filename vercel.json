@@ -8,12 +8,12 @@
     "api/ai-chat.ts": {
       "maxDuration": 60,
       "memory": 1024,
-      "includeFiles": "api/{ai-chat.cjs,loadBundledCjs.cjs}"
+      "includeFiles": "api/_bundles/ai-chat.cjs"
     },
     "api/ai/test-key.ts": {
       "maxDuration": 60,
       "memory": 1024,
-      "includeFiles": "api/{ai/test-key.cjs,loadBundledCjs.cjs}"
+      "includeFiles": "api/_bundles/test-key.cjs"
     }
   },
   "rewrites": [{ "source": "/((?!assets/|api/).*)", "destination": "/index.html" }]
