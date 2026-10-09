@@ -44853,7 +44853,7 @@ function getApiKeyFromEnv() {
 
 // server/aiModelEnv.ts
 init_define_import_meta_env();
-var DEFAULT_CHAT_MODEL = "gemini-2.5-flash";
+var DEFAULT_CHAT_MODEL = "gemini-3.8-flash";
 function envModel(key) {
   const raw = process.env[key];
   if (!raw) return void 0;
@@ -44880,8 +44880,7 @@ function getChatModelCandidates() {
     primary,
     ...extra,
     DEFAULT_CHAT_MODEL,
-    "gemini-2.5-pro",
-    "gemini-3.8-flash",
+    "gemini-3-flash-preview",
     ...optionalFallback ? [optionalFallback] : []
   ]);
 }

@@ -10,7 +10,7 @@ if (!client) throw new Error('No GEMINI');
 
 const b64 = readFileSync(path).toString('base64');
 const r = await client.models.generateContent({
-  model: 'gemini-2.5-flash',
+  model: 'gemini-3.8-flash',
   contents: {
     parts: [
       { inlineData: { data: b64, mimeType: 'application/pdf' } },

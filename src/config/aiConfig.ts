@@ -1,15 +1,15 @@
 /** Default Gemini model when AI_* env vars are unset (chat + OCR). */
-export const DEFAULT_CHAT_MODEL = 'gemini-2.5-flash';
+export const DEFAULT_CHAT_MODEL = 'gemini-3.8-flash';
 
 /** Vision / document OCR default (same as chat unless AI_OCR_MODEL is set). */
-export const DEFAULT_OCR_MODEL = 'gemini-2.5-flash';
+export const DEFAULT_OCR_MODEL = 'gemini-3.8-flash';
 
 /** Built-in OCR fallbacks when env lists are empty (vision-capable, current API). */
-export const OCR_BUILTIN_FALLBACKS = ['gemini-2.5-pro', 'gemini-3.8-flash'] as const;
+export const OCR_BUILTIN_FALLBACKS = ['gemini-3-flash-preview'] as const;
 
 /** Models removed from Google API — never use for Vision/OCR even if listed in .env */
 const RETIRED_VISION_MODEL_RE =
-  /^gemini-(?:1\.5|2\.0)(?:-|$)/i;
+  /^gemini-(?:1\.5|2\.0|2\.5-flash)(?:-|$)/i;
 
 export function isRetiredVisionModel(model: string): boolean {
   return RETIRED_VISION_MODEL_RE.test(String(model || '').trim());

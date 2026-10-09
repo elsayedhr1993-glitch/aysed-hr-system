@@ -450,7 +450,7 @@ async function tryExtractFromPdfPath(pdfPath: string): Promise<Incoming[]> {
   }
   const b64 = readFileSync(pdfPath).toString('base64');
   const prompt = `استخرج كل بطاقة مدنية في PDF. أرجع JSON: { "employees": [ { civilId, fullNameAr, fullNameEn, passportNo, nationality, gender, dob, expiryDate, profession, address } ] }. لا تخمّن.`;
-  const models = uniqueModels(['gemini-2.5-flash', 'gemini-2.5-pro', ...getOcrModelCandidates()]);
+  const models = uniqueModels(['gemini-3.8-flash', ...getOcrModelCandidates()]);
   try {
     let text = '';
     let lastErr: Error | null = null;
