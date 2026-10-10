@@ -4,6 +4,8 @@ coverage/
 *.log
 .env*
 !.env.example
+scripts/data/civil-id.png
+scripts/data/civil-id.jpg
 bun.lock
 bun.lockb
 dist/

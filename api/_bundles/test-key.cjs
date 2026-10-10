@@ -45054,20 +45054,182 @@ function getApiKeyFromEnv() {
   return envGoogleApiKey || envGeminiApiKey || void 0;
 }
 
-// server/geminiServer.ts
-function getGeminiClient() {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.VITE_GEMINI_API_KEY;
-  if (!apiKey || apiKey.trim() === "" || apiKey.includes("YOUR_")) {
-    return null;
+// server/geminiBearerClient.ts
+init_define_import_meta_env();
+var GEMINI_REST_BASE = "https://generativelanguage.googleapis.com/v1beta";
+var OPENAI_COMPAT_BASE = `${GEMINI_REST_BASE}/openai`;
+function normalizeContents(contents) {
+  if (Array.isArray(contents)) {
+    return contents;
   }
+  if (contents && typeof contents === "object" && "parts" in contents) {
+    return [{ parts: contents.parts }];
+  }
+  return [{ parts: [{ text: String(contents ?? "") }] }];
+}
+function buildGenerationConfig(config) {
+  if (!config) return void 0;
+  const out = {};
+  for (const key of [
+    "temperature",
+    "topP",
+    "topK",
+    "maxOutputTokens",
+    "responseMimeType",
+    "responseSchema",
+    "responseJsonSchema"
+  ]) {
+    if (config[key] !== void 0) out[key] = config[key];
+  }
+  return Object.keys(out).length ? out : void 0;
+}
+function extractNativeText(data) {
+  const candidates = data.candidates;
+  const parts = candidates?.[0]?.content?.parts;
+  if (!parts?.length) return "";
+  return parts.map((p) => p.text ?? "").join("");
+}
+function partsToOpenAiContent(parts) {
+  const out = [];
+  for (const part of parts) {
+    if (!part || typeof part !== "object") continue;
+    const p = part;
+    if (typeof p.text === "string") {
+      out.push({ type: "text", text: p.text });
+      continue;
+    }
+    const inline = p.inlineData;
+    if (inline?.data) {
+      const mime = inline.mimeType || "image/jpeg";
+      out.push({
+        type: "image_url",
+        image_url: { url: `data:${mime};base64,${inline.data}` }
+      });
+    }
+  }
+  return out.length ? out : [{ type: "text", text: "" }];
+}
+async function nativeGenerateContent(apiKey, model, params) {
+  const config = params.config || {};
+  const body = {
+    contents: normalizeContents(params.contents)
+  };
+  const generationConfig = buildGenerationConfig(config);
+  if (generationConfig) body.generationConfig = generationConfig;
+  const sys = config.systemInstruction;
+  if (sys) {
+    body.systemInstruction = typeof sys === "string" ? { parts: [{ text: sys }] } : sys;
+  }
+  const url = `${GEMINI_REST_BASE}/models/${encodeURIComponent(model)}:generateContent`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": apiKey,
+      "User-Agent": "aistudio-build"
+    },
+    body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    const err = new Error(JSON.stringify(data));
+    err.status = res.status;
+    throw err;
+  }
+  return { text: extractNativeText(data), raw: data };
+}
+async function openAiCompatGenerateContent(apiKey, model, params) {
+  const config = params.config || {};
+  const normalized = normalizeContents(params.contents);
+  const userParts = normalized.flatMap((c) => c.parts);
+  const userContent = partsToOpenAiContent(userParts);
+  const messages = [];
+  const sys = config.systemInstruction;
+  if (sys) {
+    messages.push({
+      role: "system",
+      content: typeof sys === "string" ? sys : JSON.stringify(sys)
+    });
+  }
+  messages.push({ role: "user", content: userContent });
+  const body = { model, messages };
+  if (config.temperature !== void 0) body.temperature = config.temperature;
+  if (config.responseMimeType === "application/json") {
+    body.response_format = { type: "json_object" };
+  }
+  const url = `${OPENAI_COMPAT_BASE}/chat/completions`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+      "User-Agent": "aistudio-build"
+    },
+    body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(JSON.stringify(data));
+  }
+  const choices = data.choices;
+  const text = choices?.[0]?.message?.content ?? "";
+  return { text, raw: data };
+}
+function createAuthKeyGeminiClient(authKey) {
+  const apiKey = authKey.trim();
+  return {
+    models: {
+      async generateContent(params) {
+        const model = String(params.model || "").trim();
+        if (!model) throw new Error("model is required");
+        try {
+          return await nativeGenerateContent(apiKey, model, params);
+        } catch (nativeErr) {
+          const status = nativeErr?.status;
+          const msg = String(nativeErr?.message || nativeErr);
+          const retryWithBearer = status === 401 || msg.includes("ACCESS_TOKEN_TYPE_UNSUPPORTED") || msg.includes("API_KEY_SERVICE_BLOCKED");
+          if (!retryWithBearer) throw nativeErr;
+          return await openAiCompatGenerateContent(apiKey, model, params);
+        }
+      }
+    }
+  };
+}
+
+// server/geminiAuth.ts
+init_define_import_meta_env();
+function getGeminiCredentialFromEnv() {
+  const raw = process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.VITE_GEMINI_API_KEY;
+  if (!raw) return null;
+  const trimmed = String(raw).trim();
+  if (!trimmed || trimmed.includes("YOUR_") || trimmed.includes("MY_GEMINI")) return null;
+  return trimmed;
+}
+function isGoogleAuthKey(credential) {
+  return String(credential || "").trim().startsWith("AQ.");
+}
+
+// server/geminiServer.ts
+var AISTUDIO_HTTP_HEADERS = {
+  "User-Agent": "aistudio-build"
+};
+function createApiKeyGeminiClient(apiKey) {
   return new GoogleGenAI2({
     apiKey: apiKey.trim(),
     httpOptions: {
-      headers: {
-        "User-Agent": "aistudio-build"
-      }
+      headers: AISTUDIO_HTTP_HEADERS
     }
   });
+}
+function getGeminiClient() {
+  const credential = getGeminiCredentialFromEnv();
+  if (!credential) {
+    return null;
+  }
+  if (isGoogleAuthKey(credential)) {
+    return createAuthKeyGeminiClient(credential);
+  }
+  return createApiKeyGeminiClient(credential);
 }
 
 // server/aiTestKeyCore.ts

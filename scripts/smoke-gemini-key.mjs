@@ -4,12 +4,17 @@ dotenv.config({ path: '.env.local', override: true });
 
 const key = process.env.GEMINI_API_KEY?.trim();
 if (!key) {
-  console.error('FAIL: GEMINI_API_KEY missing in .env');
+  console.error('FAIL: GEMINI_API_KEY missing in .env.local');
   process.exit(1);
 }
 
-const { GoogleGenAI } = await import('@google/genai');
-const ai = new GoogleGenAI({ apiKey: key });
+const { getGeminiClient } = await import('../server/geminiServer.ts');
+const ai = getGeminiClient();
+if (!ai) {
+  console.error('FAIL: getGeminiClient() returned null');
+  process.exit(1);
+}
+
 const model = process.env.AI_CHAT_MODEL || 'gemini-3.8-flash';
 
 try {

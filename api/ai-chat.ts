@@ -37,15 +37,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ? { contents }
       : { contents: [{ parts: parts.length > 0 ? parts : [{ text: 'مرحباً' }] }] };
 
-    // تمرير المفتاح في الرابط وفي الـ Headers لدعم صيغة AQ. الجديدة ومفاتيح AIzaSy معاً
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey,
+    };
 
     const apiRes = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey,
-      },
+      headers,
       body: JSON.stringify(payload),
     });
 
