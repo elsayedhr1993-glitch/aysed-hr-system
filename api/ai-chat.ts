@@ -1,5 +1,4 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { GoogleGenAI } from '@google/genai';
 
 export const config = {
   maxDuration: 60,
@@ -12,46 +11,56 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'GEMINI_API_KEY is not configured in Vercel environment' });
+    return res.status(500).json({ error: 'GEMINI_API_KEY is not configured in Vercel' });
   }
 
   try {
-    const ai = new GoogleGenAI({ apiKey });
     const model = process.env.AI_CHAT_MODEL || 'gemini-3.8-flash';
-
     const { prompt, contents, imageBase64, mimeType } = req.body || {};
 
-    let payloadParts: any[] = [];
+    let parts: any[] = [];
 
     if (imageBase64) {
-      payloadParts.push({
-        inlineData: {
+      parts.push({
+        inline_data: {
+          mime_type: mimeType || 'image/jpeg',
           data: imageBase64,
-          mimeType: mimeType || 'image/jpeg',
         },
       });
     }
 
     if (prompt) {
-      payloadParts.push({ text: prompt });
+      parts.push({ text: prompt });
     }
 
-    const response = await ai.models.generateContent({
-      model,
-      contents: contents || (payloadParts.length > 0 ? payloadParts : [{ text: 'مرحباً' }]),
+    const payload = contents ? { contents } : { contents: [{ parts: parts.length > 0 ? parts : [{ text: 'مرحباً' }] }] };
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+    const apiRes = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
     });
 
-    const responseText = response.text || '';
+    const data = await apiRes.json();
+
+    if (!apiRes.ok) {
+      console.error('Gemini API Error Response:', data);
+      return res.status(apiRes.status).json(data);
+    }
+
+    const responseText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
     return res.status(200).json({
       text: responseText,
-      candidates: [{ content: { parts: [{ text: responseText }] } }],
+      candidates: data.candidates || [{ content: { parts: [{ text: responseText }] } }],
     });
-  } catch (error: any) {
-    console.error('Gemini API Invocation Error:', error);
+  } catch (err: any) {
+    console.error('Direct Gemini Handler Error:', err);
     return res.status(500).json({
-      error: 'Failed to process AI request',
-      message: error?.message || String(error),
+      error: 'Failed to communicate with AI model',
+      message: err?.message || String(err),
     });
   }
 }
