@@ -589,6 +589,15 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
         if (scannedData.work_permit_end || scannedData.pam_end || scannedData.pamEndDate || scannedData.expiry_date || scannedData.expiryDate) updated.contractEndDate = scannedData.work_permit_end || scannedData.pam_end || scannedData.pamEndDate || scannedData.expiry_date || scannedData.expiryDate;
         if (scannedData.salary || scannedData.basic_salary || scannedData.basicSalary) updated.basicSalary = scannedData.salary || scannedData.basic_salary || scannedData.basicSalary;
         if (scannedData.profession || scannedData.job_title || scannedData.jobTitle) updated.jobTitle = scannedData.profession || scannedData.job_title || scannedData.jobTitle;
+      } else if (docType === 'contract') {
+        if (scannedData.salary || scannedData.basic_salary || scannedData.basicSalary) {
+          updated.basicSalary = scannedData.salary || scannedData.basic_salary || scannedData.basicSalary;
+        }
+        if (scannedData.work_permit_start || scannedData.pam_start) updated.contractStartDate = scannedData.work_permit_start || scannedData.pam_start;
+        if (scannedData.work_permit_end || scannedData.pam_end || scannedData.expiry_date) {
+          updated.contractEndDate = scannedData.work_permit_end || scannedData.pam_end || scannedData.expiry_date;
+        }
+        updated.contractSigned = true;
       }
       return updated;
     });
