@@ -1,4 +1,4 @@
-import type { DepartmentConfig } from '../types/governmentLicense';
+import type { DepartmentConfig, FolderConfig } from '../types/governmentLicense';
 
 export const GOVERNMENT_COMPLIANCE_DEPARTMENTS: DepartmentConfig[] = [
   {

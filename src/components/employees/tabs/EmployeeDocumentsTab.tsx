@@ -79,8 +79,7 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
               </div>
             ) : (
               <div className="bg-emerald-50 border border-emerald-200 text-emerald-950 p-3 rounded-2xl text-[11px] leading-relaxed">
-                <strong className="font-bold">وضع التعديل مفعّل:</strong> حدّث قسم «البطاقة المدنية» أدناه (تاريخ الانتهاء + رفع النسخة الجديدة). يمكنك أيضاً استخدام تبويب{' '}
-                <strong>البيانات الشخصية</strong> لنفس الحقول.
+                <strong className="font-bold">وضع التعديل مفعّل:</strong> حدّث قسم «البطاقة المدنية» أدناه (تاريخ الانتهاء + رفع النسخة الجديدة).                 أرقام الهوية وتواريخ الانتهاء تُحرَّر من تبويب <strong>البيانات الشخصية</strong> أو من جدول التراخيص أعلاه — هنا رفع المرفقات وOCR فقط.
               </div>
             )}
 
@@ -404,34 +403,23 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                       onDataExtracted={(data) => handleOcrResult(data, 'civil_id')} 
                     />)}
 
-                    {/* Document Input Fields */}
-                    <fieldset disabled={!isEditMode} className="w-full block">
-                      <div className="grid grid-cols-2 gap-2.5 pt-2">
-                        <div>
-                          <label className="block text-[11px] font-bold text-slate-700 mb-1">الرقم المدني (12 رقماً)</label>
-                          <input
-                            type="text"
-                            maxLength={12}
-                            value={employee.civil_id_number || employee.civilId || ''}
-                            onChange={(e) => {
-                              handleFieldChange('civil_id_number', e.target.value);
-                              handleFieldChange('civilId', e.target.value);
-                            }}
-                            className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-900 text-xs focus:ring-2 focus:ring-purple-500 disabled:bg-slate-50 disabled:text-slate-500 disabled:border-slate-200"
-                            placeholder="290010100000"
-                           />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-bold text-slate-700 mb-1">تاريخ انتهاء البطاقة</label>
-                          <input
-                            type="date"
-                            value={employee.civilIdExpiry ? employee.civilIdExpiry.slice(0, 10) : ''}
-                            onChange={(e) => handleFieldChange('civilIdExpiry', e.target.value)}
-                            className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-900 text-xs focus:ring-2 focus:ring-purple-500 disabled:bg-slate-50 disabled:text-slate-500 disabled:border-slate-200"
-                           />
-                        </div>
+                    <div className="grid grid-cols-2 gap-2.5 pt-2 text-[11px]">
+                      <div className="rounded-lg bg-slate-50 border border-slate-200 px-2.5 py-2">
+                        <span className="text-slate-500 font-bold block mb-0.5">الرقم المدني</span>
+                        <span className="font-mono font-bold text-slate-900">
+                          {employee.civil_id_number || employee.civilId || '—'}
+                        </span>
                       </div>
-                    </fieldset>
+                      <div className="rounded-lg bg-slate-50 border border-slate-200 px-2.5 py-2">
+                        <span className="text-slate-500 font-bold block mb-0.5">انتهاء البطاقة</span>
+                        <span className="font-mono font-bold text-slate-900">
+                          {(employee.civilIdExpiry || employee.civilIdExpiryDate || '—').toString().slice(0, 10)}
+                        </span>
+                      </div>
+                      <p className="col-span-2 text-[10px] text-slate-500">
+                        لتعديل الرقم أو التاريخ: تبويب «البيانات الشخصية» ثم حفظ الملف.
+                      </p>
+                    </div>
 
                     {/* File Attachment Upload Zone */}
                     <div className="pt-2 border-t border-slate-100">
@@ -747,40 +735,35 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                       onDataExtracted={(data) => handleOcrResult(data, 'medical_license')} 
                     />)}
 
-                    {/* Document Input Fields */}
-                    <div className="grid grid-cols-2 gap-2.5 pt-2">
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">رقم ترخيص MOH</label>
-                        <input
-                          type="text"
-                          value={employee.mohLicense || ''}
-                          onChange={(e) => handleFieldChange('mohLicense', e.target.value)}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-900 text-xs focus:ring-2 focus:ring-purple-500"
-                          placeholder="MOH-DOC-1234"
-                        />
+                    <div className="grid grid-cols-2 gap-2.5 pt-2 text-[11px]">
+                      <div className="rounded-lg bg-slate-50 border border-slate-200 px-2.5 py-2">
+                        <span className="text-slate-500 font-bold block mb-0.5">رقم ترخيص MOH</span>
+                        <span className="font-mono font-bold text-slate-900">{employee.mohLicense || employee.mohLicenseNo || '—'}</span>
                       </div>
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">تاريخ انتهاء الترخيص</label>
-                        <input
-                          type="date"
-                          value={employee.mohLicenseExpiry ? employee.mohLicenseExpiry.slice(0, 10) : ''}
-                          onChange={(e) => handleFieldChange('mohLicenseExpiry', e.target.value)}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-900 text-xs focus:ring-2 focus:ring-purple-500"
-                         />
+                      <div className="rounded-lg bg-slate-50 border border-slate-200 px-2.5 py-2">
+                        <span className="text-slate-500 font-bold block mb-0.5">انتهاء الترخيص</span>
+                        <span className="font-mono font-bold text-slate-900">
+                          {(employee.mohLicenseExpiry || '—').toString().slice(0, 10)}
+                        </span>
                       </div>
-                      <div className="col-span-2">
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">المسمى / التخصص (MOH)</label>
-                        <input
-                          type="text"
-                          value={employee.mohSpecialty || employee.specialty || ''}
-                          onChange={(e) => {
-                            handleFieldChange('mohSpecialty', e.target.value);
-                            handleFieldChange('specialty', e.target.value);
-                          }}
-                          className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-900 text-xs focus:ring-2 focus:ring-purple-500"
-                          placeholder="طبيب عام / ممرض اختصاصي..."
-                        />
-                      </div>
+                      {isEditMode && (
+                        <div className="col-span-2">
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">المسمى / التخصص (MOH)</label>
+                          <input
+                            type="text"
+                            value={employee.mohSpecialty || employee.specialty || ''}
+                            onChange={(e) => {
+                              handleFieldChange('mohSpecialty', e.target.value);
+                              handleFieldChange('specialty', e.target.value);
+                            }}
+                            className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-900 text-xs focus:ring-2 focus:ring-purple-500"
+                            placeholder="طبيب عام / ممرض اختصاصي..."
+                          />
+                        </div>
+                      )}
+                      <p className="col-span-2 text-[10px] text-slate-500">
+                        رقم وتاريخ انتهاء MOH يُعدَّلان من جدول «الهويات والتراخيص الحكومية» أعلاه.
+                      </p>
                     </div>
 
                     {/* File Attachment Upload Zone */}

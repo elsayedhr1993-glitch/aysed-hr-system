@@ -111,6 +111,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
   });
 
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
+  const editSnapshotRef = useRef<Record<string, unknown> | null>(null);
   type EmployeeDetailTab =
     | 'work'
     | 'private'
@@ -168,10 +169,33 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
 
   // تحديث بيانات الموظف عند تغير الـ initialEmployee
   useEffect(() => {
-    if (initialEmployee) {
+    if (initialEmployee && !isEditMode) {
       setEmployee({ ...initialEmployee });
+      editSnapshotRef.current = null;
     }
-  }, [initialEmployee]);
+  }, [initialEmployee, isEditMode]);
+
+  const enterEditMode = () => {
+    editSnapshotRef.current = JSON.parse(JSON.stringify(employee));
+    setIsEditMode(true);
+  };
+
+  const discardEdits = () => {
+    const snap = editSnapshotRef.current;
+    setEmployee(snap ? { ...snap } : { ...initialEmployee });
+    editSnapshotRef.current = null;
+    setIsEditMode(false);
+  };
+
+  const handleChatterChange = (entries: import('../copilot/EmployeeRecordChatter').EmployeeChatterEntry[]) => {
+    setEmployee((prev: any) => {
+      const next = { ...prev, chatter: entries };
+      if (!isEditMode) {
+        void onSave(next).catch((err) => console.error('Chatter persist failed:', err));
+      }
+      return next;
+    });
+  };
 
   // ربط خطة التهيئة من Firestore (مصدر موحّد مع OnboardingTrackerApp)
   useEffect(() => {
@@ -608,6 +632,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
 
       await onSave(payloadToSave);
       setEmployee(payloadToSave);
+      editSnapshotRef.current = null;
       setIsEditMode(false);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2500);
@@ -650,7 +675,57 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
         </nav>
       </div>
 
-      {/* شريط الإجراءات */}
+      {/* Odoo Statusbar — مراحل التوظيف */}
+      <div
+        className="w-full bg-white border border-slate-200/90 rounded-xl px-4 py-2.5 shadow-2xs"
+        role="region"
+        aria-label="شريط الحالة"
+      >
+        <div className="flex flex-wrap items-center gap-1 w-full">
+          {employmentStages.map((stage, index) => {
+            const isPast = index < currentStageIndex;
+            const isCurrent = index === currentStageIndex;
+            const stageTab =
+              stage.id === 'docs'
+                ? 'licenses'
+                : stage.id === 'commencement'
+                  ? 'commencement'
+                  : stage.id === 'on_duty' || stage.id === 'ended'
+                    ? 'work'
+                    : 'onboarding';
+            return (
+              <React.Fragment key={stage.id}>
+                {index > 0 && <span className="text-slate-300 text-[10px] px-0.5 select-none">◄</span>}
+                <button
+                  type="button"
+                  onClick={() => setActiveTab(stageTab as EmployeeDetailTab)}
+                  className={`px-2.5 py-1 rounded-md text-[10px] font-bold border transition cursor-pointer whitespace-nowrap ${
+                    isCurrent
+                      ? 'bg-[#714B67] text-white border-[#714B67] shadow-xs'
+                      : isPast
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                        : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  {stage.label}
+                </button>
+              </React.Fragment>
+            );
+          })}
+          {mohGaps.length > 0 && (
+            <span className="mr-auto px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200">
+              فجوات MOH: {mohGaps.length}
+            </span>
+          )}
+          {isEditMode && (
+            <span className="mr-auto text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+              وضع التعديل
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* شريط الإجراءات (Edit / Save / Discard / Actions) */}
       <div className="w-full bg-white border border-slate-200/90 rounded-xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 shadow-2xs">
         <div className="flex flex-wrap items-center gap-2">
           {saveSuccess && (
@@ -671,25 +746,22 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setEmployee({ ...initialEmployee });
-                  setIsEditMode(false);
-                }}
+                onClick={discardEdits}
                 className="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer"
               >
                 <Undo2 size={15} />
-                <span>إلغاء</span>
+                <span>تراجع</span>
               </button>
             </>
           ) : (
             <>
               <button
                 type="button"
-                onClick={() => setIsEditMode(true)}
+                onClick={enterEditMode}
                 className="bg-[#714B67] hover:bg-[#5a3b52] text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer"
               >
                 <Edit3 size={15} />
-                <span>تعديل الملف</span>
+                <span>تعديل</span>
               </button>
               <EntityAiSummaryButton
                 employee={employee}
@@ -760,49 +832,6 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
       {/* Odoo HR Master Form */}
       <div className="bg-white border border-slate-200/90 rounded-2xl shadow-sm w-full p-5 sm:p-6 md:p-8 space-y-5">
         <div className="flex flex-col gap-4 border-b border-slate-100 pb-5">
-        <div
-          className="flex flex-wrap items-center gap-1 w-full"
-          role="list"
-          aria-label="مراحل التوظيف"
-        >
-          {employmentStages.map((stage, index) => {
-            const isPast = index < currentStageIndex;
-            const isCurrent = index === currentStageIndex;
-            const stageTab =
-              stage.id === 'docs'
-                ? 'licenses'
-                : stage.id === 'commencement'
-                  ? 'commencement'
-                  : stage.id === 'on_duty' || stage.id === 'ended'
-                    ? 'work'
-                    : 'onboarding';
-            return (
-              <React.Fragment key={stage.id}>
-                {index > 0 && <span className="text-slate-300 text-[10px] px-0.5 select-none">◄</span>}
-                <button
-                  type="button"
-                  role="listitem"
-                  onClick={() => setActiveTab(stageTab as EmployeeDetailTab)}
-                  className={`px-2.5 py-1 rounded-md text-[10px] font-bold border transition cursor-pointer whitespace-nowrap ${
-                    isCurrent
-                      ? 'bg-[#714B67] text-white border-[#714B67] shadow-xs'
-                      : isPast
-                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                        : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  {stage.label}
-                </button>
-              </React.Fragment>
-            );
-          })}
-          {mohGaps.length > 0 && (
-            <span className="mr-auto px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200">
-              فجوات MOH: {mohGaps.length}
-            </span>
-          )}
-        </div>
-
         {/* Profile Header: اسم الموظف + oe_button_box */}
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 w-full min-w-0">
         <div className="flex flex-col sm:flex-row sm:items-start gap-4 w-full min-w-0 flex-1">
@@ -857,15 +886,8 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
                   className="text-2xl font-bold text-slate-900 border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1 bg-white focus:outline-none transition"
                 />
               ) : (
-                <h2 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-                  <span>{employee.nameAr || employee.fullNameAr || 'اسم الموظف'}</span>
-                  <button 
-                    onClick={() => setIsEditMode(true)}
-                    className="text-slate-300 hover:text-[#714B67] transition"
-                    title="تعديل"
-                  >
-                    <Edit3 size={16} />
-                  </button>
+                <h2 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
+                  {employee.nameAr || employee.fullNameAr || 'اسم الموظف'}
                 </h2>
               )}
 
@@ -1005,7 +1027,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
         {activeTab === 'contract' && (
           <EmployeeContractTab
             employee={employee}
-            isEditMode={false}
+            isEditMode={isEditMode}
             handleFieldChange={handleFieldChange}
             onOpenPamModal={onOpenPamModal}
             onOpenContracts={onOpenContracts}
@@ -1066,8 +1088,8 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
 
         <EmployeeRecordChatter
           chatter={Array.isArray(employee.chatter) ? employee.chatter : []}
-          disabled={!isEditMode}
-          onChatterChange={(entries) => handleFieldChange('chatter', entries)}
+          disabled={false}
+          onChatterChange={handleChatterChange}
         />
         </div>
       </div>

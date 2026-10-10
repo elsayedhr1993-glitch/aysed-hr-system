@@ -13,6 +13,10 @@ export interface LicenseDocument {
   employeeName?: string;
   vehiclePlate?: string;
   updatedAt?: string;
+  /** Linked row in `company_documents` (set by sync). */
+  companyDocumentId?: string;
+  archived?: boolean;
+  archivedAt?: string;
 }
 
 export interface FolderConfig {

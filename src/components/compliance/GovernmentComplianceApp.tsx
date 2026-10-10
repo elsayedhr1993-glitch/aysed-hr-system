@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, Upload, X } from 'lucide-react';
+import { Archive, Loader2, MoreHorizontal, Pencil, RefreshCw, Trash2, Upload, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useCompany } from '../../context/CompanyContext';
 import { isQueryableTenantCompanyId } from '../../utils/tenantCompanyId';
@@ -7,6 +7,8 @@ import { GOVERNMENT_COMPLIANCE_DEPARTMENTS } from '../../config/governmentCompli
 import type { DepartmentId, LicenseDocument } from '../../types/governmentLicense';
 import { getLicenseDaysRemaining } from '../../utils/governmentLicenseExpiry';
 import {
+  archiveGovernmentLicense,
+  deleteGovernmentLicense,
   subscribeGovernmentLicenses,
   upsertGovernmentLicense,
 } from '../../services/governmentLicenseService';
@@ -25,7 +27,13 @@ export const GovernmentComplianceApp: React.FC = () => {
   const [loaded, setLoaded] = useState(false);
 
   const [addOpen, setAddOpen] = useState(false);
+  const [editingLicenseId, setEditingLicenseId] = useState<string | null>(null);
+  const [renewLicenseId, setRenewLicenseId] = useState<string | null>(null);
+  const [renewExpiry, setRenewExpiry] = useState('');
+  const [showArchived, setShowArchived] = useState(false);
+  const [openActionsId, setOpenActionsId] = useState<string | null>(null);
   const [savingLicense, setSavingLicense] = useState(false);
+  const [rowBusyId, setRowBusyId] = useState<string | null>(null);
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
@@ -51,10 +59,15 @@ export const GovernmentComplianceApp: React.FC = () => {
     });
   }, [companyId]);
 
+  const activeDocuments = useMemo(
+    () => documents.filter((d) => !d.archived),
+    [documents]
+  );
+
   const deptStats = useMemo(() => {
     const stats: Record<string, { total: number; expiringSoon: number }> = {};
     GOVERNMENT_COMPLIANCE_DEPARTMENTS.forEach((dept) => {
-      const deptDocs = documents.filter((d) => d.departmentId === dept.id);
+      const deptDocs = activeDocuments.filter((d) => d.departmentId === dept.id);
       const expiring = deptDocs.filter((d) => {
         const { status } = getLicenseDaysRemaining(d.expiryDate);
         return status === 'warning' || status === 'expired';
@@ -62,19 +75,22 @@ export const GovernmentComplianceApp: React.FC = () => {
       stats[dept.id] = { total: deptDocs.length, expiringSoon: expiring };
     });
     return stats;
-  }, [documents]);
+  }, [activeDocuments]);
 
   const activeDepartment = GOVERNMENT_COMPLIANCE_DEPARTMENTS.find((d) => d.id === selectedDeptId);
   const activeFolder = activeDepartment?.folders.find((f) => f.id === selectedFolderId);
 
   const filteredDocuments = useMemo(() => {
     if (!selectedDeptId || !selectedFolderId) return [];
-    return documents.filter(
-      (d) => d.departmentId === selectedDeptId && d.folderId === selectedFolderId
-    );
-  }, [documents, selectedDeptId, selectedFolderId]);
+    return documents.filter((d) => {
+      if (d.departmentId !== selectedDeptId || d.folderId !== selectedFolderId) return false;
+      if (showArchived) return Boolean(d.archived);
+      return !d.archived;
+    });
+  }, [documents, selectedDeptId, selectedFolderId, showArchived]);
 
   const openAddModal = () => {
+    setEditingLicenseId(null);
     if (!selectedDeptId || !selectedFolderId) {
       toast.error('اختر جهة حكومية ومجلداً قبل إضافة ترخيص');
       return;
@@ -91,6 +107,86 @@ export const GovernmentComplianceApp: React.FC = () => {
     setAttachmentFile(null);
     if (attachmentInputRef.current) attachmentInputRef.current.value = '';
     setAddOpen(true);
+  };
+
+  const openEditModal = (lic: LicenseDocument) => {
+    setEditingLicenseId(lic.id);
+    setForm({
+      title: lic.title,
+      documentNumber: lic.documentNumber,
+      expiryDate: lic.expiryDate,
+      employeeId: lic.employeeId || '',
+      employeeName: lic.employeeName || '',
+      vehiclePlate: lic.vehiclePlate || '',
+      fileUrl: lic.fileUrl || '',
+    });
+    setAttachmentFile(null);
+    if (attachmentInputRef.current) attachmentInputRef.current.value = '';
+    setAddOpen(true);
+    setOpenActionsId(null);
+  };
+
+  const openRenewModal = (lic: LicenseDocument) => {
+    setRenewLicenseId(lic.id);
+    setRenewExpiry(lic.expiryDate);
+    setOpenActionsId(null);
+  };
+
+  const handleRenewExpiry = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!renewLicenseId || !renewExpiry || !isQueryableTenantCompanyId(companyId)) return;
+    const lic = documents.find((d) => d.id === renewLicenseId);
+    if (!lic) return;
+    setRowBusyId(renewLicenseId);
+    try {
+      await upsertGovernmentLicense(companyId, { ...lic, expiryDate: renewExpiry });
+      toast.success('تم تحديث تاريخ الصلاحية ومزامنة النظام');
+      setRenewLicenseId(null);
+    } catch (err) {
+      console.error(err);
+      toast.error('تعذر تحديث الصلاحية');
+    } finally {
+      setRowBusyId(null);
+    }
+  };
+
+  const handleArchiveLicense = async (lic: LicenseDocument) => {
+    const nextArchived = !lic.archived;
+    const ok = window.confirm(
+      nextArchived
+        ? `أرشفة «${lic.title}»؟ سيُحفظ في أرشيف الوثائق ويُخفى من القائمة النشطة.`
+        : `إلغاء أرشفة «${lic.title}» وإعادته للقائمة النشطة؟`
+    );
+    if (!ok) return;
+    setRowBusyId(lic.id);
+    setOpenActionsId(null);
+    try {
+      await archiveGovernmentLicense(companyId, lic.id, nextArchived);
+      toast.success(nextArchived ? 'تمت الأرشفة والمزامنة' : 'تمت إعادة التفعيل والمزامنة');
+    } catch (err) {
+      console.error(err);
+      toast.error('تعذر تحديث الأرشفة');
+    } finally {
+      setRowBusyId(null);
+    }
+  };
+
+  const handleDeleteLicense = async (lic: LicenseDocument) => {
+    const ok = window.confirm(
+      `حذف «${lic.title}» نهائياً؟\nسيتم إزالة السجل من الشجرة وملف الشركة المرتبط. لا يمكن التراجع.`
+    );
+    if (!ok) return;
+    setRowBusyId(lic.id);
+    setOpenActionsId(null);
+    try {
+      await deleteGovernmentLicense(companyId, lic.id);
+      toast.success('تم الحذف ومزامنة ملف الشركة');
+    } catch (err) {
+      console.error(err);
+      toast.error('تعذر الحذف');
+    } finally {
+      setRowBusyId(null);
+    }
   };
 
   const onAttachmentSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -131,7 +227,12 @@ export const GovernmentComplianceApp: React.FC = () => {
         fileUrl = uploaded.downloadUrl;
       }
 
+      const existing = editingLicenseId
+        ? documents.find((d) => d.id === editingLicenseId)
+        : undefined;
+
       await upsertGovernmentLicense(companyId, {
+        id: editingLicenseId || undefined,
         departmentId: selectedDeptId,
         folderId: selectedFolderId,
         title: form.title.trim(),
@@ -141,9 +242,12 @@ export const GovernmentComplianceApp: React.FC = () => {
         employeeName: form.employeeName.trim() || undefined,
         vehiclePlate: form.vehiclePlate.trim() || undefined,
         fileUrl,
+        archived: existing?.archived,
+        archivedAt: existing?.archivedAt,
       });
-      toast.success('تم حفظ الترخيص في السحابة');
+      toast.success(editingLicenseId ? 'تم التحديث والمزامنة مع النظام' : 'تم الحفظ والمزامنة مع النظام');
       setAddOpen(false);
+      setEditingLicenseId(null);
       setAttachmentFile(null);
     } catch (err) {
       console.error(err);
@@ -287,7 +391,7 @@ export const GovernmentComplianceApp: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {activeDepartment.folders.map((folder) => {
-              const count = documents.filter(
+              const count = activeDocuments.filter(
                 (d) => d.departmentId === activeDepartment.id && d.folderId === folder.id
               ).length;
 
@@ -326,19 +430,35 @@ export const GovernmentComplianceApp: React.FC = () => {
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">{activeFolder?.description}</p>
             </div>
-            <button
-              type="button"
-              onClick={() => setSelectedFolderId(null)}
-              className="text-xs font-semibold text-slate-500 hover:text-slate-800 underline cursor-pointer shrink-0"
-            >
-              العودة للمجلدات
-            </button>
+            <div className="flex items-center gap-3 shrink-0">
+              <label className="flex items-center gap-1.5 text-[11px] text-slate-600 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={showArchived}
+                  onChange={(e) => setShowArchived(e.target.checked)}
+                  className="rounded border-slate-300 text-[#714B67]"
+                />
+                عرض المؤرشف
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedFolderId(null);
+                  setShowArchived(false);
+                }}
+                className="text-xs font-semibold text-slate-500 hover:text-slate-800 underline cursor-pointer"
+              >
+                العودة للمجلدات
+              </button>
+            </div>
           </div>
 
           <div className="bg-white border border-slate-200 rounded-xl shadow-2xs overflow-hidden">
             {filteredDocuments.length === 0 ? (
               <div className="p-8 text-center text-slate-400 text-sm">
-                لا توجد تراخيص مسجلة في هذا المجلد. استخدم «إضافة ترخيص جديد» لربط وثيقة بالسحابة.
+                {showArchived
+                  ? 'لا توجد سجلات مؤرشفة في هذا المجلد.'
+                  : 'لا توجد تراخيص مسجلة في هذا المجلد. استخدم «إضافة ترخيص جديد» لربط وثيقة بالسحابة.'}
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -357,8 +477,18 @@ export const GovernmentComplianceApp: React.FC = () => {
                     {filteredDocuments.map((doc) => {
                       const { status, label } = getLicenseDaysRemaining(doc.expiryDate);
                       return (
-                        <tr key={doc.id} className="hover:bg-slate-50/60 transition-colors">
-                          <td className="py-3.5 px-4 font-bold text-slate-800">{doc.title}</td>
+                        <tr
+                          key={doc.id}
+                          className={`hover:bg-slate-50/60 transition-colors ${doc.archived ? 'opacity-75 bg-slate-50/40' : ''}`}
+                        >
+                          <td className="py-3.5 px-4 font-bold text-slate-800">
+                            {doc.title}
+                            {doc.archived && (
+                              <span className="mr-2 text-[10px] font-semibold text-slate-500 bg-slate-200 px-1.5 py-0.5 rounded">
+                                مؤرشف
+                              </span>
+                            )}
+                          </td>
                           <td className="py-3.5 px-4 font-mono text-slate-600">{doc.documentNumber}</td>
                           <td className="py-3.5 px-4 text-slate-600">
                             {doc.employeeName ? (
@@ -392,18 +522,74 @@ export const GovernmentComplianceApp: React.FC = () => {
                             )}
                           </td>
                           <td className="py-3.5 px-4 text-center">
-                            {doc.fileUrl ? (
-                              <a
-                                href={doc.fileUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded font-semibold transition-colors inline-block"
-                              >
-                                فتح المرفق
-                              </a>
-                            ) : (
-                              <span className="text-[10px] text-slate-400">—</span>
-                            )}
+                            <div className="inline-flex items-center justify-center gap-1 flex-wrap">
+                              {doc.fileUrl && (
+                                <a
+                                  href={doc.fileUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded font-semibold transition-colors"
+                                >
+                                  مرفق
+                                </a>
+                              )}
+                              <div className="relative">
+                                <button
+                                  type="button"
+                                  disabled={rowBusyId === doc.id}
+                                  onClick={() =>
+                                    setOpenActionsId((id) => (id === doc.id ? null : doc.id))
+                                  }
+                                  className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 cursor-pointer disabled:opacity-50"
+                                  aria-label="إجراءات"
+                                >
+                                  {rowBusyId === doc.id ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <MoreHorizontal className="w-4 h-4" />
+                                  )}
+                                </button>
+                                {openActionsId === doc.id && (
+                                  <div
+                                    className="absolute left-0 top-full mt-1 z-20 min-w-[11rem] bg-white border border-slate-200 rounded-lg shadow-lg py-1 text-right text-[11px]"
+                                    onMouseLeave={() => setOpenActionsId(null)}
+                                  >
+                                    <button
+                                      type="button"
+                                      className="w-full px-3 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                                      onClick={() => openEditModal(doc)}
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" />
+                                      تعديل البيانات
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="w-full px-3 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                                      onClick={() => openRenewModal(doc)}
+                                    >
+                                      <RefreshCw className="w-3.5 h-3.5" />
+                                      تجديد / تحديث الصلاحية
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="w-full px-3 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                                      onClick={() => void handleArchiveLicense(doc)}
+                                    >
+                                      <Archive className="w-3.5 h-3.5" />
+                                      {doc.archived ? 'إلغاء الأرشفة' : 'أرشفة السجل'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="w-full px-3 py-2 hover:bg-rose-50 text-rose-700 flex items-center gap-2 cursor-pointer"
+                                      onClick={() => void handleDeleteLicense(doc)}
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                      حذف نهائي
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -420,8 +606,17 @@ export const GovernmentComplianceApp: React.FC = () => {
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/40" dir="rtl">
           <div className="bg-white rounded-2xl border border-slate-200 shadow-xl w-full max-w-md p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <h4 className="text-sm font-black text-slate-900">إضافة ترخيص</h4>
-              <button type="button" onClick={() => setAddOpen(false)} className="p-1 rounded-lg hover:bg-slate-100 cursor-pointer">
+              <h4 className="text-sm font-black text-slate-900">
+                {editingLicenseId ? 'تعديل ترخيص' : 'إضافة ترخيص'}
+              </h4>
+              <button
+                type="button"
+                onClick={() => {
+                  setAddOpen(false);
+                  setEditingLicenseId(null);
+                }}
+                className="p-1 rounded-lg hover:bg-slate-100 cursor-pointer"
+              >
                 <X size={18} />
               </button>
             </div>
@@ -530,7 +725,53 @@ export const GovernmentComplianceApp: React.FC = () => {
                     {attachmentFile ? 'جاري رفع المرفق والحفظ…' : 'جاري الحفظ…'}
                   </>
                 ) : (
-                  'حفظ في السحابة'
+                  editingLicenseId ? 'حفظ التعديل والمزامنة' : 'حفظ في السحابة والمزامنة'
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {renewLicenseId && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/40" dir="rtl">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl w-full max-w-sm p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-black text-slate-900">تحديث صلاحية الترخيص</h4>
+              <button
+                type="button"
+                onClick={() => setRenewLicenseId(null)}
+                className="p-1 rounded-lg hover:bg-slate-100 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleRenewExpiry} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">تاريخ الانتهاء الجديد</label>
+                <input
+                  type="date"
+                  value={renewExpiry}
+                  onChange={(e) => setRenewExpiry(e.target.value)}
+                  className="w-full border border-slate-200 rounded-lg px-2.5 py-2 focus:border-[#714B67]/50 focus:outline-none"
+                  required
+                />
+              </div>
+              <p className="text-[10px] text-slate-500">
+                يُحدَّث ملف الموظف، أرشيف الوثائق، وملف الشركة تلقائياً عند الحفظ.
+              </p>
+              <button
+                type="submit"
+                disabled={rowBusyId === renewLicenseId}
+                className="w-full bg-[#714B67] hover:bg-[#5b3c53] text-white font-bold py-2.5 rounded-lg cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {rowBusyId === renewLicenseId ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    جاري التحديث…
+                  </>
+                ) : (
+                  'تأكيد التجديد'
                 )}
               </button>
             </form>
