@@ -9,13 +9,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = (process.env.GEMINI_API_KEY || '').trim();
   if (!apiKey) {
     return res.status(500).json({ error: 'GEMINI_API_KEY is not configured in Vercel' });
   }
 
   try {
-    const model = process.env.AI_CHAT_MODEL || 'gemini-3.8-flash';
+    const model = process.env.AI_CHAT_MODEL || 'gemini-2.5-flash';
     const { prompt, contents, imageBase64, mimeType } = req.body || {};
 
     let parts: any[] = [];
@@ -33,13 +33,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       parts.push({ text: prompt });
     }
 
-    const payload = contents ? { contents } : { contents: [{ parts: parts.length > 0 ? parts : [{ text: 'مرحباً' }] }] };
+    const payload = contents
+      ? { contents }
+      : { contents: [{ parts: parts.length > 0 ? parts : [{ text: 'مرحباً' }] }] };
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    // تمرير المفتاح في الرابط وفي الـ Headers لدعم صيغة AQ. الجديدة ومفاتيح AIzaSy معاً
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
     const apiRes = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
+      },
       body: JSON.stringify(payload),
     });
 
