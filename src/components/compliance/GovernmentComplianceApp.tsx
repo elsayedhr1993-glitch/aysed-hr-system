@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Archive, Loader2, MoreHorizontal, Pencil, RefreshCw, Trash2, Upload, X } from 'lucide-react';
+import { Archive, Loader2, MoreHorizontal, Pencil, Printer, RefreshCw, Trash2, Upload, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useCompany } from '../../context/CompanyContext';
 import { isQueryableTenantCompanyId } from '../../utils/tenantCompanyId';
@@ -16,6 +16,13 @@ import {
   uploadGovernmentLicenseAttachmentToStorage,
   validateGovernmentLicenseAttachment,
 } from '../../utils/governmentLicenseStorage';
+import { getFacilityMasterData } from '../facility/FacilityLicensingWizardModal';
+import type { FacilityLicenseData } from '../../types/facilityLicense';
+import { printDocument } from '../../utils/printUtils';
+import {
+  COMPLIANCE_TREE_PRINT_ROOT_ID,
+  ComplianceTreePrintReport,
+} from './ComplianceTreePrintReport';
 
 export const GovernmentComplianceApp: React.FC = () => {
   const { activeCompany } = useCompany();
@@ -42,6 +49,9 @@ export const GovernmentComplianceApp: React.FC = () => {
   });
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
+  const [facilityMaster, setFacilityMaster] = useState<FacilityLicenseData | null>(null);
+  const [printGeneratedAt, setPrintGeneratedAt] = useState('');
+
   const [form, setForm] = useState({
     title: '',
     documentNumber: '',
@@ -64,6 +74,25 @@ export const GovernmentComplianceApp: React.FC = () => {
       setLoaded(true);
     });
   }, [companyId]);
+
+  useEffect(() => {
+    if (!isQueryableTenantCompanyId(companyId)) {
+      setFacilityMaster(null);
+      return;
+    }
+    void getFacilityMasterData(companyId).then(setFacilityMaster);
+  }, [companyId]);
+
+  const handlePrintComplianceReport = () => {
+    const stamp = new Date().toLocaleString('ar-KW', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+    setPrintGeneratedAt(stamp);
+    window.requestAnimationFrame(() => {
+      void printDocument(COMPLIANCE_TREE_PRINT_ROOT_ID, `compliance-report-${companyId}`);
+    });
+  };
 
   const activeDocuments = useMemo(
     () => documents.filter((d) => !d.archived),
@@ -307,8 +336,8 @@ export const GovernmentComplianceApp: React.FC = () => {
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto p-4 md:p-6 space-y-6 font-sans" dir="rtl">
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white border border-slate-200 px-4 py-3 rounded-xl shadow-2xs">
+    <div className="w-full max-w-7xl mx-auto p-4 md:p-6 space-y-6 font-sans compliance-tree-screen" dir="rtl">
+      <div className="no-print flex flex-wrap items-center justify-between gap-3 bg-white border border-slate-200 px-4 py-3 rounded-xl shadow-2xs">
         <nav className="flex flex-wrap items-center gap-2 text-sm font-medium text-slate-600">
           <button
             type="button"
@@ -348,14 +377,26 @@ export const GovernmentComplianceApp: React.FC = () => {
           )}
         </nav>
 
-        <button
-          type="button"
-          onClick={openAddModal}
-          className="btn btn-primary bg-[#714B67] hover:bg-[#5b3c53] text-white text-xs md:text-sm font-bold px-4 py-2 rounded-lg shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
-        >
-          <span>+</span>
-          <span>إضافة ترخيص جديد</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handlePrintComplianceReport}
+            disabled={!loaded}
+            className="bg-white border border-slate-300 hover:border-[#714B67] hover:bg-purple-50 text-slate-800 text-xs md:text-sm font-bold px-3 py-2 rounded-lg shadow-sm transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+          >
+            <Printer size={16} className="text-[#714B67]" />
+            <span>🖨️ طباعة تقرير الامتثال</span>
+            <span className="text-[10px] font-semibold text-slate-500 hidden sm:inline">Print Report</span>
+          </button>
+          <button
+            type="button"
+            onClick={openAddModal}
+            className="btn btn-primary bg-[#714B67] hover:bg-[#5b3c53] text-white text-xs md:text-sm font-bold px-4 py-2 rounded-lg shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+          >
+            <span>+</span>
+            <span>إضافة ترخيص جديد</span>
+          </button>
+        </div>
       </div>
 
       {!loaded && (
@@ -879,6 +920,22 @@ export const GovernmentComplianceApp: React.FC = () => {
           </div>
         </div>
       )}
+
+      <div
+        className="compliance-tree-print-host pointer-events-none fixed -left-[12000px] top-0 w-[210mm]"
+        aria-hidden
+      >
+        <ComplianceTreePrintReport
+          companyNameAr={activeCompany?.nameAr || facilityMaster?.nameAr || 'المنشأة'}
+          companyNameEn={activeCompany?.nameEn || facilityMaster?.nameEn}
+          logoUrl={activeCompany?.logoUrl || facilityMaster?.logoUrl}
+          paciCivilId={activeCompany?.civilIdCompany || facilityMaster?.paciCivilId}
+          generatedAt={printGeneratedAt || '—'}
+          facility={facilityMaster}
+          activeDocuments={activeDocuments}
+          deptStats={deptStats}
+        />
+      </div>
     </div>
   );
 };

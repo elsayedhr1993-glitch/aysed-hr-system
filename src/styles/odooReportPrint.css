@@ -268,7 +268,24 @@
   print-color-adjust: exact;
 }
 
+.compliance-tree-print-report {
+  width: 210mm;
+  max-width: 210mm;
+  box-sizing: border-box;
+}
+
 @media print {
+  .compliance-tree-screen .no-print {
+    display: none !important;
+  }
+
+  .compliance-tree-print-host {
+    position: static !important;
+    left: auto !important;
+    width: 100% !important;
+    opacity: 1 !important;
+  }
+
   .odoo-report-sheet {
     box-shadow: none !important;
     max-width: none !important;
