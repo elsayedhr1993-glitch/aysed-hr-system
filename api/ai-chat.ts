@@ -1,35 +1,24 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import path from 'node:path';
-import { createRequire } from 'node:module';
-
-const require = createRequire(import.meta.url);
-
-function getBundleHandler() {
-  const bundlePath = path.resolve(process.cwd(), 'api/_bundles/ai-chat.cjs');
-  const mod = require(bundlePath);
-  return mod.default || mod;
-}
-
-let cachedHandler: any = null;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    if (!cachedHandler) {
-      cachedHandler = getBundleHandler();
+    // محاولة استدعاء المعالج مباشرة من كود السيرفر الأصلي لتفادي تعارض jwks/jose
+    const serverMod = await import('../server.js').catch(() => import('../server/index.js'));
+    const app = serverMod.default || serverMod.app || serverMod;
+    
+    if (typeof app === 'function') {
+      return app(req, res);
     }
-    return await cachedHandler(req, res);
+
+    // بديل مباشر: استيراد الحزمة كـ dynamic import لتجاوز قيود require(ESM)
+    const bundleMod = await import('./_bundles/ai-chat.cjs');
+    const bundleHandler = bundleMod.default || bundleMod;
+    return await bundleHandler(req, res);
   } catch (err: any) {
-    // محاولة احتياطية في حال اختلف مسار التشغيل داخل Vercel
-    try {
-      const fallbackMod = require('./_bundles/ai-chat.cjs');
-      const fallbackHandler = fallbackMod.default || fallbackMod;
-      return await fallbackHandler(req, res);
-    } catch (fallbackErr: any) {
-      console.error('Failed to load bundle:', err, fallbackErr);
-      return res.status(500).json({
-        error: 'Failed to load AI bundle',
-        details: err?.message || String(err),
-      });
-    }
+    console.error('AI Chat Handler Error:', err);
+    return res.status(500).json({
+      error: 'AI Chat invocation error',
+      message: err?.message || String(err),
+    });
   }
 }
