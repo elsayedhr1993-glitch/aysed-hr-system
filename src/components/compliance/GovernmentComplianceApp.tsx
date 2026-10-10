@@ -34,6 +34,12 @@ export const GovernmentComplianceApp: React.FC = () => {
   const [openActionsId, setOpenActionsId] = useState<string | null>(null);
   const [savingLicense, setSavingLicense] = useState(false);
   const [rowBusyId, setRowBusyId] = useState<string | null>(null);
+  const [inlineEditId, setInlineEditId] = useState<string | null>(null);
+  const [inlineDraft, setInlineDraft] = useState({
+    title: '',
+    documentNumber: '',
+    expiryDate: '',
+  });
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
@@ -107,6 +113,40 @@ export const GovernmentComplianceApp: React.FC = () => {
     setAttachmentFile(null);
     if (attachmentInputRef.current) attachmentInputRef.current.value = '';
     setAddOpen(true);
+  };
+
+  const startInlineEdit = (lic: LicenseDocument) => {
+    setInlineEditId(lic.id);
+    setInlineDraft({
+      title: lic.title,
+      documentNumber: lic.documentNumber,
+      expiryDate: lic.expiryDate,
+    });
+    setOpenActionsId(null);
+  };
+
+  const cancelInlineEdit = () => setInlineEditId(null);
+
+  const saveInlineEdit = async () => {
+    if (!inlineEditId || !isQueryableTenantCompanyId(companyId)) return;
+    const lic = documents.find((d) => d.id === inlineEditId);
+    if (!lic) return;
+    setRowBusyId(inlineEditId);
+    try {
+      await upsertGovernmentLicense(companyId, {
+        ...lic,
+        title: inlineDraft.title.trim(),
+        documentNumber: inlineDraft.documentNumber.trim(),
+        expiryDate: inlineDraft.expiryDate,
+      });
+      toast.success('تم الحفظ والمزامنة');
+      setInlineEditId(null);
+    } catch (err) {
+      console.error(err);
+      toast.error('تعذر حفظ التعديل');
+    } finally {
+      setRowBusyId(null);
+    }
   };
 
   const openEditModal = (lic: LicenseDocument) => {
@@ -482,14 +522,34 @@ export const GovernmentComplianceApp: React.FC = () => {
                           className={`hover:bg-slate-50/60 transition-colors ${doc.archived ? 'opacity-75 bg-slate-50/40' : ''}`}
                         >
                           <td className="py-3.5 px-4 font-bold text-slate-800">
-                            {doc.title}
+                            {inlineEditId === doc.id ? (
+                              <input
+                                value={inlineDraft.title}
+                                onChange={(e) => setInlineDraft((d) => ({ ...d, title: e.target.value }))}
+                                className="w-full border border-slate-300 rounded px-2 py-1 text-xs font-bold"
+                              />
+                            ) : (
+                              doc.title
+                            )}
                             {doc.archived && (
                               <span className="mr-2 text-[10px] font-semibold text-slate-500 bg-slate-200 px-1.5 py-0.5 rounded">
                                 مؤرشف
                               </span>
                             )}
                           </td>
-                          <td className="py-3.5 px-4 font-mono text-slate-600">{doc.documentNumber}</td>
+                          <td className="py-3.5 px-4 font-mono text-slate-600">
+                            {inlineEditId === doc.id ? (
+                              <input
+                                value={inlineDraft.documentNumber}
+                                onChange={(e) =>
+                                  setInlineDraft((d) => ({ ...d, documentNumber: e.target.value }))
+                                }
+                                className="w-full border border-slate-300 rounded px-2 py-1 text-xs font-mono"
+                              />
+                            ) : (
+                              doc.documentNumber
+                            )}
+                          </td>
                           <td className="py-3.5 px-4 text-slate-600">
                             {doc.employeeName ? (
                               <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs">
@@ -503,7 +563,20 @@ export const GovernmentComplianceApp: React.FC = () => {
                               <span className="text-slate-400 text-xs">منشأة عامة</span>
                             )}
                           </td>
-                          <td className="py-3.5 px-4 font-mono text-slate-700">{doc.expiryDate}</td>
+                          <td className="py-3.5 px-4 font-mono text-slate-700">
+                            {inlineEditId === doc.id ? (
+                              <input
+                                type="date"
+                                value={inlineDraft.expiryDate}
+                                onChange={(e) =>
+                                  setInlineDraft((d) => ({ ...d, expiryDate: e.target.value }))
+                                }
+                                className="border border-slate-300 rounded px-2 py-1 text-xs font-mono"
+                              />
+                            ) : (
+                              doc.expiryDate
+                            )}
+                          </td>
                           <td className="py-3.5 px-4">
                             {status === 'valid' && (
                               <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded text-xs font-semibold">
@@ -533,6 +606,25 @@ export const GovernmentComplianceApp: React.FC = () => {
                                   مرفق
                                 </a>
                               )}
+                              {inlineEditId === doc.id ? (
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => void saveInlineEdit()}
+                                    disabled={rowBusyId === doc.id}
+                                    className="text-[10px] bg-emerald-700 text-white px-2 py-1 rounded font-bold cursor-pointer disabled:opacity-50"
+                                  >
+                                    حفظ
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={cancelInlineEdit}
+                                    className="text-[10px] bg-slate-200 text-slate-700 px-2 py-1 rounded font-bold cursor-pointer"
+                                  >
+                                    تراجع
+                                  </button>
+                                </div>
+                              ) : (
                               <div className="relative">
                                 <button
                                   type="button"
@@ -557,10 +649,18 @@ export const GovernmentComplianceApp: React.FC = () => {
                                     <button
                                       type="button"
                                       className="w-full px-3 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                                      onClick={() => startInlineEdit(doc)}
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" />
+                                      تعديل في الجدول
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="w-full px-3 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
                                       onClick={() => openEditModal(doc)}
                                     >
                                       <Pencil className="w-3.5 h-3.5" />
-                                      تعديل البيانات
+                                      نموذج التعديل الكامل
                                     </button>
                                     <button
                                       type="button"
@@ -589,6 +689,7 @@ export const GovernmentComplianceApp: React.FC = () => {
                                   </div>
                                 )}
                               </div>
+                              )}
                             </div>
                           </td>
                         </tr>

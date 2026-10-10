@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Building2, Plus, Search, LayoutGrid, List as ListIcon, Edit2, Trash2, CheckCircle2, 
   Globe, Phone, Mail, MapPin, Shield, FileText, Stamp, Award, Check, X, Sparkles, Building
@@ -7,6 +7,9 @@ import { Company } from '../types';
 import toast from 'react-hot-toast';
 import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db, cleanFirestoreData, getCompaniesCollectionName } from '../lib/firebase';
+import { EditableField } from '../components/EditableField';
+import { OdooScreenEditToolbar } from '../components/ui/OdooScreenEditToolbar';
+import { useOdooScreenEditMode } from '../hooks/useOdooScreenEditMode';
 
 interface CompaniesAppProps {
   companies: Company[];
@@ -35,7 +38,31 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
+  const [companySaveSuccess, setCompanySaveSuccess] = useState(false);
+  const [companySaving, setCompanySaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'general' | 'legal' | 'address' | 'branding'>('general');
+
+  const companyForm = useOdooScreenEditMode<Company>({
+    source: editingCompany,
+    startInEditMode: false,
+  });
+  const companyDraft = companyForm.draft;
+  const companyFieldsEditable = isCreatingNew || companyForm.isEditMode;
+
+  useEffect(() => {
+    if (isModalOpen && isCreatingNew) {
+      companyForm.enterEditMode();
+    }
+  }, [isModalOpen, isCreatingNew, companyForm.enterEditMode]);
+
+  const patchCompany = (patch: Partial<Company>) => {
+    const base = companyForm.draft || editingCompany;
+    if (!base) return;
+    const next = { ...base, ...patch };
+    companyForm.setDraft(next);
+    setEditingCompany(next);
+  };
 
   const filteredCompanies = (companies || []).filter(c => 
     c.nameAr.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -45,6 +72,8 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
   );
 
   const handleOpenCreate = () => {
+    setIsCreatingNew(true);
+    setCompanySaveSuccess(false);
     setEditingCompany({
       id: 'comp-' + Date.now(),
       nameAr: '',
@@ -70,30 +99,35 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
   };
 
   const handleOpenEdit = (comp: Company) => {
+    setIsCreatingNew(false);
+    setCompanySaveSuccess(false);
     setEditingCompany({ ...comp });
+    companyForm.setIsEditMode(false);
     setActiveTab('general');
     setIsModalOpen(true);
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingCompany || !editingCompany.nameAr.trim()) {
+  const handleSave = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const working = companyForm.draft || editingCompany;
+    if (!working || !working.nameAr.trim()) {
       toast.error("يرجى إدخال اسم الشركة بالعربية على الأقل");
       return;
     }
 
+    setCompanySaving(true);
     try {
-      const compId = editingCompany.id || ('comp-' + Date.now());
-      const email = (editingCompany.email || `${editingCompany.phone ? editingCompany.phone.replace(/[^0-9]/g, '') : compId}@aysedhr.com`).trim().toLowerCase();
+      const compId = working.id || ('comp-' + Date.now());
+      const email = (working.email || `${working.phone ? working.phone.replace(/[^0-9]/g, '') : compId}@aysedhr.com`).trim().toLowerCase();
       
       const completeCompany: Company = {
-        ...editingCompany,
+        ...working,
         id: compId,
-        nameAr: editingCompany.nameAr.trim(),
-        nameEn: editingCompany.nameEn?.trim() || editingCompany.nameAr.trim(),
+        nameAr: working.nameAr.trim(),
+        nameEn: working.nameEn?.trim() || working.nameAr.trim(),
         email: email,
-        phone: editingCompany.phone || '99112233',
-        status: editingCompany.status || 'active'
+        phone: working.phone || '99112233',
+        status: working.status || 'active'
       };
 
       const cleaned = cleanFirestoreData(completeCompany) as Company;
@@ -142,11 +176,19 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
 
       window.dispatchEvent(new CustomEvent('aysed_companies_changed'));
       toast.success("تم حفظ وتحديث بيانات الشركة بنجاح في قاعدة البيانات ولوحة السوبر أدمن");
-      setIsModalOpen(false);
-      setEditingCompany(null);
+      companyForm.exitEditModeAfterSave();
+      setCompanySaveSuccess(true);
+      setTimeout(() => setCompanySaveSuccess(false), 2500);
+      if (isCreatingNew) {
+        setIsModalOpen(false);
+        setEditingCompany(null);
+        setIsCreatingNew(false);
+      }
     } catch (err) {
       console.error(err);
       toast.error("حدث خطأ أثناء حفظ الشركة في Firestore");
+    } finally {
+      setCompanySaving(false);
     }
   };
 
@@ -477,85 +519,87 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
               </button>
             </div>
 
+            {companyDraft && (
+              <div className="px-6 pt-4">
+                <OdooScreenEditToolbar
+                  isEditMode={companyFieldsEditable}
+                  isSaving={companySaving}
+                  saveSuccess={companySaveSuccess}
+                  onEdit={() => companyForm.enterEditMode()}
+                  onDiscard={() => {
+                    companyForm.discardEdits();
+                    const restored = companyForm.draft;
+                    if (restored) setEditingCompany(restored);
+                  }}
+                  onSave={() => void handleSave()}
+                  saveLabel="حفظ الشركة"
+                />
+              </div>
+            )}
+
             <form onSubmit={handleSave} className="p-6 space-y-6 max-h-[65vh] overflow-y-auto">
+              <fieldset disabled={!companyFieldsEditable} className="space-y-6 disabled:opacity-100">
               {/* Tab 1: General */}
-              {activeTab === 'general' && (
+              {activeTab === 'general' && companyDraft && (
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">اسم الشركة بالعربية (Company Name AR) *</label>
-                      <input
-                        type="text"
-                        required
-                        value={editingCompany.nameAr || ''}
-                        onChange={(e) => setEditingCompany({ ...editingCompany, nameAr: e.target.value })}
-                        placeholder="مثال: عيادات ايليت الطبية المتخصصة"
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">اسم الشركة بالإنجليزية (Company Name EN)</label>
-                      <input
-                        type="text"
-                        value={editingCompany.nameEn || ''}
-                        onChange={(e) => setEditingCompany({ ...editingCompany, nameEn: e.target.value })}
-                        placeholder="Elite Specialized Clinics"
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none font-mono"
-                      />
-                    </div>
+                    <EditableField
+                      label="اسم الشركة بالعربية *"
+                      value={companyDraft.nameAr || ''}
+                      onChange={(val) => patchCompany({ nameAr: val })}
+                      isEditMode={companyFieldsEditable}
+                      placeholder="مثال: عيادات ايليت الطبية المتخصصة"
+                    />
+                    <EditableField
+                      label="اسم الشركة بالإنجليزية"
+                      value={companyDraft.nameEn || ''}
+                      onChange={(val) => patchCompany({ nameEn: val })}
+                      isEditMode={companyFieldsEditable}
+                      placeholder="Elite Specialized Clinics"
+                    />
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">رابط شعار الشركة (Logo URL)</label>
-                      <input
-                        type="text"
-                        value={editingCompany.logoUrl || ''}
-                        onChange={(e) => setEditingCompany({ ...editingCompany, logoUrl: e.target.value })}
-                        placeholder="https://..."
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">العملة الرسمية</label>
-                      <select
-                        value={editingCompany.currency || 'KWD'}
-                        onChange={(e) => setEditingCompany({ ...editingCompany, currency: e.target.value })}
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none"
-                      >
-                        <option value="KWD">دينار كويتي (KWD)</option>
-                        <option value="USD">دولار أمريكي (USD)</option>
-                        <option value="EUR">يورو (EUR)</option>
-                      </select>
-                    </div>
+                    <EditableField
+                      label="رابط شعار الشركة (Logo URL)"
+                      value={companyDraft.logoUrl || ''}
+                      onChange={(val) => patchCompany({ logoUrl: val })}
+                      isEditMode={companyFieldsEditable}
+                      placeholder="https://..."
+                    />
+                    <EditableField
+                      label="العملة الرسمية"
+                      value={companyDraft.currency || 'KWD'}
+                      onChange={(val) => patchCompany({ currency: val })}
+                      isEditMode={companyFieldsEditable}
+                    />
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">الشركة الأم (Parent Company) إن وجدت</label>
                     <select
-                      value={editingCompany.parentCompanyId || ''}
-                      onChange={(e) => setEditingCompany({ ...editingCompany, parentCompanyId: e.target.value })}
-                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none"
+                      value={companyDraft.parentCompanyId || ''}
+                      onChange={(e) => patchCompany({ parentCompanyId: e.target.value })}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none disabled:bg-slate-100"
                     >
                       <option value="">-- بدون شركة أم (شركة مستقلة رئيسية) --</option>
-                      {companies.filter(c => c.id !== editingCompany.id).map(c => (
+                      {companies.filter(c => c.id !== companyDraft.id).map(c => (
                         <option key={c.id} value={c.id}>{c.nameAr}</option>))}
                     </select>
                   </div>
                 </div>)}
 
               {/* Tab 2: Legal & Tax */}
-              {activeTab === 'legal' && (
+              {activeTab === 'legal' && companyDraft && (
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">رقم ترخيص وزارة الصحة (MOH)</label>
                       <input
                         type="text"
-                        value={editingCompany.mohLicense || editingCompany.commercialLicenseNo || ''}
+                        value={companyDraft.mohLicense || companyDraft.commercialLicenseNo || ''}
                         onChange={(e) =>
-                          setEditingCompany({
-                            ...editingCompany,
+                          patchCompany({
                             mohLicense: e.target.value,
                             commercialLicenseNo: e.target.value,
                           })
@@ -568,8 +612,8 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                       <label className="block text-xs font-bold text-slate-700 mb-1">ملف الشؤون / حماية الأجور (PAM — WSI)</label>
                       <input
                         type="text"
-                        value={editingCompany.wsiCode || ''}
-                        onChange={(e) => setEditingCompany({ ...editingCompany, wsiCode: e.target.value })}
+                        value={companyDraft.wsiCode || ''}
+                        onChange={(e) => patchCompany({ wsiCode: e.target.value })}
                         placeholder="رقم ملف القوى العاملة"
                         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none font-mono"
                       />
@@ -581,8 +625,8 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                       <label className="block text-xs font-bold text-slate-700 mb-1">الرقم المدني للجهة (Civil ID Company)</label>
                       <input
                         type="text"
-                        value={editingCompany.civilIdCompany || ''}
-                        onChange={(e) => setEditingCompany({ ...editingCompany, civilIdCompany: e.target.value })}
+                        value={companyDraft.civilIdCompany || ''}
+                        onChange={(e) => patchCompany({ civilIdCompany: e.target.value })}
                         placeholder="200000000"
                         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none font-mono"
                       />
@@ -591,8 +635,8 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                       <label className="block text-xs font-bold text-slate-700 mb-1">الرقم الآلي للعنوان (Title Address No)</label>
                       <input
                         type="text"
-                        value={editingCompany.titleAddressNo || ''}
-                        onChange={(e) => setEditingCompany({ ...editingCompany, titleAddressNo: e.target.value })}
+                        value={companyDraft.titleAddressNo || ''}
+                        onChange={(e) => patchCompany({ titleAddressNo: e.target.value })}
                         placeholder="87654321"
                         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none font-mono"
                       />
@@ -604,8 +648,8 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                       <label className="block text-xs font-bold text-slate-700 mb-1">رمز حماية الأجور (WSI Code - الشؤون)</label>
                       <input
                         type="text"
-                        value={editingCompany.wsiCode || ''}
-                        onChange={(e) => setEditingCompany({ ...editingCompany, wsiCode: e.target.value })}
+                        value={companyDraft.wsiCode || ''}
+                        onChange={(e) => patchCompany({ wsiCode: e.target.value })}
                         placeholder="WSI-9876"
                         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none font-mono"
                       />
@@ -614,8 +658,8 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                       <label className="block text-xs font-bold text-slate-700 mb-1">رقم الآيبان البنكي (IBAN)</label>
                       <input
                         type="text"
-                        value={editingCompany.iban || ''}
-                        onChange={(e) => setEditingCompany({ ...editingCompany, iban: e.target.value })}
+                        value={companyDraft.iban || ''}
+                        onChange={(e) => patchCompany({ iban: e.target.value })}
                         placeholder="KW00NBK..."
                         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none font-mono"
                       />
@@ -624,7 +668,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                 </div>)}
 
               {/* Tab 3: Address & Contact */}
-              {activeTab === 'address' && (
+              {activeTab === 'address' && companyDraft && (
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
@@ -640,8 +684,8 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                       <label className="block text-xs font-bold text-slate-700 mb-1">المحافظة</label>
                       <input
                         type="text"
-                        value={editingCompany.governorate || ''}
-                        onChange={(e) => setEditingCompany({ ...editingCompany, governorate: e.target.value })}
+                        value={companyDraft.governorate || ''}
+                        onChange={(e) => patchCompany({ governorate: e.target.value })}
                         placeholder="العاصمة / حولي / الفروانية"
                         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none"
                       />
@@ -650,8 +694,8 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                       <label className="block text-xs font-bold text-slate-700 mb-1">المنطقة</label>
                       <input
                         type="text"
-                        value={editingCompany.area || ''}
-                        onChange={(e) => setEditingCompany({ ...editingCompany, area: e.target.value })}
+                        value={companyDraft.area || ''}
+                        onChange={(e) => patchCompany({ area: e.target.value })}
                         placeholder="السالمية / حولي / الشويخ"
                         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none"
                       />
@@ -663,8 +707,8 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                       <label className="block text-xs font-bold text-slate-700 mb-1">الشارع والقطعة</label>
                       <input
                         type="text"
-                        value={editingCompany.street || ''}
-                        onChange={(e) => setEditingCompany({ ...editingCompany, street: e.target.value })}
+                        value={companyDraft.street || ''}
+                        onChange={(e) => patchCompany({ street: e.target.value })}
                         placeholder="قطعة 4، شارع الخليج العربي"
                         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none"
                       />
@@ -673,8 +717,8 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                       <label className="block text-xs font-bold text-slate-700 mb-1">رقم الهاتف الرسمي</label>
                       <input
                         type="text"
-                        value={editingCompany.phone || ''}
-                        onChange={(e) => setEditingCompany({ ...editingCompany, phone: e.target.value })}
+                        value={companyDraft.phone || ''}
+                        onChange={(e) => patchCompany({ phone: e.target.value })}
                         placeholder="+965 22000000"
                         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none font-mono"
                       />
@@ -686,8 +730,8 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                       <label className="block text-xs font-bold text-slate-700 mb-1">البريد الإلكتروني</label>
                       <input
                         type="email"
-                        value={editingCompany.email || ''}
-                        onChange={(e) => setEditingCompany({ ...editingCompany, email: e.target.value })}
+                        value={companyDraft.email || ''}
+                        onChange={(e) => patchCompany({ email: e.target.value })}
                         placeholder="info@company.kw"
                         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none font-mono"
                       />
@@ -696,8 +740,8 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                       <label className="block text-xs font-bold text-slate-700 mb-1">الموقع الإلكتروني</label>
                       <input
                         type="text"
-                        value={editingCompany.website || ''}
-                        onChange={(e) => setEditingCompany({ ...editingCompany, website: e.target.value })}
+                        value={companyDraft.website || ''}
+                        onChange={(e) => patchCompany({ website: e.target.value })}
                         placeholder="https://..."
                         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none font-mono"
                       />
@@ -706,15 +750,15 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                 </div>)}
 
               {/* Tab 4: Branding & Header/Footer & Stamps */}
-              {activeTab === 'branding' && (
+              {activeTab === 'branding' && companyDraft && (
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">رابط الختم الرسمي المعتمد (Stamp URL)</label>
                       <input
                         type="text"
-                        value={editingCompany.stampUrl || ''}
-                        onChange={(e) => setEditingCompany({ ...editingCompany, stampUrl: e.target.value })}
+                        value={companyDraft.stampUrl || ''}
+                        onChange={(e) => patchCompany({ stampUrl: e.target.value })}
                         placeholder="https://.../stamp.png"
                         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none font-mono"
                       />
@@ -723,8 +767,8 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                       <label className="block text-xs font-bold text-slate-700 mb-1">رابط التوقيع المخول (Authorized Signature URL)</label>
                       <input
                         type="text"
-                        value={editingCompany.authorizedSignatureUrl || ''}
-                        onChange={(e) => setEditingCompany({ ...editingCompany, authorizedSignatureUrl: e.target.value })}
+                        value={companyDraft.authorizedSignatureUrl || ''}
+                        onChange={(e) => patchCompany({ authorizedSignatureUrl: e.target.value })}
                         placeholder="https://.../signature.png"
                         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none font-mono"
                       />
@@ -735,8 +779,8 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                     <label className="block text-xs font-bold text-slate-700 mb-1">نص ترويسة الورق الرسمي المطبوع (Header HTML / Text)</label>
                     <textarea
                       rows={3}
-                      value={editingCompany.headerHtml || ''}
-                      onChange={(e) => setEditingCompany({ ...editingCompany, headerHtml: e.target.value })}
+                      value={companyDraft.headerHtml || ''}
+                      onChange={(e) => patchCompany({ headerHtml: e.target.value })}
                       placeholder="دولة الكويت - وزارة الصحة - إدارة التراخيص الطبية..."
                       className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none font-sans"
                     ></textarea>
@@ -746,13 +790,15 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                     <label className="block text-xs font-bold text-slate-700 mb-1">نص تذييل الورق الرسمي (Footer HTML / Text)</label>
                     <textarea
                       rows={2}
-                      value={editingCompany.footerHtml || ''}
-                      onChange={(e) => setEditingCompany({ ...editingCompany, footerHtml: e.target.value })}
+                      value={companyDraft.footerHtml || ''}
+                      onChange={(e) => patchCompany({ footerHtml: e.target.value })}
                       placeholder="السالمية - شارع البلاجات - هاتف: 22000000 - ص.ب: 12345 السالمية"
                       className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none font-sans"
                     ></textarea>
                   </div>
                 </div>)}
+
+              </fieldset>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
                 <button

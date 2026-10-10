@@ -63,6 +63,8 @@ import {
   formatContractDisplayRef,
   nextContractDisplaySequence,
 } from '../utils/contractDisplayRef';
+import { OdooScreenEditToolbar } from './ui/OdooScreenEditToolbar';
+import { EditableField } from './EditableField';
 
 export interface DetailedContract extends EmployeeContract {
   contractRef: string;
@@ -354,6 +356,8 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
   const [isContractModalOpen, setIsContractModalOpen] = useState(false);
   const [selectedContract, setSelectedContract] = useState<DetailedContract | null>(null);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
+  const [contractEditMode, setContractEditMode] = useState(false);
+  const [contractSaving, setContractSaving] = useState(false);
   const [showChatter, setShowChatter] = useState(false);
   const [showLegalDetails, setShowLegalDetails] = useState(false);
 
@@ -511,10 +515,28 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
     }
   };
 
+  const contractFieldsEditable = isCreatingNew || contractEditMode;
+
+  useEffect(() => {
+    if (isContractModalOpen) {
+      setContractEditMode(isCreatingNew);
+    }
+  }, [isContractModalOpen, isCreatingNew]);
+
+  const discardContractEdits = () => {
+    if (!selectedContract) return;
+    const original = contracts.find(
+      (c) => c.contractRef === selectedContract.contractRef || c.id === selectedContract.id
+    );
+    if (original) setSelectedContract({ ...original });
+    setContractEditMode(false);
+  };
+
   // Save Contract
   const handleSaveContract = async () => {
     if (!selectedContract) return;
-
+    setContractSaving(true);
+    try {
     if (!selectedContract.id) {
       toast.error('يرجى اختيار الموظف أولاً');
       return;
@@ -591,6 +613,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
       setContracts(contracts.map(c => c.contractRef === selectedContract.contractRef ? { ...selectedContract, displayRef } : c));
       toast.success(`تم تحديث بيانات العقد (${displayRef}) وتحديث رصيد الإجازات لسنة 2026`);
     }
+    setContractEditMode(false);
 
     // Sync full contract properties with global hierarchy
     updateContractDetails({
@@ -647,6 +670,9 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
     }
 
     setIsContractModalOpen(false);
+    } finally {
+      setContractSaving(false);
+    }
   };
 
   return (
@@ -1054,8 +1080,19 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
               </div>
             </div>
 
+            <div className="px-6 pt-3">
+              <OdooScreenEditToolbar
+                isEditMode={contractFieldsEditable}
+                isSaving={contractSaving}
+                onEdit={() => setContractEditMode(true)}
+                onDiscard={discardContractEdits}
+                onSave={() => void handleSaveContract()}
+                saveLabel="حفظ العقد"
+              />
+            </div>
+
             {/* Modal Body / Form Sheet */}
-            <div className="p-6 overflow-y-auto space-y-6 text-xs">
+            <fieldset disabled={!contractFieldsEditable} className="p-6 overflow-y-auto space-y-6 text-xs disabled:opacity-100 border-0 m-0 min-w-0">
               
               {/* Section 1: Employee Binding & Employment Type Selector */}
               <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200 space-y-4">
@@ -1277,39 +1314,45 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
                       </div>
                     </div>
                   ) : (
-                    <div>
-                      <label className="text-slate-600 block mb-1 font-bold">الراتب الأساسي (Basic Salary)</label>
-                      <input
-                        type="number"
-                        step="0.001"
-                        value={selectedContract.basicSalary}
-                        onChange={(e) => setSelectedContract({ ...selectedContract, basicSalary: parseFloat(e.target.value) || 0 })}
-                        className="w-full p-2.5 bg-white border border-slate-300 rounded-xl font-mono font-bold text-slate-900"
-                      />
-                    </div>
+                    <EditableField
+                      label="الراتب الأساسي (Basic Salary)"
+                      value={String(selectedContract.basicSalary ?? 0)}
+                      onChange={(val) =>
+                        setSelectedContract({
+                          ...selectedContract,
+                          basicSalary: parseFloat(val) || 0,
+                        })
+                      }
+                      isEditMode={contractFieldsEditable}
+                      type="number"
+                    />
                   )}
 
-                  <div>
-                    <label className="text-slate-600 block mb-1 font-bold">بدل السكن (Housing)</label>
-                    <input
-                      type="number"
-                      step="0.001"
-                      value={selectedContract.housingAllowance}
-                      onChange={(e) => setSelectedContract({ ...selectedContract, housingAllowance: parseFloat(e.target.value) || 0 })}
-                      className="w-full p-2.5 bg-white border border-slate-300 rounded-xl font-mono font-bold text-slate-900"
-                    />
-                  </div>
+                  <EditableField
+                    label="بدل السكن (Housing)"
+                    value={String(selectedContract.housingAllowance ?? 0)}
+                    onChange={(val) =>
+                      setSelectedContract({
+                        ...selectedContract,
+                        housingAllowance: parseFloat(val) || 0,
+                      })
+                    }
+                    isEditMode={contractFieldsEditable}
+                    type="number"
+                  />
 
-                  <div>
-                    <label className="text-slate-600 block mb-1 font-bold">بدل الانتقال (Transport)</label>
-                    <input
-                      type="number"
-                      step="0.001"
-                      value={selectedContract.transportAllowance}
-                      onChange={(e) => setSelectedContract({ ...selectedContract, transportAllowance: parseFloat(e.target.value) || 0 })}
-                      className="w-full p-2.5 bg-white border border-slate-300 rounded-xl font-mono font-bold text-slate-900"
-                    />
-                  </div>
+                  <EditableField
+                    label="بدل الانتقال (Transport)"
+                    value={String(selectedContract.transportAllowance ?? 0)}
+                    onChange={(val) =>
+                      setSelectedContract({
+                        ...selectedContract,
+                        transportAllowance: parseFloat(val) || 0,
+                      })
+                    }
+                    isEditMode={contractFieldsEditable}
+                    type="number"
+                  />
 
                   <div>
                     <label className="text-slate-600 block mb-1 font-bold">البدل الطبي / بدلات أخرى</label>
@@ -1453,7 +1496,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
                 />
               </div>
 
-            </div>
+            </fieldset>
 
             {/* Modal Actions Footer */}
             <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
