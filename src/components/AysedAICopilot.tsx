@@ -71,15 +71,20 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
   const isArabic = lang === 'ar';
   const copilotCtx = useCopilotContextOptional();
   const { execute: executeCopilotAction } = useCopilotActionExecutor();
+  const welcomeText = isArabic
+    ? 'مرحباً بك في مساعد الموارد البشرية والامتثال. كيف يمكنني مساعدتك اليوم؟'
+    : 'Welcome to the HR and compliance assistant. How can I help you today?';
+
   const [messages, setMessages] = useState<CopilotMessage[]>([
     {
       id: '1',
       sender: 'bot',
-      text: isArabic
-        ? 'أهلاً بك! أنا مساعد Aysed S HR 2026 الذكي والخاص بإدارة الموارد البشرية الكويتي.\nأنا قادر على تنفيذ الأوامر المباشرة، فتح الشاشات، تنزيل ملفات WPS للبنوك، وإضافة الموظفين بالذكاء الاصطناعي مباشرة إلى النظام.\n\nكيف يمكنني مساعدتك اليوم؟'
-        : 'Welcome! I am the Aysed S HR 2026 copilot for Kuwait HR operations.\nI can execute direct actions, open screens, export WPS files, and add employees with AI guidance directly into the system.\n\nHow can I help you today?',
-      timestamp: new Date().toLocaleTimeString(isArabic ? 'ar-KW' : 'en-US', { hour: '2-digit', minute: '2-digit' })
-    }
+      text: welcomeText,
+      timestamp: new Date().toLocaleTimeString(isArabic ? 'ar-KW' : 'en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+    },
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -121,21 +126,123 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
     ]
   );
 
-  const quickPrompts = isArabic ? [
-    'افتح تطبيق الإجازات والمركز المالي',
-    'ضيف موظف اسمه أحمد الكندري رقم مدني 290010112345 ووظيفته محامي وراتبه 850',
-    'تحميل ملف حماية الأجور للبنوك (WPS)',
-    'افتح حاسبة الموارد البشرية السريعة',
-    'سجلات الحضور والدوام والبصمة',
-    'عرض كشوف الرواتب وحماية الأجور'
-  ] : [
-    'Open the employee settlement and end-of-service screen',
-    'Create an employee named Ahmed Al-Kandari with civil ID 290010112345 and salary 850',
-    'Export the WPS bank payroll protection file',
-    'Generate a PAM government employment contract',
-    'Show attendance, time tracking and biometric logs',
-    'Display payroll and wage protection reports'
-  ];
+  type ContextChip = { label: string; prompt: string };
+
+  const contextualChips = useMemo((): ContextChip[] => {
+    const screen = copilotCtx?.screen;
+    const app = copilotCtx?.activeApp || copilotCtx?.runtime?.activeApp;
+    const onEmployeeForm =
+      screen?.model === 'hr.employee' &&
+      screen?.view === 'form' &&
+      screen?.entityType === 'employee' &&
+      Boolean(screen?.entityId);
+
+    if (onEmployeeForm) {
+      const scope = copilotCtx?.screenSummary?.trim() || '';
+      const prefix = scope ? `${scope}. ` : '';
+      return isArabic
+        ? [
+            {
+              label: 'فحص صلاحية المستندات',
+              prompt: `${prefix}افحص صلاحية وتواريخ انتهاء مستندات هذا الموظف (البطاقة المدنية، الجواز، الإقامة، التراخيص) واذكر المنتهية أو القريبة من الانتهاء.`,
+            },
+            {
+              label: 'تحديث بيانات العقد',
+              prompt: `${prefix}لخّص حالة عقد هذا الموظف والراتب والبدلات، وما الذي يحتاج تحديثاً في بيانات العقد.`,
+            },
+            {
+              label: 'ملخص الامتثال الوظيفي',
+              prompt: `${prefix}أعطني ملخص الامتثال الوظيفي (PAM، MOH، الوثائق، المباشرة) مع أي فجوات.`,
+            },
+          ]
+        : [
+            {
+              label: 'Document validity check',
+              prompt: `${prefix}Check this employee's document expiry (civil ID, passport, residency, licenses) and list expired or soon-to-expire items.`,
+            },
+            {
+              label: 'Contract data update',
+              prompt: `${prefix}Summarize this employee's contract, salary, and allowances, and what should be updated.`,
+            },
+            {
+              label: 'Job compliance summary',
+              prompt: `${prefix}Provide a job compliance summary (PAM, MOH, documents, commencement) including any gaps.`,
+            },
+          ];
+    }
+
+    if (app === 'employees' || screen?.model === 'hr.employee') {
+      return isArabic
+        ? [
+            {
+              label: 'فحص التراخيص المنتهية',
+              prompt: 'اعرض الموظفين الذين لديهم تراخيص أو مستندات منتهية أو قريبة من الانتهاء في الشركة النشطة.',
+            },
+            {
+              label: 'مراجعة الرواتب',
+              prompt: 'لخّص حالة الرواتب والبدلات وملف حماية الأجور (WPS) للشركة النشطة.',
+            },
+            {
+              label: 'إضافة موظف جديد',
+              prompt: 'أريد إضافة موظف جديد — اطرح عليّ الحقول الإلزامية خطوة بخطوة.',
+            },
+          ]
+        : [
+            {
+              label: 'Expired licenses check',
+              prompt: 'List employees with expired or soon-to-expire licenses or documents for the active company.',
+            },
+            {
+              label: 'Payroll review',
+              prompt: 'Summarize payroll, allowances, and WPS readiness for the active company.',
+            },
+            {
+              label: 'Add new employee',
+              prompt: 'I need to add a new employee — guide me through required fields step by step.',
+            },
+          ];
+    }
+
+    if (app === 'contracts') {
+      return isArabic
+        ? [
+            { label: 'عقود قيد التجديد', prompt: 'ما العقود التي تحتاج تجديداً أو مراجعة خلال 90 يوماً؟' },
+            { label: 'مراجعة الرواتب', prompt: 'لخّص فروقات الرواتب والبدلات بين العقود السارية.' },
+          ]
+        : [
+            { label: 'Contracts to renew', prompt: 'Which contracts need renewal or review within 90 days?' },
+            { label: 'Payroll review', prompt: 'Summarize salary and allowance differences across running contracts.' },
+          ];
+    }
+
+    if (app === 'compliance_tree' || app === 'archive') {
+      return isArabic
+        ? [
+            { label: 'ملخص الامتثال', prompt: 'لخّص حالة الامتثال الحكومي والتراخيص للشركة النشطة.' },
+            { label: 'فحص التراخيص المنتهية', prompt: 'ما التراخيص أو الوثائق المنتهية أو القريبة من الانتهاء؟' },
+          ]
+        : [
+            { label: 'Compliance summary', prompt: 'Summarize government compliance and license status for the active company.' },
+            { label: 'Expired licenses', prompt: 'Which licenses or documents are expired or expiring soon?' },
+          ];
+    }
+
+    return isArabic
+      ? [
+          { label: 'فحص التراخيص المنتهية', prompt: 'فحص التراخيص والمستندات المنتهية في الشركة النشطة.' },
+          { label: 'مراجعة الرواتب', prompt: 'مراجعة ملخص الرواتب وحماية الأجور.' },
+          { label: 'إضافة موظف جديد', prompt: 'بدء إجراء إضافة موظف جديد وفق الحقول الإلزامية.' },
+        ]
+      : [
+          { label: 'Expired licenses', prompt: 'Check expired or expiring licenses and documents.' },
+          { label: 'Payroll review', prompt: 'Review payroll and wage protection summary.' },
+          { label: 'Add employee', prompt: 'Start adding a new employee with required fields.' },
+        ];
+  }, [copilotCtx?.screen, copilotCtx?.screenSummary, copilotCtx?.activeApp, copilotCtx?.runtime?.activeApp, isArabic]);
+
+  const inputPlaceholder = isArabic
+    ? 'اكتب استفسارك أو أمرك الإداري هنا (مثال: إضافة موظف جديد، فحص التراخيص المنتهية، مراجعة الرواتب)...'
+    : 'Type your HR or compliance request (e.g. add employee, check expired licenses, review payroll)...';
 
   useEffect(() => {
     if (isOpen) {
@@ -541,20 +648,27 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
         onClick={onClose}
       />
 
-      {/* Sliding Side Drawer Container */}
-      <div className="fixed inset-y-0 left-0 w-full sm:w-[440px] bg-white shadow-2xl flex flex-col z-50 animate-in slide-in-from-left duration-300 border-r border-slate-200">
+      {/* Sliding side drawer — anchored to screen start (right in RTL) */}
+      <div
+        className={`fixed inset-y-0 w-full sm:w-[min(100%,420px)] max-w-[420px] bg-white shadow-2xl flex flex-col z-50 animate-in duration-300 border-slate-200 ${
+          isArabic
+            ? 'right-0 slide-in-from-right border-l'
+            : 'left-0 slide-in-from-left border-r'
+        }`}
+      >
         {/* Drawer Header */}
-        <div className="bg-gradient-to-r from-[#261928] via-[#714B67] to-[#3a2234] text-white p-4 flex items-center justify-between border-b border-purple-900/50 shadow-md">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-amber-400 text-purple-950 font-black flex items-center justify-center shadow-md">
-              ✨
+        <div className="bg-gradient-to-r from-[#261928] via-[#714B67] to-[#3a2234] text-white px-4 py-3.5 flex items-center justify-between border-b border-purple-900/50 shadow-sm">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-white/15 text-white flex items-center justify-center shadow-sm shrink-0">
+              <Bot size={18} />
             </div>
-            <div>
-              <h3 className="font-bold text-sm text-white flex items-center gap-1.5">
-                <span>{isArabic ? 'Aysed HR Copilot' : 'Aysed HR Copilot'}</span>
-                <span className="text-[9px] bg-amber-400 text-purple-950 px-1.5 py-0.5 rounded-full font-black">{isArabic ? 'ذكاء تنفيذي' : 'Executive AI'}</span>
+            <div className="min-w-0">
+              <h3 className="font-bold text-sm text-white truncate">
+                {isArabic ? 'مساعد الموارد البشرية والامتثال' : 'HR & Compliance Copilot'}
               </h3>
-              <p className="text-[10px] text-purple-200">{isArabic ? 'مساعدك الذكي لتنفيذ الأوامر وإضافة الموظفين بالذكاء الاصطناعي' : 'Your smart assistant for actions, HR workflows, and AI-powered employee creation'}</p>
+              <p className="text-[10px] text-purple-200/95 truncate">
+                {activeCompany?.nameAr || activeCompany?.nameEn || (isArabic ? 'الشركة النشطة' : 'Active company')}
+              </p>
             </div>
           </div>
           
@@ -705,18 +819,21 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
           <div ref={chatEndRef} />
         </div>
 
-        {/* Quick Commands Bar */}
-        <div className="p-2.5 bg-purple-50/50 border-t border-purple-100 overflow-x-auto whitespace-nowrap scrollbar-thin">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] text-purple-800 font-bold shrink-0">{isArabic ? 'أوامر سريعة:' : 'Quick commands:'}</span>
-            {quickPrompts.map((prompt, idx) => (
+        {/* Contextual action chips */}
+        <div className="px-3 py-2.5 bg-slate-50 border-t border-slate-200">
+          <p className="text-[10px] font-bold text-slate-600 mb-2">
+            {isArabic ? 'إجراءات مقترحة حسب السياق' : 'Suggested actions for this screen'}
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {contextualChips.map((chip) => (
               <button
-                key={idx}
-                onClick={() => handleSend(prompt)}
-                disabled={isLoading}
-                className="px-2.5 py-1 bg-white hover:bg-purple-700 hover:text-white text-purple-900 border border-purple-200 rounded-full text-[10px] font-semibold transition cursor-pointer shadow-2xs shrink-0"
+                key={chip.label}
+                type="button"
+                onClick={() => handleSend(chip.prompt)}
+                disabled={isLoading || isUploadingDoc}
+                className="px-2.5 py-1.5 bg-white hover:bg-[#714B67] hover:text-white text-slate-800 border border-slate-200 rounded-lg text-[10px] font-bold transition cursor-pointer shadow-xs disabled:opacity-50"
               >
-                + {prompt}
+                {chip.label}
               </button>
             ))}
           </div>
@@ -757,7 +874,7 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={isArabic ? 'اكتب أمرك هنا (مثال: ضيف موظف اسمه أحمد الكندري...)' : 'Type your request here (for example: add an employee named Ahmed Al-Kandari...)'}
+              placeholder={inputPlaceholder}
               className="flex-1 text-xs bg-slate-100 border border-slate-300 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-600 font-sans"
             />
             <button
