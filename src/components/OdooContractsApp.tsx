@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   FileText, 
   Search, 
@@ -65,6 +65,7 @@ import {
 } from '../utils/contractDisplayRef';
 import { OdooScreenEditToolbar } from './ui/OdooScreenEditToolbar';
 import { EditableField } from './EditableField';
+import { InlineEditProvider, type InlinePersistPatch } from '../context/InlineEditContext';
 
 export interface DetailedContract extends EmployeeContract {
   contractRef: string;
@@ -516,6 +517,61 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
   };
 
   const contractFieldsEditable = isCreatingNew || contractEditMode;
+
+  const persistContractInlinePatch = useCallback(
+    async (patch: InlinePersistPatch) => {
+      if (!selectedContract?.id) return;
+      const numeric = new Set([
+        'basicSalary',
+        'housingAllowance',
+        'transportAllowance',
+        'medicalAllowance',
+        'hourlyRate',
+      ]);
+      const normalized: Record<string, unknown> = { ...patch };
+      for (const key of Object.keys(normalized)) {
+        if (numeric.has(key)) {
+          normalized[key] = parseFloat(String(normalized[key] ?? '')) || 0;
+        }
+      }
+      const merged = { ...selectedContract, ...normalized } as DetailedContract;
+      setSelectedContract(merged);
+      if (contractEditMode || isCreatingNew) return;
+
+      const displayRef = merged.displayRef || formatContractDisplayRef(merged);
+      const normalizedContractStatus = normalizeContractStatus(merged.contractStatus);
+      const saved = await TenantDatabaseService.saveContract(
+        {
+          id: merged.contractRef || `CONTRACT-${merged.id}`,
+          companyId: currentCompanyId,
+          employeeId: merged.id,
+          displayRef,
+          contractNumber: displayRef,
+          basicSalary: merged.basicSalary,
+          housingAllowance: merged.housingAllowance,
+          transportAllowance: merged.transportAllowance,
+          otherAllowance: merged.medicalAllowance,
+          startDate: merged.startDate,
+          endDate: merged.endDate,
+          contractType: merged.contractType,
+          status: normalizedContractStatus,
+          customDailyHours: merged.dailyHours,
+          workingHoursPerWeek: merged.workingHoursWeekly,
+          workingSchedule: merged.employmentType,
+        } as any,
+        currentCompanyId
+      );
+      if (!saved) {
+        throw new Error('تعذر حفظ العقد');
+      }
+      setContracts((prev) =>
+        prev.map((c) =>
+          c.contractRef === merged.contractRef ? { ...merged, displayRef } : c
+        )
+      );
+    },
+    [selectedContract, contractEditMode, isCreatingNew, currentCompanyId]
+  );
 
   useEffect(() => {
     if (isContractModalOpen) {
@@ -993,7 +1049,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
       {isContractModalOpen && selectedContract && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-4xl w-full shadow-2xl border border-slate-200 overflow-hidden animate-scaleUp text-right flex flex-col max-h-[92vh]">
-            
+            <InlineEditProvider persistPatch={persistContractInlinePatch}>
             {/* Modal Top Header & Status Pipeline Bar */}
             <div className="p-5 border-b border-slate-200 bg-slate-50 space-y-3">
               <div className="flex items-start justify-between flex-wrap gap-3">
@@ -1092,7 +1148,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
             </div>
 
             {/* Modal Body / Form Sheet */}
-            <fieldset disabled={!contractFieldsEditable} className="p-6 overflow-y-auto space-y-6 text-xs disabled:opacity-100 border-0 m-0 min-w-0">
+            <fieldset className="p-6 overflow-y-auto space-y-6 text-xs border-0 m-0 min-w-0">
               
               {/* Section 1: Employee Binding & Employment Type Selector */}
               <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200 space-y-4">
@@ -1324,6 +1380,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
                         })
                       }
                       isEditMode={contractFieldsEditable}
+                      persistFieldKey="basicSalary"
                       type="number"
                     />
                   )}
@@ -1338,6 +1395,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
                       })
                     }
                     isEditMode={contractFieldsEditable}
+                    persistFieldKey="housingAllowance"
                     type="number"
                   />
 
@@ -1351,6 +1409,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
                       })
                     }
                     isEditMode={contractFieldsEditable}
+                    persistFieldKey="transportAllowance"
                     type="number"
                   />
 
@@ -1517,6 +1576,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
                 <span>حفظ واعتماد العقد</span>
               </button>
             </div>
+            </InlineEditProvider>
 
           </div>
         </div>

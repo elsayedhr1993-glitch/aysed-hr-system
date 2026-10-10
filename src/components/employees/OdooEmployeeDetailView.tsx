@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { EmployeeWorkTab } from './tabs/EmployeeWorkTab';
 import { EmployeePrivateTab } from './tabs/EmployeePrivateTab';
 import { EmployeeDocumentsTab } from './tabs/EmployeeDocumentsTab';
@@ -73,6 +73,8 @@ import { useRegisterReorderGroup } from '../../context/UiStudioContext';
 import { UI_KEYS } from '../../utils/uiStudioKeys';
 import { EntityAiSummaryButton } from '../copilot/EntityAiSummaryButton';
 import { EmployeeRecordChatter } from '../copilot/EmployeeRecordChatter';
+import { InlineEditProvider, type InlinePersistPatch } from '../../context/InlineEditContext';
+import { mergeEmployeeInlinePatch } from '../../utils/employeeInlinePersist';
 
 interface Props {
   employee: any;
@@ -562,6 +564,23 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
     setEmployee((prev: any) => ({ ...prev, [field]: value }));
   };
 
+  const persistEmployeeInlinePatch = useCallback(
+    async (patch: InlinePersistPatch) => {
+      if (isEditMode) {
+        setEmployee((prev: any) => mergeEmployeeInlinePatch(prev, patch));
+        return;
+      }
+      let payload: Record<string, unknown> | null = null;
+      setEmployee((prev: any) => {
+        payload = mergeEmployeeInlinePatch(prev, patch);
+        return payload;
+      });
+      if (!payload) return;
+      await onSave(payload);
+    },
+    [isEditMode, onSave]
+  );
+
   const handleOcrResult = (scannedData: any, docType: string) => {
     setEmployee((prev: any) => {
       const updated = { ...prev };
@@ -655,6 +674,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
   };
 
   return (
+    <InlineEditProvider persistPatch={persistEmployeeInlinePatch}>
     <div
       className="min-h-screen bg-slate-100/60 py-2 sm:py-3 text-right font-sans text-slate-900 w-full"
       dir="rtl"
@@ -895,9 +915,15 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
                   className="text-2xl font-bold text-slate-900 border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1 bg-white focus:outline-none transition"
                 />
               ) : (
-                <h2 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
-                  {employee.nameAr || employee.fullNameAr || 'اسم الموظف'}
-                </h2>
+                <EditableField
+                  studioFieldKey="nameAr"
+                  label="اسم الموظف"
+                  hideLabel
+                  value={employee.nameAr || employee.fullNameAr || ''}
+                  onChange={(val) => handleFieldChange('nameAr', val)}
+                  className="py-0 min-w-[200px] max-w-full [&_button]:text-2xl md:[&_button]:text-3xl [&_button]:font-bold [&_button]:border-0 [&_button]:px-0"
+                  placeholder="اسم الموظف"
+                />
               )}
 
               <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold border flex items-center gap-1.5 ${
@@ -916,16 +942,23 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
             <p className="text-xs text-slate-500 font-medium">
               {employee.dept || employee.department || '—'} · {displayCompanyName}
             </p>
-            {!isEditMode && (
-              <p className="text-[11px] text-slate-400 font-mono">{employee.nameEn || employee.fullNameEn || ''}</p>
-            )}
-            {isEditMode && (
+            {isEditMode ? (
               <input
                 type="text"
                 value={employee.nameEn || ''}
                 onChange={(e) => handleFieldChange('nameEn', e.target.value)}
                 placeholder="English Name"
                 className="mt-1 text-xs font-semibold text-slate-700 border border-slate-300 rounded px-2 py-1 bg-white focus:outline-none w-full max-w-md"
+              />
+            ) : (
+              <EditableField
+                studioFieldKey="nameEn"
+                label="الاسم بالإنجليزية"
+                hideLabel
+                value={employee.nameEn || employee.fullNameEn || ''}
+                onChange={(val) => handleFieldChange('nameEn', val)}
+                className="py-0 max-w-md [&_button]:text-[11px] [&_button]:text-slate-400 [&_button]:font-mono"
+                placeholder="English Name"
               />
             )}
 
@@ -1113,6 +1146,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
         employeeName={employee?.nameAr || employee?.fullNameAr}
       />
     </div>
+    </InlineEditProvider>
   );
 };
 

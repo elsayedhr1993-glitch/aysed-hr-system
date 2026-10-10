@@ -177,19 +177,22 @@ export const EmployeeWorkTab: React.FC<Props> = ({
                 {(employee.hireDate || employee.joinDate || '—').toString().slice(0, 10)}
               </div>
             </div>
-            <div className="py-1">
-              <label className="block text-xs font-semibold text-slate-500 mb-1">رصيد مرحّل (عرض)</label>
-              <div className="font-mono text-sm font-bold text-slate-900">{Number(carriedOverDisplay) || 0} يوم</div>
-              {onOpenLeaveSettings && (
-                <button
-                  type="button"
-                  onClick={onOpenLeaveSettings}
-                  className="mt-1 text-[11px] font-bold text-[#714B67] hover:underline cursor-pointer"
-                >
-                  إعدادات HR / كشف الرصيد
-                </button>
-              )}
-            </div>
+            <EditableField
+              label="رصيد مرحّل (عرض)"
+              value={`${Number(carriedOverDisplay) || 0} يوم`}
+              onChange={() => {}}
+              readOnly
+              lockedHint="رصيد الإجازة المرحّل يُدار من تخصيصات الإجازة — افتح إعدادات HR للتعديل."
+            />
+            {onOpenLeaveSettings && (
+              <button
+                type="button"
+                onClick={onOpenLeaveSettings}
+                className="mt-1 text-[11px] font-bold text-[#714B67] hover:underline cursor-pointer"
+              >
+                إعدادات HR / كشف الرصيد
+              </button>
+            )}
             <EditableSelect
             studioFieldKey="workingSchedule"
               label="جدول العمل"

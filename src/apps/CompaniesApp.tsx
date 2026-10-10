@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { 
   Building2, Plus, Search, LayoutGrid, List as ListIcon, Edit2, Trash2, CheckCircle2, 
   Globe, Phone, Mail, MapPin, Shield, FileText, Stamp, Award, Check, X, Sparkles, Building
@@ -10,6 +10,7 @@ import { db, cleanFirestoreData, getCompaniesCollectionName } from '../lib/fireb
 import { EditableField } from '../components/EditableField';
 import { OdooScreenEditToolbar } from '../components/ui/OdooScreenEditToolbar';
 import { useOdooScreenEditMode } from '../hooks/useOdooScreenEditMode';
+import { InlineEditProvider, type InlinePersistPatch } from '../context/InlineEditContext';
 
 interface CompaniesAppProps {
   companies: Company[];
@@ -63,6 +64,41 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
     companyForm.setDraft(next);
     setEditingCompany(next);
   };
+
+  const persistCompanyInlinePatch = useCallback(
+    async (patch: InlinePersistPatch) => {
+      const partial = patch as Partial<Company>;
+      if (isCreatingNew || companyForm.isEditMode) {
+        patchCompany(partial);
+        return;
+      }
+      const base = companyForm.draft || editingCompany;
+      if (!base?.id) return;
+      const next: Company = {
+        ...base,
+        ...partial,
+        nameAr: (partial.nameAr ?? base.nameAr)?.trim() || base.nameAr,
+      };
+      patchCompany(partial);
+      const cleaned = cleanFirestoreData({
+        ...next,
+        updatedAt: new Date().toISOString(),
+      }) as Company;
+      await setDoc(
+        doc(db, getCompaniesCollectionName(), next.id),
+        {
+          ...cleaned,
+          companyId: next.id,
+          companyName: next.nameAr,
+          state: next.status === 'suspended' ? 'suspended' : 'active',
+          isActive: next.status !== 'suspended',
+        },
+        { merge: true }
+      );
+      onSaveCompany(next);
+    },
+    [companyForm.isEditMode, companyForm.draft, editingCompany, isCreatingNew, onSaveCompany]
+  );
 
   const filteredCompanies = (companies || []).filter(c => 
     c.nameAr.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -475,6 +511,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
               </button>
             </div>
 
+            <InlineEditProvider persistPatch={persistCompanyInlinePatch}>
             {/* Odoo Notebook Tabs */}
             <div className="flex border-b border-slate-200 bg-slate-50 px-6 gap-6 text-xs font-bold text-slate-600">
               <button
@@ -538,7 +575,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
             )}
 
             <form onSubmit={handleSave} className="p-6 space-y-6 max-h-[65vh] overflow-y-auto">
-              <fieldset disabled={!companyFieldsEditable} className="space-y-6 disabled:opacity-100">
+              <fieldset className="space-y-6">
               {/* Tab 1: General */}
               {activeTab === 'general' && companyDraft && (
                 <div className="space-y-4">
@@ -548,6 +585,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                       value={companyDraft.nameAr || ''}
                       onChange={(val) => patchCompany({ nameAr: val })}
                       isEditMode={companyFieldsEditable}
+                      persistFieldKey="nameAr"
                       placeholder="مثال: عيادات ايليت الطبية المتخصصة"
                     />
                     <EditableField
@@ -555,6 +593,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                       value={companyDraft.nameEn || ''}
                       onChange={(val) => patchCompany({ nameEn: val })}
                       isEditMode={companyFieldsEditable}
+                      persistFieldKey="nameEn"
                       placeholder="Elite Specialized Clinics"
                     />
                   </div>
@@ -565,6 +604,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                       value={companyDraft.logoUrl || ''}
                       onChange={(val) => patchCompany({ logoUrl: val })}
                       isEditMode={companyFieldsEditable}
+                      persistFieldKey="logoUrl"
                       placeholder="https://..."
                     />
                     <EditableField
@@ -572,6 +612,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                       value={companyDraft.currency || 'KWD'}
                       onChange={(val) => patchCompany({ currency: val })}
                       isEditMode={companyFieldsEditable}
+                      persistFieldKey="currency"
                     />
                   </div>
 
@@ -816,6 +857,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                 </button>
               </div>
             </form>
+            </InlineEditProvider>
           </div>
         </div>)}
 

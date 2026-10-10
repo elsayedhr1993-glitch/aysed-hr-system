@@ -168,22 +168,16 @@ export const EmployeePrivateTab: React.FC<Props> = ({
             isEditMode={isEditMode}
             type="text"
           />
-          <div className="py-1.5">
-            <label className="block text-xs font-semibold text-slate-500 mb-1">الآيبان (IBAN)</label>
-            {isEditMode ? (
-              <input
-                type="text"
-                value={employee.iban || ''}
-                onChange={(e) => handleFieldChange('iban', e.target.value)}
-                className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-900 bg-white focus:outline-none text-sm"
-                placeholder="KW00..."
-              />
-            ) : (
-              <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">
-                {employee.iban || <span className="text-slate-400 font-normal text-xs">—</span>}
-              </div>
-            )}
-          </div>
+          <EditableField
+            studioFieldKey="iban"
+            label="الآيبان (IBAN)"
+            value={employee.iban || ''}
+            onChange={(val) => handleFieldChange('iban', val)}
+            isEditMode={isEditMode}
+            type="text"
+            placeholder="KW00..."
+            className="[&_button]:font-mono"
+          />
         </div>
 
         <CompactFormAccordion
