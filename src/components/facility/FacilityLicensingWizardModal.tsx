@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   X, Check, ChevronRight, ChevronLeft, Building2, ShieldCheck, 
   FileText, Upload, AlertTriangle, Calendar, Award, Flame, 
-  Store, Send, Image, Sparkles, Building, CheckCircle2, RefreshCw, Plus
+  Store, Send, Building, CheckCircle2
 } from 'lucide-react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db, getCompaniesCollectionName } from '../../lib/firebase';
@@ -114,7 +114,7 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
   onClose,
   onSaved,
   companyId,
-  onOpenCompanyLicenseArchive,
+  onOpenCompanyLicenseArchive: _onOpenCompanyLicenseArchive,
 }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FacilityLicenseData>(createEmptyFacilityData());
@@ -123,19 +123,23 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
   const [newDeptInput, setNewDeptInput] = useState('');
   const [newDeviceInput, setNewDeviceInput] = useState('');
   const [newBranchInput, setNewBranchInput] = useState('');
-  const [isSyncing, setIsSyncing] = useState(false);
-  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isActivating, setIsActivating] = useState(false);
+  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const pushWizardToArchive = useCallback(
-    async (draft: FacilityLicenseData) => {
-      if (!companyId) return;
-      setIsSyncing(true);
+  const persistLocalDraft = useCallback(
+    (draft: FacilityLicenseData) => {
+      const storageKey = companyId ? `${FACILITY_STORAGE_KEY}_${companyId}` : FACILITY_STORAGE_KEY;
       try {
-        await syncFacilityWizardDraft(companyId, draft);
+        localStorage.setItem(
+          storageKey,
+          JSON.stringify({
+            ...draft,
+            lastUpdated: new Date().toISOString(),
+            isCompleted: Boolean(draft.isCompleted),
+          })
+        );
       } catch (err) {
-        console.error('Facility wizard live sync failed:', err);
-      } finally {
-        setIsSyncing(false);
+        console.error('Facility wizard local draft save failed:', err);
       }
     },
     [companyId]
@@ -153,15 +157,15 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
   }, [isOpen, companyId]);
 
   useEffect(() => {
-    if (!isOpen || !companyId) return;
-    if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
-    syncTimerRef.current = setTimeout(() => {
-      void pushWizardToArchive(formData);
-    }, 900);
+    if (!isOpen) return;
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    draftTimerRef.current = setTimeout(() => {
+      persistLocalDraft(formData);
+    }, 400);
     return () => {
-      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+      if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     };
-  }, [formData, isOpen, companyId, pushWizardToArchive]);
+  }, [formData, isOpen, persistLocalDraft]);
 
   if (!isOpen) return null;
 
@@ -229,18 +233,34 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
   };
 
   const handleSaveAndActivate = async () => {
-    const saved = await saveFacilityMasterData(formData, companyId);
-    if (onSaved) onSaved(saved);
-    alert('✅ تم اعتماد وتثبيت تراخيص المنشأة والهوية المؤسسية بنجاح!');
-    onClose();
+    setIsActivating(true);
+    try {
+      persistLocalDraft(formData);
+      if (companyId) {
+        await syncFacilityWizardDraft(companyId, formData);
+      }
+      const saved = await saveFacilityMasterData(formData, companyId);
+      if (onSaved) onSaved(saved);
+      onClose();
+    } catch (err) {
+      console.error('Facility activation failed:', err);
+      alert('تعذر اعتماد الترخيص. راجع الاتصال وحاول مرة أخرى.');
+    } finally {
+      setIsActivating(false);
+    }
+  };
+
+  const goToStep = (step: number) => {
+    persistLocalDraft(formData);
+    setCurrentStep(step);
   };
 
   const steps = [
-    { num: 1, title: 'الهوية والتراخيص التجاري', desc: 'الاسم والسجل ورفع الشعار' },
-    { num: 2, title: 'تراخيص وزارة الصحة MOH', desc: 'ترخيص الصحة والأقسام والأجهزة' },
-    { num: 3, title: 'ملفات القوى العاملة PAM & WPS', desc: 'اعتماد التوقيع ورمز المنشأة' },
-    { num: 4, title: 'تراخيص السلامة والبلدية', desc: 'الإطفاء العام والبلدية والصلاحية' },
-    { num: 5, title: 'المراجعة والتثبيت النهائي', desc: 'التدقيق والتفعيل الدائم' },
+    { num: 1, title: 'الهوية' },
+    { num: 2, title: 'وزارة الصحة' },
+    { num: 3, title: 'PAM / WPS' },
+    { num: 4, title: 'السلامة والبلدية' },
+    { num: 5, title: 'الاعتماد' },
   ];
 
   return (
@@ -254,32 +274,11 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
               <Building2 className="w-6 h-6 text-amber-300" />
             </div>
             <div>
-              <h3 className="font-bold text-base sm:text-lg flex items-center gap-2">
-                <span>معالج تهيئة وتثبيت التراخيص المؤسسية</span>
-                <span className="text-[10px] bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full font-black">
-                  Facility Licensing Wizard
-                </span>
-              </h3>
-              <p className="text-xs text-purple-200 font-medium">
-                تثبيت ترخيص وزارة الصحة، الرقم المدني للجهة (PACI)، ملف القوى العاملة PAM، وتراخيص الإطفاء والبلدية
-              </p>
-              <p className="text-[10px] text-amber-200/90 mt-1">
-                لإضافة ترخيص إضافي أو نوع حر (غير الحقول المعيارية) استخدم أرشيف المستندات وليس هذا المعالج فقط.
-              </p>
+              <h3 className="font-bold text-base sm:text-lg">معالج تراخيص المنشأة</h3>
+              <p className="text-[11px] text-purple-200/95 mt-0.5">هوية · MOH · PAM · سلامة · اعتماد نهائي</p>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {onOpenCompanyLicenseArchive && (
-              <button
-                type="button"
-                onClick={onOpenCompanyLicenseArchive}
-                className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black transition cursor-pointer"
-                title="فتح نموذج إضافة ترخيص في أرشيف المستندات"
-              >
-                <Plus size={16} />
-                إضافة ترخيص (أرشيف)
-              </button>
-            )}
             <button
               onClick={onClose}
               className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
@@ -299,7 +298,7 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
               return (
                 <button
                   key={step.num}
-                  onClick={() => setCurrentStep(step.num)}
+                  onClick={() => goToStep(step.num)}
                   className={`flex flex-col items-center text-center p-2 rounded-xl transition cursor-pointer border ${
                     isCurrent
                       ? 'bg-purple-900 text-white border-purple-950 shadow-sm'
@@ -318,13 +317,10 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
                     }`}>
                       {isPassed ? <Check size={12} /> : step.num}
                     </span>
-                    <span className="font-bold text-[11px] truncate max-w-[80px] sm:max-w-[120px]">
+                    <span className="font-bold text-[10px] sm:text-[11px] truncate max-w-[72px] sm:max-w-[100px]">
                       {step.title}
                     </span>
                   </div>
-                  <span className={`text-[9px] hidden sm:block ${isCurrent ? 'text-purple-200' : 'text-slate-400'}`}>
-                    {step.desc}
-                  </span>
                 </button>
               );
             })}
@@ -337,15 +333,10 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
           {/* STEP 1: Facility identity & logo (MOH medical — no commercial registry) */}
           {currentStep === 1 && (
             <div className="space-y-4 animate-fadeIn">
-              <div className="bg-purple-50 p-3 rounded-xl border border-purple-200 flex items-center justify-between text-purple-900 text-xs font-bold">
-                <span className="flex items-center gap-2">
-                  <Building size={16} className="text-[#714B67]" />
-                  <span>الخطوة 1: الهوية المؤسسية والشعار الدائم للمنشأة الطبية</span>
-                </span>
-                <span className="text-[10px] bg-purple-200 text-purple-950 px-2 py-0.5 rounded-full">
-                  Master Entity Data
-                </span>
-              </div>
+              <h4 className="text-xs font-bold text-slate-800 flex items-center gap-2">
+                <Building size={15} className="text-[#714B67]" />
+                الخطوة 1 — الهوية والشعار
+              </h4>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -394,9 +385,6 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
                     )}
                   </div>
                   <div className="flex-1 space-y-2">
-                    <p className="text-[11px] text-slate-500">
-                      يُستخدم الشعار في الهيدر، المطبوعات الرسمية، شهادات الراتب، والعقود. يُحفظ في الكيان المستقل دائماً.
-                    </p>
                     <label className="inline-flex items-center gap-2 bg-[#714B67] hover:bg-[#5a3a52] text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition">
                       <Upload size={14} />
                       <span>اختيار وتحميل صورة الشعار</span>
@@ -453,15 +441,10 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
           {/* STEP 2: MOH Licensing */}
           {currentStep === 2 && (
             <div className="space-y-4 animate-fadeIn">
-              <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-200 flex items-center justify-between text-emerald-900 text-xs font-bold">
-                <span className="flex items-center gap-2">
-                  <Award size={16} className="text-emerald-700" />
-                  <span>الخطوة 2: ترخيص وزارة الصحة (Ministry of Health Licensing)</span>
-                </span>
-                <span className="text-[10px] bg-emerald-200 text-emerald-950 px-2 py-0.5 rounded-full">
-                  MOH Medical License
-                </span>
-              </div>
+              <h4 className="text-xs font-bold text-slate-800 flex items-center gap-2">
+                <Award size={15} className="text-emerald-700" />
+                الخطوة 2 — ترخيص وزارة الصحة
+              </h4>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
@@ -559,15 +542,10 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
           {/* STEP 3: PAM & Labor Files */}
           {currentStep === 3 && (
             <div className="space-y-4 animate-fadeIn">
-              <div className="bg-blue-50 p-3 rounded-xl border border-blue-200 flex items-center justify-between text-blue-900 text-xs font-bold">
-                <span className="flex items-center gap-2">
-                  <FileText size={16} className="text-blue-700" />
-                  <span>الخطوة 3: ملفات الهيئة العامة للقوى العاملة PAM ونظام أجور WPS</span>
-                </span>
-                <span className="text-[10px] bg-blue-200 text-blue-950 px-2 py-0.5 rounded-full">
-                  Public Authority of Manpower
-                </span>
-              </div>
+              <h4 className="text-xs font-bold text-slate-800 flex items-center gap-2">
+                <FileText size={15} className="text-blue-700" />
+                الخطوة 3 — PAM و WPS
+              </h4>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -587,7 +565,7 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
                     type="text"
                     value={formData.authorizedSignatoryName}
                     onChange={(e) => handleFieldChange('authorizedSignatoryName', e.target.value)}
-                    placeholder="د. خالد المنار"
+                    placeholder="الاسم كما في ملف PAM"
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs font-bold text-slate-900"
                   />
                 </div>
@@ -615,32 +593,16 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
                 </div>
               </div>
 
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-between">
-                <div>
-                  <h5 className="font-bold text-xs text-slate-900">ربط وتفعيل ملف تحويل الأجور WPS تلقائياً</h5>
-                  <p className="text-[11px] text-slate-500">
-                    يُدرج هذا الرمز تلقائياً في كافة كشوف تحويل الرواتب الشهرية المصدرة للبنوك طبقاً للائحة الكويتية.
-                  </p>
-                </div>
-                <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full border border-emerald-300">
-                  ✓ مفعل مع البنك المركزى
-                </span>
-              </div>
             </div>
           )}
 
           {/* STEP 4: Fire Force & Municipality */}
           {currentStep === 4 && (
             <div className="space-y-4 animate-fadeIn">
-              <div className="bg-amber-50 p-3 rounded-xl border border-amber-200 flex items-center justify-between text-amber-900 text-xs font-bold">
-                <span className="flex items-center gap-2">
-                  <Flame size={16} className="text-amber-700" />
-                  <span>الخطوة 4: تراخيص السلامة (الإطفاء العام) وبلدية الكويت</span>
-                </span>
-                <span className="text-[10px] bg-amber-200 text-amber-950 px-2 py-0.5 rounded-full">
-                  Safety & Municipality
-                </span>
-              </div>
+              <h4 className="text-xs font-bold text-slate-800 flex items-center gap-2">
+                <Flame size={15} className="text-amber-700" />
+                الخطوة 4 — الإطفاء والبلدية
+              </h4>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Fire Force */}
@@ -703,15 +665,10 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
           {/* STEP 5: Review & Activation */}
           {currentStep === 5 && (
             <div className="space-y-4 animate-fadeIn">
-              <div className="bg-emerald-50 p-3.5 rounded-xl border border-emerald-300 text-emerald-950 flex items-start gap-2.5">
-                <CheckCircle2 size={22} className="text-emerald-600 shrink-0 mt-0.5" />
-                <div>
-                  <strong className="block text-xs font-bold">جاهزية التثبيت المؤسسي النهائي (Facility Master Activation):</strong>
-                  <p className="text-[11px] text-emerald-800 leading-relaxed mt-0.5">
-                    سيتم حفظ واعتِماد جميع التراخيص والشعار الرسمي في الكيان المستقل التابع للمنظمة ولن تتأثر مستقبلاً بإجراءات تصفير الموظفين أو المسيرات.
-                  </p>
-                </div>
-              </div>
+              <h4 className="text-xs font-bold text-slate-800 flex items-center gap-2">
+                <CheckCircle2 size={15} className="text-emerald-600" />
+                الخطوة 5 — مراجعة قبل الاعتماد
+              </h4>
 
               {/* Review Summary Cards */}
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-4">
@@ -773,7 +730,7 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
         <div className="bg-slate-50 border-t border-slate-200 p-4 flex items-center justify-between gap-2 shrink-0">
           {currentStep > 1 ? (
             <button
-              onClick={() => setCurrentStep(prev => prev - 1)}
+              onClick={() => goToStep(currentStep - 1)}
               className="px-4 py-2 rounded-xl bg-white border border-slate-300 text-slate-700 font-bold hover:bg-slate-100 transition flex items-center gap-1 cursor-pointer"
             >
               <ChevronRight size={16} />
@@ -790,22 +747,26 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
 
           {currentStep < 5 ? (
             <button
-              onClick={async () => {
-                await pushWizardToArchive(formData);
-                setCurrentStep((prev) => prev + 1);
-              }}
+              type="button"
+              onClick={() => goToStep(currentStep + 1)}
               className="px-5 py-2 rounded-xl bg-[#714B67] hover:bg-[#5c3c54] text-white font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
             >
-              <span>{isSyncing ? 'جاري المزامنة...' : 'التالي (Next)'}</span>
+              <span>التالي (Next)</span>
               <ChevronLeft size={16} />
             </button>
           ) : (
             <button
-              onClick={handleSaveAndActivate}
-              className="px-6 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition flex items-center gap-2 shadow-md cursor-pointer"
+              type="button"
+              onClick={() => void handleSaveAndActivate()}
+              disabled={isActivating}
+              className="px-6 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition flex items-center gap-2 shadow-md cursor-pointer disabled:opacity-60"
             >
               <Send size={15} />
-              <span>اعتماد وتفعيل ترخيص المنشأة رسمياً (Activate Facility)</span>
+              <span>
+                {isActivating
+                  ? 'جاري الاعتماد والمزامنة...'
+                  : 'اعتماد وتفعيل ترخيص المنشأة رسمياً'}
+              </span>
             </button>
           )}
         </div>
