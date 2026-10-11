@@ -547,9 +547,11 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
         )}
 
         {/* عنوان الشاشة الحالية - معروض فقط على الشاشات العريضة جداً لتوفير المساحة */}
-        <div className="hidden 2xl:flex items-center gap-2 text-white/90 text-xs font-bold border-r border-white/20 pr-2.5 mr-1">
-          <span className="text-white/70 font-normal">{lang === 'ar' ? 'المسار:' : 'Path:'}</span>
-          <span className="text-white font-black truncate max-w-[200px]">{getActiveAppTitle()}</span>
+        <div className="hidden lg:flex items-center gap-2 text-white/90 text-xs font-bold border-r border-white/20 pr-2.5 mr-1 min-w-0 max-w-[min(100%,22rem)]">
+          <span className="text-white/70 font-normal shrink-0">{lang === 'ar' ? 'المسار:' : 'Path:'}</span>
+          <span className="text-white font-black leading-tight line-clamp-2 lg:line-clamp-1" title={getActiveAppTitle()}>
+            {getActiveAppTitle()}
+          </span>
         </div>
 
       </div>

@@ -279,63 +279,69 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
         />
       </div>
       
-      {/* 1. Header (Odoo Enterprise Settings Top Bar) */}
-      <div className="bg-white border-b border-slate-200 sticky top-0 z-40 px-6 py-3 shadow-xs flex flex-wrap items-center justify-between gap-4">
+      {/* 1. Header (Odoo Enterprise Settings) */}
+      <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 shadow-xs">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#714B67]/10 text-[#714B67] rounded-lg">
+          <div className="p-2 bg-[#714B67]/10 text-[#714B67] rounded-lg shrink-0">
             <Sliders className="w-5 h-5" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-base font-bold text-slate-900">الإعدادات العامة للتهيئة والسياسات</h1>
-              <span className="bg-purple-100 text-[#714B67] text-[11px] font-bold px-2 py-0.5 rounded-full">
+              <span className="bg-purple-100 text-[#714B67] text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0">
                 Odoo 18 Enterprise
               </span>
             </div>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 truncate">
               المنشأة النشطة: <span className="font-bold text-slate-700">{activeCompany?.nameAr || formData.companyNameAr}</span>
             </p>
           </div>
         </div>
+      </div>
 
-        {/* Action Controls & Search Filter */}
-        <div className="flex items-center gap-3">
-          <div className="relative w-64 hidden sm:block">
-            <Search size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="تصفية الإعدادات والخيارات..."
-              className="w-full bg-slate-50 hover:bg-slate-100 focus:bg-white border border-slate-200 focus:border-[#714B67] text-xs rounded-lg py-1.5 pr-8 pl-3 outline-hidden transition"
-            />
-            {searchQuery && (
-              <button 
-                onClick={() => setSearchQuery('')}
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
-              >
-                ✕
-              </button>
-            )}
-          </div>
+      {/* شريط أدوات ثابت: تصفية + حفظ / استعادة */}
+      <div
+        className="sticky top-0 z-50 px-4 sm:px-6 py-2.5 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3"
+      >
+        <div className="relative flex-1 min-w-[min(100%,14rem)] max-w-md">
+          <Search size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="تصفية الإعدادات والخيارات..."
+            className="w-full bg-slate-50 hover:bg-slate-100 focus:bg-white border border-slate-200 focus:border-[#714B67] text-xs rounded-lg py-2 pr-9 pl-8 outline-hidden transition"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs cursor-pointer"
+              aria-label="مسح التصفية"
+            >
+              ✕
+            </button>
+          )}
+        </div>
 
+        <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
           <button
             type="button"
             onClick={resetSettings}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 border border-slate-200 transition cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 border border-slate-200 transition cursor-pointer"
             title="استعادة الإعدادات الافتراضية"
           >
             <RotateCcw size={13} />
-            <span className="hidden md:inline">استعادة الافتراضي</span>
+            <span>استعادة الافتراضي</span>
           </button>
 
           <button
             type="button"
             onClick={handleSave}
             disabled={isSaving}
-            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold shadow-xs transition-all duration-300 cursor-pointer disabled:opacity-50 active:scale-95 ${
-              saveSuccess 
-                ? 'bg-emerald-600 hover:bg-emerald-700 text-white font-black' 
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold shadow-xs transition-all duration-300 cursor-pointer disabled:opacity-50 active:scale-95 ${
+              saveSuccess
+                ? 'bg-emerald-600 hover:bg-emerald-700 text-white font-black'
                 : 'bg-[#714B67] hover:bg-[#583a50] text-white'
             }`}
           >
@@ -356,7 +362,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
         
         {/* Navigation Sidebar */}
         <div className="w-full md:w-72 shrink-0">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-2 sticky top-24 space-y-1">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-2 sticky top-[4.5rem] space-y-1">
             <div className="px-3 py-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
               أقسام الضبط والتهيئة
             </div>

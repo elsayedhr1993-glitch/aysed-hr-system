@@ -759,7 +759,9 @@ function MainAppLayout() {
       case 'moh': return lang === 'ar' ? 'إدارة التراخيص الطبية والكادر الصحي (MOH Medical Hub)' : 'MOH Medical Hub';
       case 'compliance_tree': return lang === 'ar' ? 'شجرة الامتثال الحكومي والتراخيص' : 'Government Compliance Tree';
       case 'audit': return lang === 'ar' ? 'سجل الرقابة وتتبع العمليات (Audit Logs & Diagnostic Center)' : 'Audit Logs & Diagnostic Center';
-      case 'settings': return lang === 'ar' ? (isSuperAdmin ? 'الإعدادات والمشتركين (Settings & SaaS Tenants)' : 'بيانات المنشأة والإعدادات (Company Profile & Settings)') : (isSuperAdmin ? 'Settings & SaaS Tenants' : 'Company Profile & Settings');
+      case 'settings': return lang === 'ar'
+        ? (isSuperAdmin ? 'الإعدادات والمشتركين (Settings)' : 'بيانات المنشأة والإعدادات (Settings)')
+        : (isSuperAdmin ? 'Settings & SaaS Tenants' : 'Company Settings');
       case 'companies': return lang === 'ar' ? 'الشركات والمؤسسات (Companies & Clinics)' : 'Companies & Clinics';
       default: return lang === 'ar' ? 'نظام Aysed S HR 2026' : 'Aysed S HR 2026';
     }

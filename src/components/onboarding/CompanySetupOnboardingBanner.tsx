@@ -106,10 +106,18 @@ export const CompanySetupOnboardingBanner: React.FC<Props> = ({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="hidden sm:block w-28 h-1.5 rounded-full bg-white/25 overflow-hidden">
+          <div
+            className="w-full min-w-[6.5rem] max-w-[8.5rem] sm:max-w-[9rem] h-2 rounded-full bg-white/25 overflow-hidden shrink-0"
+            dir="ltr"
+            role="progressbar"
+            aria-valuenow={state.overallPercent}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={lang === 'ar' ? 'تقدم تهيئة المنشأة' : 'Company setup progress'}
+          >
             <div
-              className="h-full bg-amber-300 transition-all duration-500"
-              style={{ width: `${state.overallPercent}%` }}
+              className="h-full bg-amber-300 transition-all duration-500 rounded-full"
+              style={{ width: `${Math.min(100, Math.max(0, state.overallPercent))}%` }}
             />
           </div>
           {state.complete && (

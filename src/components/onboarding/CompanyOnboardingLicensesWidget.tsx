@@ -61,8 +61,11 @@ export const CompanyOnboardingLicensesWidget: React.FC<Props> = ({
           </div>
           <span className="text-[10px] font-mono font-black text-[#714B67]">{overall}%</span>
         </div>
-        <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
-          <div className="h-full bg-[#714B67] transition-all" style={{ width: `${overall}%` }} />
+        <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden" dir="ltr">
+          <div
+            className="h-full bg-[#714B67] transition-all rounded-full"
+            style={{ width: `${Math.min(100, Math.max(0, overall))}%` }}
+          />
         </div>
         {alerts > 0 && (
           <span className="flex items-center gap-1 text-[9px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md w-fit">
@@ -128,8 +131,18 @@ export const CompanyOnboardingLicensesWidget: React.FC<Props> = ({
         </div>
       </div>
 
-      <div className="h-2 rounded-full bg-slate-100 overflow-hidden mb-3">
-        <div className="h-full bg-[#714B67] transition-all" style={{ width: `${overall}%` }} />
+      <div
+        className="h-2 rounded-full bg-slate-100 overflow-hidden mb-3"
+        dir="ltr"
+        role="progressbar"
+        aria-valuenow={overall}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
+        <div
+          className="h-full bg-[#714B67] transition-all rounded-full"
+          style={{ width: `${Math.min(100, Math.max(0, overall))}%` }}
+        />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
