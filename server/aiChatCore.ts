@@ -354,7 +354,7 @@ export async function handleAiChatRequest(
         status: 503,
         body: {
           success: false,
-          error: 'محرك الذكاء الاصطناعي غير مهيأ على الخادم (GEMINI_API_KEY).',
+          error: 'محرك الذكاء الاصطناعي غير مهيأ على الخادم (GEMINI_API_KEY أو GOOGLE_API_KEY في Vercel).',
           code: 'AI_NOT_CONFIGURED',
         },
       };

@@ -7,9 +7,14 @@
   "installCommand": "npm install",
   "functions": {
     "api/ai-chat.ts": {
-      "maxDuration": 60,
+      "maxDuration": 120,
       "memory": 1024,
       "includeFiles": "api/_bundles/ai-chat.cjs"
+    },
+    "api/ocr-scan.ts": {
+      "maxDuration": 120,
+      "memory": 1024,
+      "includeFiles": "api/_bundles/ocr-scan.cjs"
     },
     "api/ai/test-key.ts": {
       "maxDuration": 60,

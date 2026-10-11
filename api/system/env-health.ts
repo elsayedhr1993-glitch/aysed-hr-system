@@ -8,6 +8,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const geminiKey = (
     process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_API_KEY ||
     process.env.API_KEY ||
     process.env.VITE_GEMINI_API_KEY ||
     ''

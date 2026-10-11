@@ -1,0 +1,23 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { createRequire } from 'node:module';
+
+export const config = {
+  maxDuration: 120,
+};
+
+const { loadBundledHandler } = createRequire(import.meta.url)('./_loadBundledCjs.cjs') as {
+  loadBundledHandler: (bundleFileName: string) => (req: VercelRequest, res: VercelResponse) => Promise<unknown>;
+};
+
+let cachedHandler: ReturnType<typeof loadBundledHandler> | null = null;
+
+function getHandler() {
+  if (!cachedHandler) {
+    cachedHandler = loadBundledHandler('ocr-scan.cjs');
+  }
+  return cachedHandler;
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  return getHandler()(req, res);
+}

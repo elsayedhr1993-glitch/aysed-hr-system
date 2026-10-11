@@ -2,7 +2,10 @@
 
 export function getGeminiCredentialFromEnv(): string | null {
   const raw =
-    process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.VITE_GEMINI_API_KEY;
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_API_KEY ||
+    process.env.API_KEY ||
+    process.env.VITE_GEMINI_API_KEY;
   if (!raw) return null;
   const trimmed = String(raw).trim();
   if (!trimmed || trimmed.includes('YOUR_') || trimmed.includes('MY_GEMINI')) return null;

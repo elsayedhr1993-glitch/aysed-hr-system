@@ -17,7 +17,7 @@ export async function handleAiTestKeyRequest(
         status: 400,
         body: {
           success: false,
-          error: 'مفتاح Gemini API غير مهيأ على الخادم. يرجى ضبط GEMINI_API_KEY في بيئة التشغيل.',
+          error: 'مفتاح Gemini API غير مهيأ على الخادم. يرجى ضبط GEMINI_API_KEY أو GOOGLE_API_KEY في بيئة التشغيل (Vercel).',
         },
       };
     }

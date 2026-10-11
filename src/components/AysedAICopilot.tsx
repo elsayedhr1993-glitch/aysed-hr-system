@@ -431,18 +431,26 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
                 ? '\n\nاختر شركة مستأجر (معاينة منشأة) قبل استخدام المساعد.'
                 : '\n\nSelect a tenant company before using the copilot.'
               : data.code === 'API_ROUTE_UNAVAILABLE'
-                ? ''
+                ? isArabic
+                  ? '\n\nتأكد من نشر دوال /api على Vercel (npm run build يولّد ai-chat.cjs).'
+                  : '\n\nEnsure /api functions are deployed (npm run build bundles ai-chat.cjs).'
+                : data.code === 'BUNDLE_MISSING'
+                  ? isArabic
+                    ? '\n\nأعد النشر بعد npm run build لإنشاء حزمة الخادم.'
+                    : '\n\nRedeploy after npm run build to include the server bundle.'
                 : !token
                   ? isArabic
                     ? '\n\nتأكد من تسجيل الدخول.'
                     : '\n\nPlease sign in again.'
                   : '';
+        const fullErr = `⚠️ ${errText}${hint}`;
+        toast.error(errText.split('\n')[0], { duration: 6000 });
         setMessages((prev) => [
           ...prev,
           {
             id: (Date.now() + 1).toString(),
             sender: 'bot',
-            text: `⚠️ ${errText}${hint}`,
+            text: fullErr,
             timestamp: new Date().toLocaleTimeString(isArabic ? 'ar-KW' : 'en-US', {
               hour: '2-digit',
               minute: '2-digit',

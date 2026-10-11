@@ -1,6 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { handleAiChatRequest } from '../aiChatCore';
 
+export const config = {
+  maxDuration: 120,
+};
+
 async function aiChatVercelHandler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');

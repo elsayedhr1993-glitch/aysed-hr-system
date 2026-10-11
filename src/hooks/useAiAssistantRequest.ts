@@ -87,10 +87,21 @@ export function useAiAssistantRequest() {
         }
 
         if (!response.ok || !data.success) {
+          const code = String(data.code || '');
+          let error = String(data.error || (isArabic ? 'تعذر إكمال الطلب.' : 'Request failed.'));
+          if (code === 'AI_NOT_CONFIGURED' || code === 'BUNDLE_MISSING') {
+            error = isArabic
+              ? 'المساعد غير مهيأ على الخادم. أضف GEMINI_API_KEY أو GOOGLE_API_KEY في إعدادات Vercel ثم أعد النشر.'
+              : 'Assistant is not configured on the server. Set GEMINI_API_KEY or GOOGLE_API_KEY in Vercel and redeploy.';
+          } else if (code === 'API_ROUTE_UNAVAILABLE') {
+            error = isArabic
+              ? 'مسار /api/ai-chat غير متاح. تأكد من نشر المشروع على Vercel مع npm run build.'
+              : '/api/ai-chat is unavailable. Deploy to Vercel with a full production build.';
+          }
           return {
             success: false,
-            error: String(data.error || (isArabic ? 'تعذر إكمال الطلب.' : 'Request failed.')),
-            code: String(data.code || ''),
+            error,
+            code,
           };
         }
 
@@ -102,7 +113,9 @@ export function useAiAssistantRequest() {
       } catch {
         return {
           success: false,
-          error: isArabic ? 'تعذر الاتصال بالمساعد.' : 'Could not reach the assistant.',
+          error: isArabic
+            ? 'تعذر الاتصال بالمساعد (شبكة أو مهلة Vercel). تحقق من الاتصال وحاول مجدداً.'
+            : 'Could not reach the assistant (network or Vercel timeout). Check connectivity and retry.',
           code: 'AI_UNAVAILABLE',
         };
       }
