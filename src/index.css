@@ -1174,7 +1174,18 @@ table {
 .odoo-workspace-canvas--launcher {
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 45%, #e2e8f0 100%);
   padding-top: 0.5rem;
-  padding-bottom: 1.5rem;
+  padding-bottom: 3rem;
+}
+.odoo-launcher-grid-wrap {
+  padding-bottom: 2.5rem;
+}
+@media (min-width: 640px) {
+  .odoo-workspace-canvas--launcher {
+    padding-bottom: 4rem;
+  }
+  .odoo-launcher-grid-wrap {
+    padding-bottom: 3rem;
+  }
 }
 .odoo-workspace-inner {
   width: 100%;

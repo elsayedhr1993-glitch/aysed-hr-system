@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { parseKuwaitCivilId, validateKuwaitCivilId } from './utils/kuwaitLaw';
+import { parseFlexibleDate } from './utils/dateUtils';
 import { useEffectiveTenantCompanyId } from './hooks/useEffectiveTenantCompanyId';
 import { isQueryableTenantCompanyId } from './utils/tenantCompanyId';
 import { TenantProvider, useTenant } from './context/TenantContext';
@@ -222,6 +223,20 @@ function MainAppLayout() {
       (error) => console.error('Failed to load contracts for dashboard/sentinel:', error)
     );
   }, [effectiveCompanyId]);
+
+  const contractsExpiringCount = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const horizon = new Date(today);
+    horizon.setDate(horizon.getDate() + 60);
+    return (contracts || []).filter((c) => {
+      const endRaw = c.endDate || c.contractEndDate || c.expiryDate;
+      const end = parseFlexibleDate(endRaw);
+      if (!end) return false;
+      end.setHours(0, 0, 0, 0);
+      return end >= today && end <= horizon;
+    }).length;
+  }, [contracts]);
 
   // إدارة المرشحين وبيانات التوظيف الذكية (Recruitment & ATS)
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -922,6 +937,7 @@ function MainAppLayout() {
                     break;
                 }
               }}
+              onOpenSpotlight={() => setShowSpotlight(true)}
               onOpenCompanyDocuments={() => openCompanyLicenseArchive(false)}
               onOpenComplianceTree={openCompanyComplianceTree}
               onCompanySetupAction={handleCompanySetupAction}
@@ -932,6 +948,7 @@ function MainAppLayout() {
                 employeesCount: employees?.length || 0,
                 candidatesCount: candidates?.length || 0,
                 contractsCount: contracts?.length || employees?.length || 0,
+                contractsExpiringCount,
                 leavesPendingCount: leaveStats.pending,
                 documentsCount: (documents?.length || 0) + companyDocumentsCount,
                 automationsCount: 0,

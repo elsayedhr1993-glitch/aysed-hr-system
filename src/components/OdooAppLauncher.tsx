@@ -20,8 +20,40 @@ import { useRegisterReorderGroup, useUiStudio } from '../context/UiStudioContext
 import { UiStudioTarget } from './studio/UiStudioTarget';
 import { pickUiLabel, sortByUiOrder } from '../utils/uiOverrideUtils';
 
+type LauncherBadgeTone = 'urgent' | 'warning' | 'neutral' | 'brand';
+
+function resolveLauncherBadgeTone(
+  appId: ActiveApp,
+  badge: string,
+  stats: OdooAppLauncherProps['stats']
+): LauncherBadgeTone {
+  if (appId === 'LEAVES' && stats.leavesPendingCount > 0) return 'urgent';
+  if (appId === 'RECRUITMENT' && stats.candidatesCount > 0) return 'warning';
+  if (appId === 'CONTRACTS' && (stats.contractsExpiringCount || 0) > 0) return 'urgent';
+  const numeric = Number.parseInt(badge, 10);
+  if (!Number.isNaN(numeric) && numeric > 0) return 'neutral';
+  return 'brand';
+}
+
+function launcherBadgeClassName(tone: LauncherBadgeTone, inCard = false): string {
+  const base = 'text-[9px] font-black px-1.5 py-0.5 rounded-md border transition-colors duration-300';
+  switch (tone) {
+    case 'urgent':
+      return `${base} bg-red-500 text-white border-red-600 shadow-sm`;
+    case 'warning':
+      return `${base} bg-orange-500 text-white border-orange-600 shadow-sm`;
+    case 'brand':
+      return `${base} bg-[#714B67] text-white border-[#5a3a52]`;
+    default:
+      return inCard
+        ? `${base} bg-slate-100 text-slate-600 border-slate-200`
+        : `${base} bg-slate-100 text-slate-600 border-slate-200/80 group-hover:bg-slate-50`;
+  }
+}
+
 interface OdooAppLauncherProps {
   onSelectApp: (app: ActiveApp) => void;
+  onOpenSpotlight?: () => void;
   onOpenCompanyDocuments?: () => void;
   onOpenComplianceTree?: () => void;
   onCompanySetupAction?: (action: CompanySetupStepAction) => void;
@@ -32,6 +64,7 @@ interface OdooAppLauncherProps {
     employeesCount: number;
     candidatesCount: number;
     contractsCount: number;
+    contractsExpiringCount?: number;
     leavesPendingCount: number;
     documentsCount: number;
     automationsCount: number;
@@ -50,6 +83,7 @@ interface OdooAppLauncherProps {
 
 export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({ 
   onSelectApp,
+  onOpenSpotlight,
   onOpenCompanyDocuments,
   onOpenComplianceTree,
   onCompanySetupAction,
@@ -287,6 +321,18 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
   const launcherReorderGroupId = 'launcher.apps';
   useRegisterReorderGroup(launcherReorderGroupId, launcherAppUiKeys);
 
+  useEffect(() => {
+    if (!onOpenSpotlight) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        onOpenSpotlight();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onOpenSpotlight]);
+
   const distinctJobTitles = useMemo(() => {
     const titles = new Set<string>();
     for (const e of realEmployees) {
@@ -297,7 +343,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
   }, [realEmployees]);
 
   return (
-    <div className="dashboard-container w-full h-full bg-transparent flex flex-col relative z-10 space-y-4 pb-6" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+    <div className="dashboard-container w-full h-full bg-transparent flex flex-col relative z-10 space-y-4 pb-20 sm:pb-24" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       
       <div className="flex items-end justify-between gap-3 px-0.5">
         <div>
@@ -333,7 +379,8 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
               </button>
             )}
             {!searchQuery && (
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-1 text-[9px] font-mono font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-[9px] font-mono font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                <Search className="w-3 h-3 opacity-60" />
                 Ctrl+K
               </div>
             )}
@@ -380,7 +427,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
         />
       )}
 
-      <div className="w-full py-1">
+      <div className="w-full py-1 pb-8 odoo-launcher-grid-wrap">
         {displayApps.length === 0 ? (
           <div className="text-center py-12 bg-white/80 rounded-2xl border border-dashed border-slate-300">
             <p className="text-slate-500 font-bold text-sm">لا توجد تطبيقات تطابق كلمة البحث "{searchQuery}"</p>
@@ -415,11 +462,15 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
                 <button
                   key={app.id}
                   onClick={() => onSelectApp(app.id)}
-                  className="group relative flex flex-col items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-white/90 hover:bg-white border border-slate-200/90 hover:border-purple-300 hover:shadow-lg hover:-translate-y-1 active:scale-95 transition-all duration-200 cursor-pointer text-center backdrop-blur-sm"
+                  className="group relative flex flex-col items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-white/90 hover:bg-white border border-slate-200/90 hover:border-purple-300 hover:shadow-xl hover:-translate-y-1.5 active:scale-[0.98] transition-all duration-300 ease-out cursor-pointer text-center backdrop-blur-sm"
                 >
                   {/* Subtle Badge Tag */}
                   {app.badge && (
-                    <span className="absolute top-2 left-2 text-[9px] font-black px-1.5 py-0.5 rounded-md bg-slate-100 group-hover:bg-purple-50 text-slate-600 group-hover:text-[#714B67] border border-slate-200/80 transition-colors">
+                    <span
+                      className={`absolute top-2 left-2 ${launcherBadgeClassName(
+                        resolveLauncherBadgeTone(app.id, app.badge, stats)
+                      )}`}
+                    >
                       {app.badge}
                     </span>
                   )}
@@ -484,7 +535,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
                 <button
                   key={app.id}
                   onClick={() => onSelectApp(app.id)}
-                  className="group relative flex items-start gap-3.5 p-3.5 rounded-2xl bg-white/95 hover:bg-white border border-slate-200/90 hover:border-purple-300 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 cursor-pointer text-right shadow-2xs"
+                  className="group relative flex items-start gap-3.5 p-3.5 rounded-2xl bg-white/95 hover:bg-white border border-slate-200/90 hover:border-purple-300 hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all duration-300 ease-out cursor-pointer text-right shadow-2xs"
                 >
                   {/* Icon */}
                   <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${app.gradient} flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform duration-200 ring-2 ring-white`}>
@@ -505,7 +556,12 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
                         </UiStudioTarget>
                       </h3>
                       {app.badge && (
-                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
+                        <span
+                          className={launcherBadgeClassName(
+                            resolveLauncherBadgeTone(app.id, app.badge, stats),
+                            true
+                          )}
+                        >
                           {app.badge}
                         </span>
                       )}

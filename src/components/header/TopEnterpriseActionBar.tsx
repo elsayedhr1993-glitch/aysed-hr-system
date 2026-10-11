@@ -446,23 +446,41 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
           </button>
         )}
 
-        {/* 🏢 مبدل المنشآت السريع — Super Admin only (tenant company is bound to profile) */}
-        {isSuperAdmin && (
+        {/* 🏢 مبدل المنشأة — يظهر على لوحة التطبيقات وجميع الشاشات */}
+        {(activeCompany || companies.length > 0) && (
           <div className="relative shrink-0" ref={companyMenuRef}>
             <button
-              onClick={() => setShowCompanyMenu(!showCompanyMenu)}
-              className="flex items-center gap-1 bg-black/20 hover:bg-black/30 border border-white/15 px-2 py-1 rounded-lg text-xs font-bold transition cursor-pointer max-w-[120px] sm:max-w-[150px] md:max-w-[180px]"
-              title="تبديل المنشأة أو الفرع"
+              type="button"
+              onClick={() => {
+                if (isSuperAdmin || companies.length > 1) {
+                  setShowCompanyMenu(!showCompanyMenu);
+                }
+              }}
+              className={`flex items-center gap-1 border border-white/15 px-2 py-1 rounded-lg text-xs font-bold transition max-w-[120px] sm:max-w-[150px] md:max-w-[200px] ${
+                isSuperAdmin || companies.length > 1
+                  ? 'bg-black/20 hover:bg-black/30 cursor-pointer'
+                  : 'bg-white/10 cursor-default'
+              }`}
+              title={
+                isSuperAdmin || companies.length > 1
+                  ? 'تبديل المنشأة أو الفرع'
+                  : activeCompany?.nameAr || 'المنشأة النشطة'
+              }
             >
               <Building2 size={14} className="text-amber-300 shrink-0" />
               <span className="truncate font-black text-white text-[11px] sm:text-[12px]">
-                {activeCompany?.nameAr || 'اختر منشأة'}
+                {activeCompany?.nameAr || activeCompany?.nameEn || (lang === 'ar' ? 'اختر منشأة' : 'Select company')}
               </span>
-              <ChevronDown size={13} className="text-white/70 shrink-0 transition-transform duration-200" />
+              {(isSuperAdmin || companies.length > 1) && (
+                <ChevronDown
+                  size={13}
+                  className={`text-white/70 shrink-0 transition-transform duration-200 ${showCompanyMenu ? 'rotate-180' : ''}`}
+                />
+              )}
             </button>
 
             {/* قائمة الشركات المنسدلة */}
-            {showCompanyMenu && (
+            {showCompanyMenu && (isSuperAdmin || companies.length > 1) && (
               <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden py-1.5 z-50 text-slate-800 animate-in fade-in slide-in-from-top-2 duration-150">
                 <div className="p-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
                   <div>
@@ -543,12 +561,14 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
           className="w-full bg-white/15 hover:bg-white/25 border border-white/20 hover:border-white/35 rounded-lg px-2.5 py-1 flex items-center justify-between text-white/80 hover:text-white transition shadow-xs cursor-pointer group"
           title="البحث الشامل في النظام (Ctrl + K)"
         >
-          <div className="flex items-center gap-1.5 truncate">
-            <Search size={13} className="text-white/70 group-hover:text-white shrink-0" />
+          <div className="flex items-center gap-1.5 truncate min-w-0">
+            <span className="flex items-center justify-center w-6 h-6 rounded-md bg-white/15 border border-white/20 shrink-0 group-hover:bg-white/25 transition-colors">
+              <Search size={14} className="text-white group-hover:text-white shrink-0" strokeWidth={2.25} />
+            </span>
             <span className="text-[11px] truncate font-medium hidden lg:inline">{lang === 'ar' ? 'بحث في الموظفين، العقود، أو التطبيقات...' : 'Search employees, contracts, or apps...'}</span>
             <span className="text-[11px] truncate font-medium lg:hidden">{lang === 'ar' ? 'بحث سريع...' : 'Quick search...'}</span>
           </div>
-          <div className="hidden md:flex items-center gap-0.5 text-[9px] font-mono bg-white/20 px-1 py-0.2 rounded text-white/90 border border-white/10 shrink-0">
+          <div className="flex items-center gap-0.5 text-[9px] font-mono bg-white/20 px-1.5 py-0.5 rounded text-white/95 border border-white/10 shrink-0">
             Ctrl+K
           </div>
         </button>
