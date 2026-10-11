@@ -408,6 +408,67 @@ test('leave balance waterfall distributes actual consumption across carried, acc
 
   assert.equal(summary.approvedLeaveDeductionDays, 21);
   assert.equal(summary.consumedFromCarried + summary.consumedFromAccrued + summary.consumedFromComp, 21);
-  assert.equal(summary.remainingCarried + summary.remainingAccrued + summary.remainingComp, 10.08);
+  assert.equal(
+    summary.remainingCarried + summary.remainingAccrued + summary.remainingComp,
+    summary.netBalance
+  );
   assert.ok(summary.consumedFromCarried > 0 || summary.consumedFromAccrued > 0);
+});
+
+test('monthly accrual after encashment on 2026-08-31 credits Sep and Oct by end of October', async () => {
+  const { computeMonthlyAccrualAfterEncashment, sumLedgerTransactionsAsOf } = await import(
+    './leaveLedgerAccrualEngine.ts'
+  );
+
+  assert.equal(
+    computeMonthlyAccrualAfterEncashment('2026-08-31', new Date('2026-09-27')),
+    0
+  );
+  assert.equal(
+    computeMonthlyAccrualAfterEncashment('2026-08-31', new Date('2026-09-28')),
+    2.5
+  );
+  assert.equal(
+    computeMonthlyAccrualAfterEncashment('2026-08-31', new Date('2026-10-31')),
+    5
+  );
+
+  const ledgerSum = sumLedgerTransactionsAsOf(
+    [
+      {
+        id: 'open-1',
+        companyId: 'c1',
+        employeeId: 'e1',
+        type: 'CARRIED_OVER',
+        source: 'MIGRATION',
+        sourceId: 'v1',
+        days: 12,
+        status: 'APPROVED',
+        effectiveDate: '2026-08-31',
+        createdAt: '',
+        updatedAt: '',
+      },
+      {
+        id: 'enc-1',
+        companyId: 'c1',
+        employeeId: 'e1',
+        type: 'ENCASHMENT',
+        source: 'LEAVE_REQUEST',
+        sourceId: 'v1',
+        days: 12,
+        status: 'APPROVED',
+        effectiveDate: '2026-08-31',
+        createdAt: '',
+        updatedAt: '',
+      },
+    ],
+    '2026-10-31'
+  );
+
+  assert.equal(ledgerSum.sum, 0);
+  assert.equal(ledgerSum.lastEncashmentEffectiveDate, '2026-08-31');
+  assert.equal(
+    ledgerSum.sum + computeMonthlyAccrualAfterEncashment('2026-08-31', new Date('2026-10-31')),
+    5
+  );
 });

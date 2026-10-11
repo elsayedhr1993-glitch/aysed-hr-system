@@ -7,6 +7,7 @@ export type LeaveBalanceTransactionType =
   | 'ANNUAL_ACCRUAL'
   | 'COMP_OFF'
   | 'LEAVE_CONSUMPTION'
+  | 'ENCASHMENT'
   | 'MANUAL_ADJUSTMENT';
 
 export type LeaveBalanceTransactionSource =
@@ -188,6 +189,52 @@ export async function syncLedgerFromFirestore(companyId?: string): Promise<Leave
   } catch (error) {
     console.warn('[LeaveBalanceLedger] Firestore sync warning:', error);
     return getLedgerTransactions();
+  }
+}
+
+/** Opening snapshot + encashment debit for backdated liquidation (ledger recalculation). */
+export async function recordEncashmentLedgerEntries(params: {
+  companyId: string;
+  employeeId: string;
+  encashedDays: number;
+  effectiveDate: string;
+  openingBalanceBeforeEncash: number;
+  sourceId: string;
+  notes?: string;
+}): Promise<void> {
+  const eff = params.effectiveDate.slice(0, 10);
+  const openingDays = roundDays(Math.max(0, params.openingBalanceBeforeEncash));
+  const encashDays = roundDays(Math.max(0, params.encashedDays));
+  if (openingDays <= 0 && encashDays <= 0) return;
+
+  if (openingDays > 0) {
+    await upsertLeaveBalanceTransaction({
+      id: `opening-encash-${params.sourceId}`,
+      companyId: params.companyId,
+      employeeId: params.employeeId,
+      type: 'CARRIED_OVER',
+      source: 'LEAVE_REQUEST',
+      sourceId: params.sourceId,
+      days: openingDays,
+      status: 'APPROVED',
+      effectiveDate: eff,
+      notes: params.notes || 'رصيد مرحّل قبل تسييل نقدي (للاحتساب من السجل)',
+    });
+  }
+
+  if (encashDays > 0) {
+    await upsertLeaveBalanceTransaction({
+      id: `encash-ledger-${params.sourceId}`,
+      companyId: params.companyId,
+      employeeId: params.employeeId,
+      type: 'ENCASHMENT',
+      source: 'LEAVE_REQUEST',
+      sourceId: params.sourceId,
+      days: encashDays,
+      status: 'APPROVED',
+      effectiveDate: eff,
+      notes: params.notes || `تسييل نقدي بتاريخ فاعلية ${eff}`,
+    });
   }
 }
 

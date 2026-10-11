@@ -25,7 +25,14 @@ import {
   validateSettlementConstraints,
   resolveNetAvailableLeaveBalance
 } from '../services/leaveSettlementService';
-import { syncLedgerFromFirestore } from '../services/leaveBalanceLedgerService';
+import {
+  recordEncashmentLedgerEntries,
+  syncLedgerFromFirestore,
+} from '../services/leaveBalanceLedgerService';
+import {
+  computeLedgerRecalculatedBalance,
+  computeMonthlyAccrualAfterEncashment,
+} from '../utils/leaveLedgerAccrualEngine';
 import { LeaveClearanceDocument } from './LeaveClearanceDocument';
 import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
 import {
@@ -140,6 +147,12 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
   const [selectedEmpId, setSelectedEmpId] = useState<string>(preSelectedEmployeeId || (employees[0]?.id ?? ''));
   const [activeTab, setActiveTab] = useState<'settlement_calculator' | 'vouchers_archive' | 'employee_history'>('settlement_calculator');
   const [ledgerVersion, setLedgerVersion] = useState(0);
+  const [settlementMode, setSettlementMode] = useState<'LEAVE_WITH_TRAVEL' | 'ENCASHMENT_LIQUIDATION'>('LEAVE_WITH_TRAVEL');
+  const [settlementDate, setSettlementDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [departureDate, setDepartureDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [encashmentEffectiveDate, setEncashmentEffectiveDate] = useState<string>(
+    new Date().toISOString().split('T')[0]
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -252,6 +265,21 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
 
   const finalNetAvailable = cleanDayDecimals(Math.max(0, safeNetAvailable));
 
+  const ledgerBasedBalance = useMemo(() => {
+    if (!selectedEmp?.id) return null;
+    void ledgerVersion;
+    return computeLedgerRecalculatedBalance(
+      selectedEmp.id,
+      activeCompany?.id || selectedEmp.companyId,
+      new Date().toISOString().slice(0, 10)
+    );
+  }, [selectedEmp?.id, selectedEmp?.companyId, activeCompany?.id, ledgerVersion]);
+
+  const projectedAccrualAfterEffectiveEncash = useMemo(() => {
+    if (settlementMode !== 'ENCASHMENT_LIQUIDATION' || !encashmentEffectiveDate) return 0;
+    return computeMonthlyAccrualAfterEncashment(encashmentEffectiveDate, new Date());
+  }, [settlementMode, encashmentEffectiveDate]);
+
   // Wages calculation (Kuwait Labor Law 26-day basis on Basic Salary only)
   const basicSalary = selectedContract?.basicSalary || (selectedEmp as any)?.basicSalary || 0;
   const allowances = selectedContract 
@@ -261,10 +289,6 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
   const dailyWage = basicSalary > 0 ? calculateKuwaitDailyRate(basicSalary) : 0;
   const hourlyWage = dailyWage > 0 ? calculateKuwaitHourlyRate(dailyWage, 8) : 0;
 
-  // Form State: Settlement Mode & Basic parameters
-  const [settlementMode, setSettlementMode] = useState<'LEAVE_WITH_TRAVEL' | 'ENCASHMENT_LIQUIDATION'>('LEAVE_WITH_TRAVEL');
-  const [settlementDate, setSettlementDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [departureDate, setDepartureDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [settlementLeaveScope, setSettlementLeaveScope] = useState<LeaveScope>('INTERNAL');
   const [returnDate, setReturnDate] = useState<string>(() => {
     const d = new Date();
@@ -306,6 +330,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
     if (settlementMode === 'ENCASHMENT_LIQUIDATION') {
       const netEncashableBalance = Math.max(0, Number(finalNetAvailable || 0));
       setEncashmentDays(netEncashableBalance);
+      setEncashmentEffectiveDate(departureDate || settlementDate);
       setIncludeEncashment(true);
       setIncludeProratedSalary(false);
       setWorkedDaysInMonth(0);
@@ -750,6 +775,23 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
         if (!res.success) {
           toast.error(res.message || 'تم حفظ السند لكن فشل تسييل الرصيد — راجع التخصيصات');
         }
+      }
+
+      if (
+        settlementMode === 'ENCASHMENT_LIQUIDATION' &&
+        daysToLiquidate > 0 &&
+        selectedEmp.companyId
+      ) {
+        const effectiveDate = encashmentEffectiveDate || settlementDate || departureDate;
+        await recordEncashmentLedgerEntries({
+          companyId: newVoucher.companyId,
+          employeeId: selectedEmp.id,
+          encashedDays: daysToLiquidate,
+          effectiveDate,
+          openingBalanceBeforeEncash: Number(newVoucher.totalAvailableBefore || daysToLiquidate),
+          sourceId: newVoucher.id,
+          notes: `تسييل بتاريخ فاعلية ${effectiveDate}`,
+        });
       }
 
       setSettlementState('paid');
@@ -1199,16 +1241,40 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
               </div>
 
               {settlementMode === 'ENCASHMENT_LIQUIDATION' && (
-                <div className="bg-amber-50/90 border border-amber-300 rounded-xl p-3 text-xs text-amber-900 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Sparkles size={16} className="text-amber-700 shrink-0" />
-                    <span>
-                      <strong>نمط تسييل وصرف رصيد الإجازات فقط:</strong> تم ضبط التسوية لتشمل صرف البدل النقدي لرصيد الإجازات ({encashmentDays.toFixed(2)} يوم) فقط، وتم استبعاد راتب أيام العمل وتذاكر السفر تلقائياً ليكون الصرف مقتصراً على رصيد الإجازات.
+                <div className="space-y-3">
+                  <div className="bg-amber-50/90 border border-amber-300 rounded-xl p-3 text-xs text-amber-900 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Sparkles size={16} className="text-amber-700 shrink-0" />
+                      <span>
+                        <strong>تسييل نقدي:</strong> {encashmentDays.toFixed(2)} يوم — الرصيد يُحدَّث من سجل الحركات بعد تاريخ الفاعلية (+2.5/شهر).
+                      </span>
+                    </div>
+                    <span className="font-mono font-bold text-amber-950 bg-amber-200/70 px-2 py-0.5 rounded border border-amber-300">
+                      {(encashmentDays * dailyWage).toFixed(3)} د.ك
                     </span>
                   </div>
-                  <span className="font-mono font-bold text-amber-950 bg-amber-200/70 px-2 py-0.5 rounded border border-amber-300">
-                    {(encashmentDays * dailyWage).toFixed(3)} د.ك
-                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">
+                        تاريخ الفاعلية / Effective Date
+                      </label>
+                      <input
+                        type="date"
+                        value={encashmentEffectiveDate}
+                        onChange={(e) => setEncashmentEffectiveDate(e.target.value)}
+                        className="w-full bg-white border border-amber-300 rounded-xl p-2 font-mono font-bold text-slate-900 outline-none focus:border-amber-600"
+                      />
+                    </div>
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 flex flex-col justify-center">
+                      <span className="text-[10px] text-slate-500">رصيد السجل بعد إعادة الاحتساب (اليوم)</span>
+                      <span className="font-mono font-black text-[#714B67] text-sm">
+                        {ledgerBasedBalance !== null ? `${ledgerBasedBalance.toFixed(2)} يوم` : '—'}
+                      </span>
+                      <span className="text-[10px] text-emerald-700 mt-0.5">
+                        استحقاق شهري متوقع بعد الفاعلية: +{projectedAccrualAfterEffectiveEncash.toFixed(1)} يوم
+                      </span>
+                    </div>
+                  </div>
                 </div>
               )}
 
