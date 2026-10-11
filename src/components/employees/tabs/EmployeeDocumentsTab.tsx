@@ -4,6 +4,7 @@ import { Eye, Upload, X, FileText, Pencil, Camera, Loader2 } from 'lucide-react'
 import { EmployeeGovernmentRegistryLicenses } from '../EmployeeGovernmentRegistryLicenses';
 import { employeeRequiresMohCompliance } from '../../../utils/employeeCompliance';
 import { processAnyDocument } from '../../../utils/ocrService';
+import { OcrScanError } from '../../../utils/ocrErrors';
 import toast from 'react-hot-toast';
 
 interface Props {
@@ -261,10 +262,26 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
       const docKey = OCR_TO_DOC_KEY[ocrType] || 'civilIdScan';
       const card = docCards.find((c) => c.key === docKey);
       uploadFileForDocKey(docKey, file, card?.uploadTitle || 'مستند');
-      toast.success(`تم التعرف على المستند وتحديث «${card?.title || docKey}»`);
+      if ((extracted as { _ocrManualReview?: boolean })._ocrManualReview) {
+        toast('تم رفع الملف. أكمل الحقول يدوياً — التعرف التلقائي لم يستخرج بيانات واضحة.', {
+          icon: '✏️',
+          duration: 7000,
+        });
+      } else {
+        toast.success(`تم التعرف على المستند وتحديث «${card?.title || docKey}»`);
+      }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'تعذر قراءة المستند';
-      toast.error(message);
+      if (err instanceof OcrScanError) {
+        console.error('[OCR EmployeeDocumentsTab]', err.code, err.httpStatus, err.details, err.message);
+        toast.error(err.message);
+        if (err.manualFallbackSuggested) {
+          toast('يمكنك إدخال بيانات المستند يدوياً من حقول الكروت أدناه.', { icon: '✏️', duration: 7000 });
+        }
+      } else {
+        const message = err instanceof Error ? err.message : 'تعذر قراءة المستند';
+        console.error('[OCR EmployeeDocumentsTab] unexpected', err);
+        toast.error(message);
+      }
     } finally {
       setScanLoading(false);
     }

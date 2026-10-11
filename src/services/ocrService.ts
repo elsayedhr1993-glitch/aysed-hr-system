@@ -43,6 +43,16 @@ export const parseKuwaitCivilCardOCR = async (imageBase64: string, docTypeContex
     });
     clearTimeout(timeoutId);
 
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      console.error('[OCR parseKuwaitCivilCardOCR] API error', {
+        status: res.status,
+        error: errBody.error,
+        details: errBody.details,
+      });
+      return {};
+    }
+
     const json = await res.json();
     if (json.success && json.data) {
       const normalized = normalizeScannedData(json.data);

@@ -39,6 +39,7 @@ import {
 } from "./server/firebaseAdmin.ts";
 import { getGeminiClient } from "./server/geminiServer.ts";
 import { getConnectivityTestModels, getOcrModelCandidates } from "./src/config/aiConfig.ts";
+import { parseJsonFromAiText } from "./src/utils/ocrJsonParse.ts";
 import {
   generatePamContractPdfBytesFromTemplate,
   mergePamCoordinates,
@@ -1121,7 +1122,12 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
       if (oaiResponse.ok) {
         const oaiData = await oaiResponse.json();
         const contentStr = oaiData.choices?.[0]?.message?.content || "{}";
-        const parsed = JSON.parse(contentStr);
+        const parsed = parseJsonFromAiText(contentStr);
+        if (!Object.keys(parsed).length) {
+          console.error("[OCR OpenAI] JSON parse yielded empty object", {
+            preview: String(contentStr).slice(0, 300),
+          });
+        }
         const normalized = normalizeOcrDataServer(parsed);
         return res.json({
           success: true,
@@ -1207,8 +1213,12 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
       });
 
       const responseText = response.text || "{}";
-      const cleanedJsonText = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
-      const parsedData = JSON.parse(cleanedJsonText);
+      const parsedData = parseJsonFromAiText(responseText);
+      if (!Object.keys(parsedData).length) {
+        throw new Error(
+          `Gemini returned non-JSON or empty JSON (model=${modelName}, preview=${String(responseText).slice(0, 120)})`
+        );
+      }
       const normalized = normalizeOcrDataServer(parsedData);
 
       return res.json({
@@ -1217,7 +1227,7 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
         source: `gemini-vision-${modelName}`,
       });
     } catch (err: any) {
-      console.error("Model " + modelName + " failed with schema:", err);
+      console.error("[OCR Gemini] model failed with schema:", modelName, err?.message || err);
       if (!firstError) firstError = err;
       lastError = err;
       continue;
@@ -1247,8 +1257,12 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
       });
 
       const responseText = response.text || "{}";
-      const cleanedJsonText = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
-      const parsedData = JSON.parse(cleanedJsonText);
+      const parsedData = parseJsonFromAiText(responseText);
+      if (!Object.keys(parsedData).length) {
+        throw new Error(
+          `Gemini noschema empty JSON (model=${modelName}, preview=${String(responseText).slice(0, 120)})`
+        );
+      }
       const normalized = normalizeOcrDataServer(parsedData);
 
       return res.json({
@@ -1257,6 +1271,7 @@ app.post("/api/ocr-scan", express.json({ limit: "50mb" }), async (req, res) => {
         source: `gemini-vision-${modelName}-noschema`,
       });
     } catch (err: any) {
+      console.error("[OCR Gemini] model failed without schema:", modelName, err?.message || err);
       if (!firstError) firstError = err;
       lastError = err;
       continue;

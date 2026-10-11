@@ -1,6 +1,8 @@
 import { renderPdfFileToPageImages } from '../lib/pdfjsClient';
 import { buildAuthedJsonHeaders } from '../lib/clientAuth';
 import { parseKuwaitCivilId } from './kuwaitLaw';
+import { compressDataUrlForOcr, prepareImageFileForOcr } from './ocrImagePrep';
+import { OcrScanError } from './ocrErrors';
 
 export interface ScannedData {
   documentType?: 'civil_id' | 'license' | 'contract' | 'passport' | 'other';
@@ -27,6 +29,8 @@ export interface ScannedData {
   };
   rawText?: string;
   confidenceScore?: number;
+  /** Set when OCR returned no usable fields — user should complete manually */
+  _ocrManualReview?: boolean;
   residencyType?: string;
   mohLicenseNo?: string;
   mohLicenseExpiryDate?: string;
@@ -73,19 +77,14 @@ async function convertPdfPagesToImages(file: File, maxPages: number = 4): Promis
   }
 }
 
-/**
- * دالة تحويل الصور العادية إلى Base64
- */
-function convertImageToBase64(file: File): Promise<{ base64: string; mimeType: string }> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve({
-      base64: reader.result as string,
-      mimeType: file.type || 'image/jpeg'
-    });
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+async function compressPageList(pages: string[], mimeType: string): Promise<string[]> {
+  const out: string[] = [];
+  for (const page of pages) {
+    if (!page) continue;
+    const { dataUrl } = await compressDataUrlForOcr(page, mimeType);
+    out.push(dataUrl);
+  }
+  return out;
 }
 
 /**
@@ -101,51 +100,126 @@ export async function processAnyDocument(file: File, _apiKey?: string, docType?:
   let docData: { base64: string; mimeType: string };
   let pdfPages: string[] = [];
 
-  if (isPdfOrBdf) {
-    const pdfData = await convertPdfPagesToImages(file, 4);
-    pdfPages = pdfData.pagesBase64;
-    docData = {
-      base64: pdfData.pagesBase64[0] || '',
-      mimeType: pdfData.mimeType
-    };
-  } else {
-    docData = await convertImageToBase64(file);
+  try {
+    if (isPdfOrBdf) {
+      const pdfData = await convertPdfPagesToImages(file, 4);
+      pdfPages = await compressPageList(pdfData.pagesBase64, pdfData.mimeType || 'image/jpeg');
+      docData = {
+        base64: pdfPages[0] || '',
+        mimeType: 'image/jpeg',
+      };
+    } else {
+      const prepared = await prepareImageFileForOcr(file);
+      docData = { base64: prepared.base64, mimeType: prepared.mimeType };
+      if (import.meta.env.DEV) {
+        console.log('[OCR] image prepared for upload', {
+          fileName: file.name,
+          originalBytes: prepared.originalBytes,
+          compressedBytes: prepared.compressedBytes,
+        });
+      }
+    }
+  } catch (prepErr) {
+    console.error('[OCR] image preparation failed:', prepErr);
+    throw new OcrScanError('تعذر تجهيز الصورة قبل القراءة الضوئية. جرّب ملفاً أصغر أو أدخل البيانات يدوياً.', {
+      code: 'PAYLOAD_TOO_LARGE',
+      details: prepErr instanceof Error ? prepErr.message : String(prepErr),
+    });
   }
 
   const headers = await buildAuthedJsonHeaders();
   if (!headers.Authorization) {
-    throw new Error('يجب تسجيل الدخول أولاً لتفعيل الماسح الضوئي الذكي (OCR).');
+    throw new OcrScanError('يجب تسجيل الدخول أولاً لتفعيل الماسح الضوئي الذكي (OCR).', {
+      code: 'AUTH_REQUIRED',
+      manualFallbackSuggested: false,
+    });
   }
 
-  let response;
+  const controller = new AbortController();
+  const timeoutMs = 120_000;
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
 
+  let response: Response;
   try {
     response = await fetch('/api/ocr-scan', {
       method: 'POST',
       headers,
+      signal: controller.signal,
       body: JSON.stringify({
         imageBase64: docData.base64,
         imageBase64Pages: pdfPages.length > 0 ? pdfPages : undefined,
         mimeType: docData.mimeType,
-        docType: docType || 'CIVIL_ID'
+        docType: docType || 'CIVIL_ID',
       }),
     });
+  } catch (netErr: unknown) {
+    window.clearTimeout(timeoutId);
+    const isAbort = netErr instanceof Error && netErr.name === 'AbortError';
+    console.error('[OCR] fetch /api/ocr-scan failed:', netErr);
+    throw new OcrScanError(
+      isAbort
+        ? 'انتهت مهلة قراءة المستند (timeout). جرّب صورة أصغر أو أدخل البيانات يدوياً.'
+        : 'فشل الاتصال بخدمة OCR على الخادم. يرجى المحاولة لاحقاً.',
+      {
+        code: isAbort ? 'TIMEOUT' : 'NETWORK',
+        details: netErr instanceof Error ? netErr.message : String(netErr),
+      }
+    );
+  }
+  window.clearTimeout(timeoutId);
 
-    if (!response.ok) {
-      const errJson = await response.json().catch(() => ({}));
-      const errMsg = errJson.error || errJson.message || 'فشل نظام القراءة الضوئية (OCR) في تحليل المستند.';
-      throw new Error(errMsg + (errJson.details ? '\nالسبب: ' + errJson.details : ''));
-    }
-  } catch (netErr: any) {
-    if (netErr?.message?.includes('تسجيل الدخول') || netErr?.message?.includes('OCR')) {
-      throw netErr;
-    }
-    throw new Error('فشل الاتصال بخدمة OCR على الخادم. يرجى المحاولة لاحقاً.\n' + (netErr?.message || ''));
+  const errJson = await response.json().catch(() => ({} as Record<string, unknown>));
+
+  if (!response.ok) {
+    const errMsg = String(errJson.error || errJson.message || 'فشل نظام القراءة الضوئية (OCR) في تحليل المستند.');
+    const details = String(errJson.details || '');
+    console.error('[OCR] API error response', {
+      status: response.status,
+      statusText: response.statusText,
+      error: errMsg,
+      details,
+      source: errJson.source,
+    });
+    const code =
+      response.status === 413
+        ? 'PAYLOAD_TOO_LARGE'
+        : response.status === 401
+          ? 'AUTH_REQUIRED'
+          : 'API_ERROR';
+    throw new OcrScanError(
+      details ? `${errMsg}\nالسبب: ${details}` : errMsg,
+      {
+        code,
+        details,
+        httpStatus: response.status,
+        manualFallbackSuggested: response.status !== 401,
+      }
+    );
   }
 
-  const rawParsed = await response.json();
+  const rawParsed = errJson;
+  if (rawParsed.success === false && !rawParsed.data) {
+    console.error('[OCR] success=false without data', rawParsed);
+    throw new OcrScanError('لم يتعرف النظام على المستند. أدخل البيانات يدوياً.', {
+      code: 'EMPTY_RESULT',
+      details: String(rawParsed.details || rawParsed.error || ''),
+    });
+  }
+
   const dataToNormalize = rawParsed.data || rawParsed;
-  return normalizeScannedData(dataToNormalize);
+  const normalized = normalizeScannedData(dataToNormalize);
+  const hasSignal = Boolean(
+    normalized.civilId ||
+      normalized.fullNameAr ||
+      normalized.passportNo ||
+      normalized.mohLicenseNo ||
+      normalized.profession
+  );
+  if (!hasSignal) {
+    console.warn('[OCR] parsed JSON but no key fields extracted', { source: rawParsed.source, normalized });
+    normalized._ocrManualReview = true;
+  }
+  return normalized;
 }
 
 export function normalizeScannedData(parsed: any): ScannedData {
