@@ -743,7 +743,7 @@ function MainAppLayout() {
 
   const getActiveAppTitle = () => {
     switch (activeApp) {
-      case 'switcher': return 'التطبيقات الرئيسية (App Launcher)';
+      case 'switcher': return lang === 'ar' ? 'التطبيقات الرئيسية' : 'App Launcher';
       case 'employees': return lang === 'ar' ? 'شؤون الموظفين (Employees Directory)' : 'Employees Directory';
       case 'recruitment': return lang === 'ar' ? 'التوظيف والمقابلات الذكية (Recruitment & ATS)' : 'Recruitment & ATS';
       case 'contracts': return lang === 'ar' ? 'عقود العمل والبدلات الرسمية (Odoo Contracts & PAM)' : 'Contracts & PAM';

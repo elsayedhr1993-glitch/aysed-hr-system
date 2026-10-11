@@ -35,6 +35,18 @@ function resolveLauncherBadgeTone(
   return 'brand';
 }
 
+const LAUNCHER_TECH_BADGE_AR: Record<string, string> = {
+  WPS: 'حماية الأجور (WPS)',
+  ZK: 'البصمة',
+  OCR: 'قارئ المستندات',
+  Pivot: 'التقرير المحوري',
+};
+
+function formatLauncherBadge(badge: string, locale: 'ar' | 'en'): string {
+  if (locale !== 'ar') return badge;
+  return LAUNCHER_TECH_BADGE_AR[badge] ?? badge;
+}
+
 function launcherBadgeClassName(tone: LauncherBadgeTone, inCard = false): string {
   const base = 'text-[9px] font-black px-1.5 py-0.5 rounded-md border transition-colors duration-300';
   switch (tone) {
@@ -189,7 +201,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
       gradient: 'from-blue-600 to-indigo-800 text-white',
       badgeBg: 'bg-blue-600',
       badge: 'ZK',
-      description: lang === 'ar' ? 'البصمة البيومترية، التأخير، والاستئذان اليومي' : 'Biometric clocking, lateness, and daily approvals',
+      description: lang === 'ar' ? 'البصمة اليومية، التأخير، والاستئذان اليومي' : 'Biometric clocking, lateness, and daily approvals',
     },
     {
       id: 'PAYROLL' as ActiveApp,
@@ -471,7 +483,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
                         resolveLauncherBadgeTone(app.id, app.badge, stats)
                       )}`}
                     >
-                      {app.badge}
+                      {formatLauncherBadge(app.badge, lang === 'en' ? 'en' : 'ar')}
                     </span>
                   )}
 
@@ -562,7 +574,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
                             true
                           )}
                         >
-                          {app.badge}
+                          {formatLauncherBadge(app.badge, lang === 'en' ? 'en' : 'ar')}
                         </span>
                       )}
                     </div>
