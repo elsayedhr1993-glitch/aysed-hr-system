@@ -625,6 +625,34 @@ export function calculateNetWorkingDays(startDate: string, endDate: string, holi
   return netDays;
 }
 
+/** Basic salary (KWD) for leave wage ÷26 — request snapshot, contract, then employee HR fields. */
+export function resolveEmployeeBasicSalaryKwd(
+  employee?: Record<string, unknown> | null,
+  leaveSnapshot?: { basicSalary?: number; totalSalary?: number } | null,
+  contract?: Record<string, unknown> | null
+): number {
+  const fromLeave = Number(leaveSnapshot?.basicSalary ?? 0);
+  if (fromLeave > 0) return cleanKwdAmount(fromLeave);
+
+  const fromContract = Number(
+    contract?.basicSalary ?? contract?.basic_salary ?? contract?.contractSalary ?? 0
+  );
+  if (fromContract > 0) return cleanKwdAmount(fromContract);
+
+  const e = employee || {};
+  for (const key of [
+    'basicSalary',
+    'basic_salary',
+    'contractSalary',
+    'salary',
+    'wage',
+  ] as const) {
+    const n = Number(e[key]);
+    if (n > 0) return cleanKwdAmount(n);
+  }
+  return 0;
+}
+
 /** Annual travel ticket cash (KWD) from employee snapshot, active contract, then leave policy — never a hardcoded default. */
 export function resolveAnnualTicketAllowanceKwd(
   employee?: Record<string, unknown> | null,

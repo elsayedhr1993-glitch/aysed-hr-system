@@ -7,13 +7,16 @@ import { useOdooHierarchy } from '../../context/OdooHierarchyContext';
 import { useCompanyLeaveFinanceSnapshots } from '../../hooks/useCompanyLeaveFinanceSnapshots';
 import { LeaveSettlementCalculator } from '../LeaveSettlementCalculator';
 import type { LeaveRequest } from '../OdooTimeOffApp';
-import { calculateKuwaitLeaveCashAmount } from '../../utils/kuwaitPayrollMath';
+import { calculateKuwaitDailyRate, calculateKuwaitLeaveCashAmount } from '../../utils/kuwaitPayrollMath';
 import { isAnnualLeaveType, normalizeLeaveStatus } from '../../utils/leaveModel';
 import {
+  getEmployeeUnifiedSummary,
   resolveAnnualTicketAllowanceKwd,
+  resolveEmployeeBasicSalaryKwd,
   resolveLeaveBalancePoolHint,
   resolveLeavePaidUnpaidSplit,
 } from '../../utils/leaveEngine';
+import type { Employee } from '../../types';
 import { getLeaveMasterPolicy, LeavePolicyData, TIMEOFF_POLICY_STORAGE_KEY } from '../leaves/LeavePolicyWizardModal';
 import { loadTenantPolicy } from '../../services/hrPolicyStorage';
 import { db, cleanFirestoreData } from '../../lib/firebase';
@@ -39,6 +42,8 @@ export const TimeOffPayrollFinancePanel: React.FC<Props> = ({ highlightAdvanceRe
 
   const [financeSubTab, setFinanceSubTab] = useState<'advance_salary' | 'encashment_calculator'>('advance_salary');
   const [leavePolicy, setLeavePolicy] = useState<LeavePolicyData>(() => getLeaveMasterPolicy());
+  const [article71ModalRequest, setArticle71ModalRequest] = useState<LeaveRequest | null>(null);
+  const [article71Saving, setArticle71Saving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -116,23 +121,59 @@ export const TimeOffPayrollFinancePanel: React.FC<Props> = ({ highlightAdvanceRe
 
   const resolveLeaveRequestFinancials = (req: LeaveRequest) => {
     const emp = companyEmployees.find((e) => e.id === req.employeeId);
-    const empAny = emp as any;
-    const basicSalary = Number(req.basicSalary ?? empAny?.basicSalary ?? 0) || 0;
+    const empAny = emp as Record<string, unknown> | undefined;
+    const basicSalary = resolveEmployeeBasicSalaryKwd(empAny, req);
     const totalSalary =
-      Number(req.totalSalary ?? empAny?.totalSalary ?? empAny?.salary ?? basicSalary) || 0;
+      Number(req.totalSalary ?? empAny?.totalSalary ?? empAny?.salary ?? basicSalary) || basicSalary;
     const daysCount = Number(req.daysCount ?? req.totalDays ?? 0) || 0;
-    const poolBefore = Math.max(resolveLeaveBalancePoolHint(req), Number(req.totalAvailableBalance ?? 0));
+
+    const leavesExcludingCurrent = mappedLeaveRequests.filter((l) => l.id !== req.id);
+    const summaryBefore =
+      emp && daysCount > 0
+        ? getEmployeeUnifiedSummary(
+            emp as Employee,
+            mappedAllocations,
+            leavesExcludingCurrent as LeaveRequest[]
+          )
+        : null;
+
+    const poolBefore = Math.max(
+      summaryBefore?.netBalance ?? 0,
+      resolveLeaveBalancePoolHint(req),
+      Number(req.totalAvailableBalance ?? 0)
+    );
     const split = resolveLeavePaidUnpaidSplit(req, poolBefore);
+    const storedPaid = Number(req.paidDays ?? 0);
+    const paidDays =
+      split.paid > 0
+        ? split.paid
+        : storedPaid > 0
+          ? storedPaid
+          : daysCount > 0
+            ? Math.min(daysCount, poolBefore > 0 ? poolBefore : daysCount)
+            : 0;
+
+    const dailyRate = calculateKuwaitDailyRate(basicSalary);
+    const leaveCashAmount = calculateKuwaitLeaveCashAmount(paidDays, basicSalary);
+    const ticketAllowanceKwd = resolveAnnualTicketAllowanceKwd(
+      empAny,
+      leavePolicy as Record<string, unknown>
+    );
 
     return {
       basicSalary,
       totalSalary,
       daysCount,
-      paidDays: split.paid,
+      paidDays,
       unpaidDays: split.unpaid,
-      employeeName: req.employeeName || empAny?.name || empAny?.fullNameAr || 'موظف',
-      civilId: req.civilId || empAny?.civilId || '',
-      department: req.department || empAny?.department || 'الإدارة العامة',
+      dailyRate,
+      leaveCashAmount,
+      ticketAllowanceKwd,
+      employeeName:
+        req.employeeName ||
+        String(empAny?.name || empAny?.fullNameAr || empAny?.nameAr || 'موظف'),
+      civilId: req.civilId || String(empAny?.civilId || ''),
+      department: req.department || String(empAny?.department || 'الإدارة العامة'),
     };
   };
 
@@ -152,8 +193,38 @@ export const TimeOffPayrollFinancePanel: React.FC<Props> = ({ highlightAdvanceRe
 
   const confirmAdvanceSettlement = (req: LeaveRequest) => {
     if (req.settlementDone) return;
+    if (!req.requestAdvanceSalaryArticle71) {
+      setArticle71ModalRequest(req);
+      return;
+    }
     if (!window.confirm('اعتماد صرف راتب الإجازة مقدماً (مادة 71) وترحيل المبلغ لمسير الرواتب؟')) return;
     void markSettlementPaid(req.id);
+  };
+
+  const submitArticle71AdvanceRequest = async () => {
+    if (!article71ModalRequest) return;
+    setArticle71Saving(true);
+    try {
+      const fin = resolveLeaveRequestFinancials(article71ModalRequest);
+      const updated: LeaveRequest = {
+        ...article71ModalRequest,
+        companyId,
+        requestAdvanceSalaryArticle71: true,
+        basicSalary: fin.basicSalary,
+        totalSalary: fin.totalSalary,
+        paidDays: fin.paidDays,
+        advanceSalaryAmount: fin.leaveCashAmount + fin.ticketAllowanceKwd,
+      };
+      setRequests((previous) => previous.map((r) => (r.id === updated.id ? updated : r)));
+      await setDoc(doc(db, 'leave_requests', updated.id), cleanFirestoreData(updated), { merge: true });
+      toast.success('تم تفعيل طلب صرف راتب الإجازة مقدماً (مادة 71) لهذا السجل.');
+      setArticle71ModalRequest(null);
+    } catch (error) {
+      console.error('submitArticle71AdvanceRequest failed:', error);
+      toast.error('تعذر حفظ طلب مادة 71 على الخادم.');
+    } finally {
+      setArticle71Saving(false);
+    }
   };
 
   useEffect(() => {
@@ -226,13 +297,17 @@ export const TimeOffPayrollFinancePanel: React.FC<Props> = ({ highlightAdvanceRe
                   .filter((r) => normalizeLeaveStatus(r.status) === 'APPROVED' && isAnnualLeaveType(r.leaveType))
                   .map((req) => {
                     const fin = resolveLeaveRequestFinancials(req);
-                    const advanceSalary = calculateKuwaitLeaveCashAmount(fin.paidDays, fin.basicSalary);
-                    const empRecord = companyEmployees.find((e) => e.id === req.employeeId) as Record<string, unknown> | undefined;
-                    const ticketAllowance = req.requestAdvanceSalaryArticle71
-                      ? resolveAnnualTicketAllowanceKwd(empRecord, leavePolicy as Record<string, unknown>)
-                      : 0;
-                    const totalPayable = advanceSalary + ticketAllowance;
+                    const advanceSalary = fin.leaveCashAmount;
+                    const ticketAllowance = fin.ticketAllowanceKwd;
+                    const totalPayable = req.requestAdvanceSalaryArticle71
+                      ? advanceSalary + ticketAllowance
+                      : advanceSalary;
                     const isHighlighted = highlightAdvanceRequestId === req.id;
+                    const statusLabel = req.settlementDone
+                      ? 'مسدّد'
+                      : req.requestAdvanceSalaryArticle71
+                        ? 'اعتماد الصرف'
+                        : 'لم يُطلب م.71';
 
                     return (
                       <tr
@@ -245,26 +320,45 @@ export const TimeOffPayrollFinancePanel: React.FC<Props> = ({ highlightAdvanceRe
                           {req.startDate} → {req.endDate}
                           <div className="text-slate-400">{fin.daysCount} يوم</div>
                         </td>
-                        <td className="p-3.5 font-mono font-bold text-purple-900">{advanceSalary.toFixed(3)}</td>
-                        <td className="p-3.5 font-mono">{ticketAllowance.toFixed(3)}</td>
+                        <td className="p-3.5 font-mono font-bold text-purple-900">
+                          {advanceSalary.toFixed(3)}
+                          {fin.basicSalary > 0 ? (
+                            <div className="text-[9px] text-slate-400 font-sans font-medium mt-0.5">
+                              {fin.paidDays} يوم × {fin.dailyRate.toFixed(3)} (أساسي {fin.basicSalary.toFixed(0)})
+                            </div>
+                          ) : (
+                            <div className="text-[9px] text-amber-700 font-sans">يُرجى تحديث الراتب الأساسي في ملف الموظف</div>
+                          )}
+                        </td>
+                        <td className="p-3.5 font-mono">
+                          {ticketAllowance.toFixed(3)}
+                          {!req.requestAdvanceSalaryArticle71 && ticketAllowance > 0 ? (
+                            <div className="text-[9px] text-slate-400 font-sans">يُضاف عند طلب م.71</div>
+                          ) : null}
+                        </td>
                         <td className="p-3.5 font-mono font-black text-emerald-700">{totalPayable.toFixed(3)}</td>
                         <td className="p-3.5 text-center">
                           <button
                             type="button"
                             onClick={() => confirmAdvanceSettlement(req)}
-                            disabled={!req.requestAdvanceSalaryArticle71}
-                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition flex items-center gap-1 mx-auto cursor-pointer ${
+                            disabled={req.settlementDone}
+                            title={
                               req.settlementDone
-                                ? 'bg-emerald-100 text-emerald-800'
+                                ? 'تم اعتماد الصرف مسبقاً'
                                 : req.requestAdvanceSalaryArticle71
-                                  ? 'bg-[#714B67] hover:bg-[#5a3a52] text-white shadow-2xs'
-                                  : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                  ? 'اعتماد صرف راتب الإجازة وترحيله للرواتب'
+                                  : 'فتح طلب صرف راتب الإجازة مقدماً (مادة 71)'
+                            }
+                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition flex items-center gap-1 mx-auto ${
+                              req.settlementDone
+                                ? 'bg-emerald-100 text-emerald-800 cursor-default'
+                                : req.requestAdvanceSalaryArticle71
+                                  ? 'bg-[#714B67] hover:bg-[#5a3a52] text-white shadow-2xs cursor-pointer'
+                                  : 'bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-200 cursor-pointer'
                             }`}
                           >
                             <Plane size={12} />
-                            <span>
-                              {req.settlementDone ? 'مسدّد' : req.requestAdvanceSalaryArticle71 ? 'اعتماد الصرف' : 'لم يُطلب م71'}
-                            </span>
+                            <span>{statusLabel}</span>
                           </button>
                         </td>
                       </tr>
@@ -272,6 +366,66 @@ export const TimeOffPayrollFinancePanel: React.FC<Props> = ({ highlightAdvanceRe
                   })}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {article71ModalRequest && (
+        <div
+          className="fixed inset-0 z-[70] bg-slate-900/50 backdrop-blur-2xs flex items-center justify-center p-4"
+          dir="rtl"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="article71-modal-title"
+        >
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-5 text-xs space-y-4">
+            <h3 id="article71-modal-title" className="font-bold text-slate-900 text-sm flex items-center gap-2">
+              <Plane size={16} className="text-[#714B67]" />
+              طلب صرف راتب الإجازة مقدماً (مادة 71)
+            </h3>
+            <p className="text-slate-600 leading-relaxed">
+              الموظف:{' '}
+              <strong>{resolveLeaveRequestFinancials(article71ModalRequest).employeeName}</strong>
+              <br />
+              الفترة: {article71ModalRequest.startDate} → {article71ModalRequest.endDate}
+            </p>
+            {(() => {
+              const fin = resolveLeaveRequestFinancials(article71ModalRequest);
+              const previewTotal = fin.leaveCashAmount + fin.ticketAllowanceKwd;
+              return (
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1 font-mono text-[11px]">
+                  <div className="flex justify-between">
+                    <span>أجر الإجازة ({fin.paidDays} يوم)</span>
+                    <span className="font-bold text-purple-900">{fin.leaveCashAmount.toFixed(3)} د.ك</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>بدل التذاكر (تقديري)</span>
+                    <span>{fin.ticketAllowanceKwd.toFixed(3)} د.ك</span>
+                  </div>
+                  <div className="flex justify-between border-t border-slate-200 pt-1.5 font-black text-emerald-800">
+                    <span>صافي متوقع للصرف</span>
+                    <span>{previewTotal.toFixed(3)} د.ك</span>
+                  </div>
+                </div>
+              );
+            })()}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={article71Saving}
+                onClick={() => void submitArticle71AdvanceRequest()}
+                className="flex-1 bg-[#714B67] hover:bg-[#5a3a52] text-white font-bold py-2.5 rounded-xl cursor-pointer disabled:opacity-60"
+              >
+                {article71Saving ? 'جاري الحفظ…' : 'تفعيل الطلب وحفظه'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setArticle71ModalRequest(null)}
+                className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-600 font-bold cursor-pointer"
+              >
+                إلغاء
+              </button>
+            </div>
           </div>
         </div>
       )}
