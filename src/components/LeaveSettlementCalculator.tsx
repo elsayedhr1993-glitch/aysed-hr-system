@@ -893,76 +893,80 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
     toast.success(`تم حفظ الإجازة الأرشيفية لسنة ${archiveYear} بنجاح`);
   };
 
+  const settlementActionBar = (
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      <button
+        type="button"
+        onClick={() => setShowAddCustomModal(true)}
+        className="bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1 transition cursor-pointer"
+      >
+        <Plus size={14} className="text-[#714B67]" />
+        <span>إضافة بند مالي مخصص</span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => {
+          setViewingVoucher(null);
+          setShowPrintModal(true);
+        }}
+        className="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-2xs border bg-white hover:bg-slate-100 border-slate-300 text-slate-800 cursor-pointer"
+        title="معاينة وطباعة المستند"
+      >
+        <Printer size={15} className="text-[#714B67]" />
+        <span>معاينة وطباعة</span>
+      </button>
+
+      {includeEncashment && encashmentDays > 0 && (
+        <button
+          type="button"
+          onClick={handleExecuteEncashment}
+          disabled={!validation.isValid}
+          className={`px-4 py-2.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition shadow-xs ${
+            validation.isValid
+              ? 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer'
+              : 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-80'
+          }`}
+          title="تصفية وصرف البدل النقدي وخصم الأيام من رصيد الموظف الفعلي"
+        >
+          <Coins size={16} className="text-amber-300" />
+          <span>تسوية وصرف ({encashmentDays} يوم)</span>
+        </button>
+      )}
+
+      <button
+        type="button"
+        onClick={handleSaveVoucher}
+        disabled={!validation.isValid}
+        className={`px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition shadow-sm ${
+          validation.isValid
+            ? 'bg-[#714B67] hover:bg-[#5a3b52] text-white cursor-pointer'
+            : 'bg-slate-300 text-slate-500 cursor-not-allowed border border-slate-300 opacity-80'
+        }`}
+        title={!validation.isValid ? (validation.errors[0] || 'يُمنع الحفظ لوجود أخطاء في التحقق البرمجي') : 'حفظ واعتماد السند وقفل القيود'}
+      >
+        {!validation.isValid ? (
+          <Lock size={15} className="text-rose-500" />
+        ) : (
+          <FileCheck size={16} className="text-amber-300" />
+        )}
+        <span>اعتماد وحفظ السند</span>
+      </button>
+    </div>
+  );
+
   return (
-    <div className={`space-y-6 font-['Tajawal','Cairo',sans-serif] ${textAlignClass}`} dir={direction}>
+    <div
+      className={`w-full max-w-7xl mx-auto px-4 space-y-6 font-['Tajawal','Cairo',sans-serif] ${textAlignClass}`}
+      dir={direction}
+    >
       
       {/* 1. Odoo Enterprise Form Card */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         
-        {/* Header Pipeline & Top Action Bar */}
-        <header className="bg-slate-50/90 border-b border-slate-200 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+        {/* Header Pipeline */}
+        <header className="bg-slate-50/90 border-b border-slate-200 px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4">
           
-          {/* Action Buttons Group */}
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={handleSaveVoucher}
-              disabled={!validation.isValid}
-              className={`px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 transition shadow-xs ${
-                validation.isValid 
-                  ? 'bg-[#714B67] hover:bg-[#5a3b52] text-white cursor-pointer' 
-                  : 'bg-slate-300 text-slate-500 cursor-not-allowed border border-slate-300 opacity-80'
-              }`}
-              title={!validation.isValid ? (validation.errors[0] || 'يُمنع الحفظ لوجود أخطاء في التحقق البرمجي') : 'حفظ واعتماد السند وقفل القيود'}
-            >
-              {!validation.isValid ? (
-                <Lock size={15} className="text-rose-500" />
-              ) : (
-                <FileCheck size={16} className="text-amber-300" />
-              )}
-              <span>حفظ واعتماد السند الرسمي</span>
-            </button>
-
-            {includeEncashment && encashmentDays > 0 && (
-              <button
-                type="button"
-                onClick={handleExecuteEncashment}
-                disabled={!validation.isValid}
-                className={`px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 transition shadow-xs ${
-                  validation.isValid 
-                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer' 
-                    : 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-80'
-                }`}
-                title="تصفية وصرف البدل النقدي وخصم الأيام من رصيد الموظف الفعلي"
-              >
-                <Coins size={16} className="text-amber-300" />
-                <span>تسييل وصرف البدل النقدي ({encashmentDays} يوم)</span>
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={() => {
-                setViewingVoucher(null);
-                setShowPrintModal(true);
-              }}
-              className="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-2xs border bg-white hover:bg-slate-100 border-slate-300 text-slate-800 cursor-pointer"
-              title="معاينة وطباعة المستند"
-            >
-              <Printer size={15} className="text-[#714B67]" />
-              <span>معاينة وطباعة المستند</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setShowAddCustomModal(true)}
-              className="bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1 transition cursor-pointer"
-            >
-              <Plus size={14} className="text-[#714B67]" />
-              <span>إضافة بند مالي مخصص</span>
-            </button>
-          </div>
-
           {/* Odoo State Pipeline (oe_statusbar) */}
           <div className="flex items-center bg-white border border-slate-300 rounded-xl overflow-hidden text-xs font-bold shadow-2xs">
             <button
@@ -998,7 +1002,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
         </header>
 
         {/* 2. Enterprise Sheet Area */}
-        <div className="p-6 sm:p-8 space-y-6">
+        <div className="p-4 sm:p-6 lg:p-8 space-y-6 pb-4">
           
           {/* Top Row: Employee Selector & Quick KPI Cards */}
           <div className="flex flex-col lg:flex-row items-start justify-between gap-6 pb-6 border-b border-slate-200">
@@ -1278,14 +1282,13 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                 </div>
               )}
 
-              {/* 2-Column Responsive Layout */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Settlement grid: بيانات التسوية | البنود والأرصدة */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
                 
-                {/* Column 1: Financial Line Items Configuration (7 cols) */}
-                <div className="lg:col-span-7 space-y-5">
+                <div className="space-y-5 min-w-0">
                   
                   {/* Basic Leave & Dates Group */}
-                  <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-5 space-y-4">
+                  <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-5 sm:p-5 space-y-4 text-sm">
                     <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                       <h3 className="font-bold text-xs sm:text-sm text-slate-800 flex items-center gap-2">
                         <FileText size={16} className="text-[#714B67]" />
@@ -1421,9 +1424,9 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                   </div>
 
                   {/* 1. Pro-rated Salary Line Item Section */}
-                  <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-4 space-y-3">
+                  <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-5 space-y-3 text-sm">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <label className="flex items-center gap-2 cursor-pointer font-bold text-xs text-slate-800">
+                      <label className="flex items-center gap-2 cursor-pointer font-bold text-xs sm:text-sm text-slate-800">
                         <input
                           type="checkbox"
                           checked={includeProratedSalary}
@@ -1495,9 +1498,9 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                   </div>
 
                   {/* 2. Overtime Line Item Section */}
-                  <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-4 space-y-3">
+                  <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-5 space-y-3 text-sm">
                     <div className="flex items-center justify-between">
-                      <label className="flex items-center gap-2 cursor-pointer font-bold text-xs text-slate-800">
+                      <label className="flex items-center gap-2 cursor-pointer font-bold text-xs sm:text-sm text-slate-800">
                         <input
                           type="checkbox"
                           checked={includeOvertime}
@@ -1539,9 +1542,9 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                   </div>
 
                   {/* 3. Leave Balance Encashment Section */}
-                  <div className="bg-amber-50/60 border border-amber-300 rounded-2xl p-4 space-y-3">
+                  <div className="bg-amber-50/60 border border-amber-300 rounded-2xl p-5 space-y-3 text-sm">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <label className="flex items-center gap-2 cursor-pointer font-black text-xs text-amber-950">
+                      <label className="flex items-center gap-2 cursor-pointer font-black text-xs sm:text-sm text-amber-950">
                         <input
                           type="checkbox"
                           checked={includeEncashment}
@@ -1606,7 +1609,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                   </div>
 
                   {/* 4. Allowances & Deductions Group */}
-                  <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-4 space-y-3 text-xs">
+                  <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-5 space-y-3 text-sm">
                     <h4 className="font-bold text-slate-800 border-b border-slate-200 pb-1.5 flex items-center gap-1.5">
                       <CreditCard size={15} className="text-slate-600" />
                       <span>البدلات الإضافية والاستقطاعات والخصومات</span>
@@ -1657,7 +1660,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
 
                   {/* Custom Items List (if any) */}
                   {customItems.length > 0 && (
-                    <div className="bg-purple-50/50 border border-purple-200 rounded-2xl p-4 space-y-2 text-xs">
+                    <div className="bg-purple-50/50 border border-purple-200 rounded-2xl p-5 space-y-2 text-sm">
                       <h4 className="font-bold text-[#714B67] flex items-center justify-between">
                         <span>البنود المالية المخصصة المضافة:</span>
                         <span className="font-mono text-[11px]">({customItems.length} بنود)</span>
@@ -1689,11 +1692,10 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
 
                 </div>
 
-                {/* Column 2: Mathematical Summary & Universal Breakdown Table (5 cols) */}
-                <div className="lg:col-span-5 space-y-5">
+                <div className="space-y-5 min-w-0">
                   
                   {/* Dynamic Items Live Breakdown Box */}
-                  <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs space-y-4">
+                  <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-5 shadow-2xs space-y-4 text-sm">
                     <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
                       <h3 className="font-bold text-xs sm:text-sm text-slate-800 flex items-center gap-2">
                         <Coins size={16} className="text-[#008784]" />
@@ -1746,16 +1748,17 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                       </div>
 
                       {/* Net Payable Highlight Card */}
-                      <div className="bg-slate-900 text-white rounded-xl p-4 mt-3 shadow-xs">
-                        <div className="flex items-center justify-between">
+                      <div className="bg-slate-900 text-white rounded-xl p-5 mt-3 shadow-md ring-1 ring-slate-700/50">
+                        <div className="flex flex-wrap items-end justify-between gap-3">
                           <div>
-                            <span className="text-xs font-bold text-slate-300 block">صافي المستحق النهائي للصرف</span>
-                            <span className="text-[10px] text-slate-400 font-mono">NET SETTLEMENT PAYOUT</span>
+                            <span className="text-sm font-bold text-slate-200 block">صافي المستحق النهائي للصرف</span>
+                            <span className="text-[11px] text-slate-400 font-mono">NET SETTLEMENT PAYOUT</span>
                           </div>
                           <div className="text-left">
-                            <span className="text-2xl font-black font-mono text-emerald-400">
-                              {(settlementResult?.netSettlementPayout || 0).toFixed(3)} د.ك
+                            <span className="text-3xl sm:text-[2rem] font-black font-mono text-emerald-400 tracking-tight">
+                              {(settlementResult?.netSettlementPayout || 0).toFixed(3)}
                             </span>
+                            <span className="text-lg font-bold text-emerald-300/90 ms-1">د.ك</span>
                           </div>
                         </div>
                       </div>
@@ -1763,7 +1766,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                   </div>
 
                   {/* Post-Settlement Balance Snapshot Card */}
-                  <div className="bg-purple-50/70 border border-purple-200 rounded-2xl p-4 space-y-2.5 text-xs">
+                  <div className="bg-purple-50/70 border border-purple-200 rounded-2xl p-5 space-y-2.5 text-sm">
                     <h4 className="font-bold text-[#714B67] flex items-center justify-between border-b border-purple-200 pb-1.5">
                       <span>حالة رصيد الإجازات بعد هذه التسوية:</span>
                       <Layers size={15} />
@@ -1794,7 +1797,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                   </div>
 
                   {/* Payment Details */}
-                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2 text-xs">
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-2 text-sm">
                     <label className="block font-bold text-slate-700">طريقة الصرف والتحويل:</label>
                     <div className="grid grid-cols-3 gap-2">
                       {(['BANK_TRANSFER', 'CASH', 'CHEQUE'] as const).map(method => (
@@ -2005,6 +2008,29 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
           )}
 
         </div>
+
+        {activeTab === 'settlement_calculator' && (
+          <footer
+            className="sticky bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur-md supports-[backdrop-filter]:bg-white/85 px-4 sm:px-6 lg:px-8 py-3.5 shadow-[0_-4px_24px_rgba(15,23,42,0.06)]"
+            aria-label="إجراءات التسوية والاعتماد"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 max-w-full">
+              <div className="flex flex-wrap items-center gap-2 text-xs min-w-0">
+                <span className="font-bold text-slate-600">صافي الصرف:</span>
+                <span className="font-mono font-black text-lg text-emerald-700">
+                  {(settlementResult?.netSettlementPayout || 0).toFixed(3)}
+                </span>
+                <span className="font-bold text-emerald-800">د.ك</span>
+                {!validation.isValid && validation.errors[0] ? (
+                  <span className="text-rose-600 font-medium truncate max-w-[min(100%,28rem)]" title={validation.errors.join(' • ')}>
+                    — {validation.errors[0]}
+                  </span>
+                ) : null}
+              </div>
+              {settlementActionBar}
+            </div>
+          </footer>
+        )}
 
       </div>
 

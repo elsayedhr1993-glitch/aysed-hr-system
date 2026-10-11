@@ -277,17 +277,15 @@ export const TimeOffPayrollFinancePanel: React.FC<Props> = ({ highlightAdvanceRe
       )}
 
       {financeSubTab === 'encashment_calculator' && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-          <LeaveSettlementCalculator
-            employees={companyEmployees as any}
-            allocations={mappedAllocations}
-            leaves={mappedLeaveRequests as any}
-            activeCompany={activeCompany as any}
-            leavePolicy={leavePolicy}
-            onUpdateAllocations={handleUpdateAllocations}
-            firestoreSettlementVouchers={settlementVouchers}
-          />
-        </div>
+        <LeaveSettlementCalculator
+          employees={companyEmployees as any}
+          allocations={mappedAllocations}
+          leaves={mappedLeaveRequests as any}
+          activeCompany={activeCompany as any}
+          leavePolicy={leavePolicy}
+          onUpdateAllocations={handleUpdateAllocations}
+          firestoreSettlementVouchers={settlementVouchers}
+        />
       )}
     </div>
   );
