@@ -128,7 +128,7 @@ export const ComplianceTreePrintReport: React.FC<ComplianceTreePrintReportProps>
       </div>
 
       <div className="odoo-report-table-wrap mb-6">
-        <table className="odoo-report-table">
+        <table className="odoo-report-table odoo-report-table--wrap compliance-tree-summary-table">
           <thead>
             <tr>
               <th>المسار / الجهة</th>
@@ -158,7 +158,7 @@ export const ComplianceTreePrintReport: React.FC<ComplianceTreePrintReportProps>
       </h2>
 
       <div className="odoo-report-table-wrap mb-8">
-        <table className="odoo-report-table text-[10px]">
+        <table className="odoo-report-table odoo-report-table--wrap compliance-tree-details-table text-[10px]">
           <thead>
             <tr>
               <th>الجهة / المجلد</th>

@@ -275,6 +275,37 @@
 }
 
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm 10mm;
+  }
+
+  html,
+  body {
+    direction: rtl !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  /* إخفاء واجهة التطبيق — الإبقاء على التقارير فقط */
+  .compliance-tree-screen .no-print,
+  .no-print,
+  .print\:hidden,
+  header,
+  nav,
+  aside,
+  button,
+  input[type='button'],
+  input[type='submit'] {
+    display: none !important;
+  }
+
+  .compliance-tree-screen > *:not(.compliance-tree-print-host) {
+    display: none !important;
+  }
+
   .compliance-tree-screen .no-print {
     display: none !important;
   }
@@ -282,25 +313,160 @@
   .compliance-tree-print-host {
     position: static !important;
     left: auto !important;
+    top: auto !important;
     width: 100% !important;
+    max-width: 100% !important;
     opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+
+  .compliance-tree-print-report,
+  #document-compliance-print-root,
+  .odoo-report-print-root {
+    direction: rtl !important;
+    unicode-bidi: embed;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   .odoo-report-sheet {
     box-shadow: none !important;
     max-width: none !important;
     width: 100% !important;
+    padding: 0 !important;
+  }
+
+  .compliance-tree-print-report {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+
+  .odoo-report-table-wrap {
+    overflow: visible !important;
+    border: 1px solid #495057 !important;
+    border-radius: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .odoo-report-table {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-collapse: collapse !important;
+    table-layout: fixed !important;
+  }
+
+  .odoo-report-table--wrap td,
+  .odoo-report-table--wrap th {
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+    hyphens: auto;
+    vertical-align: top !important;
+  }
+
+  .odoo-report-table thead th {
+    border: 1px solid #6d4f66 !important;
+    padding: 8px 10px !important;
+    font-size: 9pt !important;
+    line-height: 1.35 !important;
+    text-align: right !important;
+  }
+
+  .odoo-report-table tbody td {
+    border: 1px solid #adb5bd !important;
+    padding: 7px 10px !important;
+    font-size: 9pt !important;
+    line-height: 1.4 !important;
+    text-align: right !important;
+  }
+
+  .compliance-tree-summary-table th:nth-child(1),
+  .compliance-tree-summary-table td:nth-child(1) {
+    width: 22%;
+  }
+  .compliance-tree-summary-table th:nth-child(2),
+  .compliance-tree-summary-table td:nth-child(2) {
+    width: 18%;
+  }
+  .compliance-tree-summary-table th:nth-child(3),
+  .compliance-tree-summary-table td:nth-child(3) {
+    width: 10%;
+  }
+  .compliance-tree-summary-table th:nth-child(4),
+  .compliance-tree-summary-table td:nth-child(4) {
+    width: 50%;
+  }
+
+  .compliance-tree-details-table th:nth-child(1),
+  .compliance-tree-details-table td:nth-child(1) {
+    width: 16%;
+  }
+  .compliance-tree-details-table th:nth-child(2),
+  .compliance-tree-details-table td:nth-child(2) {
+    width: 18%;
+  }
+  .compliance-tree-details-table th:nth-child(3),
+  .compliance-tree-details-table td:nth-child(3) {
+    width: 14%;
+  }
+  .compliance-tree-details-table th:nth-child(4),
+  .compliance-tree-details-table td:nth-child(4) {
+    width: 12%;
+  }
+  .compliance-tree-details-table th:nth-child(5),
+  .compliance-tree-details-table td:nth-child(5) {
+    width: 12%;
+  }
+  .compliance-tree-details-table th:nth-child(6),
+  .compliance-tree-details-table td:nth-child(6) {
+    width: 10%;
+  }
+  .compliance-tree-details-table th:nth-child(7),
+  .compliance-tree-details-table td:nth-child(7) {
+    width: 18%;
+  }
+
+  .document-compliance-print-table th:nth-child(1),
+  .document-compliance-print-table td:nth-child(1) {
+    width: 5%;
+  }
+  .document-compliance-print-table th:nth-child(2),
+  .document-compliance-print-table td:nth-child(2) {
+    width: 18%;
+  }
+  .document-compliance-print-table th:nth-child(3),
+  .document-compliance-print-table td:nth-child(3) {
+    width: 22%;
+  }
+  .document-compliance-print-table th:nth-child(4),
+  .document-compliance-print-table td:nth-child(4) {
+    width: 14%;
+  }
+  .document-compliance-print-table th:nth-child(5),
+  .document-compliance-print-table td:nth-child(5) {
+    width: 14%;
+  }
+  .document-compliance-print-table th:nth-child(6),
+  .document-compliance-print-table td:nth-child(6) {
+    width: 12%;
+  }
+  .document-compliance-print-table th:nth-child(7),
+  .document-compliance-print-table td:nth-child(7) {
+    width: 15%;
   }
 
   .odoo-report-sheet--official-a4 {
-    min-height: 279mm !important;
+    min-height: auto !important;
     padding: 6mm 8mm !important;
     display: flex !important;
     flex-direction: column !important;
   }
 
   .odoo-report-a4-layout {
-    min-height: 265mm !important;
+    min-height: auto !important;
     flex: 1 1 auto !important;
   }
 
@@ -323,6 +489,10 @@
   }
 
   .fixed:not(.printable-modal-root) {
+    display: none !important;
+  }
+
+  .printable-modal-root .no-print {
     display: none !important;
   }
 }

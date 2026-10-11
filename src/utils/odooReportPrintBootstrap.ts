@@ -9,12 +9,52 @@ export const ODOO_NATIVE_PRINT_CSS = `
     padding: 0 !important;
     background: #ffffff !important;
     width: 100% !important;
+    direction: rtl !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
   body {
     font-family: 'Cairo', 'Tajawal', sans-serif !important;
     color: #212529 !important;
+  }
+  .compliance-tree-print-report,
+  .odoo-report-print-root,
+  #document-compliance-print-root {
+    direction: rtl !important;
+    unicode-bidi: embed;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .odoo-report-table-wrap {
+    overflow: visible !important;
+    border: 1px solid #495057 !important;
+    width: 100% !important;
+  }
+  .odoo-report-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    table-layout: fixed !important;
+  }
+  .odoo-report-table--wrap td,
+  .odoo-report-table--wrap th {
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+    vertical-align: top !important;
+  }
+  .odoo-report-table thead th {
+    border: 1px solid #6d4f66 !important;
+    padding: 8px 10px !important;
+    font-size: 9pt !important;
+    text-align: right !important;
+  }
+  .odoo-report-table tbody td {
+    border: 1px solid #adb5bd !important;
+    padding: 7px 10px !important;
+    font-size: 9pt !important;
+    line-height: 1.4 !important;
+    text-align: right !important;
   }
   .odoo-report-print-root {
     width: 100% !important;

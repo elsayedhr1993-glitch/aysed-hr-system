@@ -62,7 +62,7 @@ export const DocumentCompliancePrintModal: React.FC<DocumentCompliancePrintModal
       <div className="printable-modal-sheet bg-white rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[95vh]">
         
         {/* Modal Action Bar (Hidden on Print) */}
-        <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 print:hidden">
+        <div className="no-print p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 print:hidden">
           <div className="flex items-center gap-2">
             <Printer className="w-5 h-5 text-[#714B67]" />
             <span className="font-bold text-slate-800 text-sm">معاينة التقرير الرسمي لطباعة الأرشيف والامتثال الحكومي (A4)</span>
@@ -121,19 +121,19 @@ export const DocumentCompliancePrintModal: React.FC<DocumentCompliancePrintModal
 
           {/* Documents Table */}
           <div className="odoo-report-table-wrap mb-6">
-            <table className="odoo-report-table w-full text-right text-xs table-fixed">
+            <table className="odoo-report-table odoo-report-table--wrap document-compliance-print-table w-full text-right text-xs">
               <thead>
                 <tr>
-                  <th className="p-2 w-10 text-center">#</th>
-                  <th className="p-2 w-[18%]">نوع الوثيقة</th>
-                  <th className="p-2 w-[22%]">الموظف المعني</th>
-                  <th className="p-2 font-mono w-[14%]">الرقم المدني</th>
-                  <th className="p-2 w-[14%]">القسم</th>
-                  <th className="p-2 font-mono w-[12%]">تاريخ الانتهاء</th>
-                  <th className="p-2 text-center w-[10%]">حالة السريان</th>
+                  <th className="text-center">#</th>
+                  <th>نوع الوثيقة</th>
+                  <th>الموظف المعني</th>
+                  <th className="font-mono">الرقم المدني</th>
+                  <th>القسم</th>
+                  <th className="font-mono">تاريخ الانتهاء</th>
+                  <th className="text-center">حالة السريان</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200">
+              <tbody>
                 {documents.map((doc, idx) => {
                   const emp = employees.find(e => e.id === doc.employeeId);
 
@@ -156,17 +156,13 @@ export const DocumentCompliancePrintModal: React.FC<DocumentCompliancePrintModal
 
                   return (
                     <tr key={doc.id}>
-                      <td className="p-2 text-center text-slate-400 font-mono whitespace-nowrap">{idx + 1}</td>
-                      <td className="p-2 font-bold text-slate-900 whitespace-nowrap truncate max-w-0" title={typeLabel}>
-                        {typeLabel}
-                      </td>
-                      <td className="p-2 text-slate-800 whitespace-nowrap truncate max-w-0" title={emp?.fullNameAr || ''}>
-                        {emp ? emp.fullNameAr : 'وثيقة منشأة عامة'}
-                      </td>
-                      <td className="p-2 font-mono text-slate-600 whitespace-nowrap">{emp?.civilId || '—'}</td>
-                      <td className="p-2 text-slate-600 whitespace-nowrap truncate max-w-0">{emp?.department || '—'}</td>
-                      <td className="p-2 font-mono text-slate-800 font-bold whitespace-nowrap">{doc.expiryDate || '—'}</td>
-                      <td className="p-2 text-center whitespace-nowrap">
+                      <td className="text-center text-slate-500 font-mono">{idx + 1}</td>
+                      <td className="font-bold text-slate-900">{typeLabel}</td>
+                      <td className="text-slate-800">{emp ? emp.fullNameAr : 'وثيقة منشأة عامة'}</td>
+                      <td className="font-mono text-slate-600">{emp?.civilId || '—'}</td>
+                      <td className="text-slate-600">{emp?.department || '—'}</td>
+                      <td className="font-mono text-slate-800 font-bold">{doc.expiryDate || '—'}</td>
+                      <td className="text-center">
                         <span className={`inline-block px-2 py-0.5 rounded text-[11px] ${statusColor}`}>
                           {statusBadge}
                         </span>
