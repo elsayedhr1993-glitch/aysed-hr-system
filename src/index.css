@@ -946,8 +946,11 @@ table {
   header,
   nav,
   aside,
+  footer:not(.odoo-report-footer),
   .print\:hidden,
   .no-print,
+  .odoo-enterprise-topbar,
+  .aysed-impersonation-banner,
   .o_main_navbar,
   .aysed_admin_bar,
   .aysed_admin_transition_bar,
@@ -991,7 +994,9 @@ table {
   }
 
   /* 2. Reset backgrounds and full-bleed layout */
-  html, body, #root {
+  html,
+  body,
+  #root {
     background: #ffffff !important;
     color: #0f172a !important;
     width: 100% !important;
@@ -999,9 +1004,18 @@ table {
     margin: 0 !important;
     padding: 0 !important;
     overflow: visible !important;
+    direction: rtl !important;
     font-family: 'Cairo', 'Tajawal', sans-serif !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+  }
+
+  .odoo-report-print-root,
+  .odoo-report-sheet,
+  .printable-modal-root,
+  .compliance-tree-print-report {
+    direction: rtl !important;
+    max-width: 100% !important;
   }
 
   /* 3. Printable cards and documents */
@@ -1015,8 +1029,30 @@ table {
   /* 4. Ensure tables don't break awkwardly across pages */
   table {
     width: 100% !important;
+    max-width: 100% !important;
     border-collapse: collapse !important;
+    table-layout: fixed !important;
     page-break-inside: auto;
+  }
+
+  th,
+  td {
+    border: 1px solid #94a3b8 !important;
+    padding: 6px 8px !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+    vertical-align: top !important;
+    text-align: right !important;
+    font-size: 9pt !important;
+    line-height: 1.35 !important;
+  }
+
+  .odoo-report-table thead th {
+    background: #875a7b !important;
+    color: #ffffff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   tr {
@@ -1161,15 +1197,9 @@ table {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  padding-left: 1rem;
-  padding-right: 1rem;
+  padding-left: 0;
+  padding-right: 0;
   background-color: #f1f5f9;
-}
-@media (min-width: 768px) {
-  .odoo-workspace-canvas {
-    padding-left: 1.5rem;
-    padding-right: 1.5rem;
-  }
 }
 .odoo-workspace-canvas--launcher {
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 45%, #e2e8f0 100%);
@@ -1189,24 +1219,18 @@ table {
 }
 .odoo-workspace-inner {
   width: 100%;
-  max-width: none;
-  margin-left: 0;
-  margin-right: 0;
-}
-.odoo-workspace-inner--launcher {
-  max-width: 80rem;
+  max-width: 1600px;
   margin-left: auto;
   margin-right: auto;
-  padding-left: 0.5rem;
-  padding-right: 0.5rem;
+  box-sizing: border-box;
 }
-[data-master-layout='wide'] {
-  width: 100%;
-  max-width: none;
+.odoo-workspace-inner--launcher {
+  max-width: 1600px;
 }
+[data-master-layout='wide'],
 [data-master-layout='launcher'] {
   width: 100%;
-  max-width: 80rem;
+  max-width: 1600px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -1216,97 +1240,51 @@ table {
   max-width: none;
 }
 
-.odoo-kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.625rem;
-  width: 100%;
-}
-@media (min-width: 768px) {
-  .odoo-kpi-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
-.odoo-kanban-grid {
-  display: grid;
-  grid-template-columns: repeat(1, minmax(0, 1fr));
-  gap: 1rem;
-  width: 100%;
-}
-@media (min-width: 640px) {
-  .odoo-kanban-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@media (min-width: 1024px) {
-  .odoo-kanban-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-@media (min-width: 1280px) {
-  .odoo-kanban-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
-.odoo-app-launchpad-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-  width: 100%;
-}
-@media (min-width: 640px) {
-  .odoo-app-launchpad-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1rem;
-  }
-}
-@media (min-width: 768px) {
-  .odoo-app-launchpad-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-@media (min-width: 1024px) {
-  .odoo-app-launchpad-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-@media (min-width: 1280px) {
-  .odoo-app-launchpad-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
+/* شبكة بطاقات موحّدة: 1 → 2 → 3 → 4 → 5 أعمدة */
+.odoo-cards-grid,
+.odoo-kpi-grid,
+.odoo-kanban-grid,
+.odoo-app-launchpad-grid,
 .odoo-app-cards-grid {
   display: grid;
-  grid-template-columns: repeat(1, minmax(0, 1fr));
-  gap: 0.875rem;
   width: 100%;
+  gap: 1rem;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
 }
 @media (min-width: 640px) {
+  .odoo-cards-grid,
+  .odoo-kpi-grid,
+  .odoo-kanban-grid,
+  .odoo-app-launchpad-grid,
   .odoo-app-cards-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 @media (min-width: 768px) {
+  .odoo-cards-grid,
+  .odoo-kpi-grid,
+  .odoo-kanban-grid,
+  .odoo-app-launchpad-grid,
   .odoo-app-cards-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 @media (min-width: 1024px) {
+  .odoo-cards-grid,
+  .odoo-kpi-grid,
+  .odoo-kanban-grid,
+  .odoo-app-launchpad-grid,
   .odoo-app-cards-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 @media (min-width: 1280px) {
+  .odoo-cards-grid,
+  .odoo-kpi-grid,
+  .odoo-kanban-grid,
+  .odoo-app-launchpad-grid,
   .odoo-app-cards-grid {
     grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-}
-@media (min-width: 1536px) {
-  .odoo-app-cards-grid {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 }
 

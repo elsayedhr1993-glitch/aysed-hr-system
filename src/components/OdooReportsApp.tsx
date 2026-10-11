@@ -845,7 +845,7 @@ export const OdooReportsApp: React.FC = () => {
       </div>
 
       {/* 3. EXECUTIVE KPIS CARDS (المؤشرات التنفيذية اللحظية) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div className="odoo-kpi-grid">
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
           <div className="text-[10px] text-slate-400 font-bold mb-1 flex items-center justify-between">
             <span>إجمالي الكادر</span>

@@ -400,7 +400,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
   };
 
   return (
-    <header className="h-12 bg-[#714B67] text-white flex items-center justify-between px-2 sm:px-3 md:px-4 z-40 select-none shadow-md shrink-0 border-b border-white/10 w-full relative" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+    <header className="odoo-enterprise-topbar no-print h-12 bg-[#714B67] text-white flex items-center justify-between px-2 sm:px-3 md:px-4 z-40 select-none shadow-md shrink-0 border-b border-white/10 w-full relative" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       
       {/* 🧭 الجانب الأيمن: التنقل وهوية المنشأة */}
       <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">

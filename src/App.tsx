@@ -788,7 +788,7 @@ function MainAppLayout() {
 
       {/* شريط تنبيه الدخول كمسؤول (Strict Impersonation Banner) */}
       {isActualSuperAdmin && (impersonatingCompanyId || isImpersonating) && activeApp !== 'saas_admin' && (
-        <div className="h-10 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-400 text-slate-950 text-xs px-4 font-bold flex items-center justify-between shrink-0 shadow-md border-b border-amber-500 z-50 animate-in slide-in-from-top duration-200">
+        <div className="aysed-impersonation-banner no-print h-10 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-400 text-slate-950 text-xs px-4 font-bold flex items-center justify-between shrink-0 shadow-md border-b border-amber-500 z-50 animate-in slide-in-from-top duration-200">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-slate-950 animate-ping inline-block" />
             <span className="bg-slate-950 text-amber-300 text-[10px] px-2.5 py-0.5 rounded font-black tracking-wider uppercase">
