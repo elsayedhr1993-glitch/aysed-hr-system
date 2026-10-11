@@ -23,6 +23,7 @@ import {
   normalizeTenantCompanyId,
   readEmployeeCompanyId,
 } from '../utils/contractTenantRules';
+import { buildTenantEmployeeFirestoreQueries } from '../utils/subscribeTenantEmployees';
 import { requireCompanyId } from '../utils/tenantGuards';
 import { saveHolidayWorkRecord, approveHolidayWork, WorkOnHolidayRecord } from './holidayWorkService';
 import { createEmployeeOnboardingBundle } from './employeeOnboardingService';
@@ -753,17 +754,25 @@ export const TenantDatabaseService = {
     if (!companyId) return [];
 
     try {
-      const companyIds = contractQueryCompanyIds(companyId);
-      const employeesQuery =
-        companyIds.length === 1
-          ? query(collection(db, 'employees'), where('companyId', '==', companyIds[0]))
-          : query(collection(db, 'employees'), where('companyId', 'in', companyIds));
-      const snap = await getDocs(employeesQuery);
-      const allEmps: Employee[] = snap.docs.map(d => {
-        const data = d.data();
-        return normalizeEmployeeRecord({ ...data, id: d.id }, companyId);
+      const queries = buildTenantEmployeeFirestoreQueries(companyId, {
+        includeLegacyCompanyIdField: true,
+        includeUrlCompanyId: true,
       });
-      return allEmps;
+      const merged = new Map<string, Employee>();
+      for (const employeesQuery of queries) {
+        const snap = await getDocs(employeesQuery);
+        snap.docs.forEach((d) => {
+          const data = d.data();
+          merged.set(
+            d.id,
+            normalizeEmployeeRecord(
+              { ...data, id: d.id, _tenantFirestoreMatch: true },
+              companyId
+            )
+          );
+        });
+      }
+      return [...merged.values()];
     } catch (fsErr) {
       console.warn('[TenantDatabaseService] Firestore fetch error:', fsErr);
     }

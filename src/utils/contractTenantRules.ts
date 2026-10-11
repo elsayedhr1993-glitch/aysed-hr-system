@@ -6,6 +6,15 @@ const TENANT_ID_ALIASES: Record<string, string> = {
   'comp-elite': 'comp-1788435917695',
 };
 
+/** Extra raw ids that may appear on employee docs for المنار كلينك */
+const MANAR_COMPANY_ID_VARIANTS = [
+  'comp-1788442584841',
+  '1788442584841',
+  'tenant_1788442584841',
+  'comp-manar',
+  'comp-almanar',
+];
+
 export function normalizeTenantCompanyId(companyId?: string | null): string {
   const id = String(companyId || '').trim();
   if (!id) return '';
@@ -24,6 +33,9 @@ export function contractQueryCompanyIds(activeCompanyId: string): string[] {
   const ids = new Set<string>([String(activeCompanyId || '').trim(), canonical].filter(Boolean));
   if (canonical === 'tenant_1788413304890') ids.add('comp-alfanar');
   if (canonical === 'comp-1788435917695') ids.add('comp-elite');
+  if (canonical === 'comp-1788442584841' || MANAR_COMPANY_ID_VARIANTS.includes(String(activeCompanyId || '').trim())) {
+    MANAR_COMPANY_ID_VARIANTS.forEach((v) => ids.add(v));
+  }
   return [...ids];
 }
 
@@ -43,10 +55,18 @@ export function employeeBelongsToTenant(
   employee?: Record<string, unknown> | null,
   targetCompanyId?: string | null
 ): boolean {
-  const empCo = readEmployeeCompanyId(employee);
   if (!targetCompanyId) return false;
-  if (!empCo) return false;
-  return tenantCompanyIdsMatch(empCo, targetCompanyId);
+  const raw = String(
+    (employee as Record<string, unknown>)?.companyId ??
+      (employee as Record<string, unknown>)?.company_id ??
+      ''
+  ).trim();
+  const empCo = readEmployeeCompanyId(employee);
+  const queryIds = new Set(contractQueryCompanyIds(targetCompanyId));
+  if (raw && queryIds.has(raw)) return true;
+  if (!empCo && !raw) return false;
+  if (empCo && queryIds.has(empCo)) return true;
+  return tenantCompanyIdsMatch(empCo || raw, targetCompanyId);
 }
 
 /** Visible when extended directory mode includes orphans / prior company ids */
@@ -56,6 +76,7 @@ export function employeeVisibleInDirectory(
   options?: { includeUnlinked?: boolean; includeNonTenantCompany?: boolean }
 ): boolean {
   if (!targetCompanyId || targetCompanyId === 'comp-super-admin') return true;
+  if ((employee as Record<string, unknown>)?._tenantFirestoreMatch === true) return true;
   const includeUnlinked = Boolean(options?.includeUnlinked);
   const includeNonTenant = Boolean(options?.includeNonTenantCompany);
   const isUnlinked = Boolean((employee as Record<string, unknown>)?._isUnlinkedCompany);

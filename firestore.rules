@@ -95,22 +95,50 @@ service cloud.firestore {
         );
     }
 
+    function resourceCompanyId() {
+      return ('companyId' in resource.data
+          && resource.data.companyId is string
+          && resource.data.companyId != '')
+        ? resource.data.companyId
+        : (
+          ('company_id' in resource.data
+            && resource.data.company_id is string
+            && resource.data.company_id != '')
+            ? resource.data.company_id
+            : null
+        );
+    }
+
+    function incomingCompanyId() {
+      return ('companyId' in request.resource.data
+          && request.resource.data.companyId is string
+          && request.resource.data.companyId != '')
+        ? request.resource.data.companyId
+        : (
+          ('company_id' in request.resource.data
+            && request.resource.data.company_id is string
+            && request.resource.data.company_id != '')
+            ? request.resource.data.company_id
+            : null
+        );
+    }
+
     function sameTenantResource() {
-      return resource.data.companyId != null
+      return resourceCompanyId() != null
         && callerCompanyId() != null
-        && resource.data.companyId == callerCompanyId();
+        && resourceCompanyId() == callerCompanyId();
     }
 
     function sameTenantIncoming() {
-      return request.resource.data.companyId != null
+      return incomingCompanyId() != null
         && callerCompanyId() != null
-        && request.resource.data.companyId == callerCompanyId();
+        && incomingCompanyId() == callerCompanyId();
     }
 
     function canReadTenantDoc() {
       return isSuperAdmin()
         || sameTenantResource()
-        || (resource.data.companyId != null && isAuthEmailCompanyAdmin(resource.data.companyId));
+        || (resourceCompanyId() != null && isAuthEmailCompanyAdmin(resourceCompanyId()));
     }
 
     function canWriteTenantDoc() {

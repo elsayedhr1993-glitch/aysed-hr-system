@@ -10,12 +10,12 @@ import {
 import { db } from '../lib/firebase';
 import { contractQueryCompanyIds, normalizeTenantCompanyId } from './contractTenantRules';
 import { readCompanyIdFromUrl } from './tenantCompanyId';
-import { logEmployeeFetchPipeline } from './employeeFetchDebug';
+import { logEmployeeFetchPipeline, logFirestoreEmployeeFetchSummary } from './employeeFetchDebug';
 
 export type TenantEmployeeSubscribeOptions = {
   /** Include docs with missing/empty companyId and comp-super-admin bucket */
   includeUnlinked?: boolean;
-  /** Also query legacy `company_id` field */
+  /** Also query legacy `company_id` field (default: true — no row cap on queries) */
   includeLegacyCompanyIdField?: boolean;
   /** When URL has ?companyId=, include that id in Firestore queries */
   includeUrlCompanyId?: boolean;
@@ -36,6 +36,8 @@ export function buildTenantEmployeeFirestoreQueries(
 ): Query[] {
   const id = String(activeCompanyId || '').trim();
   if (!id) return [];
+
+  const includeLegacy = options.includeLegacyCompanyIdField !== false;
 
   const companyIds = new Set(contractQueryCompanyIds(id));
   if (options.includeUrlCompanyId) {
@@ -62,7 +64,7 @@ export function buildTenantEmployeeFirestoreQueries(
     }
   }
 
-  if (options.includeLegacyCompanyIdField) {
+  if (includeLegacy) {
     for (const chunk of chunkCompanyIds(idList)) {
       if (chunk.length === 1) {
         queries.push(query(coll, where('company_id', '==', chunk[0])));
@@ -86,6 +88,7 @@ export function subscribeMergedTenantEmployees(
   onError?: (error: unknown) => void
 ): () => void {
   const queries = buildTenantEmployeeFirestoreQueries(activeCompanyId, options);
+  const includeLegacyCompanyIdField = options.includeLegacyCompanyIdField !== false;
   if (!queries.length) {
     onMergedSnapshot([]);
     return () => undefined;
@@ -99,7 +102,16 @@ export function subscribeMergedTenantEmployees(
     perQueryMaps.forEach((local) => {
       local.forEach((data, docId) => merged.set(docId, data));
     });
-    const rows = [...merged.entries()].map(([docId, data]) => ({ id: docId, data }));
+    const rows = [...merged.entries()].map(([docId, data]) => ({
+      id: docId,
+      data: { ...data, _tenantFirestoreMatch: true },
+    }));
+    logFirestoreEmployeeFetchSummary(activeCompanyId, rows, {
+      queryCount: queries.length,
+      includeUnlinked: options.includeUnlinked,
+      includeLegacyCompanyIdField,
+      includeUrlCompanyId: options.includeUrlCompanyId,
+    });
     logEmployeeFetchPipeline('firestore-merged', {
       companyId: activeCompanyId,
       firestoreRawCount: rows.length,
