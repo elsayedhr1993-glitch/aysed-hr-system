@@ -44,8 +44,33 @@ export function employeeBelongsToTenant(
   targetCompanyId?: string | null
 ): boolean {
   const empCo = readEmployeeCompanyId(employee);
-  if (!empCo || !targetCompanyId) return false;
+  if (!targetCompanyId) return false;
+  if (!empCo) return false;
   return tenantCompanyIdsMatch(empCo, targetCompanyId);
+}
+
+/** Visible when extended directory mode includes orphans / prior company ids */
+export function employeeVisibleInDirectory(
+  employee?: Record<string, unknown> | null,
+  targetCompanyId?: string | null,
+  options?: { includeUnlinked?: boolean; includeNonTenantCompany?: boolean }
+): boolean {
+  if (!targetCompanyId || targetCompanyId === 'comp-super-admin') return true;
+  const includeUnlinked = Boolean(options?.includeUnlinked);
+  const includeNonTenant = Boolean(options?.includeNonTenantCompany);
+  const isUnlinked = Boolean((employee as Record<string, unknown>)?._isUnlinkedCompany);
+  if (includeUnlinked && isUnlinked) return true;
+  if (employeeBelongsToTenant(employee, targetCompanyId)) return true;
+  if (includeNonTenant && !isUnlinked) {
+    const raw = String(
+      (employee as Record<string, unknown>)?._rawCompanyId ??
+        (employee as Record<string, unknown>)?.companyId ??
+        (employee as Record<string, unknown>)?.company_id ??
+        ''
+    ).trim();
+    if (raw && !tenantCompanyIdsMatch(raw, targetCompanyId)) return true;
+  }
+  return false;
 }
 
 export function canAutoMaterializeContractForEmployee(

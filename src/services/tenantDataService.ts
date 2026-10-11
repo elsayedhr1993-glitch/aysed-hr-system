@@ -753,7 +753,11 @@ export const TenantDatabaseService = {
     if (!companyId) return [];
 
     try {
-      const employeesQuery = query(collection(db, 'employees'), where('companyId', '==', companyId));
+      const companyIds = contractQueryCompanyIds(companyId);
+      const employeesQuery =
+        companyIds.length === 1
+          ? query(collection(db, 'employees'), where('companyId', '==', companyIds[0]))
+          : query(collection(db, 'employees'), where('companyId', 'in', companyIds));
       const snap = await getDocs(employeesQuery);
       const allEmps: Employee[] = snap.docs.map(d => {
         const data = d.data();

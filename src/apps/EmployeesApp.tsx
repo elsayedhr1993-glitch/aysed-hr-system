@@ -21,9 +21,12 @@ import { useEffectiveTenantCompanyId } from '../hooks/useEffectiveTenantCompanyI
 import { useRegisterCopilotScreen } from '../context/CopilotContext';
 import {
   contractQueryCompanyIds,
-  employeeBelongsToTenant,
+  employeeVisibleInDirectory,
   normalizeTenantCompanyId,
 } from '../utils/contractTenantRules';
+import { subscribeMergedTenantEmployees } from '../utils/subscribeTenantEmployees';
+import { logEmployeeFetchPipeline } from '../utils/employeeFetchDebug';
+import { readCompanyIdFromUrl } from '../utils/tenantCompanyId';
 import { EmployeeOnboardingValidationError } from '../services/employeeOnboardingService';
 import {
   backfillMissingPlanStatuses,
@@ -313,6 +316,17 @@ export function EmployeesApp(props?: any) {
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [includeExtendedEmployeeDirectory, setIncludeExtendedEmployeeDirectory] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return (
+        params.get('include_unlinked') === '1' ||
+        localStorage.getItem('aysed_include_unlinked_employees') === '1'
+      );
+    } catch {
+      return false;
+    }
+  });
   const [showActionsDropdown, setShowActionsDropdown] = useState(false);
   const [activeCardMenuId, setActiveCardMenuId] = useState<string | null>(null);
   const [isLoadingDb, setIsLoadingDb] = useState(false);
@@ -547,7 +561,7 @@ export function EmployeesApp(props?: any) {
     }
   }, [props?.selectedEmployeeId, employees]);
 
-  // 2. مزامنة الموظفين حياً من Firestore (نفس مصدر OdooHierarchy)
+  // 2. مزامنة الموظفين حياً من Firestore (merged queries: companyId + company_id + optional orphans)
   useEffect(() => {
     if (!currentCompanyId) {
       setEmployees([]);
@@ -557,18 +571,41 @@ export function EmployeesApp(props?: any) {
     setEmployees([]);
     setIsLoadingDb(true);
 
-    const employeeCompanyIds = contractQueryCompanyIds(currentCompanyId);
-    const employeesQuery =
-      employeeCompanyIds.length === 1
-        ? query(collection(db, 'employees'), where('companyId', '==', employeeCompanyIds[0]))
-        : query(collection(db, 'employees'), where('companyId', 'in', employeeCompanyIds));
-
-    const unsubscribe = onSnapshot(
-      employeesQuery,
-      (snapshot) => {
-        const mapped = snapshot.docs.map((docSnap) =>
-          mapEmployeeForEmployeesAppView({ ...docSnap.data(), id: docSnap.id }, currentCompanyId)
-        );
+    const unsubscribe = subscribeMergedTenantEmployees(
+      currentCompanyId,
+      {
+        includeUnlinked: includeExtendedEmployeeDirectory,
+        includeLegacyCompanyIdField: true,
+        includeUrlCompanyId: includeExtendedEmployeeDirectory || Boolean(readCompanyIdFromUrl()),
+      },
+      (docs) => {
+        let droppedByMap = 0;
+        const mapped = docs.map((docRow) => {
+          try {
+            return mapEmployeeForEmployeesAppView(
+              { ...docRow.data, id: docRow.id },
+              currentCompanyId
+            );
+          } catch (error) {
+            droppedByMap += 1;
+            console.warn('[EmployeesApp] mapEmployeeForEmployeesAppView failed:', docRow.id, error);
+            return {
+              id: docRow.id,
+              companyId: currentCompanyId,
+              fullNameAr: 'موظف (بيانات تالفة)',
+              nameAr: 'موظف (بيانات تالفة)',
+              status: 'ACTIVE',
+              _mapError: true,
+            };
+          }
+        });
+        logEmployeeFetchPipeline('EmployeesApp-after-map', {
+          companyId: currentCompanyId,
+          firestoreRawCount: docs.length,
+          afterMapCount: mapped.length,
+          droppedByMap,
+          extra: { includeExtendedEmployeeDirectory },
+        });
         setEmployees(mapped);
         setIsLoadingDb(false);
       },
@@ -579,7 +616,7 @@ export function EmployeesApp(props?: any) {
     );
 
     return () => unsubscribe();
-  }, [currentCompanyId]);
+  }, [currentCompanyId, includeExtendedEmployeeDirectory]);
 
   const [contracts, setContracts] = useState<any[]>([]);
   const [commencements, setCommencements] = useState<any[]>([]);
@@ -966,12 +1003,15 @@ export function EmployeesApp(props?: any) {
     setChatterInput('');
   };
 
-  // 3. حظر تسريب الموظفين في العرض (Front-end Strict Filter)
+  // 3. فلترة العرض (كيان نشط + اختياري: غير مرتبطين / شركات سابقة)
   const visibleEmployees = employees.filter((emp) => {
     if (currentCompanyId === 'comp-super-admin' || !currentCompanyId) {
       return true;
     }
-    return employeeBelongsToTenant(emp, currentCompanyId);
+    return employeeVisibleInDirectory(emp, currentCompanyId, {
+      includeUnlinked: includeExtendedEmployeeDirectory,
+      includeNonTenantCompany: includeExtendedEmployeeDirectory,
+    });
   });
 
   const copilotScreen = useMemo(
@@ -1231,6 +1271,26 @@ export function EmployeesApp(props?: any) {
     return matchDept && matchStatus && matchSearch && matchesKpi;
   });
 
+  useEffect(() => {
+    logEmployeeFetchPipeline('EmployeesApp-pipeline', {
+      companyId: currentCompanyId,
+      firestoreRawCount: employees.length,
+      afterTenantFilterCount: visibleEmployees.length,
+      afterUiFilterCount: filteredEmployees.length,
+      droppedByTenant: employees.length - visibleEmployees.length,
+      extra: {
+        includeExtendedEmployeeDirectory,
+        urlCompanyId: readCompanyIdFromUrl() || null,
+      },
+    });
+  }, [
+    employees.length,
+    visibleEmployees.length,
+    filteredEmployees.length,
+    currentCompanyId,
+    includeExtendedEmployeeDirectory,
+  ]);
+
   // تصدير Excel حقيقي
   const exportToExcel = () => {
     const headers = ['المعرف', 'اسم الموظف', 'الرقم المدني', 'المسمى الوظيفي', 'القسم', 'الهاتف', 'تاريخ التعيين', 'ترخيص MOH', 'الراتب الأساسي', 'البدلات', 'إجمالي الراتب', 'الحالة'];
@@ -1384,6 +1444,33 @@ export function EmployeesApp(props?: any) {
         >
       {activeTab === 'directory' && (
             <>
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3 px-0.5">
+                <label className="flex items-center gap-2 text-[11px] font-bold text-slate-600 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="rounded border-slate-300 text-[#714B67] focus:ring-[#714B67]"
+                    checked={includeExtendedEmployeeDirectory}
+                    onChange={(e) => {
+                      const next = e.target.checked;
+                      setIncludeExtendedEmployeeDirectory(next);
+                      try {
+                        localStorage.setItem('aysed_include_unlinked_employees', next ? '1' : '0');
+                      } catch {
+                        /* ignore */
+                      }
+                      window.dispatchEvent(new Event('aysed_employee_directory_scope_changed'));
+                    }}
+                  />
+                  <span>
+                    عرض غير المرتبطين وشركات سابقة
+                    {readCompanyIdFromUrl() ? ` (يشمل companyId من الرابط)` : ''}
+                  </span>
+                </label>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  Firestore: {employees.length} → معروض: {visibleEmployees.length} → بعد الفلاتر:{' '}
+                  {filteredEmployees.length}
+                </span>
+              </div>
               {isLoadingDb ? (
                 <div className="bg-white rounded-xl border border-slate-200/70 p-10 text-center">
                   <RefreshCw size={22} className="text-[#714B67] animate-spin mx-auto mb-3" />

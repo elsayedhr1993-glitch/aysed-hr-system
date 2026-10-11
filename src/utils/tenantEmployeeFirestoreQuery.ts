@@ -1,20 +1,13 @@
-import { collection, query, where, type Query } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import type { Query } from 'firebase/firestore';
 import { contractQueryCompanyIds } from './contractTenantRules';
+import { buildTenantEmployeeFirestoreQueries } from './subscribeTenantEmployees';
 
-/** Firestore `employees` query scoped to all legacy/canonical company ids for the tenant session. */
+/** Primary Firestore query (first of merged tenant queries). Prefer subscribeMergedTenantEmployees. */
 export function buildTenantEmployeesQuery(activeCompanyId: string): Query | null {
-  const id = String(activeCompanyId || '').trim();
-  if (!id) return null;
-
-  const companyIds = contractQueryCompanyIds(id);
-  if (companyIds.length === 0) return null;
-
-  if (companyIds.length === 1) {
-    return query(collection(db, 'employees'), where('companyId', '==', companyIds[0]));
-  }
-
-  return query(collection(db, 'employees'), where('companyId', 'in', companyIds));
+  const queries = buildTenantEmployeeFirestoreQueries(activeCompanyId, {
+    includeLegacyCompanyIdField: true,
+  });
+  return queries[0] ?? null;
 }
 
 export function tenantEmployeeQueryCompanyIds(activeCompanyId: string): string[] {

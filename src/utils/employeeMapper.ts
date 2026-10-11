@@ -2,7 +2,8 @@ import { Employee } from '../types';
 import { sanitizeEmployeeRecordForFirestore } from './employeeDocumentStorage';
 
 export function normalizeEmployeeRecord(raw: Partial<Employee> & Record<string, any>, companyId?: string): Employee {
-  const resolvedCompanyId = companyId || raw.companyId || raw.company_id || 'comp-super-admin';
+  const rawCompanyId = String(raw.companyId ?? raw.company_id ?? '').trim();
+  const resolvedCompanyId = rawCompanyId || String(companyId ?? '').trim() || 'comp-super-admin';
   const basicSalary = Number(raw.basicSalary ?? raw.basic_salary ?? raw.contractSalary ?? raw.salary ?? 0);
   const housingAllowance = Number(raw.housingAllowance ?? raw.housing_allowance ?? 0);
   const transportAllowance = Number(raw.transportAllowance ?? raw.transport_allowance ?? 0);
@@ -18,6 +19,8 @@ export function normalizeEmployeeRecord(raw: Partial<Employee> & Record<string, 
     id: String(raw.id || ''),
     companyId: resolvedCompanyId,
     company_id: resolvedCompanyId,
+    _isUnlinkedCompany: !rawCompanyId,
+    _rawCompanyId: rawCompanyId || undefined,
     fullNameAr,
     full_name_ar: fullNameAr,
     fullNameEn,

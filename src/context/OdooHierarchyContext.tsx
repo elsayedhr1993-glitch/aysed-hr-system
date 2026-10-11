@@ -14,8 +14,22 @@ import {
 import { db, cleanFirestoreData } from '../lib/firebase';
 import { normalizeEmployeeRecord } from '../utils/employeeMapper';
 import { normalizeContractStatus } from '../utils/contractStatus';
-import { employeeBelongsToTenant } from '../utils/contractTenantRules';
-import { buildTenantEmployeesQuery } from '../utils/tenantEmployeeFirestoreQuery';
+import { employeeVisibleInDirectory } from '../utils/contractTenantRules';
+import { subscribeMergedTenantEmployees } from '../utils/subscribeTenantEmployees';
+import { logEmployeeFetchPipeline } from '../utils/employeeFetchDebug';
+import { readCompanyIdFromUrl } from '../utils/tenantCompanyId';
+
+function readIncludeExtendedEmployeeDirectory(): boolean {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    return (
+      params.get('include_unlinked') === '1' ||
+      localStorage.getItem('aysed_include_unlinked_employees') === '1'
+    );
+  } catch {
+    return false;
+  }
+}
 
 // 1. المستوى الأول: العقد والبيانات الثابتة (hr.contract & hr.employee)
 export interface EmployeeContract {
@@ -237,11 +251,17 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
   const { isLoading: authLoading } = useAuth();
   const currentCompanyId = useEffectiveTenantCompanyId();
   const [tenantBindTick, setTenantBindTick] = useState(0);
+  const [employeeScopeTick, setEmployeeScopeTick] = useState(0);
 
   useEffect(() => {
     const onTenantBound = () => setTenantBindTick((t) => t + 1);
+    const onScopeChanged = () => setEmployeeScopeTick((t) => t + 1);
     window.addEventListener('aysed_tenant_bound', onTenantBound);
-    return () => window.removeEventListener('aysed_tenant_bound', onTenantBound);
+    window.addEventListener('aysed_employee_directory_scope_changed', onScopeChanged);
+    return () => {
+      window.removeEventListener('aysed_tenant_bound', onTenantBound);
+      window.removeEventListener('aysed_employee_directory_scope_changed', onScopeChanged);
+    };
   }, []);
 
   // بيانات العقود المركزية
@@ -257,18 +277,32 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
 
     setEmployees([]); // Clear immediately on company change to prevent cross-company bleed
 
-    const q = buildTenantEmployeesQuery(currentCompanyId);
-    if (!q) {
-      setEmployees([]);
-      return;
-    }
+    const includeExtended = readIncludeExtendedEmployeeDirectory();
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (!snapshot.empty) {
-        const mapped: EmployeeContract[] = snapshot.docs
-          .map((docSnap) => {
-              const emp = normalizeEmployeeRecord({ ...docSnap.data(), id: docSnap.id }, currentCompanyId) as any;
-              const civilExpiry = emp.civilIdExpiry || emp.civilIdExpiryDate || emp.civil_id_expiry || emp.raw_payload?.civilIdExpiry || emp.raw_payload?.civilIdExpiryDate || emp.raw_payload?.civil_id_expiry || '';
+    const unsubscribe = subscribeMergedTenantEmployees(
+      currentCompanyId,
+      {
+        includeUnlinked: includeExtended,
+        includeLegacyCompanyIdField: true,
+        includeUrlCompanyId: includeExtended || Boolean(readCompanyIdFromUrl()),
+      },
+      (docs) => {
+        let droppedByMap = 0;
+        const mapped: EmployeeContract[] = docs
+          .map((docRow) => {
+            try {
+              const emp = normalizeEmployeeRecord(
+                { ...docRow.data, id: docRow.id },
+                currentCompanyId
+              ) as any;
+              const civilExpiry =
+                emp.civilIdExpiry ||
+                emp.civilIdExpiryDate ||
+                emp.civil_id_expiry ||
+                emp.raw_payload?.civilIdExpiry ||
+                emp.raw_payload?.civilIdExpiryDate ||
+                emp.raw_payload?.civil_id_expiry ||
+                '';
               return {
                 ...emp,
                 id: emp.id,
@@ -286,38 +320,74 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
                 medicalAllowance: emp.medicalAllowance,
                 otherAllowance: emp.otherAllowance,
                 otherAllowances: emp.otherAllowance,
-                allowances: Number(emp.allowances || (emp.housingAllowance + emp.transportAllowance + emp.medicalAllowance + emp.otherAllowance)),
-                totalSalary: Number(emp.totalSalary || (emp.basicSalary + emp.housingAllowance + emp.transportAllowance + emp.medicalAllowance + emp.otherAllowance)),
+                allowances: Number(
+                  emp.allowances ||
+                    emp.housingAllowance +
+                      emp.transportAllowance +
+                      emp.medicalAllowance +
+                      emp.otherAllowance
+                ),
+                totalSalary: Number(
+                  emp.totalSalary ||
+                    emp.basicSalary +
+                      emp.housingAllowance +
+                      emp.transportAllowance +
+                      emp.medicalAllowance +
+                      emp.otherAllowance
+                ),
                 isKuwaiti: Boolean(emp.isKuwaiti),
                 bankName: emp.bankName || 'بيت التمويل الكويتي (KFH)',
                 iban: emp.iban || '',
-                contractStatus: normalizeContractStatus(emp.contractStatus || emp.status || (['TERMINATED', 'RESIGNED', 'مستقيل', 'منتهي'].includes(emp.status) ? 'expired' : 'running')),
+                contractStatus: normalizeContractStatus(
+                  emp.contractStatus ||
+                    emp.status ||
+                    (['TERMINATED', 'RESIGNED', 'مستقيل', 'منتهي'].includes(emp.status) ? 'expired' : 'running')
+                ),
                 status: normalizeContractStatus(emp.contractStatus || emp.status || 'running'),
                 commencementDate: emp.commencementDate || emp.joinDate || '',
                 terminationDate: emp.terminationDate || '',
                 resignationDate: emp.resignationDate || '',
                 eosReason: emp.eosReason || '',
-                eosSettlementAmount: emp.eosSettlementAmount || 0
+                eosSettlementAmount: emp.eosSettlementAmount || 0,
               };
-        })
-          .filter((row) => employeeBelongsToTenant(row, currentCompanyId));
+            } catch (error) {
+              droppedByMap += 1;
+              console.warn('[OdooHierarchy] normalize employee failed:', docRow.id, error);
+              return null;
+            }
+          })
+          .filter((row): row is EmployeeContract => Boolean(row))
+          .filter((row) =>
+            employeeVisibleInDirectory(row, currentCompanyId, {
+              includeUnlinked: includeExtended,
+              includeNonTenantCompany: includeExtended,
+            })
+          );
+        logEmployeeFetchPipeline('OdooHierarchy', {
+          companyId: currentCompanyId,
+          firestoreRawCount: docs.length,
+          afterMapCount: docs.length - droppedByMap,
+          afterTenantFilterCount: mapped.length,
+          droppedByMap,
+          droppedByTenant: docs.length - droppedByMap - mapped.length,
+          extra: { includeExtended },
+        });
         setEmployees(mapped);
-      } else {
-        setEmployees([]);
+      },
+      (error) => {
+        const code = String((error as { code?: string })?.code || '');
+        console.error('Error in realtime employee sync:', error);
+        if (code === 'permission-denied') {
+          toast.error(
+            'تعذّر قراءة بيانات الموظفين (صلاحيات Firestore). سجّل الخروج ثم الدخول مرة أخرى، أو تأكد من ربط حسابك بشركة المنار.',
+            { id: 'employees-permission-denied', duration: 8000 }
+          );
+        }
       }
-    }, (error) => {
-      const code = String((error as { code?: string })?.code || '');
-      console.error('Error in realtime employee sync:', error);
-      if (code === 'permission-denied') {
-        toast.error(
-          'تعذّر قراءة بيانات الموظفين (صلاحيات Firestore). سجّل الخروج ثم الدخول مرة أخرى، أو تأكد من ربط حسابك بشركة المنار.',
-          { id: 'employees-permission-denied', duration: 8000 }
-        );
-      }
-    });
+    );
 
     return () => unsubscribe();
-  }, [currentCompanyId, authLoading, tenantBindTick]);
+  }, [currentCompanyId, authLoading, tenantBindTick, employeeScopeTick]);
 
   // حركات البصمة
   const [attendance, setAttendance] = useState<Record<string, AttendanceLog>>({});
