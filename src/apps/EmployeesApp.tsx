@@ -297,6 +297,22 @@ export const calculateEmployeeTotalSalary = (emp: any): number => {
   return basic + totalAllowances;
 };
 
+function resolveEmployeeAvatarUrl(emp: Record<string, unknown>): string | null {
+  const raw =
+    emp.avatarUrl ??
+    emp.avatar ??
+    emp.photoUrl ??
+    emp.image ??
+    emp.profileImage ??
+    emp.profilePhoto ??
+    (emp.raw_payload as Record<string, unknown> | undefined)?.avatarUrl ??
+    (emp.raw_payload as Record<string, unknown> | undefined)?.avatar;
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return null;
+  return trimmed;
+}
+
 export function EmployeesApp(props?: any) {
   const { activeCompany } = useCompany();
   const currentCompanyId = useEffectiveTenantCompanyId();
@@ -329,6 +345,7 @@ export function EmployeesApp(props?: any) {
   });
   const [showActionsDropdown, setShowActionsDropdown] = useState(false);
   const [activeCardMenuId, setActiveCardMenuId] = useState<string | null>(null);
+  const [brokenAvatarIds, setBrokenAvatarIds] = useState<Set<string>>(() => new Set());
   const [isLoadingDb, setIsLoadingDb] = useState(false);
 
   useEffect(() => {
@@ -1524,6 +1541,10 @@ export function EmployeesApp(props?: any) {
                     const hasDocAlert = civilStatus.isExpired || civilStatus.isExpiringSoon || passStatus.isExpired || passStatus.isExpiringSoon;
                     const displayName = emp.nameAr || emp.fullNameAr || 'موظف';
                     const initials = displayName.replace(/\s+/g, '').slice(0, 2) || 'مو';
+                    const avatarUrl = resolveEmployeeAvatarUrl(emp as Record<string, unknown>);
+                    const showAvatarImage = Boolean(avatarUrl) && !brokenAvatarIds.has(emp.id);
+                    const departmentLabel = emp.dept || emp.department || 'العموم';
+                    const jobLine = [emp.jobTitle || 'موظف', emp.specialty].filter(Boolean).join(' • ');
 
                     return (
                     <div 
@@ -1539,8 +1560,28 @@ export function EmployeesApp(props?: any) {
                     >
                       <div className="flex items-start justify-between gap-2 min-w-0">
                         <div className="flex items-start gap-3 min-w-0 flex-1">
-                          <div className={`w-11 h-11 rounded-full ${emp.avatarColor || 'bg-[#714B67]'} text-white flex items-center justify-center font-bold text-sm shadow-2xs shrink-0 select-none relative mt-0.5`}>
-                            {initials}
+                          <div className="relative shrink-0 w-12 h-12 mt-0.5">
+                            {showAvatarImage ? (
+                              <img
+                                src={avatarUrl!}
+                                alt=""
+                                className="w-12 h-12 rounded-full object-cover border border-slate-200 shadow-2xs bg-white"
+                                loading="lazy"
+                                onError={() => {
+                                  setBrokenAvatarIds((prev) => {
+                                    const next = new Set(prev);
+                                    next.add(emp.id);
+                                    return next;
+                                  });
+                                }}
+                              />
+                            ) : (
+                              <div
+                                className={`w-12 h-12 rounded-full border border-slate-200/80 ${emp.avatarColor || 'bg-[#714B67]'} text-white flex items-center justify-center font-bold text-sm shadow-2xs select-none`}
+                              >
+                                {initials}
+                              </div>
+                            )}
                             {(civilStatus.isExpired || passStatus.isExpired) && (
                               <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-rose-600 rounded-full border-2 border-white flex items-center justify-center text-[8px] text-white font-black" title="وثيقة منتهية">
                                 !
@@ -1548,21 +1589,20 @@ export function EmployeesApp(props?: any) {
                             )}
                           </div>
 
-                          <div className="min-w-0 flex-1">
+                          <div className="min-w-0 flex-1 text-right">
                             <h3
-                              className="font-bold text-slate-900 text-sm leading-snug line-clamp-2 group-hover:text-[#714B67] transition break-words"
+                              className="font-semibold text-slate-800 text-sm leading-snug line-clamp-2 group-hover:text-[#714B67] transition break-words"
                               title={displayName}
                             >
                               {displayName}
                             </h3>
-                            <p className="text-xs text-slate-500 line-clamp-2 mt-0.5 font-medium leading-relaxed">
-                              {emp.jobTitle || 'موظف'}
-                              {emp.specialty ? ` • ${emp.specialty}` : ''}
+                            <p className="text-xs text-slate-500 line-clamp-2 mt-0.5 leading-relaxed">
+                              {jobLine}
                             </p>
-                            <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                              <span className="inline-block bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md text-[10px] font-medium line-clamp-1 max-w-full">
-                                🏢 {emp.dept || emp.department || 'العموم'}
-                              </span>
+                            <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">
+                              {departmentLabel}
+                            </p>
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
                               {emp.mohLicense && (
                                 <span className="inline-block bg-purple-50 text-purple-700 border border-purple-100 px-1.5 py-0.5 rounded-md text-[10px] font-mono font-medium shrink-0" title={`ترخيص وزارة الصحة: ${emp.mohLicense}`}>
                                   MOH: {emp.mohLicense}
