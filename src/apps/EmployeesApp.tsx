@@ -1596,11 +1596,17 @@ export function EmployeesApp(props?: any) {
                             >
                               {displayName}
                             </h3>
-                            <p className="text-xs text-slate-500 line-clamp-2 mt-0.5 leading-relaxed">
-                              {jobLine}
-                            </p>
-                            <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">
-                              {departmentLabel}
+                            <p
+                              className="text-[11px] text-slate-500 line-clamp-2 mt-1 leading-snug break-words"
+                              title={[jobLine, departmentLabel].filter(Boolean).join(' · ')}
+                            >
+                              <span>{jobLine}</span>
+                              {departmentLabel ? (
+                                <>
+                                  <span className="text-slate-400 mx-1" aria-hidden>·</span>
+                                  <span>{departmentLabel}</span>
+                                </>
+                              ) : null}
                             </p>
                             <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
                               {emp.mohLicense && (
