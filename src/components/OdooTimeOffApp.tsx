@@ -31,7 +31,10 @@ import {
   Ban,
   ChevronRight,
   Filter,
-  DollarSign
+  DollarSign,
+  MoreVertical,
+  GanttChart,
+  Pencil
 } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
 import { useRegisterCopilotScreen } from '../context/CopilotContext';
@@ -69,6 +72,12 @@ import { loadTenantPolicy } from '../services/hrPolicyStorage';
 import { AbsenceTimelineView } from './timeoff/AbsenceTimelineView';
 import { OperationalAbsencePanel } from './timeoff/OperationalAbsencePanel';
 import { TimeOffPayrollFinancePanel } from './timeoff/TimeOffPayrollFinancePanel';
+import {
+  QuickEncashmentModal,
+  EditAllocationBalanceModal,
+  resolveAllocationStatusBadge,
+  type AllocationRow,
+} from './timeoff/TimeOffBalanceRowModals';
 import { useOperationalAbsenceRows } from '../hooks/useOperationalAbsenceRows';
 import { DynamicTabsContainer } from './studio/DynamicTabsContainer';
 import { ScreenLayoutStudioToggle } from './studio/ScreenLayoutStudioToggle';
@@ -143,6 +152,7 @@ const leaveTypeLabels: Record<string, { label: string; color: string; maxDaysRul
 };
 
 type LeavesMainTab = 'requests' | 'allocations' | 'timeline' | 'operational_absence' | 'finance';
+type TimeOffHeaderView = 'list' | 'calendar' | 'gantt';
 
 export interface OdooTimeOffAppProps {
   initialMainTab?: LeavesMainTab;
@@ -159,6 +169,9 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
   const { employees } = useOdooHierarchy();
   const { user } = useAuth();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const userRole = String(user?.role || '').toUpperCase();
+  const canEditLeaveBalance =
+    isSuperAdmin || userRole === 'COMPANY_ADMIN' || userRole === 'HR_MANAGER' || userRole === 'HR_ADMIN';
   const companyId = activeCompany?.id || 'comp-super-admin';
 
   const {
@@ -236,7 +249,11 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
   }, [initialMainTab, mainTabNavigationKey]);
   const { rows: operationalAbsenceRows, loading: operationalAbsenceLoading } =
     useOperationalAbsenceRows(companyId);
-  const [requestsViewMode, setRequestsViewMode] = useState<'list' | 'calendar'>('list');
+  const [headerViewMode, setHeaderViewMode] = useState<TimeOffHeaderView>('list');
+  const [requestsViewMode, setRequestsViewMode] = useState<'list' | 'calendar' | 'gantt'>('list');
+  const [allocationActionsMenuId, setAllocationActionsMenuId] = useState<string | null>(null);
+  const [encashmentAllocationRow, setEncashmentAllocationRow] = useState<AllocationRow | null>(null);
+  const [editAllocationRow, setEditAllocationRow] = useState<AllocationRow | null>(null);
   const [compactLeavesUI, setCompactLeavesUI] = useState(() => readLeavesCompactPreference());
 
   const { layout: leavesLayout, locale: layoutLocale } = useScreenLayout('leaves');
@@ -273,6 +290,53 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
   // Modal Control States
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [showAllocationModal, setShowAllocationModal] = useState(false);
+
+  const mapAllocationsForEngine = useMemo(
+    () =>
+      allocations.map((a) => {
+        const rawNumberOfDays = Number((a as any).numberOfDays ?? (a as any).days ?? 0) || 0;
+        const rawConsumedDays = Number((a as any).consumedDays ?? 0) || 0;
+        const rawEncashedDays = Number((a as any).encashedDays ?? 0) || 0;
+        return {
+          ...a,
+          numberOfDays: rawNumberOfDays,
+          consumedDays: rawConsumedDays,
+          encashedDays: rawEncashedDays,
+          remainingDays:
+            (a as any).remainingDays ??
+            Math.max(0, rawNumberOfDays - rawConsumedDays - rawEncashedDays),
+          allocationType: (a as any).allocationType ?? (a as any).type ?? 'regular',
+          state: (a as any).state || 'validate',
+          name: (a as any).name || (a as any).notes || '',
+          dateFrom: (a as any).dateFrom || (a as any).allocationDate || '2026-01-01',
+          companyId: (a as any).companyId || companyId,
+        } as HrLeaveAllocation;
+      }),
+    [allocations, companyId]
+  );
+
+  const persistAllocationsBatch = async (updated: HrLeaveAllocation[]) => {
+    setAllocations(updated as any);
+    await Promise.all(
+      updated.map((allocation) =>
+        setDoc(
+          doc(db, 'leave_allocations', allocation.id),
+          cleanFirestoreData({ ...allocation, companyId }),
+          { merge: true }
+        )
+      )
+    );
+  };
+
+  const applyHeaderViewMode = (mode: TimeOffHeaderView) => {
+    setHeaderViewMode(mode);
+    if (mode === 'list') {
+      setRequestsViewMode('list');
+      return;
+    }
+    setActiveMainTab('requests');
+    setRequestsViewMode(mode === 'gantt' ? 'gantt' : 'calendar');
+  };
   const [showPolicyWizardModal, setShowPolicyWizardModal] = useState(false);
   const [leavePolicy, setLeavePolicy] = useState<LeavePolicyData>(() => getLeaveMasterPolicy());
 
@@ -981,6 +1045,41 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
               <span className="bg-[#714B67]/10 text-[#714B67] text-[10px] font-bold px-2.5 py-0.5 rounded-full">
                 Odoo 18 Enterprise
               </span>
+              <div
+                className="flex items-center bg-white border border-slate-200 rounded-lg p-0.5 text-[10px] font-bold shadow-2xs"
+                title="تبديل العرض — List | Calendar | Gantt"
+              >
+                <button
+                  type="button"
+                  onClick={() => applyHeaderViewMode('list')}
+                  className={`px-2 py-1 rounded-md flex items-center gap-1 cursor-pointer transition ${
+                    headerViewMode === 'list' ? 'bg-[#714B67] text-white shadow-2xs' : 'text-slate-500 hover:bg-slate-50'
+                  }`}
+                >
+                  <List size={13} />
+                  <span className="hidden sm:inline">List</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyHeaderViewMode('calendar')}
+                  className={`px-2 py-1 rounded-md flex items-center gap-1 cursor-pointer transition ${
+                    headerViewMode === 'calendar' ? 'bg-[#714B67] text-white shadow-2xs' : 'text-slate-500 hover:bg-slate-50'
+                  }`}
+                >
+                  <Calendar size={13} />
+                  <span className="hidden sm:inline">Calendar</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyHeaderViewMode('gantt')}
+                  className={`px-2 py-1 rounded-md flex items-center gap-1 cursor-pointer transition ${
+                    headerViewMode === 'gantt' ? 'bg-[#714B67] text-white shadow-2xs' : 'text-slate-500 hover:bg-slate-50'
+                  }`}
+                >
+                  <GanttChart size={13} />
+                  <span className="hidden sm:inline">Gantt</span>
+                </button>
+              </div>
               <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200/80 text-[10px] font-bold">
                 <button
                   type="button"
@@ -1117,7 +1216,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
           className="bg-white p-4 rounded-xl border border-blue-200 shadow-2xs cursor-pointer hover:border-blue-400 hover:shadow-md transition group"
           onClick={() => {
             setActiveMainTab('requests');
-            setRequestsViewMode('calendar');
+            applyHeaderViewMode('calendar');
           }}
           title="عرض تقويم الإجازات لهذا الأسبوع"
         >
@@ -1263,19 +1362,27 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
               <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200/80 shrink-0">
                 <button
                   type="button"
-                  onClick={() => setRequestsViewMode('list')}
+                  onClick={() => applyHeaderViewMode('list')}
                   className={`p-1.5 rounded-md cursor-pointer ${requestsViewMode === 'list' ? 'bg-white text-[#714B67] shadow-2xs' : 'text-slate-400'}`}
-                  title="عرض الجدول"
+                  title="List"
                 >
                   <List size={14} />
                 </button>
                 <button
                   type="button"
-                  onClick={() => setRequestsViewMode('calendar')}
+                  onClick={() => applyHeaderViewMode('calendar')}
                   className={`p-1.5 rounded-md cursor-pointer ${requestsViewMode === 'calendar' ? 'bg-white text-[#714B67] shadow-2xs' : 'text-slate-400'}`}
-                  title="عرض التقويم / Gantt"
+                  title="Calendar"
                 >
                   <Calendar size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyHeaderViewMode('gantt')}
+                  className={`p-1.5 rounded-md cursor-pointer ${requestsViewMode === 'gantt' ? 'bg-white text-[#714B67] shadow-2xs' : 'text-slate-400'}`}
+                  title="Gantt"
+                >
+                  <GanttChart size={14} />
                 </button>
               </div>
               <div className="relative flex-1 md:w-72 min-w-[140px]">
@@ -1291,12 +1398,13 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
             </div>
           </div>
 
-          {requestsViewMode === 'calendar' ? (
+          {requestsViewMode !== 'list' ? (
             <div className="animate-in fade-in duration-300">
               <AbsenceTimelineView
                 requests={requests}
                 totalEmployeesCount={companyEmployees.length}
                 onSelectRequest={(req) => setSelectedPrintReq(req)}
+                variant={requestsViewMode === 'gantt' ? 'gantt' : 'calendar'}
               />
             </div>
           ) : (
@@ -1568,7 +1676,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                   <th className="p-3.5">الأيام الممنوحة</th>
                   <th className="p-3.5">تاريخ التخصيص</th>
                   <th className="p-3.5">البيان والسبب</th>
-                  <th className="p-3.5">المعتمد</th>
+                  <th className="p-3.5">المعتمد / الحالة</th>
                   <th className="p-3.5 text-center">إجراءات</th>
                 </tr>
               </thead>
@@ -1588,16 +1696,76 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                     <td className="p-3.5 font-mono font-black text-emerald-700 text-sm">+{Number(alloc.days ?? alloc.numberOfDays ?? alloc.number_of_days ?? 0)} يوم</td>
                     <td className="p-3.5 font-mono text-slate-500">{alloc.allocationDate || alloc.dateFrom || alloc.date_from || '---'}</td>
                     <td className="p-3.5 text-slate-600">{alloc.notes || alloc.name || '---'}</td>
-                    <td className="p-3.5 text-slate-500">{alloc.allocatedBy || 'الموارد البشرية'}</td>
-                    <td className="p-3.5 text-center">
+                    <td className="p-3.5">
+                      <div className="text-slate-600 font-medium">{alloc.allocatedBy || 'الموارد البشرية'}</div>
+                      {(() => {
+                        const badge = resolveAllocationStatusBadge(alloc as AllocationRow);
+                        return (
+                          <span
+                            className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full border text-[10px] font-bold ${badge.className}`}
+                          >
+                            {badge.labelAr}
+                            <span className="opacity-70 font-mono text-[9px]">{badge.labelEn}</span>
+                          </span>
+                        );
+                      })()}
+                    </td>
+                    <td className="p-3.5 text-center relative">
                       <button
                         type="button"
-                        onClick={() => handleDeleteAllocation(alloc as any)}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
-                        title="حذف سطر التخصيص"
+                        onClick={() =>
+                          setAllocationActionsMenuId((prev) =>
+                            prev === String(alloc.id) ? null : String(alloc.id)
+                          )
+                        }
+                        className="p-2 text-slate-500 hover:text-[#714B67] hover:bg-purple-50 rounded-lg border border-transparent hover:border-purple-100 transition cursor-pointer"
+                        title="إجراءات الرصيد"
                       >
-                        <Trash2 size={15} />
+                        <MoreVertical size={16} />
                       </button>
+                      {allocationActionsMenuId === String(alloc.id) && (
+                        <div
+                          className="absolute left-1/2 -translate-x-1/2 mt-1 z-20 min-w-[210px] bg-white border border-slate-200 rounded-xl shadow-lg py-1 text-right text-[11px] font-bold"
+                          onMouseLeave={() => setAllocationActionsMenuId(null)}
+                        >
+                          <button
+                            type="button"
+                            className="w-full px-3 py-2 hover:bg-emerald-50 text-emerald-900 flex items-center gap-2 cursor-pointer"
+                            onClick={() => {
+                              setAllocationActionsMenuId(null);
+                              setEncashmentAllocationRow(alloc as AllocationRow);
+                            }}
+                          >
+                            <DollarSign size={14} className="text-emerald-600 shrink-0" />
+                            <span>💵 تسييل نقدي (Encashment)</span>
+                          </button>
+                          <button
+                            type="button"
+                            disabled={!canEditLeaveBalance}
+                            className="w-full px-3 py-2 hover:bg-slate-50 text-slate-800 flex items-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                            onClick={() => {
+                              setAllocationActionsMenuId(null);
+                              setEditAllocationRow(alloc as AllocationRow);
+                            }}
+                          >
+                            <Pencil size={14} className="text-[#714B67] shrink-0" />
+                            <span>✏️ تعديل الرصيد</span>
+                          </button>
+                          {canEditLeaveBalance && (
+                            <button
+                              type="button"
+                              className="w-full px-3 py-2 hover:bg-rose-50 text-rose-700 flex items-center gap-2 border-t border-slate-100 cursor-pointer"
+                              onClick={() => {
+                                setAllocationActionsMenuId(null);
+                                void handleDeleteAllocation(alloc as any);
+                              }}
+                            >
+                              <Trash2 size={14} />
+                              <span>حذف السطر</span>
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -2240,6 +2408,40 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
           stageLabel={rejectionModalState.stageLabel}
           onClose={() => setRejectionModalState(null)}
           onConfirmReject={handleConfirmRejection}
+        />
+      )}
+
+      {encashmentAllocationRow && (
+        <QuickEncashmentModal
+          allocation={encashmentAllocationRow}
+          companyId={companyId}
+          allocations={mapAllocationsForEngine}
+          employee={
+            companyEmployees.find((e) => e.id === encashmentAllocationRow.employeeId) as Employee | undefined
+          }
+          netAvailableDays={
+            getEmployeeContractBalance(String(encashmentAllocationRow.employeeId || '')).available
+          }
+          onClose={() => setEncashmentAllocationRow(null)}
+          onAllocationsUpdated={(updated) => {
+            void persistAllocationsBatch(updated);
+          }}
+        />
+      )}
+
+      {editAllocationRow && (
+        <EditAllocationBalanceModal
+          allocation={editAllocationRow}
+          companyId={companyId}
+          canEdit={canEditLeaveBalance}
+          onClose={() => setEditAllocationRow(null)}
+          onSaved={(patch) => {
+            setAllocations((previous) =>
+              previous.map((row) =>
+                row.id === editAllocationRow.id ? { ...row, ...patch } : row
+              )
+            );
+          }}
         />
       )}
 

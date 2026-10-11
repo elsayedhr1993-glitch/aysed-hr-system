@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Calendar, Users, Filter, AlertTriangle, ShieldCheck, Clock, ChevronRight, ChevronLeft, Info, CheckCircle2 } from 'lucide-react';
 import { LeaveRequest } from '../OdooTimeOffApp';
 
@@ -6,16 +6,26 @@ interface AbsenceTimelineViewProps {
   requests: LeaveRequest[];
   totalEmployeesCount: number;
   onSelectRequest?: (req: LeaveRequest) => void;
+  /** calendar = أسبوع، gantt = شهر (محاكاة Odoo) */
+  variant?: 'default' | 'calendar' | 'gantt';
 }
 
 export const AbsenceTimelineView: React.FC<AbsenceTimelineViewProps> = ({
   requests,
   totalEmployeesCount,
-  onSelectRequest
+  onSelectRequest,
+  variant = 'default',
 }) => {
   const [selectedDept, setSelectedDept] = useState<string>('ALL');
-  const [timelineWindow, setTimelineWindow] = useState<'week' | 'fortnight' | 'month'>('fortnight');
+  const initialWindow =
+    variant === 'calendar' ? 'week' : variant === 'gantt' ? 'month' : 'fortnight';
+  const [timelineWindow, setTimelineWindow] = useState<'week' | 'fortnight' | 'month'>(initialWindow);
   const [baseDate, setBaseDate] = useState<Date>(new Date());
+
+  useEffect(() => {
+    if (variant === 'calendar') setTimelineWindow('week');
+    else if (variant === 'gantt') setTimelineWindow('month');
+  }, [variant]);
 
   // Available departments
   const departments = useMemo(() => {
