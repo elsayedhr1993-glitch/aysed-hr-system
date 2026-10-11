@@ -35,6 +35,8 @@
     "manar:upload-license-pdfs": "tsx scripts/upload-manar-license-pdfs-admin.ts --apply-firestore",
     "manar:import-licenses": "tsx scripts/import-manar-licenses-from-inbox.ts --apply",
     "manar:probe-licenses": "tsx scripts/probe-manar-licenses-admin.ts",
+    "manar:fix-watch-employees-company-id": "tsx scripts/fix-manar-watch-employees-company-id.ts",
+    "manar:fix-watch-employees-company-id:apply": "tsx scripts/fix-manar-watch-employees-company-id.ts --apply",
     "tenants:list-logins": "tsx scripts/list-tenant-logins-admin.ts",
     "health:platform": "node scripts/platform-health-check.mjs",
     "health:platform:prod": "node scripts/platform-health-check.mjs --prod",
