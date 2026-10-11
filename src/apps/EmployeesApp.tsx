@@ -1522,12 +1522,14 @@ export function EmployeesApp(props?: any) {
                     const civilStatus = checkDocumentExpiry(civilExp, 'البطاقة المدنية');
                     const passStatus = checkDocumentExpiry(passExp, 'جواز السفر');
                     const hasDocAlert = civilStatus.isExpired || civilStatus.isExpiringSoon || passStatus.isExpired || passStatus.isExpiringSoon;
+                    const displayName = emp.nameAr || emp.fullNameAr || 'موظف';
+                    const initials = displayName.replace(/\s+/g, '').slice(0, 2) || 'مو';
 
                     return (
                     <div 
                       key={emp.id} 
                       onClick={() => openEmployeeModal(emp)}
-                      className={`bg-white rounded-xl border p-4 shadow-2xs hover:shadow-md transition-all cursor-pointer relative group flex flex-col justify-between ${
+                      className={`bg-white rounded-xl border p-4 shadow-2xs hover:shadow-md transition-all cursor-pointer relative group flex flex-col h-full min-w-0 ${
                         civilStatus.isExpired || passStatus.isExpired
                           ? 'border-rose-300 bg-rose-50/20 hover:border-rose-400'
                           : hasDocAlert
@@ -1535,54 +1537,44 @@ export function EmployeesApp(props?: any) {
                           : 'border-slate-200/90 hover:border-[#714B67]/40'
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        {/* الصورة / الحروف الأولى + الاسم والمسمى والتخصص والقسم */}
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <div className={`w-11 h-11 rounded-full ${emp.avatarColor || 'bg-[#714B67]'} text-white flex items-center justify-center font-bold text-sm shadow-2xs shrink-0 select-none relative`}>
-                            {emp.nameAr ? emp.nameAr.slice(0, 2) : 'مو'}
-                            {civilStatus.isExpired && (
-                              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-rose-600 rounded-full border-2 border-white flex items-center justify-center text-[8px] text-white font-black animate-pulse" title="البطاقة المدنية منتهية!">
+                      <div className="flex items-start justify-between gap-2 min-w-0">
+                        <div className="flex items-start gap-3 min-w-0 flex-1">
+                          <div className={`w-11 h-11 rounded-full ${emp.avatarColor || 'bg-[#714B67]'} text-white flex items-center justify-center font-bold text-sm shadow-2xs shrink-0 select-none relative mt-0.5`}>
+                            {initials}
+                            {(civilStatus.isExpired || passStatus.isExpired) && (
+                              <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-rose-600 rounded-full border-2 border-white flex items-center justify-center text-[8px] text-white font-black" title="وثيقة منتهية">
                                 !
                               </span>
                             )}
                           </div>
 
                           <div className="min-w-0 flex-1">
-                            <h3 className="font-bold text-slate-900 text-sm truncate group-hover:text-[#714B67] transition">
-                              {emp.nameAr || emp.fullNameAr || 'موظف'}
+                            <h3
+                              className="font-bold text-slate-900 text-sm leading-snug line-clamp-2 group-hover:text-[#714B67] transition break-words"
+                              title={displayName}
+                            >
+                              {displayName}
                             </h3>
-                            <p className="text-xs text-slate-500 truncate mt-0.5 font-medium">
+                            <p className="text-xs text-slate-500 line-clamp-2 mt-0.5 font-medium leading-relaxed">
                               {emp.jobTitle || 'موظف'}
                               {emp.specialty ? ` • ${emp.specialty}` : ''}
                             </p>
-                            <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                              <span className="inline-block bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md text-[10px] font-medium truncate">
+                            <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                              <span className="inline-block bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md text-[10px] font-medium line-clamp-1 max-w-full">
                                 🏢 {emp.dept || emp.department || 'العموم'}
                               </span>
                               {emp.mohLicense && (
-                                <span className="inline-block bg-purple-50 text-purple-700 border border-purple-100 px-1.5 py-0.5 rounded-md text-[10px] font-mono font-medium" title={`ترخيص وزارة الصحة: ${emp.mohLicense}`}>
+                                <span className="inline-block bg-purple-50 text-purple-700 border border-purple-100 px-1.5 py-0.5 rounded-md text-[10px] font-mono font-medium shrink-0" title={`ترخيص وزارة الصحة: ${emp.mohLicense}`}>
                                   MOH: {emp.mohLicense}
-                                </span>
-                              )}
-                              {civilStatus.isExpired && (
-                                <span className="inline-block bg-rose-100 text-rose-800 border border-rose-300 px-1.5 py-0.5 rounded-md text-[10px] font-bold animate-pulse" title={`انتهت البطاقة المدنية بتاريخ: ${civilExp}`}>
-                                  ⚠️ مدنية منتهية ({civilStatus.badgeText})
-                                </span>
-                              )}
-                              {!civilStatus.isExpired && civilStatus.isExpiringSoon && (
-                                <span className="inline-block bg-amber-100 text-amber-800 border border-amber-300 px-1.5 py-0.5 rounded-md text-[10px] font-bold" title={`تنتهي البطاقة المدنية بتاريخ: ${civilExp}`}>
-                                  ⏰ مدنية تنتهي قريباً ({civilStatus.daysRemaining} يوم)
                                 </span>
                               )}
                             </div>
                           </div>
                         </div>
 
-                        {/* شارة الحالة الهادئة + زر الخيارات (...) */}
-                        <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex flex-col items-end gap-1.5 shrink-0 pt-0.5" onClick={(e) => e.stopPropagation()}>
                           {renderDirectoryStatusBadge(emp)}
 
-                          {/* زر (...) */}
                           <div className="relative">
                             <button
                               type="button"
@@ -1647,6 +1639,35 @@ export function EmployeesApp(props?: any) {
                           </div>
                         </div>
                       </div>
+
+                      {hasDocAlert && (
+                        <div className="mt-3 pt-2.5 border-t border-slate-200/80 space-y-1.5">
+                          {civilStatus.isExpired && (
+                            <p className="text-[11px] leading-relaxed font-bold text-rose-800 bg-rose-50 border border-rose-200 rounded-lg px-2.5 py-1.5">
+                              ⚠️ البطاقة المدنية منتهية — {civilStatus.badgeText}
+                              {civilExp ? ` (${String(civilExp).slice(0, 10)})` : ''}
+                            </p>
+                          )}
+                          {!civilStatus.isExpired && civilStatus.isExpiringSoon && (
+                            <p className="text-[11px] leading-relaxed font-bold text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                              ⏰ البطاقة المدنية تنتهي خلال {civilStatus.daysRemaining} يوم
+                              {civilExp ? ` — ${String(civilExp).slice(0, 10)}` : ''}
+                            </p>
+                          )}
+                          {passStatus.isExpired && (
+                            <p className="text-[11px] leading-relaxed font-bold text-rose-800 bg-rose-50 border border-rose-200 rounded-lg px-2.5 py-1.5">
+                              ⚠️ جواز السفر منتهي — {passStatus.badgeText}
+                              {passExp ? ` (${String(passExp).slice(0, 10)})` : ''}
+                            </p>
+                          )}
+                          {!passStatus.isExpired && passStatus.isExpiringSoon && (
+                            <p className="text-[11px] leading-relaxed font-bold text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                              ⏰ جواز السفر ينتهي خلال {passStatus.daysRemaining} يوم
+                              {passExp ? ` — ${String(passExp).slice(0, 10)}` : ''}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
