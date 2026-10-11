@@ -239,6 +239,25 @@ tr.o_data_row td {
   padding: 0.25rem 0;
 }
 
+/* لوحة التطبيقات: تمرير واحد عبر OdooAppCanvas بدون قصّ الترويسة */
+.odoo-workspace-canvas--launcher .dashboard-container {
+  max-height: none;
+  overflow: visible;
+  padding-top: 0.25rem;
+  padding-bottom: 0;
+}
+
+.odoo-app-launchpad-grid,
+.odoo-app-cards-grid {
+  align-items: stretch;
+}
+
+.odoo-app-launchpad-grid > *,
+.odoo-app-cards-grid > * {
+  height: 100%;
+  min-height: 100%;
+}
+
 /* شبكة مشغل التطبيقات - نمط Odoo Enterprise */
 .o_app_switcher {
     display: grid !important;

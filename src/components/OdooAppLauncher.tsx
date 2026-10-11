@@ -369,7 +369,17 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
         </div>
       </div>
 
-      <div className="w-full space-y-2.5">
+      {onCompanySetupAction && (
+        <CompanySetupOnboardingBanner
+          company={activeCompany}
+          employeesCount={stats.employeesCount || realEmployees.length}
+          distinctJobTitles={distinctJobTitles}
+          onStepAction={onCompanySetupAction}
+          className="relative z-20 shrink-0"
+        />
+      )}
+
+      <div className="w-full space-y-2.5 relative z-10">
         <div className="flex items-center gap-2.5">
           <div className="relative flex-1 group">
             <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-[#714B67] transition-colors">
@@ -429,16 +439,6 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
 
       </div>
 
-      {onCompanySetupAction && (
-        <CompanySetupOnboardingBanner
-          company={activeCompany}
-          employeesCount={stats.employeesCount || realEmployees.length}
-          distinctJobTitles={distinctJobTitles}
-          onStepAction={onCompanySetupAction}
-          className="mb-3"
-        />
-      )}
-
       <div className="w-full py-1 pb-8 odoo-launcher-grid-wrap">
         {displayApps.length === 0 ? (
           <div className="text-center py-12 bg-white/80 rounded-2xl border border-dashed border-slate-300">
@@ -474,7 +474,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
                 <button
                   key={app.id}
                   onClick={() => onSelectApp(app.id)}
-                  className="group relative flex flex-col items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-white/90 hover:bg-white border border-slate-200/90 hover:border-purple-300 hover:shadow-xl hover:-translate-y-1.5 active:scale-[0.98] transition-all duration-300 ease-out cursor-pointer text-center backdrop-blur-sm"
+                  className="group relative flex h-full w-full min-h-[9.5rem] flex-col items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-white/90 hover:bg-white border border-slate-200/90 hover:border-purple-300 hover:shadow-xl hover:-translate-y-1.5 active:scale-[0.98] transition-all duration-300 ease-out cursor-pointer text-center backdrop-blur-sm"
                 >
                   {/* Subtle Badge Tag */}
                   {app.badge && (
@@ -509,7 +509,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
                         {title}
                       </UiStudioTarget>
                     </h3>
-                    <p className="text-[10px] text-slate-400 group-hover:text-slate-600 font-medium leading-tight line-clamp-1 transition-colors">
+                    <p className="text-[10px] text-slate-400 group-hover:text-slate-600 font-medium leading-tight line-clamp-2 min-h-[2.5em] transition-colors">
                       <UiStudioTarget
                         uiKey={`${uiKey}.description`}
                         kind="help"
@@ -547,7 +547,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
                 <button
                   key={app.id}
                   onClick={() => onSelectApp(app.id)}
-                  className="group relative flex items-start gap-3.5 p-3.5 rounded-2xl bg-white/95 hover:bg-white border border-slate-200/90 hover:border-purple-300 hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all duration-300 ease-out cursor-pointer text-right shadow-2xs"
+                  className="group relative flex h-full w-full min-h-[7.25rem] items-stretch gap-3.5 p-3.5 rounded-2xl bg-white/95 hover:bg-white border border-slate-200/90 hover:border-purple-300 hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all duration-300 ease-out cursor-pointer text-right shadow-2xs"
                 >
                   {/* Icon */}
                   <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${app.gradient} flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform duration-200 ring-2 ring-white`}>
@@ -555,9 +555,9 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
                   </div>
 
                   {/* Details */}
-                  <div className="flex-1 min-w-0 space-y-1">
-                    <div className="flex items-center justify-between gap-1">
-                      <h3 className="font-extrabold text-xs sm:text-sm text-slate-900 group-hover:text-[#714B67] leading-tight truncate transition-colors min-w-0">
+                  <div className="flex-1 min-w-0 flex flex-col gap-1 min-h-0">
+                    <div className="flex items-start justify-between gap-1">
+                      <h3 className="font-extrabold text-xs sm:text-sm text-slate-900 group-hover:text-[#714B67] leading-tight line-clamp-2 transition-colors min-w-0">
                         <UiStudioTarget
                           uiKey={uiKey}
                           kind="app"
@@ -578,7 +578,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
                         </span>
                       )}
                     </div>
-                    <p className="text-[11px] text-slate-500 font-medium leading-snug line-clamp-2">
+                    <p className="text-[11px] text-slate-500 font-medium leading-snug line-clamp-2 flex-1">
                       <UiStudioTarget
                         uiKey={`${uiKey}.description`}
                         kind="help"
@@ -590,7 +590,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
                   </div>
 
                   {/* Arrow Indicator */}
-                  <div className="self-center text-slate-300 group-hover:text-[#714B67] group-hover:-translate-x-0.5 transition-all">
+                  <div className="self-end shrink-0 text-slate-300 group-hover:text-[#714B67] group-hover:-translate-x-0.5 transition-all">
                     <ArrowUpRight size={16} />
                   </div>
                 </button>
