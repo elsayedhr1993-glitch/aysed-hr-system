@@ -1,5 +1,4 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getAdminAuth } from '../../server/firebaseAdmin';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
@@ -57,7 +56,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         process.env.FIRESTORE_DATABASE_ID ||
         'ai-studio-remixaysedshr202-98c882d5-9491-4f4b-a838-c6b0b10a0472',
       hasServiceAccount,
-      adminReady: Boolean(getAdminAuth()),
+      adminReady: hasServiceAccount,
     },
   });
 }

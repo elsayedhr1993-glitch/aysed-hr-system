@@ -40,7 +40,7 @@ import {
   shouldDisplayEmployeeAsOnboarding,
   syncDirectoryEmployeeStatusesFromPlans,
 } from '../services/onboardingService';
-import type { OnboardingPlan } from '../types';
+import type { LeaveSettlementVoucher, OnboardingPlan } from '../types';
 import { TenantDatabaseService } from '../services/tenantDataService';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { getPersistentData } from '../utils/persistentStorage';
@@ -781,7 +781,7 @@ export function EmployeesApp(props?: any) {
         const crossCheck = await assertNoCrossTenantCivilDuplicate(civilId, activeCompanyId, {
           employeeDocId: updatedEmp.id,
         });
-        if (!crossCheck.ok) {
+        if (crossCheck.ok === false) {
           alert(crossCheck.message);
           return;
         }

@@ -25,6 +25,11 @@ export function getSystemDefaultEmail(): string {
   return process.env.SMTP_GMAIL_USER || process.env.SMTP_USER || 'elsayedhr1993@gmail.com';
 }
 
+export function isSmtpConfigured(): boolean {
+  const pass = String(process.env.SMTP_GMAIL_APP_PASSWORD || process.env.SMTP_PASS || '').trim();
+  return pass.length > 0 && !pass.includes('YOUR_');
+}
+
 export interface WelcomeEmailParams {
   subscriberEmail: string;
   subscriberName: string;
@@ -79,7 +84,11 @@ export async function sendDailyBackupSuccessEmail({
   dumpPayloadJson,
   compressedBuffer,
   recipientEmail,
-}: SendBackupSuccessParams): Promise<{ success: boolean; messageId?: string; error?: string }> {
+}: SendBackupSuccessParams): Promise<{ success: boolean; messageId?: string; error?: string; skipped?: boolean }> {
+  if (!isSmtpConfigured()) {
+    console.warn('[Backup Email] SMTP not configured — backup completed without email dispatch.');
+    return { success: true, skipped: true };
+  }
   const systemEmail = recipientEmail || getSystemDefaultEmail();
   const jsonString = typeof dumpPayloadJson === 'string' ? dumpPayloadJson : JSON.stringify(dumpPayloadJson, null, 2);
   
@@ -268,7 +277,11 @@ export async function sendDailyBackupFailureAlert({
   failedStep,
   timestamp,
   recipientEmail,
-}: SendBackupFailureParams): Promise<{ success: boolean; messageId?: string; error?: string }> {
+}: SendBackupFailureParams): Promise<{ success: boolean; messageId?: string; error?: string; skipped?: boolean }> {
+  if (!isSmtpConfigured()) {
+    console.warn('[Backup Alert Email] SMTP not configured — failure alert not sent.');
+    return { success: true, skipped: true };
+  }
   const systemEmail = recipientEmail || getSystemDefaultEmail();
   const timeNow = timestamp || new Date().toLocaleString('ar-KW', { timeZone: 'Asia/Kuwait' });
   const dateShort = new Date().toISOString().split('T')[0];

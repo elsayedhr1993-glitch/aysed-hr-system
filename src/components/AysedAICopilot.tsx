@@ -13,6 +13,7 @@ import { useCopilotActionExecutor } from '../hooks/useCopilotActionExecutor';
 import {
   isDirectLocalCopilotAction,
   localCopilotReply,
+  resolveLocalCopilotAction,
 } from '../lib/copilotLocalIntent';
 import { classifyCopilotIntent, isToolIntent } from '../lib/copilotIntentRouter';
 import { sanitizeCopilotAction } from '../lib/aiCopilotActions';
