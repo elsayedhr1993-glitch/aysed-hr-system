@@ -150,3 +150,5 @@ export function mapEmployeeForEmployeesAppView(
     chatter: (emp as any).chatter || [],
   };
 }
+
+export type EmployeeDirectoryViewRow = ReturnType<typeof mapEmployeeForEmployeesAppView>;

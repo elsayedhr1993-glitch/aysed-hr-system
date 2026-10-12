@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { 
   Users, Clock, Stethoscope, AlertTriangle, X, FileText, Printer, Calendar, 
   RefreshCw, DollarSign, CheckCircle2, Building2, Briefcase, ExternalLink, Trash2,
-  MoreVertical, Download, FileSpreadsheet
+  Download, FileSpreadsheet
 } from 'lucide-react';
 import { OrganizationChartApp } from '../components/org-chart/OrganizationChartApp';
 import toast from 'react-hot-toast';
@@ -15,6 +15,8 @@ import { OnboardingWizardModal } from '../components/employees/OnboardingWizardM
 import { EmployeeQuickEditModal } from '../components/employees/EmployeeQuickEditModal';
 import { EmployeeImportModal } from '../components/employees/EmployeeImportModal';
 import { EmployeesAppChrome } from '../components/employees/layout/EmployeesAppChrome';
+import { EmployeesPage } from '../components/employees/EmployeesPage';
+import { filterEmployeesDirectory } from '../utils/filterEmployeesDirectory';
 import { useScreenLayout } from '../hooks/useScreenLayout';
 import { useCompany } from '../context/CompanyContext';
 import { useEffectiveTenantCompanyId } from '../hooks/useEffectiveTenantCompanyId';
@@ -32,7 +34,6 @@ import {
   backfillMissingPlanStatuses,
   buildActiveOnboardingDirectoryKeys,
   createEmployeeOnboardingBundle,
-  employeeMatchesActiveOnboarding,
   launchOnboardingFromPlan,
   normalizeOnboardingPlanFromFirestore,
   reconcileDuplicateOnboardingPlans,
@@ -297,22 +298,6 @@ export const calculateEmployeeTotalSalary = (emp: any): number => {
   return basic + totalAllowances;
 };
 
-function resolveEmployeeAvatarUrl(emp: Record<string, unknown>): string | null {
-  const raw =
-    emp.avatarUrl ??
-    emp.avatar ??
-    emp.photoUrl ??
-    emp.image ??
-    emp.profileImage ??
-    emp.profilePhoto ??
-    (emp.raw_payload as Record<string, unknown> | undefined)?.avatarUrl ??
-    (emp.raw_payload as Record<string, unknown> | undefined)?.avatar;
-  if (typeof raw !== 'string') return null;
-  const trimmed = raw.trim();
-  if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return null;
-  return trimmed;
-}
-
 export function EmployeesApp(props?: any) {
   const { activeCompany } = useCompany();
   const currentCompanyId = useEffectiveTenantCompanyId();
@@ -344,14 +329,11 @@ export function EmployeesApp(props?: any) {
     }
   });
   const [showActionsDropdown, setShowActionsDropdown] = useState(false);
-  const [activeCardMenuId, setActiveCardMenuId] = useState<string | null>(null);
-  const [brokenAvatarIds, setBrokenAvatarIds] = useState<Set<string>>(() => new Set());
   const [isLoadingDb, setIsLoadingDb] = useState(false);
 
   useEffect(() => {
     const handleGlobalClick = () => {
       setShowActionsDropdown(false);
-      setActiveCardMenuId(null);
     };
     window.addEventListener('click', handleGlobalClick);
     return () => window.removeEventListener('click', handleGlobalClick);
@@ -1248,45 +1230,30 @@ export function EmployeesApp(props?: any) {
     [activeOnboardingKeys]
   );
 
-  const filteredEmployees = visibleEmployees.filter(emp => {
-    const empDept = emp.dept || emp.department || '';
-    const matchDept = selectedDept === null || !selectedDept || empDept === selectedDept || empDept.includes(selectedDept) || selectedDept.includes(empDept);
-    
-    let matchStatus = true;
-    if (selectedStatus) {
-      if (selectedStatus === 'على رأس العمل') {
-        matchStatus = isEmployeeOnDuty(emp.status);
-      } else if (selectedStatus === 'في إجازة') {
-        matchStatus = isEmployeeOnLeave(emp.status);
-      } else if (selectedStatus === 'قيد التعيين') {
-        matchStatus = employeeMatchesActiveOnboarding(emp, activeOnboardingKeys);
-      } else {
-        matchStatus = String(emp.status || '').trim() === selectedStatus;
-      }
-    }
-
-    const matchSearch = !searchQuery || 
-                        (emp.nameAr || emp.fullNameAr || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
-                        (emp.civilId || emp.civil_id_number || '').includes(searchQuery) || 
-                        (emp.id || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
-                        (emp.jobTitle || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        (emp.specialty || '').toLowerCase().includes(searchQuery.toLowerCase());
-
-    let matchesKpi = true;
-    if (kpiFilter === 'on_duty') {
-      matchesKpi = isEmployeeOnDuty(emp.status);
-    } else if (kpiFilter === 'on_leave') {
-      matchesKpi = isEmployeeOnLeave(emp.status);
-    } else if (kpiFilter === 'residency_expiring') {
-      matchesKpi = checkResidencyExpiringSoon(emp);
-    } else if (kpiFilter === 'moh_expiring') {
-      matchesKpi = checkMohLicenseExpiringSoon(emp);
-    } else if (kpiFilter === 'expired') {
-      matchesKpi = checkExpiredDocs(emp);
-    }
-
-    return matchDept && matchStatus && matchSearch && matchesKpi;
-  });
+  const filteredEmployees = useMemo(
+    () =>
+      filterEmployeesDirectory(visibleEmployees, {
+        searchQuery,
+        selectedDept,
+        selectedStatus,
+        kpiFilter,
+        activeOnboardingKeys,
+        checkResidencyExpiringSoon,
+        checkMohLicenseExpiringSoon,
+        checkExpiredDocs,
+      }),
+    [
+      visibleEmployees,
+      searchQuery,
+      selectedDept,
+      selectedStatus,
+      kpiFilter,
+      activeOnboardingKeys,
+      checkResidencyExpiringSoon,
+      checkMohLicenseExpiringSoon,
+      checkExpiredDocs,
+    ]
+  );
 
   useEffect(() => {
     logEmployeeFetchPipeline('EmployeesApp-pipeline', {
@@ -1433,8 +1400,9 @@ export function EmployeesApp(props?: any) {
           activeTab={activeTab}
           onTabChange={setActiveTab}
           companyLabel={activeCompany?.nameAr || activeCompany?.name || 'المنشأة'}
-          showDirectoryTools={activeTab === 'directory'}
-          showViewToggle={activeTab === 'directory'}
+          showDirectoryTools={false}
+          showViewToggle={false}
+          showHeaderCreateEmployee={activeTab !== 'directory'}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
           searchQuery={searchQuery}
@@ -1460,8 +1428,42 @@ export function EmployeesApp(props?: any) {
           isDirectoryLoading={isLoadingDb}
         >
       {activeTab === 'directory' && (
-            <>
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-3 px-0.5">
+            <EmployeesPage
+              employees={filteredEmployees}
+              isLoading={isLoadingDb}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              searchQuery={searchQuery}
+              onSearchQueryChange={setSearchQuery}
+              selectedDept={selectedDept}
+              onDeptChange={setSelectedDept}
+              allDepts={allDepts}
+              selectedStatus={selectedStatus}
+              onStatusChange={setSelectedStatus}
+              kpiFilter={kpiFilter}
+              onKpiFilterChange={setKpiFilter}
+              directoryCounts={{
+                total: totalEmployeesCount,
+                onDuty: onDutyCount,
+                onLeave: onLeaveCount,
+                residencyExpiring: residencyExpiringCount,
+              }}
+              totalEmployeesCount={totalEmployeesCount}
+              hasActiveDirectoryFilters={hasActiveDirectoryFilters}
+              onCreateEmployee={handleCreateNewEmployee}
+              onClearFilters={() => {
+                setSearchQuery('');
+                setSelectedDept(null);
+                setSelectedStatus(null);
+                setKpiFilter('all');
+              }}
+              onSelectEmployee={openEmployeeModal}
+              onQuickEdit={openQuickEdit}
+              onPrintEmployee={(emp) => handleTriggerPrint(`بطاقة موظف - ${emp.nameAr}`, emp)}
+              onDeleteEmployee={requestDeleteEmployee}
+              renderStatusBadge={renderDirectoryStatusBadge}
+              activeOnboardingKeys={activeOnboardingKeys}
+              scopeToggle={
                 <label className="flex items-center gap-2 text-[11px] font-bold text-slate-600 cursor-pointer select-none">
                   <input
                     type="checkbox"
@@ -1483,328 +1485,14 @@ export function EmployeesApp(props?: any) {
                     {readCompanyIdFromUrl() ? ` (يشمل companyId من الرابط)` : ''}
                   </span>
                 </label>
+              }
+              debugStats={
                 <span className="text-[10px] text-slate-400 font-mono">
                   Firestore: {employees.length} → معروض: {visibleEmployees.length} → بعد الفلاتر:{' '}
                   {filteredEmployees.length}
                 </span>
-              </div>
-              {isLoadingDb ? (
-                <div className="bg-white rounded-xl border border-slate-200/70 p-10 text-center">
-                  <RefreshCw size={22} className="text-[#714B67] animate-spin mx-auto mb-3" />
-                  <p className="text-xs font-medium text-slate-500">جاري تحميل دليل الموظفين...</p>
-                </div>
-              ) : filteredEmployees.length === 0 ? (
-                <div className="bg-white rounded-xl border border-slate-200/70 p-8 sm:p-12 text-center">
-                  <div className="w-14 h-14 rounded-2xl bg-[#714B67]/8 text-[#714B67] mx-auto flex items-center justify-center mb-4">
-                    <Users size={28} strokeWidth={1.5} />
-                  </div>
-                  {totalEmployeesCount === 0 && !hasActiveDirectoryFilters ? (
-                    <>
-                      <h3 className="text-sm font-bold text-slate-800 mb-1">الدليل فارغ</h3>
-                      <p className="text-xs text-slate-500 mb-4 max-w-sm mx-auto leading-relaxed">
-                        لا يوجد موظفون مسجلون لهذه المنشأة بعد. ابدأ بإضافة أول موظف عبر المعالج أو التسجيل السريع.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={handleCreateNewEmployee}
-                        className="bg-[#714B67] hover:bg-[#5b3c53] text-white px-4 py-2 rounded-lg text-xs font-bold cursor-pointer"
-                      >
-                        إضافة موظف جديد
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <h3 className="text-sm font-bold text-slate-800 mb-1">لا نتائج مطابقة</h3>
-                      <p className="text-xs text-slate-500 mb-3">جرّب تعديل البحث أو الفلاتر أو مؤشرات الحالة.</p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSearchQuery('');
-                          setSelectedDept(null);
-                          setSelectedStatus(null);
-                          setKpiFilter('all');
-                        }}
-                        className="text-xs text-[#714B67] font-bold hover:underline cursor-pointer"
-                      >
-                        إعادة تعيين الفلاتر
-                      </button>
-                    </>
-                  )}
-                </div>
-              ) : viewMode === 'cards' ? (
-                <div className="odoo-kanban-grid auto-rows-fr gap-3.5">
-                  {filteredEmployees.map((emp) => {
-                    const civilExp = emp.civilIdExpiry || (emp as any).civilIdExpiryDate || (emp as any).civil_id_expiry || (emp as any).raw_payload?.civilIdExpiry;
-                    const passExp = emp.passportExpiry || (emp as any).passportExpiryDate;
-                    const civilStatus = checkDocumentExpiry(civilExp, 'البطاقة المدنية');
-                    const passStatus = checkDocumentExpiry(passExp, 'جواز السفر');
-                    const hasDocAlert = civilStatus.isExpired || civilStatus.isExpiringSoon || passStatus.isExpired || passStatus.isExpiringSoon;
-                    const displayName = emp.nameAr || emp.fullNameAr || 'موظف';
-                    const initials = displayName.replace(/\s+/g, '').slice(0, 2) || 'مو';
-                    const avatarUrl = resolveEmployeeAvatarUrl(emp as Record<string, unknown>);
-                    const showAvatarImage = Boolean(avatarUrl) && !brokenAvatarIds.has(emp.id);
-                    const departmentLabel = emp.dept || emp.department || 'العموم';
-                    const jobLine = [emp.jobTitle || 'موظف', emp.specialty].filter(Boolean).join(' • ');
-
-                    return (
-                    <div 
-                      key={emp.id} 
-                      onClick={() => openEmployeeModal(emp)}
-                      className={`bg-white rounded-xl border p-4 shadow-2xs hover:shadow-md transition-all cursor-pointer relative group flex flex-col h-full min-w-0 ${
-                        civilStatus.isExpired || passStatus.isExpired
-                          ? 'border-rose-300 bg-rose-50/20 hover:border-rose-400'
-                          : hasDocAlert
-                          ? 'border-amber-300 bg-amber-50/20 hover:border-amber-400'
-                          : 'border-slate-200/90 hover:border-[#714B67]/40'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2 min-w-0">
-                        <div className="flex items-start gap-3 min-w-0 flex-1">
-                          <div className="relative shrink-0 w-12 h-12 mt-0.5">
-                            {showAvatarImage ? (
-                              <img
-                                src={avatarUrl!}
-                                alt=""
-                                className="w-12 h-12 rounded-full object-cover border border-slate-200 shadow-2xs bg-white"
-                                loading="lazy"
-                                onError={() => {
-                                  setBrokenAvatarIds((prev) => {
-                                    const next = new Set(prev);
-                                    next.add(emp.id);
-                                    return next;
-                                  });
-                                }}
-                              />
-                            ) : (
-                              <div
-                                className={`w-12 h-12 rounded-full border border-slate-200/80 ${emp.avatarColor || 'bg-[#714B67]'} text-white flex items-center justify-center font-bold text-sm shadow-2xs select-none`}
-                              >
-                                {initials}
-                              </div>
-                            )}
-                            {(civilStatus.isExpired || passStatus.isExpired) && (
-                              <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-rose-600 rounded-full border-2 border-white flex items-center justify-center text-[8px] text-white font-black" title="وثيقة منتهية">
-                                !
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="min-w-0 flex-1 text-right">
-                            <h3
-                              className="font-semibold text-slate-800 text-sm leading-snug line-clamp-2 group-hover:text-[#714B67] transition break-words"
-                              title={displayName}
-                            >
-                              {displayName}
-                            </h3>
-                            <p
-                              className="text-[11px] text-slate-500 line-clamp-2 mt-1 leading-snug break-words"
-                              title={[jobLine, departmentLabel].filter(Boolean).join(' · ')}
-                            >
-                              <span>{jobLine}</span>
-                              {departmentLabel ? (
-                                <>
-                                  <span className="text-slate-400 mx-1" aria-hidden>·</span>
-                                  <span>{departmentLabel}</span>
-                                </>
-                              ) : null}
-                            </p>
-                            <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                              {emp.mohLicense && (
-                                <span className="inline-block bg-purple-50 text-purple-700 border border-purple-100 px-1.5 py-0.5 rounded-md text-[10px] font-mono font-medium shrink-0" title={`ترخيص وزارة الصحة: ${emp.mohLicense}`}>
-                                  MOH: {emp.mohLicense}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex flex-col items-end gap-1.5 shrink-0 pt-0.5" onClick={(e) => e.stopPropagation()}>
-                          {renderDirectoryStatusBadge(emp)}
-
-                          <div className="relative">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveCardMenuId(activeCardMenuId === emp.id ? null : emp.id);
-                              }}
-                              className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
-                              title="خيارات إضافية"
-                            >
-                              <MoreVertical size={16} />
-                            </button>
-
-                            {activeCardMenuId === emp.id && (
-                              <div 
-                                className="absolute left-0 top-full mt-1 w-36 bg-white border border-slate-200 rounded-xl shadow-lg z-50 p-1 space-y-0.5 animate-in fade-in duration-100"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <button
-                                  onClick={() => {
-                                    setActiveCardMenuId(null);
-                                    openEmployeeModal(emp);
-                                  }}
-                                  className="w-full text-right px-2.5 py-1.5 hover:bg-purple-50 hover:text-[#714B67] rounded-lg text-xs font-medium text-slate-700 flex items-center gap-2 cursor-pointer"
-                                >
-                                  <span>📋</span>
-                                  <span>عرض الملف الكامل</span>
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setActiveCardMenuId(null);
-                                    openQuickEdit(emp);
-                                  }}
-                                  className="w-full text-right px-2.5 py-1.5 hover:bg-emerald-50 hover:text-emerald-900 rounded-lg text-xs font-medium text-slate-700 flex items-center gap-2 cursor-pointer"
-                                >
-                                  <span>✏️</span>
-                                  <span>تعديل سريع</span>
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setActiveCardMenuId(null);
-                                    handleTriggerPrint(`بطاقة موظف - ${emp.nameAr}`, emp);
-                                  }}
-                                  className="w-full text-right px-2.5 py-1.5 hover:bg-slate-50 rounded-lg text-xs font-medium text-slate-700 flex items-center gap-2 cursor-pointer"
-                                >
-                                  <span>🖨️</span>
-                                  <span>طباعة الملف</span>
-                                </button>
-                                <div className="border-t border-slate-100 my-0.5"></div>
-                                <button
-                                  onClick={(e) => {
-                                    setActiveCardMenuId(null);
-                                    requestDeleteEmployee(emp.id, emp.nameAr, e);
-                                  }}
-                                  className="w-full text-right px-2.5 py-1.5 hover:bg-rose-50 text-rose-600 rounded-lg text-xs font-medium flex items-center gap-2 cursor-pointer"
-                                >
-                                  <Trash2 size={13} />
-                                  <span>حذف الموظف</span>
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {hasDocAlert && (
-                        <div className="mt-3 pt-2.5 border-t border-slate-200/80 space-y-1.5">
-                          {civilStatus.isExpired && (
-                            <p className="text-[11px] leading-relaxed font-bold text-rose-800 bg-rose-50 border border-rose-200 rounded-lg px-2.5 py-1.5">
-                              ⚠️ البطاقة المدنية منتهية — {civilStatus.badgeText}
-                              {civilExp ? ` (${String(civilExp).slice(0, 10)})` : ''}
-                            </p>
-                          )}
-                          {!civilStatus.isExpired && civilStatus.isExpiringSoon && (
-                            <p className="text-[11px] leading-relaxed font-bold text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
-                              ⏰ البطاقة المدنية تنتهي خلال {civilStatus.daysRemaining} يوم
-                              {civilExp ? ` — ${String(civilExp).slice(0, 10)}` : ''}
-                            </p>
-                          )}
-                          {passStatus.isExpired && (
-                            <p className="text-[11px] leading-relaxed font-bold text-rose-800 bg-rose-50 border border-rose-200 rounded-lg px-2.5 py-1.5">
-                              ⚠️ جواز السفر منتهي — {passStatus.badgeText}
-                              {passExp ? ` (${String(passExp).slice(0, 10)})` : ''}
-                            </p>
-                          )}
-                          {!passStatus.isExpired && passStatus.isExpiringSoon && (
-                            <p className="text-[11px] leading-relaxed font-bold text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
-                              ⏰ جواز السفر ينتهي خلال {passStatus.daysRemaining} يوم
-                              {passExp ? ` — ${String(passExp).slice(0, 10)}` : ''}
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-                </div>
-              ) : (
-                <div className="w-full bg-white rounded-xl border border-slate-200/90 shadow-2xs overflow-hidden">
-                  <table className="w-full text-right text-xs">
-                    <thead className="bg-slate-50/80 text-slate-600 border-b border-slate-200 font-bold">
-                      <tr>
-                        <th className="p-3">الموظف</th>
-                        <th className="p-3">الرقم المدني</th>
-                        <th className="p-3">المسمى الوظيفي والقسم</th>
-                        <th className="p-3">ترخيص وزارة الصحة</th>
-                        <th className="p-3">الحالة</th>
-                        <th className="p-3 text-center">الإجراء</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {filteredEmployees.map((emp) => (
-                        <tr key={emp.id} className="hover:bg-slate-50/80 transition cursor-pointer" onClick={() => openEmployeeModal(emp)}>
-                          <td className="p-3">
-                            <div className="flex items-center gap-2.5">
-                              <div className={`w-8 h-8 rounded-full ${emp.avatarColor || 'bg-[#714B67]'} text-white flex items-center justify-center font-bold text-xs shadow-2xs shrink-0 select-none`}>
-                                {emp.nameAr ? emp.nameAr.slice(0, 2) : 'مو'}
-                              </div>
-                              <div>
-                                <div className="font-bold text-slate-900">{emp.nameAr || emp.fullNameAr}</div>
-                                <div className="text-[10px] text-slate-400 font-mono">{emp.id}</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-3 font-mono text-slate-600">
-                            <div>{emp.civilId || '-'}</div>
-                            {(() => {
-                              const civilExp = emp.civilIdExpiry || (emp as any).civilIdExpiryDate || (emp as any).civil_id_expiry || (emp as any).raw_payload?.civilIdExpiry;
-                              const status = checkDocumentExpiry(civilExp, 'المدنية');
-                              if (status.isExpired) {
-                                return (
-                                  <div className="text-[9px] text-rose-600 font-bold font-sans mt-0.5 animate-pulse">
-                                    ⚠️ {status.badgeText} ({civilExp})
-                                  </div>
-                                );
-                              }
-                              if (status.isExpiringSoon) {
-                                return (
-                                  <div className="text-[9px] text-amber-600 font-bold font-sans mt-0.5">
-                                    ⏰ {status.badgeText}
-                                  </div>
-                                );
-                              }
-                              return null;
-                            })()}
-                          </td>
-                          <td className="p-3 text-slate-700">
-                            <div className="font-medium">{emp.jobTitle}</div>
-                            <div className="text-[10px] text-slate-400 mt-0.5">{emp.dept || emp.department}</div>
-                          </td>
-                          <td className="p-3 font-mono text-purple-900 font-bold">{emp.mohLicense || '-'}</td>
-                          <td className="p-3">{renderDirectoryStatusBadge(emp)}</td>
-                          <td className="p-3 text-center">
-                            <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                              <button
-                                onClick={() => openEmployeeModal(emp)}
-                                className="bg-slate-100 hover:bg-purple-50 hover:text-[#714B67] text-slate-700 px-2.5 py-1 rounded-md font-bold transition text-[11px] flex items-center gap-1 cursor-pointer"
-                                title="عرض الملف الكامل"
-                              >
-                                📋 عرض
-                              </button>
-                              <button
-                                onClick={() => openQuickEdit(emp)}
-                                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-md font-bold transition text-[11px] flex items-center gap-1 cursor-pointer"
-                                title="تعديل سريع"
-                              >
-                                ✏️ سريع
-                              </button>
-                              <button
-                                onClick={(e) => requestDeleteEmployee(emp.id, emp.nameAr, e)}
-                                className="bg-rose-50 hover:bg-rose-100 text-rose-600 px-2 py-1 rounded-md font-bold transition text-[11px] flex items-center gap-1 cursor-pointer"
-                                title="حذف الموظف"
-                              >
-                                🗑️
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </>
+              }
+            />
       )}
 
       {/* 3.2 الهيكل التنظيمي */}

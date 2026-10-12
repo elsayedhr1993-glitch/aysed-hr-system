@@ -64,6 +64,8 @@ interface EmployeesAppChromeProps {
     residencyExpiring: number;
   };
   isDirectoryLoading?: boolean;
+  /** عند الدليل يُستخدم زر «جديد» في HeaderBar فقط */
+  showHeaderCreateEmployee?: boolean;
   children: React.ReactNode;
 }
 
@@ -91,6 +93,7 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
   onKpiFilterChange,
   directoryCounts,
   isDirectoryLoading = false,
+  showHeaderCreateEmployee = true,
   children,
 }) => {
   const actionsTriggerRef = useRef<HTMLButtonElement>(null);
@@ -219,14 +222,16 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
 
           <div className="flex flex-wrap items-center gap-1 shrink-0">
             <ScreenLayoutStudioToggle screenId="employees" layout={employeesLayout} />
-            <button
-              type="button"
-              onClick={onCreateEmployee}
-              className="btn btn-primary px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer shadow-sm bg-[#714B67] hover:bg-[#5b3c53] text-white border border-[#5b3c53]"
-            >
-              <UserPlus size={13} />
-              موظف جديد
-            </button>
+            {showHeaderCreateEmployee ? (
+              <button
+                type="button"
+                onClick={onCreateEmployee}
+                className="btn btn-primary px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer shadow-sm bg-[#714B67] hover:bg-[#5b3c53] text-white border border-[#5b3c53]"
+              >
+                <UserPlus size={13} />
+                موظف جديد
+              </button>
+            ) : null}
             <div className="relative shrink-0">
               <button
                 ref={actionsTriggerRef}
