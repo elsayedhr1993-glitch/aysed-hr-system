@@ -6,20 +6,12 @@
   "outputDirectory": "dist",
   "installCommand": "npm install",
   "functions": {
-    "api/ai-chat.ts": {
-      "maxDuration": 120,
-      "memory": 1024,
-      "includeFiles": "api/_bundles/ai-chat.cjs"
+    "api/**/*.ts": {
+      "maxDuration": 120
     },
     "api/ocr-scan.ts": {
-      "maxDuration": 120,
       "memory": 1024,
       "includeFiles": "api/_bundles/ocr-scan.cjs"
-    },
-    "api/ai/test-key.ts": {
-      "maxDuration": 60,
-      "memory": 1024,
-      "includeFiles": "api/_bundles/test-key.cjs"
     }
   },
   "rewrites": [{ "source": "/((?!assets/|api/).*)", "destination": "/index.html" }]

@@ -1,16 +1,17 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI } from '@google/genai';
 
 export const config = {
   maxDuration: 120,
 };
 
-export default async function handler(req, res) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { prompt, message, history } = req.body || {};
+    const { prompt, message } = req.body || {};
     const userMessage = prompt || message;
 
     if (!userMessage) {
@@ -23,7 +24,7 @@ export default async function handler(req, res) {
     }
 
     const ai = new GoogleGenAI({ apiKey });
-    
+
     const response = await ai.models.generateContent({
       model: 'gemini-3.8-flash',
       contents: userMessage,
@@ -34,12 +35,12 @@ export default async function handler(req, res) {
       reply: response.text,
       text: response.text,
     });
-
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('AI Chat Error:', error);
+    const errMsg = error instanceof Error ? error.message : 'Internal server error';
     return res.status(500).json({
       success: false,
-      error: error.message || 'Internal server error',
+      error: errMsg,
     });
   }
 }
