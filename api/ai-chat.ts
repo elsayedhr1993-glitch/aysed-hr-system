@@ -1,46 +1,23 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { GoogleGenAI } from '@google/genai';
+import { createRequire } from 'node:module';
 
 export const config = {
-  maxDuration: 120,
+  maxDuration: 60,
 };
 
+const { loadBundledHandler } = createRequire(import.meta.url)('./_loadBundledCjs.cjs') as {
+  loadBundledHandler: (bundleFileName: string) => (req: VercelRequest, res: VercelResponse) => Promise<unknown>;
+};
+
+let cachedHandler: ReturnType<typeof loadBundledHandler> | null = null;
+
+function getHandler() {
+  if (!cachedHandler) {
+    cachedHandler = loadBundledHandler('ai-chat.cjs');
+  }
+  return cachedHandler;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
-    const { prompt, message } = req.body || {};
-    const userMessage = prompt || message;
-
-    if (!userMessage) {
-      return res.status(400).json({ error: 'Prompt or message is required' });
-    }
-
-    const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
-    if (!apiKey) {
-      return res.status(500).json({ error: 'GEMINI_API_KEY is not configured on Vercel' });
-    }
-
-    const ai = new GoogleGenAI({ apiKey });
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: userMessage,
-    });
-
-    return res.status(200).json({
-      success: true,
-      reply: response.text,
-      text: response.text,
-    });
-  } catch (error: unknown) {
-    console.error('AI Chat Error:', error);
-    const errMsg = error instanceof Error ? error.message : 'Internal server error';
-    return res.status(500).json({
-      success: false,
-      error: errMsg,
-    });
-  }
+  return getHandler()(req, res);
 }

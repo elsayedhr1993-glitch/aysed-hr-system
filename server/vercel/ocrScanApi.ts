@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { handleOcrScanHttp } from '../ocrScanRoute';
 
 export const config = {
-  maxDuration: 120,
+  maxDuration: 60,
 };
 
 async function ocrScanVercelHandler(req: VercelRequest, res: VercelResponse) {

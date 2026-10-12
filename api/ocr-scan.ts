@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createRequire } from 'node:module';
 
 export const config = {
-  maxDuration: 120,
+  maxDuration: 60,
 };
 
 const { loadBundledHandler } = createRequire(import.meta.url)('./_loadBundledCjs.cjs') as {

@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { handleAiChatRequest } from '../aiChatCore';
 
 export const config = {
-  maxDuration: 120,
+  maxDuration: 60,
 };
 
 async function aiChatVercelHandler(req: VercelRequest, res: VercelResponse) {

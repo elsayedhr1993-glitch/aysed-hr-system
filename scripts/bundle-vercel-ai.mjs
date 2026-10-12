@@ -30,6 +30,7 @@ try {
 
 await esbuild.build({
   entryPoints: {
+    'ai-chat': 'server/vercel/aiChatApi.ts',
     'ocr-scan': 'server/vercel/ocrScanApi.ts',
   },
   outdir: bundlesDir,
@@ -46,4 +47,4 @@ await esbuild.build({
   },
 });
 
-console.log(`[bundle-vercel-ai] Wrote ${bundlesDir}/ocr-scan.cjs (CJS)`);
+console.log(`[bundle-vercel-ai] Wrote ${bundlesDir}/ai-chat.cjs and ${bundlesDir}/ocr-scan.cjs (CJS)`);

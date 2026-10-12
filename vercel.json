@@ -6,12 +6,18 @@
   "outputDirectory": "dist",
   "installCommand": "npm install",
   "functions": {
-    "api/**/*.ts": {
-      "maxDuration": 120
+    "api/ai-chat.ts": {
+      "maxDuration": 60,
+      "memory": 1024,
+      "includeFiles": "api/_bundles/ai-chat.cjs"
     },
     "api/ocr-scan.ts": {
+      "maxDuration": 60,
       "memory": 1024,
       "includeFiles": "api/_bundles/ocr-scan.cjs"
+    },
+    "api/system/env-health.ts": {
+      "maxDuration": 10
     }
   },
   "rewrites": [{ "source": "/((?!assets/|api/).*)", "destination": "/index.html" }]
