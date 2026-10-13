@@ -26,6 +26,13 @@ export async function approveLeaveRequest(
   request: LeaveApprovalInput,
   approver: string
 ): Promise<LeaveApprovalResult> {
+  try {
+    const { approveLeaveViaServerApi } = await import('./leaveApprovalApi');
+    return await approveLeaveViaServerApi(request, approver);
+  } catch (serverErr) {
+    console.warn('[leaveApproval] Server atomic approve unavailable, using client transaction:', serverErr);
+  }
+
   const companyId = request.companyId || 'comp-super-admin';
   const normalizedLeaveType = normalizeLeaveType(request.leaveType);
   const normalizedStatus = normalizeLeaveStatus(request.status ?? 'PENDING_HR');
@@ -137,7 +144,11 @@ export async function approveLeaveRequest(
     const currentRemaining = Number(employeeData.remaining_leaves ?? employeeData.leaveBalance ?? 0);
     const balanceBefore = totalAvailableBefore > 0 ? totalAvailableBefore : currentRemaining;
     const remainingDays = roundDays(Math.max(0, balanceBefore - paidDays));
+    const annualRemaining = isAnnual ? remainingDays : balanceBefore;
     const now = new Date().toISOString();
+    const stored = storedRequest as Record<string, unknown>;
+    const startDate = String(stored.startDate || '');
+    const endDate = String(stored.endDate || startDate);
 
     transaction.set(requestRef, cleanFirestoreData({
       ...storedRequest,
@@ -156,13 +167,43 @@ export async function approveLeaveRequest(
     }), { merge: true });
 
     transaction.set(employeeRef, cleanFirestoreData({
-      remaining_leaves: remainingDays,
-      leaveBalance: remainingDays,
+      remaining_leaves: annualRemaining,
+      paid_days_remaining: annualRemaining,
+      leaveBalance: {
+        annualEntitlement: 30,
+        annualRemaining,
+        lastApprovedLeaveId: request.id,
+        lastSyncedAt: now,
+      },
       companyId,
-      updatedAt: now
+      updatedAt: now,
     }), { merge: true });
 
-    return { paidDays, unpaidDays, remainingDays, allocationBreakdown };
+    const workEntryId = `WE-LEAVE-${companyId}-${request.id}`;
+    const workEntryRef = doc(db, 'work_entries', workEntryId);
+    transaction.set(
+      workEntryRef,
+      cleanFirestoreData({
+        id: workEntryId,
+        companyId,
+        employeeId: request.employeeId,
+        leaveRequestId: request.id,
+        entryType: 'LEAVE',
+        leaveType: normalizeLeaveType(storedRequest.leaveType || request.leaveType),
+        dateFrom: startDate,
+        dateTo: endDate,
+        days: requestedDays,
+        paidDays,
+        unpaidDays,
+        state: 'validated',
+        source: 'leave_approval_atomic',
+        createdAt: now,
+        updatedAt: now,
+      }),
+      { merge: true }
+    );
+
+    return { paidDays, unpaidDays, remainingDays: annualRemaining, allocationBreakdown };
   }).then(async result => {
     const requestRef = doc(db, 'leave_requests', request.id);
     const requestSnap = await getDoc(requestRef);

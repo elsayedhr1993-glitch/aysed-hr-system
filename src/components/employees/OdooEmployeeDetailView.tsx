@@ -75,6 +75,8 @@ import { EntityAiSummaryButton } from '../copilot/EntityAiSummaryButton';
 import { EmployeeRecordChatter } from '../copilot/EmployeeRecordChatter';
 import { InlineEditProvider, type InlinePersistPatch } from '../../context/InlineEditContext';
 import { mergeEmployeeInlinePatch } from '../../utils/employeeInlinePersist';
+import { computeEmployeeLeaveStats } from '../../services/employeeLeaveStatsService';
+import { KUWAIT_ANNUAL_LEAVE_ENTITLEMENT_DAYS } from '../../constants/kuwaitLaborLeave';
 
 interface Props {
   employee: any;
@@ -262,7 +264,12 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
 
   useEffect(() => {
     const employeeId = initialEmployee?.id;
-    const companyId = initialEmployee?.companyId || initialEmployee?.company_id || activeCompany?.id;
+    const companyId =
+      resolvedCompanyId ||
+      initialEmployee?.companyId ||
+      initialEmployee?.company_id ||
+      activeCompany?.id ||
+      contextActiveCompany?.id;
     if (!employeeId || !companyId) {
       setLeaveRequests([]);
       setLeaveAllocations([]);
@@ -370,6 +377,8 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
   };
 
   const calculatedBalance = getDynamicBalance();
+  const leaveStats = computeEmployeeLeaveStats(employee, leaveRequests);
+  const annualRemainingDisplay = Math.max(leaveStats.annualRemaining, calculatedBalance);
   const docsCount = employee.documentFiles ? Object.keys(employee.documentFiles).length : 0;
   const leaveRequestsCount = leaveRequests.length;
   const pendingLeavesCount = leaveRequests.filter((r: any) => {
@@ -402,6 +411,24 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
 
   const smartButtonStats: SmartButtonStat[] = [
     {
+      id: 'annual_leave_balance',
+      label: 'رصيد الإجازة السنوية',
+      value: `${annualRemainingDisplay.toFixed(1)} / ${leaveStats.annualEntitlement || KUWAIT_ANNUAL_LEAVE_ENTITLEMENT_DAYS}`,
+      icon: Plane,
+      colorTheme: 'emerald',
+      badge: 'مادة 70',
+      onClick: () => (onOpenLeaves ? onOpenLeaves() : setActiveTab('hr')),
+    },
+    {
+      id: 'leave_ledger',
+      label: 'سجل الإجازات المعتمدة',
+      value: `${leaveStats.approvedLeaveDaysTotal} يوم`,
+      icon: Calendar,
+      colorTheme: 'blue',
+      badge: String(leaveStats.approvedLeaveCount),
+      onClick: () => (onOpenLeaves ? onOpenLeaves() : setActiveTab('hr')),
+    },
+    {
       id: 'contract_payroll',
       label: 'العقد والراتب',
       value: contractSalaryLabel,
@@ -413,11 +440,11 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
       },
     },
     {
-      id: 'leaves',
-      label: 'الإجازات',
-      value: `${calculatedBalance} / ${pendingLeavesCount}`,
-      icon: Plane,
-      colorTheme: 'blue',
+      id: 'leaves_pending',
+      label: 'طلبات قيد المراجعة',
+      value: pendingLeavesCount,
+      icon: Clock,
+      colorTheme: 'amber',
       onClick: () => (onOpenLeaves ? onOpenLeaves() : setActiveTab('hr')),
     },
     {
