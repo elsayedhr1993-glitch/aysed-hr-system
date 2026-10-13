@@ -168,7 +168,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (canonicalCompanyId) {
               await writeUser(
                 doc(db, 'users', uid),
-                { email, companyId: canonicalCompanyId, role: nextRole },
+                {
+                  email,
+                  companyId: canonicalCompanyId,
+                  company_id: canonicalCompanyId,
+                  activeCompanyId: canonicalCompanyId,
+                  role: nextRole,
+                },
                 { merge: true }
               ).catch(() => {});
             }
@@ -238,6 +244,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 name,
                 role,
                 companyId: companyId || null,
+                company_id: companyId || null,
+                activeCompanyId: companyId || null,
                 photoURL,
                 createdAt: new Date().toISOString()
               }, { merge: true }).catch(() => {});

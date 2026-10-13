@@ -44,12 +44,56 @@ service cloud.firestore {
 
     function profileCompanyId() {
       return exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        ? userDoc().companyId
+        ? (
+          ('companyId' in userDoc()
+            && userDoc().companyId is string
+            && userDoc().companyId != '')
+            ? userDoc().companyId
+            : (
+              ('company_id' in userDoc()
+                && userDoc().company_id is string
+                && userDoc().company_id != '')
+                ? userDoc().company_id
+                : (
+                  ('activeCompanyId' in userDoc()
+                    && userDoc().activeCompanyId is string
+                    && userDoc().activeCompanyId != '')
+                    ? userDoc().activeCompanyId
+                    : null
+                )
+            )
+        )
         : null;
     }
 
     function callerCompanyId() {
-      return tokenCompanyId() != null ? tokenCompanyId() : profileCompanyId();
+      return tokenCompanyId() != null && tokenCompanyId() != ''
+        ? tokenCompanyId()
+        : profileCompanyId();
+    }
+
+    function systemConfigDocForCaller(docId) {
+      return signedIn()
+        && callerCompanyId() != null
+        && (
+          docId == callerCompanyId()
+          || docId == 'leave_policy_' + callerCompanyId()
+          || docId == 'attendance_policy_' + callerCompanyId()
+          || docId == 'public_holidays_' + callerCompanyId()
+          || docId == 'attendance_shift_seed_rules_' + callerCompanyId()
+          || docId == 'facility_licensing_' + callerCompanyId()
+        );
+    }
+
+    function canReadSystemConfigDoc(docId) {
+      return isSuperAdmin()
+        || systemConfigDocForCaller(docId)
+        || (callerCompanyId() != null && isAuthEmailCompanyAdmin(callerCompanyId()));
+    }
+
+    function canWriteSystemConfigDoc(docId) {
+      return isSuperAdmin()
+        || (systemConfigDocForCaller(docId) && (isCompanyAdmin() || isAuthEmailCompanyAdmin(callerCompanyId())));
     }
 
     function companyFieldEmailLower(fieldName) {
@@ -142,11 +186,20 @@ service cloud.firestore {
     }
 
     function canWriteTenantDoc() {
-      return isSuperAdmin() || (sameTenantResource() && sameTenantIncoming());
+      return isSuperAdmin()
+        || (sameTenantResource() && sameTenantIncoming())
+        || (
+          resourceCompanyId() != null
+          && incomingCompanyId() != null
+          && resourceCompanyId() == incomingCompanyId()
+          && isAuthEmailCompanyAdmin(resourceCompanyId())
+        );
     }
 
     function canCreateTenantDoc() {
-      return isSuperAdmin() || sameTenantIncoming();
+      return isSuperAdmin()
+        || sameTenantIncoming()
+        || (incomingCompanyId() != null && isAuthEmailCompanyAdmin(incomingCompanyId()));
     }
 
     // User profiles
@@ -213,7 +266,9 @@ service cloud.firestore {
       allow read, write: if isSuperAdmin();
     }
     match /system_config/{docId} {
-      allow read, write: if isSuperAdmin();
+      allow read: if canReadSystemConfigDoc(docId);
+      allow create, update: if canWriteSystemConfigDoc(docId);
+      allow delete: if isSuperAdmin();
     }
     match /company_templates/{docId} {
       allow read: if signedIn() && (isSuperAdmin() || sameTenantResource() || !('companyId' in resource.data));
@@ -289,6 +344,26 @@ service cloud.firestore {
       allow update, delete: if canWriteTenantDoc();
     }
     match /attendance_records/{docId} {
+      allow read: if canReadTenantDoc();
+      allow create: if canCreateTenantDoc();
+      allow update, delete: if canWriteTenantDoc();
+    }
+    match /attendance/{docId} {
+      allow read: if canReadTenantDoc();
+      allow create: if canCreateTenantDoc();
+      allow update, delete: if canWriteTenantDoc();
+    }
+    match /work_entries/{docId} {
+      allow read: if canReadTenantDoc();
+      allow create: if canCreateTenantDoc();
+      allow update, delete: if canWriteTenantDoc();
+    }
+    match /employee_lifecycle_events/{docId} {
+      allow read: if canReadTenantDoc();
+      allow create: if canCreateTenantDoc();
+      allow update, delete: if canWriteTenantDoc();
+    }
+    match /audit_logs/{docId} {
       allow read: if canReadTenantDoc();
       allow create: if canCreateTenantDoc();
       allow update, delete: if canWriteTenantDoc();
