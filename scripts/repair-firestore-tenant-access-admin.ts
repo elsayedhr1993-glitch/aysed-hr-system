@@ -10,6 +10,7 @@ import 'dotenv/config';
 import { getAdminAuth, getAdminFirestore } from '../server/firebaseAdmin.ts';
 
 const MANAR_COMPANY_ID = 'comp-1788442584841';
+const MANAR_COMPANY_ID_TYPO = 'comp-1788142584811';
 const MANAR_ADMIN_EMAIL = 'admin@almanar.com';
 
 const COMPANY_ADMIN_PATCHES: Record<string, { adminUsername: string; email: string }> = {
@@ -49,6 +50,9 @@ async function main() {
       }
     }
 
+    if (targetCompanyId === MANAR_COMPANY_ID_TYPO) {
+      targetCompanyId = MANAR_COMPANY_ID;
+    }
     if (!targetCompanyId) continue;
 
     const role = String(data.role || 'COMPANY_ADMIN').toUpperCase();
@@ -118,9 +122,44 @@ async function main() {
     employeesPatched += 1;
   }
 
+  let typoUsers = 0;
+  let typoEmployees = 0;
+  const typoUsersSnap = await db.collection('users').where('companyId', '==', MANAR_COMPANY_ID_TYPO).get();
+  for (const userDoc of typoUsersSnap.docs) {
+    await userDoc.ref.set(
+      {
+        companyId: MANAR_COMPANY_ID,
+        company_id: MANAR_COMPANY_ID,
+        activeCompanyId: MANAR_COMPANY_ID,
+      },
+      { merge: true }
+    );
+    typoUsers += 1;
+  }
+  const typoEmpSnap = await db.collection('employees').where('companyId', '==', MANAR_COMPANY_ID_TYPO).get();
+  for (const empDoc of typoEmpSnap.docs) {
+    await empDoc.ref.set(
+      { companyId: MANAR_COMPANY_ID, company_id: MANAR_COMPANY_ID },
+      { merge: true }
+    );
+    typoEmployees += 1;
+  }
+  const typoCompany = await db.collection('companies').doc(MANAR_COMPANY_ID_TYPO).get();
+  if (typoCompany.exists) {
+    await db.collection('companies').doc(MANAR_COMPANY_ID_TYPO).delete().catch(() => {});
+    console.log('Removed duplicate typo company doc', MANAR_COMPANY_ID_TYPO);
+  }
+
   console.log(
     JSON.stringify(
-      { usersPatched, claimsPatched, employeesPatched, manarCompanyId: MANAR_COMPANY_ID },
+      {
+        usersPatched,
+        claimsPatched,
+        employeesPatched,
+        typoUsersRemapped: typoUsers,
+        typoEmployeesRemapped: typoEmployees,
+        manarCompanyId: MANAR_COMPANY_ID,
+      },
       null,
       2
     )

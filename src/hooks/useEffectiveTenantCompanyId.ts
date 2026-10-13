@@ -7,6 +7,7 @@ import {
   readCompanyIdFromUrl,
   resolveTenantCompanyId,
 } from '../utils/tenantCompanyId';
+import { normalizeTenantCompanyId } from '../utils/contractTenantRules';
 
 /**
  * Single SSOT for Firestore `where('companyId', '==', …)` across launcher, hierarchy, and apps.
@@ -18,7 +19,8 @@ export function useEffectiveTenantCompanyId(): string {
 
   return useMemo(() => {
     const urlCompanyId = readCompanyIdFromUrl();
-    const authCompanyId = String(user?.companyId || '').trim();
+    const authCompanyId = normalizeTenantCompanyId(String(user?.companyId || '').trim()) ||
+      String(user?.companyId || '').trim();
     const superAdmin = isSuperAdminPrincipal({ role: user?.role, email: user?.email });
 
     if (superAdmin && isQueryableTenantCompanyId(urlCompanyId)) {

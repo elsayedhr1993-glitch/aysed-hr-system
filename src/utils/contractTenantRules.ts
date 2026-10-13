@@ -4,12 +4,17 @@ import { normalizeContractStatus } from './contractStatus';
 const TENANT_ID_ALIASES: Record<string, string> = {
   'comp-alfanar': 'tenant_1788413304890',
   'comp-elite': 'comp-1788435917695',
+  /** Common bookmark/URL typo (81 vs 84) for المنار كلينيك */
+  'comp-1788142584811': 'comp-1788442584841',
+  '1788142584811': 'comp-1788442584841',
 };
 
 /** Extra raw ids that may appear on employee docs for المنار كلينك */
 const MANAR_COMPANY_ID_VARIANTS = [
   'comp-1788442584841',
+  'comp-1788142584811',
   '1788442584841',
+  '1788142584811',
   'tenant_1788442584841',
   'comp-manar',
   'comp-almanar',

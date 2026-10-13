@@ -10,15 +10,35 @@ export function isQueryableTenantCompanyId(companyId?: string | null): boolean {
   return id.length > 0 && !NON_TENANT_COMPANY_IDS.has(id);
 }
 
+import { normalizeTenantCompanyId } from './contractTenantRules';
+
 export function readCompanyIdFromUrl(): string {
   if (typeof window === 'undefined') return '';
   const params = new URLSearchParams(window.location.search);
-  return (params.get('companyId') || params.get('company_id') || '').trim();
+  const raw = (params.get('companyId') || params.get('company_id') || '').trim();
+  if (!raw) return '';
+  const normalized = normalizeTenantCompanyId(raw);
+  return normalized || raw;
 }
 
 /**
  * Canonical tenant company id for Firestore queries (aligns App, Documents, Odoo modules).
  */
+/** Fix bookmarked ?companyId= typos (e.g. المنار 81 vs 84) without reload. */
+export function rewriteCanonicalCompanyIdInUrl(): void {
+  if (typeof window === 'undefined') return;
+  const params = new URLSearchParams(window.location.search);
+  const raw = (params.get('companyId') || params.get('company_id') || '').trim();
+  if (!raw) return;
+  const normalized = normalizeTenantCompanyId(raw);
+  if (!normalized || normalized === raw) return;
+  params.set('companyId', normalized);
+  params.delete('company_id');
+  const qs = params.toString();
+  const next = `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`;
+  window.history.replaceState({}, '', next);
+}
+
 export function resolveTenantCompanyId(
   companyContextId?: string | null,
   fallbackCompanyId?: string | null,
