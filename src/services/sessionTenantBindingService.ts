@@ -36,7 +36,7 @@ export async function ensureSessionTenantBinding(
 
   await setDoc(
     doc(db, 'users', uid),
-    { email: normalizedEmail, companyId, role: nextRole },
+    { email: normalizedEmail, companyId, company_id: companyId, role: nextRole, activeCompanyId: companyId },
     { merge: true }
   ).catch(() => {});
 
