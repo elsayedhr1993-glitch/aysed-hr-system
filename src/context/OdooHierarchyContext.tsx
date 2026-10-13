@@ -249,7 +249,7 @@ const getAttendanceDate = (date?: string) => date || new Date().toISOString().sp
 const getAttendanceKey = (companyId: string, employeeId: string, date: string) => `${companyId}_${employeeId}_${date}`;
 
 export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isLoading: authLoading } = useAuth();
+  const { isLoading: authLoading, user: authUser } = useAuth();
   const currentCompanyId = useEffectiveTenantCompanyId();
   const [tenantBindTick, setTenantBindTick] = useState(0);
   const [employeeScopeTick, setEmployeeScopeTick] = useState(0);
@@ -270,7 +270,7 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // مزامنة الموظفين حياً من قاعدة البيانات للشركة النشطة (Real-time Sync)
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading || !authUser?.id) return;
     if (!isQueryableTenantCompanyId(currentCompanyId)) {
       setEmployees([]);
       return;
@@ -388,7 +388,7 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
     );
 
     return () => unsubscribe();
-  }, [currentCompanyId, authLoading, tenantBindTick, employeeScopeTick]);
+  }, [currentCompanyId, authLoading, authUser?.id, tenantBindTick, employeeScopeTick]);
 
   // حركات البصمة
   const [attendance, setAttendance] = useState<Record<string, AttendanceLog>>({});

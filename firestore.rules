@@ -139,6 +139,30 @@ service cloud.firestore {
         );
     }
 
+    // Align with src/utils/contractTenantRules.ts (URL typos + legacy employee companyId values)
+    function canonicalTenantCompanyId(raw) {
+      return raw == null || raw == ''
+        ? null
+        : raw == 'comp-1788142584811' || raw == '1788142584811'
+          ? 'comp-1788442584841'
+        : raw == '1788442584841' || raw == 'tenant_1788442584841'
+          || raw == 'comp-manar' || raw == 'comp-almanar'
+          ? 'comp-1788442584841'
+        : raw == 'comp-alfanar'
+          ? 'tenant_1788413304890'
+        : raw == 'comp-elite'
+          ? 'comp-1788435917695'
+        : raw;
+    }
+
+    function callerTenantCanonical() {
+      return canonicalTenantCompanyId(callerCompanyId());
+    }
+
+    function resourceTenantCanonical() {
+      return canonicalTenantCompanyId(resourceCompanyId());
+    }
+
     function resourceCompanyId() {
       return ('companyId' in resource.data
           && resource.data.companyId is string
@@ -168,38 +192,42 @@ service cloud.firestore {
     }
 
     function sameTenantResource() {
-      return resourceCompanyId() != null
-        && callerCompanyId() != null
-        && resourceCompanyId() == callerCompanyId();
+      return resourceTenantCanonical() != null
+        && callerTenantCanonical() != null
+        && resourceTenantCanonical() == callerTenantCanonical();
+    }
+
+    function incomingTenantCanonical() {
+      return canonicalTenantCompanyId(incomingCompanyId());
     }
 
     function sameTenantIncoming() {
-      return incomingCompanyId() != null
-        && callerCompanyId() != null
-        && incomingCompanyId() == callerCompanyId();
+      return incomingTenantCanonical() != null
+        && callerTenantCanonical() != null
+        && incomingTenantCanonical() == callerTenantCanonical();
     }
 
     function canReadTenantDoc() {
       return isSuperAdmin()
         || sameTenantResource()
-        || (resourceCompanyId() != null && isAuthEmailCompanyAdmin(resourceCompanyId()));
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
     }
 
     function canWriteTenantDoc() {
       return isSuperAdmin()
         || (sameTenantResource() && sameTenantIncoming())
         || (
-          resourceCompanyId() != null
-          && incomingCompanyId() != null
-          && resourceCompanyId() == incomingCompanyId()
-          && isAuthEmailCompanyAdmin(resourceCompanyId())
+          resourceTenantCanonical() != null
+          && incomingTenantCanonical() != null
+          && resourceTenantCanonical() == incomingTenantCanonical()
+          && isAuthEmailCompanyAdmin(resourceTenantCanonical())
         );
     }
 
     function canCreateTenantDoc() {
       return isSuperAdmin()
         || sameTenantIncoming()
-        || (incomingCompanyId() != null && isAuthEmailCompanyAdmin(incomingCompanyId()));
+        || (incomingTenantCanonical() != null && isAuthEmailCompanyAdmin(incomingTenantCanonical()));
     }
 
     // User profiles

@@ -136,7 +136,13 @@ export function subscribeMergedTenantEmployees(
         emit();
       },
       (error) => {
+        const code = String((error as { code?: string })?.code || '');
         console.error(`[subscribeTenantEmployees] query #${index} failed:`, error);
+        if (code === 'permission-denied') {
+          perQueryMaps.set(index, new Map());
+          emit();
+          return;
+        }
         onError?.(error);
       }
     );
