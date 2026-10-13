@@ -1,5 +1,7 @@
 import type { LeaveRequest } from '../types';
 import { KUWAIT_ANNUAL_LEAVE_ENTITLEMENT_DAYS } from '../constants/kuwaitLaborLeave';
+import { isEncashmentLeaveRequest } from '../utils/leaveModel';
+import { resolveLeaveRequestDayCount } from '../utils/leaveModel';
 
 export type EmployeeLeaveBalanceSnapshot = {
   annualEntitlement: number;
@@ -15,12 +17,7 @@ function isApprovedLeave(status: unknown): boolean {
 }
 
 function leaveDaysFromRequest(row: LeaveRequest | Record<string, unknown>): number {
-  return Number(
-    (row as LeaveRequest).totalDays ??
-      (row as LeaveRequest).daysCount ??
-      (row as Record<string, unknown>).days ??
-      0
-  );
+  return resolveLeaveRequestDayCount(row);
 }
 
 /** Tenant-scoped leave stats for Odoo smart buttons (employeeId + companyId). */
@@ -39,7 +36,9 @@ export function computeEmployeeLeaveStats(
       ? fromScalar
       : 0;
 
-  const approved = leaveRequests.filter((r) => isApprovedLeave((r as LeaveRequest).status));
+  const approved = leaveRequests.filter(
+    (r) => isApprovedLeave((r as LeaveRequest).status) && !isEncashmentLeaveRequest(r)
+  );
   const approvedLeaveDaysTotal = approved.reduce((sum, r) => sum + leaveDaysFromRequest(r), 0);
 
   const pendingLeaveCount = leaveRequests.filter((r) => {

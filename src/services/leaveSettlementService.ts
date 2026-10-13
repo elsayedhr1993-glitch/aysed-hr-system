@@ -822,6 +822,60 @@ export function deleteSettlementVoucher(voucherId: string): LeaveSettlementVouch
   return [];
 }
 
+export function encashmentLeaveRequestIdForSettlement(settlementVoucherId: string): string {
+  return `encash-leave-${settlementVoucherId}`;
+}
+
+/** Canonical encash-leave row aligned with settlement voucher (SSOT for days). */
+export function buildEncashmentLeaveRequestFromSettlement(
+  employee: Employee,
+  encashedDays: number,
+  options?: {
+    settlementVoucherId?: string;
+    settlementVoucherNumber?: string;
+    settlementDate?: string;
+    netPayoutKwd?: number;
+  }
+): LeaveRequest {
+  const days = Number(Math.max(0, encashedDays).toFixed(2));
+  const voucherNo = options?.settlementVoucherNumber || '';
+  const voucherId = options?.settlementVoucherId || '';
+  const leaveId = voucherId ? encashmentLeaveRequestIdForSettlement(voucherId) : `encash-leave-${Date.now()}`;
+  const todayStr = options?.settlementDate || new Date().toISOString().split('T')[0];
+  const basicSalary = resolveEmployeeBasicSalaryKwd(employee as Record<string, unknown>);
+  const dailyWage = calculateKuwaitDailyRate(basicSalary);
+  const encashPayoutKwd =
+    options?.netPayoutKwd && options.netPayoutKwd > 0
+      ? cleanKwdAmount(options.netPayoutKwd)
+      : cleanKwdAmount(days * dailyWage);
+
+  return {
+    id: leaveId,
+    employeeId: employee.id,
+    companyId: employee.companyId || '',
+    employeeName: employee.fullNameAr || employee.fullNameEn || '',
+    leaveType: 'ANNUAL',
+    startDate: todayStr,
+    endDate: todayStr,
+    daysCount: days,
+    totalDays: days,
+    paidDays: days,
+    unpaidDays: 0,
+    basicSalary: basicSalary > 0 ? basicSalary : undefined,
+    advanceSalaryAmount: encashPayoutKwd > 0 ? encashPayoutKwd : undefined,
+    isEncashment: true,
+    settlementVoucherId: voucherId || undefined,
+    reason: `تصفية نقدية لرصيد الإجازة: ${days} يوم (Encashment & Liquidation)`,
+    status: 'APPROVED',
+    validatedBy: 'System HR Engine',
+    validatedAt: new Date().toISOString(),
+    hrNote: voucherNo
+      ? `خصم تلقائي مرتبط بسند التسوية ${voucherNo}`
+      : 'خصم تلقائي ناتج عن اعتماد تسييل ورصد البدل النقدي',
+    createdAt: new Date().toISOString(),
+  };
+}
+
 /**
  * 9. تسييل وتصفية رصيد الإجازات الفعلي في سجل التخصيصات (Encashment Execution)
  */
@@ -832,7 +886,14 @@ export function liquidateLeaveBalanceInAllocations(
   onUpdateAllocations: (updated: HrLeaveAllocation[]) => void,
   employee?: Employee,
   onUpdateEmployee?: (updated: Employee) => void,
-  options?: { settlementVoucherId?: string; settlementVoucherNumber?: string }
+  options?: {
+    settlementVoucherId?: string;
+    settlementVoucherNumber?: string;
+    /** Days recorded on encash-leave row (defaults to voucher / requested encashment). */
+    settlementEncashedDays?: number;
+    settlementDate?: string;
+    netPayoutKwd?: number;
+  }
 ): { success: boolean; deductedDays: number; message: string } {
   if (encashedDays <= 0) {
     return { success: false, deductedDays: 0, message: 'عدد أيام التصفية يجب أن يكون أكبر من الصفر' };
@@ -922,43 +983,21 @@ export function liquidateLeaveBalanceInAllocations(
   }
 
   const successfullyEncashed = encashedDays - Math.max(0, remainingToEncash);
+  const recordEncashDays = Number(
+    (options?.settlementEncashedDays ?? encashedDays ?? successfullyEncashed).toFixed(2)
+  );
 
-  // Record encashment deduction in canonical leave_requests (Firestore)
-  if (successfullyEncashed > 0 && employee) {
+  // Record encashment in leave_requests — voucher day count is SSOT (not partial FIFO allocation only).
+  if (recordEncashDays > 0 && employee) {
     try {
-      const todayStr = new Date().toISOString().split('T')[0];
-      const leaveId = `encash-leave-${Date.now()}`;
-      const voucherRef = options?.settlementVoucherNumber || options?.settlementVoucherId || '';
-      const encashDays = Number(successfullyEncashed.toFixed(2));
-      const basicSalary = resolveEmployeeBasicSalaryKwd(employee as Record<string, unknown>);
-      const dailyWage = calculateKuwaitDailyRate(basicSalary);
-      const encashPayoutKwd = cleanKwdAmount(encashDays * dailyWage);
-      const newLeaveReq: LeaveRequest = {
-        id: leaveId,
-        employeeId: employee.id,
-        companyId: employee.companyId || '',
-        employeeName: employee.fullNameAr || employee.fullNameEn || '',
-        leaveType: 'ANNUAL',
-        startDate: todayStr,
-        endDate: todayStr,
-        daysCount: encashDays,
-        totalDays: encashDays,
-        paidDays: encashDays,
-        unpaidDays: 0,
-        basicSalary: basicSalary > 0 ? basicSalary : undefined,
-        advanceSalaryAmount: encashPayoutKwd > 0 ? encashPayoutKwd : undefined,
-        isEncashment: true,
-        reason: `تصفية نقدية لرصيد الإجازة: ${encashDays} يوم (Encashment & Liquidation)`,
-        status: 'APPROVED',
-        validatedBy: 'System HR Engine',
-        validatedAt: new Date().toISOString(),
-        hrNote: voucherRef
-          ? `خصم تلقائي مرتبط بسند التسوية ${voucherRef}`
-          : 'خصم تلقائي ناتج عن اعتماد تسييل ورصد البدل النقدي',
-        createdAt: new Date().toISOString(),
-      };
+      const newLeaveReq = buildEncashmentLeaveRequestFromSettlement(employee, recordEncashDays, {
+        settlementVoucherId: options?.settlementVoucherId,
+        settlementVoucherNumber: options?.settlementVoucherNumber,
+        settlementDate: options?.settlementDate,
+        netPayoutKwd: options?.netPayoutKwd,
+      });
       void setDoc(
-        doc(db, 'leave_requests', leaveId),
+        doc(db, 'leave_requests', newLeaveReq.id),
         cleanFirestoreData(newLeaveReq),
         { merge: true }
       ).catch((err) => console.error('Firestore encashment leave write failed:', err));
@@ -1108,7 +1147,13 @@ export async function on_approve_settlement(
           onUpdateEmployees(newEmps);
         }
       },
-      { settlementVoucherId: voucher.id, settlementVoucherNumber: voucher.voucherNumber }
+      {
+        settlementVoucherId: voucher.id,
+        settlementVoucherNumber: voucher.voucherNumber,
+        settlementEncashedDays: encashedDays,
+        settlementDate: voucher.settlementDate,
+        netPayoutKwd: voucher.netSettlementPayout,
+      }
     );
   }
 

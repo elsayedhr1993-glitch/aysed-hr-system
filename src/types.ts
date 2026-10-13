@@ -327,6 +327,9 @@ export interface LeaveRequest extends Record<string, unknown> {
   historicalYear?: number;     // السنة التاريخية للإجازة (مثلاً 2022، 2023، 2024، 2025)
   paidDays?: number;           // أيام مغطاة من رصيد الإجازات
   unpaidDays?: number;
+  /** Cash liquidation row linked to leave_settlements voucher */
+  isEncashment?: boolean;
+  settlementVoucherId?: string;
   dailyWage?: number;
   leaveAmount?: number;
   totalAvailableBalance?: number;

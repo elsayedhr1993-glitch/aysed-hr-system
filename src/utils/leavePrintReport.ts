@@ -1,5 +1,11 @@
 import type { LeaveRequest, LeaveSettlementVoucher } from '../types';
-import { matchesEmployeeIdentity, resolveLeavePaidUnpaidSplit } from './leaveEngine';
+import {
+  matchesEmployeeIdentity,
+  resolveLeavePaidUnpaidSplit,
+  shrinkLeaveBucketsAfterPaidDays,
+  type EmployeeLeaveSummary,
+} from './leaveEngine';
+import { resolveLeaveRequestDayCount } from './leaveModel';
 import { isAnnualLeaveType, isEncashmentLeaveRequest, normalizeLeaveStatus } from './leaveModel';
 
 export { isEncashmentLeaveRequest } from './leaveModel';
@@ -138,8 +144,94 @@ export function buildLeavePrintLogRows(
   return rows.sort((a, b) => String(a.startDate).localeCompare(String(b.startDate)));
 }
 
+function settlementEncashDays(v: LeaveSettlementVoucher): number {
+  const encash = Number(v.encashedLeaveDays || 0);
+  if (encash > 0) return encash;
+  return Number((v as { aysed_paid_days?: number }).aysed_paid_days || 0);
+}
+
+function isLockedSettlement(v: LeaveSettlementVoucher): boolean {
+  const status = String(v.status || '').toLowerCase();
+  return status === 'settled_locked' || status === 'paid' || status === 'validated';
+}
+
+/**
+ * Encashment days for UI/reports — settlement voucher is SSOT when linked; avoids 9.69 vs 30.50 drift.
+ */
+export function computeEmployeeEncashmentDays(
+  employee: unknown,
+  leaves: LeaveRequest[] = [],
+  settlements: LeaveSettlementVoucher[] = []
+): number {
+  const encashLeaves = (leaves || []).filter(
+    (l) => matchesEmployeeIdentity(l, employee) && isEncashmentLeaveRequest(l)
+  );
+  const empVouchers = (settlements || []).filter(
+    (v) => matchesEmployeeIdentity(v, employee) && isLockedSettlement(v) && settlementEncashDays(v) > 0
+  );
+
+  let total = 0;
+  const voucherNumbersSeen = new Set<string>();
+
+  for (const v of empVouchers) {
+    const vDays = settlementEncashDays(v);
+    const vNo = String(v.voucherNumber || '').trim();
+    const linkedDays = encashLeaves
+      .filter((l) => vNo && voucherReferencedInLeave(l, vNo))
+      .reduce((sum, l) => sum + resolveLeaveRequestDayCount(l), 0);
+    total += Math.max(vDays, linkedDays);
+    if (vNo) voucherNumbersSeen.add(vNo);
+  }
+
+  for (const l of encashLeaves) {
+    const blob = `${l.hrNote || ''} ${l.reason || ''}`;
+    const refsKnownVoucher = empVouchers.some((v) => {
+      const vNo = String(v.voucherNumber || '').trim();
+      return vNo && blob.includes(vNo);
+    });
+    if (!refsKnownVoucher) {
+      total += resolveLeaveRequestDayCount(l);
+    }
+  }
+
+  if (total > 0) return Number(total.toFixed(2));
+  return Number(
+    encashLeaves.reduce((sum, l) => sum + resolveLeaveRequestDayCount(l), 0).toFixed(2)
+  );
+}
+
 export function sumEncashmentDaysFromLog(rows: LeavePrintLogRow[]): number {
+  const encashRows = rows.filter((r) => r.kind === 'encashment');
+  if (encashRows.length > 0) {
+    return encashRows.reduce((sum, r) => sum + Number(r.paidDays || r.totalDays || 0), 0);
+  }
   return rows
-    .filter((r) => r.kind === 'encashment' || r.kind === 'settlement_voucher')
-    .reduce((sum, r) => sum + Number(r.paidDays || 0), 0);
+    .filter((r) => r.kind === 'settlement_voucher')
+    .reduce((sum, r) => sum + Number(r.paidDays || r.totalDays || 0), 0);
+}
+
+/** Report KPIs: encashment is excluded from leave engine totals but must reduce net balance on print. */
+export function buildLeaveReportKpis(
+  summary: EmployeeLeaveSummary,
+  encashTaken: number,
+  openingPool: number
+) {
+  const encash = Math.max(0, Number(encashTaken.toFixed(2)));
+  const annualTaken = Math.max(0, Number(summary.usedLeaveDays || 0));
+  const totalDeducted = Number((annualTaken + encash).toFixed(2));
+  const unpaidExcess = Number(summary.unpaidLeaveDays || 0);
+  const netAvailable = Math.max(0, Number((openingPool - totalDeducted).toFixed(2)));
+  const fifoRemaining = shrinkLeaveBucketsAfterPaidDays(encash, {
+    carriedOver: Number(summary.remainingCarried ?? 0),
+    accrued: Number(summary.remainingAccrued ?? 0),
+    compensatory: Number(summary.remainingComp ?? 0),
+  });
+  return {
+    annualTaken,
+    encashTaken: encash,
+    totalDeducted,
+    netAvailable,
+    unpaidExcess,
+    fifoRemaining,
+  };
 }

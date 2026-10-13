@@ -45,7 +45,7 @@ import { TenantDatabaseService } from '../services/tenantDataService';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { getPersistentData } from '../utils/persistentStorage';
 import { checkDocumentExpiry } from '../utils/dateUtils';
-import { getEmployeeUnifiedSummary, matchesEmployeeIdentity } from '../utils/leaveEngine';
+import { getEmployeeLeaveBalanceView, matchesEmployeeIdentity } from '../utils/leaveEngine';
 import { buildLeavePrintLogRows, sumEncashmentDaysFromLog } from '../utils/leavePrintReport';
 import { useCompanyLeaveFinanceSnapshots } from '../hooks/useCompanyLeaveFinanceSnapshots';
 import { collection, deleteDoc, doc, getDocs, onSnapshot, query, setDoc, where } from 'firebase/firestore';
@@ -115,18 +115,32 @@ const generateLeavePrintHtml = (
   settlementVouchers: LeaveSettlementVoucher[] = []
 ) => {
   const employeeLeaves = leaveRequests.filter((l: any) => matchesEmployeeIdentity(l, printData));
-  const summary = getEmployeeUnifiedSummary(printData as any, leaveAllocations as any, employeeLeaves as any);
+  const balanceView = getEmployeeLeaveBalanceView(
+    printData as any,
+    leaveAllocations as any,
+    employeeLeaves as any,
+    settlementVouchers
+  );
+  const summary = balanceView;
 
-  const totalTaken = Number(summary.usedLeaveDays || 0);
-  const unpaidExcess = Number(summary.unpaidLeaveDays || 0);
   const carriedOver = Number(summary.carriedOverDays || 0);
   const accrued2026 = Number(summary.accruedAnnualDays || 0);
   const compensatory = Number(summary.holidayCompensationDays || 0);
-  const netAvailable = Math.max(0, Number(summary.totalAvailableDays || 0));
   const openingPool = carriedOver + accrued2026 + compensatory;
   const logRows = buildLeavePrintLogRows(printData, employeeLeaves as any, settlementVouchers, openingPool);
-  const encashTaken = sumEncashmentDaysFromLog(logRows);
-  const annualTaken = Math.max(0, Number((totalTaken - encashTaken).toFixed(2)));
+  const encashTaken = balanceView.encashmentDays || sumEncashmentDaysFromLog(logRows);
+  const reportKpis = {
+    annualTaken: balanceView.annualLeaveDaysUsed,
+    encashTaken,
+    totalDeducted: balanceView.totalDeductedDays,
+    netAvailable: balanceView.displayNetBalance,
+    unpaidExcess: Number(balanceView.unpaidLeaveDays || 0),
+    fifoRemaining: balanceView.fifoRemainingDisplay,
+  };
+  const totalTaken = reportKpis.totalDeducted;
+  const unpaidExcess = reportKpis.unpaidExcess;
+  const netAvailable = reportKpis.netAvailable;
+  const annualTaken = reportKpis.annualTaken;
   const fifoBreakdown = summary.fifoBreakdown || {
     consumedFromCarried: Number(summary.consumedFromCarried || 0),
     consumedFromAccrued: Number(summary.consumedFromAccrued || 0),
@@ -138,9 +152,9 @@ const generateLeavePrintHtml = (
   const consumedFromCarried = Number(fifoBreakdown?.consumedFromCarried ?? 0);
   const consumedFromAccrued = Number(fifoBreakdown?.consumedFromAccrued ?? 0);
   const consumedFromComp = Number(fifoBreakdown?.consumedFromComp ?? 0);
-  const remainingCarried = Number(fifoBreakdown?.remainingCarried ?? 0);
-  const remainingAccrued = Number(fifoBreakdown?.remainingAccrued ?? 0);
-  const remainingComp = Number(fifoBreakdown?.remainingComp ?? 0);
+  const remainingCarried = reportKpis.fifoRemaining.remainingCarried;
+  const remainingAccrued = reportKpis.fifoRemaining.remainingAccrued;
+  const remainingComp = reportKpis.fifoRemaining.remainingComp;
 
   return `
     <div style="direction: rtl; font-family: 'Arial', 'Tahoma', sans-serif; padding: 25px; line-height: 1.6; color: #1e293b;">
@@ -1992,17 +2006,31 @@ export function EmployeesApp(props?: any) {
                   const isLeaveReport = printTitle.includes('كشف رصيد إجازات');
                   if (isLeaveReport) {
                     const normalizedLeaveRequests = leaveRequests.filter((l: any) => matchesEmployeeIdentity(l, printData));
-                    const summary = getEmployeeUnifiedSummary(printData as any, leaveAllocations as any, normalizedLeaveRequests as any);
-                    const totalTaken = Number(summary.usedLeaveDays || 0);
-                    const unpaidExcess = Number(summary.unpaidLeaveDays || 0);
+                    const balanceView = getEmployeeLeaveBalanceView(
+                      printData as any,
+                      leaveAllocations as any,
+                      normalizedLeaveRequests as any,
+                      leaveSettlements
+                    );
+                    const summary = balanceView;
                     const carriedOver = Number(summary.carriedOverDays || 0);
                     const accrued2026 = Number(summary.accruedAnnualDays || 0);
                     const compensatory = Number(summary.holidayCompensationDays || 0);
-                    const netAvailable = Math.max(0, Number(summary.totalAvailableDays || 0));
                     const openingPool = carriedOver + accrued2026 + compensatory;
                     const logRows = buildLeavePrintLogRows(printData, normalizedLeaveRequests as any, leaveSettlements, openingPool);
-                    const encashTaken = sumEncashmentDaysFromLog(logRows);
-                    const annualTaken = Math.max(0, Number((totalTaken - encashTaken).toFixed(2)));
+                    const encashTaken = balanceView.encashmentDays || sumEncashmentDaysFromLog(logRows);
+                    const reportKpis = {
+                      annualTaken: balanceView.annualLeaveDaysUsed,
+                      encashTaken,
+                      totalDeducted: balanceView.totalDeductedDays,
+                      netAvailable: balanceView.displayNetBalance,
+                      unpaidExcess: Number(balanceView.unpaidLeaveDays || 0),
+                      fifoRemaining: balanceView.fifoRemainingDisplay,
+                    };
+                    const totalTaken = reportKpis.totalDeducted;
+                    const unpaidExcess = reportKpis.unpaidExcess;
+                    const netAvailable = reportKpis.netAvailable;
+                    const annualTaken = reportKpis.annualTaken;
                     const fifoBreakdown = summary.fifoBreakdown || {
                       consumedFromCarried: Number(summary.consumedFromCarried || 0),
                       consumedFromAccrued: Number(summary.consumedFromAccrued || 0),
@@ -2014,9 +2042,9 @@ export function EmployeesApp(props?: any) {
                     const consumedFromCarried = Number((summary.consumedFromCarried ?? fifoBreakdown.consumedFromCarried ?? 0).toFixed(2));
                     const consumedFromAccrued = Number((summary.consumedFromAccrued ?? fifoBreakdown.consumedFromAccrued ?? 0).toFixed(2));
                     const consumedFromComp = Number((summary.consumedFromComp ?? fifoBreakdown.consumedFromComp ?? 0).toFixed(2));
-                    const remainingCarried = Number((summary.remainingCarried ?? fifoBreakdown.remainingCarried ?? 0).toFixed(2));
-                    const remainingAccrued = Number((summary.remainingAccrued ?? fifoBreakdown.remainingAccrued ?? 0).toFixed(2));
-                    const remainingComp = Number((summary.remainingComp ?? fifoBreakdown.remainingComp ?? 0).toFixed(2));
+                    const remainingCarried = reportKpis.fifoRemaining.remainingCarried;
+                    const remainingAccrued = reportKpis.fifoRemaining.remainingAccrued;
+                    const remainingComp = reportKpis.fifoRemaining.remainingComp;
 
                     return (
                       <OdooOfficialA4ReportLayout
@@ -2070,7 +2098,14 @@ export function EmployeesApp(props?: any) {
                             <OdooReportKpiCell label="بدون راتب / تجاوز" value={`${unpaidExcess} يوم`} />
                             <OdooReportKpiCell label="الرصيد الصافي" value={<span className="font-mono text-lg text-teal-900">{netAvailable} يوم</span>} />
                             <OdooReportKpiCell label="إجازات / تسييل" value={<span className="font-mono text-[10px]">{annualTaken} / {encashTaken}</span>} />
-                            <OdooReportKpiCell label="FIFO متبقي" value={<span className="font-mono text-[10px]">{remainingCarried} · {remainingAccrued} · {remainingComp}</span>} />
+                            <OdooReportKpiCell
+                              label="FIFO متبقي (مرحل·مستحق·تعويضي)"
+                              value={
+                                <span className="font-mono text-[10px]">
+                                  {remainingCarried} · {remainingAccrued} · {remainingComp}
+                                </span>
+                              }
+                            />
                           </OdooReportKpiStrip>
                         </div>
 

@@ -52,7 +52,7 @@ import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from 'fi
 import { useCompanyLeaveFinanceSnapshots } from '../hooks/useCompanyLeaveFinanceSnapshots';
 import { db, cleanFirestoreData } from '../lib/firebase';
 import {
-  getEmployeeUnifiedSummary,
+  getEmployeeLeaveBalanceView,
   matchesEmployeeIdentity,
   normalizeLeaveBalanceInputs,
   sumCarriedOverFromAllocations,
@@ -142,6 +142,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
     setLeaveRequests: setRequests,
     leaveAllocations: allocations,
     setLeaveAllocations: setAllocations,
+    leaveSettlements,
   } = useCompanyLeaveFinanceSnapshots(companyId);
 
   const handleDeleteRequest = async (id: string, empName: string) => {
@@ -378,12 +379,17 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
         scopedAllocations as never[],
         scopedLeaves as never[]
       );
-      const summary = getEmployeeUnifiedSummary(emp as never, normAlloc, normLeaves);
-      carried = Number(summary.carriedOverDays || 0);
+      const balanceView = getEmployeeLeaveBalanceView(
+        emp as never,
+        normAlloc,
+        normLeaves,
+        leaveSettlements
+      );
+      carried = Number(balanceView.carriedOverDays || 0);
       earned =
-        Number(summary.accruedAnnualDays || 0) + Number(summary.holidayCompensationDays || 0);
-      consumed = Number(summary.usedLeaveDays || 0);
-      available = Number(summary.totalAvailableDays || 0);
+        Number(balanceView.accruedAnnualDays || 0) + Number(balanceView.holidayCompensationDays || 0);
+      consumed = Number(balanceView.totalDeductedDays || balanceView.displayUsedDays || 0);
+      available = Number(balanceView.displayNetBalance || 0);
     }
 
     const startYear = contractStartStr ? contractStartStr.slice(0, 4) : '2025';

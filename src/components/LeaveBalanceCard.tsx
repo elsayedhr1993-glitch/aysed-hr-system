@@ -1,10 +1,10 @@
 import React from 'react';
 import {
   EmployeeLeaveSummary,
-  getEmployeeUnifiedSummary,
+  getEmployeeLeaveBalanceView,
   normalizeLeaveBalanceInputs,
 } from '../utils/leaveEngine';
-import { Employee, HrLeaveAllocation, LeaveRequest } from '../types';
+import { Employee, HrLeaveAllocation, LeaveRequest, LeaveSettlementVoucher } from '../types';
 import {
   Calendar, DollarSign,
   Clock, Plus, AlertCircle, Sparkles, Scale
@@ -16,6 +16,7 @@ export interface LeaveBalanceCardProps {
   leaveRecords?: unknown;
   allocations?: HrLeaveAllocation[];
   leaves?: LeaveRequest[];
+  settlements?: LeaveSettlementVoucher[];
   onOpenSettlement?: (summary: EmployeeLeaveSummary) => void;
   onOpenLeaveRequest?: (employee: Employee) => void;
   className?: string;
@@ -26,6 +27,7 @@ export const LeaveBalanceCard: React.FC<LeaveBalanceCardProps> = ({
   employee,
   allocations = [],
   leaves = [],
+  settlements = [],
   onOpenSettlement,
   onOpenLeaveRequest,
   className = '',
@@ -34,9 +36,10 @@ export const LeaveBalanceCard: React.FC<LeaveBalanceCardProps> = ({
   if (!employee) return null;
 
   const { allocations: normAlloc, leaves: normLeaves } = normalizeLeaveBalanceInputs(allocations, leaves);
-  const summary = getEmployeeUnifiedSummary(employee as Employee, normAlloc, normLeaves);
+  const summary = getEmployeeLeaveBalanceView(employee as Employee, normAlloc, normLeaves, settlements);
 
-  const visibleNetBalance = Math.max(0, Number(summary.netBalance ?? summary.totalAvailableDays ?? 0));
+  const visibleNetBalance = Math.max(0, Number(summary.displayNetBalance ?? summary.netBalance ?? 0));
+  const totalDeductedDisplay = Number(summary.totalDeductedDays ?? summary.usedLeaveDays ?? 0);
   const unpaidExcess = Number(summary.unpaidLeaveDays ?? 0);
   const annualPoolDisplay = Number(
     (Number(summary.carriedOverDays || 0) + Number(summary.accruedAnnualDays || 0)).toFixed(2)
@@ -62,7 +65,7 @@ export const LeaveBalanceCard: React.FC<LeaveBalanceCardProps> = ({
           </div>
           <div>
             <span className="text-slate-400 block text-[9px]">من الرصيد:</span>
-            <span className="font-semibold text-rose-600">-{summary.usedLeaveDays}</span>
+            <span className="font-semibold text-rose-600">-{totalDeductedDisplay}</span>
           </div>
         </div>
         {unpaidExcess > 0 && (
@@ -169,7 +172,7 @@ export const LeaveBalanceCard: React.FC<LeaveBalanceCardProps> = ({
             <span>الإجازات المستهلكة المعتمدة:</span>
           </div>
           <span className="font-bold text-rose-700 tabular-nums">
-            -{summary.usedLeaveDays} يوم
+            -{totalDeductedDisplay} يوم
           </span>
         </div>
       </div>

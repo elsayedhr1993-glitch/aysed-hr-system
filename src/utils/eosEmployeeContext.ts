@@ -1,6 +1,6 @@
-import type { Contract } from '../types';
+import type { Contract, LeaveSettlementVoucher } from '../types';
 import {
-  getEmployeeUnifiedSummary,
+  getEmployeeLeaveBalanceView,
   matchesEmployeeIdentity,
   normalizeLeaveBalanceInputs,
 } from './leaveEngine';
@@ -92,7 +92,8 @@ export function resolveContractType(
 export function getEmployeeLeaveEosSnapshot(
   emp: Record<string, unknown>,
   leaveAllocations: unknown[],
-  leaveRequests: unknown[]
+  leaveRequests: unknown[],
+  leaveSettlements: LeaveSettlementVoucher[] = []
 ): EmployeeLeaveEosSnapshot {
   const empRecord = {
     ...emp,
@@ -117,14 +118,14 @@ export function getEmployeeLeaveEosSnapshot(
     scopedAllocations as never[],
     scopedLeaves as never[]
   );
-  const summary = getEmployeeUnifiedSummary(empRecord as never, allocations, leaves);
+  const summary = getEmployeeLeaveBalanceView(empRecord as never, allocations, leaves, leaveSettlements);
 
   return {
     carried: Number(summary.carriedOverDays || 0),
     earned: Number(summary.accruedAnnualDays || 0),
     compensatory: Number(summary.holidayCompensationDays || 0),
-    consumed: Number(summary.usedLeaveDays || 0),
-    netAvailable: Number(summary.totalAvailableDays || 0),
+    consumed: Number(summary.totalDeductedDays || summary.usedLeaveDays || 0),
+    netAvailable: Number(summary.displayNetBalance ?? summary.totalAvailableDays ?? 0),
     unpaidExcess: Number(summary.unpaidLeaveDays || 0),
   };
 }

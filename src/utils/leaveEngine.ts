@@ -155,6 +155,24 @@ function distributePaidLeaveAcrossBuckets(
   };
 }
 
+/** Apply extra paid days (e.g. encashment) on top of post-leave FIFO bucket remainders. */
+export function shrinkLeaveBucketsAfterPaidDays(
+  paidDays: number,
+  buckets: { carriedOver: number; accrued: number; compensatory: number }
+): { remainingCarried: number; remainingAccrued: number; remainingComp: number } {
+  const usage = distributePaidLeaveAcrossBuckets(
+    paidDays,
+    buckets.carriedOver,
+    buckets.accrued,
+    buckets.compensatory
+  );
+  return {
+    remainingCarried: cleanDayDecimals(Math.max(0, buckets.carriedOver - usage.consumedFromCarried)),
+    remainingAccrued: cleanDayDecimals(Math.max(0, buckets.accrued - usage.consumedFromAccrued)),
+    remainingComp: cleanDayDecimals(Math.max(0, buckets.compensatory - usage.consumedFromComp)),
+  };
+}
+
 function isCompensatoryLeaveAllocation(allocation: HrLeaveAllocation & Record<string, unknown>): boolean {
   const state = String(allocation.state || allocation.status || '').toLowerCase();
   const allowedState = ['approved', 'validate', 'validated', 'confirm', 'done', ''];
@@ -457,6 +475,12 @@ export function getEmployeeUnifiedSummary(
 ): EmployeeLeaveSummary {
   return buildUnifiedLeaveSummary(employee, allocations, leaves, contract);
 }
+
+export {
+  buildEmployeeLeaveBalanceView,
+  getEmployeeLeaveBalanceView,
+  type EmployeeLeaveBalanceView,
+} from './leaveBalanceView';
 
 export function normalizeLeaveBalanceInputs(
   allocations: HrLeaveAllocation[] = [],

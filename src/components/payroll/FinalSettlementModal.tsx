@@ -6,11 +6,11 @@ import {
 import { tafqitKuwaiti } from '../../utils/tafqit';
 import { calculateKuwaitEOS, calculateDailyWage } from '../../utils/kuwaitPayrollEngine';
 import {
-  getEmployeeUnifiedSummary,
+  getEmployeeLeaveBalanceView,
   matchesEmployeeIdentity,
   normalizeLeaveBalanceInputs
 } from '../../utils/leaveEngine';
-import type { Company } from '../../types';
+import type { Company, LeaveSettlementVoucher } from '../../types';
 import { OfficialA4CompanyLetterheadCompact } from '../print/OfficialA4CompanyLetterhead';
 import { OdooReportFooter, OdooReportLegalNotice } from '../print/OdooReportPrimitives';
 import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
@@ -34,6 +34,7 @@ interface FinalSettlementModalProps {
   employees: FinalSettlementEmployee[];
   leaveRequests?: any[];
   leaveAllocations?: any[];
+  leaveSettlements?: LeaveSettlementVoucher[];
   company: Company | null;
   initialEmployeeId?: string;
   onClose: () => void;
@@ -43,6 +44,7 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
   employees,
   leaveRequests = [],
   leaveAllocations = [],
+  leaveSettlements = [],
   company,
   initialEmployeeId,
   onClose,
@@ -106,13 +108,13 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
       matchesEmployeeIdentity(l, empRecord)
     );
     const { allocations, leaves } = normalizeLeaveBalanceInputs(scopedAllocations, scopedLeaves);
-    const summary = getEmployeeUnifiedSummary(empRecord as any, allocations, leaves);
+    const summary = getEmployeeLeaveBalanceView(empRecord as any, allocations, leaves, leaveSettlements);
 
     const carried = Number(summary.carriedOverDays || 0);
     const earned = Number(summary.accruedAnnualDays || 0);
     const compensatory = Number(summary.holidayCompensationDays || 0);
-    const consumed = Number(summary.usedLeaveDays || 0);
-    const net = Number(summary.totalAvailableDays || 0);
+    const consumed = Number(summary.totalDeductedDays || summary.usedLeaveDays || 0);
+    const net = Number(summary.displayNetBalance || 0);
     const unpaidExcess = Number(summary.unpaidLeaveDays || 0);
 
     return {
@@ -129,7 +131,7 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
       unpaidExcess,
       net
     };
-  }, [currentEmp, leaveAllocations, leaveRequests]);
+  }, [currentEmp, leaveAllocations, leaveRequests, leaveSettlements]);
 
   const liveLeaveBalance = Number(liveLeaveSnapshot.net || 0);
 

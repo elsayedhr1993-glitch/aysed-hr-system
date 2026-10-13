@@ -24,6 +24,8 @@
     "leaves:purge-legacy": "tsx scripts/purge-legacy-leaves-collection.ts",
     "purge:demo": "tsx scripts/purge-demo-data.ts",
     "employees:heal-cross-tenant": "tsx scripts/run-employee-cross-tenant-self-heal-admin.ts",
+    "leaves:repair-encash-sync": "tsx scripts/repair-encashment-leave-sync-admin.ts --dry-run",
+    "leaves:repair-encash-sync:apply": "tsx scripts/repair-encashment-leave-sync-admin.ts --apply",
     "pam:seed-overlay": "tsx scripts/seed-pam-overlay-settings.ts",
     "pam:export-overlay": "tsx scripts/seed-pam-overlay-settings.ts --export",
     "documents:sync-archive": "tsx scripts/sync-employee-documents-archive.ts",

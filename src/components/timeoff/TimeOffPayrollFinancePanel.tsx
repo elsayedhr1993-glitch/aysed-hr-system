@@ -15,7 +15,7 @@ import {
   resolveLeaveRequestDayCount,
 } from '../../utils/leaveModel';
 import {
-  getEmployeeUnifiedSummary,
+  getEmployeeLeaveBalanceView,
   matchesEmployeeIdentity,
   resolveAnnualTicketAllowanceKwd,
   resolveEmployeeBasicSalaryKwd,
@@ -137,15 +137,16 @@ export const TimeOffPayrollFinancePanel: React.FC<Props> = ({ highlightAdvanceRe
     const leavesExcludingCurrent = mappedLeaveRequests.filter((l) => l.id !== req.id);
     const summaryBefore =
       emp && daysCount > 0
-        ? getEmployeeUnifiedSummary(
+        ? getEmployeeLeaveBalanceView(
             emp as Employee,
             mappedAllocations,
-            leavesExcludingCurrent as LeaveRequest[]
+            leavesExcludingCurrent as LeaveRequest[],
+            settlementVouchers
           )
         : null;
 
     const poolBefore = Math.max(
-      summaryBefore?.netBalance ?? 0,
+      summaryBefore?.displayNetBalance ?? summaryBefore?.netBalance ?? 0,
       resolveLeaveBalancePoolHint(req),
       Number(req.totalAvailableBalance ?? 0)
     );

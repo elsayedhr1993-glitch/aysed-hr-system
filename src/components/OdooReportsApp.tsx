@@ -41,7 +41,8 @@ import {
   WPS_RECONCILIATION_COLUMNS,
 } from '../config/uiStudio/reportColumns';
 import { UI_KEYS } from '../utils/uiStudioKeys';
-import { getEmployeeUnifiedSummary } from '../utils/leaveEngine';
+import { getEmployeeLeaveBalanceView } from '../utils/leaveEngine';
+import type { LeaveSettlementVoucher } from '../types';
 import { computeNetPayrollFromComponents } from '../utils/kuwaitPayrollMath';
 import {
   REPORTS_MISSING,
@@ -175,6 +176,7 @@ export const OdooReportsApp: React.FC = () => {
   const { employees: contextEmployees, computedPayslips } = useOdooHierarchy();
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [leaveAllocations, setLeaveAllocations] = useState<any[]>([]);
+  const [leaveSettlements, setLeaveSettlements] = useState<LeaveSettlementVoucher[]>([]);
   const [periodPayslips, setPeriodPayslips] = useState<ReportsPayslipSnapshot[]>([]);
   const [monthlyRollup, setMonthlyRollup] = useState<Record<string, MonthlyAttendanceRollupEntry>>({});
 
@@ -198,21 +200,33 @@ export const OdooReportsApp: React.FC = () => {
     if (!companyId) {
       setLeaveRequests([]);
       setLeaveAllocations([]);
+      setLeaveSettlements([]);
       return;
     }
 
     const requestsQuery = query(collection(db, 'leave_requests'), where('companyId', '==', companyId));
     const allocationsQuery = query(collection(db, 'leave_allocations'), where('companyId', '==', companyId));
+    const settlementsQuery = query(collection(db, 'leave_settlements'), where('companyId', '==', companyId));
     const unsubscribeRequests = onSnapshot(requestsQuery, snapshot => {
       setLeaveRequests(snapshot.docs.map(item => ({ ...item.data(), id: item.id })));
     }, error => console.error('Failed to load leave requests for reports:', error));
     const unsubscribeAllocations = onSnapshot(allocationsQuery, snapshot => {
       setLeaveAllocations(snapshot.docs.map(item => ({ ...item.data(), id: item.id })));
     }, error => console.error('Failed to load leave allocations for reports:', error));
+    const unsubscribeSettlements = onSnapshot(
+      settlementsQuery,
+      (snapshot) => {
+        setLeaveSettlements(
+          snapshot.docs.map((item) => ({ ...(item.data() as LeaveSettlementVoucher), id: item.id }))
+        );
+      },
+      (error) => console.error('Failed to load leave settlements for reports:', error)
+    );
 
     return () => {
       unsubscribeRequests();
       unsubscribeAllocations();
+      unsubscribeSettlements();
     };
   }, [activeCompany?.id]);
 
@@ -283,9 +297,18 @@ export const OdooReportsApp: React.FC = () => {
         name: allocation.name || allocation.notes,
         dateFrom: allocation.dateFrom || allocation.allocationDate || '2026-01-01'
       }));
-      const leaveSummary = getEmployeeUnifiedSummary(emp as any, normalizedAllocations as any, leaveRequests as any);
-      const consumedDays = Number(leaveSummary.usedLeaveDays || 0);
-      const leaveBal = Number(leaveSummary.totalAvailableDays || 0);
+      const empLeaves = leaveRequests.filter((l: any) =>
+        String(l.employeeId || '') === String(emp.id || '') ||
+        (emp.employeeCode && l.employeeId === emp.employeeCode)
+      );
+      const leaveSummary = getEmployeeLeaveBalanceView(
+        emp as any,
+        normalizedAllocations as any,
+        empLeaves as any,
+        leaveSettlements
+      );
+      const consumedDays = Number(leaveSummary.totalDeductedDays || leaveSummary.usedLeaveDays || 0);
+      const leaveBal = Number(leaveSummary.displayNetBalance || 0);
 
       // أجر اليوم الواحد وفق معيار الـ 26 يوم عمل (المادتين 70 و 71)
       const dailyWage = Number(leaveSummary.dailyWageRate || 0);

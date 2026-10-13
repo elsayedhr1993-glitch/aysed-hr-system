@@ -57,7 +57,8 @@ import { TabDocumentScanner } from '../TabDocumentScanner';
 import { EditableField, EditableSelect } from '../EditableField';
 import { getCarriedOverBalance } from '../../utils/kuwaitLaw';
 import { buildEmployeeBaselineAllocations, computeFifoLeaveAllocations } from '../../services/leaveService';
-import { getEmployeeUnifiedSummary } from '../../utils/leaveEngine';
+import { getEmployeeLeaveBalanceView } from '../../utils/leaveBalanceView';
+import type { LeaveSettlementVoucher } from '../../types';
 import { calculateKuwaitDailyRate } from '../../utils/kuwaitPayrollMath';
 import { deleteEmployeeDocument } from '../../services/documentService';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
@@ -128,6 +129,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
+  const [leaveSettlements, setLeaveSettlements] = useState<LeaveSettlementVoucher[]>([]);
   const [leaveAllocations, setLeaveAllocations] = useState<any[]>([]);
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
   const [isUploadingSignedContract, setIsUploadingSignedContract] = useState(false);
@@ -273,6 +275,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
     if (!employeeId || !companyId) {
       setLeaveRequests([]);
       setLeaveAllocations([]);
+      setLeaveSettlements([]);
       return;
     }
 
@@ -292,10 +295,31 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
     const unsubscribeAllocations = onSnapshot(allocationsQuery, snapshot => {
       setLeaveAllocations(snapshot.docs.map(item => ({ ...item.data(), id: item.id })));
     }, error => console.error('Failed to load employee leave allocations:', error));
+    const settlementsQuery = query(
+      collection(db, 'leave_settlements'),
+      where('companyId', '==', companyId)
+    );
+    const unsubscribeSettlements = onSnapshot(
+      settlementsQuery,
+      (snapshot) => {
+        const rows = snapshot.docs.map(
+          (item) => ({ ...(item.data() as LeaveSettlementVoucher), id: item.id }) as LeaveSettlementVoucher
+        );
+        setLeaveSettlements(
+          rows.filter(
+            (v) =>
+              String(v.employeeId || '') === String(employeeId) ||
+              String(v.employeeCode || '') === String(initialEmployee?.employeeCode || '')
+          )
+        );
+      },
+      (error) => console.error('Failed to load employee leave settlements:', error)
+    );
 
     return () => {
       unsubscribeRequests();
       unsubscribeAllocations();
+      unsubscribeSettlements();
     };
   }, [initialEmployee?.id, initialEmployee?.companyId, initialEmployee?.company_id, activeCompany?.id]);
 
@@ -344,16 +368,20 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
       dateFrom: a.dateFrom || a.allocationDate
     }));
 
-  const getLeaveEngineSummary = () => {
+  const getLeaveBalanceView = () => {
     const mappedAllocations = mapAllocationsForEngine();
-    return getEmployeeUnifiedSummary(employee as any, mappedAllocations as any, leaveRequests as any);
+    return getEmployeeLeaveBalanceView(
+      employee as any,
+      mappedAllocations as any,
+      leaveRequests as any,
+      leaveSettlements
+    );
   };
 
-  // Dynamic Time Off Balance Calculation using the core Leave Engine and kuwaitLaw
+  // Dynamic Time Off Balance (engine + encashment vouchers SSOT)
   const getDynamicBalance = () => {
     try {
-      const summary = getLeaveEngineSummary();
-      return Number(summary.totalAvailableDays || 0);
+      return Number(getLeaveBalanceView().displayNetBalance || 0);
     } catch (err) {
       console.error('Failed to compute dynamic balance in detail view:', err);
       const carriedVal = getCarriedOverBalance(employee);
@@ -369,7 +397,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
 
   const getCarriedOverForDisplay = () => {
     try {
-      const summary = getLeaveEngineSummary();
+      const summary = getLeaveBalanceView();
       return Number(summary.carriedOverDays ?? summary.remainingCarried ?? 0);
     } catch {
       return getCarriedOverBalance(employee);

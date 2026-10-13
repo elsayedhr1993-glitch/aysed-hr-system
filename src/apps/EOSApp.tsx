@@ -3,7 +3,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Employee, Company, Contract, EOSCalculation, LeaveRequest } from '../types';
 import { formatKWD } from '../utils/kuwaitLaw';
 import { calculateKuwaitEOS } from '../utils/kuwaitPayrollEngine';
-import { getEmployeeUnifiedSummary, matchesEmployeeIdentity } from '../utils/leaveEngine';
+import { getEmployeeLeaveBalanceView, matchesEmployeeIdentity } from '../utils/leaveEngine';
+import type { LeaveSettlementVoucher } from '../types';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Scale, Printer, FileCheck, AlertCircle, Info, Calculator, CheckCircle2, CalendarOff, ShieldAlert, ArrowDownRight, Layers, FileSpreadsheet, Check, Download, Loader2, ShieldCheck, RotateCcw, UserX, AlertTriangle, FileSignature } from 'lucide-react';
@@ -50,23 +51,42 @@ export const EOSApp: React.FC<EOSAppProps> = ({
   const [departureCompleted, setDepartureCompleted] = useState<boolean>(false);
   const [clearanceConfirmed, setClearanceConfirmed] = useState<boolean>(false);
   const [leaveAllocations, setLeaveAllocations] = useState<any[]>([]);
+  const [leaveSettlements, setLeaveSettlements] = useState<LeaveSettlementVoucher[]>([]);
 
   useEffect(() => {
     if (!activeCompId) {
       setLeaveAllocations([]);
+      setLeaveSettlements([]);
       return;
     }
     const allocationsQuery = query(
       collection(db, 'leave_allocations'),
       where('companyId', '==', activeCompId)
     );
-    return onSnapshot(
+    const settlementsQuery = query(
+      collection(db, 'leave_settlements'),
+      where('companyId', '==', activeCompId)
+    );
+    const unsubAlloc = onSnapshot(
       allocationsQuery,
       (snapshot) => {
         setLeaveAllocations(snapshot.docs.map((item) => ({ ...item.data(), id: item.id })));
       },
       (error) => console.error('EOSApp: failed to load leave allocations', error)
     );
+    const unsubSettle = onSnapshot(
+      settlementsQuery,
+      (snapshot) => {
+        setLeaveSettlements(
+          snapshot.docs.map((item) => ({ ...(item.data() as LeaveSettlementVoucher), id: item.id }))
+        );
+      },
+      (error) => console.error('EOSApp: failed to load leave settlements', error)
+    );
+    return () => {
+      unsubAlloc();
+      unsubSettle();
+    };
   }, [activeCompId]);
 
   const activeEmp = employees.find(e => e.id === selectedEmpId) || companyEmps[0];
@@ -87,17 +107,22 @@ export const EOSApp: React.FC<EOSAppProps> = ({
     if (!activeEmp) return null;
     const empLeaves = (leaves || []).filter((l) => matchesEmployeeIdentity(l, activeEmp));
     try {
-      return getEmployeeUnifiedSummary(activeEmp as any, leaveAllocations as any, empLeaves as any);
+      return getEmployeeLeaveBalanceView(
+        activeEmp as any,
+        leaveAllocations as any,
+        empLeaves as any,
+        leaveSettlements
+      );
     } catch (err) {
       console.error('EOSApp: leave summary failed', err);
       return null;
     }
-  }, [activeEmp, leaves, leaveAllocations]);
+  }, [activeEmp, leaves, leaveAllocations, leaveSettlements]);
 
   // رصيد التسييل = نفس leaveEngine (FIFO / paid-unpaid) المستخدم في الدليل
   const calculatedUnusedLeaveDays = useMemo(() => {
     if (!employeeLeaveSummary) return 0;
-    return Number(employeeLeaveSummary.totalAvailableDays || 0);
+    return Number(employeeLeaveSummary.displayNetBalance ?? employeeLeaveSummary.totalAvailableDays ?? 0);
   }, [employeeLeaveSummary]);
 
   const effectiveUnusedLeaveDays = manualLeaveDaysOverride !== null ? manualLeaveDaysOverride : calculatedUnusedLeaveDays;

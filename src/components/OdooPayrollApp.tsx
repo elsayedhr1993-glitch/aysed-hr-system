@@ -126,6 +126,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
   const [payslips, setPayslips] = useState<PayslipItem[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [leaveAllocations, setLeaveAllocations] = useState<any[]>([]);
+  const [leaveSettlements, setLeaveSettlements] = useState<any[]>([]);
   const [monthlyRollupByEmployee, setMonthlyRollupByEmployee] = useState<Record<string, MonthlyAttendanceRollupEntry>>({});
 
   useEffect(() => {
@@ -179,11 +180,13 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
     if (!companyId) {
       setLeaveRequests([]);
       setLeaveAllocations([]);
+      setLeaveSettlements([]);
       return;
     }
 
     const requestsQuery = query(collection(db, 'leave_requests'), where('companyId', '==', companyId));
     const allocationsQuery = query(collection(db, 'leave_allocations'), where('companyId', '==', companyId));
+    const settlementsQuery = query(collection(db, 'leave_settlements'), where('companyId', '==', companyId));
 
     const unsubscribeRequests = onSnapshot(requestsQuery, snapshot => {
       setLeaveRequests(snapshot.docs.map(item => ({ ...item.data(), id: item.id })));
@@ -193,9 +196,18 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
       setLeaveAllocations(snapshot.docs.map(item => ({ ...item.data(), id: item.id })));
     }, error => console.error('Failed to load leave allocations for payroll settlements', error));
 
+    const unsubscribeSettlements = onSnapshot(
+      settlementsQuery,
+      (snapshot) => {
+        setLeaveSettlements(snapshot.docs.map((item) => ({ ...item.data(), id: item.id })));
+      },
+      (error) => console.error('Failed to load leave settlements for payroll settlements', error)
+    );
+
     return () => {
       unsubscribeRequests();
       unsubscribeAllocations();
+      unsubscribeSettlements();
     };
   }, [activeCompany?.id]);
 
@@ -1886,6 +1898,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
           employees={settlementEmployees}
           leaveRequests={leaveRequests}
           leaveAllocations={leaveAllocations}
+          leaveSettlements={leaveSettlements}
           company={companyForPrint}
           initialEmployeeId={initialSettlementEmployeeId}
           onClose={() => setShowFinalSettlementModal(false)}

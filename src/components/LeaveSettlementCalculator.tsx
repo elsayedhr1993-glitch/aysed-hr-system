@@ -37,6 +37,7 @@ import { LeaveClearanceDocument } from './LeaveClearanceDocument';
 import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
 import {
   LeaveBalanceEngine,
+  getEmployeeLeaveBalanceView,
   getEmployeeUnifiedSummary,
   matchesEmployeeIdentity,
   resolveAnnualTicketAllowanceKwd,
@@ -184,6 +185,10 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
            contracts.find(c => c.employeeId === selectedEmp.id);
   }, [contracts, selectedEmp]);
 
+  const [savedVouchers, setSavedVouchers] = useState<LeaveSettlementVoucher[]>([]);
+  const [vouchersLoading, setVouchersLoading] = useState(true);
+  const settlementVouchersLive = firestoreSettlementVouchers ?? savedVouchers;
+
   const matchesSelectedEmployee = (item: any) => {
     if (!selectedEmp || !item) return false;
     const empId = String(selectedEmp.id || '').trim();
@@ -240,6 +245,35 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
     });
   }, [selectedEmp, allocations, leaves, selectedContract, ledgerVersion]);
 
+  const encashAwareBalanceView = useMemo(() => {
+    if (!selectedEmp) return null;
+    const normalizedAllocations = (allocations || [])
+      .map((a: any) => ({
+        ...a,
+        employeeId: a.employeeId || a.employee_id || '',
+        numberOfDays: Number(a.numberOfDays ?? a.number_of_days ?? a.days ?? 0) || 0,
+        consumedDays: Number(a.consumedDays || 0) || 0,
+        allocationType: a.allocationType || 'regular',
+        state: a.state || 'validate',
+        dateFrom: a.dateFrom || a.allocationDate || a.date_from || '2026-01-01',
+      }))
+      .filter(matchesSelectedEmployee);
+    const normalizedLeaves = (leaves || [])
+      .map((l: any) => ({
+        ...l,
+        employeeId: l.employeeId || l.employee_id || '',
+        totalDays: Number(l.totalDays ?? l.daysCount ?? l.numberOfDays ?? l.days ?? 0) || 0,
+        status: String(l.status || '').toUpperCase(),
+      }))
+      .filter(matchesSelectedEmployee);
+    return getEmployeeLeaveBalanceView(
+      selectedEmp,
+      normalizedAllocations as never[],
+      normalizedLeaves as never[],
+      settlementVouchersLive
+    );
+  }, [selectedEmp, allocations, leaves, settlementVouchersLive, ledgerVersion]);
+
   const engineNetBalance = Number(leaveBalanceSnapshot?.netBalance ?? leaveBalanceSnapshot?.totalBalance ?? 0);
   const totalAvailableBalance = cleanDayDecimals(Math.max(0, engineNetBalance));
   const carriedOverBal = Number(leaveBalanceSnapshot?.carriedForwardDays || 0);
@@ -263,7 +297,9 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
     netAvailable: effectiveLeaveSummary.netAvailable,
   });
 
-  const finalNetAvailable = cleanDayDecimals(Math.max(0, safeNetAvailable));
+  const finalNetAvailable = cleanDayDecimals(
+    Math.max(0, encashAwareBalanceView?.displayNetBalance ?? safeNetAvailable)
+  );
 
   const ledgerBasedBalance = useMemo(() => {
     if (!selectedEmp?.id) return null;
@@ -470,8 +506,6 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
   const [isExporting, setIsExporting] = useState<boolean>(false);
 
-  const [savedVouchers, setSavedVouchers] = useState<LeaveSettlementVoucher[]>([]);
-  const [vouchersLoading, setVouchersLoading] = useState(true);
   const [viewingVoucher, setViewingVoucher] = useState<LeaveSettlementVoucher | null>(null);
 
   // Unlock Modal State
@@ -770,7 +804,13 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
           onUpdateAllocations,
           selectedEmp,
           onUpdateEmployee,
-          { settlementVoucherId: newVoucher.id, settlementVoucherNumber: newVoucher.voucherNumber }
+          {
+            settlementVoucherId: newVoucher.id,
+            settlementVoucherNumber: newVoucher.voucherNumber,
+            settlementEncashedDays: daysToLiquidate,
+            settlementDate: newVoucher.settlementDate,
+            netPayoutKwd: newVoucher.netSettlementPayout,
+          }
         );
         if (!res.success) {
           toast.error(res.message || 'تم حفظ السند لكن فشل تسييل الرصيد — راجع التخصيصات');
