@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { parseKuwaitCivilId, validateKuwaitCivilId } from './utils/kuwaitLaw';
 import { parseFlexibleDate } from './utils/dateUtils';
 import { useEffectiveTenantCompanyId } from './hooks/useEffectiveTenantCompanyId';
-import { isQueryableTenantCompanyId } from './utils/tenantCompanyId';
+import { isQueryableTenantCompanyId, rewriteCanonicalCompanyIdInUrl } from './utils/tenantCompanyId';
 import { TenantProvider, useTenant } from './context/TenantContext';
 import { LayoutStudioProvider } from './context/LayoutStudioContext';
 import { UiStudioProvider } from './context/UiStudioContext';
@@ -1357,6 +1357,10 @@ function MainAppLayout() {
 }
 
 export default function App() {
+  useEffect(() => {
+    rewriteCanonicalCompanyIdInUrl();
+  }, []);
+
   return (
     <TenantProvider>
       <UiStudioProvider>
