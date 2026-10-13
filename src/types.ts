@@ -173,6 +173,13 @@ export interface Employee extends Record<string, unknown> {
   aysed_carried_over?: number;
   unpaid_days_count?: number;   // إجمالي الأيام بدون راتب (Odoo Computed: unpaid_days_count)
   paid_days_remaining?: number; // رصيد الإجازات المتبقي (Odoo Computed: paid_days_remaining)
+  /** Odoo-style nested leave balance (Kuwait 30-day annual SSOT on employee doc). */
+  leaveBalance?: {
+    annualEntitlement?: number;
+    annualRemaining?: number;
+    lastApprovedLeaveId?: string;
+    lastSyncedAt?: string;
+  };
   defaultHolidayCompensationPreference?: 'CASH' | 'ANNUAL_ACCRUAL' | 'COMP_OFF'; // آلية التعويض المفضلة للعمل في العطلات الرسمية
   lastAccrualDate?: string;     // تاريخ آخر ترحيل آلي لرصيد الإجازات (YYYY-MM أو YYYY-MM-DD)
   accrualHistory?: Array<{
