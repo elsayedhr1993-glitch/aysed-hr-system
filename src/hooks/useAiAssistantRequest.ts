@@ -76,13 +76,27 @@ export function useAiAssistantRequest() {
 
         const contentType = response.headers.get('content-type') || '';
         let data: Record<string, unknown> = {};
+        const rawBody = await response.text();
         if (contentType.includes('application/json')) {
-          data = (await response.json()) as Record<string, unknown>;
-        } else {
+          try {
+            data = JSON.parse(rawBody) as Record<string, unknown>;
+          } catch {
+            data = {};
+          }
+        }
+        if (!contentType.includes('application/json') || Object.keys(data).length === 0) {
+          const serverHint =
+            response.status >= 500
+              ? isArabic
+                ? 'خادم /api/ai-chat فشل (أعد النشر بعد npm run build).'
+                : '/api/ai-chat server error (redeploy after npm run build).'
+              : isArabic
+                ? 'استجابة غير متوقعة من الخادم.'
+                : 'Unexpected server response.';
           return {
             success: false,
-            error: isArabic ? 'استجابة غير متوقعة من الخادم.' : 'Unexpected server response.',
-            code: 'API_ROUTE_UNAVAILABLE',
+            error: serverHint,
+            code: response.status >= 500 ? 'AI_UNAVAILABLE' : 'API_ROUTE_UNAVAILABLE',
           };
         }
 

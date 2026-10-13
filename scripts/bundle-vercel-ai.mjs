@@ -30,8 +30,8 @@ try {
 
 await esbuild.build({
   entryPoints: {
-    'ai-chat': 'server/vercel/aiChatApi.ts',
-    'ocr-scan': 'server/vercel/ocrScanApi.ts',
+    'ai-chat': 'server/vercel/aiChatBundleEntry.cts',
+    'ocr-scan': 'server/vercel/ocrScanBundleEntry.cts',
   },
   outdir: bundlesDir,
   outExtension: { '.js': '.cjs' },
