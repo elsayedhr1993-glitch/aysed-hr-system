@@ -726,7 +726,7 @@ export const TenantDatabaseService = {
       const gate = await assertNoCrossTenantCivilDuplicate(civilId, compId, {
         employeeDocId: employee.id,
       });
-      if (!gate.ok) {
+      if (gate.ok === false) {
         throw new Error(gate.message);
       }
     }
@@ -1033,8 +1033,8 @@ export const TenantDatabaseService = {
           ...data,
           id: d.id,
           contractRef: d.id,
-          employeeId: data.employeeId,
-          contractStatus: data.status || data.contractStatus,
+          employeeId: String(data.employeeId ?? ''),
+          contractStatus: String(data.status ?? data.contractStatus ?? ''),
         };
       });
       const deduped = dedupeTenantContracts(mapped, companyId);

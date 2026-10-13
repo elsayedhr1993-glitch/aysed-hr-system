@@ -4,6 +4,7 @@
 
 export interface TenantCompany {
   id: string;
+  name?: string;
   nameAr: string;
   nameEn: string;
   adminUsername: string;
@@ -94,11 +95,14 @@ export interface Company {
   /** Saved print calibration (merged with platform_settings/pam_form_2) */
   pamOverlayCoords?: Record<string, { x: number; y: number; size?: number; align?: string; pageIndex?: number }>;
   pamFontChoice?: 'cairo' | 'amiri';
+  paciNumber?: string;
 }
 
-export interface Employee {
+export interface Employee extends Record<string, unknown> {
   id: string;
   companyId: string;
+  /** Display / legacy alias */
+  name?: string;
   employeeCode: string;
   fullNameAr: string;
   fullNameEn: string;
@@ -221,7 +225,7 @@ export interface Candidate {
   notes?: string;
 }
 
-export interface Contract {
+export interface Contract extends Record<string, unknown> {
   id: string;
   employeeId: string;
   companyId: string;
@@ -245,22 +249,68 @@ export interface Contract {
   plannedDailyHours?: number; // ساعات العمل اليومية المعتمدة (8 / 10 / 12 ساعة)
 }
 
-export interface LeaveRequest {
+export interface LeaveRequest extends Record<string, unknown> {
   id: string;
   employeeId: string;
-  companyId: string;
+  companyId?: string;
   employeeName?: string;
-  leaveType: 'ANNUAL' | 'SICK' | 'MATERNITY' | 'HAJJ' | 'UNPAID' | 'COMPASSIONATE' | 'BEREAVEMENT' | 'HOURLY_PERMISSION' | 'COMPENSATORY';
+  civilId?: string;
+  department?: string;
+  appliedDate?: string;
+  basicSalary?: number;
+  totalSalary?: number;
+  replacementEmployee?: string;
+  settlementDone?: boolean;
+  requestAdvanceSalaryArticle71?: boolean;
+  payrollAccrualId?: string;
+  managerApprovedBy?: string;
+  managerApprovedAt?: string;
+  hrApprovedBy?: string;
+  hrApprovedAt?: string;
+  rejectionReason?: string;
+  returnedToWorkDate?: string;
+  returnedToWorkNotes?: string;
+  advanceSalarySettled?: boolean;
+  advanceSalaryAmount?: number;
+  balanceOverrideApproved?: boolean;
+  leaveType:
+    | 'ANNUAL'
+    | 'SICK'
+    | 'MATERNITY'
+    | 'HAJJ'
+    | 'UNPAID'
+    | 'COMPASSIONATE'
+    | 'BEREAVEMENT'
+    | 'HOURLY_PERMISSION'
+    | 'COMPENSATORY'
+    | 'annual'
+    | 'sick'
+    | 'hajj'
+    | 'bereavement'
+    | 'maternity'
+    | 'unpaid'
+    | 'emergency';
   startDate: string;
   endDate: string;
   totalDays: number;
+  /** Legacy / import field aliases */
+  daysCount?: number;
+  numberOfDays?: number;
+  days?: number;
   reason: string;
-  status: 'DRAFT' | 'SUBMITTED' | 'PENDING_MANAGER' | 'PENDING_HR' | 'APPROVED' | 'REJECTED';
+  status:
+    | 'DRAFT'
+    | 'SUBMITTED'
+    | 'PENDING_MANAGER'
+    | 'PENDING_HR'
+    | 'APPROVED'
+    | 'REJECTED'
+    | 'RETURNED';
   validatedBy?: string;        // Odoo: hr.group_hr_user validation
   validatedAt?: string;        // تاريخ الاعتماد الرسمي
   hrNote?: string;             // ملاحظات الموارد البشرية
   attachments?: string[];
-  createdAt: string;
+  createdAt?: string;
   permissionMinutes?: number; // مدة الاستئذان بالدقائق (مثلاً 120 دقيقة = 2 ساعة)
   permissionTimeFrom?: string; // وقت بداية الاستئذان (e.g. "09:00")
   permissionTimeTo?: string;   // وقت نهاية الاستئذان (e.g. "11:00")
@@ -299,7 +349,10 @@ export interface HrLeaveAllocation {
   id: string;
   name: string; // e.g. "تخصيص رصيد سنوي افتتاحي" or "استحقاق شهري آلي 2.5 يوم"
   employeeId: string;
+  employeeName?: string;
   companyId: string;
+  /** UI alias for numberOfDays */
+  days?: number;
   leaveType: 'ANNUAL' | 'SICK' | 'MATERNITY' | 'HAJJ' | 'UNPAID' | 'COMPASSIONATE' | 'BEREAVEMENT' | 'HOURLY_PERMISSION' | 'COMPENSATORY';
   allocationType: 'regular' | 'accrual' | 'compensatory_off' | 'compensatory' | 'carried_over'; // carried_over = opening / prior-year balance
   accrualMonthKey?: string; // e.g. '2026-08'

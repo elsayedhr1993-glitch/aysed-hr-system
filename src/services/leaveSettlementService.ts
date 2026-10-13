@@ -729,7 +729,7 @@ function filterVouchersByCompany(vouchers: LeaveSettlementVoucher[], companyId?:
 }
 
 function mapFirestoreSettlementDoc(id: string, data: Record<string, unknown>): LeaveSettlementVoucher {
-  return { ...(data as LeaveSettlementVoucher), id };
+  return { ...(data as unknown as LeaveSettlementVoucher), id };
 }
 
 /**

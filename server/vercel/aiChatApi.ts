@@ -22,4 +22,4 @@ async function aiChatVercelHandler(req: VercelRequest, res: VercelResponse) {
   return res.status(result.status).json(result.body);
 }
 
-export = aiChatVercelHandler;
+export default aiChatVercelHandler;

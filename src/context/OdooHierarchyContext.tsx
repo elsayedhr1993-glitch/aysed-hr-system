@@ -32,8 +32,9 @@ function readIncludeExtendedEmployeeDirectory(): boolean {
 }
 
 // 1. المستوى الأول: العقد والبيانات الثابتة (hr.contract & hr.employee)
-export interface EmployeeContract {
+export interface EmployeeContract extends Record<string, unknown> {
   id: string;
+  employeeId?: string;
   companyId?: string;
   name: string;
   fullNameAr?: string;

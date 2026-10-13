@@ -246,29 +246,36 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
         if (!snap.exists() || cancelled) return;
         const data = snap.data() as Record<string, unknown>;
         const nameAr = String(data.nameAr || data.name || '').trim();
-        setMasterCompany((prev) => ({
-          ...prev,
-          id: authCompanyId,
-          nameAr: nameAr || prev.nameAr,
-          nameEn: String(data.nameEn || prev.nameEn || ''),
-          name: nameAr || prev.name,
-          commercialRegNo: String(data.commercialReg || data.commercialRegNo || prev.commercialRegNo || ''),
-          crNumber: String(data.commercialReg || data.crNumber || prev.crNumber || ''),
-          civilIdCompany: String(data.civilIdCompany || data.signatoryCivilId || prev.civilIdCompany || ''),
-          pamFileNumber: String(data.pamFileNumber || data.pam || prev.pamFileNumber || ''),
-          bankName: String(data.bankName || prev.bankName || ''),
-          iban: String(data.iban || prev.iban || ''),
-          ...(data.authorizedSignatory || data.managerName
-            ? { authorizedSignatory: data.authorizedSignatory || data.managerName }
-            : {}),
-          ...(data.signatoryCivilId ? { signatoryCivilId: data.signatoryCivilId } : {}),
-          ...(data.laborDepartment ? { laborDepartment: data.laborDepartment } : {}),
-          ...(data.commercialActivity || data.activity
-            ? { commercialActivity: data.commercialActivity || data.activity }
-            : {}),
-          ...(data.pamOverlayCoords ? { pamOverlayCoords: data.pamOverlayCoords as Company['pamOverlayCoords'] } : {}),
-          ...(data.pamFontChoice ? { pamFontChoice: data.pamFontChoice as Company['pamFontChoice'] } : {}),
-        }));
+        setMasterCompany((prev) => {
+          const next: Company = {
+            ...prev,
+            id: authCompanyId,
+            nameAr: nameAr || prev.nameAr,
+            nameEn: String(data.nameEn || prev.nameEn || ''),
+            name: nameAr || prev.name,
+            commercialRegNo: String(data.commercialReg || data.commercialRegNo || prev.commercialRegNo || ''),
+            crNumber: String(data.commercialReg || data.crNumber || prev.crNumber || ''),
+            civilIdCompany: String(data.civilIdCompany || data.signatoryCivilId || prev.civilIdCompany || ''),
+            pamFileNumber: String(data.pamFileNumber || data.pam || prev.pamFileNumber || ''),
+            bankName: String(data.bankName || prev.bankName || ''),
+            iban: String(data.iban || prev.iban || ''),
+          };
+          if (data.authorizedSignatory || data.managerName) {
+            next.authorizedSignatory = String(data.authorizedSignatory || data.managerName || '');
+          }
+          if (data.signatoryCivilId) next.signatoryCivilId = String(data.signatoryCivilId);
+          if (data.laborDepartment) next.laborDepartment = String(data.laborDepartment);
+          if (data.commercialActivity || data.activity) {
+            next.commercialActivity = String(data.commercialActivity || data.activity || '');
+          }
+          if (data.pamOverlayCoords) {
+            next.pamOverlayCoords = data.pamOverlayCoords as Company['pamOverlayCoords'];
+          }
+          if (data.pamFontChoice) {
+            next.pamFontChoice = data.pamFontChoice as Company['pamFontChoice'];
+          }
+          return next;
+        });
       } catch (e) {
         console.warn('Company profile hydrate failed:', e);
       }

@@ -181,7 +181,7 @@ function normalizeOcrDataServer(parsed: any) {
 }
 export async function handleOcrScanHttp(req: Request, res: Response) {
   const authCheck = await requireFirebaseAuthFromHeader(req.headers?.authorization || req.headers?.Authorization);
-  if (!authCheck.ok) {
+  if (authCheck.ok === false) {
     return res.status(authCheck.status).json({ success: false, error: authCheck.error });
   }
 

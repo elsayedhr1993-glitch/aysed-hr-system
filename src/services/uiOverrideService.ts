@@ -82,7 +82,7 @@ export async function patchUiOverrides(
     updatedBy,
   };
 
-  await setDoc(overridesDocRef(companyId), cleanFirestoreData(payload as Record<string, unknown>), {
+  await setDoc(overridesDocRef(companyId), cleanFirestoreData(payload as unknown as Record<string, unknown>), {
     merge: true,
   });
   writeCache(companyId, payload);

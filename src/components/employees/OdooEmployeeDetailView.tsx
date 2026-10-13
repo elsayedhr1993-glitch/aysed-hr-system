@@ -208,9 +208,13 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
 
     const plansQuery = query(collection(db, 'onboarding_plans'), where('companyId', '==', companyId));
     const unsubscribe = onSnapshot(plansQuery, (snapshot) => {
-      const plansList = snapshot.docs.map((item) => ({ ...item.data(), id: item.id }));
+      type OnboardingPlanRow = Record<string, unknown> & { id: string };
+      const plansList: OnboardingPlanRow[] = snapshot.docs.map((item) => ({
+        ...(item.data() as Record<string, unknown>),
+        id: item.id,
+      }));
       const matchedPlan = plansList.find(
-        (p: any) =>
+        (p) =>
           (initialEmployee?.onboardingPlanId && p.id === initialEmployee.onboardingPlanId) ||
           (p.employeeId && p.employeeId === employeeId) ||
           (initialEmployee?.civilId &&

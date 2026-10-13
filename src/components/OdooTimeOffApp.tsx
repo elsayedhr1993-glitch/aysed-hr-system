@@ -60,7 +60,7 @@ import {
 import { TenantDatabaseService } from '../services/tenantDataService';
 import { normalizeLeaveStatus, normalizeLeaveType, isLeaveRequestInConflict, canTransitionLeaveStatus, isAnnualLeaveType } from '../utils/leaveModel';
 import { upsertLeaveAllocationToSupabase } from '../services/leaveSupabaseSync';
-import { Employee, HrLeaveAllocation, LeaveSettlementVoucher } from '../types';
+import { Employee, HrLeaveAllocation, LeaveSettlementVoucher, type LeaveRequest } from '../types';
 import type { LeaveScope } from '../utils/leaveScopeAccrual';
 
 // Time Off Sub-components
@@ -89,44 +89,7 @@ import {
   readLeavesCompactPreference,
 } from '../config/uiPilotFlags';
 
-export interface LeaveRequest {
-  id: string;
-  companyId?: string;
-  employeeId: string;
-  employeeName: string;
-  civilId: string;
-  department: string;
-  leaveType: 'annual' | 'sick' | 'hajj' | 'bereavement' | 'maternity' | 'unpaid' | 'emergency';
-  startDate: string;
-  endDate: string;
-  daysCount: number;
-  totalDays?: number;
-  reason: string;
-  status: 'DRAFT' | 'SUBMITTED' | 'PENDING_MANAGER' | 'PENDING_HR' | 'APPROVED' | 'REJECTED' | 'RETURNED';
-  appliedDate: string;
-  replacementEmployee?: string;
-  basicSalary: number;
-  totalSalary: number;
-  settlementDone?: boolean;
-  /** طلب صرف راتب الإجازة مقدماً (مادة 71) — يُرحَّل لمسير الرواتب عند الاعتماد */
-  requestAdvanceSalaryArticle71?: boolean;
-  payrollAccrualId?: string;
-  managerApprovedBy?: string;
-  managerApprovedAt?: string;
-  hrApprovedBy?: string;
-  hrApprovedAt?: string;
-  rejectionReason?: string;
-  returnedToWorkDate?: string;
-  returnedToWorkNotes?: string;
-  advanceSalarySettled?: boolean;
-  advanceSalaryAmount?: number;
-  paidDays?: number;
-  unpaidDays?: number;
-  excessDays?: number;
-  totalAvailableBalance?: number;
-  balanceOverrideApproved?: boolean;
-  leaveScope?: LeaveScope;
-}
+export type { LeaveRequest };
 
 export interface LeaveAllocation {
   id: string;
@@ -687,7 +650,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
         cleanFirestoreData(createdAlloc),
         { merge: true }
       );
-      void upsertLeaveAllocationToSupabase(createdAlloc as HrLeaveAllocation, companyId).catch(() => false);
+      void upsertLeaveAllocationToSupabase(createdAlloc as unknown as HrLeaveAllocation, companyId).catch(() => false);
 
       const emp = companyEmployees.find((item) => item.id === newAllocation.employeeId);
       if (emp) {
@@ -704,7 +667,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
         );
       }
 
-      setAllocations((previous) => [createdAlloc as HrLeaveAllocation, ...previous]);
+      setAllocations((previous) => [createdAlloc as unknown as HrLeaveAllocation, ...previous]);
       setShowAllocationModal(false);
       setNewAllocation((prev) => ({ ...prev, days: '', notes: '' }));
       toast.success(

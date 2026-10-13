@@ -69,7 +69,7 @@ export interface CustomFieldLayout extends FieldLayoutBase {
 
 export type FieldLayoutDefinition = BuiltinFieldLayout | CustomFieldLayout;
 
-export interface ScreenCustomLayout {
+export interface ScreenCustomLayout extends Record<string, unknown> {
   screenId: ScreenId;
   companyId: string;
   version: number;

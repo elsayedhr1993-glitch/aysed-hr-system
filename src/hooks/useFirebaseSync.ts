@@ -144,14 +144,14 @@ export const useFirebaseSync = (
                 ...data,
                 id: d.id,
                 contractRef: d.id,
-                employeeId: data.employeeId,
-                contractStatus: data.status || data.contractStatus,
+                employeeId: String(data.employeeId ?? ''),
+                contractStatus: String(data.status ?? data.contractStatus ?? ''),
               };
             });
             const remote = dedupeTenantContracts(mapped, tenantId).map((row) => ({
               ...row,
               id: row.contractRef || row.id,
-            })) as Contract[];
+            })) as unknown as Contract[];
             setContracts(remote);
           }
         },

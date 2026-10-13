@@ -104,8 +104,8 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
             ...data,
             id: d.id,
             contractRef: d.id,
-            employeeId: data.employeeId,
-            contractStatus: data.status || data.contractStatus,
+            employeeId: String(data.employeeId ?? ''),
+            contractStatus: String(data.status ?? data.contractStatus ?? ''),
           };
         });
         setContracts(

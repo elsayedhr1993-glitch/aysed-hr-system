@@ -119,7 +119,10 @@ export async function saveScreenLayout(
     publishedAt: new Date().toISOString(),
   };
 
-  await setDoc(layoutDocRef(companyId, screenId), cleanFirestoreData(payload as Record<string, unknown>), {
+  await setDoc(
+    layoutDocRef(companyId, screenId),
+    cleanFirestoreData(payload as unknown as Record<string, unknown>),
+    {
     merge: true,
   });
   writeCache(companyId, screenId, payload);

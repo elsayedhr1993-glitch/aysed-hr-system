@@ -102,7 +102,7 @@ export async function backfillMissingPlanStatuses(
     })
     .map((item) =>
       normalizeOnboardingPlanFromFirestore(
-        { ...(item.data as OnboardingPlan), id: item.id, status: 'active' },
+        { ...(item.data as unknown as OnboardingPlan), id: item.id, status: 'active' },
         companyId
       )
     );

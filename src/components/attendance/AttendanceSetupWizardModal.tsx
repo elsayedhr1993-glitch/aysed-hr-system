@@ -17,7 +17,7 @@ export interface ShiftConfig {
   isNightShift: boolean;
 }
 
-export interface AttendancePolicyData {
+export interface AttendancePolicyData extends Record<string, unknown> {
   // Multi-Company & Facility Scoping
   company_id: string; // 'comp-1788442584841'
   facility_id: string; // 'facility-almanar-clinic'

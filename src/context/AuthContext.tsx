@@ -14,6 +14,8 @@ const REMEMBER_ME_KEY = 'aysed_remember_me';
 
 export interface User {
   id: string;
+  /** Firebase Auth uid (when mapped from FirebaseUser) */
+  uid?: string;
   name: string;
   email: string;
   role: string;

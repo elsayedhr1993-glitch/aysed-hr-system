@@ -243,7 +243,6 @@ export const EditAllocationBalanceModal: React.FC<EditAllocationBalanceModalProp
         notes,
         name: notes,
         state: (state === 'draft' ? 'draft' : 'validate') as HrLeaveAllocation['state'],
-        updatedAt: new Date().toISOString(),
       };
       await setDoc(doc(db, 'leave_allocations', allocation.id), cleanFirestoreData({ ...patch, companyId }), {
         merge: true,

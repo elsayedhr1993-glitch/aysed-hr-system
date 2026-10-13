@@ -596,7 +596,7 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
         preferredEmployeeId,
       });
 
-      if (!result.ok) {
+      if (result.ok === false) {
         const extra =
           result.candidates?.length
             ? `\n${isArabic ? 'مرشحون:' : 'Candidates:'}\n${result.candidates

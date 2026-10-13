@@ -18,7 +18,10 @@ async function ocrScanVercelHandler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
 
-  return handleOcrScanHttp(req as Parameters<typeof handleOcrScanHttp>[0], res as Parameters<typeof handleOcrScanHttp>[1]);
+  return handleOcrScanHttp(
+    req as Parameters<typeof handleOcrScanHttp>[0],
+    res as unknown as Parameters<typeof handleOcrScanHttp>[1]
+  );
 }
 
-export = ocrScanVercelHandler;
+export default ocrScanVercelHandler;

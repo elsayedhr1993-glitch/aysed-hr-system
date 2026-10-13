@@ -8,7 +8,7 @@ import {
   Sliders, Layers, DollarSign, Users, ArrowUpRight
 } from 'lucide-react';
 
-export interface LeavePolicyData {
+export interface LeavePolicyData extends Record<string, unknown> {
   // Step 1: Accrual
   annualDays: number;
   monthlyAccrualRate: number;

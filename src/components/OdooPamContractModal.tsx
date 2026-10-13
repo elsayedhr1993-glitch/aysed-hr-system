@@ -153,7 +153,7 @@ export const OdooPamContractModal: React.FC<Props> = ({
         await saveCompanyPamSettings(cid, payload);
         updateActiveCompany({
           id: cid,
-          pamOverlayCoords: coords as Company['pamOverlayCoords'],
+          pamOverlayCoords: coords as unknown as Company['pamOverlayCoords'],
           pamFontChoice: fontChoice,
         });
         toast.success('تم حفظ معايرة PAM لهذه المنشأة — ستُطبَّق على كل العقود');

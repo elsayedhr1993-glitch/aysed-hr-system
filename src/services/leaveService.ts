@@ -44,7 +44,7 @@ export interface FifoAllocationResult {
     allocationUsages: Array<{
       allocationId: string;
       allocationName: string;
-      allocationType: 'regular' | 'accrual' | 'compensatory_off' | 'compensatory';
+      allocationType: 'regular' | 'accrual' | 'compensatory_off' | 'compensatory' | 'carried_over';
       daysUsed: number;
     }>;
   }>;

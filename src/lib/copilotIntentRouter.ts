@@ -117,7 +117,9 @@ export function classifyCopilotIntent(prompt: string, mode: string = 'chat'): Co
 
 export function isToolIntent(
   intent: CopilotIntent
-): intent is { tier: 'L1'; toolId: CopilotToolId } | { tier: 'L2'; toolId: 'compliance.documentGaps'; toolContext: ComplianceToolContext } {
+): intent is
+  | { tier: 'L1'; toolId: 'tenant.employeeStats' }
+  | { tier: 'L2'; toolId: 'compliance.documentGaps'; toolContext: ComplianceToolContext } {
   return intent.tier === 'L1' || intent.tier === 'L2';
 }
 

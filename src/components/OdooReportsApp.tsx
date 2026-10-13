@@ -66,11 +66,11 @@ function mapFirestorePayslip(raw: Record<string, unknown>): ReportsPayslipSnapsh
   );
   const { netSalary } = computeNetPayrollFromComponents({
     grossSalary,
-    overtimeAmount: raw.overtimeAmount,
-    bonusAmount: raw.bonusAmount,
-    absenceDeduction: raw.absenceDeduction,
-    delayDeduction: raw.delayDeduction,
-    loanDeduction: raw.loanDeduction,
+    overtimeAmount: Number(raw.overtimeAmount ?? 0),
+    bonusAmount: Number(raw.bonusAmount ?? 0),
+    absenceDeduction: Number(raw.absenceDeduction ?? 0),
+    delayDeduction: Number(raw.delayDeduction ?? 0),
+    loanDeduction: Number(raw.loanDeduction ?? 0),
   });
   return {
     id: String(raw.id || ''),

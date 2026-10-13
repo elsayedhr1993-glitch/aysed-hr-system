@@ -1,5 +1,5 @@
 /** Screen context sent to /api/ai-chat (no full PII by default). */
-export interface CopilotScreenDescriptor {
+export interface CopilotScreenDescriptor extends Record<string, unknown> {
   model: string;
   view: string;
   tab?: string;

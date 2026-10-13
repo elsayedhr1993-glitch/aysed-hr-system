@@ -307,7 +307,7 @@ export async function uploadEmployeeDocumentSlot(params: {
     customTitle,
   });
 
-  await saveEmployeeDocument(fileInfo as EmployeeDocument);
+  await saveEmployeeDocument(fileInfo as unknown as EmployeeDocument);
 
   const nextEmployee: Record<string, unknown> = {
     ...employee,
@@ -387,7 +387,7 @@ export async function runEmployeeDocumentIntake(params: {
     scanned,
   });
 
-  if (!match.ok) {
+  if (match.ok === false) {
     return {
       ok: false,
       code: match.code,

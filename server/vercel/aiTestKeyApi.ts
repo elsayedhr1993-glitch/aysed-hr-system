@@ -18,4 +18,4 @@ async function aiTestKeyVercelHandler(req: VercelRequest, res: VercelResponse) {
   return res.status(result.status).json(result.body);
 }
 
-export = aiTestKeyVercelHandler;
+export default aiTestKeyVercelHandler;

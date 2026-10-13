@@ -55,7 +55,7 @@ export async function attachSignedContractFileToEmployee(
     },
   };
 
-  await TenantDatabaseService.saveEmployee(nextEmployee as Employee, companyId);
+  await TenantDatabaseService.saveEmployee(nextEmployee as unknown as Employee, companyId);
   await syncEmployeeDocumentsToArchive(nextEmployee as Record<string, unknown>).catch(() => undefined);
 
   return nextEmployee;

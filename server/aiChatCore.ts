@@ -9,7 +9,7 @@ import {
 import { assertClientCompanyAccess } from '../src/lib/aiCopilotContext';
 import { COPILOT_APP_IDS, COPILOT_FUNCTION_NAMES, COPILOT_MODAL_IDS } from '../src/lib/aiCopilotTypes';
 import { requireFirebaseAuthFromHeader, resolveCallerRole } from './apiAuth';
-import { getGeminiClient } from './geminiServer';
+import { getGeminiClient, type GeminiClient } from './geminiServer';
 import {
   parseEmployeeStatsFromContextSummary,
   tryLocalFaqAnswer,
@@ -63,7 +63,7 @@ function normalizeAssistMode(raw: unknown): 'chat' | 'generate' | 'summarize' {
 }
 
 async function generateWithReplySchema(
-  ai: GoogleGenAI,
+  ai: GeminiClient,
   systemInstruction: string,
   parts: { text: string }[],
   temperature = 0.35
@@ -261,7 +261,7 @@ function localFaqSuccessBody(
 export async function handleAiChatRequest(
   body: Record<string, unknown> | null | undefined,
   authHeader: string | string[] | undefined,
-  getClient: () => GoogleGenAI | null = getGeminiClient
+  getClient: () => GeminiClient | null = getGeminiClient
 ): Promise<AiChatHttpResult> {
   try {
     const authCheck = await requireFirebaseAuthFromHeader(authHeader);

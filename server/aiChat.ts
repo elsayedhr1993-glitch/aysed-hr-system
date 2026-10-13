@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from 'express';
-import { GoogleGenAI } from '@google/genai';
 import { handleAiChatRequest } from './aiChatCore';
+import type { GeminiClient } from './geminiServer';
 
 type AuthDeps = {
   requireFirebaseAuth: (req: Request, res?: Response) => Promise<any>;
@@ -9,7 +9,7 @@ type AuthDeps = {
     email?: string;
     claims?: Record<string, unknown>;
   }) => Promise<{ role: string; companyId?: string }>;
-  getGeminiClient: () => GoogleGenAI | null;
+  getGeminiClient: () => GeminiClient | null;
 };
 
 export function registerAiChatRoute(app: Express, deps: AuthDeps) {

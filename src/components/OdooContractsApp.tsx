@@ -620,11 +620,12 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
       return;
     }
 
+    const displayRef =
+      selectedContract.displayRef ||
+      formatContractDisplayRef(selectedContract);
+
     // Persist to Firestore
     try {
-      const displayRef =
-        selectedContract.displayRef ||
-        formatContractDisplayRef(selectedContract);
       const saved = await TenantDatabaseService.saveContract({
         id: selectedContract.contractRef || `CONTRACT-${selectedContract.id}`,
         companyId: currentCompanyId,

@@ -17,7 +17,7 @@ import { FinalSettlementModal } from './payroll/FinalSettlementModal';
 import { PayrollStructureWizardModal } from './payroll/PayrollStructureWizardModal';
 import { EosSetupWizardModal } from './payroll/EosSetupWizardModal';
 import { EOSApp } from '../apps/EOSApp';
-import type { Contract } from '../types';
+import type { Contract, Employee } from '../types';
 import { db, cleanFirestoreData } from '../lib/firebase';
 import { TenantDatabaseService } from '../services/tenantDataService';
 import {
@@ -1919,7 +1919,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
           </div>
           <div className="flex-1 overflow-y-auto p-4">
             <EOSApp
-              employees={employees}
+              employees={employees as Employee[]}
               contracts={payrollContracts}
               leaves={leaveRequests as any}
               activeCompany={activeCompany}
