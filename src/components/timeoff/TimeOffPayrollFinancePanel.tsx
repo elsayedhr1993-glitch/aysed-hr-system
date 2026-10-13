@@ -8,9 +8,15 @@ import { useCompanyLeaveFinanceSnapshots } from '../../hooks/useCompanyLeaveFina
 import { LeaveSettlementCalculator } from '../LeaveSettlementCalculator';
 import type { LeaveRequest } from '../OdooTimeOffApp';
 import { calculateKuwaitDailyRate, calculateKuwaitLeaveCashAmount } from '../../utils/kuwaitPayrollMath';
-import { isAnnualLeaveType, normalizeLeaveStatus } from '../../utils/leaveModel';
+import {
+  isAnnualLeaveType,
+  isEncashmentLeaveRequest,
+  normalizeLeaveStatus,
+  resolveLeaveRequestDayCount,
+} from '../../utils/leaveModel';
 import {
   getEmployeeUnifiedSummary,
+  matchesEmployeeIdentity,
   resolveAnnualTicketAllowanceKwd,
   resolveEmployeeBasicSalaryKwd,
   resolveLeaveBalancePoolHint,
@@ -97,7 +103,7 @@ export const TimeOffPayrollFinancePanel: React.FC<Props> = ({ highlightAdvanceRe
         leaveType: normalizeLeaveType(req.leaveType),
         startDate: req.startDate,
         endDate: req.endDate,
-        totalDays: Number(req.daysCount ?? req.totalDays ?? 0),
+        totalDays: resolveLeaveRequestDayCount(req),
         status: normalizeLeaveStatus(req.status),
         reason: req.reason || '',
         createdAt: req.appliedDate || new Date().toISOString(),
@@ -120,12 +126,13 @@ export const TimeOffPayrollFinancePanel: React.FC<Props> = ({ highlightAdvanceRe
   };
 
   const resolveLeaveRequestFinancials = (req: LeaveRequest) => {
-    const emp = companyEmployees.find((e) => e.id === req.employeeId);
+    const emp = companyEmployees.find((e) => matchesEmployeeIdentity(req, e));
     const empAny = emp as Record<string, unknown> | undefined;
-    const basicSalary = resolveEmployeeBasicSalaryKwd(empAny, req);
+    const contract = (empAny?.activeContract ?? empAny?.contract) as Record<string, unknown> | undefined;
+    const basicSalary = resolveEmployeeBasicSalaryKwd(empAny, req, contract);
     const totalSalary =
       Number(req.totalSalary ?? empAny?.totalSalary ?? empAny?.salary ?? basicSalary) || basicSalary;
-    const daysCount = Number(req.daysCount ?? req.totalDays ?? 0) || 0;
+    const daysCount = resolveLeaveRequestDayCount(req);
 
     const leavesExcludingCurrent = mappedLeaveRequests.filter((l) => l.id !== req.id);
     const summaryBefore =
@@ -294,7 +301,12 @@ export const TimeOffPayrollFinancePanel: React.FC<Props> = ({ highlightAdvanceRe
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {requests
-                  .filter((r) => normalizeLeaveStatus(r.status) === 'APPROVED' && isAnnualLeaveType(r.leaveType))
+                  .filter(
+                    (r) =>
+                      normalizeLeaveStatus(r.status) === 'APPROVED' &&
+                      isAnnualLeaveType(r.leaveType) &&
+                      !isEncashmentLeaveRequest(r)
+                  )
                   .map((req) => {
                     const fin = resolveLeaveRequestFinancials(req);
                     const advanceSalary = fin.leaveCashAmount;

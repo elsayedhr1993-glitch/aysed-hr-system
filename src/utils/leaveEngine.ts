@@ -2,7 +2,12 @@ import { Employee, Contract, LeaveRequest, HrLeaveAllocation } from '../types';
 import { getCarriedOverBalance, getGlobalOpeningBalance, getGlobalAccrued2026, getGlobalCompensatoryDays } from './kuwaitLaw';
 import { getApprovedHolidayWorkBalanceDays } from '../services/leaveBalanceLedgerService';
 import { computeFifoLeaveAllocations, buildEmployeeBaselineAllocations } from '../services/leaveService';
-import { normalizeLeaveStatus, normalizeLeaveType } from './leaveModel';
+import {
+  isEncashmentLeaveRequest,
+  normalizeLeaveStatus,
+  normalizeLeaveType,
+  resolveLeaveRequestDayCount,
+} from './leaveModel';
 import { calculateKuwaitDailyRate, cleanKwdAmount } from './kuwaitPayrollMath';
 
 function cleanDayDecimals(days: number | undefined | null): number {
@@ -85,7 +90,7 @@ export function resolveLeavePaidUnpaidSplit(
   leave: any,
   balancePoolBeforeLeave: number
 ): { paid: number; unpaid: number; total: number } {
-  const total = Number(leave?.totalDays ?? leave?.daysCount ?? leave?.numberOfDays ?? leave?.days ?? 0) || 0;
+  const total = resolveLeaveRequestDayCount(leave);
   if (total <= 0) return { paid: 0, unpaid: 0, total: 0 };
 
   const leaveType = normalizeLeaveType(leave?.leaveType);
@@ -108,7 +113,7 @@ export function resolveLeavePaidUnpaidSplit(
 export function resolveLeaveBalancePoolHint(leave: any): number {
   const snapshot = Number(leave?.totalAvailableBalance ?? leave?.total_available_balance ?? NaN);
   if (!Number.isNaN(snapshot) && snapshot >= 0) return snapshot;
-  const total = Number(leave?.totalDays ?? leave?.daysCount ?? leave?.numberOfDays ?? leave?.days ?? 0) || 0;
+  const total = resolveLeaveRequestDayCount(leave);
   const storedUnpaid = Number(leave?.unpaidDays ?? leave?.excessDays ?? leave?.aysed_unpaid_days ?? NaN);
   if (!Number.isNaN(storedUnpaid) && storedUnpaid >= 0 && total > storedUnpaid) {
     return cleanDayDecimals(total - storedUnpaid);
@@ -253,9 +258,10 @@ export function aggregateAnnualLeaveDeductions(
 export function getApprovedEmployeeLeaveRequests(employee: any, leaves: any[] = []): any[] {
   return (leaves || []).filter((req: any) => {
     if (!req) return false;
+    if (isEncashmentLeaveRequest(req)) return false;
     const matchesEmployee = matchesEmployeeIdentity(req, employee);
     const matchesStatus = isApprovedLeaveStatus(req.status);
-    const totalDays = Number(req.daysCount ?? req.totalDays ?? req.numberOfDays ?? req.days ?? 0) || 0;
+    const totalDays = resolveLeaveRequestDayCount(req);
     return matchesEmployee && matchesStatus && totalDays > 0;
   });
 }

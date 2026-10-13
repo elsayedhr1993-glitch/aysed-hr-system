@@ -39,6 +39,32 @@ export function isAnnualLeaveType(value: unknown): boolean {
   return normalizeLeaveType(value) === 'ANNUAL';
 }
 
+/** Encashment / liquidation rows are ledger deductions — not vacation travel (Art. 71). */
+export function isEncashmentLeaveRequest(leave: unknown): boolean {
+  if (!leave || typeof leave !== 'object') return false;
+  const row = leave as Record<string, unknown>;
+  const id = String(row.id || '');
+  const reason = String(row.reason || '');
+  const hrNote = String(row.hrNote || '');
+  return (
+    id.startsWith('encash-leave') ||
+    row.isEncashment === true ||
+    /تصفية\s*نقدية|Encashment\s*&\s*Liquidation/i.test(reason) ||
+    /سند التسوية|تسييل\s*رصيد/i.test(hrNote)
+  );
+}
+
+/** Prefer positive totalDays when daysCount is explicitly 0 (encashment / legacy sync). */
+export function resolveLeaveRequestDayCount(leave: unknown): number {
+  if (!leave || typeof leave !== 'object') return 0;
+  const row = leave as Record<string, unknown>;
+  const candidates = [row.totalDays, row.daysCount, row.numberOfDays, row.days]
+    .map((v) => Number(v))
+    .filter((n) => !Number.isNaN(n) && n > 0);
+  if (candidates.length === 0) return 0;
+  return Number(Math.max(...candidates).toFixed(2));
+}
+
 const LEAVE_STATUS_MAP: Record<string, CanonicalLeaveStatus> = {
   DRAFT: 'DRAFT',
   SUBMITTED: 'SUBMITTED',

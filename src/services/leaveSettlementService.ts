@@ -28,6 +28,7 @@ import {
   cleanKwdAmount,
 } from '../utils/kuwaitPayrollMath';
 import { approveLeaveRequest } from './leaveApprovalService';
+import { resolveEmployeeBasicSalaryKwd } from '../utils/leaveEngine';
 import { upsertLeaveSettlementToSupabase } from './leaveSupabaseSync';
 
 export {
@@ -928,6 +929,10 @@ export function liquidateLeaveBalanceInAllocations(
       const todayStr = new Date().toISOString().split('T')[0];
       const leaveId = `encash-leave-${Date.now()}`;
       const voucherRef = options?.settlementVoucherNumber || options?.settlementVoucherId || '';
+      const encashDays = Number(successfullyEncashed.toFixed(2));
+      const basicSalary = resolveEmployeeBasicSalaryKwd(employee as Record<string, unknown>);
+      const dailyWage = calculateKuwaitDailyRate(basicSalary);
+      const encashPayoutKwd = cleanKwdAmount(encashDays * dailyWage);
       const newLeaveReq: LeaveRequest = {
         id: leaveId,
         employeeId: employee.id,
@@ -936,8 +941,14 @@ export function liquidateLeaveBalanceInAllocations(
         leaveType: 'ANNUAL',
         startDate: todayStr,
         endDate: todayStr,
-        totalDays: Number(successfullyEncashed.toFixed(2)),
-        reason: `تصفية نقدية لرصيد الإجازة: ${successfullyEncashed.toFixed(2)} يوم (Encashment & Liquidation)`,
+        daysCount: encashDays,
+        totalDays: encashDays,
+        paidDays: encashDays,
+        unpaidDays: 0,
+        basicSalary: basicSalary > 0 ? basicSalary : undefined,
+        advanceSalaryAmount: encashPayoutKwd > 0 ? encashPayoutKwd : undefined,
+        isEncashment: true,
+        reason: `تصفية نقدية لرصيد الإجازة: ${encashDays} يوم (Encashment & Liquidation)`,
         status: 'APPROVED',
         validatedBy: 'System HR Engine',
         validatedAt: new Date().toISOString(),

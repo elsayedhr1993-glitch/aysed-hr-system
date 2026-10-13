@@ -1,19 +1,8 @@
 import type { LeaveRequest, LeaveSettlementVoucher } from '../types';
 import { matchesEmployeeIdentity, resolveLeavePaidUnpaidSplit } from './leaveEngine';
-import { isAnnualLeaveType, normalizeLeaveStatus } from './leaveModel';
+import { isAnnualLeaveType, isEncashmentLeaveRequest, normalizeLeaveStatus } from './leaveModel';
 
-export function isEncashmentLeaveRequest(leave: unknown): boolean {
-  if (!leave || typeof leave !== 'object') return false;
-  const row = leave as Record<string, unknown>;
-  const id = String(row.id || '');
-  const reason = String(row.reason || '');
-  const hrNote = String(row.hrNote || '');
-  return (
-    id.startsWith('encash-leave') ||
-    /تصفية\s*نقدية|Encashment\s*&\s*Liquidation/i.test(reason) ||
-    /سند التسوية|تسييل\s*رصيد/i.test(hrNote)
-  );
-}
+export { isEncashmentLeaveRequest } from './leaveModel';
 
 export type LeavePrintLogRowKind = 'annual_leave' | 'encashment' | 'settlement_voucher';
 
