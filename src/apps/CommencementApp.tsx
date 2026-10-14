@@ -453,7 +453,7 @@ export const CommencementApp: React.FC<CommencementAppProps> = ({
 
   const odooPythonCode = `# -*- coding: utf-8 -*-
 # كود تفعيل قابلية التعديل على سجلات مباشرة العمل وتحديث الموظف والعقد
-from odoo import models, fields, api, _
+# وصف وظيفي: نماذج مباشرة العمل وحقولها وعمليات التعديل تُدار داخل النظام.
 
 
 # 1. كود تفعيل قابلية التعديل على سجلات مباشرة العمل لمدير النظام (Sayed / ID=2)
