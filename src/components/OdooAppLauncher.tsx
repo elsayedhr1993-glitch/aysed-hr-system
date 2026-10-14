@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  Users, UserPlus, FileSignature, Calendar, Clock, 
-  Banknote, Scale, FolderKanban, Zap, Building2, Sparkles, Scan,
-  Briefcase, FileText, ShieldCheck, ArrowUpRight, BarChart3, Search,
-  Layers, LayoutGrid
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import {
+  Users, UserPlus, FileSignature, Calendar, Clock,
+  Banknote, Scale, FolderKanban, Scan,
+  Briefcase, FileText, ShieldCheck, ArrowUpRight, BarChart3, Star,
+  Landmark,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { ActiveApp, Company } from '../types';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -45,6 +46,12 @@ const LAUNCHER_TECH_BADGE_AR: Record<string, string> = {
 function formatLauncherBadge(badge: string, locale: 'ar' | 'en'): string {
   if (locale !== 'ar') return badge;
   return LAUNCHER_TECH_BADGE_AR[badge] ?? badge;
+}
+
+function positiveBadgeCount(badge: string | undefined): number | null {
+  if (!badge || !/^\d+$/.test(badge.trim())) return null;
+  const value = Number.parseInt(badge.trim(), 10);
+  return value > 0 ? value : null;
 }
 
 function launcherBadgeClassName(tone: LauncherBadgeTone, inCard = false): string {
@@ -111,8 +118,9 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
   const { isLoading: authLoading } = useAuth();
   const currentCompanyId = useEffectiveTenantCompanyId();
 
-  const [searchQuery, setSearchQuery] = useState('');
   const [realEmployees, setRealEmployees] = useState<any[]>([]);
+  const [openGroupId, setOpenGroupId] = useState<string | null>(null);
+  const launcherMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (authLoading || !isQueryableTenantCompanyId(currentCompanyId)) {
@@ -293,23 +301,14 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
     localStorage.setItem('odoo_launcher_view_style', style);
   };
 
-  // تصفية التطبيقات طبقاً للبحث والتصنيف
   const filteredApps = useMemo(() => {
     return allApps.filter(app => {
-      // 1. صلاحيات الموظف العادي
       if (currentUserRole === 'EMPLOYEE' && !['ATTENDANCE', 'LEAVES', 'DOCUMENTS'].includes(app.id)) {
         return false;
       }
-      // 2. البحث النصي
-      if (searchQuery.trim() !== '') {
-        const query = searchQuery.toLowerCase();
-        return app.titleAr.toLowerCase().includes(query) || 
-               app.titleEn.toLowerCase().includes(query) || 
-               app.description.toLowerCase().includes(query);
-      }
       return true;
     });
-  }, [allApps, currentUserRole, searchQuery]);
+  }, [allApps, currentUserRole]);
 
   const displayApps = useMemo(() => {
     const meta = filteredApps.map((app, idx) => ({
@@ -354,19 +353,269 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
     return titles.size;
   }, [realEmployees]);
 
+  const locale: 'ar' | 'en' = lang === 'en' ? 'en' : 'ar';
+  const canSeeAdminGroup = isSuperAdmin || currentUserRole !== 'EMPLOYEE';
+
+  useEffect(() => {
+    if (!openGroupId) return;
+    const onPointer = (event: MouseEvent) => {
+      if (!launcherMenuRef.current?.contains(event.target as Node)) setOpenGroupId(null);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpenGroupId(null);
+    };
+    document.addEventListener('mousedown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [openGroupId]);
+
+  type LauncherEntry = {
+    key: string;
+    title: string;
+    description: string;
+    icon: LucideIcon;
+    badge: string;
+    badgeAppId?: ActiveApp;
+    uiKey?: string;
+    appDefaults?: {
+      kind: 'app';
+      label: { ar: string; en: string };
+      help: { ar: string; en: string };
+    };
+    open: () => void;
+  };
+
+  const launchGroups = useMemo(() => {
+    const rowById = new Map(displayApps.map((row) => [row.app.id, row]));
+    const present = (id: ActiveApp): LauncherEntry | null => {
+      const row = rowById.get(id);
+      if (!row) return null;
+      const app = row.app;
+      const appDefaults = {
+        kind: 'app' as const,
+        label: { ar: app.titleAr, en: app.titleEn },
+        help: { ar: app.description, en: app.description },
+      };
+      return {
+        key: app.id,
+        title: pickUiLabel(resolveElement(row.uiKey, appDefaults), locale),
+        description: pickUiLabel(
+          resolveElement(`${row.uiKey}.description`, {
+            kind: 'help',
+            label: { ar: app.description, en: app.description },
+          }),
+          locale
+        ),
+        icon: app.icon,
+        badge: app.badge,
+        badgeAppId: app.id,
+        uiKey: row.uiKey,
+        appDefaults,
+        open: () => onSelectApp(app.id),
+      };
+    };
+
+    const adminExtras: LauncherEntry[] = canSeeAdminGroup
+      ? [
+          {
+            key: 'work-policies',
+            title: locale === 'ar' ? 'سياسات العمل' : 'Work policies',
+            description: locale === 'ar'
+              ? 'العطلات، أرصدة الإجازات، ومسير حماية الأجور'
+              : 'Holidays, leave balances, and WPS rules',
+            icon: Scale,
+            badge: '',
+            open: () => onCompanySetupAction?.({ type: 'settings', section: 'leaves' }),
+          },
+          {
+            key: 'licenses',
+            title: locale === 'ar' ? 'التراخيص' : 'Licences',
+            description: locale === 'ar'
+              ? 'أرشيف تراخيص المنشأة'
+              : 'Company licence archive',
+            icon: Landmark,
+            badge: '',
+            open: () => {
+              if (onOpenCompanyDocuments) onOpenCompanyDocuments();
+              else if (onOpenComplianceTree) onOpenComplianceTree();
+              else onCompanySetupAction?.({ type: 'company_documents' });
+            },
+          },
+        ]
+      : [];
+
+    const specs: Array<{
+      id: string;
+      titleAr: string;
+      titleEn: string;
+      hintAr: string;
+      hintEn: string;
+      icon: LucideIcon;
+      members: ActiveApp[];
+      adminOnly?: boolean;
+      extras?: LauncherEntry[];
+    }> = [
+      {
+        id: 'people',
+        titleAr: 'الموظفون',
+        titleEn: 'People',
+        hintAr: 'شؤون الموظفين، عقود العمل، والعهد',
+        hintEn: 'Employees, contracts, and custody',
+        icon: Users,
+        members: ['EMPLOYEES', 'CONTRACTS', 'CUSTODY_LOANS'],
+      },
+      {
+        id: 'recruitment',
+        titleAr: 'التوظيف',
+        titleEn: 'Recruitment',
+        hintAr: '',
+        hintEn: '',
+        icon: UserPlus,
+        members: ['RECRUITMENT'],
+      },
+      {
+        id: 'time',
+        titleAr: 'الوقت',
+        titleEn: 'Time',
+        hintAr: 'الحضور، الإجازات، والعطلات الرسمية',
+        hintEn: 'Attendance, time off, and public holidays',
+        icon: Clock,
+        members: ['ATTENDANCE', 'LEAVES', 'HOLIDAYS'],
+      },
+      {
+        id: 'payroll',
+        titleAr: 'الرواتب وحماية الأجور',
+        titleEn: 'Payroll & WPS',
+        hintAr: '',
+        hintEn: '',
+        icon: Banknote,
+        members: ['PAYROLL'],
+      },
+      {
+        id: 'documents',
+        titleAr: 'المستندات',
+        titleEn: 'Documents',
+        hintAr: 'الأرشيف، القوالب، والماسح الذكي',
+        hintEn: 'Archive, templates, and the smart scanner',
+        icon: FolderKanban,
+        members: ['DOCUMENTS', 'DOCUMENT_TEMPLATES', 'SCANNER_APP'],
+      },
+      {
+        id: 'reports',
+        titleAr: 'التقارير',
+        titleEn: 'Reports',
+        hintAr: '',
+        hintEn: '',
+        icon: BarChart3,
+        members: ['REPORTS'],
+      },
+      {
+        id: 'admin',
+        titleAr: 'الإدارة',
+        titleEn: 'Administration',
+        hintAr: 'سجل الرقابة، سياسات العمل، والتراخيص',
+        hintEn: 'Audit log, work policies, and licences',
+        icon: ShieldCheck,
+        members: ['AUDIT_LOGS'],
+        adminOnly: true,
+        extras: adminExtras,
+      },
+    ];
+
+    const claimed = new Set<ActiveApp>();
+    const groups = specs.flatMap((spec) => {
+      if (spec.adminOnly && !canSeeAdminGroup) return [];
+      const entries = [
+        ...spec.members.map(present).filter((entry): entry is LauncherEntry => entry != null),
+        ...(spec.extras ?? []),
+      ];
+      spec.members.forEach((id) => claimed.add(id));
+      if (entries.length === 0) return [];
+      const hint = locale === 'ar' ? spec.hintAr : spec.hintEn;
+      return [{
+        id: spec.id,
+        title: locale === 'ar' ? spec.titleAr : spec.titleEn,
+        description: entries.length === 1
+          ? entries[0].description
+          : (hint || entries.map((entry) => entry.title).join(locale === 'ar' ? '، ' : ', ')),
+        icon: spec.icon,
+        entries,
+      }];
+    });
+
+    const leftovers = displayApps
+      .filter((row) => !claimed.has(row.app.id))
+      .map((row) => present(row.app.id))
+      .filter((entry): entry is LauncherEntry => entry != null)
+      .map((entry) => ({
+        id: `solo-${entry.key}`,
+        title: entry.title,
+        description: entry.description,
+        icon: entry.icon,
+        entries: [entry],
+      }));
+
+    return [...groups, ...leftovers];
+  }, [
+    canSeeAdminGroup,
+    displayApps,
+    locale,
+    onCompanySetupAction,
+    onOpenCompanyDocuments,
+    onOpenComplianceTree,
+    onSelectApp,
+    resolveElement,
+  ]);
+
+  const badgeRank: Record<LauncherBadgeTone, number> = { urgent: 0, warning: 1, neutral: 2, brand: 3 };
+
+  const leadingBadge = (entries: LauncherEntry[]) => {
+    const options = entries.flatMap((entry) => {
+      const count = positiveBadgeCount(entry.badge);
+      if (count == null) return [];
+      const text = String(count);
+      const tone: LauncherBadgeTone = entry.badgeAppId
+        ? resolveLauncherBadgeTone(entry.badgeAppId, text, stats)
+        : 'neutral';
+      return [{ text, tone }];
+    });
+    options.sort((a, b) => badgeRank[a.tone] - badgeRank[b.tone]);
+    return options[0] ?? null;
+  };
+
+  const tileCount = viewStyle === 'launchpad' ? launchGroups.length : displayApps.length;
+
   return (
-    <div className="dashboard-container w-full h-full bg-transparent flex flex-col relative z-10 space-y-4 pb-20 sm:pb-24" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-      
-      <div className="flex items-end justify-between gap-3 px-0.5">
+    <div
+      className="dashboard-container odoo-launcher-shell w-full h-full bg-transparent flex flex-col relative z-10 space-y-5 pb-20 sm:pb-24"
+      dir={lang === 'ar' ? 'rtl' : 'ltr'}
+    >
+      <div className="flex items-end justify-between gap-3">
         <div>
           <h1 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
             {lang === 'ar' ? 'لوحة التطبيقات' : 'App Launcher'}
           </h1>
           <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-            {companyDisplayName} · {displayApps.length}{' '}
+            {companyDisplayName} · {tileCount}{' '}
             {lang === 'ar' ? 'تطبيق' : 'apps'}
           </p>
         </div>
+        <button
+          type="button"
+          onClick={() => setLauncherStyle(viewStyle === 'cards' ? 'launchpad' : 'cards')}
+          aria-pressed={viewStyle === 'cards'}
+          title={lang === 'ar' ? 'بطاقات تفصيلية' : 'Detailed cards'}
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border cursor-pointer transition ${
+            viewStyle === 'cards'
+              ? 'border-primary bg-primary text-white'
+              : 'border-slate-200 bg-white text-primary hover:bg-primary/5'
+          }`}
+        >
+          <Star size={16} className={viewStyle === 'cards' ? 'fill-current' : ''} />
+        </button>
       </div>
 
       {onCompanySetupAction && (
@@ -379,80 +628,141 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
         />
       )}
 
-      <div className="w-full space-y-2.5 relative z-10">
-        <div className="flex items-center gap-2.5">
-          <div className="relative flex-1 group">
-            <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-primary transition-colors">
-              <Search className="w-4 h-4" />
+      <div ref={launcherMenuRef} className="w-full py-1 pb-8 odoo-launcher-grid-wrap">
+        {viewStyle === 'launchpad' ? (
+          launchGroups.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-white/80 py-12 text-center">
+              <p className="text-sm font-bold text-slate-500">
+                {lang === 'ar' ? 'لا توجد تطبيقات متاحة' : 'No apps available'}
+              </p>
             </div>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={lang === 'ar' ? 'ابحث عن تطبيق أو وحدة…' : 'Search apps and modules…'}
-              className="w-full pr-10 pl-20 py-2.5 bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-xl text-xs sm:text-sm font-bold text-slate-800 placeholder-slate-400 shadow-xs focus:border-primary focus:bg-white focus:outline-none transition-all"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-2.5 py-0.5 rounded-lg font-bold transition cursor-pointer"
-              >
-                {lang === 'ar' ? 'مسح' : 'Clear'}
-              </button>
-            )}
-            {!searchQuery && (
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-[9px] font-mono font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                <Search className="w-3 h-3 opacity-60" />
-                Ctrl+K
-              </div>
-            )}
-          </div>
-
-          {/* تبديل نمط العرض: Launchpad vs Bento Cards */}
-          <div className="flex items-center bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-xl p-1 shadow-xs shrink-0">
-            <button
-              onClick={() => setLauncherStyle('launchpad')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                viewStyle === 'launchpad'
-                  ? 'bg-primary text-white shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-              title="لوحة التطبيقات الذكية (أيقونات Launchpad الحديثة)"
-            >
-              <LayoutGrid size={14} />
-              <span className="hidden sm:inline">{lang === 'ar' ? 'لوحة التطبيقات' : 'App Launcher'}</span>
-            </button>
-            <button
-              onClick={() => setLauncherStyle('cards')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                viewStyle === 'cards'
-                  ? 'bg-primary text-white shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-              title="بطاقات تفصيلية مع إحصائيات لكل تطبيق"
-            >
-              <Layers size={14} />
-              <span className="hidden sm:inline">{lang === 'ar' ? 'بطاقات تفصيلية' : 'Detailed Cards'}</span>
-            </button>
-          </div>
-        </div>
-
-      </div>
-
-      <div className="w-full py-1 pb-8 odoo-launcher-grid-wrap">
-        {displayApps.length === 0 ? (
-          <div className="text-center py-12 bg-white/80 rounded-2xl border border-dashed border-slate-300">
-            <p className="text-slate-500 font-bold text-sm">لا توجد تطبيقات تطابق كلمة البحث "{searchQuery}"</p>
-            <button 
-              onClick={() => setSearchQuery('')}
-              className="mt-3 text-xs font-bold text-primary underline cursor-pointer"
-            >
-              إعادة عرض جميع التطبيقات
-            </button>
-          </div>
-        ) : viewStyle === 'launchpad' ? (
-          /* 🌟 1. النمط الحديث: Launchpad Squircle App Grid (Apple / Odoo 18 Style) */
-          <div className="odoo-app-launchpad-grid justify-items-stretch">
+          ) : (
+            <div className="odoo-launcher-minimal-grid">
+              {launchGroups.map((group) => {
+                const GroupIcon = group.icon;
+                const grouped = group.entries.length > 1;
+                const primary = group.entries[0];
+                const badge = grouped
+                  ? leadingBadge(group.entries)
+                  : (() => {
+                      const count = positiveBadgeCount(primary?.badge);
+                      if (count == null || !primary?.badgeAppId) return null;
+                      const text = String(count);
+                      return {
+                        text,
+                        tone: resolveLauncherBadgeTone(primary.badgeAppId, text, stats),
+                      };
+                    })();
+                return (
+                  <div key={group.id} className="relative h-full">
+                    <button
+                      type="button"
+                      title={group.description}
+                      aria-haspopup={grouped ? 'menu' : undefined}
+                      aria-expanded={grouped ? openGroupId === group.id : undefined}
+                      onClick={() => {
+                        if (!grouped) {
+                          primary?.open();
+                          return;
+                        }
+                        setOpenGroupId((current) => (current === group.id ? null : group.id));
+                      }}
+                      className="group relative flex h-full w-full min-h-[9.5rem] flex-col items-center justify-center gap-3 rounded-2xl border border-slate-200/90 bg-white p-5 text-center shadow-xs transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md cursor-pointer"
+                    >
+                      {badge && (
+                        <span className={`absolute top-2.5 end-2.5 ${launcherBadgeClassName(badge.tone)}`}>
+                          {formatLauncherBadge(badge.text, locale)}
+                        </span>
+                      )}
+                      <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                        <GroupIcon className="h-7 w-7" strokeWidth={1.75} />
+                      </span>
+                      <h3 className="w-full text-xs font-extrabold leading-tight text-slate-800 group-hover:text-primary sm:text-[13px]">
+                        {!grouped && primary?.uiKey && primary.appDefaults ? (
+                          <UiStudioTarget
+                            uiKey={primary.uiKey}
+                            kind="app"
+                            defaults={primary.appDefaults}
+                            reorderGroupId={launcherReorderGroupId}
+                            className="w-full justify-center"
+                          >
+                            {group.title}
+                          </UiStudioTarget>
+                        ) : (
+                          group.title
+                        )}
+                      </h3>
+                      <span className="sr-only">{group.description}</span>
+                    </button>
+                    {group.entries.map((entry) => (
+                      entry.uiKey ? (
+                        <span key={`${entry.key}-help`} className="sr-only">
+                          <UiStudioTarget
+                            uiKey={`${entry.uiKey}.description`}
+                            kind="help"
+                            defaults={{ label: { ar: entry.description, en: entry.description } }}
+                          >
+                            {entry.description}
+                          </UiStudioTarget>
+                        </span>
+                      ) : null
+                    ))}
+                    {grouped && openGroupId === group.id && (
+                      <div
+                        role="menu"
+                        className="absolute start-0 top-full z-30 mt-2 w-full min-w-[15rem] rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg"
+                      >
+                        {group.entries.map((entry) => {
+                          const EntryIcon = entry.icon;
+                          const count = positiveBadgeCount(entry.badge);
+                          const tone = entry.badgeAppId && count != null
+                            ? resolveLauncherBadgeTone(entry.badgeAppId, String(count), stats)
+                            : 'neutral';
+                          return (
+                            <button
+                              key={entry.key}
+                              type="button"
+                              role="menuitem"
+                              title={entry.description}
+                              onClick={() => {
+                                setOpenGroupId(null);
+                                entry.open();
+                              }}
+                              className="flex w-full items-center gap-2.5 rounded-lg py-2 ps-2.5 pe-2.5 text-start hover:bg-primary/5 cursor-pointer"
+                            >
+                              <EntryIcon className="h-4 w-4 shrink-0 text-primary" strokeWidth={1.75} />
+                              <span className="min-w-0 flex-1 text-xs font-bold text-slate-800">
+                                {entry.uiKey && entry.appDefaults ? (
+                                  <UiStudioTarget
+                                    uiKey={entry.uiKey}
+                                    kind="app"
+                                    defaults={entry.appDefaults}
+                                    reorderGroupId={launcherReorderGroupId}
+                                  >
+                                    {entry.title}
+                                  </UiStudioTarget>
+                                ) : (
+                                  entry.title
+                                )}
+                              </span>
+                              {count != null && (
+                                <span className={launcherBadgeClassName(tone, true)}>
+                                  {formatLauncherBadge(String(count), locale)}
+                                </span>
+                              )}
+                              <span className="sr-only">{entry.description}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )
+        ) : (
+          <div className="odoo-launcher-minimal-grid">
             {displayApps.map(({ app, uiKey }) => {
               const IconComponent = app.icon;
               const appDefaults = {
@@ -460,139 +770,53 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
                 label: { ar: app.titleAr, en: app.titleEn },
                 help: { ar: app.description, en: app.description },
               };
-              const locale = lang === 'en' ? 'en' : 'ar';
               const title = pickUiLabel(resolveElement(uiKey, appDefaults), locale);
-              const descKey = `${uiKey}.description`;
               const description = pickUiLabel(
-                resolveElement(descKey, {
+                resolveElement(`${uiKey}.description`, {
                   kind: 'help',
                   label: { ar: app.description, en: app.description },
                 }),
                 locale
               );
+              const count = positiveBadgeCount(app.badge);
               return (
                 <button
                   key={app.id}
+                  type="button"
+                  title={description}
                   onClick={() => onSelectApp(app.id)}
-                  className="group relative flex h-full w-full min-h-[9.5rem] flex-col items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-white/90 hover:bg-white border border-slate-200/90 hover:border-purple-300 hover:shadow-xl hover:-translate-y-1.5 active:scale-[0.98] transition-all duration-300 ease-out cursor-pointer text-center backdrop-blur-sm"
+                  className="group relative flex h-full w-full min-h-[7.25rem] items-center gap-3.5 rounded-2xl border border-slate-200/90 bg-white p-4 text-start shadow-xs transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md cursor-pointer"
                 >
-                  {/* Subtle Badge Tag */}
-                  {app.badge && (
-                    <span
-                      className={`absolute top-2 left-2 ${launcherBadgeClassName(
-                        resolveLauncherBadgeTone(app.id, app.badge, stats)
-                      )}`}
-                    >
-                      {formatLauncherBadge(app.badge, lang === 'en' ? 'en' : 'ar')}
-                    </span>
-                  )}
-
-                  {/* 💎 3D Squircle Icon Container */}
-                  <div className="relative mt-1 mb-2.5">
-                    <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-[20px] bg-gradient-to-br ${app.gradient} flex items-center justify-center shadow-md group-hover:shadow-xl group-hover:scale-110 transition-all duration-300 relative overflow-hidden ring-4 ring-white/60`}>
-                      {/* Glossy Glass Highlight Overlay */}
-                      <div className="absolute inset-0 bg-gradient-to-b from-white/35 via-transparent to-black/10 pointer-events-none" />
-                      <IconComponent className="w-7 h-7 sm:w-8 sm:h-8 text-white drop-shadow-sm relative z-10" strokeWidth={1.9} />
-                    </div>
-                  </div>
-
-                  {/* App Text Info */}
-                  <div className="w-full space-y-0.5">
-                    <h3 className="font-extrabold text-xs sm:text-[13px] text-slate-800 group-hover:text-primary leading-tight transition-colors line-clamp-1">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <IconComponent className="h-6 w-6" strokeWidth={1.75} />
+                  </span>
+                  <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                    <h3 className="min-w-0 text-xs font-extrabold leading-tight text-slate-900 group-hover:text-primary sm:text-sm">
                       <UiStudioTarget
                         uiKey={uiKey}
                         kind="app"
                         defaults={appDefaults}
                         reorderGroupId={launcherReorderGroupId}
-                        className="w-full justify-center"
                       >
                         {title}
                       </UiStudioTarget>
                     </h3>
-                    <p className="text-[10px] text-slate-400 group-hover:text-slate-600 font-medium leading-tight line-clamp-2 min-h-[2.5em] transition-colors">
-                      <UiStudioTarget
-                        uiKey={`${uiKey}.description`}
-                        kind="help"
-                        defaults={{ label: { ar: app.description, en: app.description } }}
-                      >
-                        {description}
-                      </UiStudioTarget>
-                    </p>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        ) : (
-          /* 🗂️ 2. النمط الثاني: بطاقات الـ Bento SaaS التفصيلية */
-          <div className="odoo-app-cards-grid">
-            {displayApps.map(({ app, uiKey }) => {
-              const IconComponent = app.icon;
-              const appDefaults = {
-                kind: 'app' as const,
-                label: { ar: app.titleAr, en: app.titleEn },
-                help: { ar: app.description, en: app.description },
-              };
-              const locale = lang === 'en' ? 'en' : 'ar';
-              const title = pickUiLabel(resolveElement(uiKey, appDefaults), locale);
-              const descKey = `${uiKey}.description`;
-              const description = pickUiLabel(
-                resolveElement(descKey, {
-                  kind: 'help',
-                  label: { ar: app.description, en: app.description },
-                }),
-                locale
-              );
-              return (
-                <button
-                  key={app.id}
-                  onClick={() => onSelectApp(app.id)}
-                  className="group relative flex h-full w-full min-h-[7.25rem] items-stretch gap-3.5 p-3.5 rounded-2xl bg-white/95 hover:bg-white border border-slate-200/90 hover:border-purple-300 hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all duration-300 ease-out cursor-pointer text-right shadow-2xs"
-                >
-                  {/* Icon */}
-                  <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${app.gradient} flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform duration-200 ring-2 ring-white`}>
-                    <IconComponent className="w-6 h-6 text-white drop-shadow-xs" strokeWidth={1.9} />
-                  </div>
-
-                  {/* Details */}
-                  <div className="flex-1 min-w-0 flex flex-col gap-1 min-h-0">
-                    <div className="flex items-start justify-between gap-1">
-                      <h3 className="font-extrabold text-xs sm:text-sm text-slate-900 group-hover:text-primary leading-tight line-clamp-2 transition-colors min-w-0">
-                        <UiStudioTarget
-                          uiKey={uiKey}
-                          kind="app"
-                          defaults={appDefaults}
-                          reorderGroupId={launcherReorderGroupId}
-                        >
-                          {title}
-                        </UiStudioTarget>
-                      </h3>
-                      {app.badge && (
-                        <span
-                          className={launcherBadgeClassName(
-                            resolveLauncherBadgeTone(app.id, app.badge, stats),
-                            true
-                          )}
-                        >
-                          {formatLauncherBadge(app.badge, lang === 'en' ? 'en' : 'ar')}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-slate-500 font-medium leading-snug line-clamp-2 flex-1">
-                      <UiStudioTarget
-                        uiKey={`${uiKey}.description`}
-                        kind="help"
-                        defaults={{ label: { ar: app.description, en: app.description } }}
-                      >
-                        {description}
-                      </UiStudioTarget>
-                    </p>
-                  </div>
-
-                  {/* Arrow Indicator */}
-                  <div className="self-end shrink-0 text-slate-300 group-hover:text-primary group-hover:-translate-x-0.5 transition-all">
-                    <ArrowUpRight size={16} />
-                  </div>
+                    {count != null && (
+                      <span className={launcherBadgeClassName(resolveLauncherBadgeTone(app.id, String(count), stats), true)}>
+                        {formatLauncherBadge(String(count), locale)}
+                      </span>
+                    )}
+                  </span>
+                  <ArrowUpRight size={16} className="shrink-0 text-slate-300 group-hover:text-primary" />
+                  <span className="sr-only">
+                    <UiStudioTarget
+                      uiKey={`${uiKey}.description`}
+                      kind="help"
+                      defaults={{ label: { ar: app.description, en: app.description } }}
+                    >
+                      {description}
+                    </UiStudioTarget>
+                  </span>
                 </button>
               );
             })}

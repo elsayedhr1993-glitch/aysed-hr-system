@@ -1,19 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Building2,
-  CheckCircle2,
-  Circle,
-  ChevronRight,
-  X,
+  ChevronDown,
   GitBranch,
   Users,
   Palmtree,
 } from 'lucide-react';
 import type { CompanySetupStepId } from '../../services/companySetupOnboardingService';
-import {
-  dismissCompanySetupBanner,
-  isCompanySetupBannerDismissed,
-} from '../../services/companySetupOnboardingService';
+import { isCompanySetupBannerDismissed } from '../../services/companySetupOnboardingService';
 import { useCompanySetupOnboarding } from '../../hooks/useCompanySetupOnboarding';
 import type { Company } from '../../types';
 import { useLang } from '../../lib/i18n';
@@ -74,110 +68,106 @@ export const CompanySetupOnboardingBanner: React.FC<Props> = ({
   const { lang } = useLang();
   const companyId = company?.id || '';
   const state = useCompanySetupOnboarding(company, employeesCount, distinctJobTitles);
-  const [dismissed, setDismissed] = useState(() =>
+  const [dismissed] = useState(() =>
     companyId ? isCompanySetupBannerDismissed(companyId) : false
   );
+  const [menuOpen, setMenuOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onPointer = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setMenuOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [menuOpen]);
 
   if (!state || dismissed) return null;
-  if (state.complete && isCompanySetupBannerDismissed(companyId)) return null;
+  if (state.complete || state.overallPercent >= 100) return null;
 
-  const handleDismiss = () => {
-    if (!state.complete || !companyId) return;
-    dismissCompanySetupBanner(companyId);
-    setDismissed(true);
-  };
+  const incomplete = state.steps.filter((step) => !step.done && step.progress < 100);
+  const percent = Math.min(100, Math.max(0, state.overallPercent));
 
   return (
-    <div
-      className={`w-full rounded-2xl border border-primary/25 bg-gradient-to-l from-primary/8 via-white to-white shadow-sm overflow-hidden ${className}`}
-      dir="rtl"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 bg-primary text-white">
-        <div className="min-w-0">
-          <div className="text-xs font-black tracking-tight">
-            {lang === 'ar' ? 'تهيئة المنشأة' : 'Company onboarding'}
-            <span className="text-white/70 font-medium mx-1.5">·</span>
-            <span className="text-[10px] font-mono text-amber-200">{state.overallPercent}%</span>
-          </div>
-          <p className="text-[10px] text-white/80 font-medium mt-0.5">
-            {lang === 'ar'
-              ? 'أكمل الخطوات لتهيئة المنشأة'
-              : 'Complete the company setup steps'}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+    <div ref={rootRef} className={`relative w-full ${className}`} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+      <button
+        type="button"
+        onClick={() => setMenuOpen((open) => !open)}
+        className="flex w-full items-center gap-3 rounded-xl border border-primary/20 bg-white/95 ps-3 pe-3 py-2 text-start shadow-xs cursor-pointer hover:border-primary/40"
+        aria-expanded={menuOpen}
+        aria-haspopup="menu"
+      >
+        <span className="shrink-0 text-xs font-black text-primary">
+          {lang === 'ar' ? 'تهيئة المنشأة' : 'Company onboarding'}
+        </span>
+        <span className="shrink-0 text-[11px] font-mono font-bold text-slate-500">{percent}%</span>
+        <div
+          className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100"
+          role="progressbar"
+          aria-valuenow={percent}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={lang === 'ar' ? 'تقدم تهيئة المنشأة' : 'Company setup progress'}
+        >
           <div
-            className="w-full min-w-[6.5rem] max-w-[8.5rem] sm:max-w-[9rem] h-2 rounded-full bg-white/25 overflow-hidden shrink-0"
-            dir="ltr"
-            role="progressbar"
-            aria-valuenow={state.overallPercent}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-label={lang === 'ar' ? 'تقدم تهيئة المنشأة' : 'Company setup progress'}
-          >
-            <div
-              className="h-full bg-amber-300 transition-all duration-500 rounded-full"
-              style={{ width: `${Math.min(100, Math.max(0, state.overallPercent))}%` }}
-            />
-          </div>
-          {state.complete && (
-            <button
-              type="button"
-              onClick={handleDismiss}
-              className="p-1.5 rounded-lg hover:bg-white/15 cursor-pointer"
-              title={lang === 'ar' ? 'إخفاء الشريط' : 'Dismiss banner'}
-            >
-              <X size={16} />
-            </button>
+            className="h-full rounded-full bg-primary transition-all duration-500"
+            style={{ width: `${percent}%` }}
+          />
+        </div>
+        <ChevronDown
+          size={16}
+          className={`shrink-0 text-primary transition-transform ${menuOpen ? 'rotate-180' : ''}`}
+        />
+      </button>
+
+      {menuOpen && (
+        <div
+          role="menu"
+          className="absolute z-30 mt-1.5 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+          style={{ marginInline: 0 }}
+        >
+          {incomplete.length === 0 ? (
+            <p className="px-3 py-2.5 text-xs font-medium text-slate-500">
+              {lang === 'ar' ? 'لا توجد خطوات ناقصة' : 'No remaining steps'}
+            </p>
+          ) : (
+            incomplete.map((step) => {
+              const Icon = stepIcon(step.id);
+              return (
+                <button
+                  key={step.id}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onStepAction(actionForStep(step.id));
+                  }}
+                  className="flex w-full items-center gap-3 border-b border-slate-100 px-3 py-2.5 text-start last:border-b-0 hover:bg-primary/5 cursor-pointer"
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary">
+                    <Icon size={15} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-xs font-black text-slate-900">
+                      {lang === 'ar' ? step.titleAr : step.titleEn}
+                    </span>
+                    <span className="block text-[10px] text-slate-500 leading-snug">{step.hintAr}</span>
+                  </span>
+                  <span className="shrink-0 text-[10px] font-mono font-bold text-slate-400">{step.progress}%</span>
+                </button>
+              );
+            })
           )}
         </div>
-      </div>
-
-      <div className="px-3 py-3 sm:px-4 flex flex-col lg:flex-row gap-3 lg:items-stretch">
-        {state.steps.map((step, index) => {
-          const Icon = stepIcon(step.id);
-          const done = step.done || step.progress >= 100;
-          return (
-            <React.Fragment key={step.id}>
-              <button
-                type="button"
-                onClick={() => onStepAction(actionForStep(step.id))}
-                className={`flex-1 min-w-[140px] text-right rounded-xl border p-3 transition cursor-pointer group ${
-                  done
-                    ? 'bg-emerald-50/90 border-emerald-200 hover:border-emerald-300'
-                    : 'bg-white border-slate-200 hover:border-primary/40 hover:shadow-sm'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div
-                    className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center border-2 ${
-                      done
-                        ? 'bg-emerald-500 border-emerald-500 text-white'
-                        : 'bg-slate-50 border-slate-300 text-primary'
-                    }`}
-                  >
-                    {done ? <CheckCircle2 size={18} /> : <Icon size={16} />}
-                  </div>
-                  <span className="text-[9px] font-mono font-bold text-slate-400">{step.progress}%</span>
-                </div>
-                <div className="mt-2 text-xs font-black text-slate-900 leading-tight">
-                  {lang === 'ar' ? step.titleAr : step.titleEn}
-                </div>
-                <p className="text-[10px] text-slate-500 mt-1 leading-snug">{step.hintAr}</p>
-                <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-primary mt-2 opacity-0 group-hover:opacity-100 transition">
-                  {lang === 'ar' ? 'متابعة' : 'Continue'}
-                  <ChevronRight size={12} className="rotate-180" />
-                </span>
-              </button>
-              {index < state.steps.length - 1 && (
-                <div className="hidden lg:flex items-center justify-center px-1 text-slate-300">
-                  <Circle size={6} className="fill-current" />
-                </div>
-              )}
-            </React.Fragment>
-          );
-        })}
-      </div>
+      )}
     </div>
   );
 };

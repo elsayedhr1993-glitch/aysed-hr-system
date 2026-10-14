@@ -267,6 +267,44 @@ tr.o_data_row td {
   min-height: 100%;
 }
 
+.odoo-launcher-shell {
+  padding-inline: 0.5rem;
+  margin-inline: 0;
+}
+
+.odoo-launcher-minimal-grid {
+  display: grid;
+  width: 100%;
+  box-sizing: border-box;
+  align-items: stretch;
+  gap: 1.75rem;
+  padding-inline: 0.25rem;
+  margin-inline: 0;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
+@media (min-width: 640px) {
+  .odoo-launcher-minimal-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding-inline: 0.5rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .odoo-launcher-minimal-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1.5rem;
+    padding-inline: 0.5rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .odoo-launcher-minimal-grid {
+    gap: 2rem;
+    padding-inline: 0.75rem;
+  }
+}
+
 /* شبكة مشغل التطبيقات - نمط Odoo Enterprise */
 .o_app_switcher {
     display: grid !important;
