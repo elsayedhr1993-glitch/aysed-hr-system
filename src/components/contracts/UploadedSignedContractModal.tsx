@@ -33,7 +33,7 @@ export const UploadedSignedContractModal: React.FC<Props> = ({
       >
         <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
-            <div className="p-2 rounded-xl bg-[#714B67]/10 text-[#714B67] shrink-0">
+            <div className="p-2 rounded-xl bg-primary/10 text-primary shrink-0">
               <FileText size={18} />
             </div>
             <div className="min-w-0">
@@ -78,7 +78,7 @@ export const UploadedSignedContractModal: React.FC<Props> = ({
                     type="button"
                     disabled={isUploading}
                     onClick={() => inputRef.current?.click()}
-                    className="w-full bg-[#714B67] hover:bg-[#5a3a52] disabled:opacity-60 text-white px-4 py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full bg-primary hover:bg-[#5a3a52] disabled:opacity-60 text-white px-4 py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Upload size={16} />
                     {isUploading
@@ -96,7 +96,7 @@ export const UploadedSignedContractModal: React.FC<Props> = ({
                   href={file.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[#714B67] font-bold flex items-center gap-1 hover:underline shrink-0"
+                  className="text-primary font-bold flex items-center gap-1 hover:underline shrink-0"
                 >
                   <ExternalLink size={13} />
                   فتح في نافذة جديدة

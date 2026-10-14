@@ -1,3 +1,4 @@
+import { tokens } from '../design/tokens';
 /** CSS مضمّن لنافذة الطباعة المنبثقة (بدون html2canvas) */
 export const ODOO_NATIVE_PRINT_CSS = `
   @page {
@@ -106,7 +107,7 @@ export const ODOO_NATIVE_PRINT_CSS = `
     font-size: 8px !important;
   }
   .odoo-report-sheet--framed {
-    border: 1px solid #714b67 !important;
+    border: 1px solid ${tokens.color.primary} !important;
     outline: 1px solid #dee2e6;
     outline-offset: -4px;
     padding: 6mm !important;

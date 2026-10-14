@@ -1084,7 +1084,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                                     </span>
                                   </div>
                                   <p className="text-slate-500 text-[11px] font-medium">{req.requester_name}</p>
-                                  {req.email && <p className="text-[10px] text-[#714B67] font-mono mt-0.5">{req.email}</p>}
+                                  {req.email && <p className="text-[10px] text-primary font-mono mt-0.5">{req.email}</p>}
                                 </div>
                               </div>
                             </td>

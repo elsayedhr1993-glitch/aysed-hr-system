@@ -122,13 +122,13 @@ export const MonthlyAttendanceSummary: React.FC<MonthlyAttendanceSummaryProps> =
         {/* Month Picker & Title */}
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs">
-            <Calendar size={15} className="text-[#714B67]" />
+            <Calendar size={15} className="text-primary" />
             <span className="font-bold text-slate-700">شهر التقرير:</span>
             <input
               type="month"
               value={selectedMonth}
               onChange={e => onSelectedMonthChange(e.target.value)}
-              className="outline-none font-mono font-bold text-xs bg-transparent text-[#714B67] cursor-pointer"
+              className="outline-none font-mono font-bold text-xs bg-transparent text-primary cursor-pointer"
             />
           </div>
 
@@ -242,7 +242,7 @@ export const MonthlyAttendanceSummary: React.FC<MonthlyAttendanceSummaryProps> =
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="بحث بالاسم أو الكود..."
-              className="w-full pr-9 pl-3 py-2 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:border-[#714B67]"
+              className="w-full pr-9 pl-3 py-2 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:border-primary"
             />
           </div>
 
@@ -250,7 +250,7 @@ export const MonthlyAttendanceSummary: React.FC<MonthlyAttendanceSummaryProps> =
             <select
               value={selectedDept}
               onChange={e => setSelectedDept(e.target.value)}
-              className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-[#714B67]"
+              className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-primary"
             >
               {departments.map(d => (
                 <option key={d} value={d}>{d}</option>
@@ -294,7 +294,7 @@ export const MonthlyAttendanceSummary: React.FC<MonthlyAttendanceSummaryProps> =
                       {/* Employee */}
                       <td className="p-3.5 pr-4">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-lg bg-[#714B67]/10 text-[#714B67] font-black flex items-center justify-center text-xs flex-shrink-0">
+                          <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary font-black flex items-center justify-center text-xs flex-shrink-0">
                             {row.employeeName.slice(0, 2)}
                           </div>
                           <div>

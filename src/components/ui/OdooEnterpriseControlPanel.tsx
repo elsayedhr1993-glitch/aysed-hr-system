@@ -43,7 +43,7 @@ export const OdooEnterpriseControlPanel: React.FC<OdooEnterpriseControlPanelProp
         {onBack && (
           <button
             onClick={onBack}
-            className="inline-flex items-center gap-1 text-[#714B67] hover:text-[#5a3a51] font-bold transition bg-purple-50 hover:bg-purple-100 px-2 py-0.5 rounded text-xs shrink-0"
+            className="inline-flex items-center gap-1 text-primary hover:text-[#5a3a51] font-bold transition bg-purple-50 hover:bg-purple-100 px-2 py-0.5 rounded text-xs shrink-0"
           >
             <ArrowRight className="w-3.5 h-3.5" />
             <span>العودة</span>
@@ -57,7 +57,7 @@ export const OdooEnterpriseControlPanel: React.FC<OdooEnterpriseControlPanelProp
               {crumb.onClick ? (
                 <button
                   onClick={crumb.onClick}
-                  className="hover:text-[#714B67] transition cursor-pointer font-semibold text-slate-600 truncate"
+                  className="hover:text-primary transition cursor-pointer font-semibold text-slate-600 truncate"
                 >
                   {crumb.label}
                 </button>
@@ -82,7 +82,7 @@ export const OdooEnterpriseControlPanel: React.FC<OdooEnterpriseControlPanelProp
         {showNew && onNew && (
           <button
             onClick={onNew}
-            className="bg-[#714B67] hover:bg-[#5a3a51] text-white px-2.5 py-1 rounded-lg font-bold text-xs shadow-2xs transition flex items-center gap-1 cursor-pointer active:scale-95 shrink-0"
+            className="bg-primary hover:bg-[#5a3a51] text-white px-2.5 py-1 rounded-lg font-bold text-xs shadow-2xs transition flex items-center gap-1 cursor-pointer active:scale-95 shrink-0"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>{newButtonLabel}</span>

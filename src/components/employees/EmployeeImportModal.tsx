@@ -89,9 +89,9 @@ export const EmployeeImportModal: React.FC<Props> = ({
   return (
     <div className="fixed inset-0 z-[85] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" dir="rtl">
       <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
-        <header className="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3 bg-[#714B67]/5">
+        <header className="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3 bg-primary/5">
           <div>
-            <div className="flex items-center gap-2 text-[#714B67] font-black text-sm">
+            <div className="flex items-center gap-2 text-primary font-black text-sm">
               <FileSpreadsheet size={18} />
               استيراد الموظفين (Excel / CSV)
             </div>
@@ -108,14 +108,14 @@ export const EmployeeImportModal: React.FC<Props> = ({
           <button
             type="button"
             onClick={() => downloadEmployeeImportTemplate()}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-[#714B67]/40 text-[#714B67] font-bold text-xs hover:bg-purple-50 cursor-pointer"
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-primary/40 text-primary font-bold text-xs hover:bg-purple-50 cursor-pointer"
           >
             <Download size={16} />
             تحميل قالب Excel الجاهز (Template)
           </button>
 
           <label
-            className="block rounded-xl border border-slate-200 bg-slate-50 p-6 text-center cursor-pointer hover:border-[#714B67]/50 transition"
+            className="block rounded-xl border border-slate-200 bg-slate-50 p-6 text-center cursor-pointer hover:border-primary/50 transition"
           >
             <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
             <span className="text-sm font-bold text-slate-800">اختر ملف .xlsx أو .csv</span>
@@ -136,7 +136,7 @@ export const EmployeeImportModal: React.FC<Props> = ({
             <p className="text-xs text-slate-600 font-medium">
               الملف: <span className="font-mono text-slate-900">{fileName}</span>
               {rowCount > 0 && (
-                <span className="text-[#714B67] font-bold"> — {rowCount} موظف جاهز للاستيراد</span>
+                <span className="text-primary font-bold"> — {rowCount} موظف جاهز للاستيراد</span>
               )}
             </p>
           )}
@@ -180,7 +180,7 @@ export const EmployeeImportModal: React.FC<Props> = ({
             type="button"
             disabled={importing || rowCount === 0}
             onClick={() => void runImport()}
-            className="flex-1 py-2.5 rounded-xl bg-[#714B67] text-white font-bold cursor-pointer disabled:opacity-40 flex items-center justify-center gap-2"
+            className="flex-1 py-2.5 rounded-xl bg-primary text-white font-bold cursor-pointer disabled:opacity-40 flex items-center justify-center gap-2"
           >
             {importing ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
             استيراد الآن

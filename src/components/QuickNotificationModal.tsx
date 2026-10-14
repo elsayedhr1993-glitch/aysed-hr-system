@@ -347,7 +347,7 @@ export const QuickNotificationModal: React.FC<QuickNotificationModalProps> = ({
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
         
         {/* Header */}
-        <div className="bg-[#714B67] text-white px-6 py-4 flex items-center justify-between shrink-0">
+        <div className="bg-primary text-white px-6 py-4 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
               <MessageSquare className="w-5 h-5 text-emerald-300" />
@@ -455,7 +455,7 @@ export const QuickNotificationModal: React.FC<QuickNotificationModalProps> = ({
                 onClick={() => setTriggerType('HR_ACTION_REQUIRED')}
                 className={`p-2.5 rounded-xl border text-right transition flex flex-col gap-1 ${
                   triggerType === 'HR_ACTION_REQUIRED' 
-                    ? 'bg-purple-50 border-[#714B67] text-[#714B67] font-bold shadow-xs' 
+                    ? 'bg-purple-50 border-primary text-primary font-bold shadow-xs' 
                     : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                 }`}
               >
@@ -471,7 +471,7 @@ export const QuickNotificationModal: React.FC<QuickNotificationModalProps> = ({
                 onClick={() => setTriggerType('MOH_RENEWAL')}
                 className={`p-2.5 rounded-xl border text-right transition flex flex-col gap-1 ${
                   triggerType === 'MOH_RENEWAL' 
-                    ? 'bg-purple-50 border-[#714B67] text-[#714B67] font-bold shadow-xs' 
+                    ? 'bg-purple-50 border-primary text-primary font-bold shadow-xs' 
                     : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                 }`}
               >
@@ -487,7 +487,7 @@ export const QuickNotificationModal: React.FC<QuickNotificationModalProps> = ({
                 onClick={() => setTriggerType('RESIDENCY_RENEWAL')}
                 className={`p-2.5 rounded-xl border text-right transition flex flex-col gap-1 ${
                   triggerType === 'RESIDENCY_RENEWAL' 
-                    ? 'bg-purple-50 border-[#714B67] text-[#714B67] font-bold shadow-xs' 
+                    ? 'bg-purple-50 border-primary text-primary font-bold shadow-xs' 
                     : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                 }`}
               >
@@ -503,7 +503,7 @@ export const QuickNotificationModal: React.FC<QuickNotificationModalProps> = ({
                 onClick={() => setTriggerType('LEAVE_APPROVAL')}
                 className={`p-2.5 rounded-xl border text-right transition flex flex-col gap-1 ${
                   triggerType === 'LEAVE_APPROVAL' 
-                    ? 'bg-purple-50 border-[#714B67] text-[#714B67] font-bold shadow-xs' 
+                    ? 'bg-purple-50 border-primary text-primary font-bold shadow-xs' 
                     : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                 }`}
               >
@@ -519,7 +519,7 @@ export const QuickNotificationModal: React.FC<QuickNotificationModalProps> = ({
                 onClick={() => setTriggerType('PAYROLL_SALARY')}
                 className={`p-2.5 rounded-xl border text-right transition flex flex-col gap-1 ${
                   triggerType === 'PAYROLL_SALARY' 
-                    ? 'bg-purple-50 border-[#714B67] text-[#714B67] font-bold shadow-xs' 
+                    ? 'bg-purple-50 border-primary text-primary font-bold shadow-xs' 
                     : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                 }`}
               >
@@ -535,7 +535,7 @@ export const QuickNotificationModal: React.FC<QuickNotificationModalProps> = ({
                 onClick={() => setTriggerType('DIRECT_MESSAGE')}
                 className={`p-2.5 rounded-xl border text-right transition flex flex-col gap-1 ${
                   triggerType === 'DIRECT_MESSAGE' 
-                    ? 'bg-purple-50 border-[#714B67] text-[#714B67] font-bold shadow-xs' 
+                    ? 'bg-purple-50 border-primary text-primary font-bold shadow-xs' 
                     : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                 }`}
               >
@@ -736,11 +736,11 @@ export const QuickNotificationModal: React.FC<QuickNotificationModalProps> = ({
                 onClick={() => setChannel('SYSTEM_ALERT')}
                 className={`p-3 rounded-xl border flex items-center justify-center gap-2 transition ${
                   channel === 'SYSTEM_ALERT' 
-                    ? 'bg-purple-50 border-[#714B67] text-[#714B67] font-bold shadow-xs' 
+                    ? 'bg-purple-50 border-primary text-primary font-bold shadow-xs' 
                     : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                 }`}
               >
-                <Bell className="w-4 h-4 text-[#714B67]" />
+                <Bell className="w-4 h-4 text-primary" />
                 <span>إشعار النظام (Internal)</span>
               </button>
             </div>
@@ -750,7 +750,7 @@ export const QuickNotificationModal: React.FC<QuickNotificationModalProps> = ({
           <div>
             <div className="flex items-center justify-between mb-1.5 gap-2 flex-wrap">
               <label className="font-bold text-slate-800 flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-[#714B67]" />
+                <Sparkles className="w-4 h-4 text-primary" />
                 <span>معاينة نص الرسالة قبل الإرسال (يمكن التعديل يدوياً)</span>
               </label>
               <div className="flex items-center gap-2">
@@ -766,7 +766,7 @@ export const QuickNotificationModal: React.FC<QuickNotificationModalProps> = ({
                     navigator.clipboard.writeText(editableMessage);
                     toast.success('تم نسخ نص الرسالة إلى الحافظة');
                   }}
-                  className="text-xs text-[#714B67] hover:underline flex items-center gap-1 font-bold"
+                  className="text-xs text-primary hover:underline flex items-center gap-1 font-bold"
                 >
                   <Copy className="w-3.5 h-3.5" />
                   <span>نسخ النص</span>
@@ -778,7 +778,7 @@ export const QuickNotificationModal: React.FC<QuickNotificationModalProps> = ({
               rows={6}
               value={editableMessage}
               onChange={(e) => setEditableMessage(e.target.value)}
-              className="w-full border border-slate-300 rounded-xl p-3 bg-slate-50 font-sans text-xs leading-relaxed text-slate-900 outline-none focus:bg-white focus:border-[#714B67] focus:ring-1 focus:ring-[#714B67] transition"
+              className="w-full border border-slate-300 rounded-xl p-3 bg-slate-50 font-sans text-xs leading-relaxed text-slate-900 outline-none focus:bg-white focus:border-primary focus:ring-1 focus:ring-primary transition"
             />
           </div>
 
@@ -817,10 +817,10 @@ export const QuickNotificationModal: React.FC<QuickNotificationModalProps> = ({
               disabled={isSending}
               className={`px-4 py-2.5 rounded-xl text-white font-bold shadow-md flex items-center gap-2 transition disabled:opacity-50 cursor-pointer text-xs ${
                 channel === 'WHATSAPP' 
-                  ? 'bg-[#714B67] hover:bg-[#5a3a52]' 
+                  ? 'bg-primary hover:bg-[#5a3a52]' 
                   : channel === 'SMS'
                   ? 'bg-blue-600 hover:bg-blue-700'
-                  : 'bg-[#714B67] hover:bg-[#5a3a52]'
+                  : 'bg-primary hover:bg-[#5a3a52]'
               }`}
             >
               {isSending ? (

@@ -91,7 +91,7 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
         {/* Header */}
         <div className="p-4 sm:px-6 sm:py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/80">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#714B67]/10 flex items-center justify-center text-[#714B67]">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
               <FileText className="w-5 h-5" />
             </div>
             <div>
@@ -107,7 +107,7 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
             <button
               type="button"
               onClick={handleDownload}
-              className="p-2 text-slate-600 hover:text-[#714B67] hover:bg-slate-200/60 rounded-lg transition"
+              className="p-2 text-slate-600 hover:text-primary hover:bg-slate-200/60 rounded-lg transition"
               title="تنزيل الملف"
             >
               <Download className="w-4 h-4" />
@@ -115,7 +115,7 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
             <button
               type="button"
               onClick={handlePrint}
-              className="p-2 text-slate-600 hover:text-[#714B67] hover:bg-slate-200/60 rounded-lg transition"
+              className="p-2 text-slate-600 hover:text-primary hover:bg-slate-200/60 rounded-lg transition"
               title="طباعة"
             >
               <Printer className="w-4 h-4" />
@@ -172,7 +172,7 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
                 {document.fileUrl && document.fileUrl !== '#' ? (
                   <button
                     onClick={handleDownload}
-                    className="inline-flex items-center gap-2 bg-[#714B67] hover:bg-[#5a3a51] text-white px-4 py-2 rounded-lg text-xs font-bold transition"
+                    className="inline-flex items-center gap-2 bg-primary hover:bg-[#5a3a51] text-white px-4 py-2 rounded-lg text-xs font-bold transition"
                   >
                     <Download className="w-4 h-4" /> فتح / تنزيل الملف
                   </button>
@@ -204,7 +204,7 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
               {/* Employee Info Card */}
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2">
                 <div className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
-                  <User className="w-3.5 h-3.5 text-[#714B67]" />
+                  <User className="w-3.5 h-3.5 text-primary" />
                   <span>بيانات صاحب المستند</span>
                 </div>
                 {employee ? (

@@ -73,7 +73,7 @@ export const ComplianceSmartSentinelModal: React.FC<ComplianceSmartSentinelModal
       <div className="bg-white w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
         
         {/* Modal Header */}
-        <div className="bg-gradient-to-r from-[#53354c] via-[#714B67] to-[#3a2234] text-white p-5 flex items-center justify-between relative overflow-hidden">
+        <div className="bg-gradient-to-r from-[#53354c] via-primary to-[#3a2234] text-white p-5 flex items-center justify-between relative overflow-hidden">
           <div className="absolute -left-10 -bottom-10 w-48 h-48 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
           
           <div className="flex items-center gap-3.5 relative z-10">
@@ -134,25 +134,25 @@ export const ComplianceSmartSentinelModal: React.FC<ComplianceSmartSentinelModal
           <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-slate-200 text-xs font-bold">
             <button
               onClick={() => setActiveTab('OVERVIEW')}
-              className={`px-3.5 py-2 rounded-lg transition cursor-pointer ${activeTab === 'OVERVIEW' ? 'bg-[#714B67] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'}`}
+              className={`px-3.5 py-2 rounded-lg transition cursor-pointer ${activeTab === 'OVERVIEW' ? 'bg-primary text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'}`}
             >
               📊 نظرة عامة
             </button>
             <button
               onClick={() => setActiveTab('PAM')}
-              className={`px-3.5 py-2 rounded-lg transition cursor-pointer ${activeTab === 'PAM' ? 'bg-[#714B67] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'}`}
+              className={`px-3.5 py-2 rounded-lg transition cursor-pointer ${activeTab === 'PAM' ? 'bg-primary text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'}`}
             >
               🏛️ القوى العاملة (PAM)
             </button>
             <button
               onClick={() => setActiveTab('WPS')}
-              className={`px-3.5 py-2 rounded-lg transition cursor-pointer ${activeTab === 'WPS' ? 'bg-[#714B67] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'}`}
+              className={`px-3.5 py-2 rounded-lg transition cursor-pointer ${activeTab === 'WPS' ? 'bg-primary text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'}`}
             >
               💳 حماية الأجور (WPS)
             </button>
             <button
               onClick={() => setActiveTab('RESIDENCY')}
-              className={`px-3.5 py-2 rounded-lg transition cursor-pointer ${activeTab === 'RESIDENCY' ? 'bg-[#714B67] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'}`}
+              className={`px-3.5 py-2 rounded-lg transition cursor-pointer ${activeTab === 'RESIDENCY' ? 'bg-primary text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'}`}
             >
               🛂 الإقامات والبطاقات
             </button>
@@ -176,7 +176,7 @@ export const ComplianceSmartSentinelModal: React.FC<ComplianceSmartSentinelModal
                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-2">
                   <div className="flex items-center justify-between text-slate-500">
                     <span className="text-xs font-bold">إجمالي الموظفين</span>
-                    <Users size={18} className="text-[#714B67]" />
+                    <Users size={18} className="text-primary" />
                   </div>
                   <div className="text-2xl font-black text-slate-900">{totalEmployees}</div>
                   <div className="text-[11px] text-emerald-600 font-bold">جميعهم مسجلون بنجاح</div>
@@ -215,13 +215,13 @@ export const ComplianceSmartSentinelModal: React.FC<ComplianceSmartSentinelModal
               {/* Active Compliance Alerts List */}
               <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4">
                 <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                  <ShieldCheck size={18} className="text-[#714B67]" />
+                  <ShieldCheck size={18} className="text-primary" />
                   <span>توصيات الحارس الذكي لتعزيز الامتثال القانوني:</span>
                 </h3>
 
                 <div className="space-y-3">
                   <div className="p-3.5 bg-purple-50 border border-purple-200 rounded-xl flex items-start gap-3">
-                    <Sparkles size={18} className="text-[#714B67] shrink-0 mt-0.5" />
+                    <Sparkles size={18} className="text-primary shrink-0 mt-0.5" />
                     <div>
                       <div className="text-xs font-bold text-slate-900">جاهزية العقود للتدقيق الآلي</div>
                       <p className="text-[11px] text-slate-600 mt-0.5">
@@ -359,7 +359,7 @@ export const ComplianceSmartSentinelModal: React.FC<ComplianceSmartSentinelModal
           </div>
           <button
             onClick={onClose}
-            className="px-5 py-2.5 bg-[#714B67] hover:bg-[#5a3a52] text-white rounded-xl text-xs font-bold transition shadow-md cursor-pointer"
+            className="px-5 py-2.5 bg-primary hover:bg-[#5a3a52] text-white rounded-xl text-xs font-bold transition shadow-md cursor-pointer"
           >
             إغلاق
           </button>

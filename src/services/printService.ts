@@ -1,3 +1,4 @@
+import { tokens } from '../design/tokens';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
 
 export const printDocumentA4 = (title: string, contentHtml: string) => {
@@ -5,7 +6,7 @@ export const printDocumentA4 = (title: string, contentHtml: string) => {
   container.className = 'print-area';
   container.innerHTML = `
     <div style="padding: 20px; background: white; color: #0f172a; direction: rtl; text-align: right;">
-      <h2 style="text-align: center; font-size: 18px; font-weight: bold; margin-bottom: 10px; color: #714B67;">${title}</h2>
+      <h2 style="text-align: center; font-size: 18px; font-weight: bold; margin-bottom: 10px; color: ${tokens.color.primary};">${title}</h2>
       ${contentHtml}
     </div>
   `;

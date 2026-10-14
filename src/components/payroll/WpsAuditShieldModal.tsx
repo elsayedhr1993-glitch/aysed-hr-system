@@ -183,7 +183,7 @@ export const WpsAuditShieldModal: React.FC<WpsAuditShieldModalProps> = ({
             <button
               onClick={() => setActiveView('audit')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                activeView === 'audit' ? 'bg-[#714B67] text-white' : 'bg-slate-800 text-slate-300 hover:text-white'
+                activeView === 'audit' ? 'bg-primary text-white' : 'bg-slate-800 text-slate-300 hover:text-white'
               }`}
             >
               تقرير الفحص والمطابقة
@@ -191,7 +191,7 @@ export const WpsAuditShieldModal: React.FC<WpsAuditShieldModalProps> = ({
             <button
               onClick={() => setActiveView('cover_letter')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                activeView === 'cover_letter' ? 'bg-[#714B67] text-white' : 'bg-slate-800 text-slate-300 hover:text-white'
+                activeView === 'cover_letter' ? 'bg-primary text-white' : 'bg-slate-800 text-slate-300 hover:text-white'
               }`}
             >
               خطاب التغطية البنكي الرسمي
@@ -210,7 +210,7 @@ export const WpsAuditShieldModal: React.FC<WpsAuditShieldModalProps> = ({
                 <button
                   type="button"
                   onClick={handlePrintAuditReport}
-                  className="px-3.5 py-2 bg-[#714B67] hover:bg-[#583950] text-white rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  className="px-3.5 py-2 bg-primary hover:bg-[#583950] text-white rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
                 >
                   <Printer size={14} /> طباعة تقرير التدقيق (A4)
                 </button>
@@ -369,7 +369,7 @@ export const WpsAuditShieldModal: React.FC<WpsAuditShieldModalProps> = ({
                 <button
                   type="button"
                   onClick={handlePrintCoverLetter}
-                  className="px-4 py-2 bg-[#714B67] hover:bg-[#593a52] text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+                  className="px-4 py-2 bg-primary hover:bg-[#593a52] text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
                 >
                   <Printer size={14} /> طباعة الخطاب (A4)
                 </button>
@@ -421,7 +421,7 @@ export const WpsAuditShieldModal: React.FC<WpsAuditShieldModalProps> = ({
                   </div>
                   <div className="flex justify-between border-t border-slate-200/60 pt-1.5">
                     <span className="text-slate-600">المبلغ بالحروف:</span>
-                    <span className="font-bold text-[#714B67]">{totalNetInWords}</span>
+                    <span className="font-bold text-primary">{totalNetInWords}</span>
                   </div>
                 </div>
                 <p>

@@ -67,7 +67,7 @@ ${companyName}
         {/* Header */}
         <div className="flex items-center justify-between border-b pb-4 mb-4">
           <div className="flex items-center gap-2">
-            <div className="p-2 bg-[#714B67]/10 text-[#714B67] rounded-xl">
+            <div className="p-2 bg-primary/10 text-primary rounded-xl">
               <BellRing size={20} />
             </div>
             <div>
@@ -98,7 +98,7 @@ ${companyName}
           </div>
 
           <div className="text-center py-2 bg-white border rounded-lg shadow-2xs">
-            <h2 className="text-sm font-black text-[#714B67]">
+            <h2 className="text-sm font-black text-primary">
               تعميم إداري رسمي بشأن عطلة {holiday.nameAr}
             </h2>
             <span className="text-[10px] text-slate-500 font-mono">OFFICIAL ADMINISTRATIVE CIRCULAR</span>
@@ -121,7 +121,7 @@ ${companyName}
                 يستثنى من ذلك العاملون بنظام المناوبات والطوارئ الطبية الذين تقتضي طبيعة عملهم التواجد، مع استحقاقهم لكافة البدلات المقررة بالمادة (68) من قانون العمل.
               </li>
             </ul>
-            <p className="pt-2 text-center font-bold text-[#714B67]">وكل عام وأنتم والكويت الحبيبة بخير ورفعة،،،</p>
+            <p className="pt-2 text-center font-bold text-primary">وكل عام وأنتم والكويت الحبيبة بخير ورفعة،،،</p>
           </div>
 
           <div className="flex justify-between items-end pt-2 text-[11px]">
@@ -157,7 +157,7 @@ ${companyName}
             <button
               type="button"
               onClick={() => safePrintAction(`تعميم_عطلة_${holiday.nameAr}`)}
-              className="px-5 py-2 bg-[#714B67] hover:bg-[#5a3a52] text-white rounded-xl font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+              className="px-5 py-2 bg-primary hover:bg-[#5a3a52] text-white rounded-xl font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
             >
               <Printer size={15} /> طباعة التعميم A4
             </button>

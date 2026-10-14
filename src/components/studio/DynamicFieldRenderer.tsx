@@ -22,7 +22,7 @@ export const DynamicFieldRenderer: React.FC<DynamicFieldRendererProps> = ({
   const label = resolveLabel(field.label, locale);
   const help = field.helpText ? resolveLabel(field.helpText, locale) : undefined;
   const inputClass =
-    'w-full border border-slate-200 rounded-lg px-2.5 py-2 focus:border-[#714B67] focus:outline-none disabled:bg-slate-50';
+    'w-full border border-slate-200 rounded-lg px-2.5 py-2 focus:border-primary focus:outline-none disabled:bg-slate-50';
 
   return (
     <label className={`block ${field.type === 'textarea' ? 'sm:col-span-2' : ''}`}>
@@ -74,7 +74,7 @@ export const DynamicFieldRenderer: React.FC<DynamicFieldRendererProps> = ({
           disabled={disabled || field.readOnly}
           checked={Boolean(value)}
           onChange={e => onChange(e.target.checked)}
-          className="w-4 h-4 text-[#714B67] rounded border-slate-300"
+          className="w-4 h-4 text-primary rounded border-slate-300"
         />
       )}
       {field.type === 'select' && (

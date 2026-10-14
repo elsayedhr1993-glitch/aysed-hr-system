@@ -180,7 +180,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <Shield className="w-8 h-8 text-[#714B67]" />
+            <Shield className="w-8 h-8 text-primary" />
             <h1 className="text-2xl font-bold text-slate-900">تراخيص ومستندات المنشأة</h1>
           </div>
           <p className="text-sm text-slate-500 mt-1">نظام تتبع صلاحية الوثائق والتنبيهات المسبقة وتواريخ التجديد آلياً</p>
@@ -195,7 +195,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
               placeholder="بحث في التراخيص والجهات..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-3 pr-9 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#714B67]"
+              className="w-full pl-3 pr-9 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
 
@@ -203,7 +203,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
           <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
             <button 
               onClick={() => setFilter('all')} 
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${filter === 'all' ? 'bg-[#714B67] text-white shadow' : 'text-slate-600 hover:bg-slate-100'}`}>
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${filter === 'all' ? 'bg-primary text-white shadow' : 'text-slate-600 hover:bg-slate-100'}`}>
               الكل ({documents.length})
             </button>
             <button 
@@ -228,7 +228,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
               type="button"
               onClick={() => setViewMode('kanban')}
               className={`p-1.5 rounded-lg transition ${
-                viewMode === 'kanban' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-500 hover:text-slate-900'
+                viewMode === 'kanban' ? 'bg-white text-primary shadow-xs' : 'text-slate-500 hover:text-slate-900'
               }`}
               title="عرض البطاقات"
             >
@@ -238,7 +238,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
               type="button"
               onClick={() => setViewMode('list')}
               className={`p-1.5 rounded-lg transition ${
-                viewMode === 'list' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-500 hover:text-slate-900'
+                viewMode === 'list' ? 'bg-white text-primary shadow-xs' : 'text-slate-500 hover:text-slate-900'
               }`}
               title="عرض الجدول"
             >
@@ -258,7 +258,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
           <button
             type="button"
             onClick={() => setShowPrintModal(true)}
-            className="bg-[#714B67] hover:bg-[#5c3c53] text-white text-xs font-bold px-3 py-2 rounded-lg flex items-center gap-1.5"
+            className="bg-primary hover:bg-[#5c3c53] text-white text-xs font-bold px-3 py-2 rounded-lg flex items-center gap-1.5"
           >
             <Printer className="w-4 h-4" />
             طباعة A4
@@ -266,7 +266,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
 
           <button 
             onClick={handleOpenAdd}
-            className="bg-[#714B67] hover:bg-[#5c3c53] text-white text-xs font-bold px-4 py-2.5 rounded-lg shadow-sm flex items-center gap-2 transition">
+            className="bg-primary hover:bg-[#5c3c53] text-white text-xs font-bold px-4 py-2.5 rounded-lg shadow-sm flex items-center gap-2 transition">
             <Plus className="w-4 h-4" />
             إضافة ترخيص جديد
           </button>
@@ -279,7 +279,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
             <p className="text-xs font-medium text-slate-500">إجمالي التراخيص</p>
             <h4 className="text-xl font-black text-slate-900 font-mono">{metrics.total}</h4>
           </div>
-          <div className="w-9 h-9 rounded-xl bg-purple-100 text-[#714B67] flex items-center justify-center">
+          <div className="w-9 h-9 rounded-xl bg-purple-100 text-primary flex items-center justify-center">
             <Shield className="w-5 h-5" />
           </div>
         </div>
@@ -353,7 +353,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
                 </div>
 
                 <h3
-                  className="font-bold text-slate-900 text-sm leading-snug line-clamp-2 group-hover:text-[#714B67] transition"
+                  className="font-bold text-slate-900 text-sm leading-snug line-clamp-2 group-hover:text-primary transition"
                   title={doc.name}
                 >
                   {doc.name}
@@ -386,7 +386,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
                     setDetailDoc(doc);
                     setIsDetailModalOpen(true);
                   }}
-                  className="text-xs text-[#714B67] hover:text-[#5c3c53] font-bold flex items-center gap-1">
+                  className="text-xs text-primary hover:text-[#5c3c53] font-bold flex items-center gap-1">
                   عرض التفاصيل والملف &larr;
                 </button>
                 <div className="flex items-center gap-2">
@@ -472,7 +472,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
                           setDetailDoc(doc);
                           setIsDetailModalOpen(true);
                         }}
-                        className="text-[#714B67] font-bold hover:underline"
+                        className="text-primary font-bold hover:underline"
                       >
                         تفاصيل
                       </button>
@@ -499,7 +499,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
           <div className="bg-white rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden border border-slate-100 flex flex-col">
             <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
               <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <Shield className="w-5 h-5 text-[#714B67]" />
+                <Shield className="w-5 h-5 text-primary" />
                 {editingDoc ? 'تعديل بيانات الترخيص' : 'إضافة ترخيص أو مستند جديد'}
               </h3>
               <button
@@ -523,7 +523,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
                     placeholder="مثال: الرخصة التجارية للفرع الرئيسي"
                     value={formData.name || ''}
                     onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#714B67]"
+                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
 
@@ -544,7 +544,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
                     placeholder="مثال: CN-2026-9982"
                     value={formData.documentNumber || ''}
                     onChange={(e) => setFormData({...formData, documentNumber: e.target.value})}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#714B67]"
+                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
 
@@ -555,7 +555,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
                     placeholder="مثال: وزارة التجارة والصناعة"
                     value={formData.issuingAuthority || ''}
                     onChange={(e) => setFormData({...formData, issuingAuthority: e.target.value})}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#714B67]"
+                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
 
@@ -565,7 +565,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
                     type="date"
                     value={formData.issueDate || ''}
                     onChange={(e) => setFormData({...formData, issueDate: e.target.value})}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#714B67]"
+                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
 
@@ -576,7 +576,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
                     required
                     value={formData.expiryDate || ''}
                     onChange={(e) => setFormData({...formData, expiryDate: e.target.value})}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#714B67]"
+                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
 
@@ -591,7 +591,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
                         toast.success('تم إرفاق الملف بنجاح');
                       }
                     }}
-                    className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#714B67]/10 file:text-[#714B67] hover:file:bg-[#714B67]/20 cursor-pointer border border-slate-200 rounded-lg p-1"
+                    className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer border border-slate-200 rounded-lg p-1"
                   />
                   {formData.fileUrl && formData.fileUrl !== '#' && formData.fileUrl !== 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' && (
                      <p className="text-emerald-600 text-[10px] mt-1 font-bold">✓ تم إرفاق ملف جاهز للحفظ</p>
@@ -605,7 +605,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
                     placeholder="ملاحظات حول التجديد أو شروط الجهة الرسمية..."
                     value={formData.notes || ''}
                     onChange={(e) => setFormData({...formData, notes: e.target.value})}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#714B67]"
+                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                   ></textarea>
                 </div>
               </div>
@@ -623,7 +623,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 text-xs font-bold text-white bg-[#714B67] hover:bg-[#5c3c53] rounded-lg shadow transition"
+                  className="px-5 py-2 text-xs font-bold text-white bg-primary hover:bg-[#5c3c53] rounded-lg shadow transition"
                 >
                   حفظ الترخيص
                 </button>
@@ -639,7 +639,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-slate-100 flex flex-col">
             <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
               <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-[#714B67]" />
+                <FileText className="w-5 h-5 text-primary" />
                 تفاصيل ترخيص المنشأة
               </h3>
               <button onClick={() => setIsDetailModalOpen(false)} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition">

@@ -46,14 +46,14 @@ export const OfficialAttendancePrintModal: React.FC<OfficialAttendancePrintModal
         {/* Top Control Bar */}
         <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between no-print">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
-            <Building2 size={16} className="text-[#714B67]" />
+            <Building2 size={16} className="text-primary" />
             <span>معاينة كشف الحضور والانصراف الرسمي للطباعة (A4 Landscape)</span>
           </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={handlePrint}
-              className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+              className="bg-primary hover:bg-[#5a3a52] text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
             >
               <Printer size={14} />
               <span>طباعة المستند الآن (Print)</span>
@@ -94,7 +94,7 @@ export const OfficialAttendancePrintModal: React.FC<OfficialAttendancePrintModal
             <div className="odoo-report-center-title mb-5">
               <h1 className="text-base font-bold text-slate-900">{reportData.title}</h1>
               <div className="text-xs text-slate-600 mt-0.5 font-bold">
-                عن الفترة / التاريخ: <span className="font-mono text-[#714B67]">{reportData.dateOrMonth}</span>
+                عن الفترة / التاريخ: <span className="font-mono text-primary">{reportData.dateOrMonth}</span>
               </div>
             </div>
 

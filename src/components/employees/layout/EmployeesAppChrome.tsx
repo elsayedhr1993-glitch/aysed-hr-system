@@ -199,7 +199,7 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
           }`}
         >
           <nav className="flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-slate-600 min-w-0">
-            <Users size={13} className="text-[#714B67] shrink-0" />
+            <Users size={13} className="text-primary shrink-0" />
             <span className="text-slate-400">شؤون الموظفين</span>
             <span className="text-slate-200">/</span>
             {activeTab !== 'directory' && (
@@ -207,7 +207,7 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
                 <button
                   type="button"
                   onClick={() => onTabChange('directory')}
-                  className="text-[#714B67] hover:underline cursor-pointer"
+                  className="text-primary hover:underline cursor-pointer"
                 >
                   الدليل
                 </button>
@@ -226,7 +226,7 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
               <button
                 type="button"
                 onClick={onCreateEmployee}
-                className="btn btn-primary px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer shadow-sm bg-[#714B67] hover:bg-[#5b3c53] text-white border border-[#5b3c53]"
+                className="btn btn-primary px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer shadow-sm bg-primary hover:bg-[#5b3c53] text-white border border-[#5b3c53]"
               >
                 <UserPlus size={13} />
                 موظف جديد
@@ -267,7 +267,7 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
                 <button
                   type="button"
                   onClick={() => onViewModeChange('cards')}
-                  className={`p-1 rounded cursor-pointer ${viewMode === 'cards' ? 'bg-white text-[#714B67] shadow-2xs' : 'text-slate-400'}`}
+                  className={`p-1 rounded cursor-pointer ${viewMode === 'cards' ? 'bg-white text-primary shadow-2xs' : 'text-slate-400'}`}
                   title="بطاقات"
                 >
                   <LayoutGrid size={13} />
@@ -275,7 +275,7 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
                 <button
                   type="button"
                   onClick={() => onViewModeChange('list')}
-                  className={`p-1 rounded cursor-pointer ${viewMode === 'list' ? 'bg-white text-[#714B67] shadow-2xs' : 'text-slate-400'}`}
+                  className={`p-1 rounded cursor-pointer ${viewMode === 'list' ? 'bg-white text-primary shadow-2xs' : 'text-slate-400'}`}
                   title="جدول"
                 >
                   <List size={13} />
@@ -318,7 +318,7 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
                   value={searchQuery}
                   onChange={(e) => onSearchQueryChange(e.target.value)}
                   placeholder="بحث بالاسم أو المدني... (فلاتر ذكية)"
-                  className="w-full bg-slate-50/80 border border-slate-200/80 rounded-lg pr-8 pl-[4.5rem] py-1.5 text-[11px] focus:bg-white focus:border-[#714B67]/50 focus:outline-none"
+                  className="w-full bg-slate-50/80 border border-slate-200/80 rounded-lg pr-8 pl-[4.5rem] py-1.5 text-[11px] focus:bg-white focus:border-primary/50 focus:outline-none"
                 />
                 <div className="absolute left-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5" ref={filtersRef}>
                   <button
@@ -326,7 +326,7 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
                     onClick={() => setFiltersOpen((v) => !v)}
                     className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border cursor-pointer transition ${
                       filtersOpen || activeFacetCount > 0
-                        ? 'bg-[#714B67]/10 border-[#714B67]/30 text-[#714B67]'
+                        ? 'bg-primary/10 border-primary/30 text-primary'
                         : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                     }`}
                     title="فلاتر وتجميع"
@@ -334,7 +334,7 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
                     <SlidersHorizontal size={12} />
                     فلاتر
                     {activeFacetCount > 0 && (
-                      <span className="min-w-[1rem] h-4 px-1 rounded-full bg-[#714B67] text-white text-[9px] flex items-center justify-center">
+                      <span className="min-w-[1rem] h-4 px-1 rounded-full bg-primary text-white text-[9px] flex items-center justify-center">
                         {activeFacetCount}
                       </span>
                     )}
@@ -398,7 +398,7 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
                                 onClick={() => onKpiFilterChange(id)}
                                 className={`px-2 py-0.5 rounded-md text-[10px] cursor-pointer border ${
                                   kpiFilter === id
-                                    ? 'bg-[#714B67] text-white border-[#714B67] font-bold'
+                                    ? 'bg-primary text-white border-primary font-bold'
                                     : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                                 }`}
                               >
@@ -446,7 +446,7 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
                   </span>
                 )}
                 {kpiFilter !== 'all' && onKpiFilterChange && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#714B67]/10 text-[10px] font-bold text-[#714B67]">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-[10px] font-bold text-primary">
                     مؤشر: {kpiFilter}
                     <button type="button" className="cursor-pointer" onClick={() => onKpiFilterChange('all')}>
                       <X size={10} />

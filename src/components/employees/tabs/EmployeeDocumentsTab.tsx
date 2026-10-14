@@ -304,7 +304,7 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
             className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold cursor-pointer shadow-sm border transition ${
               scanLoading
                 ? 'bg-slate-200 text-slate-500 border-slate-300 pointer-events-none'
-                : 'bg-gradient-to-l from-[#714B67] to-indigo-700 text-white border-[#714B67]/40 hover:opacity-95'
+                : 'bg-gradient-to-l from-primary to-indigo-700 text-white border-primary/40 hover:opacity-95'
             }`}
           >
             {scanLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
@@ -336,7 +336,7 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
             return (
               <div
                 key={card.key}
-                className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs hover:border-[#714B67]/30 transition flex flex-col gap-3"
+                className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs hover:border-primary/30 transition flex flex-col gap-3"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
@@ -371,7 +371,7 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                         <button
                           type="button"
                           onClick={() => setEditingCardKey(null)}
-                          className="text-[10px] font-bold text-[#714B67] hover:underline cursor-pointer"
+                          className="text-[10px] font-bold text-primary hover:underline cursor-pointer"
                         >
                           تم
                         </button>
@@ -414,7 +414,7 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
                   <button
                     type="button"
                     onClick={() => triggerUpload(card.key, card.uploadTitle)}
-                    className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg border border-[#714B67]/30 text-[10px] font-bold text-[#714B67] hover:bg-[#714B67]/5 cursor-pointer"
+                    className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg border border-primary/30 text-[10px] font-bold text-primary hover:bg-primary/5 cursor-pointer"
                     title="رفع أو مسح"
                   >
                     <Upload className="w-3.5 h-3.5" />

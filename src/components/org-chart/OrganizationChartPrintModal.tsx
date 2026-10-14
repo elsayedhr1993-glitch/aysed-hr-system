@@ -39,14 +39,14 @@ export const OrganizationChartPrintModal: React.FC<OrganizationChartPrintModalPr
       <div className="printable-modal-sheet bg-white rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[95vh]">
         <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 print:hidden">
           <div className="flex items-center gap-2">
-            <Printer className="w-5 h-5 text-[#714B67]" />
+            <Printer className="w-5 h-5 text-primary" />
             <span className="font-bold text-slate-800 text-sm">كشف الهيكل التنظيمي (A4)</span>
           </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => void OdooPdf.report.print('org-chart-print-area', `ORG_${reportRef}`)}
-              className="bg-[#714B67] hover:bg-[#5a3a51] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5"
+              className="bg-primary hover:bg-[#5a3a51] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5"
             >
               <Printer className="w-4 h-4" /> طباعة / PDF
             </button>

@@ -1,3 +1,4 @@
+import { tokens } from '../design/tokens';
 import React, { useState, useEffect } from 'react';
 import { 
   Stethoscope, ShieldCheck, AlertTriangle, Calendar, FileText, Printer, 
@@ -151,7 +152,7 @@ export const OdooMohMedicalHubApp: React.FC = () => {
           <tr><td style="padding: 8px; border: 1px solid #cbd5e1; width: 30%; background: #f8fafc; font-weight: bold;">اسم الموظف:</td><td style="padding: 8px; border: 1px solid #cbd5e1;">${emp.nameAr || emp.fullNameAr}</td></tr>
           <tr><td style="padding: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight: bold;">الرقم المدني:</td><td style="padding: 8px; border: 1px solid #cbd5e1; font-family: monospace;">${emp.civilId || '—'}</td></tr>
           <tr><td style="padding: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight: bold;">المسمى الوظيفي:</td><td style="padding: 8px; border: 1px solid #cbd5e1;">${emp.jobTitle || 'طبيب / ممارس'}</td></tr>
-          <tr><td style="padding: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight: bold;">رقم الترخيص الحالي:</td><td style="padding: 8px; border: 1px solid #cbd5e1; font-family: monospace; color: #714b67; font-weight: bold;">${emp.mohLicenseNo || emp.mohLicense || 'MOH-NEW'}</td></tr>
+          <tr><td style="padding: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight: bold;">رقم الترخيص الحالي:</td><td style="padding: 8px; border: 1px solid #cbd5e1; font-family: monospace; color: ${tokens.color.primary}; font-weight: bold;">${emp.mohLicenseNo || emp.mohLicense || 'MOH-NEW'}</td></tr>
           <tr><td style="padding: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight: bold;">تاريخ انتهاء الترخيص:</td><td style="padding: 8px; border: 1px solid #cbd5e1; font-family: monospace;">${emp.mohLicenseExpiry || emp.mohExpiry || '2026-12-31'}</td></tr>
         </table>
         <p>وتفضلوا بقبول فائق الاحترام والتقدير،،</p>
@@ -195,9 +196,9 @@ export const OdooMohMedicalHubApp: React.FC = () => {
         </head>
         <body>
           <div style="text-align: center; border-bottom: 2px double #cbd5e1; padding-bottom: 20px; margin-bottom: 30px;">
-            <h2 style="margin: 0; color: #714b67; font-size: 22px;">${companyName}</h2>
+            <h2 style="margin: 0; color: ${tokens.color.primary}; font-size: 22px;">${companyName}</h2>
             <div style="font-size: 11px; color: #64748b; margin-top: 4px;">${companyEn} - State of Kuwait</div>
-            <h3 style="margin: 15px 0 0 0; color: #1e293b; font-size: 16px; border-bottom: 1px solid #714b67; display: inline-block; padding-bottom: 5px;">${subjectTitle}</h3>
+            <h3 style="margin: 15px 0 0 0; color: #1e293b; font-size: 16px; border-bottom: 1px solid ${tokens.color.primary}; display: inline-block; padding-bottom: 5px;">${subjectTitle}</h3>
           </div>
           <div style="font-size: 13px; line-height: 1.8;">
             ${bodyContent}

@@ -60,7 +60,7 @@ export const PrintableLeaveFormModal: React.FC<PrintableLeaveFormModalProps> = (
         {/* Actions Bar on top (Hidden during print) */}
         <div className="flex items-center justify-between border-b pb-4 mb-6 print:hidden">
           <div className="flex items-center gap-2">
-            <div className="p-2 bg-[#714B67]/10 text-[#714B67] rounded-lg">
+            <div className="p-2 bg-primary/10 text-primary rounded-lg">
               <FileText size={18} />
             </div>
             <div>
@@ -72,7 +72,7 @@ export const PrintableLeaveFormModal: React.FC<PrintableLeaveFormModalProps> = (
             <button
               type="button"
               onClick={() => safePrintAction(`استمارة_إجازة_${request.employeeName}_${request.id}`)}
-              className="px-4 py-2 bg-[#714B67] hover:bg-[#5a3a52] text-white rounded-xl font-bold flex items-center gap-1.5 transition shadow-sm cursor-pointer"
+              className="px-4 py-2 bg-primary hover:bg-[#5a3a52] text-white rounded-xl font-bold flex items-center gap-1.5 transition shadow-sm cursor-pointer"
             >
               <Printer size={15} /> طباعة الاستمارة (A4)
             </button>
@@ -113,7 +113,7 @@ export const PrintableLeaveFormModal: React.FC<PrintableLeaveFormModalProps> = (
           {/* Employee Info Card */}
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5">
             <h4 className="font-bold text-slate-800 mb-2 flex items-center gap-1.5 text-[11px]">
-              <User size={14} className="text-[#714B67]" />
+              <User size={14} className="text-primary" />
               أولاً: بيانات الموظف طالب الإجازة (Employee Information)
             </h4>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
@@ -139,13 +139,13 @@ export const PrintableLeaveFormModal: React.FC<PrintableLeaveFormModalProps> = (
           {/* Leave Details Card */}
           <div className="border border-slate-200 rounded-xl p-3.5">
             <h4 className="font-bold text-slate-800 mb-2 flex items-center gap-1.5 text-[11px]">
-              <Calendar size={14} className="text-[#714B67]" />
+              <Calendar size={14} className="text-primary" />
               ثانياً: بيانات الإجازة والمدة المطلوبة (Leave Specifications)
             </h4>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div>
                 <span className="text-slate-400 block text-[10px]">نوع الإجازة:</span>
-                <span className="font-bold text-[#714B67]">{leaveTypeNamesAr[request.leaveType] || request.leaveType}</span>
+                <span className="font-bold text-primary">{leaveTypeNamesAr[request.leaveType] || request.leaveType}</span>
               </div>
               <div className="sm:col-span-2">
                 <span className="text-slate-400 block text-[10px]">نطاق الإجازة:</span>
@@ -193,7 +193,7 @@ export const PrintableLeaveFormModal: React.FC<PrintableLeaveFormModalProps> = (
           {/* Replacement Staff & Work Handover Pledge */}
           <div className="border border-purple-200 bg-purple-50/40 rounded-xl p-3.5">
             <h4 className="font-bold text-purple-950 mb-1.5 flex items-center gap-1.5 text-[11px]">
-              <ShieldCheck size={14} className="text-[#714B67]" />
+              <ShieldCheck size={14} className="text-primary" />
               ثالثاً: إقرار تغطية واستلام مهام العمل من الموظف البديل (Replacement Handover)
             </h4>
             <p className="text-[10px] text-slate-600 leading-relaxed">

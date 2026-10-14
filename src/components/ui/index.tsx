@@ -52,7 +52,7 @@ export function Badge({
   children: React.ReactNode;
 }) {
   const tones: Record<string, string> = {
-    brand: 'bg-purple-100 text-purple-800 border-purple-200',
+    brand: 'bg-primary/10 text-primary border-primary/20',
     info: 'bg-sky-100 text-sky-800 border-sky-200',
     warning: 'bg-amber-100 text-amber-800 border-amber-200',
     danger: 'bg-rose-100 text-rose-800 border-rose-200',
@@ -61,7 +61,7 @@ export function Badge({
   };
 
   const dotTones: Record<string, string> = {
-    brand: 'bg-purple-600',
+    brand: 'bg-primary',
     info: 'bg-sky-600',
     warning: 'bg-amber-600',
     danger: 'bg-rose-600',
@@ -105,7 +105,7 @@ export function Avatar({ name, src, size = 'md' }: { name: string; src?: string;
 
   return (
     <div
-      className={`${sizes[size]} rounded-xl bg-purple-700 text-white font-bold flex items-center justify-center shadow-sm shrink-0`}
+      className={`${sizes[size]} rounded-xl bg-primary text-white font-bold flex items-center justify-center shadow-sm shrink-0`}
     >
       {initials || 'U'}
     </div>);
@@ -133,7 +133,7 @@ export function EmptyState({
 export function LoadingState() {
   return (
     <div className="py-12 flex flex-col items-center justify-center gap-3">
-      <div className="w-8 h-8 border-3 border-purple-200 border-t-purple-700 rounded-full animate-spin" />
+      <div className="w-8 h-8 border-3 border-primary/20 border-t-primary rounded-full animate-spin" />
       <span className="text-xs text-slate-400 font-medium">جاري التحميل...</span>
     </div>);
 }
@@ -156,3 +156,74 @@ export function SectionCard({
       {children}
     </div>);
 }
+
+type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
+
+export function Button({
+  variant = 'primary',
+  type = 'button',
+  className = '',
+  children,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant }) {
+  const variants: Record<ButtonVariant, string> = {
+    primary: 'bg-primary text-white hover:bg-primary/90',
+    secondary: 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50',
+    danger: 'bg-danger text-white hover:bg-danger/90',
+    ghost: 'bg-transparent text-slate-600 hover:bg-slate-100',
+  };
+  return (
+    <button
+      type={type}
+      className={`inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-bold transition disabled:opacity-60 disabled:cursor-not-allowed ${variants[variant]} ${className}`}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
+export function Table({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`overflow-x-auto rounded-xl border border-slate-200 bg-white ${className}`}>
+      <table className="w-full text-xs text-right">{children}</table>
+    </div>
+  );
+}
+
+export function Tabs({
+  tabs,
+  active,
+  onChange,
+}: {
+  tabs: { id: string; label: string }[];
+  active: string;
+  onChange: (id: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1">
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+          onClick={() => onChange(tab.id)}
+          className={`rounded-lg px-3 py-1.5 text-xs font-bold ${
+            active === tab.id ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function FilterBar({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 ${className}`}>
+      {children}
+    </div>
+  );
+}
+
+export const Card = SectionCard;

@@ -1,3 +1,4 @@
+import { tokens } from '../design/tokens';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import React, { useEffect, useState } from 'react';
 import { 
@@ -569,14 +570,14 @@ class HrCommencement(models.Model):
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 bg-white/90 backdrop-blur-md p-4 rounded-2xl border border-slate-200 shadow-sm" id="commencement-header-bar">
         <div>
           <div className="flex items-center gap-2">
-            <div className="p-2.5 bg-[#714B67] text-white rounded-xl shadow-sm">
+            <div className="p-2.5 bg-primary text-white rounded-xl shadow-sm">
               <FileSignature className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl font-black text-slate-900 flex items-center gap-2">
                   <span>إقرارات مباشرة العمل</span>
-                  <span className="text-xs bg-[#714B67] text-white px-2.5 py-0.5 rounded-full font-mono font-bold">
+                  <span className="text-xs bg-primary text-white px-2.5 py-0.5 rounded-full font-mono font-bold">
                     {filteredCommencements.length} نموذج
                   </span>
                 </h1>
@@ -586,7 +587,7 @@ class HrCommencement(models.Model):
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                ربط وتعديل واعتماد مباشرة الموظف مع <strong className="text-[#714B67]">جدول العمل (Working Schedule)</strong>، نوع الدوام، وعقد العمل ونظام البصمة
+                ربط وتعديل واعتماد مباشرة الموظف مع <strong className="text-primary">جدول العمل (Working Schedule)</strong>، نوع الدوام، وعقد العمل ونظام البصمة
               </p>
             </div>
           </div>
@@ -605,7 +606,7 @@ class HrCommencement(models.Model):
 
           <button
             onClick={handleOpenNew}
-            className="bg-[#714B67] hover:bg-[#5f3e57] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-md shadow-purple-950/20 transition cursor-pointer"
+            className="bg-primary hover:bg-[#5f3e57] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-md shadow-purple-950/20 transition cursor-pointer"
             id="btn-create-commencement"
           >
             <Plus className="w-4 h-4" />
@@ -622,7 +623,7 @@ class HrCommencement(models.Model):
             <span className="text-2xl font-black text-slate-900">{companyCommencements.length}</span>
             <span className="text-[10px] text-slate-400 block mt-0.5">سجلات المباشرة الموثقة</span>
           </div>
-          <div className="p-3 bg-purple-50 text-[#714B67] rounded-xl"><FileText className="w-6 h-6" /></div>
+          <div className="p-3 bg-purple-50 text-primary rounded-xl"><FileText className="w-6 h-6" /></div>
         </div>
 
         <div className="bg-white/90 backdrop-blur-md p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
@@ -707,7 +708,7 @@ class HrCommencement(models.Model):
                       <td className="p-3.5">
                         <div className="flex items-center gap-2.5">
                           <img 
-                            src={emp?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(emp?.fullNameAr || 'Emp')}&background=714B67&color=fff`} 
+                            src={emp?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(emp?.fullNameAr || 'Emp')}&background=${tokens.color.primary.slice(1)}&color=fff`} 
                             alt="" 
                             className="w-9 h-9 rounded-xl object-cover border border-slate-200 shadow-xs"
                           />
@@ -801,7 +802,7 @@ class HrCommencement(models.Model):
 
                           <button
                             onClick={() => handleOpenEdit(comm)}
-                            className="bg-purple-50 hover:bg-purple-100 text-[#714B67] hover:text-[#52354a] px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-purple-200 transition flex items-center gap-1 cursor-pointer"
+                            className="bg-purple-50 hover:bg-purple-100 text-primary hover:text-[#52354a] px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-purple-200 transition flex items-center gap-1 cursor-pointer"
                             title="تعديل نموذج المباشرة وساعات الدوام (متاح حتى في حالة التشغيل لمدير النظام Sayed)"
                           >
                             <Pencil className="w-3.5 h-3.5" />
@@ -851,7 +852,7 @@ class HrCommencement(models.Model):
                             className="bg-slate-100 hover:bg-purple-100 text-slate-700 hover:text-purple-900 px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-slate-200 transition flex items-center gap-1 cursor-pointer"
                             title="طباعة نموذج المباشرة الرسمي"
                           >
-                            <Printer className="w-3.5 h-3.5 text-[#714B67]" />
+                            <Printer className="w-3.5 h-3.5 text-primary" />
                             <span>طباعة</span>
                           </button>
 
@@ -876,7 +877,7 @@ class HrCommencement(models.Model):
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto" id="new-commencement-modal">
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-200 my-8 animate-in fade-in zoom-in duration-200 text-right" dir="rtl">
-            <div className="bg-[#714B67] text-white p-4 flex items-center justify-between">
+            <div className="bg-primary text-white p-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <FileSignature className="w-5 h-5" />
                 <h3 className="font-black text-sm">
@@ -909,7 +910,7 @@ class HrCommencement(models.Model):
                 <select
                   value={selectedEmpId || ''}
                   onChange={(e) => handleEmployeeChange(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#714B67]/40"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/40"
                   required
                 >
                   {companyEmployees.map(emp => (
@@ -929,7 +930,7 @@ class HrCommencement(models.Model):
                     type="date"
                     value={actualJoiningDate}
                     onChange={(e) => setActualJoiningDate(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#714B67]/40"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/40"
                     required
                   />
                 </div>
@@ -941,7 +942,7 @@ class HrCommencement(models.Model):
                   <select
                     value={contractType || 'INDEFINITE'}
                     onChange={(e) => setContractType(e.target.value as any)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#714B67]/40"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/40"
                   >
                     <option value="INDEFINITE">عقد غير محدد المدة (Indefinite Contract)</option>
                     <option value="FIXED_TERM">عقد محدد المدة (Fixed Term Contract)</option>
@@ -952,7 +953,7 @@ class HrCommencement(models.Model):
               {/* تفاصيل الدوام وجدول العمل */}
               <div className="bg-purple-50/60 p-4 rounded-2xl border border-purple-200 space-y-4">
                 <div className="flex items-center justify-between border-b border-purple-200 pb-2">
-                  <div className="flex items-center gap-2 text-[#714B67] font-black text-xs">
+                  <div className="flex items-center gap-2 text-primary font-black text-xs">
                     <Timer className="w-4 h-4" />
                     <span>تفاصيل الدوام وجدول العمل (Working Schedule & Hours)</span>
                   </div>
@@ -966,7 +967,7 @@ class HrCommencement(models.Model):
                   <select
                     value={resourceCalendarId}
                     onChange={(e) => handleScheduleSelect(e.target.value)}
-                    className="w-full bg-white border border-purple-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#714B67]/40 shadow-xs"
+                    className="w-full bg-white border border-purple-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/40 shadow-xs"
                     required
                   >
                     <optgroup label="جداول ساعات العمل المعتمدة">
@@ -1001,7 +1002,7 @@ class HrCommencement(models.Model):
                         max="24"
                         value={dailyHours}
                         onChange={(e) => setDailyHours(Number(e.target.value) || 8)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#714B67]"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-primary"
                       />
                       <span className="text-[10px] text-slate-500 font-bold">ساعة</span>
                     </div>
@@ -1018,7 +1019,7 @@ class HrCommencement(models.Model):
                         max="70"
                         value={weeklyHours}
                         onChange={(e) => setWeeklyHours(Number(e.target.value) || 48)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#714B67]"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-primary"
                       />
                       <span className="text-[10px] text-slate-500 font-bold">ساعة</span>
                     </div>
@@ -1044,7 +1045,7 @@ class HrCommencement(models.Model):
                       value={customScheduleNote}
                       onChange={(e) => setCustomScheduleNote(e.target.value)}
                       placeholder="مثال: دوام 6 ساعات يومياً من الساعة 10:00 صباحاً حتى 04:00 مساءً"
-                      className="w-full bg-white border border-purple-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#714B67]/40"
+                      className="w-full bg-white border border-purple-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
                   </div>)}
 
@@ -1059,7 +1060,7 @@ class HrCommencement(models.Model):
                   type="text"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#714B67]/40"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/40"
                   placeholder="المقر الرئيسي - مدينة الكويت"
                   required
                 />
@@ -1072,7 +1073,7 @@ class HrCommencement(models.Model):
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#714B67]/40 h-16 resize-none"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/40 h-16 resize-none"
                   placeholder="ملاحظات حول تسليم العهد، تدريب الموظف، وأي اشتراطات خاصة..."
                 />
               </div>
@@ -1102,7 +1103,7 @@ class HrCommencement(models.Model):
                 </button>
                 <button
                   type="submit"
-                  className="bg-[#714B67] hover:bg-[#5f3e57] text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer"
+                  className="bg-primary hover:bg-[#5f3e57] text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer"
                 >
                   <Check className="w-4 h-4" />
                   <span>{editingCommId ? 'حفظ وتحديث نموذج المباشرة والدوام' : 'حفظ وإصدار نموذج المباشرة'}</span>
@@ -1193,7 +1194,7 @@ class HrCommencement(models.Model):
       {selectedCommForPrint && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto" id="print-commencement-modal">
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-200 my-8 text-right animate-in fade-in zoom-in duration-200" dir="rtl">
-            <div className="bg-[#714B67] text-white p-4 flex items-center justify-between print:hidden">
+            <div className="bg-primary text-white p-4 flex items-center justify-between print:hidden">
               <div className="flex items-center gap-2">
                 <Printer className="w-5 h-5" />
                 <h3 className="font-black text-sm">معاينة وطباعة محضر مباشرة العمل الرسمي</h3>
@@ -1217,7 +1218,7 @@ class HrCommencement(models.Model):
                   <div>
                     <div className="text-xs font-bold text-slate-800">التاريخ: {selectedCommForPrint.actualJoiningDate}</div>
                     <div className="text-[10px] text-slate-500 font-mono">المرجع: COMM-{selectedCommForPrint.id.slice(-6)}</div>
-                    <span className="inline-block mt-1 bg-[#714B67] text-white text-[10px] px-2 py-0.5 rounded font-bold">
+                    <span className="inline-block mt-1 bg-primary text-white text-[10px] px-2 py-0.5 rounded font-bold">
                       إقرار مباشرة عمل رسمي
                     </span>
                   </div>
@@ -1254,7 +1255,7 @@ class HrCommencement(models.Model):
 
                     {/* Working Schedule Group (تفاصيل الدوام) */}
                     <div className="p-4 bg-purple-50/70 rounded-xl border border-purple-200 text-xs space-y-2">
-                      <div className="font-bold text-[#714B67] text-xs border-b border-purple-200 pb-1 flex items-center gap-1.5">
+                      <div className="font-bold text-primary text-xs border-b border-purple-200 pb-1 flex items-center gap-1.5">
                         <Timer className="w-4 h-4" />
                         <span>تفاصيل جدول ساعات العمل المقررة (Working Schedule):</span>
                       </div>
@@ -1374,7 +1375,7 @@ class HrCommencement(models.Model):
                     safePrintAction('طباعة التقرير');
                   }
                 }}
-                className="bg-[#714B67] hover:bg-[#5f3e57] text-white px-5 py-2 rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5 cursor-pointer"
+                className="bg-primary hover:bg-[#5f3e57] text-white px-5 py-2 rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5 cursor-pointer"
               >
                 <Printer className="w-4 h-4" />
                 <span>طباعة المستند الآن</span>
@@ -1410,7 +1411,7 @@ class HrCommencement(models.Model):
                   <div className="space-y-3">
                     <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
                       <img 
-                        src={emp?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(emp?.fullNameAr || 'Emp')}&background=714B67&color=fff`} 
+                        src={emp?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(emp?.fullNameAr || 'Emp')}&background=${tokens.color.primary.slice(1)}&color=fff`} 
                         alt="" 
                         className="w-12 h-12 rounded-xl object-cover border border-slate-300"
                       />

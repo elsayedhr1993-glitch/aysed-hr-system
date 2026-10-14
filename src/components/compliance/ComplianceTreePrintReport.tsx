@@ -105,7 +105,7 @@ export const ComplianceTreePrintReport: React.FC<ComplianceTreePrintReportProps>
               )}
             </div>
             <div>
-              <h1 className="text-lg font-black text-[#714B67]">{companyNameAr || 'المنشأة'}</h1>
+              <h1 className="text-lg font-black text-primary">{companyNameAr || 'المنشأة'}</h1>
               {companyNameEn ? (
                 <p className="text-xs font-mono text-slate-600 mt-0.5">{companyNameEn}</p>
               ) : null}
@@ -123,7 +123,7 @@ export const ComplianceTreePrintReport: React.FC<ComplianceTreePrintReportProps>
       </div>
 
       <div className="odoo-report-title-band my-4 text-center">
-        <div className="text-sm font-black text-[#714B67]">ملخص مسارات الامتثال والتراخيص</div>
+        <div className="text-sm font-black text-primary">ملخص مسارات الامتثال والتراخيص</div>
         <div className="text-[10px] text-slate-500 mt-0.5">MOH · PAM · KFF · البلدية · الخدمات العامة</div>
       </div>
 

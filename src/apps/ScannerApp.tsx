@@ -412,13 +412,13 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
       {/* 1. Header Toolbar */}
       <div className="bg-white border-b border-slate-200 px-6 py-3 flex flex-wrap items-center justify-between gap-4 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#714B67] text-white flex items-center justify-center shadow-xs">
+          <div className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center shadow-xs">
             <Scan className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-lg font-bold text-slate-900">الماسح الضوئي الذكي (AI Document Scanner)</h1>
-              <span className="bg-purple-100 text-[#714B67] text-[10px] font-bold px-2 py-0.5 rounded-full font-mono">
+              <span className="bg-purple-100 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full font-mono">
                 محطة المسح
               </span>
             </div>
@@ -432,7 +432,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
         <div className="flex items-center gap-3 bg-slate-50 px-4 py-1.5 rounded-xl border border-slate-200 text-xs">
           <div className="flex items-center gap-1.5 font-bold text-slate-700">
             <span className="text-slate-400">إجمالي الممسوح:</span>
-            <span className="font-mono text-[#714B67]">{metrics.total}</span>
+            <span className="font-mono text-primary">{metrics.total}</span>
           </div>
           <span className="text-slate-300">|</span>
           <div className="flex items-center gap-1.5 text-slate-600">
@@ -479,7 +479,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                       }}
                       className={`p-3 rounded-xl border text-center transition flex flex-col items-center gap-1.5 cursor-pointer ${
                         isSelected 
-                          ? 'border-[#714B67] bg-purple-50/70 text-[#714B67] shadow-xs' 
+                          ? 'border-primary bg-purple-50/70 text-primary shadow-xs' 
                           : 'border-slate-200 bg-slate-50/60 hover:bg-slate-100 text-slate-700'
                       }`}
                     >
@@ -499,14 +499,14 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                     <button
                       type="button"
                       onClick={() => { setCivilScanMode('single'); setPendingCivilScans({}); }}
-                      className={`px-3 py-1.5 rounded-lg border transition ${civilScanMode === 'single' ? 'bg-[#714B67] text-white border-[#714B67]' : 'bg-white text-slate-700 border-slate-200'}`}
+                      className={`px-3 py-1.5 rounded-lg border transition ${civilScanMode === 'single' ? 'bg-primary text-white border-primary' : 'bg-white text-slate-700 border-slate-200'}`}
                     >
                       صفحة واحدة
                     </button>
                     <button
                       type="button"
                       onClick={() => { setCivilScanMode('front_back'); setPendingCivilScans({}); }}
-                      className={`px-3 py-1.5 rounded-lg border transition ${civilScanMode === 'front_back' ? 'bg-[#714B67] text-white border-[#714B67]' : 'bg-white text-slate-700 border-slate-200'}`}
+                      className={`px-3 py-1.5 rounded-lg border transition ${civilScanMode === 'front_back' ? 'bg-primary text-white border-primary' : 'bg-white text-slate-700 border-slate-200'}`}
                     >
                       وجه أمامي + خلفي
                     </button>
@@ -523,8 +523,8 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
             )}
 
             {/* Dropzone & Actions */}
-            <div className="border-2 border-dashed border-purple-200 bg-purple-50/30 rounded-2xl p-8 text-center space-y-4 hover:border-[#714B67] transition">
-              <div className="w-16 h-16 bg-white rounded-2xl shadow-xs mx-auto flex items-center justify-center text-[#714B67] border border-purple-100">
+            <div className="border-2 border-dashed border-purple-200 bg-purple-50/30 rounded-2xl p-8 text-center space-y-4 hover:border-primary transition">
+              <div className="w-16 h-16 bg-white rounded-2xl shadow-xs mx-auto flex items-center justify-center text-primary border border-purple-100">
                 <Upload className="w-8 h-8" />
               </div>
 
@@ -540,7 +540,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
               <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
                 {selectedDocType === 'CIVIL_ID' && civilScanMode === 'front_back' ? (
                   <>
-                    <label className="bg-[#714B67] hover:bg-[#5a3a51] text-white font-bold py-2.5 px-5 rounded-xl cursor-pointer transition shadow-xs flex items-center gap-2 text-xs">
+                    <label className="bg-primary hover:bg-[#5a3a51] text-white font-bold py-2.5 px-5 rounded-xl cursor-pointer transition shadow-xs flex items-center gap-2 text-xs">
                       <Upload className="w-4 h-4" />
                       <span>رفع الوجه الأمامي</span>
                       <input
@@ -571,7 +571,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                     </label>
                   </>
                 ) : (
-                  <label className="bg-[#714B67] hover:bg-[#5a3a51] text-white font-bold py-2.5 px-6 rounded-xl cursor-pointer transition shadow-xs flex items-center gap-2 text-xs">
+                  <label className="bg-primary hover:bg-[#5a3a51] text-white font-bold py-2.5 px-6 rounded-xl cursor-pointer transition shadow-xs flex items-center gap-2 text-xs">
                     <Upload className="w-4 h-4" />
                     <span>اختيار ملف من الجهاز</span>
                     <input
@@ -592,7 +592,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                   disabled={selectedDocType === 'CIVIL_ID' && civilScanMode === 'front_back'}
                   className="bg-white hover:bg-slate-50 text-slate-800 font-bold py-2.5 px-6 rounded-xl border border-slate-300 transition shadow-xs flex items-center gap-2 text-xs cursor-pointer"
                 >
-                  <Camera className="w-4 h-4 text-[#714B67]" />
+                  <Camera className="w-4 h-4 text-primary" />
                   <span>{selectedDocType === 'CIVIL_ID' && civilScanMode === 'front_back' ? 'الكاميرا متاحة في نمط الصفحة الواحدة' : 'تصوير مباشر بالكاميرا'}</span>
                 </button>
               </div>
@@ -608,7 +608,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
         {/* State B: Processing Spinner */}
         {isScanning && (
           <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center max-w-xl mx-auto space-y-4 shadow-sm">
-            <div className="w-16 h-16 border-4 border-[#714B67] border-t-transparent rounded-full animate-spin mx-auto"></div>
+            <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
             <h4 className="text-base font-bold text-slate-900">جاري قراءة واستخراج بيانات الوثيقة بالذكاء الاصطناعي...</h4>
             <p className="text-xs text-slate-500">
               يتم الآن فحص النصوص، الأرقام المدنية، تواريخ الانتهاء، ومطابقتها وفق معايير دولة الكويت.
@@ -623,7 +623,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
             {/* Action Bar */}
             <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-[#714B67] text-white flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center">
                   <Scan className="w-4 h-4" />
                 </div>
                 <div>
@@ -641,7 +641,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                 </button>
                 <button
                   onClick={handleSaveAndDispatch}
-                  className="px-5 py-1.5 bg-[#714B67] hover:bg-[#5a3a51] text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  className="px-5 py-1.5 bg-primary hover:bg-[#5a3a51] text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5 shadow-xs cursor-pointer"
                 >
                   <Check className="w-4 h-4" /> اعتماد وتأكيد الأرشفة
                 </button>
@@ -657,7 +657,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                 {/* Visual Tools Bar */}
                 <div className="w-full flex items-center justify-between bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-xs mb-3 text-xs">
                   <span className="font-bold text-slate-600 flex items-center gap-1">
-                    <Eye className="w-3.5 h-3.5 text-[#714B67]" /> معاينة المستند الممسوح
+                    <Eye className="w-3.5 h-3.5 text-primary" /> معاينة المستند الممسوح
                   </span>
                   
                   <div className="flex items-center gap-1">
@@ -702,7 +702,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                     />
                   ) : (
                     <div className="text-center p-8 bg-white rounded-xl border border-slate-200">
-                      <FileText className="w-16 h-16 mx-auto mb-2 text-[#714B67]" />
+                      <FileText className="w-16 h-16 mx-auto mb-2 text-primary" />
                       <p className="font-bold text-slate-800 text-sm">{scanResult.fileName}</p>
                       <p className="text-xs text-slate-500 mt-1">ملف رقمي مؤكد ومحفوظ بنجاح</p>
                     </div>
@@ -726,7 +726,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                       onClick={() => setRoutingMode('NEW_EMP')}
                       className={`p-2 rounded-lg border text-center transition cursor-pointer ${
                         routingMode === 'NEW_EMP' 
-                          ? 'bg-[#714B67] text-white border-[#714B67] shadow-xs' 
+                          ? 'bg-primary text-white border-primary shadow-xs' 
                           : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                       }`}
                     >
@@ -736,7 +736,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                       onClick={() => setRoutingMode('EXISTING_EMP')}
                       className={`p-2 rounded-lg border text-center transition cursor-pointer ${
                         routingMode === 'EXISTING_EMP' 
-                          ? 'bg-[#714B67] text-white border-[#714B67] shadow-xs' 
+                          ? 'bg-primary text-white border-primary shadow-xs' 
                           : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                       }`}
                     >
@@ -746,7 +746,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                       onClick={() => setRoutingMode('COMPANY_DOC')}
                       className={`p-2 rounded-lg border text-center transition cursor-pointer ${
                         routingMode === 'COMPANY_DOC' 
-                          ? 'bg-[#714B67] text-white border-[#714B67] shadow-xs' 
+                          ? 'bg-primary text-white border-primary shadow-xs' 
                           : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                       }`}
                     >
@@ -763,7 +763,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                       <select
                         value={targetEmployeeId}
                         onChange={(e) => setTargetEmployeeId(e.target.value)}
-                        className="w-full bg-white border border-purple-300 rounded-lg p-2 text-xs font-bold text-slate-800 outline-none focus:border-[#714B67]"
+                        className="w-full bg-white border border-purple-300 rounded-lg p-2 text-xs font-bold text-slate-800 outline-none focus:border-primary"
                       >
                         <option value="">-- اضغط لاختيار الموظف --</option>
                         {employees.map(emp => (
@@ -812,7 +812,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                         ...scanResult,
                         extractedData: { ...scanResult.extractedData, fullNameAr: e.target.value }
                       })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-900 font-bold focus:bg-white focus:border-[#714B67] outline-none"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-900 font-bold focus:bg-white focus:border-primary outline-none"
                     />
                   </div>
 
@@ -827,7 +827,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                         ...scanResult,
                         extractedData: { ...scanResult.extractedData, fullNameEn: e.target.value }
                       })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-900 font-mono focus:bg-white focus:border-[#714B67] outline-none text-left"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-900 font-mono focus:bg-white focus:border-primary outline-none text-left"
                     />
                   </div>
 
@@ -846,7 +846,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                             extractedData: { ...scanResult.extractedData, civilId: val }
                           });
                         }}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-900 font-mono font-bold focus:bg-white focus:border-[#714B67] outline-none"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-900 font-mono font-bold focus:bg-white focus:border-primary outline-none"
                       />
                     </div>
                     <div>
@@ -858,7 +858,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                           ...scanResult,
                           extractedData: { ...scanResult.extractedData, nationality: e.target.value }
                         })}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-900 focus:bg-white focus:border-[#714B67] outline-none"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-900 focus:bg-white focus:border-primary outline-none"
                       />
                     </div>
                   </div>
@@ -874,7 +874,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                           ...scanResult,
                           extractedData: { ...scanResult.extractedData, expiryDate: e.target.value }
                         })}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-900 font-mono font-bold focus:bg-white focus:border-[#714B67] outline-none"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-900 font-mono font-bold focus:bg-white focus:border-primary outline-none"
                       />
                     </div>
                     <div>
@@ -886,7 +886,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                           ...scanResult,
                           extractedData: { ...scanResult.extractedData, passportNo: e.target.value.toUpperCase() }
                         })}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-900 font-mono focus:bg-white focus:border-[#714B67] outline-none"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-900 font-mono focus:bg-white focus:border-primary outline-none"
                       />
                     </div>
                   </div>
@@ -906,7 +906,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                             jobTitle: e.target.value 
                           }
                         })}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-900 focus:bg-white focus:border-[#714B67] outline-none"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-900 focus:bg-white focus:border-primary outline-none"
                       />
                     </div>
                     <div>
@@ -923,7 +923,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                           }
                         })}
                         placeholder="اختياري للكادر الطبي"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-900 font-mono focus:bg-white focus:border-[#714B67] outline-none"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-900 font-mono focus:bg-white focus:border-primary outline-none"
                       />
                     </div>
                   </div>
@@ -934,7 +934,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                 <div className="pt-3 border-t border-slate-100 flex gap-2">
                   <button
                     onClick={handleSaveAndDispatch}
-                    className="flex-1 bg-[#714B67] hover:bg-[#5a3a51] text-white font-bold py-3 rounded-xl transition text-xs shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="flex-1 bg-primary hover:bg-[#5a3a51] text-white font-bold py-3 rounded-xl transition text-xs shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <Check className="w-4 h-4" />
                     <span>تأكيد واعتماد وحفظ في الأرشيف</span>
@@ -959,7 +959,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
           
           <div className="p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-slate-50">
             <div className="flex items-center gap-2">
-              <FolderOpen className="w-4 h-4 text-[#714B67]" />
+              <FolderOpen className="w-4 h-4 text-primary" />
               <h3 className="text-xs font-bold text-slate-900">سجل عمليات المسح والأرشفة الأخيرة بالمنشأة</h3>
               <span className="text-[11px] font-mono text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200">
                 {recentScans.length} وثيقة
@@ -973,7 +973,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                 placeholder="بحث في الوثائق الممسوحة..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-8 pr-8 py-1.5 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:border-[#714B67]"
+                className="w-full pl-8 pr-8 py-1.5 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:border-primary"
               />
               <Search className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5" />
               {searchTerm && (
@@ -1007,10 +1007,10 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                   <tr key={doc.id} className={`hover:bg-purple-50/20 transition ${idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'}`}>
                     <td className="p-3 font-bold text-slate-900">
                       <div className="flex items-center gap-2">
-                        <FileText className="w-3.5 h-3.5 text-[#714B67]" />
+                        <FileText className="w-3.5 h-3.5 text-primary" />
                         <span 
                           onClick={() => setPreviewDoc(doc)}
-                          className="hover:text-[#714B67] cursor-pointer"
+                          className="hover:text-primary cursor-pointer"
                         >
                           {doc.title}
                         </span>
@@ -1023,7 +1023,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                       {emp?.civilId || doc.documentNumber || '—'}
                     </td>
                     <td className="p-3">
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-[#714B67] border border-purple-100">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-primary border border-purple-100">
                         {doc.category}
                       </span>
                     </td>
@@ -1037,7 +1037,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                       <div className="flex items-center justify-center gap-1.5">
                         <button
                           onClick={() => setPreviewDoc(doc)}
-                          className="p-1.5 text-slate-400 hover:text-[#714B67] hover:bg-slate-100 rounded-lg transition"
+                          className="p-1.5 text-slate-400 hover:text-primary hover:bg-slate-100 rounded-lg transition"
                           title="معاينة الوثيقة"
                         >
                           <Eye className="w-3.5 h-3.5" />
@@ -1064,7 +1064,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
 
           {recentScans.length === 0 && (
             <div className="text-center py-12 text-slate-400">
-              <Scan className="w-12 h-12 mx-auto mb-2 opacity-30 text-[#714B67]" />
+              <Scan className="w-12 h-12 mx-auto mb-2 opacity-30 text-primary" />
               <p className="font-bold text-slate-600 text-xs">لا توجد وثائق ممسوحة مسبقاً مطابقة للبحث</p>
             </div>
           )}
@@ -1079,7 +1079,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
           <div className="bg-white rounded-2xl overflow-hidden max-w-xl w-full shadow-2xl flex flex-col border border-slate-200">
             <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
               <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <Camera className="w-4 h-4 text-[#714B67]" />
+                <Camera className="w-4 h-4 text-primary" />
                 التصوير المباشر للوثيقة
               </h4>
               <button
@@ -1115,7 +1115,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
 
               <button
                 onClick={capturePhoto}
-                className="px-6 py-2.5 bg-[#714B67] hover:bg-[#5a3a51] text-white font-bold rounded-xl text-xs transition shadow-xs flex items-center gap-2 cursor-pointer"
+                className="px-6 py-2.5 bg-primary hover:bg-[#5a3a51] text-white font-bold rounded-xl text-xs transition shadow-xs flex items-center gap-2 cursor-pointer"
               >
                 <Camera className="w-4 h-4" />
                 <span>التقاط ومسح الآن</span>

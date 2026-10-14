@@ -110,7 +110,7 @@ export const AutomatedBackupCenter: React.FC = () => {
   return (
     <div className="space-y-6 text-slate-800" dir="rtl">
       {/* Top Banner Card */}
-      <div className="bg-gradient-to-l from-[#714B67] to-[#4c2d44] text-white rounded-2xl p-6 sm:p-8 shadow-lg border border-purple-900/30">
+      <div className="bg-gradient-to-l from-primary to-[#4c2d44] text-white rounded-2xl p-6 sm:p-8 shadow-lg border border-purple-900/30">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="space-y-2 max-w-2xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-400/30">
@@ -170,7 +170,7 @@ export const AutomatedBackupCenter: React.FC = () => {
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">إيميل النظام المعتمد</span>
-            <div className="w-8 h-8 rounded-lg bg-purple-50 text-[#714B67] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-purple-50 text-primary flex items-center justify-center">
               <Mail className="w-4 h-4" />
             </div>
           </div>
@@ -278,7 +278,7 @@ export const AutomatedBackupCenter: React.FC = () => {
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Database className="w-4 h-4 text-[#714B67]" />
+            <Database className="w-4 h-4 text-primary" />
             <h3 className="font-bold text-sm text-slate-900">سجل عمليات النسخ الاحتياطي والتنبيهات (Backup Audit Log)</h3>
           </div>
           <span className="text-xs text-slate-500 font-medium">

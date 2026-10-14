@@ -139,7 +139,7 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({
           setActiveCardMenuId(null);
           onSelectEmployee(emp);
         }}
-        className="w-full text-right px-2.5 py-1.5 hover:bg-purple-50 hover:text-[#714B67] rounded-lg text-xs font-medium text-slate-700 cursor-pointer"
+        className="w-full text-right px-2.5 py-1.5 hover:bg-purple-50 hover:text-primary rounded-lg text-xs font-medium text-slate-700 cursor-pointer"
       >
         عرض الملف الكامل
       </button>
@@ -210,12 +210,12 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({
 
       {isLoading ? (
         <div className="bg-white rounded-lg border border-slate-200 p-10 text-center">
-          <RefreshCw size={22} className="text-[#714B67] animate-spin mx-auto mb-3" />
+          <RefreshCw size={22} className="text-primary animate-spin mx-auto mb-3" />
           <p className="text-xs font-medium text-slate-500">جاري تحميل دليل الموظفين...</p>
         </div>
       ) : employees.length === 0 ? (
         <div className="bg-white rounded-lg border border-slate-200 p-8 sm:p-12 text-center">
-          <div className="w-14 h-14 rounded-2xl bg-[#714B67]/8 text-[#714B67] mx-auto flex items-center justify-center mb-4">
+          <div className="w-14 h-14 rounded-2xl bg-primary/8 text-primary mx-auto flex items-center justify-center mb-4">
             <Users size={28} strokeWidth={1.5} />
           </div>
           {totalEmployeesCount === 0 && !hasActiveDirectoryFilters ? (
@@ -227,7 +227,7 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({
               <button
                 type="button"
                 onClick={onCreateEmployee}
-                className="bg-[#714B67] hover:bg-[#5b3c53] text-white px-4 py-2 rounded-lg text-xs font-bold cursor-pointer"
+                className="bg-primary hover:bg-[#5b3c53] text-white px-4 py-2 rounded-lg text-xs font-bold cursor-pointer"
               >
                 إضافة موظف جديد
               </button>
@@ -239,7 +239,7 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({
               <button
                 type="button"
                 onClick={onClearFilters}
-                className="text-xs text-[#714B67] font-bold hover:underline cursor-pointer"
+                className="text-xs text-primary font-bold hover:underline cursor-pointer"
               >
                 إعادة تعيين الفلاتر
               </button>
@@ -308,7 +308,7 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({
                     <button
                       type="button"
                       onClick={() => onQuickEdit(emp)}
-                      className="text-[11px] font-bold text-[#714B67] hover:underline cursor-pointer"
+                      className="text-[11px] font-bold text-primary hover:underline cursor-pointer"
                     >
                       تعديل
                     </button>

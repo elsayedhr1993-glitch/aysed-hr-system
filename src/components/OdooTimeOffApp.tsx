@@ -1005,13 +1005,13 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
       {/* Top Header with Clean Enterprise Actions */}
       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-[#714B67]/10 text-[#714B67] rounded-xl">
+          <div className="p-2.5 bg-primary/10 text-primary rounded-xl">
             <CalendarDays className="w-6 h-6" />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-black text-slate-900">نظام إدارة الإجازات (Time Off)</h1>
-              <span className="bg-[#714B67]/10 text-[#714B67] text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+              <span className="bg-primary/10 text-primary text-[10px] font-bold px-2.5 py-0.5 rounded-full">
                 Aysed HR
               </span>
               <div
@@ -1022,7 +1022,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                   type="button"
                   onClick={() => applyHeaderViewMode('list')}
                   className={`px-2 py-1 rounded-md flex items-center gap-1 cursor-pointer transition ${
-                    headerViewMode === 'list' ? 'bg-[#714B67] text-white shadow-2xs' : 'text-slate-500 hover:bg-slate-50'
+                    headerViewMode === 'list' ? 'bg-primary text-white shadow-2xs' : 'text-slate-500 hover:bg-slate-50'
                   }`}
                 >
                   <List size={13} />
@@ -1032,7 +1032,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                   type="button"
                   onClick={() => applyHeaderViewMode('calendar')}
                   className={`px-2 py-1 rounded-md flex items-center gap-1 cursor-pointer transition ${
-                    headerViewMode === 'calendar' ? 'bg-[#714B67] text-white shadow-2xs' : 'text-slate-500 hover:bg-slate-50'
+                    headerViewMode === 'calendar' ? 'bg-primary text-white shadow-2xs' : 'text-slate-500 hover:bg-slate-50'
                   }`}
                 >
                   <Calendar size={13} />
@@ -1042,7 +1042,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                   type="button"
                   onClick={() => applyHeaderViewMode('gantt')}
                   className={`px-2 py-1 rounded-md flex items-center gap-1 cursor-pointer transition ${
-                    headerViewMode === 'gantt' ? 'bg-[#714B67] text-white shadow-2xs' : 'text-slate-500 hover:bg-slate-50'
+                    headerViewMode === 'gantt' ? 'bg-primary text-white shadow-2xs' : 'text-slate-500 hover:bg-slate-50'
                   }`}
                 >
                   <GanttChart size={13} />
@@ -1059,7 +1059,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                     } catch {}
                   }}
                   className={`px-2 py-0.5 rounded-md cursor-pointer transition ${
-                    compactLeavesUI ? 'bg-white text-[#714B67] shadow-2xs' : 'text-slate-500'
+                    compactLeavesUI ? 'bg-white text-primary shadow-2xs' : 'text-slate-500'
                   }`}
                 >
                   مبسّط
@@ -1081,7 +1081,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
               </div>
             </div>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
-              المنشأة: <strong className="text-[#714B67]">{activeCompany?.nameAr || 'الشركة الرئيسية'}</strong> | قانون العمل الكويتي رقم 6 لسنة 2010
+              المنشأة: <strong className="text-primary">{activeCompany?.nameAr || 'الشركة الرئيسية'}</strong> | قانون العمل الكويتي رقم 6 لسنة 2010
             </p>
           </div>
         </div>
@@ -1149,7 +1149,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
           <button
             type="button"
             onClick={() => setShowApplyModal(true)}
-            className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-5 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+            className="bg-primary hover:bg-[#5a3a52] text-white px-5 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm cursor-pointer"
           >
             <PlusCircle size={15} /> تقديم طلب إجازة جديد
           </button>
@@ -1190,7 +1190,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
           title="عرض تقويم الإجازات لهذا الأسبوع"
         >
           <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-1">
-            <span className="text-blue-900 group-hover:text-[#714B67]">إجازات تبدأ هذا الأسبوع</span>
+            <span className="text-blue-900 group-hover:text-primary">إجازات تبدأ هذا الأسبوع</span>
             <CalendarDays className="w-4 h-4 text-blue-600 group-hover:scale-110 transition-transform" />
           </div>
           <div className="text-2xl font-black text-blue-700">
@@ -1318,7 +1318,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                   onClick={() => setSelectedFilter(tab.id)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
                     selectedFilter === tab.id
-                      ? 'bg-[#714B67] text-white shadow-2xs'
+                      ? 'bg-primary text-white shadow-2xs'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
@@ -1332,7 +1332,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                 <button
                   type="button"
                   onClick={() => applyHeaderViewMode('list')}
-                  className={`p-1.5 rounded-md cursor-pointer ${requestsViewMode === 'list' ? 'bg-white text-[#714B67] shadow-2xs' : 'text-slate-400'}`}
+                  className={`p-1.5 rounded-md cursor-pointer ${requestsViewMode === 'list' ? 'bg-white text-primary shadow-2xs' : 'text-slate-400'}`}
                   title="List"
                 >
                   <List size={14} />
@@ -1340,7 +1340,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                 <button
                   type="button"
                   onClick={() => applyHeaderViewMode('calendar')}
-                  className={`p-1.5 rounded-md cursor-pointer ${requestsViewMode === 'calendar' ? 'bg-white text-[#714B67] shadow-2xs' : 'text-slate-400'}`}
+                  className={`p-1.5 rounded-md cursor-pointer ${requestsViewMode === 'calendar' ? 'bg-white text-primary shadow-2xs' : 'text-slate-400'}`}
                   title="Calendar"
                 >
                   <Calendar size={14} />
@@ -1348,7 +1348,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                 <button
                   type="button"
                   onClick={() => applyHeaderViewMode('gantt')}
-                  className={`p-1.5 rounded-md cursor-pointer ${requestsViewMode === 'gantt' ? 'bg-white text-[#714B67] shadow-2xs' : 'text-slate-400'}`}
+                  className={`p-1.5 rounded-md cursor-pointer ${requestsViewMode === 'gantt' ? 'bg-white text-primary shadow-2xs' : 'text-slate-400'}`}
                   title="Gantt"
                 >
                   <GanttChart size={14} />
@@ -1361,7 +1361,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="بحث بالاسم أو القسم أو الرقم..."
-                  className="w-full pr-9 pl-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:border-[#714B67] outline-none transition"
+                  className="w-full pr-9 pl-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:border-primary outline-none transition"
                 />
               </div>
             </div>
@@ -1629,7 +1629,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
             <button
               type="button"
               onClick={() => setShowAllocationModal(true)}
-              className="px-4 py-2 bg-[#714B67] hover:bg-[#5a3a52] text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+              className="px-4 py-2 bg-primary hover:bg-[#5a3a52] text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
             >
               <PlusCircle size={15} /> إضافة رصيد مرحّل جديد
             </button>
@@ -1687,7 +1687,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                             prev === String(alloc.id) ? null : String(alloc.id)
                           )
                         }
-                        className="p-2 text-slate-500 hover:text-[#714B67] hover:bg-purple-50 rounded-lg border border-transparent hover:border-purple-100 transition cursor-pointer"
+                        className="p-2 text-slate-500 hover:text-primary hover:bg-purple-50 rounded-lg border border-transparent hover:border-purple-100 transition cursor-pointer"
                         title="إجراءات الرصيد"
                       >
                         <MoreVertical size={16} />
@@ -1717,7 +1717,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                               setEditAllocationRow(alloc as AllocationRow);
                             }}
                           >
-                            <Pencil size={14} className="text-[#714B67] shrink-0" />
+                            <Pencil size={14} className="text-primary shrink-0" />
                             <span>✏️ تعديل الرصيد</span>
                           </button>
                           {canEditLeaveBalance && (
@@ -1865,7 +1865,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
             
             <div className="flex justify-between items-center border-b pb-3">
               <div className="flex items-center gap-2">
-                <Calendar className="text-[#714B67]" size={20} />
+                <Calendar className="text-primary" size={20} />
                 <div>
                   <h3 className="font-bold text-sm text-slate-900">تقديم طلب إجازة رسمي جديد</h3>
                   <p className="text-[10px] text-slate-400">يستبعد العطلات الكويتية آلياً ويفحص التعارضات</p>
@@ -1895,7 +1895,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                     required
                     value={newRequest.employeeId}
                     onChange={(e) => handleEmployeeChange(e.target.value)}
-                    className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:border-[#714B67] bg-white font-bold text-slate-800"
+                    className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:border-primary bg-white font-bold text-slate-800"
                   >
                     {companyEmployees.map((emp) => (
                       <option key={emp.id} value={emp.id}>
@@ -1919,7 +1919,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                           leaveType === 'unpaid' ? false : newRequest.requestAdvanceSalaryArticle71,
                       });
                     }}
-                    className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:border-[#714B67] bg-white font-bold"
+                    className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:border-primary bg-white font-bold"
                   >
                     <option value="annual">إجازة سنوية (مادة 70)</option>
                     <option value="sick">إجازة مرضية (مادة 69)</option>
@@ -1993,7 +1993,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                     required
                     value={newRequest.startDate}
                     onChange={(e) => setNewRequest({ ...newRequest, startDate: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-[#714B67] font-mono"
+                    className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-primary font-mono"
                   />
                 </div>
                 <div>
@@ -2003,7 +2003,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                     required
                     value={newRequest.endDate}
                     onChange={(e) => setNewRequest({ ...newRequest, endDate: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-[#714B67] font-mono"
+                    className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-primary font-mono"
                   />
                 </div>
               </div>
@@ -2019,7 +2019,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                   </p>
                   <input
                     type="file"
-                    className="block w-full text-[10px] text-slate-500 file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-[10px] file:font-semibold file:bg-[#714B67] file:text-white cursor-pointer"
+                    className="block w-full text-[10px] text-slate-500 file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-[10px] file:font-semibold file:bg-primary file:text-white cursor-pointer"
                   />
                 </div>
               </div>
@@ -2084,7 +2084,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                       id="excludeHolidays"
                       checked={newRequest.excludeHolidays}
                       onChange={(e) => setNewRequest({ ...newRequest, excludeHolidays: e.target.checked })}
-                      className="w-4 h-4 text-[#714B67] rounded focus:ring-[#714B67] cursor-pointer"
+                      className="w-4 h-4 text-primary rounded focus:ring-primary cursor-pointer"
                     />
                     <label htmlFor="excludeHolidays" className="font-bold text-slate-700 cursor-pointer text-[11px]">
                       استبعاد عطلات الكويت ونهاية الأسبوع آلياً
@@ -2113,7 +2113,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                     <select
                       value={newRequest.replacementEmployee}
                       onChange={(e) => setNewRequest({ ...newRequest, replacementEmployee: e.target.value })}
-                      className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-[#714B67]"
+                      className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-primary"
                     >
                       <option value="">بدون بديل</option>
                       {companyEmployees
@@ -2141,7 +2141,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                       value={newRequest.reason}
                       onChange={(e) => setNewRequest({ ...newRequest, reason: e.target.value })}
                       placeholder="سبب طلب الإجازة..."
-                      className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-[#714B67]"
+                      className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-primary"
                     />
                   </div>
                 </div>
@@ -2158,7 +2158,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                 </button>
                 <button 
                   type="submit" 
-                  className="px-5 py-2 bg-[#714B67] text-white rounded-lg font-bold hover:bg-[#5a3a52] transition shadow-sm flex items-center gap-1.5 cursor-pointer"
+                  className="px-5 py-2 bg-primary text-white rounded-lg font-bold hover:bg-[#5a3a52] transition shadow-sm flex items-center gap-1.5 cursor-pointer"
                 >
                   <CheckCircle2 size={15} /> تقديم وحفظ الطلب
                 </button>
@@ -2178,7 +2178,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
             
             <div className="flex items-center justify-between border-b pb-3 mb-4">
               <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-[#714B67] text-white rounded-xl shadow-xs">
+                <div className="p-2 bg-primary text-white rounded-xl shadow-xs">
                   <Layers size={20} />
                 </div>
                 <div>
@@ -2203,14 +2203,14 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
               
               <div>
                 <label className="block font-bold text-slate-700 mb-1 flex items-center gap-1">
-                  <User size={13} className="text-[#714B67]" />
+                  <User size={13} className="text-primary" />
                   <span>اسم الموظف المستفيد (employee_id) *</span>
                 </label>
                 <select
                   required
                   value={newAllocation.employeeId}
                   onChange={(e) => handleAllocationEmployeeChange(e.target.value)}
-                  className="w-full p-2.5 bg-white border border-slate-300 rounded-xl outline-none focus:border-[#714B67] font-bold text-slate-800"
+                  className="w-full p-2.5 bg-white border border-slate-300 rounded-xl outline-none focus:border-primary font-bold text-slate-800"
                 >
                   {companyEmployees.map((emp) => (
                     <option key={emp.id} value={emp.id}>
@@ -2233,7 +2233,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                     required
                     value={newAllocation.days}
                     onChange={(e) => setNewAllocation({ ...newAllocation, days: e.target.value })}
-                    className="w-full p-2.5 border border-slate-300 rounded-xl outline-none font-mono font-black text-emerald-700 focus:border-[#714B67] text-sm"
+                    className="w-full p-2.5 border border-slate-300 rounded-xl outline-none font-mono font-black text-emerald-700 focus:border-primary text-sm"
                     placeholder="12.5"
                   />
                   <div className="flex items-center gap-1.5 mt-1.5">
@@ -2245,7 +2245,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                         onClick={() => setNewAllocation({ ...newAllocation, days: String(val) })}
                         className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold transition cursor-pointer ${
                           parseFloat(newAllocation.days) === val 
-                            ? 'bg-[#714B67] text-white' 
+                            ? 'bg-primary text-white' 
                             : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                         }`}
                       >
@@ -2263,7 +2263,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                     required
                     value={newAllocation.fromYear}
                     onChange={(e) => setNewAllocation({ ...newAllocation, fromYear: e.target.value })}
-                    className="w-full p-2.5 bg-white border border-slate-300 rounded-xl outline-none font-mono font-bold focus:border-[#714B67]"
+                    className="w-full p-2.5 bg-white border border-slate-300 rounded-xl outline-none font-mono font-bold focus:border-primary"
                   >
                     <option value="2027">2027 (استحقاق 2027)</option>
                     <option value="2026">2026 (استحقاق 2026)</option>
@@ -2283,7 +2283,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                   value={newAllocation.notes}
                   onChange={(e) => setNewAllocation({ ...newAllocation, notes: e.target.value })}
                   placeholder="سبب ترحيل وإضافة الرصيد..."
-                  className="w-full p-2.5 border border-slate-300 rounded-xl outline-none focus:border-[#714B67] text-xs"
+                  className="w-full p-2.5 border border-slate-300 rounded-xl outline-none focus:border-primary text-xs"
                 />
               </div>
 
@@ -2306,7 +2306,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                 </div>
                 <div className="flex items-center justify-between text-slate-900 font-bold pt-1 border-t border-purple-200/60 font-mono">
                   <span>إجمالي الرصيد المرحل بعد الاعتماد:</span>
-                  <span className="text-[#714B67] font-black text-xs">
+                  <span className="text-primary font-black text-xs">
                     +{(empAllocatedDaysTotal + (parseFloat(newAllocation.days) || 0)).toFixed(1)} يوم
                   </span>
                 </div>
@@ -2326,7 +2326,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 bg-[#714B67] hover:bg-[#5a3a52] text-white rounded-xl font-bold cursor-pointer transition shadow-sm flex items-center gap-1.5"
+                    className="px-5 py-2 bg-primary hover:bg-[#5a3a52] text-white rounded-xl font-bold cursor-pointer transition shadow-sm flex items-center gap-1.5"
                   >
                     <CheckCircle2 size={15} /> اعتماد وإضافة الرصيد
                   </button>

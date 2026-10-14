@@ -1,3 +1,4 @@
+import { tokens } from "./src/design/tokens.ts";
 import "./server/envBootstrap.ts";
 import express from "express";
 import net from "net";
@@ -1893,7 +1894,7 @@ let systemSettingsStore = {
   enforce_strong_password: true,
   trust_device_days: 30,
   system_theme: 'light',
-  primary_color: '#714B67',
+  primary_color: tokens.color.primary,
   sidebar_style: 'odoo-compact',
   show_company_logo_on_print: true,
   header_margin_top: 48,
@@ -2031,7 +2032,7 @@ app.post("/api/auth/send-2fa-otp", express.json(), async (req, res) => {
           subject: `رمز التحقق للدخول: ${otp}`,
           html: `
             <div dir="rtl" style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
-              <h2 style="color: #714B67;">مصادقة تسجيل الدخول</h2>
+              <h2 style="color: ${tokens.color.primary};">مصادقة تسجيل الدخول</h2>
               <p>رمز التحقق الخاص بك لتسجيل الدخول إلى لوحة التحكم هو:</p>
               <div style="font-size: 28px; font-weight: bold; letter-spacing: 5px; color: #111827; margin: 20px 0;">${otp}</div>
               <p style="color: #6b7280; font-size: 12px;">صلاحية هذا الرمز ${expiryMinutes} دقائق فقط. لا تشارك الرمز مع أي شخص.</p>

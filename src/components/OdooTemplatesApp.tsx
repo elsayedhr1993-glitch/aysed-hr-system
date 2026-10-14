@@ -1,3 +1,4 @@
+import { tokens } from '../design/tokens';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   FileText, 
@@ -423,8 +424,8 @@ const DEFAULT_TEMPLATE_BODIES: Partial<Record<TemplateId, string>> = {
       <td style="border: 1px solid #cbd5e1; padding: 6px; font-weight: bold;">{مكافأة_نهاية_الخدمة}</td>
     </tr>
     <tr style="background-color: #faf5ff; font-weight: bold;">
-      <td style="border: 1px solid #cbd5e1; padding: 6px; color: #714B67;" colspan="2">صافي المبلغ المصروف للموظف</td>
-      <td style="border: 1px solid #cbd5e1; padding: 6px; color: #714B67; font-size: 14px;">{مكافأة_نهاية_الخدمة}</td>
+      <td style="border: 1px solid #cbd5e1; padding: 6px; color: ${tokens.color.primary};" colspan="2">صافي المبلغ المصروف للموظف</td>
+      <td style="border: 1px solid #cbd5e1; padding: 6px; color: ${tokens.color.primary}; font-size: 14px;">{مكافأة_نهاية_الخدمة}</td>
     </tr>
   </tbody>
 </table>
@@ -844,7 +845,7 @@ export const OdooTemplatesApp: React.FC = () => {
       <header className="shrink-0 bg-white border border-slate-200 rounded-t-xl shadow-sm print:hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 border-b border-slate-100">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-lg bg-[#714B67] text-white flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-lg bg-primary text-white flex items-center justify-center shrink-0">
               <FileText className="w-5 h-5" />
             </div>
             <div className="min-w-0">
@@ -873,7 +874,7 @@ export const OdooTemplatesApp: React.FC = () => {
                   type="button"
                   onClick={() => setWorkspaceView(v.id)}
                   className={`px-2.5 py-1.5 rounded-md text-[11px] font-bold flex items-center gap-1 cursor-pointer transition ${
-                    workspaceView === v.id ? 'bg-white text-[#714B67] shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                    workspaceView === v.id ? 'bg-white text-primary shadow-2xs' : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
                   <v.icon size={13} />
@@ -887,7 +888,7 @@ export const OdooTemplatesApp: React.FC = () => {
               onClick={() => setSmartPanelOpen(o => !o)}
               className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold border flex items-center gap-1 cursor-pointer transition ${
                 smartPanelOpen
-                  ? 'bg-[#714B67]/10 border-[#714B67]/30 text-[#714B67]'
+                  ? 'bg-primary/10 border-primary/30 text-primary'
                   : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
               }`}
             >
@@ -920,7 +921,7 @@ export const OdooTemplatesApp: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowPamModal(true)}
-              className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
+              className="bg-primary hover:bg-[#5a3a52] text-white px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
             >
               فتح مولد عقد PAM (2)
             </button>
@@ -929,7 +930,7 @@ export const OdooTemplatesApp: React.FC = () => {
               <button
                 type="button"
                 onClick={handlePrint}
-                className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                className="bg-primary hover:bg-[#5a3a52] text-white px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
               >
                 <Printer size={13} /> طباعة A4
               </button>
@@ -985,7 +986,7 @@ export const OdooTemplatesApp: React.FC = () => {
                     type="button"
                     onClick={() => setActiveCategory(cat.id as TemplateCategory)}
                     className={`flex-1 py-1 rounded-md text-[10px] font-bold cursor-pointer transition ${
-                      activeCategory === cat.id ? 'bg-white text-[#714B67] shadow-2xs' : 'text-slate-600'
+                      activeCategory === cat.id ? 'bg-white text-primary shadow-2xs' : 'text-slate-600'
                     }`}
                   >
                     {cat.label}
@@ -1003,13 +1004,13 @@ export const OdooTemplatesApp: React.FC = () => {
                     onClick={() => setSelectedTemplate(t.id)}
                     className={`w-full text-right p-2 rounded-lg border text-xs transition cursor-pointer flex gap-2 ${
                       isSelected
-                        ? 'bg-[#714B67]/10 border-[#714B67]/40'
+                        ? 'bg-primary/10 border-primary/40'
                         : 'border-transparent hover:bg-slate-50 hover:border-slate-200'
                     }`}
                   >
                     <span className="text-base leading-none">{t.icon}</span>
                     <span className="flex-1 min-w-0">
-                      <span className={`font-bold block truncate ${isSelected ? 'text-[#714B67]' : 'text-slate-800'}`}>
+                      <span className={`font-bold block truncate ${isSelected ? 'text-primary' : 'text-slate-800'}`}>
                         {t.title}
                       </span>
                       <span className="text-[10px] text-slate-500 line-clamp-2">{t.subtitle}</span>
@@ -1025,7 +1026,7 @@ export const OdooTemplatesApp: React.FC = () => {
           <section className="flex-1 min-w-0 flex flex-col bg-white border-s border-slate-200 min-h-0">
             <div className="shrink-0 px-3 py-1.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <span className="text-[11px] font-black text-slate-700 flex items-center gap-1">
-                <Edit3 size={13} className="text-[#714B67]" />
+                <Edit3 size={13} className="text-primary" />
                 محرر النص
               </span>
             </div>
@@ -1052,7 +1053,7 @@ export const OdooTemplatesApp: React.FC = () => {
                 type="button"
                 onClick={() => setSmartPanelTab('context')}
                 className={`flex-1 py-2 text-[10px] font-bold cursor-pointer ${
-                  smartPanelTab === 'context' ? 'text-[#714B67] border-b-2 border-[#714B67]' : 'text-slate-500'
+                  smartPanelTab === 'context' ? 'text-primary border-b-2 border-primary' : 'text-slate-500'
                 }`}
               >
                 سياق الوثيقة
@@ -1061,7 +1062,7 @@ export const OdooTemplatesApp: React.FC = () => {
                 type="button"
                 onClick={() => setSmartPanelTab('fields')}
                 className={`flex-1 py-2 text-[10px] font-bold cursor-pointer ${
-                  smartPanelTab === 'fields' ? 'text-[#714B67] border-b-2 border-[#714B67]' : 'text-slate-500'
+                  smartPanelTab === 'fields' ? 'text-primary border-b-2 border-primary' : 'text-slate-500'
                 }`}
               >
                 حقول ذكية
@@ -1095,7 +1096,7 @@ export const OdooTemplatesApp: React.FC = () => {
                     <select
                       value={selectedEmpId}
                       onChange={e => setSelectedEmpId(e.target.value)}
-                      className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg font-bold text-slate-900 text-[11px] outline-none focus:border-[#714B67]"
+                      className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg font-bold text-slate-900 text-[11px] outline-none focus:border-primary"
                     >
                       <option value="">— اختر موظفاً —</option>
                       {employees.map(emp => (
@@ -1113,7 +1114,7 @@ export const OdooTemplatesApp: React.FC = () => {
                         type="button"
                         onClick={() => setGender('male')}
                         className={`flex-1 py-1 rounded-md text-[10px] font-bold cursor-pointer ${
-                          gender === 'male' ? 'bg-[#714B67] text-white' : 'text-slate-600'
+                          gender === 'male' ? 'bg-primary text-white' : 'text-slate-600'
                         }`}
                       >
                         مذكر
@@ -1122,7 +1123,7 @@ export const OdooTemplatesApp: React.FC = () => {
                         type="button"
                         onClick={() => setGender('female')}
                         className={`flex-1 py-1 rounded-md text-[10px] font-bold cursor-pointer ${
-                          gender === 'female' ? 'bg-[#714B67] text-white' : 'text-slate-600'
+                          gender === 'female' ? 'bg-primary text-white' : 'text-slate-600'
                         }`}
                       >
                         مؤنث
@@ -1135,7 +1136,7 @@ export const OdooTemplatesApp: React.FC = () => {
                       المدني: <span className="font-mono font-bold text-slate-800">{civilId || '—'}</span>
                     </div>
                     <div>
-                      الراتب: <span className="font-mono font-bold text-[#714B67]">{totalSalary} د.ك</span>
+                      الراتب: <span className="font-mono font-bold text-primary">{totalSalary} د.ك</span>
                     </div>
                     <div>
                       المسمى: <span className="font-bold">{jobTitle || '—'}</span>
@@ -1144,7 +1145,7 @@ export const OdooTemplatesApp: React.FC = () => {
 
                   {selectedTemplate === 'pam_contract_en' && (
                     <div className="space-y-2 pt-1 border-t border-slate-200">
-                      <div className="text-[10px] font-black text-[#714B67]">حقول عقد PAM (English)</div>
+                      <div className="text-[10px] font-black text-primary">حقول عقد PAM (English)</div>
                       <label className="block">
                         <span className="text-[10px] font-bold text-slate-600">إدارة العمل (PAM)</span>
                         <input
@@ -1205,14 +1206,14 @@ export const OdooTemplatesApp: React.FC = () => {
                 <div className="space-y-3">
                   {SMART_PLACEHOLDERS.map(cat => (
                     <div key={cat.category}>
-                      <div className="text-[10px] font-black text-[#714B67] mb-1.5">{cat.category}</div>
+                      <div className="text-[10px] font-black text-primary mb-1.5">{cat.category}</div>
                       <div className="space-y-1">
                         {cat.items.map(item => (
                           <button
                             key={item.tag}
                             type="button"
                             onClick={() => insertSmartField(item.tag)}
-                            className="w-full text-right px-2 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-[#714B67] hover:text-white hover:border-[#714B67] text-[10px] font-bold transition cursor-pointer"
+                            className="w-full text-right px-2 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-primary hover:text-white hover:border-primary text-[10px] font-bold transition cursor-pointer"
                           >
                             {item.label}
                           </button>
@@ -1230,7 +1231,7 @@ export const OdooTemplatesApp: React.FC = () => {
           <button
             type="button"
             onClick={() => setSmartPanelOpen(true)}
-            className="shrink-0 w-8 border-s border-slate-200 bg-white hover:bg-slate-50 text-[#714B67] flex items-center justify-center cursor-pointer"
+            className="shrink-0 w-8 border-s border-slate-200 bg-white hover:bg-slate-50 text-primary flex items-center justify-center cursor-pointer"
             title="إظهار السياق والحقول"
           >
             <PanelLeftOpen size={16} />
@@ -1271,7 +1272,7 @@ export const OdooTemplatesApp: React.FC = () => {
                 {showLetterheadInPreview ? (
                   <OfficialA4CompanyLetterhead
                     company={companyForPrint}
-                    className="border-[#714B67] mb-6 pb-5"
+                    className="border-primary mb-6 pb-5"
                     rightSlot={
                       <div className="font-mono text-[11px] text-slate-600 space-y-1">
                         <div>

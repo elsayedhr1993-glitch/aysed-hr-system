@@ -748,7 +748,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
           <button
             type="button"
             onClick={onBack}
-            className="flex items-center gap-1.5 text-[#714B67] hover:text-[#5a3b52] hover:bg-purple-50 px-2 py-1 rounded-lg border border-[#714B67]/25 transition cursor-pointer shrink-0"
+            className="flex items-center gap-1.5 text-primary hover:text-[#5a3b52] hover:bg-purple-50 px-2 py-1 rounded-lg border border-primary/25 transition cursor-pointer shrink-0"
           >
             <ArrowRight size={15} />
             <span>العودة لدليل الموظفين</span>
@@ -757,7 +757,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
           <span className="text-slate-900 truncate max-w-[min(100%,280px)] sm:max-w-md">
             {employee.nameAr || employee.fullNameAr || 'ملف موظف'}
           </span>
-          <span className="font-mono bg-purple-50 text-[#714B67] border border-purple-200 px-2 py-0.5 rounded text-[11px] font-bold shrink-0">
+          <span className="font-mono bg-purple-50 text-primary border border-purple-200 px-2 py-0.5 rounded text-[11px] font-bold shrink-0">
             {employee.id}
           </span>
         </nav>
@@ -789,7 +789,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
                   onClick={() => setActiveTab(stageTab as EmployeeDetailTab)}
                   className={`px-2.5 py-1 rounded-md text-[10px] font-bold border transition cursor-pointer whitespace-nowrap ${
                     isCurrent
-                      ? 'bg-[#714B67] text-white border-[#714B67] shadow-xs'
+                      ? 'bg-primary text-white border-primary shadow-xs'
                       : isPast
                         ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                         : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
@@ -846,7 +846,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
               <button
                 type="button"
                 onClick={enterEditMode}
-                className="bg-[#714B67] hover:bg-[#5a3b52] text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                className="bg-primary hover:bg-[#5a3b52] text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer"
               >
                 <Edit3 size={15} />
                 <span>تعديل</span>
@@ -881,7 +881,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
                   }}
                   className="w-full px-3 py-2 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
                 >
-                  <Printer size={14} className="text-[#714B67]" />
+                  <Printer size={14} className="text-primary" />
                   طباعة الملف (A4)
                 </button>
                 <button
@@ -923,7 +923,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
         {/* Profile Header: اسم الموظف + oe_button_box */}
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 w-full min-w-0">
         <div className="flex flex-col sm:flex-row sm:items-start gap-4 w-full min-w-0 flex-1">
-          <div className={`w-20 h-20 rounded-2xl ${employee.avatarColor || 'bg-[#714B67]'} text-white flex items-center justify-center font-bold text-2xl shadow-xs shrink-0 overflow-hidden relative`}>
+          <div className={`w-20 h-20 rounded-2xl ${employee.avatarColor || 'bg-primary'} text-white flex items-center justify-center font-bold text-2xl shadow-xs shrink-0 overflow-hidden relative`}>
             {employee.avatarUrl ? (
               <img src={employee.avatarUrl} alt="" className="w-full h-full object-cover" />
             ) : (
@@ -934,7 +934,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
           <div className="space-y-1.5 flex-1">
             {isEditMode && (
               <div className="mb-2 flex items-center gap-2">
-                <label className="cursor-pointer px-2.5 py-1 bg-[#714B67] text-white rounded-lg text-xs font-bold hover:bg-[#5a3a52] transition flex items-center gap-1">
+                <label className="cursor-pointer px-2.5 py-1 bg-primary text-white rounded-lg text-xs font-bold hover:bg-[#5a3a52] transition flex items-center gap-1">
                   <span>📷 تغيير الصورة الشخصية</span>
                   <input
                     type="file"
@@ -971,7 +971,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
                   value={employee.nameAr || ''}
                   onChange={(e) => handleFieldChange('nameAr', e.target.value)}
                   placeholder="اسم الموظف بالعربية"
-                  className="text-2xl font-bold text-slate-900 border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1 bg-white focus:outline-none transition"
+                  className="text-2xl font-bold text-slate-900 border border-slate-300 focus:border-primary rounded-lg px-2.5 py-1 bg-white focus:outline-none transition"
                 />
               ) : (
                 <EditableField
@@ -995,7 +995,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
               </span>
             </div>
 
-            <p className="text-sm font-bold text-[#714B67] pt-0.5">
+            <p className="text-sm font-bold text-primary pt-0.5">
               {employee.jobTitle || 'المسمى الوظيفي'}
             </p>
             <p className="text-xs text-slate-500 font-medium">
@@ -1077,7 +1077,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
               onClick={() => setActiveTab(tab.id)}
               className={`px-4 py-2.5 text-sm font-bold rounded-t-lg transition flex items-center gap-2 shrink-0 cursor-pointer border-b-2 -mb-[2px] ${
                 masterTabId === tab.id
-                  ? 'bg-white text-[#714B67] border-[#714B67]'
+                  ? 'bg-white text-primary border-primary'
                   : 'text-slate-500 border-transparent hover:text-slate-800 hover:bg-slate-50'
               }`}
             >
@@ -1100,7 +1100,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
             <button
               type="button"
               onClick={() => setActiveTab('licenses')}
-              className="text-[#714B67] font-bold hover:underline cursor-pointer"
+              className="text-primary font-bold hover:underline cursor-pointer"
             >
               ← العودة للتبويبات الرئيسية
             </button>

@@ -89,7 +89,7 @@ export const HeaderBar: React.FC<EmployeesHeaderBarProps> = ({
       <button
         type="button"
         onClick={onNewEmployee}
-        className="shrink-0 bg-[#714B67] hover:bg-[#5b3c53] text-white border border-[#5b3c53] px-3.5 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm"
+        className="shrink-0 bg-primary hover:bg-[#5b3c53] text-white border border-[#5b3c53] px-3.5 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm"
       >
         <UserPlus size={14} />
         جديد
@@ -102,7 +102,7 @@ export const HeaderBar: React.FC<EmployeesHeaderBarProps> = ({
           value={searchQuery}
           onChange={(e) => onSearchQueryChange(e.target.value)}
           placeholder="بحث..."
-          className="w-full h-9 bg-white border border-slate-300 rounded-md pr-8 pl-[4.25rem] text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#714B67]/50 focus:ring-1 focus:ring-[#714B67]/20"
+          className="w-full h-9 bg-white border border-slate-300 rounded-md pr-8 pl-[4.25rem] text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
         />
         <div className="absolute left-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5" ref={filtersRef}>
           <button
@@ -110,14 +110,14 @@ export const HeaderBar: React.FC<EmployeesHeaderBarProps> = ({
             onClick={() => setFiltersOpen((v) => !v)}
             className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold border cursor-pointer ${
               filtersOpen || activeFacetCount > 0
-                ? 'bg-[#714B67]/10 border-[#714B67]/30 text-[#714B67]'
+                ? 'bg-primary/10 border-primary/30 text-primary'
                 : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-white'
             }`}
           >
             <SlidersHorizontal size={12} />
             تصفية
             {activeFacetCount > 0 ? (
-              <span className="min-w-[1rem] h-4 px-1 rounded-full bg-[#714B67] text-white text-[9px] flex items-center justify-center">
+              <span className="min-w-[1rem] h-4 px-1 rounded-full bg-primary text-white text-[9px] flex items-center justify-center">
                 {activeFacetCount}
               </span>
             ) : null}
@@ -181,7 +181,7 @@ export const HeaderBar: React.FC<EmployeesHeaderBarProps> = ({
                         onClick={() => onKpiFilterChange(id)}
                         className={`px-2 py-0.5 rounded text-[10px] cursor-pointer border ${
                           kpiFilter === id
-                            ? 'bg-[#714B67] text-white border-[#714B67] font-bold'
+                            ? 'bg-primary text-white border-primary font-bold'
                             : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                         }`}
                       >
@@ -201,7 +201,7 @@ export const HeaderBar: React.FC<EmployeesHeaderBarProps> = ({
           <button
             type="button"
             onClick={() => onViewModeChange('kanban')}
-            className={`p-1.5 cursor-pointer ${viewMode === 'kanban' ? 'bg-slate-100 text-[#714B67]' : 'text-slate-500 hover:bg-slate-50'}`}
+            className={`p-1.5 cursor-pointer ${viewMode === 'kanban' ? 'bg-slate-100 text-primary' : 'text-slate-500 hover:bg-slate-50'}`}
             title="Kanban"
           >
             <LayoutGrid size={15} />
@@ -209,7 +209,7 @@ export const HeaderBar: React.FC<EmployeesHeaderBarProps> = ({
           <button
             type="button"
             onClick={() => onViewModeChange('list')}
-            className={`p-1.5 cursor-pointer border-r border-slate-200 ${viewMode === 'list' ? 'bg-slate-100 text-[#714B67]' : 'text-slate-500 hover:bg-slate-50'}`}
+            className={`p-1.5 cursor-pointer border-r border-slate-200 ${viewMode === 'list' ? 'bg-slate-100 text-primary' : 'text-slate-500 hover:bg-slate-50'}`}
             title="List"
           >
             <List size={15} />

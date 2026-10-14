@@ -55,7 +55,7 @@ function launcherBadgeClassName(tone: LauncherBadgeTone, inCard = false): string
     case 'warning':
       return `${base} bg-orange-500 text-white border-orange-600 shadow-sm`;
     case 'brand':
-      return `${base} bg-[#714B67] text-white border-[#5a3a52]`;
+      return `${base} bg-primary text-white border-[#5a3a52]`;
     default:
       return inCard
         ? `${base} bg-slate-100 text-slate-600 border-slate-200`
@@ -209,8 +209,8 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
       titleEn: 'Payroll & EOS',
       icon: Banknote,
       category: 'HR_PAYROLL',
-      gradient: 'from-[#714B67] to-[#4A2E44] text-white',
-      badgeBg: 'bg-[#714B67]',
+      gradient: 'from-primary to-[#4A2E44] text-white',
+      badgeBg: 'bg-primary',
       badge: 'WPS',
       description: lang === 'ar' ? 'كشوف أجور البنوك وحاسبة مكافأة نهاية الخدمة (مادة 51)' : 'Bank payroll slips and end-of-service calculator',
     },
@@ -382,7 +382,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
       <div className="w-full space-y-2.5 relative z-10">
         <div className="flex items-center gap-2.5">
           <div className="relative flex-1 group">
-            <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-[#714B67] transition-colors">
+            <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-primary transition-colors">
               <Search className="w-4 h-4" />
             </div>
             <input
@@ -390,7 +390,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={lang === 'ar' ? 'ابحث عن تطبيق أو وحدة…' : 'Search apps and modules…'}
-              className="w-full pr-10 pl-20 py-2.5 bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-xl text-xs sm:text-sm font-bold text-slate-800 placeholder-slate-400 shadow-xs focus:border-[#714B67] focus:bg-white focus:outline-none transition-all"
+              className="w-full pr-10 pl-20 py-2.5 bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-xl text-xs sm:text-sm font-bold text-slate-800 placeholder-slate-400 shadow-xs focus:border-primary focus:bg-white focus:outline-none transition-all"
             />
             {searchQuery && (
               <button
@@ -414,7 +414,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
               onClick={() => setLauncherStyle('launchpad')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                 viewStyle === 'launchpad'
-                  ? 'bg-[#714B67] text-white shadow-xs'
+                  ? 'bg-primary text-white shadow-xs'
                   : 'text-slate-600 hover:bg-slate-100'
               }`}
               title="لوحة التطبيقات الذكية (أيقونات Launchpad الحديثة)"
@@ -426,7 +426,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
               onClick={() => setLauncherStyle('cards')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                 viewStyle === 'cards'
-                  ? 'bg-[#714B67] text-white shadow-xs'
+                  ? 'bg-primary text-white shadow-xs'
                   : 'text-slate-600 hover:bg-slate-100'
               }`}
               title="بطاقات تفصيلية مع إحصائيات لكل تطبيق"
@@ -445,7 +445,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
             <p className="text-slate-500 font-bold text-sm">لا توجد تطبيقات تطابق كلمة البحث "{searchQuery}"</p>
             <button 
               onClick={() => setSearchQuery('')}
-              className="mt-3 text-xs font-bold text-[#714B67] underline cursor-pointer"
+              className="mt-3 text-xs font-bold text-primary underline cursor-pointer"
             >
               إعادة عرض جميع التطبيقات
             </button>
@@ -498,7 +498,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
 
                   {/* App Text Info */}
                   <div className="w-full space-y-0.5">
-                    <h3 className="font-extrabold text-xs sm:text-[13px] text-slate-800 group-hover:text-[#714B67] leading-tight transition-colors line-clamp-1">
+                    <h3 className="font-extrabold text-xs sm:text-[13px] text-slate-800 group-hover:text-primary leading-tight transition-colors line-clamp-1">
                       <UiStudioTarget
                         uiKey={uiKey}
                         kind="app"
@@ -557,7 +557,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
                   {/* Details */}
                   <div className="flex-1 min-w-0 flex flex-col gap-1 min-h-0">
                     <div className="flex items-start justify-between gap-1">
-                      <h3 className="font-extrabold text-xs sm:text-sm text-slate-900 group-hover:text-[#714B67] leading-tight line-clamp-2 transition-colors min-w-0">
+                      <h3 className="font-extrabold text-xs sm:text-sm text-slate-900 group-hover:text-primary leading-tight line-clamp-2 transition-colors min-w-0">
                         <UiStudioTarget
                           uiKey={uiKey}
                           kind="app"
@@ -590,7 +590,7 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
                   </div>
 
                   {/* Arrow Indicator */}
-                  <div className="self-end shrink-0 text-slate-300 group-hover:text-[#714B67] group-hover:-translate-x-0.5 transition-all">
+                  <div className="self-end shrink-0 text-slate-300 group-hover:text-primary group-hover:-translate-x-0.5 transition-all">
                     <ArrowUpRight size={16} />
                   </div>
                 </button>

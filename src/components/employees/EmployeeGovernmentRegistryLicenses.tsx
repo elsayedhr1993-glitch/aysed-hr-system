@@ -39,8 +39,8 @@ export const EmployeeGovernmentRegistryLicenses: React.FC<Props> = ({ employeeId
   if (!employeeId) return null;
 
   return (
-    <div className="rounded-2xl border border-[#714B67]/20 bg-[#714B67]/5 overflow-hidden shadow-2xs" dir="rtl">
-      <div className="px-4 py-3 border-b border-[#714B67]/15 flex flex-wrap items-center justify-between gap-2">
+    <div className="rounded-2xl border border-primary/20 bg-primary/5 overflow-hidden shadow-2xs" dir="rtl">
+      <div className="px-4 py-3 border-b border-primary/15 flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-xs font-black text-slate-900">تراخيص مرتبطة من شجرة الامتثال</h3>
           <p className="text-[10px] text-slate-500 mt-0.5">
@@ -110,7 +110,7 @@ export const EmployeeGovernmentRegistryLicenses: React.FC<Props> = ({ employeeId
                           href={lic.fileUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-0.5 text-[#714B67] font-bold hover:underline"
+                          className="inline-flex items-center gap-0.5 text-primary font-bold hover:underline"
                         >
                           <ExternalLink className="w-3 h-3" />
                           عرض

@@ -66,7 +66,7 @@ export const OfficialPayslipPrintModal: React.FC<OfficialPayslipPrintModalProps>
             <button
               type="button"
               onClick={handlePrint}
-              className="px-4 py-2 bg-[#714B67] hover:bg-[#593a52] text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+              className="px-4 py-2 bg-primary hover:bg-[#593a52] text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
             >
               <Printer size={14} /> طباعة الآن (A4)
             </button>
@@ -92,7 +92,7 @@ export const OfficialPayslipPrintModal: React.FC<OfficialPayslipPrintModalProps>
               company={company}
               rightSlot={
                 <div className="text-left font-mono">
-                  <div className="inline-block bg-[#714B67]/10 text-[#714B67] px-3 py-1 rounded-md font-bold text-[11px] mb-1">
+                  <div className="inline-block bg-primary/10 text-primary px-3 py-1 rounded-md font-bold text-[11px] mb-1">
                     قسيمة راتب شهرية (Payslip)
                   </div>
                   <div className="text-[11px] text-slate-600 font-bold">

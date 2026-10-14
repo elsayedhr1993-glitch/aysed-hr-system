@@ -1,3 +1,4 @@
+import { tokens } from '../design/tokens';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { 
   Users, Clock, Stethoscope, AlertTriangle, X, FileText, Printer, Calendar, 
@@ -159,9 +160,9 @@ const generateLeavePrintHtml = (
   return `
     <div style="direction: rtl; font-family: 'Arial', 'Tahoma', sans-serif; padding: 25px; line-height: 1.6; color: #1e293b;">
       <div style="text-align: center; border-b: 2px double #cbd5e1; padding-bottom: 20px; margin-bottom: 30px;">
-        <h2 style="margin: 0; color: #714b67; font-size: 22px;">${companyName}</h2>
+        <h2 style="margin: 0; color: ${tokens.color.primary}; font-size: 22px;">${companyName}</h2>
         <div style="font-size: 11px; color: #64748b; margin-top: 4px;">${companyNameEn}</div>
-        <h3 style="margin: 15px 0 0 0; color: #1e293b; font-size: 16px; border-bottom: 1px solid #714b67; display: inline-block; padding-bottom: 5px;">كشف رصيد وحساب الإجازات المعتمد</h3>
+        <h3 style="margin: 15px 0 0 0; color: #1e293b; font-size: 16px; border-bottom: 1px solid ${tokens.color.primary}; display: inline-block; padding-bottom: 5px;">كشف رصيد وحساب الإجازات المعتمد</h3>
       </div>
 
       <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 12px;">
@@ -186,7 +187,7 @@ const generateLeavePrintHtml = (
       </table>
 
       <div style="margin-bottom: 30px;">
-        <h4 style="margin: 0 0 15px 0; color: #714b67; font-size: 14px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">ملخص أرصدة الإجازات السنوية المعتمدة</h4>
+        <h4 style="margin: 0 0 15px 0; color: ${tokens.color.primary}; font-size: 14px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">ملخص أرصدة الإجازات السنوية المعتمدة</h4>
         <table style="width: 100%; border-collapse: collapse; text-align: center; font-size: 11px;">
           <tr>
             <td style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 6px; width: 20%;">
@@ -219,7 +220,7 @@ const generateLeavePrintHtml = (
       </div>
 
       <div style="margin-bottom: 30px;">
-        <h4 style="margin: 0 0 15px 0; color: #714b67; font-size: 14px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">تفصيل السحب التتابعي الإلزامي (FIFO Waterfall)</h4>
+        <h4 style="margin: 0 0 15px 0; color: ${tokens.color.primary}; font-size: 14px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">تفصيل السحب التتابعي الإلزامي (FIFO Waterfall)</h4>
         <table style="width: 100%; border-collapse: collapse; text-align: center; font-size: 11px;">
           <tr>
             <td style="background-color: #fff7ed; border: 1px solid #fed7aa; padding: 12px; border-radius: 6px; width: 16.66%;">
@@ -251,7 +252,7 @@ const generateLeavePrintHtml = (
       </div>
 
       <div style="margin-bottom: 35px;">
-        <h4 style="margin: 0 0 12px 0; color: #714b67; font-size: 14px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">سجل حركات الإجازات والتسويات (إجازات + تسييل + سندات)</h4>
+        <h4 style="margin: 0 0 12px 0; color: ${tokens.color.primary}; font-size: 14px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">سجل حركات الإجازات والتسويات (إجازات + تسييل + سندات)</h4>
         ${logRows.length === 0 ? `
           <div style="text-align: center; padding: 15px; color: #94a3b8; font-size: 12px; border: 1px dashed #cbd5e1; border-radius: 6px;">لا يوجد حركات إجازات أو تسويات معتمدة مسجلة للموظف.</div>
         ` : `
@@ -1360,7 +1361,7 @@ export function EmployeesApp(props?: any) {
           setShowActionsDropdown(false);
           setShowEmployeeImportModal(true);
         }}
-        className="w-full text-right px-3 py-2 hover:bg-[#714B67]/10 rounded-lg text-xs font-medium text-[#714B67] flex items-center gap-2 cursor-pointer"
+        className="w-full text-right px-3 py-2 hover:bg-primary/10 rounded-lg text-xs font-medium text-primary flex items-center gap-2 cursor-pointer"
       >
         <FileSpreadsheet size={14} />
         استيراد موظفين (Excel)
@@ -1481,7 +1482,7 @@ export function EmployeesApp(props?: any) {
                 <label className="flex items-center gap-2 text-[11px] font-bold text-slate-600 cursor-pointer select-none">
                   <input
                     type="checkbox"
-                    className="rounded border-slate-300 text-[#714B67] focus:ring-[#714B67]"
+                    className="rounded border-slate-300 text-primary focus:ring-primary"
                     checked={includeExtendedEmployeeDirectory}
                     onChange={(e) => {
                       const next = e.target.checked;
@@ -1983,7 +1984,7 @@ export function EmployeesApp(props?: any) {
       {showPrintModal && (
         <div className="fixed printable-modal-root inset-0 bg-black/70 backdrop-blur-sm z-[999] flex items-center justify-center p-4 print:bg-white print:backdrop-blur-none">
           <div className="printable-modal-sheet bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-300 print:max-w-none print:shadow-none print:border-none" dir="rtl">
-            <div className="bg-[#714B67] text-white px-6 py-4 flex items-center justify-between print:hidden">
+            <div className="bg-primary text-white px-6 py-4 flex items-center justify-between print:hidden">
               <div className="flex items-center gap-2 font-bold text-sm">
                 <span>🖨️</span> معاينة الطباعة الرسمية - {printTitle}
               </div>
@@ -2075,7 +2076,7 @@ export function EmployeesApp(props?: any) {
                         }
                       >
                         <div className="odoo-report-meta-strip space-y-3">
-                          <h4 className="text-xs font-bold text-[#714B67]">بيانات الموظف الأساسية</h4>
+                          <h4 className="text-xs font-bold text-primary">بيانات الموظف الأساسية</h4>
                           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs">
                             <div><strong className="text-slate-500">اسم الموظف:</strong> <span className="font-bold text-slate-900">{printData.nameAr || printData.fullNameAr || 'غير متوفر'}</span></div>
                             <div><strong className="text-slate-500">الرقم المدني:</strong> <span className="font-mono">{printData.civilId || printData.civil_id_number || 'غير متوفر'}</span></div>
@@ -2087,10 +2088,10 @@ export function EmployeesApp(props?: any) {
                         </div>
 
                         <div className="space-y-3">
-                          <h4 className="text-xs font-bold text-[#714B67]">تفاصيل رصيد الإجازات المعتمد</h4>
+                          <h4 className="text-xs font-bold text-primary">تفاصيل رصيد الإجازات المعتمد</h4>
                           <OdooReportKpiStrip>
                             <OdooReportKpiCell label="الرصيد المرحل" value={`${carriedOver} يوم`} />
-                            <OdooReportKpiCell label="المستحق لعام 2026" value={<span className="font-mono text-[#714B67]">+{accrued2026} يوم</span>} />
+                            <OdooReportKpiCell label="المستحق لعام 2026" value={<span className="font-mono text-primary">+{accrued2026} يوم</span>} />
                             <OdooReportKpiCell label="أيام تعويضية" value={<span className="font-mono text-emerald-800">+{compensatory} يوم</span>} />
                             <OdooReportKpiCell label="المخصوم" value={<span className="font-mono text-rose-800">-{totalTaken} يوم</span>} />
                           </OdooReportKpiStrip>
@@ -2110,7 +2111,7 @@ export function EmployeesApp(props?: any) {
                         </div>
 
                         <div className="space-y-3">
-                          <h4 className="text-xs font-bold text-[#714B67]">سجل حركات الإجازات والتسويات</h4>
+                          <h4 className="text-xs font-bold text-primary">سجل حركات الإجازات والتسويات</h4>
                           {logRows.length === 0 ? (
                             <div className="text-center py-4 text-slate-400 font-bold text-xs">لا يوجد حركات إجازات أو تسويات معتمدة مسجلة لهذا الموظف.</div>
                           ) : (
@@ -2215,7 +2216,7 @@ export function EmployeesApp(props?: any) {
                     void OdooPdf.report.print('employee-leave-print-sheet', printTitle || 'مستند_رسمي');
                   }
                 }}
-                className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-md cursor-pointer"
+                className="bg-primary hover:bg-[#5a3a52] text-white px-5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-md cursor-pointer"
               >
                 <span>🖨️</span> طباعة المستند الآن (Print)
               </button>

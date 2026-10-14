@@ -47,7 +47,7 @@ export const OdooSmartButtons: React.FC<OdooSmartButtonsProps> = ({ stats, varia
       case 'indigo': return 'text-indigo-600';
       case 'slate': return 'text-slate-600';
       case 'purple':
-      default: return 'text-[#714B67]';
+      default: return 'text-primary';
     }
   };
 

@@ -187,7 +187,7 @@ export const LayoutStudioDrawer: React.FC = () => {
             type="button"
             onClick={() => void saveStudio()}
             disabled={!studioSession.dirty}
-            className="w-full py-2.5 rounded-xl bg-[#714B67] hover:bg-[#5a3a52] text-white text-xs font-bold flex items-center justify-center gap-2 disabled:opacity-40"
+            className="w-full py-2.5 rounded-xl bg-primary hover:bg-[#5a3a52] text-white text-xs font-bold flex items-center justify-center gap-2 disabled:opacity-40"
           >
             <Save size={16} />
             حفظ وتفعيل التخطيط

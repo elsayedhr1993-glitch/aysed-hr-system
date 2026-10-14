@@ -227,7 +227,7 @@ export const OdooPamContractModal: React.FC<Props> = ({
       <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-6xl h-[94vh] flex flex-col overflow-hidden">
         
         {/* Header */}
-        <div className="bg-gradient-to-r from-[#714B67] to-[#593951] text-white px-6 py-4 flex items-center justify-between shadow-md shrink-0">
+        <div className="bg-gradient-to-r from-primary to-[#593951] text-white px-6 py-4 flex items-center justify-between shadow-md shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center text-white border border-white/20">
               <FileText size={22} />
@@ -281,7 +281,7 @@ export const OdooPamContractModal: React.FC<Props> = ({
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <span className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
-                  <Building2 size={16} className="text-[#714B67]" /> المتغيرات المسقطة على العقد
+                  <Building2 size={16} className="text-primary" /> المتغيرات المسقطة على العقد
                 </span>
                 {/* Font Switcher */}
                 <div className="flex items-center gap-1 bg-slate-100/90 rounded-xl p-0.5 border border-slate-200">
@@ -291,7 +291,7 @@ export const OdooPamContractModal: React.FC<Props> = ({
                     onClick={() => handleFontChange('cairo')}
                     className={`px-2 py-0.5 rounded-lg font-bold text-[10px] transition cursor-pointer ${
                       fontChoice === 'cairo'
-                        ? 'bg-[#714B67] text-white shadow-xs'
+                        ? 'bg-primary text-white shadow-xs'
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                     title="خط القاهرة المعتمد - واضح وعصري للمستندات الحكومية"
@@ -303,7 +303,7 @@ export const OdooPamContractModal: React.FC<Props> = ({
                     onClick={() => handleFontChange('amiri')}
                     className={`px-2 py-0.5 rounded-lg font-bold text-[10px] transition cursor-pointer ${
                       fontChoice === 'amiri'
-                        ? 'bg-[#714B67] text-white shadow-xs'
+                        ? 'bg-primary text-white shadow-xs'
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                     title="خط الأميري الكلاسيكي - خط النسخ المعتمد للجهات الرسمية"
@@ -323,7 +323,7 @@ export const OdooPamContractModal: React.FC<Props> = ({
                 <button
                   onClick={() => refreshPreview(fontChoice)}
                   disabled={isGenerating}
-                  className="px-2.5 py-1 rounded-lg bg-[#714B67]/10 text-[#714B67] hover:bg-[#714B67]/20 font-bold transition flex items-center gap-1 cursor-pointer text-[11px]"
+                  className="px-2.5 py-1 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 font-bold transition flex items-center gap-1 cursor-pointer text-[11px]"
                 >
                   <RefreshCw size={13} className={isGenerating ? 'animate-spin' : ''} /> تحديث المعاينة
                 </button>
@@ -353,7 +353,7 @@ export const OdooPamContractModal: React.FC<Props> = ({
                     type="button"
                     disabled={isSavingPamSettings || !resolvedCompanyId}
                     onClick={() => persistPamSettings('company')}
-                    className="px-3 py-1.5 rounded-lg bg-[#714B67] text-white text-[10px] font-bold disabled:opacity-50 cursor-pointer"
+                    className="px-3 py-1.5 rounded-lg bg-primary text-white text-[10px] font-bold disabled:opacity-50 cursor-pointer"
                   >
                     {isSavingPamSettings ? 'جاري الحفظ...' : 'حفظ معايرة المنشأة (للجميع)'}
                   </button>
@@ -411,7 +411,7 @@ export const OdooPamContractModal: React.FC<Props> = ({
 
             {/* Section 1: General Info & Department */}
             <div className="space-y-2.5">
-              <span className="text-[11px] font-bold text-[#714B67] flex items-center gap-1 border-b pb-1">
+              <span className="text-[11px] font-bold text-primary flex items-center gap-1 border-b pb-1">
                 <Building2 size={14} /> 1. إدارة العمل وتاريخ العقد (Header)
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -447,7 +447,7 @@ export const OdooPamContractModal: React.FC<Props> = ({
 
             {/* Section 2: First Party (Company) */}
             <div className="space-y-2.5">
-              <span className="text-[11px] font-bold text-[#714B67] flex items-center gap-1 border-b pb-1">
+              <span className="text-[11px] font-bold text-primary flex items-center gap-1 border-b pb-1">
                 <Building2 size={14} /> 2. الطرف الأول (الشركة / المنشأة)
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -502,7 +502,7 @@ export const OdooPamContractModal: React.FC<Props> = ({
 
             {/* Section 3: Second Party (Employee) */}
             <div className="space-y-2.5">
-              <span className="text-[11px] font-bold text-[#714B67] flex items-center gap-1 border-b pb-1">
+              <span className="text-[11px] font-bold text-primary flex items-center gap-1 border-b pb-1">
                 <User size={14} /> 3. الطرف الثاني (العامل / الموظف)
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -558,7 +558,7 @@ export const OdooPamContractModal: React.FC<Props> = ({
 
             {/* Section 4: Work & Salary */}
             <div className="space-y-2.5">
-              <span className="text-[11px] font-bold text-[#714B67] flex items-center gap-1 border-b pb-1">
+              <span className="text-[11px] font-bold text-primary flex items-center gap-1 border-b pb-1">
                 <Briefcase size={14} /> 4. طبيعة العمل والراتب التعاقدي
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -604,7 +604,7 @@ export const OdooPamContractModal: React.FC<Props> = ({
 
             {/* Section 5: Duration, Dates & Leave */}
             <div className="space-y-2.5">
-              <span className="text-[11px] font-bold text-[#714B67] flex items-center gap-1 border-b pb-1">
+              <span className="text-[11px] font-bold text-primary flex items-center gap-1 border-b pb-1">
                 <Calendar size={14} /> 5. مدة العقد وتاريخ النفاذ والإجازة السنوية
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -643,7 +643,7 @@ export const OdooPamContractModal: React.FC<Props> = ({
               <button
                 type="button"
                 onClick={() => refreshPreview(fontChoice)}
-                className="w-full py-2.5 px-4 bg-[#714B67] hover:bg-[#593951] text-white rounded-xl font-bold shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-2.5 px-4 bg-primary hover:bg-[#593951] text-white rounded-xl font-bold shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
               >
                 <RefreshCw size={16} className={isGenerating ? 'animate-spin' : ''} />
                 تحديث وحفظ المعاينة الحية للعقد
@@ -657,10 +657,10 @@ export const OdooPamContractModal: React.FC<Props> = ({
             <div className="bg-white rounded-2xl shadow-inner border border-slate-300 flex-1 flex flex-col overflow-hidden">
               
               <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex items-center justify-between text-[11px] text-slate-600">
-                <span className="font-bold flex items-center gap-1 text-[#714B67]">
+                <span className="font-bold flex items-center gap-1 text-primary">
                   <FileText size={14} /> المعاينة التفاعلية المباشرة (Live PDF Overlay)
                 </span>
-                <span className="bg-purple-100 text-[#714B67] font-mono px-2 py-0.5 rounded font-bold">
+                <span className="bg-purple-100 text-primary font-mono px-2 py-0.5 rounded font-bold">
                   2 Pages (A4)
                 </span>
               </div>
@@ -668,7 +668,7 @@ export const OdooPamContractModal: React.FC<Props> = ({
               <div className="flex-1 relative bg-slate-800">
                 {isGenerating && (
                   <div className="absolute inset-0 bg-slate-900/60 z-10 flex flex-col items-center justify-center text-white gap-2">
-                    <RefreshCw size={28} className="animate-spin text-[#714B67]" />
+                    <RefreshCw size={28} className="animate-spin text-primary" />
                     <p className="font-bold text-xs">جاري دمج وإسقاط المتغيرات على النموذج الرسمي...</p>
                   </div>
                 )}
@@ -690,7 +690,7 @@ export const OdooPamContractModal: React.FC<Props> = ({
                 <span>المستند مطابق 100% للنموذج الإسترشادي الصادر عن الهيئة العامة للقوى العاملة.</span>
                 <button
                   onClick={handleDownload}
-                  className="text-[#714B67] font-bold hover:underline cursor-pointer"
+                  className="text-primary font-bold hover:underline cursor-pointer"
                 >
                   تحميل نسخة للطباعة
                 </button>

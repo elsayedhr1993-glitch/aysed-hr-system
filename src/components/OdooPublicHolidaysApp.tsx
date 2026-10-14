@@ -410,14 +410,14 @@ export const OdooPublicHolidaysApp: React.FC = () => {
           <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
             <span>العطلات الرسمية</span>
             <span>/</span>
-            <span className="text-[#714B67] font-black">جدول العطلات والقرارات الرسمية للكويت (2026)</span>
+            <span className="text-primary font-black">جدول العطلات والقرارات الرسمية للكويت (2026)</span>
           </div>
           <h1 className="text-xl font-black text-slate-900 flex items-center gap-2">
-            <Sparkles className="text-[#714B67]" size={22} />
+            <Sparkles className="text-primary" size={22} />
             تطبيق العطلات الرسمية وبدلات المادة 68 (Kuwait Public Holidays)
           </h1>
           <p className="text-[11px] text-slate-500">
-            المنشأة: <strong className="text-[#714B67]">{activeCompany?.nameAr || 'الشركة الرئيسية'}</strong> | مدفوعة الأجر 100% ومحمية طبقاً لقانون العمل رقم 6 لسنة 2010
+            المنشأة: <strong className="text-primary">{activeCompany?.nameAr || 'الشركة الرئيسية'}</strong> | مدفوعة الأجر 100% ومحمية طبقاً لقانون العمل رقم 6 لسنة 2010
           </p>
         </div>
 
@@ -437,7 +437,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
           <button
             type="button"
             onClick={() => setShowCabinetModal(true)}
-            className="bg-[#714B67] hover:bg-[#583950] text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+            className="bg-primary hover:bg-[#583950] text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
           >
             <PlusCircle size={15} /> + عطلة طارئة / قرار مجلس الوزراء
           </button>
@@ -445,7 +445,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
           <button
             type="button"
             onClick={() => setShowDutyModal(true)}
-            className="bg-purple-50 hover:bg-purple-100 text-[#714B67] border border-purple-200 px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+            className="bg-purple-50 hover:bg-purple-100 text-primary border border-purple-200 px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
           >
             <Calculator size={14} /> تكليف عمل أثناء عطلة (المادة 68)
           </button>
@@ -513,7 +513,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
             type="button"
             onClick={() => setActiveTab('holidays')}
             className={`px-4 py-2 rounded-lg transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-              activeTab === 'holidays' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              activeTab === 'holidays' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <Calendar size={14} /> جدول العطلات الرسمية ({holidays.length})
@@ -523,7 +523,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
             type="button"
             onClick={() => setActiveTab('duties')}
             className={`px-4 py-2 rounded-lg transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-              activeTab === 'duties' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              activeTab === 'duties' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <Award size={14} /> سجل تكليفات المناوبة وبدل العطلات ({duties.length})
@@ -537,7 +537,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
               type="button"
               onClick={() => setViewMode('list')}
               className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1 cursor-pointer ${
-                viewMode === 'list' ? 'bg-white shadow-xs text-[#714B67]' : 'text-slate-600 hover:text-slate-900'
+                viewMode === 'list' ? 'bg-white shadow-xs text-primary' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <List size={14} /> جدول رسمي
@@ -546,7 +546,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
               type="button"
               onClick={() => setViewMode('calendar')}
               className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1 cursor-pointer ${
-                viewMode === 'calendar' ? 'bg-white shadow-xs text-[#714B67]' : 'text-slate-600 hover:text-slate-900'
+                viewMode === 'calendar' ? 'bg-white shadow-xs text-primary' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <CalendarRange size={14} /> تقويم شهري تفاعلي
@@ -578,7 +578,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
                       onClick={() => setHolidayTypeFilter(filter.id)}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
                         holidayTypeFilter === filter.id
-                          ? 'bg-[#714B67] text-white shadow-2xs'
+                          ? 'bg-primary text-white shadow-2xs'
                           : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
                     >
@@ -594,7 +594,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="بحث باسم المناسبة أو المرسوم..."
-                    className="w-full pr-9 pl-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:border-[#714B67] outline-none"
+                    className="w-full pr-9 pl-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:border-primary outline-none"
                   />
                 </div>
               </div>
@@ -660,7 +660,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => setSelectedCircularHoliday(h)}
-                              className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-[#714B67] border border-purple-200 rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-1 mx-auto cursor-pointer"
+                              className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-primary border border-purple-200 rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-1 mx-auto cursor-pointer"
                               title="إصدار تعميم إداري رسمي للموظفين"
                             >
                               <BellRing size={11} /> تعميم إداري
@@ -701,7 +701,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
             <div className="p-4 border-b bg-slate-50/70 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
               <div>
                 <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
-                  <Award className="text-[#714B67]" size={16} />
+                  <Award className="text-primary" size={16} />
                   سجل تعويضات وتكليفات العمل أثناء العطلات الرسمية (المادة 68)
                 </h3>
                 <p className="text-[11px] text-slate-500 mt-0.5">
@@ -719,7 +719,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowDutyModal(true)}
-                  className="bg-[#714B67] hover:bg-[#583950] text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  className="bg-primary hover:bg-[#583950] text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
                 >
                   <PlusCircle size={14} /> إضافة تكليف عمل جديد
                 </button>
@@ -746,7 +746,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
 
                     return (
                     <tr key={d.id} className={`hover:bg-purple-50/40 transition ${idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
-                      <td className="p-3.5 font-mono font-bold text-[#714B67]">{d.id}</td>
+                      <td className="p-3.5 font-mono font-bold text-primary">{d.id}</td>
                       <td className="p-3.5">
                         <div className="font-bold text-slate-900">{dutyMeta.safeName}</div>
                         <div className="text-[10px] text-slate-400 font-mono">
@@ -796,7 +796,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => handleSettleDutyToPayroll(d.id)}
-                                className="px-2.5 py-1 bg-[#714B67] hover:bg-[#5a3a52] text-white rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer shadow-2xs"
+                                className="px-2.5 py-1 bg-primary hover:bg-[#5a3a52] text-white rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer shadow-2xs"
                                 title="ترحيل البدل المالي لمسير الرواتب WPS"
                               >
                                 <Send size={11} /> ترحيل للرواتب (WPS)
@@ -835,7 +835,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 text-xs">
             <div className="flex justify-between items-center border-b pb-3 mb-4">
               <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
-                <Sparkles className="text-[#714B67]" size={18} />
+                <Sparkles className="text-primary" size={18} />
                 إضافة عطلة رسمية طارئة بقرار مجلس الوزراء
               </h3>
               <button 
@@ -856,7 +856,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
                   placeholder="مثال: عطلة طارئة لسوء الأحوال الجوية بقرار مجلس الوزراء"
                   value={cabinetForm.nameAr}
                   onChange={(e) => setCabinetForm({ ...cabinetForm, nameAr: e.target.value })}
-                  className="w-full p-2.5 border rounded-xl outline-none focus:border-[#714B67] font-bold"
+                  className="w-full p-2.5 border rounded-xl outline-none focus:border-primary font-bold"
                 />
               </div>
 
@@ -868,7 +868,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
                     placeholder="Emergency Weather Holiday"
                     value={cabinetForm.nameEn}
                     onChange={(e) => setCabinetForm({ ...cabinetForm, nameEn: e.target.value })}
-                    className="w-full p-2.5 border rounded-xl outline-none focus:border-[#714B67]"
+                    className="w-full p-2.5 border rounded-xl outline-none focus:border-primary"
                   />
                 </div>
                 <div>
@@ -877,7 +877,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
                     type="text"
                     value={cabinetForm.decreeNumber}
                     onChange={(e) => setCabinetForm({ ...cabinetForm, decreeNumber: e.target.value })}
-                    className="w-full p-2.5 border rounded-xl font-bold outline-none focus:border-[#714B67]"
+                    className="w-full p-2.5 border rounded-xl font-bold outline-none focus:border-primary"
                   />
                 </div>
               </div>
@@ -890,7 +890,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
                     required
                     value={cabinetForm.startDate}
                     onChange={(e) => setCabinetForm({ ...cabinetForm, startDate: e.target.value })}
-                    className="w-full p-2.5 border rounded-xl font-mono outline-none focus:border-[#714B67]"
+                    className="w-full p-2.5 border rounded-xl font-mono outline-none focus:border-primary"
                   />
                 </div>
                 <div>
@@ -899,7 +899,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
                     type="date"
                     value={cabinetForm.endDate}
                     onChange={(e) => setCabinetForm({ ...cabinetForm, endDate: e.target.value })}
-                    className="w-full p-2.5 border rounded-xl font-mono outline-none focus:border-[#714B67]"
+                    className="w-full p-2.5 border rounded-xl font-mono outline-none focus:border-primary"
                   />
                 </div>
                 <div>
@@ -909,7 +909,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
                     min="1"
                     value={cabinetForm.daysCount}
                     onChange={(e) => setCabinetForm({ ...cabinetForm, daysCount: e.target.value })}
-                    className="w-full p-2.5 border rounded-xl font-mono font-bold outline-none focus:border-[#714B67]"
+                    className="w-full p-2.5 border rounded-xl font-mono font-bold outline-none focus:border-primary"
                   />
                 </div>
               </div>
@@ -920,7 +920,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
                   rows={2}
                   value={cabinetForm.notes}
                   onChange={(e) => setCabinetForm({ ...cabinetForm, notes: e.target.value })}
-                  className="w-full p-2.5 border rounded-xl outline-none focus:border-[#714B67]"
+                  className="w-full p-2.5 border rounded-xl outline-none focus:border-primary"
                 />
               </div>
 
@@ -939,7 +939,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-[#714B67] hover:bg-[#583950] text-white rounded-xl font-bold cursor-pointer shadow-sm"
+                  className="px-5 py-2 bg-primary hover:bg-[#583950] text-white rounded-xl font-bold cursor-pointer shadow-sm"
                 >
                   اعتماد العطلة الرسمية
                 </button>
@@ -955,7 +955,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 text-xs">
             <div className="flex justify-between items-center border-b pb-3 mb-4">
               <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
-                <Calculator className="text-[#714B67]" size={18} />
+                <Calculator className="text-primary" size={18} />
                 تكليف عمل أثناء عطلة رسمية (المادة 68)
               </h3>
               <button 
@@ -976,7 +976,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
                   required
                   value={dutyForm.employeeId}
                   onChange={(e) => handleEmployeeSelectForDuty(e.target.value)}
-                  className="w-full p-2.5 border rounded-xl outline-none focus:border-[#714B67] font-bold bg-white"
+                  className="w-full p-2.5 border rounded-xl outline-none focus:border-primary font-bold bg-white"
                 >
                   {companyEmployees.map(emp => (
                     <option key={emp.id} value={emp.id}>
@@ -1013,7 +1013,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
                   <select
                     value={dutyForm.holidayName}
                     onChange={(e) => setDutyForm({ ...dutyForm, holidayName: e.target.value })}
-                    className="w-full p-2.5 border rounded-xl font-bold outline-none focus:border-[#714B67] bg-white"
+                    className="w-full p-2.5 border rounded-xl font-bold outline-none focus:border-primary bg-white"
                   >
                     {holidays.map(h => <option key={h.id} value={h.nameAr}>{h.nameAr}</option>)}
                   </select>
@@ -1025,7 +1025,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
                     required
                     value={dutyForm.dutyDate}
                     onChange={(e) => setDutyForm({ ...dutyForm, dutyDate: e.target.value })}
-                    className="w-full p-2.5 border rounded-xl font-mono font-bold outline-none focus:border-[#714B67]"
+                    className="w-full p-2.5 border rounded-xl font-mono font-bold outline-none focus:border-primary"
                   />
                 </div>
               </div>
@@ -1039,7 +1039,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
                     required
                     value={dutyForm.totalSalary}
                     onChange={(e) => setDutyForm({ ...dutyForm, totalSalary: e.target.value })}
-                    className="w-full p-2.5 border rounded-xl font-mono font-bold outline-none focus:border-[#714B67]"
+                    className="w-full p-2.5 border rounded-xl font-mono font-bold outline-none focus:border-primary"
                   />
                 </div>
                 <div>
@@ -1047,7 +1047,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
                   <select
                     value={dutyForm.compensationType}
                     onChange={(e) => setDutyForm({ ...dutyForm, compensationType: e.target.value as any })}
-                    className="w-full p-2.5 border rounded-xl font-bold outline-none focus:border-[#714B67] bg-white"
+                    className="w-full p-2.5 border rounded-xl font-bold outline-none focus:border-primary bg-white"
                   >
                     <option value="double_pay">أجر مضاعف (200%) - بدل نقدي WPS</option>
                     <option value="comp_day_off">يوم راحة بديل (Comp-Off) يضاف للرصيد</option>
@@ -1057,7 +1057,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
               </div>
 
               {/* Dynamic Calculation Summary */}
-              <div className="p-3 bg-purple-50 rounded-xl border border-purple-200 text-[#714B67] space-y-1">
+              <div className="p-3 bg-purple-50 rounded-xl border border-purple-200 text-primary space-y-1">
                 <div className="flex justify-between font-bold">
                   <span>الأثر القانوني والمالي للتعويض:</span>
                   <span className="font-mono text-sm font-black">
@@ -1083,7 +1083,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
                 </button>
                 <button 
                   type="submit" 
-                  className="px-5 py-2 bg-[#714B67] hover:bg-[#583950] text-white rounded-xl font-bold cursor-pointer shadow-sm"
+                  className="px-5 py-2 bg-primary hover:bg-[#583950] text-white rounded-xl font-bold cursor-pointer shadow-sm"
                 >
                   اعتماد التكليف والبدل
                 </button>

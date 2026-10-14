@@ -80,7 +80,7 @@ export const PrintActionsMenu: React.FC<PrintActionsMenuProps> = ({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-lg shadow-xs transition focus:outline-none focus:ring-2 focus:ring-[#714B67] cursor-pointer"
+        className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-lg shadow-xs transition focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer"
       >
         <span className="text-sm">🖨️</span>
         <span>طباعة وإجراءات</span>
@@ -107,16 +107,16 @@ export const PrintActionsMenu: React.FC<PrintActionsMenuProps> = ({
                 key={item.id}
                 type="button"
                 onClick={() => handleTriggerPrint(item.id)}
-                className="w-full text-right px-3.5 py-2.5 text-xs text-slate-700 hover:bg-[#714B67]/10 hover:text-[#714B67] flex items-center justify-between transition group cursor-pointer"
+                className="w-full text-right px-3.5 py-2.5 text-xs text-slate-700 hover:bg-primary/10 hover:text-primary flex items-center justify-between transition group cursor-pointer"
               >
                 <div className="flex items-center gap-2.5">
                   <span className="text-base">{item.icon}</span>
                   <div>
                     <p className="font-bold leading-tight">{item.titleAr}</p>
-                    <p className="text-[10px] text-slate-400 group-hover:text-[#714B67]/80 font-sans">{item.titleEn}</p>
+                    <p className="text-[10px] text-slate-400 group-hover:text-primary/80 font-sans">{item.titleEn}</p>
                   </div>
                 </div>
-                <span className="text-slate-300 group-hover:text-[#714B67] text-xs font-bold">←</span>
+                <span className="text-slate-300 group-hover:text-primary text-xs font-bold">←</span>
               </button>
             ))}
           </div>
@@ -125,7 +125,7 @@ export const PrintActionsMenu: React.FC<PrintActionsMenuProps> = ({
             <button
               type="button"
               onClick={() => handleTriggerPrint('manage_templates')}
-              className="w-full text-right px-3 py-2 text-xs font-bold text-[#714B67] hover:bg-[#714B67] hover:text-white rounded-lg flex items-center justify-between transition cursor-pointer"
+              className="w-full text-right px-3 py-2 text-xs font-bold text-primary hover:bg-primary hover:text-white rounded-lg flex items-center justify-between transition cursor-pointer"
             >
               <div className="flex items-center gap-2">
                 <span>⚙️</span>

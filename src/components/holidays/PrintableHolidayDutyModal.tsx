@@ -33,7 +33,7 @@ export const PrintableHolidayDutyModal: React.FC<PrintableHolidayDutyModalProps>
         {/* Actions Bar on top (Hidden during print) */}
         <div className="flex items-center justify-between border-b pb-4 mb-6 print:hidden">
           <div className="flex items-center gap-2">
-            <div className="p-2 bg-[#714B67]/10 text-[#714B67] rounded-lg">
+            <div className="p-2 bg-primary/10 text-primary rounded-lg">
               <Award size={18} />
             </div>
             <div>
@@ -45,7 +45,7 @@ export const PrintableHolidayDutyModal: React.FC<PrintableHolidayDutyModalProps>
             <button
               type="button"
               onClick={() => safePrintAction(`أمر_تكليف_${duty.employeeName}_${duty.dutyDate}`)}
-              className="px-4 py-2 bg-[#714B67] hover:bg-[#5a3a52] text-white rounded-xl font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+              className="px-4 py-2 bg-primary hover:bg-[#5a3a52] text-white rounded-xl font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
             >
               <Printer size={15} /> طباعة المستند (A4)
             </button>
@@ -90,7 +90,7 @@ export const PrintableHolidayDutyModal: React.FC<PrintableHolidayDutyModalProps>
 
           {/* Employee Information Grid */}
           <div className="space-y-2">
-            <div className="font-bold text-xs text-slate-900 border-r-4 border-[#714B67] pr-2">
+            <div className="font-bold text-xs text-slate-900 border-r-4 border-primary pr-2">
               أولاً: البيانات الأساسية للموظف المكلف
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50/80 p-3.5 rounded-lg border border-slate-200 font-mono text-[11px]">
@@ -115,7 +115,7 @@ export const PrintableHolidayDutyModal: React.FC<PrintableHolidayDutyModalProps>
 
           {/* Assignment & Compensation Details */}
           <div className="space-y-2">
-            <div className="font-bold text-xs text-slate-900 border-r-4 border-[#714B67] pr-2">
+            <div className="font-bold text-xs text-slate-900 border-r-4 border-primary pr-2">
               ثانياً: تفاصيل التكليف والتعويض المقرر (المادة 68)
             </div>
             

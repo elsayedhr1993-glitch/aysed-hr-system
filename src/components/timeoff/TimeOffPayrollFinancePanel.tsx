@@ -254,7 +254,7 @@ export const TimeOffPayrollFinancePanel: React.FC<Props> = ({ highlightAdvanceRe
           type="button"
           onClick={() => setFinanceSubTab('advance_salary')}
           className={`px-4 py-2 rounded-lg transition flex items-center gap-1.5 cursor-pointer ${
-            financeSubTab === 'advance_salary' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+            financeSubTab === 'advance_salary' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
           }`}
         >
           <Plane size={14} /> صرف راتب الإجازة مقدماً (مادة 71)
@@ -263,7 +263,7 @@ export const TimeOffPayrollFinancePanel: React.FC<Props> = ({ highlightAdvanceRe
           type="button"
           onClick={() => setFinanceSubTab('encashment_calculator')}
           className={`px-4 py-2 rounded-lg transition flex items-center gap-1.5 cursor-pointer ${
-            financeSubTab === 'encashment_calculator' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+            financeSubTab === 'encashment_calculator' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
           }`}
         >
           <Calculator size={14} /> تصفية وبيع رصيد الإجازات
@@ -326,7 +326,7 @@ export const TimeOffPayrollFinancePanel: React.FC<Props> = ({ highlightAdvanceRe
                       <tr
                         key={req.id}
                         id={`advance-pay-row-${req.id}`}
-                        className={`hover:bg-slate-50/70 transition ${isHighlighted ? 'ring-2 ring-[#714B67] bg-purple-50/40' : ''}`}
+                        className={`hover:bg-slate-50/70 transition ${isHighlighted ? 'ring-2 ring-primary bg-purple-50/40' : ''}`}
                       >
                         <td className="p-3.5 font-bold text-slate-900">{fin.employeeName}</td>
                         <td className="p-3.5 font-mono text-[10px]">
@@ -366,7 +366,7 @@ export const TimeOffPayrollFinancePanel: React.FC<Props> = ({ highlightAdvanceRe
                               req.settlementDone
                                 ? 'bg-emerald-100 text-emerald-800 cursor-default'
                                 : req.requestAdvanceSalaryArticle71
-                                  ? 'bg-[#714B67] hover:bg-[#5a3a52] text-white shadow-2xs cursor-pointer'
+                                  ? 'bg-primary hover:bg-[#5a3a52] text-white shadow-2xs cursor-pointer'
                                   : 'bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-200 cursor-pointer'
                             }`}
                           >
@@ -393,7 +393,7 @@ export const TimeOffPayrollFinancePanel: React.FC<Props> = ({ highlightAdvanceRe
         >
           <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-5 text-xs space-y-4">
             <h3 id="article71-modal-title" className="font-bold text-slate-900 text-sm flex items-center gap-2">
-              <Plane size={16} className="text-[#714B67]" />
+              <Plane size={16} className="text-primary" />
               طلب صرف راتب الإجازة مقدماً (مادة 71)
             </h3>
             <p className="text-slate-600 leading-relaxed">
@@ -427,7 +427,7 @@ export const TimeOffPayrollFinancePanel: React.FC<Props> = ({ highlightAdvanceRe
                 type="button"
                 disabled={article71Saving}
                 onClick={() => void submitArticle71AdvanceRequest()}
-                className="flex-1 bg-[#714B67] hover:bg-[#5a3a52] text-white font-bold py-2.5 rounded-xl cursor-pointer disabled:opacity-60"
+                className="flex-1 bg-primary hover:bg-[#5a3a52] text-white font-bold py-2.5 rounded-xl cursor-pointer disabled:opacity-60"
               >
                 {article71Saving ? 'جاري الحفظ…' : 'تفعيل الطلب وحفظه'}
               </button>

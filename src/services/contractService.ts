@@ -1,3 +1,4 @@
+import { tokens } from '../design/tokens';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
 
 export interface ContractData {
@@ -70,7 +71,7 @@ export const printKuwaitContractReport = (contract: ContractData) => {
         line-height: 1.6;
       }
       .a4-header {
-        border-bottom: 2px solid #714B67;
+        border-bottom: 2px solid ${tokens.color.primary};
         padding-bottom: 12px;
         margin-bottom: 18px;
         display: flex;
@@ -105,7 +106,7 @@ export const printKuwaitContractReport = (contract: ContractData) => {
       }
       .a4-table th {
         background: #f1f5f9;
-        color: #714B67;
+        color: ${tokens.color.primary};
         font-weight: bold;
         padding: 8px 10px;
         border: 1px solid #cbd5e1;
@@ -130,7 +131,7 @@ export const printKuwaitContractReport = (contract: ContractData) => {
     <div class="a4-document">
       <div class="a4-header">
         <div>
-          <h1 style="font-size: 18px; font-weight: bold; color: #714B67; margin: 0 0 4px 0;">عقد عمل كادر طبي وإداري</h1>
+          <h1 style="font-size: 18px; font-weight: bold; color: ${tokens.color.primary}; margin: 0 0 4px 0;">عقد عمل كادر طبي وإداري</h1>
           <p style="font-size: 11px; color: #64748b; margin: 0;">وفق أحكام القانون رقم 6 لسنة 2010 بشأن العمل في القطاع الأهلي بدولة الكويت</p>
         </div>
         <div class="a4-badge">
@@ -147,7 +148,7 @@ export const printKuwaitContractReport = (contract: ContractData) => {
         <div><strong>نوع العقد:</strong> ${contract.contractType}</div>
       </div>
 
-      <h3 style="font-weight: bold; font-size: 13px; margin: 0 0 8px 0; color: #714B67; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">جدول الأجور والمخصصات الشهرية:</h3>
+      <h3 style="font-weight: bold; font-size: 13px; margin: 0 0 8px 0; color: ${tokens.color.primary}; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">جدول الأجور والمخصصات الشهرية:</h3>
       <table class="a4-table">
         <thead>
           <tr>
@@ -155,7 +156,7 @@ export const printKuwaitContractReport = (contract: ContractData) => {
             <th>بدل السكن</th>
             <th>بدل الانتقال</th>
             <th>بدل كادر طبي</th>
-            <th style="color: #714B67;">إجمالي الراتب التعاقدي</th>
+            <th style="color: ${tokens.color.primary};">إجمالي الراتب التعاقدي</th>
           </tr>
         </thead>
         <tbody>
@@ -164,7 +165,7 @@ export const printKuwaitContractReport = (contract: ContractData) => {
             <td>${contract.housingAllowance.toFixed(3)} د.ك</td>
             <td>${contract.transportAllowance.toFixed(3)} د.ك</td>
             <td>${contract.medicalNatureAllowance.toFixed(3)} د.ك</td>
-            <td style="font-weight: bold; color: #714B67; background: #faf5ff;">${contract.totalWage.toFixed(3)} د.ك</td>
+            <td style="font-weight: bold; color: ${tokens.color.primary}; background: #faf5ff;">${contract.totalWage.toFixed(3)} د.ك</td>
           </tr>
         </tbody>
       </table>

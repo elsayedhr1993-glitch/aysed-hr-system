@@ -115,7 +115,7 @@ export const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
         {/* Header */}
         <div className="p-5 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-[#714B67]/10 text-[#714B67] rounded-xl">
+            <div className="p-2.5 bg-primary/10 text-primary rounded-xl">
               <Clock className="w-6 h-6" />
             </div>
             <div>
@@ -150,12 +150,12 @@ export const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
                 placeholder="تصفية الموظفين بالاسم أو الكود..."
                 value={searchEmp}
                 onChange={e => setSearchEmp(e.target.value)}
-                className="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs outline-none focus:border-[#714B67]"
+                className="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs outline-none focus:border-primary"
               />
               <select
                 value={employeeId}
                 onChange={e => setEmployeeId(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-[#714B67]"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-primary"
               >
                 {filteredEmployees.map(emp => (
                   <option key={emp.id} value={emp.id}>
@@ -231,7 +231,7 @@ export const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
             <select
               value={reason}
               onChange={e => setReason(e.target.value)}
-              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-[#714B67]"
+              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-primary"
             >
               {COMMON_REASONS.map((r, i) => (
                 <option key={i} value={r}>{r}</option>
@@ -269,7 +269,7 @@ export const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
               value={notes}
               onChange={e => setNotes(e.target.value)}
               placeholder="مثال: تم التأخير بناءً على تكليف المهمة رقم 402 الصادر من الإدارة..."
-              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-[#714B67]"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-primary"
             />
           </div>
 
@@ -284,7 +284,7 @@ export const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-[#714B67] hover:bg-[#5a3a52] text-white rounded-xl font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+              className="px-5 py-2 bg-primary hover:bg-[#5a3a52] text-white rounded-xl font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
             >
               <CheckCircle2 size={16} />
               <span>حفظ واعتماد الحركة</span>

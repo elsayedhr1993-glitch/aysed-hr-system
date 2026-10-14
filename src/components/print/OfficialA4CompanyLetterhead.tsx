@@ -54,7 +54,7 @@ export const OfficialA4CompanyLetterhead: React.FC<OfficialA4CompanyLetterheadPr
             <div
               className={`${logoClassName} rounded-lg border border-slate-300 bg-slate-50 flex items-center justify-center shrink-0`}
             >
-              <Building2 className="text-[#714B67]" size={28} />
+              <Building2 className="text-primary" size={28} />
             </div>
           )}
           <div className="space-y-1 min-w-0">

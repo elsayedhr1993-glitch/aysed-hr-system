@@ -79,7 +79,7 @@ export const ReturnToWorkModal: React.FC<ReturnToWorkModalProps> = ({
         <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 mb-4 space-y-2">
           <div className="flex items-center justify-between font-bold text-slate-900">
             <span className="flex items-center gap-1">
-              <User size={14} className="text-[#714B67]" />
+              <User size={14} className="text-primary" />
               {request.employeeName}
             </span>
             <span className="text-slate-500 text-[11px]">{request.department}</span>
@@ -112,7 +112,7 @@ export const ReturnToWorkModal: React.FC<ReturnToWorkModalProps> = ({
               required
               value={actualReturnDate}
               onChange={(e) => setActualReturnDate(e.target.value)}
-              className="w-full p-2.5 border border-slate-300 rounded-xl outline-none font-mono font-bold text-slate-900 focus:border-[#714B67] focus:ring-1 focus:ring-[#714B67]"
+              className="w-full p-2.5 border border-slate-300 rounded-xl outline-none font-mono font-bold text-slate-900 focus:border-primary focus:ring-1 focus:ring-primary"
             />
           </div>
 
@@ -152,7 +152,7 @@ export const ReturnToWorkModal: React.FC<ReturnToWorkModalProps> = ({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="اكتب أي ملاحظات تتعلق باستلام المهام أو جاهزية الموظف..."
-              className="w-full p-2.5 border border-slate-300 rounded-xl outline-none focus:border-[#714B67] text-xs"
+              className="w-full p-2.5 border border-slate-300 rounded-xl outline-none focus:border-primary text-xs"
             />
           </div>
 
@@ -162,7 +162,7 @@ export const ReturnToWorkModal: React.FC<ReturnToWorkModalProps> = ({
               id="handoverVerified"
               checked={handoverVerified}
               onChange={(e) => setHandoverVerified(e.target.checked)}
-              className="w-4 h-4 text-[#714B67] rounded focus:ring-[#714B67] cursor-pointer"
+              className="w-4 h-4 text-primary rounded focus:ring-primary cursor-pointer"
             />
             <label htmlFor="handoverVerified" className="text-[11px] font-bold text-slate-700 cursor-pointer">
               تم تسليم واسترداد كافة العهد والملفات من الموظف البديل ({request.replacementEmployee || 'البديل المكلف'})

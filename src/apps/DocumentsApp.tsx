@@ -306,7 +306,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
       {/* 1. Header Workspace Selector & Main Tabs */}
       <div className="bg-white border-b border-slate-200 px-6 py-3 flex flex-wrap items-center justify-between gap-4 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#714B67] text-white flex items-center justify-center shadow-xs">
+          <div className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center shadow-xs">
             <FolderOpen className="w-5 h-5" />
           </div>
           <div>
@@ -322,7 +322,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
                   الأرشيف الرقمي والوثائق
                 </UiStudioTarget>
               </h2>
-              <span className="bg-purple-100 text-[#714B67] text-[10px] font-bold px-2 py-0.5 rounded-full font-mono">
+              <span className="bg-purple-100 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full font-mono">
                 الأرشيف
               </span>
             </div>
@@ -338,7 +338,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
             onClick={() => setWorkspaceTab('EMPLOYEE_DOCS')}
             className={`px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
               workspaceTab === 'EMPLOYEE_DOCS'
-                ? 'bg-white text-[#714B67] shadow-xs'
+                ? 'bg-white text-primary shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -349,7 +349,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
             onClick={() => setWorkspaceTab('COMPANY_LICENSES')}
             className={`px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
               workspaceTab === 'COMPANY_LICENSES'
-                ? 'bg-white text-[#714B67] shadow-xs'
+                ? 'bg-white text-primary shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -360,7 +360,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
             <button
               type="button"
               onClick={() => setCompanyLicenseAddNonce(Date.now())}
-              className="mr-2 bg-[#714B67] hover:bg-[#5c3c53] text-white text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 shadow-sm"
+              className="mr-2 bg-primary hover:bg-[#5c3c53] text-white text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 shadow-sm"
             >
               <Plus className="w-4 h-4" />
               إضافة ترخيص
@@ -378,7 +378,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
             <div 
               onClick={() => setStatusFilter('ALL')}
               className={`p-3 rounded-xl border transition cursor-pointer flex items-center justify-between ${
-                statusFilter === 'ALL' ? 'border-[#714B67] bg-purple-50/50' : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100/70'
+                statusFilter === 'ALL' ? 'border-primary bg-purple-50/50' : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100/70'
               }`}
             >
               <div>
@@ -463,7 +463,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
             <div className="p-3.5 border-b border-slate-200 space-y-2">
               <button 
                 onClick={() => setShowUploadModal(true)} 
-                className="w-full bg-[#714B67] hover:bg-[#5a3a51] text-white font-bold py-2.5 px-3 rounded-xl shadow-xs flex items-center justify-center gap-2 text-xs transition cursor-pointer"
+                className="w-full bg-primary hover:bg-[#5a3a51] text-white font-bold py-2.5 px-3 rounded-xl shadow-xs flex items-center justify-center gap-2 text-xs transition cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 <span>رفع وأرشفة مستند جديد</span>
@@ -472,7 +472,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
                 onClick={handleOpenScanner}
                 className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-2 px-3 rounded-xl border border-slate-200 flex items-center justify-center gap-2 text-xs transition cursor-pointer"
               >
-                <Scan className="w-3.5 h-3.5 text-[#714B67]" />
+                <Scan className="w-3.5 h-3.5 text-primary" />
                 <span>مسح ضوئي ذكي (OCR)</span>
               </button>
             </div>
@@ -482,13 +482,13 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
               
               <section>
                 <header className="font-bold text-slate-700 text-xs mb-2.5 flex items-center gap-2">
-                  <FolderOpen className="w-4 h-4 text-[#714B67]"/> المجلدات والتصنيفات
+                  <FolderOpen className="w-4 h-4 text-primary"/> المجلدات والتصنيفات
                 </header>
                 <ul className="space-y-1 text-xs font-semibold">
                   <li 
                     onClick={() => setActiveFolder('ALL')} 
                     className={`p-2 rounded-xl cursor-pointer transition flex items-center justify-between ${
-                      activeFolder === 'ALL' ? 'bg-[#714B67] text-white shadow-xs' : 'hover:bg-slate-100 text-slate-700'
+                      activeFolder === 'ALL' ? 'bg-primary text-white shadow-xs' : 'hover:bg-slate-100 text-slate-700'
                     }`}
                   >
                     <span>كافة الوثائق (All)</span>
@@ -497,7 +497,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
                   <li 
                     onClick={() => setActiveFolder('IDS')} 
                     className={`p-2 rounded-xl cursor-pointer transition flex items-center justify-between ${
-                      activeFolder === 'IDS' ? 'bg-[#714B67] text-white shadow-xs' : 'hover:bg-slate-100 text-slate-700'
+                      activeFolder === 'IDS' ? 'bg-primary text-white shadow-xs' : 'hover:bg-slate-100 text-slate-700'
                     }`}
                   >
                     <span>البطاقات المدنية والجوازات</span>
@@ -508,7 +508,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
                   <li 
                     onClick={() => setActiveFolder('RESIDENCY')} 
                     className={`p-2 rounded-xl cursor-pointer transition flex items-center justify-between ${
-                      activeFolder === 'RESIDENCY' ? 'bg-[#714B67] text-white shadow-xs' : 'hover:bg-slate-100 text-slate-700'
+                      activeFolder === 'RESIDENCY' ? 'bg-primary text-white shadow-xs' : 'hover:bg-slate-100 text-slate-700'
                     }`}
                   >
                     <span>الإقامات وتأشيرات العمل</span>
@@ -519,7 +519,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
                   <li 
                     onClick={() => setActiveFolder('CONTRACTS')} 
                     className={`p-2 rounded-xl cursor-pointer transition flex items-center justify-between ${
-                      activeFolder === 'CONTRACTS' ? 'bg-[#714B67] text-white shadow-xs' : 'hover:bg-slate-100 text-slate-700'
+                      activeFolder === 'CONTRACTS' ? 'bg-primary text-white shadow-xs' : 'hover:bg-slate-100 text-slate-700'
                     }`}
                   >
                     <span>عقود العمل الحكومية (PAM)</span>
@@ -530,7 +530,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
                   <li 
                     onClick={() => setActiveFolder('MEDICAL')} 
                     className={`p-2 rounded-xl cursor-pointer transition flex items-center justify-between ${
-                      activeFolder === 'MEDICAL' ? 'bg-[#714B67] text-white shadow-xs' : 'hover:bg-slate-100 text-slate-700'
+                      activeFolder === 'MEDICAL' ? 'bg-primary text-white shadow-xs' : 'hover:bg-slate-100 text-slate-700'
                     }`}
                   >
                     <span>تراخيص الصحة ومزاولة المهنة</span>
@@ -544,7 +544,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
               {/* Activities section */}
               <section>
                 <header className="font-bold text-slate-700 text-xs mb-2.5 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-[#714B67]"/> المتابعة والأنشطة (Activities)
+                  <Calendar className="w-4 h-4 text-primary"/> المتابعة والأنشطة (Activities)
                 </header>
                 <ul className="space-y-1 text-xs font-semibold">
                   <li 
@@ -583,7 +583,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
                     placeholder="ابحث بالاسم، الرقم المدني، رقم الوثيقة..." 
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-8 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:border-[#714B67] focus:bg-white transition"
+                    className="w-full pl-8 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:border-primary focus:bg-white transition"
                   />
                   <Search className="w-4 h-4 text-slate-400 absolute right-3 top-2.5" />
                   {searchTerm && (
@@ -605,7 +605,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
                 <select
                   value={departmentFilter}
                   onChange={(e) => setDepartmentFilter(e.target.value)}
-                  className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 outline-none focus:border-[#714B67] cursor-pointer"
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 outline-none focus:border-primary cursor-pointer"
                 >
                   <option value="ALL">كافة الأقسام</option>
                   {departments.map(d => (
@@ -622,7 +622,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
                   <button
                     onClick={() => setViewMode('kanban')}
                     className={`p-1.5 rounded-lg transition ${
-                      viewMode === 'kanban' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-500 hover:text-slate-900'
+                      viewMode === 'kanban' ? 'bg-white text-primary shadow-xs' : 'text-slate-500 hover:text-slate-900'
                     }`}
                     title="عرض البطاقات (Kanban)"
                   >
@@ -631,7 +631,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
                   <button
                     onClick={() => setViewMode('list')}
                     className={`p-1.5 rounded-lg transition ${
-                      viewMode === 'list' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-500 hover:text-slate-900'
+                      viewMode === 'list' ? 'bg-white text-primary shadow-xs' : 'text-slate-500 hover:text-slate-900'
                     }`}
                     title="عرض الجدول المفصل (List)"
                   >
@@ -652,7 +652,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
                 {/* Print Report */}
                 <button
                   onClick={() => setShowPrintModal(true)}
-                  className="bg-[#714B67] hover:bg-[#5a3a51] text-white px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  className="bg-primary hover:bg-[#5a3a51] text-white px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
                   title="طباعة التقرير الرسمي A4"
                 >
                   <Printer className="w-4 h-4" />
@@ -714,7 +714,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
                             <div className="flex items-center gap-1">
                               <button
                                 onClick={() => setSelectedDocForPreview(doc)}
-                                className="p-1.5 text-slate-400 hover:text-[#714B67] hover:bg-slate-100 rounded-lg transition"
+                                className="p-1.5 text-slate-400 hover:text-primary hover:bg-slate-100 rounded-lg transition"
                                 title="معاينة المستند"
                               >
                                 <Eye className="w-4 h-4" />
@@ -735,7 +735,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
 
                           <h4 
                             onClick={() => setSelectedDocForPreview(doc)}
-                            className="font-bold text-slate-900 text-sm line-clamp-1 hover:text-[#714B67] cursor-pointer transition"
+                            className="font-bold text-slate-900 text-sm line-clamp-1 hover:text-primary cursor-pointer transition"
                             title={doc.title}
                           >
                             {employeeDocumentTypeLabel(doc)}
@@ -810,10 +810,10 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
                           <tr key={doc.id} className={`hover:bg-purple-50/30 transition ${idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}`}>
                             <td className="p-3.5 font-bold text-slate-900">
                               <div className="flex items-center gap-2">
-                                <FileText className="w-4 h-4 text-[#714B67]" />
+                                <FileText className="w-4 h-4 text-primary" />
                                 <span 
                                   onClick={() => setSelectedDocForPreview(doc)} 
-                                  className="hover:text-[#714B67] cursor-pointer whitespace-nowrap"
+                                  className="hover:text-primary cursor-pointer whitespace-nowrap"
                                   title={doc.title}
                                 >
                                   {employeeDocumentTypeLabel(doc)}
@@ -853,7 +853,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
                               <div className="flex items-center justify-center gap-1">
                                 <button
                                   onClick={() => setSelectedDocForPreview(doc)}
-                                  className="p-1.5 text-slate-400 hover:text-[#714B67] hover:bg-slate-100 rounded-lg transition"
+                                  className="p-1.5 text-slate-400 hover:text-primary hover:bg-slate-100 rounded-lg transition"
                                   title="معاينة"
                                 >
                                   <Eye className="w-3.5 h-3.5" />
@@ -883,12 +883,12 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
               {/* Empty state */}
               {filteredDocs.length === 0 && (
                 <div className="text-center py-20 bg-white rounded-2xl border border-slate-200 text-slate-400">
-                  <FolderOpen className="w-16 h-16 mx-auto mb-3 opacity-30 text-[#714B67]" />
+                  <FolderOpen className="w-16 h-16 mx-auto mb-3 opacity-30 text-primary" />
                   <h4 className="font-bold text-slate-700 text-base mb-1">لا توجد مستندات مطابقة في هذا المجلد</h4>
                   <p className="text-xs text-slate-400 mb-4">جرّب تغيير معايير البحث أو رفع مستند جديد عبر الزر المخصص</p>
                   <button
                     onClick={() => setShowUploadModal(true)}
-                    className="inline-flex items-center gap-2 bg-[#714B67] hover:bg-[#5a3a51] text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
+                    className="inline-flex items-center gap-2 bg-primary hover:bg-[#5a3a51] text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
                   >
                     <Plus className="w-4 h-4" /> رفع وأرشفة مستند الآن
                   </button>

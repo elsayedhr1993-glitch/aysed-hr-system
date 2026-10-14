@@ -27,7 +27,7 @@ export const OdooOrgChartView: React.FC = () => {
   const buildDynamicOrgTree = (): OrgNode | null => {
     if (!employees || employees.length === 0) return null;
 
-    const colors = ['bg-[#714B67]', 'bg-blue-600', 'bg-emerald-600', 'bg-amber-600', 'bg-purple-600'];
+    const colors = ['bg-primary', 'bg-blue-600', 'bg-emerald-600', 'bg-amber-600', 'bg-purple-600'];
 
     // إذا وُجد مدير أو موظف أول نجعله الجذع الرئيسي
     const rootEmp = employees[0];
@@ -64,14 +64,14 @@ export const OdooOrgChartView: React.FC = () => {
     return (
       <div className="flex flex-col items-center">
         {/* بطاقة الموظف */}
-        <div className={`w-64 bg-white rounded-2xl border-2 ${isRoot ? 'border-[#714B67] shadow-md ring-4 ring-[#714B67]/10' : 'border-slate-300 shadow-sm'} p-4 text-right transition hover:shadow-lg relative z-10`}>
+        <div className={`w-64 bg-white rounded-2xl border-2 ${isRoot ? 'border-primary shadow-md ring-4 ring-primary/10' : 'border-slate-300 shadow-sm'} p-4 text-right transition hover:shadow-lg relative z-10`}>
           <div className="flex items-start gap-3">
-            <div className={`w-10 h-10 rounded-xl ${node.avatarBg || 'bg-[#714B67]'} text-white flex items-center justify-center font-bold text-sm shrink-0`}>
+            <div className={`w-10 h-10 rounded-xl ${node.avatarBg || 'bg-primary'} text-white flex items-center justify-center font-bold text-sm shrink-0`}>
               {node.name.slice(0, 2)}
             </div>
             <div className="overflow-hidden">
               <h4 className="font-bold text-xs text-slate-900 truncate">{node.name}</h4>
-              <p className="text-[10px] text-[#714B67] font-bold truncate">{node.jobTitle}</p>
+              <p className="text-[10px] text-primary font-bold truncate">{node.jobTitle}</p>
               <span className="inline-block bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded text-[9px] font-mono mt-1">
                 {node.department}
               </span>
@@ -80,7 +80,7 @@ export const OdooOrgChartView: React.FC = () => {
 
           <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500 font-mono">
             <span>{node.phone || 'N/A'}</span>
-            <span className="bg-purple-100 text-[#714B67] px-1.5 py-0.5 rounded font-bold">{node.id}</span>
+            <span className="bg-purple-100 text-primary px-1.5 py-0.5 rounded font-bold">{node.id}</span>
           </div>
         </div>
 
@@ -88,18 +88,18 @@ export const OdooOrgChartView: React.FC = () => {
         {node.subordinates && node.subordinates.length > 0 && (
           <div className="flex flex-col items-center w-full">
             {/* خط رأسي من المدير */}
-            <div className="w-1 h-8 bg-[#714B67]/40"></div>
+            <div className="w-1 h-8 bg-primary/40"></div>
 
             {/* المسار الأفقي */}
             <div className="flex justify-center relative w-full pt-4">
               {node.subordinates.length > 1 && (
-                <div className="absolute top-0 left-1/4 right-1/4 h-1 bg-[#714B67]/40"></div>
+                <div className="absolute top-0 left-1/4 right-1/4 h-1 bg-primary/40"></div>
               )}
               
               <div className="flex gap-10 flex-wrap justify-center">
                 {node.subordinates.map((child) => (
                   <div key={child.id} className="relative flex flex-col items-center">
-                    <div className="w-1 h-4 bg-[#714B67]/40 absolute -top-4"></div>
+                    <div className="w-1 h-4 bg-primary/40 absolute -top-4"></div>
                     <RenderEmployeeCard node={child} />
                   </div>
                 ))}
@@ -116,13 +116,13 @@ export const OdooOrgChartView: React.FC = () => {
       {/* Header */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-[#714B67]/10 text-[#714B67] rounded-xl">
+          <div className="p-2.5 bg-primary/10 text-primary rounded-xl">
             <Network className="w-6 h-6" />
           </div>
           <div>
             <h1 className="text-xl font-black text-slate-900">الهيكل التنظيمي</h1>
             <p className="text-xs text-slate-500 font-medium">
-              المنشأة: <strong className="text-[#714B67]">{activeCompany?.nameAr || activeCompany?.name || 'المنشأة النشطة'}</strong> | عرض تسلسل التبعية الإدارية والمستويات الإشرافية
+              المنشأة: <strong className="text-primary">{activeCompany?.nameAr || activeCompany?.name || 'المنشأة النشطة'}</strong> | عرض تسلسل التبعية الإدارية والمستويات الإشرافية
             </p>
           </div>
         </div>

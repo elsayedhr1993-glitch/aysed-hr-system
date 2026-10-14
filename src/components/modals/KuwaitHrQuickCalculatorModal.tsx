@@ -243,7 +243,7 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
       <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden border border-slate-200 animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
         
         {/* Header */}
-        <div className="p-4 bg-[#714B67] text-white flex justify-between items-center shrink-0">
+        <div className="p-4 bg-primary text-white flex justify-between items-center shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
               <Calculator size={18} className="text-white" />
@@ -267,11 +267,11 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
             onClick={() => setActiveTab('eos')}
             className={`px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all flex items-center gap-1.5 cursor-pointer border-t border-x ${
               activeTab === 'eos'
-                ? 'bg-white text-[#714B67] border-slate-200 -mb-px font-black shadow-xs'
+                ? 'bg-white text-primary border-slate-200 -mb-px font-black shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 border-transparent hover:bg-slate-100/80'
             }`}
           >
-            <Scale size={15} className="text-[#714B67]" />
+            <Scale size={15} className="text-primary" />
             <span>نهاية الخدمة (مادة 51 و 53)</span>
           </button>
 
@@ -279,11 +279,11 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
             onClick={() => setActiveTab('wage')}
             className={`px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all flex items-center gap-1.5 cursor-pointer border-t border-x ${
               activeTab === 'wage'
-                ? 'bg-white text-[#714B67] border-slate-200 -mb-px font-black shadow-xs'
+                ? 'bg-white text-primary border-slate-200 -mb-px font-black shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 border-transparent hover:bg-slate-100/80'
             }`}
           >
-            <Clock size={15} className="text-[#714B67]" />
+            <Clock size={15} className="text-primary" />
             <span>الأجر اليومي والإضافي (مادة 56)</span>
           </button>
 
@@ -291,11 +291,11 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
             onClick={() => setActiveTab('leave')}
             className={`px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all flex items-center gap-1.5 cursor-pointer border-t border-x ${
               activeTab === 'leave'
-                ? 'bg-white text-[#714B67] border-slate-200 -mb-px font-black shadow-xs'
+                ? 'bg-white text-primary border-slate-200 -mb-px font-black shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 border-transparent hover:bg-slate-100/80'
             }`}
           >
-            <Calendar size={15} className="text-[#714B67]" />
+            <Calendar size={15} className="text-primary" />
             <span>تسييل الإجازات</span>
           </button>
 
@@ -313,7 +313,7 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
                   onClick={() => setEosMode('employee')}
                   className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border cursor-pointer ${
                     eosMode === 'employee'
-                      ? 'bg-[#714B67] text-white border-[#714B67]'
+                      ? 'bg-primary text-white border-primary'
                       : 'bg-white text-slate-600 border-slate-200'
                   }`}
                 >
@@ -350,7 +350,7 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
                       setSelectedEmployeeId(e.target.value);
                       setEosLeaveDaysTouched(false);
                     }}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 text-xs font-bold text-slate-900 focus:outline-none focus:border-[#714B67] bg-slate-50"
+                    className="w-full border border-slate-300 rounded-xl p-2.5 text-xs font-bold text-slate-900 focus:outline-none focus:border-primary bg-slate-50"
                   >
                     {companyEmployees.length === 0 ? (
                       <option value="">لا يوجد موظفون للشركة النشطة</option>
@@ -376,7 +376,7 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
                     value={eosJoinDate}
                     onChange={(e) => setEosJoinDate(e.target.value)}
                     disabled={eosMode === 'employee'}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold text-slate-900 focus:outline-none focus:border-[#714B67] bg-slate-50 disabled:opacity-70"
+                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold text-slate-900 focus:outline-none focus:border-primary bg-slate-50 disabled:opacity-70"
                   />
                   <span className="text-[10px] text-slate-500">hireDate → commencement → joinDate</span>
                 </div>
@@ -387,7 +387,7 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
                     type="date"
                     value={eosLeaveDate}
                     onChange={(e) => setEosLeaveDate(e.target.value)}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold text-slate-900 focus:outline-none focus:border-[#714B67] bg-slate-50"
+                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold text-slate-900 focus:outline-none focus:border-primary bg-slate-50"
                   />
                 </div>
 
@@ -399,7 +399,7 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
                     step="0.001"
                     value={eosSalary}
                     onChange={(e) => setEosSalary(Math.max(0, Number(e.target.value)))}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold text-slate-900 focus:outline-none focus:border-[#714B67] bg-slate-50"
+                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold text-slate-900 focus:outline-none focus:border-primary bg-slate-50"
                   />
                   <span className="text-[10px] text-slate-500">أساسي + بدلات ثابتة (÷ 26 للأجر اليومي)</span>
                 </div>
@@ -409,7 +409,7 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
                   <select
                     value={eosTerminationType}
                     onChange={(e) => setEosTerminationType(e.target.value as EosTerminationType)}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 text-xs font-bold text-slate-900 focus:outline-none focus:border-[#714B67] bg-slate-50"
+                    className="w-full border border-slate-300 rounded-xl p-2.5 text-xs font-bold text-slate-900 focus:outline-none focus:border-primary bg-slate-50"
                   >
                     <option value="TERMINATION">إنهاء من صاحب العمل / فصل</option>
                     <option value="CONTRACT_EXPIRED">انتهاء مدة العقد</option>
@@ -429,7 +429,7 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
                       setEosLeaveDaysTouched(true);
                       setEosUnusedLeaveDays(Math.max(0, Number(e.target.value)));
                     }}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold text-slate-900 focus:outline-none focus:border-[#714B67] bg-slate-50"
+                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold text-slate-900 focus:outline-none focus:border-primary bg-slate-50"
                   />
                   {leaveSnapshot && eosMode === 'employee' && (
                     <span className="text-[10px] text-emerald-700">
@@ -446,7 +446,7 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
                     step="0.5"
                     value={eosUnpaidLeaveDays}
                     onChange={(e) => setEosUnpaidLeaveDays(Math.max(0, Number(e.target.value)))}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold text-slate-900 focus:outline-none focus:border-[#714B67] bg-slate-50"
+                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold text-slate-900 focus:outline-none focus:border-primary bg-slate-50"
                   />
                 </div>
               </div>
@@ -461,7 +461,7 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
                 <div className="bg-gradient-to-br from-purple-50 via-slate-50 to-emerald-50 rounded-2xl p-4 border border-purple-200/80 shadow-xs space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="font-bold text-slate-700 text-xs">إجمالي التسوية (مكافأة + تسييل إجازة):</span>
-                    <div className="text-xl font-black text-[#714B67] font-mono">
+                    <div className="text-xl font-black text-primary font-mono">
                       {eosEngineResult.totalSettlement.toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}{' '}
                       <span className="text-xs font-bold text-slate-500">د.ك</span>
                     </div>
@@ -541,7 +541,7 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
                     step="10"
                     value={wageSalary}
                     onChange={(e) => setWageSalary(Math.max(0, Number(e.target.value)))}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold text-slate-900 focus:outline-none focus:border-[#714B67] bg-slate-50 focus:bg-white"
+                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold text-slate-900 focus:outline-none focus:border-primary bg-slate-50 focus:bg-white"
                   />
                 </div>
 
@@ -553,7 +553,7 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
                     max="31"
                     value={wageDivisor}
                     onChange={(e) => setWageDivisor(Number(e.target.value))}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold text-slate-900 focus:outline-none focus:border-[#714B67] bg-slate-50 focus:bg-white"
+                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold text-slate-900 focus:outline-none focus:border-primary bg-slate-50 focus:bg-white"
                   />
                   <span className="text-[10px] text-slate-500">26 يوماً حسب المادة 56 من القانون</span>
                 </div>
@@ -566,7 +566,7 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
                     max="12"
                     value={workHoursPerDay}
                     onChange={(e) => setWorkHoursPerDay(Number(e.target.value))}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold text-slate-900 focus:outline-none focus:border-[#714B67] bg-slate-50 focus:bg-white"
+                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold text-slate-900 focus:outline-none focus:border-primary bg-slate-50 focus:bg-white"
                   />
                   <span className="text-[10px] text-slate-500">الحد الأقصى القانوني: 8 ساعات (48 أسبوعياً)</span>
                 </div>
@@ -612,7 +612,7 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
                     step="0.5"
                     value={otDayHours}
                     onChange={(e) => setOtDayHours(Math.max(0, Number(e.target.value)))}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold focus:outline-none focus:border-[#714B67] bg-slate-50"
+                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold focus:outline-none focus:border-primary bg-slate-50"
                   />
                 </div>
                 <div>
@@ -623,7 +623,7 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
                     step="0.5"
                     value={otNightHours}
                     onChange={(e) => setOtNightHours(Math.max(0, Number(e.target.value)))}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold focus:outline-none focus:border-[#714B67] bg-slate-50"
+                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold focus:outline-none focus:border-primary bg-slate-50"
                   />
                 </div>
               </div>
@@ -653,7 +653,7 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
                     step="10"
                     value={leaveSalary}
                     onChange={(e) => setLeaveSalary(Math.max(0, Number(e.target.value)))}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold text-slate-900 focus:outline-none focus:border-[#714B67] bg-slate-50 focus:bg-white"
+                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold text-slate-900 focus:outline-none focus:border-primary bg-slate-50 focus:bg-white"
                   />
                 </div>
 
@@ -665,7 +665,7 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
                     max="180"
                     value={leaveDaysBalance}
                     onChange={(e) => setLeaveDaysBalance(Number(e.target.value))}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold text-slate-900 focus:outline-none focus:border-[#714B67] bg-slate-50 focus:bg-white"
+                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold text-slate-900 focus:outline-none focus:border-primary bg-slate-50 focus:bg-white"
                   />
                 </div>
 
@@ -677,7 +677,7 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
                     max="31"
                     value={leaveDivisor}
                     onChange={(e) => setLeaveDivisor(Number(e.target.value))}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold text-slate-900 focus:outline-none focus:border-[#714B67] bg-slate-50 focus:bg-white"
+                    className="w-full border border-slate-300 rounded-xl p-2.5 font-mono text-sm font-bold text-slate-900 focus:outline-none focus:border-primary bg-slate-50 focus:bg-white"
                   />
                   <span className="text-[10px] text-slate-500">26 يوماً (المعتمد في الكويت)</span>
                 </div>

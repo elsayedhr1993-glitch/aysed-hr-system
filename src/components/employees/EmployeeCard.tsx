@@ -62,7 +62,7 @@ export const EmployeeCard: React.FC<EmployeeCardProps> = ({
       ? 'border-rose-300 bg-rose-50/30 hover:border-rose-400'
       : hasDocAlert
         ? 'border-amber-300 bg-amber-50/20 hover:border-amber-400'
-        : 'border-[#dee2e6] hover:border-[#714B67]/35';
+        : 'border-[#dee2e6] hover:border-primary/35';
 
   const email = String(
     employee.email || (employee as { workEmail?: string }).workEmail || ''
@@ -102,7 +102,7 @@ export const EmployeeCard: React.FC<EmployeeCardProps> = ({
             />
           ) : (
             <div
-              className={`w-full h-full flex items-center justify-center text-white font-bold text-lg ${employee.avatarColor || 'bg-[#714B67]'}`}
+              className={`w-full h-full flex items-center justify-center text-white font-bold text-lg ${employee.avatarColor || 'bg-primary'}`}
             >
               {initials}
             </div>
@@ -112,7 +112,7 @@ export const EmployeeCard: React.FC<EmployeeCardProps> = ({
         <div className="min-w-0 flex-1 flex flex-col gap-1">
           <div className="flex items-start justify-between gap-2">
             <h3
-              className="font-semibold text-[#212529] text-[15px] leading-snug line-clamp-2 group-hover:text-[#714B67] transition-colors"
+              className="font-semibold text-[#212529] text-[15px] leading-snug line-clamp-2 group-hover:text-primary transition-colors"
               title={displayName}
             >
               {displayName}

@@ -64,13 +64,13 @@ export const DocumentCompliancePrintModal: React.FC<DocumentCompliancePrintModal
         {/* Modal Action Bar (Hidden on Print) */}
         <div className="no-print p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 print:hidden">
           <div className="flex items-center gap-2">
-            <Printer className="w-5 h-5 text-[#714B67]" />
+            <Printer className="w-5 h-5 text-primary" />
             <span className="font-bold text-slate-800 text-sm">معاينة التقرير الرسمي لطباعة الأرشيف والامتثال الحكومي (A4)</span>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={handlePrint}
-              className="bg-[#714B67] hover:bg-[#5a3a51] text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+              className="bg-primary hover:bg-[#5a3a51] text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
             >
               <Printer className="w-4 h-4" /> طباعة المستند (Print)
             </button>

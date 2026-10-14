@@ -50,7 +50,7 @@ export const EmployeeContractTab: React.FC<Props> = ({
             <button
               type="button"
               onClick={onOpenPamModal}
-              className="bg-[#714B67] hover:bg-[#5a3b52] text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+              className="bg-primary hover:bg-[#5a3b52] text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
             >
               <span>👁️ معاينة العقد الأهلي الصادر من (PAM)</span>
             </button>
@@ -85,7 +85,7 @@ export const EmployeeContractTab: React.FC<Props> = ({
         <div className="space-y-4">
           <div className="border-b border-slate-100 pb-2 mb-2">
             <h5 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-[#714B67]"></span>
+              <span className="w-2 h-2 rounded-full bg-primary"></span>
               <span>بنود وفترة العقد</span>
             </h5>
           </div>
@@ -132,7 +132,7 @@ export const EmployeeContractTab: React.FC<Props> = ({
       <div className="pt-6 border-t border-slate-200 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-slate-100">
           <span className="text-xs font-bold text-slate-900">💰 حزمة الراتب والبدلات الشهرية</span>
-          <span className="font-mono text-[#714B67] font-bold text-sm">
+          <span className="font-mono text-primary font-bold text-sm">
             الأجر الشامل: {totalSalary.toFixed(3)} د.ك
           </span>
         </div>

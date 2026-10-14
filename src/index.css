@@ -2,6 +2,15 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Tajawal:wght@400;500;700&display=swap');
 @import "tailwindcss";
 
+@theme {
+  /* Fallback until applyDesignTokens() runs. Change the color in src/design/tokens.ts. */
+  --color-primary: #714B67;
+  --color-success: #059669;
+  --color-warning: #D97706;
+  --color-danger: #E11D48;
+  --font-sans: "Cairo", "Inter", "Tajawal", sans-serif;
+}
+
 html, body, #root {
   width: 100%;
   max-width: 100%;
@@ -675,11 +684,6 @@ div[class*="border"] {
   border-color: #cbd5e1 !important;
 }
 
-/* 4. تثبيت لون وهوية التحديد للموظف النشط (Solid Active State) */
-.bg-\[\#714B67\] {
-  background-color: #714B67 !important;
-}
-
 /* ضمان وضوح وتباين خطوط حقول الإدخال والاختيار في كافة النماذج وشاشات طلب الاشتراك */
 input:not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]),
 select,
@@ -1139,7 +1143,7 @@ table {
     display: flex !important;
     justify-content: space-between !important;
     align-items: center !important;
-    border-bottom: 2px solid #714B67 !important;
+    border-bottom: 2px solid var(--color-primary) !important;
     padding-bottom: 12px !important;
     margin-bottom: 20px !important;
   }
@@ -1173,7 +1177,7 @@ table {
   }
 
   .odoo-report-sheet--framed {
-    border: 1px solid #714b67 !important;
+    border: 1px solid var(--color-primary) !important;
     padding: 4mm !important;
   }
 }

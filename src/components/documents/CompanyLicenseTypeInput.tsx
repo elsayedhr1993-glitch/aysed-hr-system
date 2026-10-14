@@ -12,7 +12,7 @@ interface CompanyLicenseTypeInputProps {
 export const CompanyLicenseTypeInput: React.FC<CompanyLicenseTypeInputProps> = ({
   value,
   onChange,
-  className = 'w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#714B67] bg-white',
+  className = 'w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white',
   listId = 'company-license-type-suggestions',
 }) => (
   <>

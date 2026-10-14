@@ -1,3 +1,4 @@
+import { tokens } from '../design/tokens';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
 
 export interface CommencementData {
@@ -119,8 +120,8 @@ export const printCommencementReport = (data: CommencementData) => {
               <td>${data.jobTitleAr} — (${data.departmentAr})</td>
             </tr>
             <tr>
-              <td class="label-col" style="color: #714B67;">تاريخ المباشرة الفعلي:</td>
-              <td><span dir="ltr" style="font-family: monospace; font-weight: bold; color: #714B67; font-size: 13px;">${data.commencementDate}</span></td>
+              <td class="label-col" style="color: ${tokens.color.primary};">تاريخ المباشرة الفعلي:</td>
+              <td><span dir="ltr" style="font-family: monospace; font-weight: bold; color: ${tokens.color.primary}; font-size: 13px;">${data.commencementDate}</span></td>
             </tr>
             <tr>
               <td class="label-col">ترخيص مزاولة المهنة (MOH):</td>

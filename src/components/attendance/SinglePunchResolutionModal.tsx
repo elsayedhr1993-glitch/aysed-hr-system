@@ -128,7 +128,7 @@ export const SinglePunchResolutionModal: React.FC<SinglePunchResolutionModalProp
             <select
               value={reason}
               onChange={e => setReason(e.target.value)}
-              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-[#714B67]"
+              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-primary"
             >
               {COMMON_RESOLVE_REASONS.map((r, i) => (
                 <option key={i} value={r}>{r}</option>

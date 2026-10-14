@@ -134,7 +134,7 @@ export const UiStudioInspectorSidebar: React.FC = () => {
       dir="rtl"
       aria-label="لوحة التخصيص"
     >
-      <header className="shrink-0 px-3 py-2.5 border-b border-slate-200 bg-[#714B67] text-white flex items-center justify-between gap-2">
+      <header className="shrink-0 px-3 py-2.5 border-b border-slate-200 bg-primary text-white flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <Sparkles size={16} className="shrink-0 text-amber-200" />
           <div className="min-w-0">
@@ -168,7 +168,7 @@ export const UiStudioInspectorSidebar: React.FC = () => {
             <div className="mt-1.5 text-[10px] text-slate-500">
               الشركة: <span className="font-mono font-bold text-slate-800">{studioCompanyId || '—'}</span>
             </div>
-            <div className="mt-1.5 inline-flex text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#714B67]/10 text-[#714B67]">
+            <div className="mt-1.5 inline-flex text-[9px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary">
               {kindLabel[selection.kind || selection.defaults.kind || 'label'] || 'عنصر'}
             </div>
           </div>
@@ -224,7 +224,7 @@ export const UiStudioInspectorSidebar: React.FC = () => {
               checked={visible}
               disabled={resolved?.locked}
               onChange={e => setVisible(e.target.checked)}
-              className="rounded border-slate-300 text-[#714B67] focus:ring-[#714B67]"
+              className="rounded border-slate-300 text-primary focus:ring-primary"
             />
           </div>
 
@@ -248,7 +248,7 @@ export const UiStudioInspectorSidebar: React.FC = () => {
           type="button"
           disabled={!selection || !isDirty || saving}
           onClick={() => void handleSave()}
-          className="flex-1 py-2 rounded-lg bg-[#714B67] text-white font-bold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1"
+          className="flex-1 py-2 rounded-lg bg-primary text-white font-bold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1"
         >
           <Save size={14} />
           {saving ? 'جاري الحفظ…' : 'حفظ'}

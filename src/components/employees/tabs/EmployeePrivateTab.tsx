@@ -116,7 +116,7 @@ export const EmployeePrivateTab: React.FC<Props> = ({
             type="text"
             value={employee.address || ''}
             onChange={(e) => handleFieldChange('address', e.target.value)}
-            className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-3 py-1.5 font-bold text-slate-900 bg-white focus:outline-none text-sm"
+            className="w-full border border-slate-300 focus:border-primary rounded-lg px-3 py-1.5 font-bold text-slate-900 bg-white focus:outline-none text-sm"
             placeholder="المحافظة، المنطقة، قطعة..."
           />
         ) : (
@@ -220,7 +220,7 @@ export const EmployeePrivateTab: React.FC<Props> = ({
         <div className="space-y-4">
           <div className="border-b border-slate-200 pb-2 mb-4">
             <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-[#714B67]"></span>
+              <span className="w-2 h-2 rounded-full bg-primary"></span>
               <span>بيانات الهوية والجنسية</span>
             </h4>
           </div>
@@ -355,7 +355,7 @@ export const EmployeePrivateTab: React.FC<Props> = ({
                 type="text"
                 value={employee.iban || ''}
                 onChange={(e) => handleFieldChange('iban', e.target.value)}
-                className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-900 bg-white focus:outline-none text-sm"
+                className="w-full border border-slate-300 focus:border-primary rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-900 bg-white focus:outline-none text-sm"
                 placeholder="KW00NBOK0000000000000000000000"
               />
             ) : (
@@ -376,7 +376,7 @@ export const EmployeePrivateTab: React.FC<Props> = ({
             type="text"
             value={employee.address || ''}
             onChange={(e) => handleFieldChange('address', e.target.value)}
-            className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-3 py-1.5 font-bold text-slate-900 bg-white focus:outline-none text-sm"
+            className="w-full border border-slate-300 focus:border-primary rounded-lg px-3 py-1.5 font-bold text-slate-900 bg-white focus:outline-none text-sm"
             placeholder="المحافظة، المنطقة، قطعة، شارع، قسيمة/مبنى، شقة"
           />
         ) : (

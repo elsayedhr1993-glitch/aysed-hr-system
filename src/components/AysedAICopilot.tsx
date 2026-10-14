@@ -666,7 +666,7 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
         }`}
       >
         {/* Drawer Header */}
-        <div className="bg-gradient-to-r from-[#261928] via-[#714B67] to-[#3a2234] text-white px-4 py-3.5 flex items-center justify-between border-b border-purple-900/50 shadow-sm">
+        <div className="bg-gradient-to-r from-[#261928] via-primary to-[#3a2234] text-white px-4 py-3.5 flex items-center justify-between border-b border-purple-900/50 shadow-sm">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-9 h-9 rounded-xl bg-white/15 text-white flex items-center justify-center shadow-sm shrink-0">
               <Bot size={18} />
@@ -698,14 +698,14 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
               className={`flex items-start gap-2.5 ${msg.sender === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
             >
               <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 shadow-sm ${
-                msg.sender === 'user' ? 'bg-[#714B67] text-white' : 'bg-amber-400 text-purple-950'
+                msg.sender === 'user' ? 'bg-primary text-white' : 'bg-amber-400 text-purple-950'
               }`}>
                 {msg.sender === 'user' ? <User size={14} /> : <Bot size={14} />}
               </div>
 
               <div className={`max-w-[85%] rounded-2xl p-3 shadow-xs text-xs ${
                 msg.sender === 'user'
-                  ? 'bg-[#714B67] text-white rounded-tr-none'
+                  ? 'bg-primary text-white rounded-tr-none'
                   : 'bg-white border border-slate-200 text-slate-800 rounded-tl-none'
               }`}>
                 <p className="text-xs leading-relaxed whitespace-pre-wrap font-sans">
@@ -713,7 +713,7 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
                 </p>
 
                 {msg.action && (
-                  <div className="mt-3 p-3 bg-gradient-to-r from-purple-900 via-[#714B67] to-slate-900 text-white rounded-xl border border-amber-400/50 shadow-lg flex flex-col items-start gap-2">
+                  <div className="mt-3 p-3 bg-gradient-to-r from-purple-900 via-primary to-slate-900 text-white rounded-xl border border-amber-400/50 shadow-lg flex flex-col items-start gap-2">
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-lg bg-amber-400 text-purple-950 font-black flex items-center justify-center text-xs shrink-0 shadow-md">
                         {msg.action.type === 'CREATE_EMPLOYEE'
@@ -840,7 +840,7 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
                 type="button"
                 onClick={() => handleSend(chip.prompt)}
                 disabled={isLoading || isUploadingDoc}
-                className="px-2.5 py-1.5 bg-white hover:bg-[#714B67] hover:text-white text-slate-800 border border-slate-200 rounded-lg text-[10px] font-bold transition cursor-pointer shadow-xs disabled:opacity-50"
+                className="px-2.5 py-1.5 bg-white hover:bg-primary hover:text-white text-slate-800 border border-slate-200 rounded-lg text-[10px] font-bold transition cursor-pointer shadow-xs disabled:opacity-50"
               >
                 {chip.label}
               </button>
@@ -889,7 +889,7 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
             <button
               type="submit"
               disabled={isLoading || isUploadingDoc || !input.trim()}
-              className="px-3.5 py-2.5 bg-[#714B67] hover:bg-[#5a3a52] text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 shadow-md"
+              className="px-3.5 py-2.5 bg-primary hover:bg-[#5a3a52] text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 shadow-md"
             >
               <Send size={15} />
             </button>

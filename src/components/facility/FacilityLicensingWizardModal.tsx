@@ -268,7 +268,7 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
       <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header Bar */}
-        <div className="bg-gradient-to-r from-[#714B67] via-[#5c3c54] to-purple-950 text-white p-4 flex items-center justify-between shrink-0 shadow-md gap-3">
+        <div className="bg-gradient-to-r from-primary via-[#5c3c54] to-purple-950 text-white p-4 flex items-center justify-between shrink-0 shadow-md gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="p-2 bg-white/10 rounded-xl border border-white/20">
               <Building2 className="w-6 h-6 text-amber-300" />
@@ -334,7 +334,7 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
           {currentStep === 1 && (
             <div className="space-y-4 animate-fadeIn">
               <h4 className="text-xs font-bold text-slate-800 flex items-center gap-2">
-                <Building size={15} className="text-[#714B67]" />
+                <Building size={15} className="text-primary" />
                 الخطوة 1 — الهوية والشعار
               </h4>
 
@@ -346,7 +346,7 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
                     value={formData.nameAr}
                     onChange={(e) => handleFieldChange('nameAr', e.target.value)}
                     placeholder="مستوصف المنار الطبي"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs font-bold text-slate-900 focus:bg-white focus:border-[#714B67]"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs font-bold text-slate-900 focus:bg-white focus:border-primary"
                   />
                 </div>
 
@@ -357,7 +357,7 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
                     value={formData.nameEn}
                     onChange={(e) => handleFieldChange('nameEn', e.target.value)}
                     placeholder="Al Manar Medical Center"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs font-bold font-mono text-slate-900 focus:bg-white focus:border-[#714B67]"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs font-bold font-mono text-slate-900 focus:bg-white focus:border-primary"
                   />
                 </div>
 
@@ -368,7 +368,7 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
                     value={formData.paciCivilId}
                     onChange={(e) => handleFieldChange('paciCivilId', e.target.value)}
                     placeholder="988123049182"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs font-bold font-mono text-slate-900 focus:bg-white focus:border-[#714B67]"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs font-bold font-mono text-slate-900 focus:bg-white focus:border-primary"
                   />
                 </div>
               </div>
@@ -385,7 +385,7 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
                     )}
                   </div>
                   <div className="flex-1 space-y-2">
-                    <label className="inline-flex items-center gap-2 bg-[#714B67] hover:bg-[#5a3a52] text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition">
+                    <label className="inline-flex items-center gap-2 bg-primary hover:bg-[#5a3a52] text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition">
                       <Upload size={14} />
                       <span>اختيار وتحميل صورة الشعار</span>
                       <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
@@ -678,11 +678,11 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
                       {formData.logoUrl ? (
                         <img src={formData.logoUrl} alt="Logo" className="w-full h-full object-contain" />
                       ) : (
-                        <Building2 className="w-6 h-6 text-[#714B67]" />
+                        <Building2 className="w-6 h-6 text-primary" />
                       )}
                     </div>
                     <div>
-                      <h4 className="font-black text-sm text-[#714B67]">{formData.nameAr}</h4>
+                      <h4 className="font-black text-sm text-primary">{formData.nameAr}</h4>
                       <p className="text-[11px] text-slate-500 font-mono">{formData.nameEn}</p>
                     </div>
                   </div>
@@ -749,7 +749,7 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
             <button
               type="button"
               onClick={() => goToStep(currentStep + 1)}
-              className="px-5 py-2 rounded-xl bg-[#714B67] hover:bg-[#5c3c54] text-white font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+              className="px-5 py-2 rounded-xl bg-primary hover:bg-[#5c3c54] text-white font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
             >
               <span>التالي (Next)</span>
               <ChevronLeft size={16} />

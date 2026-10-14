@@ -1,3 +1,4 @@
+import { tokens } from '../design/tokens';
 import React, { useState, useEffect } from 'react';
 import { 
   X, BarChart3, TrendingUp, PieChart, Users, DollarSign, BrainCircuit, Sparkles, Download, ArrowUpRight, ArrowDownRight, AlertTriangle
@@ -74,7 +75,7 @@ export const DataPayrollAnalystBotModal: React.FC<DataPayrollAnalystBotModalProp
     { month: 'يونيو', rate: Number(turnoverRate) > 0 ? Number(turnoverRate) : 0 },
   ];
 
-  const COLORS = ['#714B67', '#D49A89', '#53354c', '#F4D35E', '#2A9D8F'];
+  const COLORS = [tokens.color.primary, '#D49A89', '#53354c', '#F4D35E', '#2A9D8F'];
 
   const displayCostCenterData = costCenterData.length > 0 ? costCenterData : [
     { name: 'لا يوجد موظفين مسجلين', payroll: 0, count: 0 }
@@ -198,7 +199,7 @@ export const DataPayrollAnalystBotModal: React.FC<DataPayrollAnalystBotModalProp
                 <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
                   <div className="flex items-center justify-between text-slate-500 mb-2">
                     <span className="text-xs font-bold">اكتمال بيانات الرواتب</span>
-                    <BarChart3 size={18} className="text-[#714B67]" />
+                    <BarChart3 size={18} className="text-primary" />
                   </div>
                   <div className="text-2xl font-black text-emerald-600">{dataCoverageScore}/100</div>
                   <div className="mt-2 text-[10px] font-bold text-slate-600 bg-slate-50 w-fit px-2 py-1 rounded-md">
@@ -302,7 +303,7 @@ export const DataPayrollAnalystBotModal: React.FC<DataPayrollAnalystBotModalProp
                   <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
                       <h4 className="font-bold text-xs text-slate-900 flex items-center gap-2">
-                        <BrainCircuit size={16} className="text-[#714B67]" />
+                        <BrainCircuit size={16} className="text-primary" />
                         <span>ملخص إحصائي</span>
                       </h4>
                       <p className="text-xs leading-relaxed text-slate-600">

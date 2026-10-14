@@ -1,3 +1,4 @@
+import { tokens } from '../design/tokens';
 // src/services/emailService.ts
 import nodemailer from 'nodemailer';
 import zlib from 'zlib';
@@ -144,7 +145,7 @@ export async function sendDailyBackupSuccessEmail({
       <div style="max-width: 680px; margin: auto; background-color: #ffffff; border-radius: 14px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
         
         <!-- Header -->
-        <div style="background: linear-gradient(135deg, #714B67 0%, #4a2f43 100%); padding: 30px 24px; text-align: center; color: #ffffff;">
+        <div style="background: linear-gradient(135deg, ${tokens.color.primary} 0%, #4a2f43 100%); padding: 30px 24px; text-align: center; color: #ffffff;">
           <div style="display: inline-block; background-color: #10b981; color: #ffffff; padding: 4px 14px; border-radius: 20px; font-size: 12px; font-weight: bold; margin-bottom: 10px; letter-spacing: 0.5px;">
             ✅ تقرير النسخ التلقائي الناجح (Daily Automated Backup)
           </div>
@@ -163,7 +164,7 @@ export async function sendDailyBackupSuccessEmail({
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 20px 0;">
             <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; text-align: center;">
               <div style="font-size: 11px; color: #64748b; font-weight: bold; text-transform: uppercase;">إجمالي السجلات المحفوظة</div>
-              <div style="font-size: 20px; font-weight: 800; color: #714B67; margin-top: 4px;">${metadata.totalRecords.toLocaleString('ar-KW')}</div>
+              <div style="font-size: 20px; font-weight: 800; color: ${tokens.color.primary}; margin-top: 4px;">${metadata.totalRecords.toLocaleString('ar-KW')}</div>
             </div>
             <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; text-align: center;">
               <div style="font-size: 11px; color: #64748b; font-weight: bold; text-transform: uppercase;">حجم الملف المضغوط (GZIP)</div>
@@ -202,7 +203,7 @@ export async function sendDailyBackupSuccessEmail({
             </tr>
             <tr style="background-color: #f8fafc;">
               <td style="padding: 10px 12px; font-weight: bold; color: #475569;">البريد المرسل / المستلم:</td>
-              <td style="padding: 10px 12px; color: #714B67; font-weight: bold;">${systemEmail} (System Default Email)</td>
+              <td style="padding: 10px 12px; color: ${tokens.color.primary}; font-weight: bold;">${systemEmail} (System Default Email)</td>
             </tr>
           </table>
 
@@ -318,7 +319,7 @@ export async function sendDailyBackupFailureAlert({
             </tr>
             <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
               <td style="padding: 10px 12px; font-weight: bold; color: #475569;">البريد الإلكتروني المعتمد:</td>
-              <td style="padding: 10px 12px; color: #714B67; font-weight: bold;">${systemEmail}</td>
+              <td style="padding: 10px 12px; color: ${tokens.color.primary}; font-weight: bold;">${systemEmail}</td>
             </tr>
           </table>
 
@@ -395,13 +396,13 @@ export async function sendAdminNewSubscriptionNotification({
   const mailBody = `
     <div style="direction: rtl; text-align: right; font-family: 'Tajawal', Arial, sans-serif; padding: 20px; background-color: #f1f5f9;">
       <div style="max-width: 600px; margin: auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.08); border: 1px solid #e2e8f0;">
-        <div style="background-color: #714B67; padding: 25px 20px; text-align: center; color: #ffffff;">
+        <div style="background-color: ${tokens.color.primary}; padding: 25px 20px; text-align: center; color: #ffffff;">
           <h1 style="margin: 0; font-size: 20px; font-weight: bold;">🔔 طلب اشتراك جديد لمنشأة (SaaS Tenant Request)</h1>
           <p style="margin-top: 6px; opacity: 0.9; font-size: 13px;">منظومة Aysed S HR 2026 - لوحة الإدارة العليا</p>
         </div>
 
         <div style="padding: 25px; color: #1e293b; line-height: 1.8; font-size: 14px;">
-          <p style="font-size: 15px; font-weight: bold; color: #714B67;">عزيزي الأستاذ السيد (Super Admin)،</p>
+          <p style="font-size: 15px; font-weight: bold; color: ${tokens.color.primary};">عزيزي الأستاذ السيد (Super Admin)،</p>
           <p>تم تسجيل طلب اشتراك جديد عبر بوابة الدخول والتسجيل. فيما يلي تفاصيل المنشأة والمشترك:</p>
 
           <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 13px;">

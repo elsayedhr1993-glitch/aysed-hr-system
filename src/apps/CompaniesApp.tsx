@@ -281,7 +281,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
               placeholder="بحث في الشركات أو ترخيص الصحة أو الرقم المدني..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pr-9 pl-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none"
+              className="w-full pr-9 pl-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-primary outline-none"
             />
           </div>
 
@@ -313,7 +313,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
               name="action_create_new_company"
               data-groups="base.group_system"
               onClick={handleOpenCreate}
-              className="o_list_button_add bg-[#714B67] hover:bg-[#5e3f55] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-md transition cursor-pointer"
+              className="o_list_button_add bg-primary hover:bg-[#5e3f55] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-md transition cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>إنشاء شركة جديدة</span>
@@ -340,7 +340,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                       <div className="w-12 h-12 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-lg border border-purple-200 shadow-inner overflow-hidden o_kanban_image">
                         {comp.logoUrl ? (
                           <img src={comp.logoUrl} alt={comp.nameAr} className="w-full h-full object-cover" />) : (
-                          <Building className="w-6 h-6 text-[#714B67]" />)}
+                          <Building className="w-6 h-6 text-primary" />)}
                       </div>
                       <div className="oe_kanban_details">
                         <h3 className="font-bold text-slate-900 text-sm o_kanban_record_title">{comp.nameAr}</h3>
@@ -356,7 +356,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                         type="button"
                         data-type="object"
                         onClick={() => onSelectCompany(comp)}
-                        className="btn btn-primary btn-sm mt-2 bg-[#714B67] hover:bg-[#5e3f55] text-white text-[11px] font-bold px-3 py-1.5 rounded-lg transition cursor-pointer shadow-sm"
+                        className="btn btn-primary btn-sm mt-2 bg-primary hover:bg-[#5e3f55] text-white text-[11px] font-bold px-3 py-1.5 rounded-lg transition cursor-pointer shadow-sm"
                       >
                         إدارة الشركة
                       </button>)}
@@ -442,7 +442,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                         <div className="w-9 h-9 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-sm shrink-0">
                           {comp.logoUrl ? (
                             <img src={comp.logoUrl} alt={comp.nameAr} className="w-full h-full object-cover rounded-lg" />) : (
-                            <Building className="w-4 h-4 text-[#714B67]" />)}
+                            <Building className="w-4 h-4 text-primary" />)}
                         </div>
                         <div>
                           <div className="font-bold text-slate-900">{comp.nameAr}</div>
@@ -498,7 +498,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
       {isModalOpen && editingCompany && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 my-8">
-            <div className="bg-[#714B67] text-white p-4 flex items-center justify-between">
+            <div className="bg-primary text-white p-4 flex items-center justify-between">
               <div className="flex items-center gap-2 font-bold text-sm">
                 <Building2 className="w-5 h-5" />
                 <span>{editingCompany.id ? 'نموذج تعديل الشركة / العيادة' : 'إنشاء شركة أو عيادة جديدة'}</span>
@@ -518,7 +518,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                 type="button"
                 onClick={() => setActiveTab('general')}
                 className={`py-3 border-b-2 transition flex items-center gap-2 ${
-                  activeTab === 'general' ? 'border-[#714B67] text-[#714B67]' : 'border-transparent hover:text-slate-900'
+                  activeTab === 'general' ? 'border-primary text-primary' : 'border-transparent hover:text-slate-900'
                 }`}
               >
                 <Building className="w-3.5 h-3.5" />
@@ -528,7 +528,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                 type="button"
                 onClick={() => setActiveTab('legal')}
                 className={`py-3 border-b-2 transition flex items-center gap-2 ${
-                  activeTab === 'legal' ? 'border-[#714B67] text-[#714B67]' : 'border-transparent hover:text-slate-900'
+                  activeTab === 'legal' ? 'border-primary text-primary' : 'border-transparent hover:text-slate-900'
                 }`}
               >
                 <Shield className="w-3.5 h-3.5" />
@@ -538,7 +538,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                 type="button"
                 onClick={() => setActiveTab('address')}
                 className={`py-3 border-b-2 transition flex items-center gap-2 ${
-                  activeTab === 'address' ? 'border-[#714B67] text-[#714B67]' : 'border-transparent hover:text-slate-900'
+                  activeTab === 'address' ? 'border-primary text-primary' : 'border-transparent hover:text-slate-900'
                 }`}
               >
                 <MapPin className="w-3.5 h-3.5" />
@@ -548,7 +548,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                 type="button"
                 onClick={() => setActiveTab('branding')}
                 className={`py-3 border-b-2 transition flex items-center gap-2 ${
-                  activeTab === 'branding' ? 'border-[#714B67] text-[#714B67]' : 'border-transparent hover:text-slate-900'
+                  activeTab === 'branding' ? 'border-primary text-primary' : 'border-transparent hover:text-slate-900'
                 }`}
               >
                 <FileText className="w-3.5 h-3.5" />
@@ -621,7 +621,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                     <select
                       value={companyDraft.parentCompanyId || ''}
                       onChange={(e) => patchCompany({ parentCompanyId: e.target.value })}
-                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none disabled:bg-slate-100"
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-primary outline-none disabled:bg-slate-100"
                     >
                       <option value="">-- بدون شركة أم (شركة مستقلة رئيسية) --</option>
                       {companies.filter(c => c.id !== companyDraft.id).map(c => (
@@ -646,7 +646,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                           })
                         }
                         placeholder="MOH-LIC-2026"
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none font-mono"
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-primary outline-none font-mono"
                       />
                     </div>
                     <div>
@@ -656,7 +656,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                         value={companyDraft.wsiCode || ''}
                         onChange={(e) => patchCompany({ wsiCode: e.target.value })}
                         placeholder="رقم ملف القوى العاملة"
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none font-mono"
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-primary outline-none font-mono"
                       />
                     </div>
                   </div>
@@ -669,7 +669,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                         value={companyDraft.civilIdCompany || ''}
                         onChange={(e) => patchCompany({ civilIdCompany: e.target.value })}
                         placeholder="200000000"
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none font-mono"
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-primary outline-none font-mono"
                       />
                     </div>
                     <div>
@@ -679,7 +679,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                         value={companyDraft.titleAddressNo || ''}
                         onChange={(e) => patchCompany({ titleAddressNo: e.target.value })}
                         placeholder="87654321"
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none font-mono"
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-primary outline-none font-mono"
                       />
                     </div>
                   </div>
@@ -692,7 +692,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                         value={companyDraft.wsiCode || ''}
                         onChange={(e) => patchCompany({ wsiCode: e.target.value })}
                         placeholder="WSI-9876"
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none font-mono"
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-primary outline-none font-mono"
                       />
                     </div>
                     <div>
@@ -702,7 +702,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                         value={companyDraft.iban || ''}
                         onChange={(e) => patchCompany({ iban: e.target.value })}
                         placeholder="KW00NBK..."
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none font-mono"
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-primary outline-none font-mono"
                       />
                     </div>
                   </div>
@@ -728,7 +728,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                         value={companyDraft.governorate || ''}
                         onChange={(e) => patchCompany({ governorate: e.target.value })}
                         placeholder="العاصمة / حولي / الفروانية"
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none"
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-primary outline-none"
                       />
                     </div>
                     <div>
@@ -738,7 +738,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                         value={companyDraft.area || ''}
                         onChange={(e) => patchCompany({ area: e.target.value })}
                         placeholder="السالمية / حولي / الشويخ"
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none"
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-primary outline-none"
                       />
                     </div>
                   </div>
@@ -751,7 +751,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                         value={companyDraft.street || ''}
                         onChange={(e) => patchCompany({ street: e.target.value })}
                         placeholder="قطعة 4، شارع الخليج العربي"
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none"
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-primary outline-none"
                       />
                     </div>
                     <div>
@@ -761,7 +761,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                         value={companyDraft.phone || ''}
                         onChange={(e) => patchCompany({ phone: e.target.value })}
                         placeholder="+965 22000000"
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none font-mono"
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-primary outline-none font-mono"
                       />
                     </div>
                   </div>
@@ -774,7 +774,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                         value={companyDraft.email || ''}
                         onChange={(e) => patchCompany({ email: e.target.value })}
                         placeholder="info@company.kw"
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none font-mono"
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-primary outline-none font-mono"
                       />
                     </div>
                     <div>
@@ -784,7 +784,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                         value={companyDraft.website || ''}
                         onChange={(e) => patchCompany({ website: e.target.value })}
                         placeholder="https://..."
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none font-mono"
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-primary outline-none font-mono"
                       />
                     </div>
                   </div>
@@ -801,7 +801,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                         value={companyDraft.stampUrl || ''}
                         onChange={(e) => patchCompany({ stampUrl: e.target.value })}
                         placeholder="https://.../stamp.png"
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none font-mono"
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-primary outline-none font-mono"
                       />
                     </div>
                     <div>
@@ -811,7 +811,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                         value={companyDraft.authorizedSignatureUrl || ''}
                         onChange={(e) => patchCompany({ authorizedSignatureUrl: e.target.value })}
                         placeholder="https://.../signature.png"
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none font-mono"
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-primary outline-none font-mono"
                       />
                     </div>
                   </div>
@@ -823,7 +823,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                       value={companyDraft.headerHtml || ''}
                       onChange={(e) => patchCompany({ headerHtml: e.target.value })}
                       placeholder="دولة الكويت - وزارة الصحة - إدارة التراخيص الطبية..."
-                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none font-sans"
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-primary outline-none font-sans"
                     ></textarea>
                   </div>
 
@@ -834,7 +834,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                       value={companyDraft.footerHtml || ''}
                       onChange={(e) => patchCompany({ footerHtml: e.target.value })}
                       placeholder="السالمية - شارع البلاجات - هاتف: 22000000 - ص.ب: 12345 السالمية"
-                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#714B67] outline-none font-sans"
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-primary outline-none font-sans"
                     ></textarea>
                   </div>
                 </div>)}
@@ -851,7 +851,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-[#714B67] hover:bg-[#5e3f55] text-white rounded-xl text-xs font-bold shadow-md transition"
+                  className="px-6 py-2 bg-primary hover:bg-[#5e3f55] text-white rounded-xl text-xs font-bold shadow-md transition"
                 >
                   حفظ البيانات السحابية
                 </button>

@@ -149,7 +149,7 @@ export const DirectDocumentUploadModal: React.FC<DirectDocumentUploadModalProps>
         {/* Header */}
         <div className="p-4 sm:px-6 sm:py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#714B67] text-white flex items-center justify-center shadow-xs">
+            <div className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center shadow-xs">
               <Upload className="w-5 h-5" />
             </div>
             <div>
@@ -175,7 +175,7 @@ export const DirectDocumentUploadModal: React.FC<DirectDocumentUploadModalProps>
               type="button"
               onClick={() => setTargetType('employee')}
               className={`py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 ${
-                targetType === 'employee' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                targetType === 'employee' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <User className="w-4 h-4" />
@@ -185,7 +185,7 @@ export const DirectDocumentUploadModal: React.FC<DirectDocumentUploadModalProps>
               type="button"
               onClick={() => setTargetType('company')}
               className={`py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 ${
-                targetType === 'company' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                targetType === 'company' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Shield className="w-4 h-4" />
@@ -209,7 +209,7 @@ export const DirectDocumentUploadModal: React.FC<DirectDocumentUploadModalProps>
                     setTitle(`${catObj?.label.split(' ')[0]} - ${emp.fullNameAr}`);
                   }
                 }}
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 outline-none focus:border-[#714B67] focus:bg-white transition"
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 outline-none focus:border-primary focus:bg-white transition"
               >
                 {employees.map(emp => (
                   <option key={emp.id} value={emp.id}>
@@ -235,7 +235,7 @@ export const DirectDocumentUploadModal: React.FC<DirectDocumentUploadModalProps>
                     setTitle(`${catObj?.label.split(' ')[0]} - ${selectedEmployee.fullNameAr}`);
                   }
                 }}
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 outline-none focus:border-[#714B67] focus:bg-white transition"
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 outline-none focus:border-primary focus:bg-white transition"
               >
                 {DOCUMENT_CATEGORIES.map(c => (
                   <option key={c.id} value={c.id}>{c.label}</option>
@@ -252,7 +252,7 @@ export const DirectDocumentUploadModal: React.FC<DirectDocumentUploadModalProps>
                 placeholder="مثال: جواز سفر - أحمد الكندري"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 outline-none focus:border-[#714B67] focus:bg-white transition"
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 outline-none focus:border-primary focus:bg-white transition"
                 required
               />
             </div>
@@ -269,7 +269,7 @@ export const DirectDocumentUploadModal: React.FC<DirectDocumentUploadModalProps>
                 placeholder="رقم الوثيقة، الرقم الآلي..."
                 value={documentNumber}
                 onChange={(e) => setDocumentNumber(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 outline-none focus:border-[#714B67] focus:bg-white transition font-mono"
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 outline-none focus:border-primary focus:bg-white transition font-mono"
               />
             </div>
 
@@ -281,7 +281,7 @@ export const DirectDocumentUploadModal: React.FC<DirectDocumentUploadModalProps>
                 type="date"
                 value={issueDate}
                 onChange={(e) => setIssueDate(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 outline-none focus:border-[#714B67] focus:bg-white transition font-mono"
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 outline-none focus:border-primary focus:bg-white transition font-mono"
               />
             </div>
           </div>
@@ -295,7 +295,7 @@ export const DirectDocumentUploadModal: React.FC<DirectDocumentUploadModalProps>
               type="date"
               value={expiryDate}
               onChange={(e) => setExpiryDate(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 outline-none focus:border-[#714B67] focus:bg-white transition font-mono font-bold"
+              className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 outline-none focus:border-primary focus:bg-white transition font-mono font-bold"
               required
             />
             <p className="text-[11px] text-slate-400 mt-1">
@@ -312,7 +312,7 @@ export const DirectDocumentUploadModal: React.FC<DirectDocumentUploadModalProps>
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}
               className={`border-2 border-dashed rounded-xl p-5 text-center transition cursor-pointer ${
-                fileDataUrl ? 'border-emerald-400 bg-emerald-50/50' : 'border-slate-300 hover:border-[#714B67] bg-slate-50'
+                fileDataUrl ? 'border-emerald-400 bg-emerald-50/50' : 'border-slate-300 hover:border-primary bg-slate-50'
               }`}
             >
               <input
@@ -325,7 +325,7 @@ export const DirectDocumentUploadModal: React.FC<DirectDocumentUploadModalProps>
               <label htmlFor="directDocFileInput" className="cursor-pointer block">
                 {isProcessingFile ? (
                   <div className="py-2 text-slate-600 font-bold text-xs flex items-center justify-center gap-2">
-                    <div className="w-4 h-4 border-2 border-[#714B67] border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
                     <span>جاري معالجة الملف...</span>
                   </div>
                 ) : fileDataUrl ? (
@@ -349,7 +349,7 @@ export const DirectDocumentUploadModal: React.FC<DirectDocumentUploadModalProps>
             <button
               type="submit"
               disabled={isProcessingFile}
-              className="flex-1 bg-[#714B67] hover:bg-[#5a3a51] text-white font-bold py-2.5 rounded-xl text-xs transition shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              className="flex-1 bg-primary hover:bg-[#5a3a51] text-white font-bold py-2.5 rounded-xl text-xs transition shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>تأكيد الأرشفة والحفظ</span>

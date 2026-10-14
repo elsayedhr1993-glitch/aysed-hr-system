@@ -82,14 +82,14 @@ export const OfficialPublicHolidaysPrintModal: React.FC<OfficialPublicHolidaysPr
       <div className="bg-white rounded-2xl w-full max-w-5xl shadow-2xl border border-slate-200 flex flex-col max-h-[96vh] overflow-hidden">
         <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between gap-3 print:hidden">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
-            <Building2 size={16} className="text-[#714B67]" />
+            <Building2 size={16} className="text-primary" />
             <span>معاينة السجل الرسمي A4 — العطلات الرسمية وتكليفات المادة (68)</span>
           </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={handlePrint}
-              className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+              className="bg-primary hover:bg-[#5a3a52] text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
             >
               <Printer size={14} />
               طباعة المستند (A4)
@@ -129,7 +129,7 @@ export const OfficialPublicHolidaysPrintModal: React.FC<OfficialPublicHolidaysPr
 
             <div className="odoo-report-center-title mb-6">
               <h1 className="text-base font-bold text-slate-900 flex items-center justify-center gap-2">
-                <Sparkles size={16} className="text-[#714B67]" />
+                <Sparkles size={16} className="text-primary" />
                 السجل الرسمي للعطلات الرسمية لعام {calendarYear}م
               </h1>
               <p className="text-[11px] text-slate-600 mt-1 font-bold">
@@ -184,7 +184,7 @@ export const OfficialPublicHolidaysPrintModal: React.FC<OfficialPublicHolidaysPr
               style={{ breakBefore: 'page', pageBreakBefore: 'always' }}
             >
               <h2 className="text-sm font-black text-slate-900 flex items-center justify-center gap-2">
-                <Award size={15} className="text-[#714B67]" />
+                <Award size={15} className="text-primary" />
                 سجل تكليفات العمل أثناء العطلات الرسمية (المادة 68)
               </h2>
               <p className="text-[10px] text-slate-600 mt-0.5">

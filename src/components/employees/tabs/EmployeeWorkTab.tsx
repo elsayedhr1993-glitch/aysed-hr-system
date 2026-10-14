@@ -100,7 +100,7 @@ export const EmployeeWorkTab: React.FC<Props> = ({
     return (
       <div className="space-y-5 animate-fade-in text-slate-900">
         <div className="flex items-center gap-2 text-[10px] text-slate-500">
-          <span className="bg-[#714B67]/10 text-[#714B67] px-2 py-0.5 rounded-md font-bold">أساسي</span>
+          <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-md font-bold">أساسي</span>
           <span>المسمى، القسم، وبيانات التواصل — الحقول الإلزامية للتشغيل اليومي</span>
         </div>
 
@@ -188,7 +188,7 @@ export const EmployeeWorkTab: React.FC<Props> = ({
               <button
                 type="button"
                 onClick={onOpenLeaveSettings}
-                className="mt-1 text-[11px] font-bold text-[#714B67] hover:underline cursor-pointer"
+                className="mt-1 text-[11px] font-bold text-primary hover:underline cursor-pointer"
               >
                 إعدادات HR / كشف الرصيد
               </button>
@@ -233,7 +233,7 @@ export const EmployeeWorkTab: React.FC<Props> = ({
         <div className="space-y-4">
           <div className="border-b border-slate-200 pb-2 mb-4">
             <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-[#714B67]"></span>
+              <span className="w-2 h-2 rounded-full bg-primary"></span>
               <span>التنظيم الوظيفي والإداري</span>
             </h4>
           </div>
@@ -341,7 +341,7 @@ export const EmployeeWorkTab: React.FC<Props> = ({
               <button
                 type="button"
                 onClick={onOpenLeaveSettings}
-                className="mt-2 text-[11px] font-bold text-[#714B67] hover:underline flex items-center gap-1 cursor-pointer"
+                className="mt-2 text-[11px] font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer"
               >
                 <ExternalLink size={12} />
                 فتح إعدادات الموارد البشرية / كشف الرصيد

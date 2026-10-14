@@ -940,7 +940,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
         onClick={() => setShowAddCustomModal(true)}
         className="bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1 transition cursor-pointer"
       >
-        <Plus size={14} className="text-[#714B67]" />
+        <Plus size={14} className="text-primary" />
         <span>إضافة بند مالي مخصص</span>
       </button>
 
@@ -953,7 +953,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
         className="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-2xs border bg-white hover:bg-slate-100 border-slate-300 text-slate-800 cursor-pointer"
         title="معاينة وطباعة المستند"
       >
-        <Printer size={15} className="text-[#714B67]" />
+        <Printer size={15} className="text-primary" />
         <span>معاينة وطباعة</span>
       </button>
 
@@ -980,7 +980,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
         disabled={!validation.isValid}
         className={`px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition shadow-sm ${
           validation.isValid
-            ? 'bg-[#714B67] hover:bg-[#5a3b52] text-white cursor-pointer'
+            ? 'bg-primary hover:bg-[#5a3b52] text-white cursor-pointer'
             : 'bg-slate-300 text-slate-500 cursor-not-allowed border border-slate-300 opacity-80'
         }`}
         title={!validation.isValid ? (validation.errors[0] || 'يُمنع الحفظ لوجود أخطاء في التحقق البرمجي') : 'حفظ واعتماد السند وقفل القيود'}
@@ -1013,7 +1013,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
               type="button"
               onClick={() => setSettlementState('draft')}
               className={`px-3.5 py-2 transition-colors cursor-pointer ${
-                settlementState === 'draft' ? 'bg-[#714B67] text-white' : 'text-slate-600 hover:bg-slate-100'
+                settlementState === 'draft' ? 'bg-primary text-white' : 'text-slate-600 hover:bg-slate-100'
               }`}
             >
               مسودة (Draft)
@@ -1058,7 +1058,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                   id="employee_selector"
                   value={selectedEmpId}
                   onChange={(e) => setSelectedEmpId(e.target.value)}
-                  className="bg-purple-50/60 border border-purple-200 hover:border-[#714B67] text-[#714B67] font-black text-lg sm:text-xl rounded-xl px-4 py-2 outline-none cursor-pointer w-full max-w-md transition shadow-2xs"
+                  className="bg-purple-50/60 border border-purple-200 hover:border-primary text-primary font-black text-lg sm:text-xl rounded-xl px-4 py-2 outline-none cursor-pointer w-full max-w-md transition shadow-2xs"
                 >
                   {employees.map(emp => (
                     <option key={emp.id} value={emp.id} className="text-slate-800 font-bold text-sm">
@@ -1083,7 +1083,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
             {/* Quick KPI Cards Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 w-full lg:w-auto">
               <div className={`bg-purple-50/70 border border-purple-200 rounded-xl p-3 ${textAlignClass}`}>
-                <span className="block text-[11px] font-bold text-[#714B67]">{t('leave_balance')}</span>
+                <span className="block text-[11px] font-bold text-primary">{t('leave_balance')}</span>
                 <span className="block text-base font-black font-mono text-purple-950 mt-0.5">
                   {finalNetAvailable.toFixed(2)} يوم
                 </span>
@@ -1131,7 +1131,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
               onClick={() => setActiveTab('settlement_calculator')}
               className={`pb-3 text-xs sm:text-sm font-bold flex items-center gap-2 transition cursor-pointer border-b-2 ${
                 activeTab === 'settlement_calculator'
-                  ? 'border-[#714B67] text-[#714B67]'
+                  ? 'border-primary text-primary'
                   : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -1144,7 +1144,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
               onClick={() => setActiveTab('vouchers_archive')}
               className={`pb-3 text-xs sm:text-sm font-bold flex items-center gap-2 transition cursor-pointer border-b-2 ${
                 activeTab === 'vouchers_archive'
-                  ? 'border-[#714B67] text-[#714B67]'
+                  ? 'border-primary text-primary'
                   : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -1157,7 +1157,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
               onClick={() => setActiveTab('employee_history')}
               className={`pb-3 text-xs sm:text-sm font-bold flex items-center gap-2 transition cursor-pointer border-b-2 ${
                 activeTab === 'employee_history'
-                  ? 'border-[#714B67] text-[#714B67]'
+                  ? 'border-primary text-primary'
                   : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -1227,7 +1227,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
                   <div>
                     <h3 className="font-bold text-xs sm:text-sm text-slate-900 flex items-center gap-2">
-                      <Sparkles size={16} className="text-[#714B67]" />
+                      <Sparkles size={16} className="text-primary" />
                       <span>نوع التسوية وطبيعة الصرف المالي (Settlement Mode)</span>
                     </h3>
                     <p className="text-[11px] text-slate-500 mt-0.5">
@@ -1251,7 +1251,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                     onClick={() => handleModeChange('LEAVE_WITH_TRAVEL')}
                     className={`p-3 rounded-xl border text-right transition cursor-pointer flex flex-col justify-between ${
                       settlementMode === 'LEAVE_WITH_TRAVEL'
-                        ? 'bg-[#714B67] text-white border-[#714B67] shadow-sm'
+                        ? 'bg-primary text-white border-primary shadow-sm'
                         : 'bg-white text-slate-700 border-slate-200 hover:border-purple-300 hover:bg-purple-50/30'
                     }`}
                   >
@@ -1311,7 +1311,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                     </div>
                     <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 flex flex-col justify-center">
                       <span className="text-[10px] text-slate-500">رصيد السجل بعد إعادة الاحتساب (اليوم)</span>
-                      <span className="font-mono font-black text-[#714B67] text-sm">
+                      <span className="font-mono font-black text-primary text-sm">
                         {ledgerBasedBalance !== null ? `${ledgerBasedBalance.toFixed(2)} يوم` : '—'}
                       </span>
                       <span className="text-[10px] text-emerald-700 mt-0.5">
@@ -1331,10 +1331,10 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                   <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-5 sm:p-5 space-y-4 text-sm">
                     <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                       <h3 className="font-bold text-xs sm:text-sm text-slate-800 flex items-center gap-2">
-                        <FileText size={16} className="text-[#714B67]" />
+                        <FileText size={16} className="text-primary" />
                         <span>بيانات التسوية وتاريخ الصرف</span>
                       </h3>
-                      <span className="text-[11px] bg-purple-100 text-[#714B67] font-bold px-2 py-0.5 rounded">
+                      <span className="text-[11px] bg-purple-100 text-primary font-bold px-2 py-0.5 rounded">
                         قاعدة 26 يوم
                       </span>
                     </div>
@@ -1348,7 +1348,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                               key={scope}
                               className={`flex items-center gap-2 p-2 rounded-xl border text-[11px] font-bold cursor-pointer ${
                                 settlementLeaveScope === scope
-                                  ? 'border-[#714B67] bg-purple-50 text-purple-950'
+                                  ? 'border-primary bg-purple-50 text-purple-950'
                                   : 'border-slate-200 bg-white text-slate-700'
                               }`}
                             >
@@ -1372,7 +1372,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                           value={selectedLeaveId}
                           onChange={(e) => handleSelectLeave(e.target.value)}
                           disabled={settlementMode === 'ENCASHMENT_LIQUIDATION'}
-                          className={`w-full bg-white border border-slate-300 rounded-xl p-2 font-bold text-slate-800 outline-none focus:border-[#714B67] ${
+                          className={`w-full bg-white border border-slate-300 rounded-xl p-2 font-bold text-slate-800 outline-none focus:border-primary ${
                             settlementMode === 'ENCASHMENT_LIQUIDATION' ? 'opacity-60 cursor-not-allowed bg-slate-100' : ''
                           }`}
                         >
@@ -1393,7 +1393,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                           type="date"
                           value={departureDate}
                           onChange={(e) => handleDepartureDateChange(e.target.value)}
-                          className="w-full bg-white border border-slate-300 rounded-xl p-2 font-mono font-bold text-slate-800 outline-none focus:border-[#714B67]"
+                          className="w-full bg-white border border-slate-300 rounded-xl p-2 font-mono font-bold text-slate-800 outline-none focus:border-primary"
                         />
                       </div>
 
@@ -1405,7 +1405,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                           type="date"
                           value={returnDate}
                           onChange={(e) => handleReturnDateChange(e.target.value)}
-                          className="w-full bg-white border border-slate-300 rounded-xl p-2 font-mono font-bold text-slate-800 outline-none focus:border-[#714B67]"
+                          className="w-full bg-white border border-slate-300 rounded-xl p-2 font-mono font-bold text-slate-800 outline-none focus:border-primary"
                         />
                       </div>
                     </div>
@@ -1420,7 +1420,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                             max={netAvailable}
                             value={consumedLeaveDays}
                             onChange={(value) => setConsumedLeaveDays(clampToAvailable(value))}
-                            className="w-full bg-white border border-slate-300 rounded-xl p-2 font-mono font-black text-slate-900 outline-none focus:border-[#714B67]"
+                            className="w-full bg-white border border-slate-300 rounded-xl p-2 font-mono font-black text-slate-900 outline-none focus:border-primary"
                           />
                           <span className="text-[10px] text-slate-500 mt-0.5 block">تخصم من رصيد الإجازات السنوي</span>
                         </div>
@@ -1478,7 +1478,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                               setWorkedDaysInMonth(phys.workingDays > 0 ? phys.workingDays : 1);
                             }
                           }}
-                          className="rounded text-[#714B67] focus:ring-[#714B67] w-4 h-4"
+                          className="rounded text-primary focus:ring-primary w-4 h-4"
                         />
                         <span>احتساب راتب أيام العمل الفعلية للشهر الحالي (Dynamic Base Salary Proration)</span>
                       </label>
@@ -1505,7 +1505,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                               setWorkedDaysInMonth(phys.workingDays);
                               toast.success(`تمت المزامنة: ${phys.workingDays} يوم عمل فعلي حتى ${departureDate}`);
                             }}
-                            className="text-[11px] text-[#714B67] hover:underline font-bold flex items-center gap-1 cursor-pointer"
+                            className="text-[11px] text-primary hover:underline font-bold flex items-center gap-1 cursor-pointer"
                           >
                             <RefreshCw size={12} />
                             <span>مزامنة تلقائية مع تاريخ السفر ({calculatePhysicalWorkedDays(departureDate).workingDays} يوم)</span>
@@ -1545,7 +1545,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                           type="checkbox"
                           checked={includeOvertime}
                           onChange={(e) => setIncludeOvertime(e.target.checked)}
-                          className="rounded text-[#714B67] focus:ring-[#714B67] w-4 h-4"
+                          className="rounded text-primary focus:ring-primary w-4 h-4"
                         />
                         <span>بدل العمل الإضافي المعتمد (Overtime Allowance)</span>
                       </label>
@@ -1626,7 +1626,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                               const remaining = Number(Math.max(0, netAvailable - consumedLeaveDays).toFixed(2));
                               setEncashmentDays(remaining);
                             }}
-                            className="text-[11px] text-[#714B67] hover:underline font-bold cursor-pointer"
+                            className="text-[11px] text-primary hover:underline font-bold cursor-pointer"
                           >
                             تصفية كامل المتبقي ({Math.max(0, netAvailable - consumedLeaveDays).toFixed(2)} يوم)
                           </button>
@@ -1701,7 +1701,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                   {/* Custom Items List (if any) */}
                   {customItems.length > 0 && (
                     <div className="bg-purple-50/50 border border-purple-200 rounded-2xl p-5 space-y-2 text-sm">
-                      <h4 className="font-bold text-[#714B67] flex items-center justify-between">
+                      <h4 className="font-bold text-primary flex items-center justify-between">
                         <span>البنود المالية المخصصة المضافة:</span>
                         <span className="font-mono text-[11px]">({customItems.length} بنود)</span>
                       </h4>
@@ -1741,7 +1741,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                         <Coins size={16} className="text-[#008784]" />
                         <span>شيت البنود المالية المعتمدة</span>
                       </h3>
-                      <span className="text-[11px] font-mono font-bold text-[#714B67]">
+                      <span className="text-[11px] font-mono font-bold text-primary">
                         {settlementResult?.voucherNumber}
                       </span>
                     </div>
@@ -1807,7 +1807,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
 
                   {/* Post-Settlement Balance Snapshot Card */}
                   <div className="bg-purple-50/70 border border-purple-200 rounded-2xl p-5 space-y-2.5 text-sm">
-                    <h4 className="font-bold text-[#714B67] flex items-center justify-between border-b border-purple-200 pb-1.5">
+                    <h4 className="font-bold text-primary flex items-center justify-between border-b border-purple-200 pb-1.5">
                       <span>حالة رصيد الإجازات بعد هذه التسوية:</span>
                       <Layers size={15} />
                     </h4>
@@ -1847,7 +1847,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                           onClick={() => setPaymentMethod(method)}
                           className={`p-2 rounded-xl text-center font-bold transition cursor-pointer border ${
                             paymentMethod === method
-                              ? 'bg-[#714B67] text-white border-[#714B67]'
+                              ? 'bg-primary text-white border-primary'
                               : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
                           }`}
                         >
@@ -1884,7 +1884,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
 
               <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
                 <table className={`w-full ${textAlignClass} text-xs`}>
-                  <thead className="bg-[#714B67] text-white font-bold">
+                  <thead className="bg-primary text-white font-bold">
                     <tr>
                       <th className="p-3.5">رقم السند</th>
                       <th className="p-3.5">تاريخ التسوية</th>
@@ -1906,7 +1906,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                     ) : (
                       savedVouchers.map((v, idx) => (
                         <tr key={v.id || idx} className="hover:bg-slate-50 transition">
-                          <td className="p-3.5 font-mono font-black text-[#714B67]">{v.voucherNumber}</td>
+                          <td className="p-3.5 font-mono font-black text-primary">{v.voucherNumber}</td>
                           <td className="p-3.5 font-mono text-slate-600">{v.settlementDate}</td>
                           <td className="p-3.5">
                             <span className="font-bold text-slate-900 block">{v.employeeName}</span>
@@ -1938,7 +1938,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                                   setViewingVoucher(v);
                                   setShowPrintModal(true);
                                 }}
-                                className="bg-[#714B67] hover:bg-[#5a3b52] text-white p-1.5 rounded-lg text-xs font-bold transition cursor-pointer"
+                                className="bg-primary hover:bg-[#5a3b52] text-white p-1.5 rounded-lg text-xs font-bold transition cursor-pointer"
                                 title="معاينة وطباعة السند"
                               >
                                 <Printer size={13} />
@@ -1972,7 +1972,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                 <button
                   type="button"
                   onClick={() => setShowArchiveModal(true)}
-                  className="bg-[#714B67] hover:bg-[#5a3b52] text-white px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer shadow-xs"
+                  className="bg-primary hover:bg-[#5a3b52] text-white px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer shadow-xs"
                 >
                   <Plus size={14} />
                   <span>إضافة حركة إجازة سابقة بالأرشيف</span>
@@ -2015,7 +2015,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                             {row.startDate}
                             {row.endDate !== row.startDate ? ` إلى ${row.endDate}` : ''}
                           </td>
-                          <td className="p-3.5 text-center font-mono font-bold text-[#714B67]">
+                          <td className="p-3.5 text-center font-mono font-bold text-primary">
                             {row.totalDays} يوم
                             {row.netPayoutKwd != null && row.netPayoutKwd > 0 ? (
                               <div className="text-[9px] text-emerald-700 font-bold">{row.netPayoutKwd.toFixed(3)} د.ك</div>
@@ -2024,7 +2024,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                           <td className="p-3.5 text-slate-600">
                             {row.reason}
                             {row.voucherNumber ? (
-                              <span className="block text-[10px] font-mono text-[#714B67] mt-0.5">{row.voucherNumber}</span>
+                              <span className="block text-[10px] font-mono text-primary mt-0.5">{row.voucherNumber}</span>
                             ) : null}
                           </td>
                           <td className="p-3.5 text-center">
@@ -2080,7 +2080,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
-                <Plus size={16} className="text-[#714B67]" />
+                <Plus size={16} className="text-primary" />
                 إضافة بند مالي مخصص للتسوية
               </h3>
               <button 
@@ -2159,7 +2159,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-[#714B67] hover:bg-[#5a3b52] text-white rounded-xl font-bold cursor-pointer shadow-xs"
+                  className="px-5 py-2 bg-primary hover:bg-[#5a3b52] text-white rounded-xl font-bold cursor-pointer shadow-xs"
                 >
                   إضافة البند
                 </button>
@@ -2216,7 +2216,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                     <label
                       key={scope}
                       className={`flex items-center gap-2 p-2 rounded-lg border text-[11px] font-bold cursor-pointer ${
-                        archiveLeaveScope === scope ? 'border-[#714B67] bg-purple-50' : 'border-slate-200'
+                        archiveLeaveScope === scope ? 'border-primary bg-purple-50' : 'border-slate-200'
                       }`}
                     >
                       <input
@@ -2251,7 +2251,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-[#714B67] hover:bg-[#5a3b52] text-white rounded-xl font-bold cursor-pointer shadow-xs"
+                  className="px-5 py-2 bg-primary hover:bg-[#5a3b52] text-white rounded-xl font-bold cursor-pointer shadow-xs"
                 >
                   حفظ في الأرشيف
                 </button>
@@ -2269,7 +2269,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
               <div className="flex items-center gap-2">
-                <Printer size={20} className="text-[#714B67]" />
+                <Printer size={20} className="text-primary" />
                 <h3 className="font-bold text-base text-slate-900">
                   {t('preview_print')} - Leave Clearance & Settlement Document
                 </h3>
@@ -2287,7 +2287,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
 
                 <button
                   onClick={handlePrint}
-                  className="bg-[#714B67] hover:bg-[#5a3b52] text-white text-xs font-bold px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+                  className="bg-primary hover:bg-[#5a3b52] text-white text-xs font-bold px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 transition cursor-pointer shadow-xs"
                 >
                   <Printer className="w-3.5 h-3.5 text-amber-300" />
                   <span>{lang === 'ar' ? 'طباعة فورية' : 'Print Now'}</span>
@@ -2387,7 +2387,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
 
             <div className="space-y-4 text-xs">
               <p className="text-slate-600 leading-relaxed">
-                سند التسوية رقم <span className="font-mono font-bold text-[#714B67]">{unlockTarget?.voucherNumber}</span> مقفل ومحمي ضد التعديل أو الحذف العشوائي. لإلغاء القفل وتراجع الصلاحيات، يرجى كتابة سبب الإلغاء وصلاحية المدير المعتمد:
+                سند التسوية رقم <span className="font-mono font-bold text-primary">{unlockTarget?.voucherNumber}</span> مقفل ومحمي ضد التعديل أو الحذف العشوائي. لإلغاء القفل وتراجع الصلاحيات، يرجى كتابة سبب الإلغاء وصلاحية المدير المعتمد:
               </p>
 
               <div>
@@ -2397,7 +2397,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                   onChange={(e) => setUnlockReasonInput(e.target.value)}
                   placeholder="أدخل سبب طلب فك القفل وصلاحية المدير..."
                   rows={3}
-                  className="w-full border border-slate-300 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-[#714B67]/30 text-xs"
+                  className="w-full border border-slate-300 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-primary/30 text-xs"
                 />
               </div>
 

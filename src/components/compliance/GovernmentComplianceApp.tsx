@@ -345,7 +345,7 @@ export const GovernmentComplianceApp: React.FC = () => {
               setSelectedDeptId(null);
               setSelectedFolderId(null);
             }}
-            className={`hover:text-[#714B67] transition-colors cursor-pointer ${
+            className={`hover:text-primary transition-colors cursor-pointer ${
               !selectedDeptId ? 'text-slate-900 font-bold' : ''
             }`}
           >
@@ -358,7 +358,7 @@ export const GovernmentComplianceApp: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setSelectedFolderId(null)}
-                className={`hover:text-[#714B67] transition-colors cursor-pointer ${
+                className={`hover:text-primary transition-colors cursor-pointer ${
                   !selectedFolderId ? 'text-slate-900 font-bold' : ''
                 }`}
               >
@@ -382,16 +382,16 @@ export const GovernmentComplianceApp: React.FC = () => {
             type="button"
             onClick={handlePrintComplianceReport}
             disabled={!loaded}
-            className="bg-white border border-slate-300 hover:border-[#714B67] hover:bg-purple-50 text-slate-800 text-xs md:text-sm font-bold px-3 py-2 rounded-lg shadow-sm transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+            className="bg-white border border-slate-300 hover:border-primary hover:bg-purple-50 text-slate-800 text-xs md:text-sm font-bold px-3 py-2 rounded-lg shadow-sm transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
           >
-            <Printer size={16} className="text-[#714B67]" />
+            <Printer size={16} className="text-primary" />
             <span>🖨️ طباعة تقرير الامتثال</span>
             <span className="text-[10px] font-semibold text-slate-500 hidden sm:inline">Print Report</span>
           </button>
           <button
             type="button"
             onClick={openAddModal}
-            className="btn btn-primary bg-[#714B67] hover:bg-[#5b3c53] text-white text-xs md:text-sm font-bold px-4 py-2 rounded-lg shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+            className="btn btn-primary bg-primary hover:bg-[#5b3c53] text-white text-xs md:text-sm font-bold px-4 py-2 rounded-lg shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
           >
             <span>+</span>
             <span>إضافة ترخيص جديد</span>
@@ -401,7 +401,7 @@ export const GovernmentComplianceApp: React.FC = () => {
 
       {!loaded && (
         <div className="flex items-center justify-center gap-2 py-16 text-slate-500 text-sm">
-          <Loader2 className="w-5 h-5 animate-spin text-[#714B67]" />
+          <Loader2 className="w-5 h-5 animate-spin text-primary" />
           جاري تحميل التراخيص من السحابة...
         </div>
       )}
@@ -415,7 +415,7 @@ export const GovernmentComplianceApp: React.FC = () => {
                 key={dept.id}
                 type="button"
                 onClick={() => setSelectedDeptId(dept.id)}
-                className="text-right bg-white border border-slate-200 rounded-xl p-5 shadow-2xs hover:shadow-md hover:border-[#714B67]/40 cursor-pointer transition-all duration-200 flex flex-col justify-between group"
+                className="text-right bg-white border border-slate-200 rounded-xl p-5 shadow-2xs hover:shadow-md hover:border-primary/40 cursor-pointer transition-all duration-200 flex flex-col justify-between group"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-3">
@@ -423,7 +423,7 @@ export const GovernmentComplianceApp: React.FC = () => {
                       {dept.icon}
                     </span>
                     <div>
-                      <h3 className="font-bold text-slate-800 text-base group-hover:text-[#714B67]">
+                      <h3 className="font-bold text-slate-800 text-base group-hover:text-primary">
                         {dept.name}
                       </h3>
                       <span className="text-xs text-slate-400 font-mono">{dept.code}</span>
@@ -481,7 +481,7 @@ export const GovernmentComplianceApp: React.FC = () => {
                   key={folder.id}
                   type="button"
                   onClick={() => setSelectedFolderId(folder.id)}
-                  className="text-right bg-white border border-slate-200 rounded-xl p-5 shadow-2xs hover:border-[#714B67] hover:shadow-md cursor-pointer transition-all flex flex-col justify-between"
+                  className="text-right bg-white border border-slate-200 rounded-xl p-5 shadow-2xs hover:border-primary hover:shadow-md cursor-pointer transition-all flex flex-col justify-between"
                 >
                   <div className="flex items-center gap-3">
                     <span className="text-2xl p-2 bg-slate-50 rounded-lg">{folder.icon}</span>
@@ -517,7 +517,7 @@ export const GovernmentComplianceApp: React.FC = () => {
                   type="checkbox"
                   checked={showArchived}
                   onChange={(e) => setShowArchived(e.target.checked)}
-                  className="rounded border-slate-300 text-[#714B67]"
+                  className="rounded border-slate-300 text-primary"
                 />
                 عرض المؤرشف
               </label>
@@ -771,7 +771,7 @@ export const GovernmentComplianceApp: React.FC = () => {
                 <input
                   value={form.title}
                   onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                  className="w-full border border-slate-200 rounded-lg px-2.5 py-2 focus:border-[#714B67]/50 focus:outline-none"
+                  className="w-full border border-slate-200 rounded-lg px-2.5 py-2 focus:border-primary/50 focus:outline-none"
                   required
                 />
               </div>
@@ -780,7 +780,7 @@ export const GovernmentComplianceApp: React.FC = () => {
                 <input
                   value={form.documentNumber}
                   onChange={(e) => setForm((f) => ({ ...f, documentNumber: e.target.value }))}
-                  className="w-full border border-slate-200 rounded-lg px-2.5 py-2 font-mono focus:border-[#714B67]/50 focus:outline-none"
+                  className="w-full border border-slate-200 rounded-lg px-2.5 py-2 font-mono focus:border-primary/50 focus:outline-none"
                   required
                 />
               </div>
@@ -790,7 +790,7 @@ export const GovernmentComplianceApp: React.FC = () => {
                   type="date"
                   value={form.expiryDate}
                   onChange={(e) => setForm((f) => ({ ...f, expiryDate: e.target.value }))}
-                  className="w-full border border-slate-200 rounded-lg px-2.5 py-2 focus:border-[#714B67]/50 focus:outline-none"
+                  className="w-full border border-slate-200 rounded-lg px-2.5 py-2 focus:border-primary/50 focus:outline-none"
                   required
                 />
               </div>
@@ -825,7 +825,7 @@ export const GovernmentComplianceApp: React.FC = () => {
                 <label className="font-bold text-slate-700 block mb-1">مرفق الترخيص (اختياري)</label>
                 <p className="text-[10px] text-slate-500 mb-2">PDF أو صورة PNG/JPG — يُرفع إلى Firebase Storage تلقائياً</p>
                 <label
-                  className="flex flex-col items-center justify-center gap-2 w-full border-2 border-dashed border-slate-200 rounded-xl px-3 py-4 cursor-pointer hover:border-[#714B67]/40 hover:bg-slate-50/80 transition-colors"
+                  className="flex flex-col items-center justify-center gap-2 w-full border-2 border-dashed border-slate-200 rounded-xl px-3 py-4 cursor-pointer hover:border-primary/40 hover:bg-slate-50/80 transition-colors"
                 >
                   <Upload size={20} className="text-slate-400" />
                   <span className="text-[11px] font-bold text-slate-600">اختر ملفاً أو اسحبه هنا</span>
@@ -859,7 +859,7 @@ export const GovernmentComplianceApp: React.FC = () => {
               <button
                 type="submit"
                 disabled={savingLicense}
-                className="w-full btn btn-primary bg-[#714B67] hover:bg-[#5b3c53] text-white font-bold py-2.5 rounded-lg cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full btn btn-primary bg-primary hover:bg-[#5b3c53] text-white font-bold py-2.5 rounded-lg cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {savingLicense ? (
                   <>
@@ -895,7 +895,7 @@ export const GovernmentComplianceApp: React.FC = () => {
                   type="date"
                   value={renewExpiry}
                   onChange={(e) => setRenewExpiry(e.target.value)}
-                  className="w-full border border-slate-200 rounded-lg px-2.5 py-2 focus:border-[#714B67]/50 focus:outline-none"
+                  className="w-full border border-slate-200 rounded-lg px-2.5 py-2 focus:border-primary/50 focus:outline-none"
                   required
                 />
               </div>
@@ -905,7 +905,7 @@ export const GovernmentComplianceApp: React.FC = () => {
               <button
                 type="submit"
                 disabled={rowBusyId === renewLicenseId}
-                className="w-full bg-[#714B67] hover:bg-[#5b3c53] text-white font-bold py-2.5 rounded-lg cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full bg-primary hover:bg-[#5b3c53] text-white font-bold py-2.5 rounded-lg cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {rowBusyId === renewLicenseId ? (
                   <>

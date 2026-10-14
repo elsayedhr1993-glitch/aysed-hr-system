@@ -30,7 +30,7 @@ export const OdooReportTitleBand: React.FC<{
 }> = ({ title, subtitle, meta }) => (
   <div className="odoo-report-title-band text-center">
     <h1 className="text-base font-bold text-slate-900 tracking-tight">{title}</h1>
-    {subtitle && <p className="text-[11px] font-semibold text-[#714B67] mt-0.5">{subtitle}</p>}
+    {subtitle && <p className="text-[11px] font-semibold text-primary mt-0.5">{subtitle}</p>}
     {meta && (
       <p className="text-[9px] font-mono text-slate-400 mt-1 uppercase tracking-widest">{meta}</p>
     )}

@@ -89,10 +89,10 @@ export const CompanySetupOnboardingBanner: React.FC<Props> = ({
 
   return (
     <div
-      className={`w-full rounded-2xl border border-[#714B67]/25 bg-gradient-to-l from-[#714B67]/8 via-white to-white shadow-sm overflow-hidden ${className}`}
+      className={`w-full rounded-2xl border border-primary/25 bg-gradient-to-l from-primary/8 via-white to-white shadow-sm overflow-hidden ${className}`}
       dir="rtl"
     >
-      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 bg-[#714B67] text-white">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 bg-primary text-white">
         <div className="min-w-0">
           <div className="text-xs font-black tracking-tight">
             {lang === 'ar' ? 'تهيئة المنشأة' : 'Company onboarding'}
@@ -145,7 +145,7 @@ export const CompanySetupOnboardingBanner: React.FC<Props> = ({
                 className={`flex-1 min-w-[140px] text-right rounded-xl border p-3 transition cursor-pointer group ${
                   done
                     ? 'bg-emerald-50/90 border-emerald-200 hover:border-emerald-300'
-                    : 'bg-white border-slate-200 hover:border-[#714B67]/40 hover:shadow-sm'
+                    : 'bg-white border-slate-200 hover:border-primary/40 hover:shadow-sm'
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
@@ -153,7 +153,7 @@ export const CompanySetupOnboardingBanner: React.FC<Props> = ({
                     className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center border-2 ${
                       done
                         ? 'bg-emerald-500 border-emerald-500 text-white'
-                        : 'bg-slate-50 border-slate-300 text-[#714B67]'
+                        : 'bg-slate-50 border-slate-300 text-primary'
                     }`}
                   >
                     {done ? <CheckCircle2 size={18} /> : <Icon size={16} />}
@@ -164,7 +164,7 @@ export const CompanySetupOnboardingBanner: React.FC<Props> = ({
                   {lang === 'ar' ? step.titleAr : step.titleEn}
                 </div>
                 <p className="text-[10px] text-slate-500 mt-1 leading-snug">{step.hintAr}</p>
-                <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-[#714B67] mt-2 opacity-0 group-hover:opacity-100 transition">
+                <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-primary mt-2 opacity-0 group-hover:opacity-100 transition">
                   {lang === 'ar' ? 'متابعة' : 'Continue'}
                   <ChevronRight size={12} className="rotate-180" />
                 </span>

@@ -169,7 +169,7 @@ export const GlobalIntegrityModal: React.FC<GlobalIntegrityModalProps> = ({
       <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden">
         
         {/* Modal Header */}
-        <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-[#714B67] to-slate-900 text-white flex items-center justify-between border-b border-slate-800">
+        <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-primary to-slate-900 text-white flex items-center justify-between border-b border-slate-800">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-white/10 rounded-xl backdrop-blur-md border border-white/20">
               <ShieldCheck className="w-6 h-6 text-emerald-400" />
@@ -412,7 +412,7 @@ export const GlobalIntegrityModal: React.FC<GlobalIntegrityModalProps> = ({
                 placeholder="بحث في فحص النزاهة، اسم الموظف، أو نص التحقق..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-3 pr-9 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:border-[#714B67] transition"
+                className="w-full pl-3 pr-9 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:border-primary transition"
               />
             </div>
           </div>
@@ -515,7 +515,7 @@ export const GlobalIntegrityModal: React.FC<GlobalIntegrityModalProps> = ({
                         else if (issue.module === 'PAYROLL') onNavigateToApp('payroll');
                       }
                     }}
-                    className="text-xs font-bold text-[#714B67] hover:text-white hover:bg-[#714B67] bg-[#714B67]/10 border border-[#714B67]/20 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs hover:shadow-sm"
+                    className="text-xs font-bold text-primary hover:text-white hover:bg-primary bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs hover:shadow-sm"
                     title={issue.field ? `فتح وتعديل حقل (${issue.field}) مباشرة` : 'فتح الشاشة'}
                   >
                     <span>فتح الشاشة وتعديل الحقل</span>

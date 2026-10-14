@@ -771,7 +771,7 @@ function MainAppLayout() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#F9FAFB] flex flex-col justify-center items-center font-sans" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-        <div className="w-12 h-12 border-4 border-slate-200 border-t-[#714B67] rounded-full animate-spin"></div>
+        <div className="w-12 h-12 border-4 border-slate-200 border-t-primary rounded-full animate-spin"></div>
         <p className="mt-4 text-slate-500 text-sm font-medium">{lang === 'ar' ? 'جاري التحقق من الهوية...' : 'Verifying identity...'}</p>
       </div>
     );
@@ -1206,7 +1206,7 @@ function MainAppLayout() {
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-100 flex flex-col">
             <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <UserCircle className="w-5 h-5 text-[#714B67]" />
+                <UserCircle className="w-5 h-5 text-primary" />
                 تحديث الصورة الشخصية وصورة الحساب
               </h3>
               <button 
@@ -1222,16 +1222,16 @@ function MainAppLayout() {
                 <img 
                   src={newAvatarUrl || userAvatar} 
                   alt="Preview" 
-                  className="w-24 h-24 rounded-full object-cover border-4 border-[#714B67]/20 shadow-md"
+                  className="w-24 h-24 rounded-full object-cover border-4 border-primary/20 shadow-md"
                 />
                 <p className="text-xs text-slate-500">معاينة صورتك الشخصية في شريط النظام العلوي</p>
               </div>
 
               <div>
                 <label className="block font-bold text-xs text-slate-700 mb-1.5">اختر صورة من جهازك (Upload File)</label>
-                <label className="border-2 border-dashed border-slate-300 hover:border-[#714B67] bg-slate-50 hover:bg-slate-100/50 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer transition">
+                <label className="border-2 border-dashed border-slate-300 hover:border-primary bg-slate-50 hover:bg-slate-100/50 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer transition">
                   <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-xs mb-2 border border-slate-200">
-                    <Upload className="w-6 h-6 text-[#714B67]" />
+                    <Upload className="w-6 h-6 text-primary" />
                   </div>
                   <span className="text-xs font-bold text-slate-800">اختر صورة من جهازك</span>
                   <span className="text-[10px] text-slate-500 mt-1">PNG, JPG, WEBP (يتم الحفظ محلياً كـ Base64)</span>
@@ -1276,7 +1276,7 @@ function MainAppLayout() {
                       toast.error('يرجى اختيار صورة أولاً');
                     }
                   }}
-                  className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-5 py-2.5 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
+                  className="bg-primary hover:bg-[#5a3a52] text-white px-5 py-2.5 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
                 >
                   حفظ الصورة الجديدة
                 </button>

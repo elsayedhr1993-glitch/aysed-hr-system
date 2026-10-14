@@ -266,7 +266,7 @@ export const EditAllocationBalanceModal: React.FC<EditAllocationBalanceModalProp
       <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-5 text-xs">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
           <div className="flex items-center gap-2">
-            <Pencil className="text-[#714B67]" size={18} />
+            <Pencil className="text-primary" size={18} />
             <h3 className="font-bold text-slate-900">تعديل الرصيد</h3>
           </div>
           <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer">
@@ -312,7 +312,7 @@ export const EditAllocationBalanceModal: React.FC<EditAllocationBalanceModalProp
             <button
               type="submit"
               disabled={saving}
-              className="w-full bg-[#714B67] hover:bg-[#5a3a52] text-white font-bold py-2.5 rounded-xl cursor-pointer disabled:opacity-60"
+              className="w-full bg-primary hover:bg-[#5a3a52] text-white font-bold py-2.5 rounded-xl cursor-pointer disabled:opacity-60"
             >
               {saving ? 'جاري الحفظ…' : 'حفظ التعديل'}
             </button>

@@ -51,7 +51,7 @@ export const AdminSecurityModal: React.FC<SecurityModalProps> = ({ isOpen, onClo
       <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border space-y-4 text-slate-800">
         
         <div className="flex justify-between items-center border-b pb-3">
-          <div className="flex items-center gap-2 font-black text-sm text-[#714B67]">
+          <div className="flex items-center gap-2 font-black text-sm text-primary">
             <KeyRound size={20} />
             <span>جدار الأمان وتغيير بيانات الدخول</span>
           </div>
@@ -81,7 +81,7 @@ export const AdminSecurityModal: React.FC<SecurityModalProps> = ({ isOpen, onClo
               type="password" 
               value={oldPassword}
               onChange={e => setOldPassword(e.target.value)}
-              className="w-full p-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:border-[#714B67]"
+              className="w-full p-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:border-primary"
               required
             />
           </div>
@@ -93,7 +93,7 @@ export const AdminSecurityModal: React.FC<SecurityModalProps> = ({ isOpen, onClo
                 type="email" 
                 value={newEmail}
                 onChange={e => setNewEmail(e.target.value)}
-                className="w-full p-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:border-[#714B67] dir-ltr text-left"
+                className="w-full p-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:border-primary dir-ltr text-left"
                 required
               />
             </div>
@@ -104,7 +104,7 @@ export const AdminSecurityModal: React.FC<SecurityModalProps> = ({ isOpen, onClo
                 type="password" 
                 value={newPassword}
                 onChange={e => setNewPassword(e.target.value)}
-                className="w-full p-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:border-[#714B67]"
+                className="w-full p-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:border-primary"
                 required
               />
             </div>
@@ -112,7 +112,7 @@ export const AdminSecurityModal: React.FC<SecurityModalProps> = ({ isOpen, onClo
 
           <button 
             type="submit"
-            className="w-full mt-2 bg-[#714B67] hover:bg-[#5a3a52] text-white py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 transition"
+            className="w-full mt-2 bg-primary hover:bg-[#5a3a52] text-white py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 transition"
           >
             <Save size={15} />
             <span>حفظ بيانات الدخول الجديدة</span>

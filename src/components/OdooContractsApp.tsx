@@ -738,7 +738,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
       {/* 1. Header Banner & Action Toolbar */}
       <div className="contracts-print-header bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-[#714B67]/10 text-[#714B67] rounded-xl">
+          <div className="p-2.5 bg-primary/10 text-primary rounded-xl">
             <FileText className="w-6 h-6" />
           </div>
           <div>
@@ -767,7 +767,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
           <button
             type="button"
             onClick={handleOpenCreateContract}
-            className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+            className="bg-primary hover:bg-[#5a3a52] text-white px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
           >
             <Plus size={16} />
             <span>إنشاء عقد جديد</span>
@@ -820,7 +820,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
             type="button"
             onClick={() => setFilterStatus('all')}
             className={`px-3 py-1.5 rounded-lg border transition cursor-pointer ${
-              filterStatus === 'all' ? 'bg-[#714B67] text-white border-[#714B67]' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+              filterStatus === 'all' ? 'bg-primary text-white border-primary' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
             }`}
           >
             الكل ({contracts.length})
@@ -857,7 +857,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
               <option value="part_time">دوام جزئي / بالساعة</option>
             </select>
           </label>
-          <div className="hidden xl:flex items-center gap-1.5 text-[11px] text-[#714B67] font-bold ms-auto">
+          <div className="hidden xl:flex items-center gap-1.5 text-[11px] text-primary font-bold ms-auto">
             <Calculator className="w-3.5 h-3.5" />
             <span>موازنة تقديرية:</span>
             <span className="font-mono">{totalMonthlyPayroll.toFixed(3)} د.ك</span>
@@ -877,7 +877,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
             placeholder="بحث برقم العقد، اسم الموظف، أو الرقم المدني..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pr-9 pl-4 py-2 text-xs border border-slate-200 rounded-lg bg-slate-50 outline-none focus:border-[#714B67]"
+            className="w-full pr-9 pl-4 py-2 text-xs border border-slate-200 rounded-lg bg-slate-50 outline-none focus:border-primary"
           />
         </div>
       </div>
@@ -921,7 +921,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
                     }}
                     className={`${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} hover:bg-purple-50/40 transition cursor-pointer`}
                   >
-                    <td className="p-3 font-mono font-bold text-[#714B67]">
+                    <td className="p-3 font-mono font-bold text-primary">
                       {displayCode}
                     </td>
                     
@@ -1007,7 +1007,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
                                 setOpenRowActionsKey(null);
                                 setPamPrintEmployee(employeePayloadForPamContract(c));
                               }}
-                              className="w-full px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#714B67] hover:bg-purple-50 flex items-center gap-2 cursor-pointer"
+                              className="w-full px-2.5 py-1.5 rounded-lg text-xs font-medium text-primary hover:bg-purple-50 flex items-center gap-2 cursor-pointer"
                             >
                               <FileCheck size={13} />
                               <span>نموذج PAM</span>
@@ -1055,7 +1055,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
             <div className="p-5 border-b border-slate-200 bg-slate-50 space-y-3">
               <div className="flex items-start justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-[#714B67] text-white rounded-xl">
+                  <div className="p-2.5 bg-primary text-white rounded-xl">
                     <FileText className="w-5 h-5" />
                   </div>
                   <div>
@@ -1065,7 +1065,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
                         : `عقد العمل: ${formatContractDisplayRef(selectedContract)}`}
                     </h3>
                     <p className="text-[11px] text-slate-500">
-                      الموظف: <strong className="text-[#714B67]">{selectedContract.name}</strong>
+                      الموظف: <strong className="text-primary">{selectedContract.name}</strong>
                     </p>
                   </div>
                 </div>
@@ -1074,7 +1074,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
                   <button
                     type="button"
                     onClick={() => setPamPrintEmployee(employeePayloadForPamContract(selectedContract))}
-                    className="bg-[#714B67]/10 hover:bg-[#714B67] hover:text-white text-[#714B67] px-3 py-1.5 rounded-xl text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer"
+                    className="bg-primary/10 hover:bg-primary hover:text-white text-primary px-3 py-1.5 rounded-xl text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer"
                   >
                     <FileCheck size={14} />
                     <span>نموذج PAM الرسمي</span>
@@ -1155,7 +1155,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
               <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200 space-y-4">
                 <div className="font-bold text-slate-900 flex items-center justify-between border-b pb-2">
                   <div className="flex items-center gap-2">
-                    <User size={14} className="text-[#714B67]" />
+                    <User size={14} className="text-primary" />
                     <span>بيانات الموظف ونوع الدوام والتعاقد</span>
                   </div>
                   <span className="text-[10px] text-slate-400 font-normal">قانون العمل الكويتي رقم 6/2010</span>
@@ -1196,7 +1196,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
                           hourlyRate: newType === 'part_time' ? (selectedContract.hourlyRate || 25) : 0
                         });
                       }}
-                      className="w-full p-2.5 bg-white border-2 border-[#714B67]/30 rounded-xl font-bold text-slate-900 focus:border-[#714B67]"
+                      className="w-full p-2.5 bg-white border-2 border-primary/30 rounded-xl font-bold text-slate-900 focus:border-primary"
                     >
                       <option value="full_time">دوام كامل (Full-Time) - راتب شهري ثابت</option>
                       <option value="part_time">دوام جزئي / استشاري زائر (Part-Time / Locum) - بأجر الساعة</option>
@@ -1484,7 +1484,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
                   className="w-full p-3.5 flex items-center justify-between text-slate-800 font-bold text-xs hover:bg-slate-100 transition cursor-pointer"
                 >
                   <div className="flex items-center gap-2">
-                    <Calendar size={14} className="text-[#714B67]" />
+                    <Calendar size={14} className="text-primary" />
                     <span>المدد والاشتراطات القانونية (بداية العقد، التجربة، الإخطار)</span>
                   </div>
                   <div className="flex items-center gap-2 text-[11px] text-slate-500 font-normal">
@@ -1552,7 +1552,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
                   value={selectedContract.notes || ''}
                   onChange={(e) => setSelectedContract({ ...selectedContract, notes: e.target.value })}
                   placeholder="بنود خاصة، شروط إضافية، أو ملاحق تعاقدية وفق قانون العمل الكويتي…"
-                  className="w-full p-3 border border-slate-300 rounded-xl text-xs leading-relaxed focus:border-[#714B67] outline-none"
+                  className="w-full p-3 border border-slate-300 rounded-xl text-xs leading-relaxed focus:border-primary outline-none"
                 />
               </div>
 
@@ -1571,7 +1571,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
               <button
                 type="button"
                 onClick={handleSaveContract}
-                className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-6 py-2.5 rounded-xl text-sm font-bold transition flex items-center gap-2 shadow-md cursor-pointer"
+                className="bg-primary hover:bg-[#5a3a52] text-white px-6 py-2.5 rounded-xl text-sm font-bold transition flex items-center gap-2 shadow-md cursor-pointer"
               >
                 <Save size={16} />
                 <span>حفظ واعتماد العقد</span>
@@ -1603,7 +1603,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
           <button
             type="button"
             onClick={() => setShowChatter(!showChatter)}
-            className="text-xs font-bold text-slate-600 hover:text-[#714B67] flex items-center gap-2 transition cursor-pointer"
+            className="text-xs font-bold text-slate-600 hover:text-primary flex items-center gap-2 transition cursor-pointer"
           >
             <MessageSquare size={14} />
             <span>{showChatter ? 'إخفاء سجل المتابعة' : 'عرض سجل المتابعة'}</span>

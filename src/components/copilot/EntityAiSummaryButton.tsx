@@ -57,7 +57,7 @@ export const EntityAiSummaryButton: React.FC<EntityAiSummaryButtonProps> = ({
       {open && (
         <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/40 backdrop-blur-[1px]" dir={isArabic ? 'rtl' : 'ltr'}>
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-gradient-to-r from-[#714B67] to-slate-900 text-white">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-gradient-to-r from-primary to-slate-900 text-white">
               <h3 className="text-sm font-bold">{isArabic ? 'ملخص الحالة الإدارية' : 'Administrative summary'}</h3>
               <button type="button" onClick={() => setOpen(false)} className="p-1 rounded-full hover:bg-white/20 cursor-pointer">
                 <X className="w-5 h-5" />

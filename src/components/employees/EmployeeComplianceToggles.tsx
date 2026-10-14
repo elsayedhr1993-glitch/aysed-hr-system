@@ -48,7 +48,7 @@ function ToggleRow({
         disabled={disabled}
         onClick={onToggle}
         className={`relative w-11 h-6 rounded-full transition shrink-0 ${
-          checked ? 'bg-[#714B67]' : 'bg-slate-300'
+          checked ? 'bg-primary' : 'bg-slate-300'
         } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
       >
         <span

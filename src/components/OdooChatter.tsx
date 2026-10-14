@@ -244,7 +244,7 @@ export const OdooChatter: React.FC<OdooChatterProps> = ({
             type="button"
             onClick={() => setActiveTab('message')}
             className={`flex items-center gap-2 text-xs sm:text-sm font-bold pb-3 -mb-3 border-b-2 transition-colors cursor-pointer ${
-              activeTab === 'message' ? 'text-[#714B67] border-[#714B67]' : 'text-slate-500 border-transparent hover:text-slate-700'
+              activeTab === 'message' ? 'text-primary border-primary' : 'text-slate-500 border-transparent hover:text-slate-700'
             }`}
           >
             <MessageCircle size={15} />
@@ -254,7 +254,7 @@ export const OdooChatter: React.FC<OdooChatterProps> = ({
             type="button"
             onClick={() => setActiveTab('note')}
             className={`flex items-center gap-2 text-xs sm:text-sm font-bold pb-3 -mb-3 border-b-2 transition-colors cursor-pointer ${
-              activeTab === 'note' ? 'text-[#714B67] border-[#714B67]' : 'text-slate-500 border-transparent hover:text-slate-700'
+              activeTab === 'note' ? 'text-primary border-primary' : 'text-slate-500 border-transparent hover:text-slate-700'
             }`}
           >
             <AlignLeft size={15} />
@@ -263,7 +263,7 @@ export const OdooChatter: React.FC<OdooChatterProps> = ({
           <button
             type="button"
             onClick={() => setShowActivityModal(true)}
-            className="flex items-center gap-2 text-xs sm:text-sm font-bold pb-3 -mb-3 text-[#714B67] hover:text-[#5a3a52] transition-colors cursor-pointer border-b-2 border-transparent hover:border-[#714B67]"
+            className="flex items-center gap-2 text-xs sm:text-sm font-bold pb-3 -mb-3 text-primary hover:text-[#5a3a52] transition-colors cursor-pointer border-b-2 border-transparent hover:border-primary"
           >
             <Clock size={15} />
             جدولة نشاط (Schedule Activity)
@@ -292,12 +292,12 @@ export const OdooChatter: React.FC<OdooChatterProps> = ({
         <div className="p-4 bg-purple-50/40 border-b border-purple-100">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <CalendarCheck2 className="w-4 h-4 text-[#714B67]" />
+              <CalendarCheck2 className="w-4 h-4 text-primary" />
               <h4 className="text-xs font-black text-slate-900">
                 محرك الأنشطة المجدولة والتنبيهات التلقائية ({activeActivities.length})
               </h4>
             </div>
-            <span className="text-[10px] bg-[#714B67]/10 text-[#714B67] font-bold px-2 py-0.5 rounded-md">
+            <span className="text-[10px] bg-primary/10 text-primary font-bold px-2 py-0.5 rounded-md">
               تنبيهات الانتهاء
             </span>
           </div>
@@ -362,7 +362,7 @@ export const OdooChatter: React.FC<OdooChatterProps> = ({
 
                         <div className="flex items-center gap-4 text-[11px] text-slate-500 mt-1.5 flex-wrap">
                           <div className="flex items-center gap-1 font-medium">
-                            <User size={12} className="text-[#714B67]" />
+                            <User size={12} className="text-primary" />
                             <span>المسؤول الموجه له: <strong className="text-slate-800">{act.assignee}</strong></span>
                             {act.assigneeRole && <span className="text-[10px] text-slate-400">({act.assigneeRole})</span>}
                           </div>
@@ -422,7 +422,7 @@ export const OdooChatter: React.FC<OdooChatterProps> = ({
           </div>
         )}
         <div className={`border border-slate-300 rounded-xl overflow-hidden transition-shadow focus-within:ring-2 ${
-          activeTab === 'note' ? 'bg-amber-50/60 focus-within:ring-amber-200' : 'bg-white focus-within:ring-[#714B67]/20'
+          activeTab === 'note' ? 'bg-amber-50/60 focus-within:ring-amber-200' : 'bg-white focus-within:ring-primary/20'
         }`}>
           <textarea
             value={inputText}
@@ -445,7 +445,7 @@ export const OdooChatter: React.FC<OdooChatterProps> = ({
               disabled={!inputText.trim()}
               className={`px-4 py-1.5 text-xs font-bold text-white rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
                 inputText.trim() 
-                  ? (activeTab === 'note' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-[#714B67] hover:bg-[#5a3a52]') 
+                  ? (activeTab === 'note' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-primary hover:bg-[#5a3a52]') 
                   : 'bg-slate-300 cursor-not-allowed'
               }`}
             >
@@ -562,7 +562,7 @@ export const OdooChatter: React.FC<OdooChatterProps> = ({
                           onClick={() => handleActivityTypeSelect(key)}
                           className={`p-3 rounded-xl border transition cursor-pointer flex items-start justify-between ${
                             isSelected 
-                              ? 'bg-[#714B67]/5 border-[#714B67] ring-1 ring-[#714B67]' 
+                              ? 'bg-primary/5 border-primary ring-1 ring-primary' 
                               : 'bg-slate-50 border-slate-200 hover:bg-slate-100/80'
                           }`}
                         >
@@ -571,7 +571,7 @@ export const OdooChatter: React.FC<OdooChatterProps> = ({
                               {cfg.label}
                             </div>
                             <p className="text-[11px] text-slate-500 mt-0.5">{cfg.description}</p>
-                            <div className="text-[10px] text-[#714B67] font-semibold mt-1">
+                            <div className="text-[10px] text-primary font-semibold mt-1">
                               المسؤول التلقائي: {cfg.defaultAssignee} ({cfg.defaultAssigneeRole})
                             </div>
                           </div>
@@ -580,7 +580,7 @@ export const OdooChatter: React.FC<OdooChatterProps> = ({
                             name="activityType"
                             checked={isSelected}
                             onChange={() => handleActivityTypeSelect(key)}
-                            className="mt-1 text-[#714B67] focus:ring-[#714B67]"
+                            className="mt-1 text-primary focus:ring-primary"
                           />
                         </div>
                       );
@@ -599,7 +599,7 @@ export const OdooChatter: React.FC<OdooChatterProps> = ({
                       required
                       value={activityDueDate}
                       onChange={(e) => setActivityDueDate(e.target.value)}
-                      className="w-full p-2 border border-slate-300 rounded-lg text-xs bg-slate-50 focus:bg-white outline-none focus:border-[#714B67]"
+                      className="w-full p-2 border border-slate-300 rounded-lg text-xs bg-slate-50 focus:bg-white outline-none focus:border-primary"
                     />
                     {/* Live Status Badge Preview */}
                     {activityDueDate && (() => {
@@ -624,7 +624,7 @@ export const OdooChatter: React.FC<OdooChatterProps> = ({
                       required
                       value={activityAssignee}
                       onChange={(e) => setActivityAssignee(e.target.value)}
-                      className="w-full p-2 border border-slate-300 rounded-lg text-xs bg-slate-50 focus:bg-white outline-none focus:border-[#714B67]"
+                      className="w-full p-2 border border-slate-300 rounded-lg text-xs bg-slate-50 focus:bg-white outline-none focus:border-primary"
                     />
                   </div>
                 </div>
@@ -639,7 +639,7 @@ export const OdooChatter: React.FC<OdooChatterProps> = ({
                     placeholder="مثال: متابعة تجديد ترخيص مزاولة المهنة قبل انتهاء المهلة"
                     value={activitySummary}
                     onChange={(e) => setActivitySummary(e.target.value)}
-                    className="w-full p-2 border border-slate-300 rounded-lg text-xs bg-slate-50 focus:bg-white outline-none focus:border-[#714B67]"
+                    className="w-full p-2 border border-slate-300 rounded-lg text-xs bg-slate-50 focus:bg-white outline-none focus:border-primary"
                   />
                 </div>
 
@@ -652,7 +652,7 @@ export const OdooChatter: React.FC<OdooChatterProps> = ({
                     placeholder="أدخل أي ملاحظات خاصة بجهة التجديد أو المستندات المطلوبة..."
                     value={activityNote}
                     onChange={(e) => setActivityNote(e.target.value)}
-                    className="w-full p-2 border border-slate-300 rounded-lg text-xs bg-slate-50 focus:bg-white outline-none focus:border-[#714B67]"
+                    className="w-full p-2 border border-slate-300 rounded-lg text-xs bg-slate-50 focus:bg-white outline-none focus:border-primary"
                   />
                 </div>
               </div>
@@ -668,7 +668,7 @@ export const OdooChatter: React.FC<OdooChatterProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-[#714B67] hover:bg-[#5a3a52] text-white font-bold rounded-lg transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  className="px-5 py-2 bg-primary hover:bg-[#5a3a52] text-white font-bold rounded-lg transition flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
                   <Check size={14} />
                   جدولة النشاط في سجل المتابعة

@@ -142,7 +142,7 @@ export const EmployeeQuickEditModal: React.FC<Props> = ({ isOpen, employee, onCl
                 required
                 value={form.nameAr}
                 onChange={(e) => setField('nameAr', e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-2.5 py-2 focus:border-[#714B67] focus:outline-none"
+                className="w-full border border-slate-200 rounded-lg px-2.5 py-2 focus:border-primary focus:outline-none"
               />
             </label>
             <label className="block sm:col-span-2">
@@ -150,7 +150,7 @@ export const EmployeeQuickEditModal: React.FC<Props> = ({ isOpen, employee, onCl
               <input
                 value={form.nameEn}
                 onChange={(e) => setField('nameEn', e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-2.5 py-2 focus:border-[#714B67] focus:outline-none"
+                className="w-full border border-slate-200 rounded-lg px-2.5 py-2 focus:border-primary focus:outline-none"
                 dir="ltr"
               />
             </label>
@@ -160,7 +160,7 @@ export const EmployeeQuickEditModal: React.FC<Props> = ({ isOpen, employee, onCl
                 type="email"
                 value={form.email}
                 onChange={(e) => setField('email', e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-2.5 py-2 focus:border-[#714B67] focus:outline-none"
+                className="w-full border border-slate-200 rounded-lg px-2.5 py-2 focus:border-primary focus:outline-none"
                 dir="ltr"
               />
             </label>
@@ -169,7 +169,7 @@ export const EmployeeQuickEditModal: React.FC<Props> = ({ isOpen, employee, onCl
               <input
                 value={form.phone}
                 onChange={(e) => setField('phone', e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-2.5 py-2 focus:border-[#714B67] focus:outline-none"
+                className="w-full border border-slate-200 rounded-lg px-2.5 py-2 focus:border-primary focus:outline-none"
                 dir="ltr"
               />
             </label>
@@ -178,7 +178,7 @@ export const EmployeeQuickEditModal: React.FC<Props> = ({ isOpen, employee, onCl
               <input
                 value={form.jobTitle}
                 onChange={(e) => setField('jobTitle', e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-2.5 py-2 focus:border-[#714B67] focus:outline-none"
+                className="w-full border border-slate-200 rounded-lg px-2.5 py-2 focus:border-primary focus:outline-none"
               />
             </label>
             <label className="block">
@@ -186,7 +186,7 @@ export const EmployeeQuickEditModal: React.FC<Props> = ({ isOpen, employee, onCl
               <input
                 value={form.dept}
                 onChange={(e) => setField('dept', e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-2.5 py-2 focus:border-[#714B67] focus:outline-none"
+                className="w-full border border-slate-200 rounded-lg px-2.5 py-2 focus:border-primary focus:outline-none"
               />
             </label>
             <label className="block">
@@ -194,7 +194,7 @@ export const EmployeeQuickEditModal: React.FC<Props> = ({ isOpen, employee, onCl
               <input
                 value={form.manager}
                 onChange={(e) => setField('manager', e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-2.5 py-2 focus:border-[#714B67] focus:outline-none"
+                className="w-full border border-slate-200 rounded-lg px-2.5 py-2 focus:border-primary focus:outline-none"
               />
             </label>
             <label className="block">
@@ -202,7 +202,7 @@ export const EmployeeQuickEditModal: React.FC<Props> = ({ isOpen, employee, onCl
               <input
                 value={form.workLocation}
                 onChange={(e) => setField('workLocation', e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-2.5 py-2 focus:border-[#714B67] focus:outline-none"
+                className="w-full border border-slate-200 rounded-lg px-2.5 py-2 focus:border-primary focus:outline-none"
               />
             </label>
             <label className="block">
@@ -211,7 +211,7 @@ export const EmployeeQuickEditModal: React.FC<Props> = ({ isOpen, employee, onCl
                 value={form.civilId}
                 onChange={(e) => setField('civilId', e.target.value)}
                 maxLength={12}
-                className="w-full border border-slate-200 rounded-lg px-2.5 py-2 font-mono focus:border-[#714B67] focus:outline-none"
+                className="w-full border border-slate-200 rounded-lg px-2.5 py-2 font-mono focus:border-primary focus:outline-none"
                 dir="ltr"
               />
             </label>
@@ -220,7 +220,7 @@ export const EmployeeQuickEditModal: React.FC<Props> = ({ isOpen, employee, onCl
               <select
                 value={form.status}
                 onChange={(e) => setField('status', e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-2.5 py-2 focus:border-[#714B67] focus:outline-none cursor-pointer"
+                className="w-full border border-slate-200 rounded-lg px-2.5 py-2 focus:border-primary focus:outline-none cursor-pointer"
               >
                 {STATUS_OPTIONS.map((s) => (
                   <option key={s} value={s}>{s}</option>
@@ -232,7 +232,7 @@ export const EmployeeQuickEditModal: React.FC<Props> = ({ isOpen, employee, onCl
               <input
                 value={form.bankName}
                 onChange={(e) => setField('bankName', e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-2.5 py-2 focus:border-[#714B67] focus:outline-none"
+                className="w-full border border-slate-200 rounded-lg px-2.5 py-2 focus:border-primary focus:outline-none"
               />
             </label>
             <label className="block">
@@ -240,7 +240,7 @@ export const EmployeeQuickEditModal: React.FC<Props> = ({ isOpen, employee, onCl
               <input
                 value={form.iban}
                 onChange={(e) => setField('iban', e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-2.5 py-2 font-mono focus:border-[#714B67] focus:outline-none uppercase"
+                className="w-full border border-slate-200 rounded-lg px-2.5 py-2 font-mono focus:border-primary focus:outline-none uppercase"
                 dir="ltr"
               />
             </label>
@@ -249,7 +249,7 @@ export const EmployeeQuickEditModal: React.FC<Props> = ({ isOpen, employee, onCl
               <input
                 value={form.mohLicense}
                 onChange={(e) => setField('mohLicense', e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-2.5 py-2 focus:border-[#714B67] focus:outline-none"
+                className="w-full border border-slate-200 rounded-lg px-2.5 py-2 focus:border-primary focus:outline-none"
               />
             </label>
           </div>
@@ -275,7 +275,7 @@ export const EmployeeQuickEditModal: React.FC<Props> = ({ isOpen, employee, onCl
             type="submit"
             disabled={saving}
             onClick={handleSubmit}
-            className="px-4 py-1.5 rounded-lg text-xs font-bold bg-[#714B67] hover:bg-[#5b3c53] text-white flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+            className="px-4 py-1.5 rounded-lg text-xs font-bold bg-primary hover:bg-[#5b3c53] text-white flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
           >
             <Save size={14} />
             {saving ? 'جاري الحفظ...' : 'حفظ'}

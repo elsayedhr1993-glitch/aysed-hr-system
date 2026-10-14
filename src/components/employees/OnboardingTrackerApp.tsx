@@ -1,3 +1,4 @@
+import { tokens } from '../../design/tokens';
 import React, { useState, useEffect } from 'react';
 import { 
   Sparkles, 
@@ -421,7 +422,7 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
       <div className="bg-white rounded-xl border border-slate-200/90 p-3 shadow-2xs space-y-2.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <div className="w-9 h-9 rounded-lg bg-[#714B67]/10 text-[#714B67] flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
               <Sparkles size={18} />
             </div>
             <div>
@@ -442,7 +443,7 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
             <button
               type="button"
               onClick={() => setIsWizardOpen(true)}
-              className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+              className="bg-primary hover:bg-[#5a3a52] text-white px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
             >
               <Plus size={14} />
               خطة جديدة
@@ -477,7 +478,7 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
             type="button"
             onClick={() => setFilterStatus('active')}
             className={`px-2 py-1 rounded-md text-[11px] font-bold cursor-pointer ${
-              filterStatus === 'active' ? 'bg-[#714B67] text-white' : 'bg-slate-100 text-slate-600'
+              filterStatus === 'active' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600'
             }`}
           >
             قائمة ({activePlansCount})
@@ -486,7 +487,7 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
             type="button"
             onClick={() => setFilterStatus('completed')}
             className={`px-2 py-1 rounded-md text-[11px] font-bold cursor-pointer ${
-              filterStatus === 'completed' ? 'bg-[#714B67] text-white' : 'bg-slate-100 text-slate-600'
+              filterStatus === 'completed' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600'
             }`}
           >
             مكتملة ({completedPlansCount})
@@ -495,7 +496,7 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
             type="button"
             onClick={() => setFilterStatus('all')}
             className={`px-2 py-1 rounded-md text-[11px] font-bold cursor-pointer ${
-              filterStatus === 'all' ? 'bg-[#714B67] text-white' : 'bg-slate-100 text-slate-600'
+              filterStatus === 'all' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600'
             }`}
           >
             الكل ({plans.length})
@@ -507,7 +508,7 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="بحث..."
-              className="w-full pr-7 pl-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[11px] focus:outline-none focus:border-[#714B67]/40"
+              className="w-full pr-7 pl-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[11px] focus:outline-none focus:border-primary/40"
             />
           </div>
         </div>
@@ -524,7 +525,7 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
               <p className="font-bold text-slate-600 text-xs">لا توجد خطط تهيئة قائمة في هذه الفئة</p>
               <button
                 onClick={() => setIsWizardOpen(true)}
-                className="mt-3 inline-flex items-center gap-1.5 text-xs text-[#714B67] font-bold hover:underline cursor-pointer"
+                className="mt-3 inline-flex items-center gap-1.5 text-xs text-primary font-bold hover:underline cursor-pointer"
               >
                 <span>+ تفعيل خطة تهيئة جديدة الآن</span>
               </button>
@@ -540,7 +541,7 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
                   onClick={() => setSelectedPlan(plan)}
                   className={`bg-white p-4 rounded-2xl border transition cursor-pointer ${
                     isSelected 
-                      ? 'border-[#714B67] ring-2 ring-[#714B67]/20 shadow-sm' 
+                      ? 'border-primary ring-2 ring-primary/20 shadow-sm' 
                       : 'border-slate-200 hover:border-slate-300 hover:shadow-2xs'
                   }`}
                 >
@@ -575,7 +576,7 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
                     <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                       <div
                         className={`h-full transition-all duration-300 ${
-                          plan.progressPercentage === 100 ? 'bg-emerald-500' : 'bg-[#714B67]'
+                          plan.progressPercentage === 100 ? 'bg-emerald-500' : 'bg-primary'
                         }`}
                         style={{ width: `${plan.progressPercentage}%` }}
                       ></div>
@@ -634,12 +635,12 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
                             e.stopPropagation();
                             onOpenEmployee(linkedEmpId);
                           }}
-                          className="text-[#714B67] font-bold hover:underline cursor-pointer"
+                          className="text-primary font-bold hover:underline cursor-pointer"
                         >
                           ملف الموظف
                         </button>
                       )}
-                      <span className="font-bold text-[#714B67]">
+                      <span className="font-bold text-primary">
                         مهام {plan.tasks.filter((t) => t.completed).length}/{plan.tasks.length}
                       </span>
                     </div>
@@ -687,7 +688,7 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
                   <button
                     type="button"
                     onClick={() => onOpenEmployee(resolveEmployeeId(selectedPlan)!)}
-                    className="text-[11px] font-bold text-[#714B67] border border-[#714B67]/30 px-2 py-1 rounded-lg hover:bg-purple-50 cursor-pointer"
+                    className="text-[11px] font-bold text-primary border border-primary/30 px-2 py-1 rounded-lg hover:bg-purple-50 cursor-pointer"
                   >
                     ملف الموظف
                   </button>
@@ -1277,8 +1278,8 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
                                 <title>إقرار مباشرة عمل - ${selectedPlan.employeeName}</title>
                                 <style>
                                   body { font-family: system-ui, sans-serif; padding: 40px; color: #1e293b; line-height: 1.6; }
-                                  .header { text-align: center; border-bottom: 3px solid #714B67; padding-bottom: 20px; margin-bottom: 30px; }
-                                  .title { font-size: 24px; font-weight: bold; color: #714B67; margin-bottom: 5px; }
+                                  .header { text-align: center; border-bottom: 3px solid ${tokens.color.primary}; padding-bottom: 20px; margin-bottom: 30px; }
+                                  .title { font-size: 24px; font-weight: bold; color: ${tokens.color.primary}; margin-bottom: 5px; }
                                   .subtitle { font-size: 15px; color: #64748b; font-weight: 500; }
                                   .box { border: 1px solid #cbd5e1; padding: 18px; border-radius: 12px; background: #f8fafc; margin-bottom: 22px; }
                                   table { width: 100%; border-collapse: collapse; margin-top: 15px; }

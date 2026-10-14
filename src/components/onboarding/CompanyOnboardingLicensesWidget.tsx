@@ -56,14 +56,14 @@ export const CompanyOnboardingLicensesWidget: React.FC<Props> = ({
       >
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 min-w-0">
-            <Building2 size={16} className="text-[#714B67] shrink-0" />
+            <Building2 size={16} className="text-primary shrink-0" />
             <span className="text-[11px] font-black text-slate-900 truncate">التراخيص</span>
           </div>
-          <span className="text-[10px] font-mono font-black text-[#714B67]">{overall}%</span>
+          <span className="text-[10px] font-mono font-black text-primary">{overall}%</span>
         </div>
         <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden" dir="ltr">
           <div
-            className="h-full bg-[#714B67] transition-all rounded-full"
+            className="h-full bg-primary transition-all rounded-full"
             style={{ width: `${Math.min(100, Math.max(0, overall))}%` }}
           />
         </div>
@@ -88,7 +88,7 @@ export const CompanyOnboardingLicensesWidget: React.FC<Props> = ({
             <button
               type="button"
               onClick={onOpenDocuments}
-              className="text-[10px] font-bold text-[#714B67] hover:underline text-right cursor-pointer"
+              className="text-[10px] font-bold text-primary hover:underline text-right cursor-pointer"
             >
               أرشيف التراخيص
             </button>
@@ -97,7 +97,7 @@ export const CompanyOnboardingLicensesWidget: React.FC<Props> = ({
             <button
               type="button"
               onClick={onOpenComplianceTree}
-              className="text-[10px] font-bold text-slate-600 hover:text-[#714B67] text-right cursor-pointer flex items-center gap-1 justify-end"
+              className="text-[10px] font-bold text-slate-600 hover:text-primary text-right cursor-pointer flex items-center gap-1 justify-end"
             >
               <GitBranch size={11} />
               شجرة الامتثال
@@ -112,7 +112,7 @@ export const CompanyOnboardingLicensesWidget: React.FC<Props> = ({
     <div className="w-full bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl p-4 shadow-xs">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
         <div className="flex items-center gap-2">
-          <div className="p-2 rounded-xl bg-[#714B67]/10 text-[#714B67]">
+          <div className="p-2 rounded-xl bg-primary/10 text-primary">
             <Building2 size={18} />
           </div>
           <div>
@@ -127,7 +127,7 @@ export const CompanyOnboardingLicensesWidget: React.FC<Props> = ({
               {alerts} تنبيه
             </span>
           )}
-          <span className="text-xs font-mono font-black text-[#714B67]">{overall}%</span>
+          <span className="text-xs font-mono font-black text-primary">{overall}%</span>
         </div>
       </div>
 
@@ -140,7 +140,7 @@ export const CompanyOnboardingLicensesWidget: React.FC<Props> = ({
         aria-valuemax={100}
       >
         <div
-          className="h-full bg-[#714B67] transition-all rounded-full"
+          className="h-full bg-primary transition-all rounded-full"
           style={{ width: `${Math.min(100, Math.max(0, overall))}%` }}
         />
       </div>
@@ -165,7 +165,7 @@ export const CompanyOnboardingLicensesWidget: React.FC<Props> = ({
             <button
               type="button"
               onClick={onOpenComplianceTree}
-              className="flex-1 py-2 text-xs font-bold text-white bg-[#714B67] border border-[#714B67] rounded-xl hover:bg-[#5d3d55] transition cursor-pointer flex items-center justify-center gap-1.5"
+              className="flex-1 py-2 text-xs font-bold text-white bg-primary border border-primary rounded-xl hover:bg-[#5d3d55] transition cursor-pointer flex items-center justify-center gap-1.5"
             >
               <GitBranch size={14} />
               شجرة الامتثال الحكومي
@@ -175,7 +175,7 @@ export const CompanyOnboardingLicensesWidget: React.FC<Props> = ({
             <button
               type="button"
               onClick={onOpenDocuments}
-              className="flex-1 py-2 text-xs font-bold text-[#714B67] border border-[#714B67]/30 rounded-xl hover:bg-purple-50 transition cursor-pointer flex items-center justify-center gap-1.5"
+              className="flex-1 py-2 text-xs font-bold text-primary border border-primary/30 rounded-xl hover:bg-purple-50 transition cursor-pointer flex items-center justify-center gap-1.5"
             >
               <ShieldCheck size={14} />
               أرشيف تراخيص المنشأة

@@ -318,7 +318,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-200">
         <div>
           <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-            <UserPlus className="w-6 h-6 text-[#714B67]" />
+            <UserPlus className="w-6 h-6 text-primary" />
             <span>نظام إدارة التوظيف والشهادات المرفقة</span>
           </h2>
           <p className="text-xs text-slate-500 mt-1">
@@ -329,7 +329,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={handleOpenAddModal}
-            className="bg-[#714B67] hover:bg-[#5a3a52] text-white text-xs font-bold px-4 py-2.5 rounded-lg shadow-sm flex items-center gap-2 transition"
+            className="bg-primary hover:bg-[#5a3a52] text-white text-xs font-bold px-4 py-2.5 rounded-lg shadow-sm flex items-center gap-2 transition"
           >
             <Plus className="w-4 h-4" />
             <span>تقديم طلب توظيف جديد (إرفاق شهادات)</span>
@@ -347,7 +347,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
             placeholder="بحث باسم المتقدم، الوظيفة، الشهادة، المؤهل..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pr-9 pl-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:bg-white focus:border-[#714B67]"
+            className="w-full pr-9 pl-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:bg-white focus:border-primary"
           />
         </div>
 
@@ -356,7 +356,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
           <button
             onClick={() => setSelectedStageFilter('ALL')}
             className={`px-3 py-1.5 rounded-lg font-bold text-xs transition ${
-              selectedStageFilter === 'ALL' ? 'bg-[#714B67] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              selectedStageFilter === 'ALL' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
             جميع المتقدمين ({companyCandidates.length})
@@ -368,7 +368,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
                 key={stg.id}
                 onClick={() => setSelectedStageFilter(stg.id)}
                 className={`px-2.5 py-1.5 rounded-lg font-bold text-xs whitespace-nowrap transition ${
-                  selectedStageFilter === stg.id ? 'bg-[#714B67] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  selectedStageFilter === stg.id ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
                 {stg.label.split(' ')[0]} ({count})
@@ -403,10 +403,10 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
                       <div 
                         key={cand.id} 
                         onClick={() => setViewingCandidate(cand)}
-                        className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-xs text-xs space-y-2.5 hover:border-[#714B67] hover:shadow-md transition cursor-pointer relative group"
+                        className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-xs text-xs space-y-2.5 hover:border-primary hover:shadow-md transition cursor-pointer relative group"
                       >
                         <div className="flex justify-between items-start gap-1">
-                          <h4 className="font-bold text-slate-900 text-sm hover:text-[#714B67] transition">{cand.fullName}</h4>
+                          <h4 className="font-bold text-slate-900 text-sm hover:text-primary transition">{cand.fullName}</h4>
                           <div className="flex text-amber-400 shrink-0">
                             {Array.from({ length: cand.rating || 4 }).map((_, i) => (
                               <Star key={i} className="w-3 h-3 fill-amber-400" />))}
@@ -457,7 +457,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
                                     onSaveCandidate({ ...cand, stage: stages[nextIdx].id as any });
                                   }
                                 }}
-                                className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-[#714B67] font-bold text-[10px] rounded transition flex items-center gap-1"
+                                className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-primary font-bold text-[10px] rounded transition flex items-center gap-1"
                                 title="ترقية للمرحلة التالية"
                               >
                                 <span>التالي</span>
@@ -491,13 +491,13 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
             {/* Header */}
             <div className="flex items-center justify-between border-b pb-3 shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-purple-100 text-[#714B67] rounded-xl flex items-center justify-center font-bold text-lg">
+                <div className="w-10 h-10 bg-purple-100 text-primary rounded-xl flex items-center justify-center font-bold text-lg">
                   <UserPlus className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="font-extrabold text-slate-900 text-base">{viewingCandidate.fullName}</h3>
                   <div className="flex items-center gap-2 text-slate-500 text-[11px] mt-0.5">
-                    <span className="font-semibold text-[#714B67]">{viewingCandidate.appliedPosition}</span>
+                    <span className="font-semibold text-primary">{viewingCandidate.appliedPosition}</span>
                     <span>•</span>
                     <span>القسم: {viewingCandidate.department}</span>
                   </div>
@@ -571,7 +571,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
               <div className="space-y-3 pt-2">
                 <div className="flex items-center justify-between border-b pb-2">
                   <h4 className="font-extrabold text-slate-800 text-xs flex items-center gap-2">
-                    <Paperclip className="w-4 h-4 text-[#714B67]" />
+                    <Paperclip className="w-4 h-4 text-primary" />
                     <span>المستندات والشهادات المرفقة بطلب التوظيف ({viewingCandidate.attachments?.length || 0})</span>
                   </h4>
                   <button
@@ -579,7 +579,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
                       handleOpenEditModal(viewingCandidate);
                       setViewingCandidate(null);
                     }}
-                    className="text-[11px] font-bold text-[#714B67] hover:underline flex items-center gap-1"
+                    className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>إضافة مستند/شهادة جديدة</span>
@@ -596,11 +596,11 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
                     {viewingCandidate.attachments.map((att) => (
                       <div 
                         key={att.id} 
-                        className="p-3 bg-white border border-slate-200 rounded-xl shadow-xs hover:border-[#714B67] transition flex flex-col justify-between space-y-2"
+                        className="p-3 bg-white border border-slate-200 rounded-xl shadow-xs hover:border-primary transition flex flex-col justify-between space-y-2"
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2 overflow-hidden">
-                            <div className="p-2 bg-slate-100 rounded-lg text-[#714B67] shrink-0">
+                            <div className="p-2 bg-slate-100 rounded-lg text-primary shrink-0">
                               <FileText className="w-5 h-5" />
                             </div>
                             <div className="truncate">
@@ -615,7 +615,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
                           <span className="text-slate-400 font-mono">{att.uploadDate || 'تاريخ المرفق'} • {att.fileSize || ''}</span>
                           <button
                             onClick={() => openDocumentPreviewInNewTab(att.fileUrl, att.title)}
-                            className="bg-[#714B67] hover:bg-[#5a3a52] text-white font-bold px-3 py-1 rounded-lg transition shadow-xs flex items-center gap-1"
+                            className="bg-primary hover:bg-[#5a3a52] text-white font-bold px-3 py-1 rounded-lg transition shadow-xs flex items-center gap-1"
                           >
                             <Eye className="w-3 h-3" />
                             <span>معاينة في تبويب جديد ↗</span>
@@ -656,7 +656,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
                         setViewingCandidate(updated);
                       }
                     }}
-                    className="bg-purple-50 hover:bg-purple-100 text-[#714B67] font-bold px-4 py-2 rounded-lg text-xs flex items-center gap-2 transition"
+                    className="bg-purple-50 hover:bg-purple-100 text-primary font-bold px-4 py-2 rounded-lg text-xs flex items-center gap-2 transition"
                   >
                     <span>الترقية للمرحلة التالية</span>
                     <ArrowRight className="w-4 h-4" />
@@ -680,7 +680,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b pb-3 shrink-0">
               <div className="flex items-center gap-2">
-                <UserPlus className="w-5 h-5 text-[#714B67]" />
+                <UserPlus className="w-5 h-5 text-primary" />
                 <h3 className="font-extrabold text-slate-900 text-base">
                   {editingCandidate ? 'تعديل طلب التوظيف ومستندات المتقدم' : 'تقديم طلب توظيف جديد وإرفاق شهادات'}
                 </h3>
@@ -704,7 +704,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
                     placeholder="الاسم الرباعي للمتقدم للوظيفة"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    className="w-full border border-slate-300 rounded-lg p-2 outline-none focus:border-[#714B67]"
+                    className="w-full border border-slate-300 rounded-lg p-2 outline-none focus:border-primary"
                   />
                 </div>
 
@@ -715,7 +715,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
                     placeholder="مثال: محاسب أول / مهندس برمجيات"
                     value={appliedPosition}
                     onChange={(e) => setAppliedPosition(e.target.value)}
-                    className="w-full border border-slate-300 rounded-lg p-2 outline-none focus:border-[#714B67]"
+                    className="w-full border border-slate-300 rounded-lg p-2 outline-none focus:border-primary"
                   />
                 </div>
 
@@ -726,7 +726,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
                     placeholder="مثال: الموارد البشرية والإدارة"
                     value={department}
                     onChange={(e) => setDepartment(e.target.value)}
-                    className="w-full border border-slate-300 rounded-lg p-2 outline-none focus:border-[#714B67]"
+                    className="w-full border border-slate-300 rounded-lg p-2 outline-none focus:border-primary"
                   />
                 </div>
 
@@ -736,7 +736,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
                     type="number"
                     value={expectedSalary}
                     onChange={(e) => setExpectedSalary(parseFloat(e.target.value) || 0)}
-                    className="w-full border border-slate-300 rounded-lg p-2 outline-none font-mono dir-ltr focus:border-[#714B67]"
+                    className="w-full border border-slate-300 rounded-lg p-2 outline-none font-mono dir-ltr focus:border-primary"
                   />
                 </div>
 
@@ -747,7 +747,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
                     placeholder="candidate@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full border border-slate-300 rounded-lg p-2 outline-none dir-ltr focus:border-[#714B67]"
+                    className="w-full border border-slate-300 rounded-lg p-2 outline-none dir-ltr focus:border-primary"
                   />
                 </div>
 
@@ -758,7 +758,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
                     placeholder="+965 99000000"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full border border-slate-300 rounded-lg p-2 outline-none dir-ltr focus:border-[#714B67]"
+                    className="w-full border border-slate-300 rounded-lg p-2 outline-none dir-ltr focus:border-primary"
                   />
                 </div>
 
@@ -767,7 +767,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
                   <select
                     value={stage || 'CV'}
                     onChange={(e) => setStage(e.target.value as any)}
-                    className="w-full border border-slate-300 rounded-lg p-2 outline-none focus:border-[#714B67]"
+                    className="w-full border border-slate-300 rounded-lg p-2 outline-none focus:border-primary"
                   >
                     {stages.map(s => (
                       <option key={s.id} value={s.id}>{s.label}</option>))}
@@ -779,7 +779,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
                   <select
                     value={rating || 4}
                     onChange={(e) => setRating(parseInt(e.target.value) || 4)}
-                    className="w-full border border-slate-300 rounded-lg p-2 outline-none focus:border-[#714B67]"
+                    className="w-full border border-slate-300 rounded-lg p-2 outline-none focus:border-primary"
                   >
                     <option value={5}>⭐⭐⭐⭐⭐ (ممتاز جداً 5/5)</option>
                     <option value={4}>⭐⭐⭐⭐ (جيد جداً 4/5)</option>
@@ -792,7 +792,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
 
               {/* Qualifications & Degrees Section */}
               <div className="p-3.5 bg-purple-50/70 border border-purple-200 rounded-xl space-y-3">
-                <h4 className="font-extrabold text-[#714B67] text-xs flex items-center gap-2">
+                <h4 className="font-extrabold text-primary text-xs flex items-center gap-2">
                   <GraduationCap className="w-4 h-4" />
                   <span>المؤهلات والشهادات العلمية والمهنية للمتقدم</span>
                 </h4>
@@ -804,7 +804,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
                     placeholder="مثال: بكالوريوس محاسبة بتقدير ممتاز - جامعة الكويت"
                     value={degree}
                     onChange={(e) => setDegree(e.target.value)}
-                    className="w-full border border-slate-300 rounded-lg p-2 outline-none bg-white focus:border-[#714B67]"
+                    className="w-full border border-slate-300 rounded-lg p-2 outline-none bg-white focus:border-primary"
                   />
                 </div>
 
@@ -817,12 +817,12 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
                       value={certificatesInput}
                       onChange={(e) => setCertificatesInput(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCertificateTag())}
-                      className="flex-1 border border-slate-300 rounded-lg p-2 outline-none bg-white focus:border-[#714B67]"
+                      className="flex-1 border border-slate-300 rounded-lg p-2 outline-none bg-white focus:border-primary"
                     />
                     <button
                       type="button"
                       onClick={handleAddCertificateTag}
-                      className="bg-[#714B67] text-white px-3 py-2 rounded-lg font-bold shrink-0 hover:bg-[#5a3a52]"
+                      className="bg-primary text-white px-3 py-2 rounded-lg font-bold shrink-0 hover:bg-[#5a3a52]"
                     >
                       إضافة شهادة
                     </button>
@@ -849,7 +849,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
               {/* Uploading Candidate Documents & Certificates Section */}
               <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
                 <h4 className="font-extrabold text-slate-800 text-xs flex items-center gap-2 border-b pb-2">
-                  <Paperclip className="w-4 h-4 text-[#714B67]" />
+                  <Paperclip className="w-4 h-4 text-primary" />
                   <span>إرفاق مستندات وشهادات المتقدم (السيرة الذاتية، البطاقة، الشهادات)</span>
                 </h4>
 
@@ -891,7 +891,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
                       type="file"
                       accept="image/*,application/pdf,.pdf,.bdf"
                       onChange={handleFileChange}
-                      className="block w-full text-xs text-slate-500 file:mr-0 file:ml-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#714B67] file:text-white hover:file:bg-[#5a3a52] cursor-pointer"
+                      className="block w-full text-xs text-slate-500 file:mr-0 file:ml-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-primary file:text-white hover:file:bg-[#5a3a52] cursor-pointer"
                     />
                     <button
                       type="button"
@@ -919,7 +919,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
                       {attachments.map((att) => (
                         <div key={att.id} className="p-2.5 bg-white border border-slate-200 rounded-lg flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2 overflow-hidden">
-                            <FileText className="w-4 h-4 text-[#714B67] shrink-0" />
+                            <FileText className="w-4 h-4 text-primary shrink-0" />
                             <div className="truncate">
                               <span className="font-bold text-slate-800 block truncate text-xs">{att.title}</span>
                               <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
@@ -935,7 +935,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
                             <button
                               type="button"
                               onClick={() => openDocumentPreviewInNewTab(att.fileUrl, att.title)}
-                              className="p-1 text-[#714B67] hover:bg-purple-50 rounded transition"
+                              className="p-1 text-primary hover:bg-purple-50 rounded transition"
                               title="معاينة المستند في تبويب جديد"
                             >
                               <Eye className="w-4 h-4" />
@@ -962,7 +962,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
                   placeholder="ملاحظات حول أداء المتقدم في المقابلة الشخصية، نقاط القوة، توصية قسم الموارد البشرية..."
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="w-full border border-slate-300 rounded-lg p-2 outline-none focus:border-[#714B67]"
+                  className="w-full border border-slate-300 rounded-lg p-2 outline-none focus:border-primary"
                 />
               </div>
             </div>
@@ -979,7 +979,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
               <button 
                 type="button"
                 onClick={handleSave} 
-                className="bg-[#714B67] text-white px-6 py-2 rounded-lg font-bold shadow-md hover:bg-[#5a3a52] transition flex items-center gap-2"
+                className="bg-primary text-white px-6 py-2 rounded-lg font-bold shadow-md hover:bg-[#5a3a52] transition flex items-center gap-2"
               >
                 <CheckCircle className="w-4 h-4" />
                 <span>حفظ طلب التوظيف والشهادات</span>

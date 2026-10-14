@@ -78,7 +78,7 @@ export const EmployeeCommencementTab: React.FC<Props> = ({
             <button
               type="button"
               onClick={onOpenCommencementApp}
-              className="bg-[#714B67] hover:bg-[#5a3b52] text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+              className="bg-primary hover:bg-[#5a3b52] text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
             >
               <ExternalLink size={13} />
               فتح سجل المباشرة

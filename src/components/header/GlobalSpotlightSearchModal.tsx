@@ -147,7 +147,7 @@ export const GlobalSpotlightSearchModal: React.FC<GlobalSpotlightSearchModalProp
         
         {/* Search Bar Input */}
         <div className="p-4 border-b border-slate-100 flex items-center gap-3 bg-slate-50/70">
-          <Search className="text-[#714B67] w-5 h-5 shrink-0" />
+          <Search className="text-primary w-5 h-5 shrink-0" />
           <input
             ref={inputRef}
             type="text"
@@ -188,7 +188,7 @@ export const GlobalSpotlightSearchModal: React.FC<GlobalSpotlightSearchModalProp
                   onClick={() => handleSelect(item)}
                   onMouseEnter={() => setSelectedIndex(idx)}
                   className={`p-3 rounded-xl flex items-center justify-between cursor-pointer transition-all ${
-                    isSelected ? 'bg-purple-50 text-[#714B67] border border-purple-200/80 shadow-xs' : 'hover:bg-slate-50 text-slate-700'
+                    isSelected ? 'bg-purple-50 text-primary border border-purple-200/80 shadow-xs' : 'hover:bg-slate-50 text-slate-700'
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
@@ -197,7 +197,7 @@ export const GlobalSpotlightSearchModal: React.FC<GlobalSpotlightSearchModalProp
                         ? 'bg-emerald-100 text-emerald-800 font-bold' 
                         : item.type === 'action'
                         ? 'bg-amber-100 text-amber-800'
-                        : 'bg-purple-100 text-[#714B67]'
+                        : 'bg-purple-100 text-primary'
                     }`}>
                       <IconComp size={18} />
                     </div>

@@ -281,7 +281,7 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
         <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600 flex-wrap">
           <button 
             onClick={() => setActiveFolderId(null)}
-            className={`hover:text-[#714B67] transition cursor-pointer ${!activeFolderId ? 'text-[#714B67]' : 'text-slate-500'}`}
+            className={`hover:text-primary transition cursor-pointer ${!activeFolderId ? 'text-primary' : 'text-slate-500'}`}
           >
             {scopeName} (كافة المجلدات)
           </button>
@@ -289,7 +289,7 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
           {activeFolder && (
             <>
               <ChevronRight size={14} className="text-slate-400 rotate-180" />
-              <span className="text-[#714B67] bg-[#714B67]/10 px-2 py-0.5 rounded">
+              <span className="text-primary bg-primary/10 px-2 py-0.5 rounded">
                 📁 {activeFolder.name}
               </span>
             </>
@@ -305,7 +305,7 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
               placeholder="بحث في الملفات..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-3 pr-8 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-[#714B67]"
+              className="w-full pl-3 pr-8 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-primary"
             />
           </div>
 
@@ -314,7 +314,7 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
             onClick={openCreateFolderModal}
             className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shadow-2xs"
           >
-            <FolderPlus size={14} className="text-[#714B67]" />
+            <FolderPlus size={14} className="text-primary" />
             <span>+ إنشاء مجلد جديد</span>
           </button>
 
@@ -324,7 +324,7 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
               if (activeFolderId) setUploadTargetFolder(activeFolderId);
               setShowUploadModal(true);
             }}
-            className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shadow-2xs"
+            className="bg-primary hover:bg-[#5a3a52] text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shadow-2xs"
           >
             <UploadCloud size={14} />
             <span>رفع ملف / مستند</span>
@@ -338,7 +338,7 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
           <div className="flex items-center justify-between mb-2">
             <div className="text-[11px] font-bold text-slate-400">المجلدات المصنفة والترميز اللوني ({folders.length}):</div>
             <div className="text-[10px] text-slate-400 flex items-center gap-1">
-              <Palette size={12} className="text-[#714B67]" />
+              <Palette size={12} className="text-primary" />
               <span>لوحة الألوان</span>
             </div>
           </div>
@@ -369,7 +369,7 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
                     </div>
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <h4 className="font-bold text-xs text-slate-800 group-hover:text-[#714B67] transition">
+                        <h4 className="font-bold text-xs text-slate-800 group-hover:text-primary transition">
                           {folder.name}
                         </h4>
                         <span 
@@ -389,7 +389,7 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
                       type="button"
                       onClick={(e) => openEditFolderModal(folder, e)}
                       title="تعديل اسم أو لون المجلد"
-                      className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-[#714B67] rounded transition"
+                      className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-primary rounded transition"
                     >
                       <Edit2 size={13} />
                     </button>
@@ -401,7 +401,7 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
                     >
                       <Trash2 size={13} />
                     </button>
-                    <ChevronRight size={16} className="text-slate-300 group-hover:text-[#714B67] rotate-180 transition" />
+                    <ChevronRight size={16} className="text-slate-300 group-hover:text-primary rotate-180 transition" />
                   </div>
                 </div>
               );
@@ -423,7 +423,7 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
                 if (activeFolderId) setUploadTargetFolder(activeFolderId);
                 setShowUploadModal(true);
               }}
-              className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[#714B67] bg-[#714B67]/10 px-3 py-1.5 rounded-lg hover:bg-[#714B67]/20 transition"
+              className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-lg hover:bg-primary/20 transition"
             >
               <UploadCloud size={13} /> رفع مستند الآن
             </button>
@@ -462,7 +462,7 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
                             {file.fileType === 'pdf' ? <FileText size={16} /> : file.fileType === 'image' ? <ImageIcon size={16} /> : <FileCheck size={16} />}
                           </div>
                           <div>
-                            <span className="font-bold text-slate-800 block hover:text-[#714B67] cursor-pointer" onClick={() => setPreviewDoc(file)}>
+                            <span className="font-bold text-slate-800 block hover:text-primary cursor-pointer" onClick={() => setPreviewDoc(file)}>
                               {file.name}
                             </span>
                             <span className="text-[10px] text-slate-400 uppercase font-mono">{file.fileType}</span>
@@ -523,7 +523,7 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
                             type="button"
                             onClick={() => setPreviewDoc(file)}
                             title="معاينة المستند"
-                            className="p-1.5 text-slate-500 hover:text-[#714B67] hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                            className="p-1.5 text-slate-500 hover:text-primary hover:bg-slate-100 rounded-lg transition cursor-pointer"
                           >
                             <Eye size={15} />
                           </button>
@@ -562,7 +562,7 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
           <div className="bg-white rounded-2xl border border-slate-200 p-5 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
-                <FolderPlus size={16} className="text-[#714B67]" />
+                <FolderPlus size={16} className="text-primary" />
                 {editingFolderId ? 'تعديل بيانات وتلوين المجلد' : `إنشاء مجلد جديد في ${scopeName}`}
               </h3>
               <button 
@@ -583,7 +583,7 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
                   placeholder="مثال: شهادات الخبرة والدورات التدريبية"
                   value={newFolderName}
                   onChange={(e) => setNewFolderName(e.target.value)}
-                  className="w-full p-2.5 border rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:border-[#714B67]"
+                  className="w-full p-2.5 border rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:border-primary"
                 />
               </div>
 
@@ -591,7 +591,7 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-slate-600 font-bold flex items-center gap-1">
-                    <Palette size={13} className="text-[#714B67]" />
+                    <Palette size={13} className="text-primary" />
                     <span>لون وتصنيف المجلد</span>
                   </label>
                   <span className="text-[10px] text-slate-400 font-medium">
@@ -636,7 +636,7 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#714B67] hover:bg-[#5a3a52] text-white rounded-xl font-bold transition shadow-xs cursor-pointer flex items-center gap-1.5"
+                  className="px-4 py-2 bg-primary hover:bg-[#5a3a52] text-white rounded-xl font-bold transition shadow-xs cursor-pointer flex items-center gap-1.5"
                 >
                   <CheckCircle2 size={14} />
                   <span>{editingFolderId ? 'حفظ التعديلات' : '+ إنشاء المجلد'}</span>
@@ -653,7 +653,7 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
           <div className="bg-white rounded-2xl border border-slate-100 p-5 max-w-lg w-full shadow-2xl my-auto animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
-                <UploadCloud size={16} className="text-[#714B67]" />
+                <UploadCloud size={16} className="text-primary" />
                 رفع مستند جديد (Upload Document)
               </h3>
               <button 
@@ -692,7 +692,7 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
                   placeholder="مثال: ترخيص مزاولة المهنة الطبية 2026.pdf"
                   value={uploadFileName}
                   onChange={(e) => setUploadFileName(e.target.value)}
-                  className="w-full p-2.5 border rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:border-[#714B67] font-bold"
+                  className="w-full p-2.5 border rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:border-primary font-bold"
                 />
               </div>
 
@@ -793,11 +793,11 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
                   }}
                   className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition select-none ${
                     isDropzoneDragging
-                      ? 'border-[#714B67] bg-[#714B67]/10'
-                      : 'border-slate-300 hover:border-[#714B67] bg-slate-50/70 hover:bg-slate-100/80'
+                      ? 'border-primary bg-primary/10'
+                      : 'border-slate-300 hover:border-primary bg-slate-50/70 hover:bg-slate-100/80'
                   }`}
                 >
-                  <UploadCloud className={`mx-auto mb-1 ${isDropzoneDragging ? 'text-[#714B67]' : 'text-slate-400'}`} size={28} />
+                  <UploadCloud className={`mx-auto mb-1 ${isDropzoneDragging ? 'text-primary' : 'text-slate-400'}`} size={28} />
                   <span className="text-[11px] font-bold text-slate-700 block">اسحب وأفلت الملف هنا أو انقر للاختيار من جهازك</span>
                   <span className="text-[10px] text-slate-400">يدعم صيغ PDF, PNG, JPG, DOCX حتى 25 ميجابايت</span>
                 </div>
@@ -816,7 +816,7 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#714B67] hover:bg-[#5a3a52] text-white rounded-xl font-bold transition shadow-xs cursor-pointer flex items-center gap-1.5"
+                  className="px-4 py-2 bg-primary hover:bg-[#5a3a52] text-white rounded-xl font-bold transition shadow-xs cursor-pointer flex items-center gap-1.5"
                 >
                   <CheckCircle2 size={15} /> حفظ ورفع المستند
                 </button>
@@ -832,7 +832,7 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
           <div className="bg-white rounded-2xl border border-slate-200 p-6 max-w-2xl w-full shadow-2xl animate-in fade-in zoom-in duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
-                <div className="p-2 bg-[#714B67]/10 text-[#714B67] rounded-lg">
+                <div className="p-2 bg-primary/10 text-primary rounded-lg">
                   <FileText size={18} />
                 </div>
                 <div>
@@ -858,7 +858,7 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
                 <h4 className="font-bold text-sm text-slate-800">{previewDoc.name}</h4>
                 <p className="text-xs text-slate-500 mt-1">مستند رسمي مؤرشف في أرشيف المستندات</p>
                 {previewDoc.documentNumber && (
-                  <p className="text-xs font-mono text-[#714B67] font-bold mt-1">
+                  <p className="text-xs font-mono text-primary font-bold mt-1">
                     رقم الوثيقة: {previewDoc.documentNumber}
                   </p>
                 )}

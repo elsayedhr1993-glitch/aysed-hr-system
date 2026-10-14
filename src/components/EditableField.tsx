@@ -184,7 +184,7 @@ export const EditableField: React.FC<EditableFieldProps> = ({
             void commit();
           }
         }}
-        className="flex-1 border border-[#714B67]/40 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-bold text-slate-900 bg-white focus:ring-1 focus:ring-[#714B67] focus:outline-none text-sm transition"
+        className="flex-1 border border-primary/40 focus:border-primary rounded-lg px-2.5 py-1.5 font-bold text-slate-900 bg-white focus:ring-1 focus:ring-primary focus:outline-none text-sm transition"
         placeholder={placeholder}
         dir={lang === 'ar' ? 'rtl' : 'ltr'}
         disabled={saveState === 'saving'}
@@ -248,7 +248,7 @@ export const EditableField: React.FC<EditableFieldProps> = ({
           maxLength={maxLength}
           value={displayValue}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-bold text-slate-900 bg-white focus:ring-1 focus:ring-[#714B67] focus:outline-none text-sm transition"
+          className="w-full border border-slate-300 focus:border-primary rounded-lg px-2.5 py-1.5 font-bold text-slate-900 bg-white focus:ring-1 focus:ring-primary focus:outline-none text-sm transition"
           placeholder={placeholder}
           dir={lang === 'ar' ? 'rtl' : 'ltr'}
         />
@@ -265,7 +265,7 @@ export const EditableField: React.FC<EditableFieldProps> = ({
               ? 'border-transparent cursor-not-allowed opacity-90'
               : useInline
                 ? hover
-                  ? 'border-dashed border-[#714B67]/45 bg-[#714B67]/5 cursor-text'
+                  ? 'border-dashed border-primary/45 bg-primary/5 cursor-text'
                   : 'border-transparent border-b border-slate-200/70 cursor-text'
                 : 'border-transparent border-b border-slate-200/70 cursor-default'
           }`}
@@ -277,7 +277,7 @@ export const EditableField: React.FC<EditableFieldProps> = ({
             <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
           ) : useInline ? (
             <Pencil
-              className={`w-3.5 h-3.5 shrink-0 transition ${hover ? 'text-[#714B67]' : 'text-slate-300'}`}
+              className={`w-3.5 h-3.5 shrink-0 transition ${hover ? 'text-primary' : 'text-slate-300'}`}
             />
           ) : null}
         </button>
@@ -385,7 +385,7 @@ export const EditableSelect: React.FC<{
         <select
           value={value || ''}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full border border-slate-300 focus:border-[#714B67] rounded-lg px-2.5 py-1.5 font-bold text-slate-900 bg-white focus:ring-1 focus:ring-[#714B67] focus:outline-none text-sm transition cursor-pointer"
+          className="w-full border border-slate-300 focus:border-primary rounded-lg px-2.5 py-1.5 font-bold text-slate-900 bg-white focus:ring-1 focus:ring-primary focus:outline-none text-sm transition cursor-pointer"
         >
           <option value="">-- اختر --</option>
           {options.map((opt) => (
@@ -403,7 +403,7 @@ export const EditableSelect: React.FC<{
           }}
           onBlur={() => setEditing(false)}
           autoFocus
-          className="w-full border border-[#714B67]/40 rounded-lg px-2.5 py-1.5 font-bold text-sm"
+          className="w-full border border-primary/40 rounded-lg px-2.5 py-1.5 font-bold text-sm"
         >
           <option value="">-- اختر --</option>
           {options.map((opt) => (
@@ -428,14 +428,14 @@ export const EditableSelect: React.FC<{
           onMouseEnter={() => setHover(true)}
           onMouseLeave={() => setHover(false)}
           className={`w-full text-right font-bold text-slate-900 text-sm min-h-[30px] flex items-center justify-between gap-2 px-2 py-1 rounded-lg border transition ${
-            useInline && hover ? 'border-dashed border-[#714B67]/45 bg-[#714B67]/5' : 'border-b border-slate-200/70'
+            useInline && hover ? 'border-dashed border-primary/45 bg-primary/5' : 'border-b border-slate-200/70'
           }`}
         >
           <span>{hasValue ? displayValue : <span className="text-slate-400 font-normal text-xs">—</span>}</span>
           {readOnly ? (
             <Lock className="w-3.5 h-3.5 text-slate-400" />
           ) : (
-            <Pencil className={`w-3.5 h-3.5 ${hover ? 'text-[#714B67]' : 'text-slate-300'}`} />
+            <Pencil className={`w-3.5 h-3.5 ${hover ? 'text-primary' : 'text-slate-300'}`} />
           )}
         </button>
       )}

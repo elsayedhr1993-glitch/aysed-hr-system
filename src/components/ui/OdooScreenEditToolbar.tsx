@@ -63,7 +63,7 @@ export const OdooScreenEditToolbar: React.FC<OdooScreenEditToolbarProps> = ({
         <button
           type="button"
           onClick={onEdit}
-          className="bg-[#714B67] hover:bg-[#5a3b52] text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer"
+          className="bg-primary hover:bg-[#5a3b52] text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer"
         >
           <Edit3 size={15} />
           <span>{editLabel}</span>

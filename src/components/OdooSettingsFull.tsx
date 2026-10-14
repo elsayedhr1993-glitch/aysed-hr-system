@@ -1,3 +1,4 @@
+import { tokens } from '../design/tokens';
 import React, { useState, useMemo, useCallback } from 'react';
 import { 
   Building2, 
@@ -141,7 +142,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
           text: `هذه رسالة اختبار للتأكد من ربط خادم البريد والمزامنة في المنشأة ${formData.companyNameAr}.`,
           html: `
             <div dir="rtl" style="font-family: Arial, sans-serif; padding: 25px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff; max-width: 600px; margin: 0 auto;">
-              <h2 style="color: #714B67; font-size: 20px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 15px;">نجاح الاتصال والتحقق السحابي!</h2>
+              <h2 style="color: ${tokens.color.primary}; font-size: 20px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 15px;">نجاح الاتصال والتحقق السحابي!</h2>
               <p style="font-size: 14px; color: #334155; line-height: 1.6;">مرحباً،</p>
               <p style="font-size: 14px; color: #334155; line-height: 1.6;">هذه رسالة اختبار تلقائية من <strong>نظام إعدادات Aysed HR</strong>.</p>
               <p style="font-size: 14px; color: #334155; line-height: 1.6;">تم التحقق من ربط وتكامل خادم البريد الإلكتروني SMTP بنجاح للمنشأة: <strong style="color: #0f172a;">${formData.companyNameAr || 'الفنار كلينك'}</strong></p>
@@ -282,13 +283,13 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
       {/* 1. Header (Odoo Enterprise Settings) */}
       <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 shadow-xs">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#714B67]/10 text-[#714B67] rounded-lg shrink-0">
+          <div className="p-2 bg-primary/10 text-primary rounded-lg shrink-0">
             <Sliders className="w-5 h-5" />
           </div>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-base font-bold text-slate-900">الإعدادات العامة للتهيئة والسياسات</h1>
-              <span className="bg-purple-100 text-[#714B67] text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0">
+              <span className="bg-purple-100 text-primary text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0">
                 Aysed HR
               </span>
             </div>
@@ -310,7 +311,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="تصفية الإعدادات والخيارات..."
-            className="w-full bg-slate-50 hover:bg-slate-100 focus:bg-white border border-slate-200 focus:border-[#714B67] text-xs rounded-lg py-2 pr-9 pl-8 outline-hidden transition"
+            className="w-full bg-slate-50 hover:bg-slate-100 focus:bg-white border border-slate-200 focus:border-primary text-xs rounded-lg py-2 pr-9 pl-8 outline-hidden transition"
           />
           {searchQuery && (
             <button
@@ -342,7 +343,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
             className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold shadow-xs transition-all duration-300 cursor-pointer disabled:opacity-50 active:scale-95 ${
               saveSuccess
                 ? 'bg-emerald-600 hover:bg-emerald-700 text-white font-black'
-                : 'bg-[#714B67] hover:bg-[#583a50] text-white'
+                : 'bg-primary hover:bg-[#583a50] text-white'
             }`}
           >
             {isSaving ? (
@@ -376,7 +377,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
                   onClick={() => setActiveSection(sec.id)}
                   className={`w-full text-right px-3 py-2.5 rounded-lg transition-all flex items-center justify-between cursor-pointer ${
                     isActive 
-                      ? 'bg-[#714B67] text-white font-bold shadow-xs' 
+                      ? 'bg-primary text-white font-bold shadow-xs' 
                       : 'hover:bg-slate-50 text-slate-700 font-medium'
                   }`}
                 >
@@ -399,7 +400,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
             <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6 space-y-6">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2.5">
-                  <div className="p-2 bg-purple-50 text-[#714B67] rounded-lg">
+                  <div className="p-2 bg-purple-50 text-primary rounded-lg">
                     <Building2 size={18} />
                   </div>
                   <div>
@@ -431,7 +432,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
                       </div>
                     )}
                   </div>
-                  <label className="text-[11px] font-bold text-[#714B67] hover:underline cursor-pointer flex items-center gap-1">
+                  <label className="text-[11px] font-bold text-primary hover:underline cursor-pointer flex items-center gap-1">
                     <Upload size={12} />
                     <span>تغيير الشعار</span>
                     <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
@@ -445,7 +446,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
                       type="text"
                       value={formData.companyNameAr}
                       onChange={(e) => handleFieldChange('companyNameAr', e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:border-[#714B67] outline-hidden shadow-2xs"
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:border-primary outline-hidden shadow-2xs"
                     />
                   </div>
 
@@ -456,7 +457,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
                       value={formData.companyNameEn}
                       onChange={(e) => handleFieldChange('companyNameEn', e.target.value)}
                       dir="ltr"
-                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-medium text-slate-800 focus:border-[#714B67] outline-hidden shadow-2xs"
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-medium text-slate-800 focus:border-primary outline-hidden shadow-2xs"
                     />
                   </div>
 
@@ -466,7 +467,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
                       type="text"
                       value={formData.mohLicense}
                       onChange={(e) => handleFieldChange('mohLicense', e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono font-bold text-slate-800 focus:border-[#714B67] outline-hidden shadow-2xs"
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono font-bold text-slate-800 focus:border-primary outline-hidden shadow-2xs"
                     />
                   </div>
 
@@ -476,7 +477,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
                       type="text"
                       value={formData.civilIdCompany}
                       onChange={(e) => handleFieldChange('civilIdCompany', e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 focus:border-[#714B67] outline-hidden shadow-2xs"
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 focus:border-primary outline-hidden shadow-2xs"
                     />
                   </div>
                 </div>
@@ -491,7 +492,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
                       type="text"
                       value={formData.crNumber}
                       onChange={(e) => handleFieldChange('crNumber', e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 focus:border-[#714B67] outline-hidden"
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 focus:border-primary outline-hidden"
                     />
                   </div>
                 )}
@@ -501,7 +502,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
                   <select
                     value={formData.currency}
                     onChange={(e) => handleFieldChange('currency', e.target.value)}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:border-[#714B67] outline-hidden"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:border-primary outline-hidden"
                   >
                     <option value="KWD">دينار كويتي (0.000 KWD)</option>
                     <option value="USD">دولار أمريكي (USD)</option>
@@ -517,7 +518,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
                     type="text"
                     value={formData.address}
                     onChange={(e) => handleFieldChange('address', e.target.value)}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:border-[#714B67] outline-hidden shadow-2xs"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:border-primary outline-hidden shadow-2xs"
                   />
                 </div>
 
@@ -528,7 +529,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
                     value={formData.phone}
                     onChange={(e) => handleFieldChange('phone', e.target.value)}
                     placeholder="الهاتف"
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:border-[#714B67] outline-hidden shadow-2xs"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:border-primary outline-hidden shadow-2xs"
                   />
                 </div>
 
@@ -539,7 +540,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
                     value={formData.email}
                     onChange={(e) => handleFieldChange('email', e.target.value)}
                     placeholder="البريد الإلكتروني"
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:border-[#714B67] outline-hidden shadow-2xs"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:border-primary outline-hidden shadow-2xs"
                   />
                 </div>
               </div>
@@ -569,7 +570,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
                     value={formData.pamId}
                     onChange={(e) => handleFieldChange('pamId', e.target.value)}
                     placeholder="مثال: PAM-994821"
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono font-bold text-slate-800 focus:border-[#714B67] outline-hidden"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono font-bold text-slate-800 focus:border-primary outline-hidden"
                   />
                   <span className="text-[10px] text-slate-400 mt-0.5 block">المسجل لدى الهيئة العامة للقوى العاملة.</span>
                 </div>
@@ -581,7 +582,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
                     value={formData.wpsCorporateId}
                     onChange={(e) => handleFieldChange('wpsCorporateId', e.target.value)}
                     placeholder="مثال: WSI-ALMANAR"
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono font-bold text-slate-800 focus:border-[#714B67] outline-hidden"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono font-bold text-slate-800 focus:border-primary outline-hidden"
                   />
                 </div>
 
@@ -591,7 +592,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
                     type="text"
                     value={formData.bankName}
                     onChange={(e) => handleFieldChange('bankName', e.target.value)}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:border-[#714B67] outline-hidden"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:border-primary outline-hidden"
                   />
                 </div>
 
@@ -602,7 +603,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
                     value={formData.iban}
                     onChange={(e) => handleFieldChange('iban', e.target.value)}
                     dir="ltr"
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 focus:border-[#714B67] outline-hidden"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 focus:border-primary outline-hidden"
                   />
                 </div>
               </div>
@@ -669,7 +670,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsLeaveWizardOpen(true)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#714B67] hover:bg-[#583a50] text-white text-xs font-bold cursor-pointer"
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-[#583a50] text-white text-xs font-bold cursor-pointer"
                 >
                   <Sliders size={14} />
                   فتح معالج سياسة الإجازات
@@ -734,7 +735,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
                       type="number"
                       value={formData.standardDailyHours}
                       onChange={(e) => handleFieldChange('standardDailyHours', parseInt(e.target.value) || 8)}
-                      className="w-24 bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:border-[#714B67] outline-hidden font-mono"
+                      className="w-24 bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:border-primary outline-hidden font-mono"
                     />
                     <span className="text-xs text-slate-600">ساعات / يوم</span>
                   </div>
@@ -747,7 +748,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
                       type="number"
                       value={formData.gracePeriodMinutes}
                       onChange={(e) => handleFieldChange('gracePeriodMinutes', parseInt(e.target.value) || 15)}
-                      className="w-24 bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:border-[#714B67] outline-hidden font-mono"
+                      className="w-24 bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:border-primary outline-hidden font-mono"
                     />
                     <span className="text-xs text-slate-600">دقيقة سماح</span>
                   </div>
@@ -761,7 +762,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
                       step="0.05"
                       value={formData.overtimeRateStandard}
                       onChange={(e) => handleFieldChange('overtimeRateStandard', parseFloat(e.target.value) || 1.25)}
-                      className="w-24 bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:border-[#714B67] outline-hidden font-mono"
+                      className="w-24 bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:border-primary outline-hidden font-mono"
                     />
                     <span className="text-xs text-slate-600">× الأجر الأساسي</span>
                   </div>
@@ -775,7 +776,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                     ربط أجهزة البصمة (ZKTeco / Hikvision & Cloud ADMS Push):
                   </div>
-                  <span className="text-[10px] bg-[#714B67]/10 text-[#714B67] font-bold px-2.5 py-1 rounded-md">
+                  <span className="text-[10px] bg-primary/10 text-primary font-bold px-2.5 py-1 rounded-md">
                     مزامنة الحضور السحابية
                   </span>
                 </div>
@@ -789,7 +790,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
                       onChange={(e) => handleFieldChange('biometricIp', e.target.value)}
                       placeholder="192.168.1.200"
                       dir="ltr"
-                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 focus:border-[#714B67] outline-hidden"
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 focus:border-primary outline-hidden"
                     />
                   </div>
 
@@ -801,7 +802,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
                       onChange={(e) => handleFieldChange('biometricPort', e.target.value)}
                       placeholder="4370"
                       dir="ltr"
-                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 focus:border-[#714B67] outline-hidden"
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 focus:border-primary outline-hidden"
                     />
                   </div>
                 </div>
@@ -917,7 +918,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
                     type="checkbox"
                     checked={formData.includeAllowancesInIndemnity}
                     onChange={(e) => handleFieldChange('includeAllowancesInIndemnity', e.target.checked)}
-                    className="text-[#714B67] rounded"
+                    className="text-primary rounded"
                   />
                   <span className="text-xs font-bold text-slate-800">
                     احتساب البدلات الثابتة (السكن، الانتقال) ضمن الأجر الشامل لاحتساب نهاية الخدمة
@@ -932,7 +933,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
             <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6 space-y-6">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2.5">
-                  <div className="p-2 bg-purple-50 text-[#714B67] rounded-lg">
+                  <div className="p-2 bg-purple-50 text-primary rounded-lg">
                     <Sparkles size={18} />
                   </div>
                   <div>

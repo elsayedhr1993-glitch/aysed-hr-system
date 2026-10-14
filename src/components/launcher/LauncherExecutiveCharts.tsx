@@ -1,3 +1,4 @@
+import { tokens } from '../../design/tokens';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Activity } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from 'recharts';
@@ -53,7 +54,7 @@ export const LauncherExecutiveCharts: React.FC<{
       return [{ name: 'لا توجد رواتب مسجلة', value: 0, color: '#94a3b8' }];
     }
     const deptMap: Record<string, number> = {};
-    const palette = ['#714B67', '#10B981', '#3B82F6', '#F59E0B', '#8B5CF6', '#EC4899'];
+    const palette = [tokens.color.primary, '#10B981', '#3B82F6', '#F59E0B', '#8B5CF6', '#EC4899'];
     realEmployees.forEach((emp) => {
       const dept = emp.department || 'إدارة عامة';
       const total =

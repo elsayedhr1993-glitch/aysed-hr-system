@@ -232,7 +232,7 @@ export const PayrollStructureWizardModal: React.FC<PayrollStructureWizardModalPr
             <div className="space-y-4 animate-fadeIn">
               <div className="bg-purple-50 p-3 rounded-xl border border-purple-200 flex items-center justify-between text-purple-900 text-xs font-bold">
                 <span className="flex items-center gap-2">
-                  <Banknote size={16} className="text-[#714B67]" />
+                  <Banknote size={16} className="text-primary" />
                   <span>الخطوة 1: حد الأحد للراتب الأساسي والبدلات المعتمدة بالمنشأة</span>
                 </span>
                 <span className="text-[10px] bg-purple-200 text-purple-950 px-2 py-0.5 rounded-full">

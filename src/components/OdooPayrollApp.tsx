@@ -791,15 +791,15 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
               <>
                 <button 
                   onClick={() => setActivePayslipId(null)}
-                  className="text-slate-600 hover:text-[#714B67] hover:underline cursor-pointer"
+                  className="text-slate-600 hover:text-primary hover:underline cursor-pointer"
                 >
                   مسيرات الرواتب (Batch Payslips)
                 </button>
                 <span>/</span>
-                <span className="text-[#714B67] font-black">{activePayslip.payslipNumber} ({activePayslip.employeeName})</span>
+                <span className="text-primary font-black">{activePayslip.payslipNumber} ({activePayslip.employeeName})</span>
               </>
             ) : (
-              <span className="text-[#714B67] font-black">مسيرات الرواتب (Batch Payslips - شهر {selectedMonth})</span>
+              <span className="text-primary font-black">مسيرات الرواتب (Batch Payslips - شهر {selectedMonth})</span>
             )}
           </div>
 
@@ -811,7 +811,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                 en: 'Payroll & WPS',
               },
             }}
-            icon={<CreditCard className="text-[#714B67]" size={22} />}
+            icon={<CreditCard className="text-primary" size={22} />}
             subtitleUiKey={UI_KEYS.appSubtitle('payroll')}
             subtitleDefaults={{
               label: {
@@ -821,7 +821,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
             }}
           />
           <p className="text-[11px] text-slate-500">
-            المنشأة: <strong className="text-[#714B67]">{activeCompany?.nameAr || 'المؤسسة الطبية'}</strong> | حسابات قانون العمل الكويتي (أساس 26 يوماً / 8 ساعات)
+            المنشأة: <strong className="text-primary">{activeCompany?.nameAr || 'المؤسسة الطبية'}</strong> | حسابات قانون العمل الكويتي (أساس 26 يوماً / 8 ساعات)
           </p>
           
           {!activePayslip && (
@@ -830,7 +830,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                 type="button"
                 onClick={() => setActiveSubTab('payslips')}
                 className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer ${
-                  activeSubTab === 'payslips' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                  activeSubTab === 'payslips' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 <CreditCard size={14} />
@@ -862,7 +862,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                 type="button"
                 onClick={() => setActiveSubTab('loans')}
                 className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer ${
-                  activeSubTab === 'loans' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                  activeSubTab === 'loans' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 <DollarSign size={14} />
@@ -887,10 +887,10 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                 type="button"
                 onClick={() => setActiveSubTab('leave_finance')}
                 className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer ${
-                  activeSubTab === 'leave_finance' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                  activeSubTab === 'leave_finance' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <FileText size={14} className="text-[#714B67]" /> تسويات وسلف الإجازات (م71)
+                <FileText size={14} className="text-primary" /> تسويات وسلف الإجازات (م71)
               </button>
             </div>
           )}
@@ -925,13 +925,13 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
 
               <button
                 onClick={() => setShowNewPayslipModal(true)}
-                className="bg-[#714B67] hover:bg-[#583950] text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                className="bg-primary hover:bg-[#583950] text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
               >
                 <Plus size={15} /> + إنشاء مسير جديد
               </button>
               <button
                 onClick={generateInitialPayslips}
-                className="bg-purple-50 hover:bg-purple-100 text-[#714B67] border border-purple-200 px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                className="bg-purple-50 hover:bg-purple-100 text-primary border border-purple-200 px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
                 title="تحديث وسحب حركات البصمة والسلف الحالية"
               >
                 <RefreshCw size={14} /> سحب حركات الدوام
@@ -955,7 +955,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
           ) : activeSubTab === 'loans' ? (
             <button
               onClick={() => setShowLoanModal(true)}
-              className="bg-[#714B67] hover:bg-[#583950] text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+              className="bg-primary hover:bg-[#583950] text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
             >
               <Plus size={15} /> + تسجيل سلفة جديدة
             </button>
@@ -978,7 +978,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
               </button>
               <button
                 onClick={() => setShowFinalSettlementModal(true)}
-                className="bg-[#714B67] hover:bg-[#583950] text-white px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                className="bg-primary hover:bg-[#583950] text-white px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
               >
                 <FileText size={14} /> مخالصة نهاية الخدمة (Clearance)
               </button>
@@ -1039,7 +1039,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleRecomputePayslip(activePayslip.id)}
-                    className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-[#714B67] border border-purple-200 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                    className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-primary border border-purple-200 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
                   >
                     <RotateCcw size={13} /> إعادة الحساب الهرمي
                   </button>
@@ -1078,7 +1078,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                   <button
                     onClick={() => setFormActiveTab('computation')}
                     className={`pb-2.5 transition cursor-pointer ${
-                      formActiveTab === 'computation' ? 'border-b-2 border-[#714B67] text-[#714B67]' : 'text-slate-500 hover:text-slate-800'
+                      formActiveTab === 'computation' ? 'border-b-2 border-primary text-primary' : 'text-slate-500 hover:text-slate-800'
                     }`}
                   >
                     احتساب الراتب (Salary Computation)
@@ -1086,7 +1086,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                   <button
                     onClick={() => setFormActiveTab('wps_bank')}
                     className={`pb-2.5 transition cursor-pointer ${
-                      formActiveTab === 'wps_bank' ? 'border-b-2 border-[#714B67] text-[#714B67]' : 'text-slate-500 hover:text-slate-800'
+                      formActiveTab === 'wps_bank' ? 'border-b-2 border-primary text-primary' : 'text-slate-500 hover:text-slate-800'
                     }`}
                   >
                     بيانات البنك وحماية الأجور (WPS Info)
@@ -1094,7 +1094,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                   <button
                     onClick={() => setFormActiveTab('work_entries')}
                     className={`pb-2.5 transition cursor-pointer ${
-                      formActiveTab === 'work_entries' ? 'border-b-2 border-[#714B67] text-[#714B67]' : 'text-slate-500 hover:text-slate-800'
+                      formActiveTab === 'work_entries' ? 'border-b-2 border-primary text-primary' : 'text-slate-500 hover:text-slate-800'
                     }`}
                   >
                     حركات الدوام والغياب (Work Entries)
@@ -1216,7 +1216,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                       placeholder="بحث بالاسم، الرقم المدني، كود المسير..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full pr-9 pl-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:border-[#714B67]"
+                      className="w-full pr-9 pl-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:border-primary"
                     />
                   </div>
 
@@ -1298,7 +1298,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                             <td className="p-3">
                               <button
                                 onClick={() => setActivePayslipId(p.id)}
-                                className="font-bold text-slate-900 hover:text-[#714B67] hover:underline cursor-pointer block text-right"
+                                className="font-bold text-slate-900 hover:text-primary hover:underline cursor-pointer block text-right"
                               >
                                 {p.employeeName}
                               </button>
@@ -1333,7 +1333,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                                 </button>
                                 <button
                                   onClick={() => setActivePayslipId(p.id)}
-                                  className="p-1 text-[#714B67] hover:bg-purple-50 rounded-md transition cursor-pointer"
+                                  className="p-1 text-primary hover:bg-purple-50 rounded-md transition cursor-pointer"
                                   title="معاينة تفاصيل المسير"
                                 >
                                   <Eye size={15} />
@@ -1436,7 +1436,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
             </div>
             <button
               onClick={() => setShowLoanModal(true)}
-              className="bg-[#714B67] hover:bg-[#583950] text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+              className="bg-primary hover:bg-[#583950] text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
             >
               <Plus size={14} /> سلفة جديدة
             </button>
@@ -1549,7 +1549,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
           <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 text-xs max-h-[92vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b pb-3 mb-4">
               <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
-                <CreditCard className="text-[#714B67]" size={18} />
+                <CreditCard className="text-primary" size={18} />
                 إنشاء قسيمة راتب جديدة لشهر {newForm.period || selectedMonth}
               </h3>
               <button 
@@ -1575,7 +1575,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                       await handleSelectEmployeeForPayslip(newForm.employeeId, nextPeriod);
                     }
                   }}
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold text-slate-800 outline-none focus:border-[#714B67]"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold text-slate-800 outline-none focus:border-primary"
                 />
                 <div className="mt-2">
                   {newPayslipPeriodStatus.isLoading ? (
@@ -1601,7 +1601,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                   onChange={(e) => {
                     void handleSelectEmployeeForPayslip(e.target.value, newForm.period || selectedMonth);
                   }}
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 outline-none focus:border-[#714B67]"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 outline-none focus:border-primary"
                 >
                   <option value="">-- اختر من موظفي المنشأة --</option>
                   {employees.map(emp => (
@@ -1621,7 +1621,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                     placeholder="اسم الموظف الثلاثي"
                     value={newForm.employeeName}
                     onChange={(e) => setNewForm({ ...newForm, employeeName: e.target.value })}
-                    className="w-full p-2.5 border rounded-lg outline-none focus:border-[#714B67] font-bold"
+                    className="w-full p-2.5 border rounded-lg outline-none focus:border-primary font-bold"
                   />
                 </div>
                 <div>
@@ -1633,7 +1633,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                     placeholder="الرقم المدني"
                     value={newForm.civilId}
                     onChange={(e) => setNewForm({ ...newForm, civilId: e.target.value })}
-                    className="w-full p-2.5 border rounded-lg font-mono outline-none focus:border-[#714B67]"
+                    className="w-full p-2.5 border rounded-lg font-mono outline-none focus:border-primary"
                   />
                 </div>
               </div>
@@ -1644,7 +1644,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                   <select
                     value={newForm.bankName}
                     onChange={(e) => setNewForm({ ...newForm, bankName: e.target.value })}
-                    className="w-full p-2.5 border rounded-lg font-bold outline-none focus:border-[#714B67]"
+                    className="w-full p-2.5 border rounded-lg font-bold outline-none focus:border-primary"
                   >
                     <option value="بنك الكويت الوطني (NBK)">بنك الكويت الوطني (NBK)</option>
                     <option value="بيت التمويل الكويتي (KFH)">بيت التمويل الكويتي (KFH)</option>
@@ -1661,7 +1661,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                     placeholder="رقم IBAN الفعلي"
                     value={newForm.iban}
                     onChange={(e) => setNewForm({ ...newForm, iban: e.target.value })}
-                    className="w-full p-2.5 border rounded-lg font-mono outline-none focus:border-[#714B67]"
+                    className="w-full p-2.5 border rounded-lg font-mono outline-none focus:border-primary"
                     dir="ltr"
                   />
                 </div>
@@ -1746,7 +1746,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                 <button
                   type="submit"
                   disabled={newPayslipPeriodStatus.isLoading || !newPayslipPeriodStatus.hasPostedRollup}
-                  className="px-5 py-2 bg-[#714B67] hover:bg-[#583950] text-white rounded-xl font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-5 py-2 bg-primary hover:bg-[#583950] text-white rounded-xl font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   إنشاء المسير
                 </button>
@@ -1770,7 +1770,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 text-xs">
             <div className="flex justify-between items-center border-b pb-3 mb-4">
               <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
-                <DollarSign className="text-[#714B67]" size={18} />
+                <DollarSign className="text-primary" size={18} />
                 تسجيل سلفة مالية جديدة
               </h3>
               <button onClick={() => setShowLoanModal(false)} className="text-slate-400 hover:text-slate-700 cursor-pointer">
@@ -1784,7 +1784,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                   required
                   value={newLoan.employeeId}
                   onChange={(e) => setNewLoan({ ...newLoan, employeeId: e.target.value })}
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#714B67] focus:border-[#714B67] transition-all font-bold"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-all font-bold"
                 >
                   <option value="">-- اختر الموظف --</option>
                   {employees.map(emp => (
@@ -1838,7 +1838,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-[#714B67] hover:bg-[#583950] text-white rounded-xl font-bold cursor-pointer transition shadow-sm"
+                  className="px-5 py-2 bg-primary hover:bg-[#583950] text-white rounded-xl font-bold cursor-pointer transition shadow-sm"
                 >
                   اعتماد وتأكيد السلفة
                 </button>

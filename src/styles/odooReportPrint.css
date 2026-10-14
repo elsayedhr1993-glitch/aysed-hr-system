@@ -11,7 +11,7 @@
 
 .odoo-report-letterhead {
   position: relative;
-  border-bottom: 2px solid #714b67;
+  border-bottom: 2px solid var(--color-primary);
   padding-bottom: 14px;
   margin-bottom: 8px;
 }
@@ -20,7 +20,7 @@
   height: 4px;
   margin: 0 0 12px;
   border-radius: 2px;
-  background: linear-gradient(90deg, #714b67 0%, #875a7b 55%, #9d6b8f 100%);
+  background: linear-gradient(90deg, var(--color-primary) 0%, #875a7b 55%, #9d6b8f 100%);
 }
 
 .odoo-report-letterhead--compact .odoo-report-letterhead-accent {
@@ -28,7 +28,7 @@
 }
 
 .odoo-report-title-band {
-  border: 1px solid #714b67;
+  border: 1px solid var(--color-primary);
   background: linear-gradient(180deg, #faf8f9 0%, #ffffff 100%);
   padding: 10px 20px;
   border-radius: 6px;
@@ -120,7 +120,7 @@
 .odoo-report-table tfoot td {
   background: #e9ecef !important;
   font-weight: 700;
-  border-top: 2px solid #714b67;
+  border-top: 2px solid var(--color-primary);
   padding: 8px 10px;
 }
 
@@ -139,7 +139,7 @@
 .odoo-report-legal-notice {
   background: #f8f9fa;
   border: 1px solid #dee2e6;
-  border-right: 4px solid #714b67;
+  border-right: 4px solid var(--color-primary);
   border-radius: 4px;
   padding: 12px 14px;
   font-size: 10px;
@@ -148,7 +148,7 @@
 
 .odoo-report-legal-title {
   font-weight: 700;
-  color: #714b67;
+  color: var(--color-primary);
   margin-bottom: 6px;
   font-size: 11px;
 }
@@ -158,7 +158,7 @@
 }
 
 .odoo-report-center-title {
-  border: 1px solid #714b67;
+  border: 1px solid var(--color-primary);
   background: #faf8f9;
   padding: 8px 24px;
   border-radius: 6px;
@@ -166,7 +166,7 @@
 }
 
 .odoo-report-sheet--framed {
-  border: 1px solid #714b67;
+  border: 1px solid var(--color-primary);
   box-shadow: inset 0 0 0 1px #e9ecef;
 }
 
@@ -226,7 +226,7 @@
   gap: 12px;
   margin-top: 8px;
   padding: 12px 8px 4px;
-  border-top: 2px solid #714b67;
+  border-top: 2px solid var(--color-primary);
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
@@ -244,7 +244,7 @@
 .odoo-report-signature-label {
   font-size: 11px;
   font-weight: 800;
-  color: #714b67;
+  color: var(--color-primary);
 }
 
 .odoo-report-signature-line {

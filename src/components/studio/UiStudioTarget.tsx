@@ -139,8 +139,8 @@ export const UiStudioTarget: React.FC<UiStudioTargetProps> = ({
         resolved.hidden ? 'opacity-45' : ''
       } ${
         isSelected
-          ? 'outline outline-2 outline-[#714B67] outline-offset-2 rounded-sm'
-          : 'hover:outline hover:outline-1 hover:outline-[#714B67]/40 hover:outline-offset-1 rounded-sm'
+          ? 'outline outline-2 outline-primary outline-offset-2 rounded-sm'
+          : 'hover:outline hover:outline-1 hover:outline-primary/40 hover:outline-offset-1 rounded-sm'
       }`.trim()}
     >
       <span className={resolved.hidden ? 'line-through' : ''}>{inner}</span>

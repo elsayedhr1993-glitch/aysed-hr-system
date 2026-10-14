@@ -115,7 +115,7 @@ export const HolidaysCalendarView: React.FC<HolidaysCalendarViewProps> = ({
       
       {/* 1. Next Upcoming Kuwait Public Holiday Spotlight Banner */}
       {nextUpcomingHoliday && (
-        <div className="bg-gradient-to-r from-purple-900 via-[#714B67] to-purple-800 text-white p-5 rounded-2xl shadow-sm border border-purple-300/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="bg-gradient-to-r from-purple-900 via-primary to-purple-800 text-white p-5 rounded-2xl shadow-sm border border-purple-300/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="flex items-start gap-3.5">
             <div className="p-3 bg-white/15 rounded-xl text-white mt-0.5">
               <Sparkles size={24} className="text-amber-300" />
@@ -151,7 +151,7 @@ export const HolidaysCalendarView: React.FC<HolidaysCalendarViewProps> = ({
               <button
                 type="button"
                 onClick={() => onOpenCircularModal(nextUpcomingHoliday)}
-                className="bg-white hover:bg-slate-50 text-[#714B67] px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm cursor-pointer w-full md:w-auto"
+                className="bg-white hover:bg-slate-50 text-primary px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm cursor-pointer w-full md:w-auto"
               >
                 <BellRing size={14} /> إنشاء وطباعة التعميم الإداري
               </button>
@@ -197,7 +197,7 @@ export const HolidaysCalendarView: React.FC<HolidaysCalendarViewProps> = ({
               onClick={() => setSelectedMonth(idx)}
               className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition whitespace-nowrap cursor-pointer ${
                 selectedMonth === idx 
-                  ? 'bg-[#714B67] text-white' 
+                  ? 'bg-primary text-white' 
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
@@ -254,11 +254,11 @@ export const HolidaysCalendarView: React.FC<HolidaysCalendarViewProps> = ({
               >
                 {/* Day Header */}
                 <div className="flex items-center justify-between mb-1">
-                  <span className={`text-xs font-mono font-bold ${isToday ? 'bg-[#714B67] text-white px-2 py-0.5 rounded-full' : isFriday ? 'text-purple-800' : 'text-slate-700'}`}>
+                  <span className={`text-xs font-mono font-bold ${isToday ? 'bg-primary text-white px-2 py-0.5 rounded-full' : isFriday ? 'text-purple-800' : 'text-slate-700'}`}>
                     {dayNum}
                   </span>
                   {isFriday && <span className="text-[9px] text-slate-400 font-bold">عطلة الجمعة</span>}
-                  {isToday && <span className="text-[9px] text-[#714B67] font-bold">اليوم</span>}
+                  {isToday && <span className="text-[9px] text-primary font-bold">اليوم</span>}
                 </div>
 
                 {/* Holiday Events */}
@@ -268,7 +268,7 @@ export const HolidaysCalendarView: React.FC<HolidaysCalendarViewProps> = ({
                       key={h.id}
                       type="button"
                       onClick={() => setActiveHolidayDetail(h)}
-                      className="w-full text-right p-1 rounded-lg bg-[#714B67]/10 hover:bg-[#714B67]/20 border border-[#714B67]/20 text-[10px] text-[#714B67] font-bold transition truncate block cursor-pointer"
+                      className="w-full text-right p-1 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/20 text-[10px] text-primary font-bold transition truncate block cursor-pointer"
                       title={`${h.nameAr} - اضغط لعرض التفاصيل`}
                     >
                       🎉 {h.nameAr}
@@ -296,7 +296,7 @@ export const HolidaysCalendarView: React.FC<HolidaysCalendarViewProps> = ({
             
             <div className="flex justify-between items-start border-b pb-3">
               <div className="flex items-center gap-2">
-                <div className="p-2 bg-[#714B67]/10 text-[#714B67] rounded-xl">
+                <div className="p-2 bg-primary/10 text-primary rounded-xl">
                   <Sparkles size={20} />
                 </div>
                 <div>
@@ -379,7 +379,7 @@ export const HolidaysCalendarView: React.FC<HolidaysCalendarViewProps> = ({
                     setActiveHolidayDetail(null);
                     onOpenCircularModal(h);
                   }}
-                  className="px-3.5 py-2 bg-purple-50 hover:bg-purple-100 text-[#714B67] rounded-xl font-bold flex items-center gap-1.5 transition cursor-pointer"
+                  className="px-3.5 py-2 bg-purple-50 hover:bg-purple-100 text-primary rounded-xl font-bold flex items-center gap-1.5 transition cursor-pointer"
                 >
                   <BellRing size={14} /> إصدار تعميم إداري للموظفين
                 </button>

@@ -162,7 +162,7 @@ export const OdooDocScannerModal: React.FC<ScannerProps> = ({ isOpen, onClose, o
         {/* Header */}
         <div className="flex justify-between items-center border-b border-slate-100 pb-3">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-[#714B67]/10 text-[#714B67] rounded-2xl">
+            <div className="p-2.5 bg-primary/10 text-primary rounded-2xl">
               <Scan size={22} />
             </div>
             <div>
@@ -191,7 +191,7 @@ export const OdooDocScannerModal: React.FC<ScannerProps> = ({ isOpen, onClose, o
               type="button"
               onClick={() => setDocType('civil_id')}
               className={`flex-1 py-1.5 px-3 rounded-lg font-bold transition cursor-pointer text-center ${
-                docType === 'civil_id' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                docType === 'civil_id' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               بطاقة مدنية (PACI)
@@ -200,7 +200,7 @@ export const OdooDocScannerModal: React.FC<ScannerProps> = ({ isOpen, onClose, o
               type="button"
               onClick={() => setDocType('passport')}
               className={`flex-1 py-1.5 px-3 rounded-lg font-bold transition cursor-pointer text-center ${
-                docType === 'passport' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                docType === 'passport' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               جواز السفر والإقامة
@@ -209,7 +209,7 @@ export const OdooDocScannerModal: React.FC<ScannerProps> = ({ isOpen, onClose, o
               type="button"
               onClick={() => setDocType('medical_license')}
               className={`flex-1 py-1.5 px-3 rounded-lg font-bold transition cursor-pointer text-center ${
-                docType === 'medical_license' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                docType === 'medical_license' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               ترخيص صحي (MOH)
@@ -232,7 +232,7 @@ export const OdooDocScannerModal: React.FC<ScannerProps> = ({ isOpen, onClose, o
             }}
             onClick={() => !isProcessing && fileInputRef.current?.click()}
             className={`border-2 border-dashed rounded-2xl p-8 text-center transition flex flex-col items-center justify-center gap-3 cursor-pointer ${
-              isDragging ? 'border-[#714B67] bg-[#714B67]/5' : 'border-slate-300 hover:border-[#714B67] bg-slate-50'
+              isDragging ? 'border-primary bg-primary/5' : 'border-slate-300 hover:border-primary bg-slate-50'
             }`}
           >
             <input
@@ -242,7 +242,7 @@ export const OdooDocScannerModal: React.FC<ScannerProps> = ({ isOpen, onClose, o
               className="hidden"
             />
 
-            <div className="w-16 h-16 bg-purple-100 text-[#714B67] rounded-2xl flex items-center justify-center shadow-xs">
+            <div className="w-16 h-16 bg-purple-100 text-primary rounded-2xl flex items-center justify-center shadow-xs">
               {isProcessing ? <Loader2 className="animate-spin" size={32} /> : <Upload size={32} />}
             </div>
 
@@ -302,7 +302,7 @@ export const OdooDocScannerModal: React.FC<ScannerProps> = ({ isOpen, onClose, o
                         return { ...prev, civilId: val, birthDate: bDate };
                       });
                     }}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono font-bold text-purple-950 text-xs focus:ring-2 focus:ring-[#714B67]"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono font-bold text-purple-950 text-xs focus:ring-2 focus:ring-primary"
                     placeholder="الرقم المدني"
                   />
                 </div>
@@ -313,7 +313,7 @@ export const OdooDocScannerModal: React.FC<ScannerProps> = ({ isOpen, onClose, o
                     type="text"
                     value={extractedData.fullNameAr}
                     onChange={(e) => setExtractedData(prev => prev ? { ...prev, fullNameAr: e.target.value } : prev)}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-bold text-slate-900 text-xs focus:ring-2 focus:ring-[#714B67]"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-bold text-slate-900 text-xs focus:ring-2 focus:ring-primary"
                     placeholder="الاسم الكامل بالعربية"
                   />
                 </div>
@@ -324,7 +324,7 @@ export const OdooDocScannerModal: React.FC<ScannerProps> = ({ isOpen, onClose, o
                     type="text"
                     value={extractedData.fullNameEn}
                     onChange={(e) => setExtractedData(prev => prev ? { ...prev, fullNameEn: e.target.value } : prev)}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800 text-xs font-mono focus:ring-2 focus:ring-[#714B67]"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800 text-xs font-mono focus:ring-2 focus:ring-primary"
                     placeholder="FULL NAME IN ENGLISH"
                     dir="ltr"
                   />
@@ -414,7 +414,7 @@ export const OdooDocScannerModal: React.FC<ScannerProps> = ({ isOpen, onClose, o
               <button
                 type="button"
                 onClick={handleApplyData}
-                className="px-5 py-2 bg-[#714B67] hover:bg-[#5a3a52] text-white rounded-xl font-bold flex items-center gap-2 cursor-pointer shadow-sm transition text-xs"
+                className="px-5 py-2 bg-primary hover:bg-[#5a3a52] text-white rounded-xl font-bold flex items-center gap-2 cursor-pointer shadow-sm transition text-xs"
               >
                 <Sparkles size={15} />
                 <span>تطبيق وتعبئة ملف الموظف</span>

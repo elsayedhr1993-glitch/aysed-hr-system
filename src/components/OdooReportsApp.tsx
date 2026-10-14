@@ -672,14 +672,14 @@ export const OdooReportsApp: React.FC = () => {
           <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
             <span>التقارير والتحليلات</span>
             <span>/</span>
-            <span className="text-[#714B67] font-black">{getReportTitle(activeReport)}</span>
+            <span className="text-primary font-black">{getReportTitle(activeReport)}</span>
           </div>
           <h1 className="text-xl font-black text-slate-900 flex items-center gap-2">
-            <BarChart3 className="text-[#714B67]" size={22} />
+            <BarChart3 className="text-primary" size={22} />
             نظام التقارير والتحليلات
           </h1>
           <p className="text-[11px] text-slate-500 font-medium">
-            المنشأة: <strong className="text-[#714B67]">{companyDisplayName}</strong> | القطاع الطبي والخاص الكويتي (حسابات 26 يوم عمل بالدينار الكويتي 0.000 KWD)
+            المنشأة: <strong className="text-primary">{companyDisplayName}</strong> | القطاع الطبي والخاص الكويتي (حسابات 26 يوم عمل بالدينار الكويتي 0.000 KWD)
           </p>
         </div>
 
@@ -690,7 +690,7 @@ export const OdooReportsApp: React.FC = () => {
               type="button"
               onClick={() => setViewMode('table')}
               className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer ${
-                viewMode === 'table' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                viewMode === 'table' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
               }`}
               title="عرض الجدول التفصيلي"
             >
@@ -700,7 +700,7 @@ export const OdooReportsApp: React.FC = () => {
               type="button"
               onClick={() => setViewMode('pivot')}
               className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer ${
-                viewMode === 'pivot' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                viewMode === 'pivot' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
               }`}
               title="الجدول المحوري مع التجميع"
             >
@@ -710,7 +710,7 @@ export const OdooReportsApp: React.FC = () => {
               type="button"
               onClick={() => setViewMode('graph')}
               className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer ${
-                viewMode === 'graph' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                viewMode === 'graph' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
               }`}
               title="الرسوم البيانية والمؤشرات"
             >
@@ -728,7 +728,7 @@ export const OdooReportsApp: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsA4ModalOpen(true)}
-            className="bg-[#714B67] hover:bg-[#583950] text-white px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+            className="bg-primary hover:bg-[#583950] text-white px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
           >
             <Printer size={15} /> طباعة تقرير PDF رسمي (A4)
           </button>
@@ -751,7 +751,7 @@ export const OdooReportsApp: React.FC = () => {
                 onClick={() => setActiveReport('wps_reconciliation')}
                 className={`w-full text-right p-2 rounded-lg text-xs font-bold transition flex items-center justify-between cursor-pointer ${
                   activeReport === 'wps_reconciliation' 
-                    ? 'bg-[#714B67] text-white shadow-xs' 
+                    ? 'bg-primary text-white shadow-xs' 
                     : 'text-slate-700 hover:bg-slate-200/70'
                 }`}
               >
@@ -768,7 +768,7 @@ export const OdooReportsApp: React.FC = () => {
                 onClick={() => setActiveReport('gov_compliance')}
                 className={`w-full text-right p-2 rounded-lg text-xs font-bold transition flex items-center justify-between cursor-pointer ${
                   activeReport === 'gov_compliance' 
-                    ? 'bg-[#714B67] text-white shadow-xs' 
+                    ? 'bg-primary text-white shadow-xs' 
                     : 'text-slate-700 hover:bg-slate-200/70'
                 }`}
               >
@@ -801,7 +801,7 @@ export const OdooReportsApp: React.FC = () => {
                 onClick={() => setActiveReport('eos_indemnity_accrual')}
                 className={`w-full text-right p-2 rounded-lg text-xs font-bold transition flex items-center justify-between cursor-pointer ${
                   activeReport === 'eos_indemnity_accrual' 
-                    ? 'bg-[#714B67] text-white shadow-xs' 
+                    ? 'bg-primary text-white shadow-xs' 
                     : 'text-slate-700 hover:bg-slate-200/70'
                 }`}
               >
@@ -818,7 +818,7 @@ export const OdooReportsApp: React.FC = () => {
                 onClick={() => setActiveReport('leaves_financial_liability')}
                 className={`w-full text-right p-2 rounded-lg text-xs font-bold transition flex items-center justify-between cursor-pointer ${
                   activeReport === 'leaves_financial_liability' 
-                    ? 'bg-[#714B67] text-white shadow-xs' 
+                    ? 'bg-primary text-white shadow-xs' 
                     : 'text-slate-700 hover:bg-slate-200/70'
                 }`}
               >
@@ -844,7 +844,7 @@ export const OdooReportsApp: React.FC = () => {
                 onClick={() => setActiveReport('attendance_overtime_analytics')}
                 className={`w-full text-right p-2 rounded-lg text-xs font-bold transition flex items-center justify-between cursor-pointer ${
                   activeReport === 'attendance_overtime_analytics' 
-                    ? 'bg-[#714B67] text-white shadow-xs' 
+                    ? 'bg-primary text-white shadow-xs' 
                     : 'text-slate-700 hover:bg-slate-200/70'
                 }`}
               >
@@ -857,7 +857,7 @@ export const OdooReportsApp: React.FC = () => {
                 </UiStudioTarget>
                 <ChevronRight size={14} className={activeReport === 'attendance_overtime_analytics' ? 'text-white' : 'text-slate-400'} />
               </button>
-              <div className="p-2 bg-purple-50/50 rounded-lg text-[10px] text-[#714B67] font-semibold flex items-center gap-1.5 border border-purple-100">
+              <div className="p-2 bg-purple-50/50 rounded-lg text-[10px] text-primary font-semibold flex items-center gap-1.5 border border-purple-100">
                 <Sparkles size={13} className="shrink-0" />
                 <span>من ترحيل الحضور الشهري أو مسير الرواتب للفترة المختارة</span>
               </div>
@@ -872,7 +872,7 @@ export const OdooReportsApp: React.FC = () => {
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
           <div className="text-[10px] text-slate-400 font-bold mb-1 flex items-center justify-between">
             <span>إجمالي الكادر</span>
-            <Users className="w-3.5 h-3.5 text-[#714B67]" />
+            <Users className="w-3.5 h-3.5 text-primary" />
           </div>
           <div className="text-lg font-black text-slate-900">{totalEmployees} <span className="text-[10px] font-normal text-slate-500">موظف</span></div>
           <div className="text-[9px] text-slate-600 mt-0.5 font-bold">
@@ -930,20 +930,20 @@ export const OdooReportsApp: React.FC = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="بحث بالاسم، الرقم المدني، المسمى، أو القسم..."
-            className="w-full pr-9 pl-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:border-[#714B67] outline-none"
+            className="w-full pr-9 pl-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:border-primary outline-none"
           />
         </div>
 
         <div className="flex items-center flex-wrap gap-2 w-full md:w-auto">
           {/* فلتر شهر المسير والفترة المالية */}
           <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200">
-            <Calendar className="w-3.5 h-3.5 text-[#714B67]" />
+            <Calendar className="w-3.5 h-3.5 text-primary" />
             <span className="font-bold text-slate-500">فترة التقرير:</span>
             <input
               type="month"
               value={selectedPeriodMonth}
               onChange={(e) => setSelectedPeriodMonth(e.target.value)}
-              className="bg-white border border-slate-200 rounded px-2 py-1 text-xs font-mono font-bold text-slate-800 outline-none focus:border-[#714B67] cursor-pointer"
+              className="bg-white border border-slate-200 rounded px-2 py-1 text-xs font-mono font-bold text-slate-800 outline-none focus:border-primary cursor-pointer"
             />
           </div>
 
@@ -952,7 +952,7 @@ export const OdooReportsApp: React.FC = () => {
             <select
               value={departmentFilter}
               onChange={(e) => setDepartmentFilter(e.target.value)}
-              className="p-2 bg-slate-50 border border-slate-200 rounded-lg font-bold outline-none focus:border-[#714B67] cursor-pointer"
+              className="p-2 bg-slate-50 border border-slate-200 rounded-lg font-bold outline-none focus:border-primary cursor-pointer"
             >
               <option value="ALL">كافة الأقسام الطبية والإدارية</option>
               {departmentsList.map(dept => (
@@ -967,7 +967,7 @@ export const OdooReportsApp: React.FC = () => {
               <select
                 value={complianceFilter}
                 onChange={(e) => setComplianceFilter(e.target.value)}
-                className="p-2 bg-slate-50 border border-slate-200 rounded-lg font-bold outline-none focus:border-[#714B67] cursor-pointer"
+                className="p-2 bg-slate-50 border border-slate-200 rounded-lg font-bold outline-none focus:border-primary cursor-pointer"
               >
                 <option value="ALL">الكل</option>
                 <option value="ساري ومطابق">ساري ومطابق</option>
@@ -980,11 +980,11 @@ export const OdooReportsApp: React.FC = () => {
 
           {viewMode === 'pivot' && (
             <div className="flex items-center gap-1.5 bg-purple-50 p-1 rounded-lg border border-purple-200">
-              <span className="font-bold text-[#714B67] px-1">تجميع حسب (Group By):</span>
+              <span className="font-bold text-primary px-1">تجميع حسب (Group By):</span>
               <select
                 value={pivotGroupBy}
                 onChange={(e) => setPivotGroupBy(e.target.value as PivotGroupBy)}
-                className="p-1.5 bg-white border border-purple-300 rounded-md font-bold text-[#714B67] outline-none cursor-pointer"
+                className="p-1.5 bg-white border border-purple-300 rounded-md font-bold text-primary outline-none cursor-pointer"
               >
                 <option value="department">القسم / الوحدة الطبية</option>
                 <option value="nationality">الجنسية (كويتي / غير كويتي)</option>
@@ -1009,14 +1009,14 @@ export const OdooReportsApp: React.FC = () => {
           <div className="p-4 border-b bg-slate-50/70 flex justify-between items-center">
             <div>
               <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
-                <FileCheck className="text-[#714B67]" size={17} />
+                <FileCheck className="text-primary" size={17} />
                 {getReportTitle(activeReport)}
               </h3>
               <p className="text-[11px] text-slate-500 mt-0.5">
                 بيانات حية ومحدثة ومطابقة لقانون العمل بالقطاع الأهلي الكويتي (عدد السجلات: {filteredData.length})
               </p>
             </div>
-            <span className="bg-purple-100 text-[#714B67] text-xs font-mono font-bold px-2.5 py-1 rounded-lg">
+            <span className="bg-purple-100 text-primary text-xs font-mono font-bold px-2.5 py-1 rounded-lg">
               {selectedPeriodMonth} · صافي {totalNetPayable.toFixed(3)} د.ك
             </span>
           </div>
@@ -1037,7 +1037,7 @@ export const OdooReportsApp: React.FC = () => {
                 <tbody className="divide-y divide-slate-100 font-mono">
                   {filteredData.map((emp, idx) => (
                     <tr key={emp.id} className={`hover:bg-purple-50/40 transition ${idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
-                      <UiStudioTableCell uiKey="reports.wps.col.emp_code" defaults={{ label: { ar: 'كود الموظف', en: 'Code' } }} className="p-3.5 font-bold text-[#714B67]">
+                      <UiStudioTableCell uiKey="reports.wps.col.emp_code" defaults={{ label: { ar: 'كود الموظف', en: 'Code' } }} className="p-3.5 font-bold text-primary">
                         {emp.id}
                       </UiStudioTableCell>
                       <UiStudioTableCell uiKey="reports.wps.col.employee" defaults={{ label: { ar: 'الموظف', en: 'Employee' } }} className="p-3.5">
@@ -1339,14 +1339,14 @@ export const OdooReportsApp: React.FC = () => {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b pb-4">
             <div>
               <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
-                <Layers className="text-[#714B67]" size={18} />
+                <Layers className="text-primary" size={18} />
                 الجدول المحوري التفاعلي
               </h3>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                تجميع وتحليل البيانات حسب: <strong className="text-[#714B67]">{pivotGroupBy}</strong>
+                تجميع وتحليل البيانات حسب: <strong className="text-primary">{pivotGroupBy}</strong>
               </p>
             </div>
-            <div className="text-xs font-mono font-bold bg-purple-50 text-[#714B67] px-3 py-1.5 rounded-lg border border-purple-200">
+            <div className="text-xs font-mono font-bold bg-purple-50 text-primary px-3 py-1.5 rounded-lg border border-purple-200">
               عدد المجموعات التحليلية: {pivotGroups.length}
             </div>
           </div>
@@ -1370,7 +1370,7 @@ export const OdooReportsApp: React.FC = () => {
                 {pivotGroups.map((grp, idx) => (
                   <tr key={grp.groupKey} className={`hover:bg-purple-50/50 transition ${idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
                     <td className="p-3.5 font-bold text-slate-900 font-sans flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-[#714B67]"></span>
+                      <span className="w-2 h-2 rounded-full bg-primary"></span>
                       {grp.groupKey}
                     </td>
                     <td className="p-3.5 text-center font-bold">{grp.count}</td>
@@ -1412,7 +1412,7 @@ export const OdooReportsApp: React.FC = () => {
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
             <div className="flex justify-between items-center border-b pb-3">
               <h4 className="font-bold text-sm text-slate-900 flex items-center gap-2">
-                <BarChart3 className="text-[#714B67]" size={16} />
+                <BarChart3 className="text-primary" size={16} />
                 توزيع كتلة الرواتب والالتزامات المالية حسب القسم (KWD)
               </h4>
               <span className="text-[10px] text-slate-400 font-mono">Bar Analytics</span>
@@ -1427,11 +1427,11 @@ export const OdooReportsApp: React.FC = () => {
                   <div key={grp.groupKey} className="space-y-1">
                     <div className="flex justify-between text-xs font-bold">
                       <span className="text-slate-800">{grp.groupKey} ({grp.count} موظفين)</span>
-                      <span className="font-mono text-[#714B67]">{grp.totalGross.toFixed(3)} د.ك</span>
+                      <span className="font-mono text-primary">{grp.totalGross.toFixed(3)} د.ك</span>
                     </div>
                     <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden flex">
                       <div 
-                        className="bg-[#714B67] h-full rounded-full transition-all duration-500"
+                        className="bg-primary h-full rounded-full transition-all duration-500"
                         style={{ width: `${percent}%` }}
                       ></div>
                     </div>

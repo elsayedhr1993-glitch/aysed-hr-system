@@ -111,7 +111,7 @@ export const AuditLogsApp: React.FC<AuditLogsAppProps> = ({
       case 'SOFT_DELETE':
         return <span className="bg-rose-50 text-rose-700 px-2 py-0.5 rounded font-bold border border-rose-200">حذف / أرشفة</span>;
       case 'ISSUE':
-        return <span className="bg-purple-50 text-[#714B67] px-2 py-0.5 rounded font-bold border border-purple-200">إصدار وتوثيق</span>;
+        return <span className="bg-purple-50 text-primary px-2 py-0.5 rounded font-bold border border-purple-200">إصدار وتوثيق</span>;
       case 'EXPORT':
         return <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded font-bold border border-amber-200">تصدير تقرير</span>;
       default:
@@ -125,7 +125,7 @@ export const AuditLogsApp: React.FC<AuditLogsAppProps> = ({
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-[#714B67]" />
+            <ShieldCheck className="w-5 h-5 text-primary" />
             <span>سجل الرقابة واختبار الجاهزية التشغيلية (<span className="whitespace-nowrap">Audit &amp; Diagnostic Center</span>)</span>
           </h2>
           <p className="text-xs text-slate-500 mt-1">
@@ -138,7 +138,7 @@ export const AuditLogsApp: React.FC<AuditLogsAppProps> = ({
           <button
             onClick={() => setActiveTab('LOGS')}
             className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-              activeTab === 'LOGS' ? 'bg-[#714B67] text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              activeTab === 'LOGS' ? 'bg-primary text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
             <History className="w-4 h-4" />
@@ -209,7 +209,7 @@ export const AuditLogsApp: React.FC<AuditLogsAppProps> = ({
       {/* Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
         <table className="w-full text-right text-xs">
-          <thead className="bg-[#714B67] text-white font-bold">
+          <thead className="bg-primary text-white font-bold">
             <tr>
               <th className="p-3">التاريخ والوقت</th>
               <th className="p-3">المستخدم / المنفذ</th>

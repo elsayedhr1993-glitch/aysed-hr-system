@@ -128,7 +128,7 @@ export const SystemIntegrityGuard: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 text-xs font-sans dir-rtl" dir="rtl">
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border space-y-4 text-slate-800">
             <div className="flex justify-between items-center border-b pb-3">
-              <div className="flex items-center gap-2 font-black text-sm text-[#714B67]">
+              <div className="flex items-center gap-2 font-black text-sm text-primary">
                 <ShieldCheck size={20} />
                 <span>سجل تنبيهات وفحص حارس النظام</span>
               </div>
@@ -174,7 +174,7 @@ export const SystemIntegrityGuard: React.FC = () => {
               </button>
               <button
                 onClick={() => { setShowDetails(false); safePrintAction(); }}
-                className="px-4 py-2 bg-[#714B67] hover:bg-[#5a3a52] text-white rounded-xl font-bold flex items-center gap-1.5 cursor-pointer shadow-sm transition"
+                className="px-4 py-2 bg-primary hover:bg-[#5a3a52] text-white rounded-xl font-bold flex items-center gap-1.5 cursor-pointer shadow-sm transition"
               >
                 <RotateCcw size={14} />
                 <span>إعادة محاولة الطباعة</span>

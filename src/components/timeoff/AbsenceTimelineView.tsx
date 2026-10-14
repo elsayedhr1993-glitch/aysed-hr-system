@@ -127,10 +127,10 @@ export const AbsenceTimelineView: React.FC<AbsenceTimelineViewProps> = ({
         <div className="bg-white border border-slate-200 p-3.5 rounded-xl shadow-2xs flex items-center justify-between">
           <div>
             <span className="text-slate-500 text-[11px] block font-medium">في إجازة اليوم</span>
-            <span className="text-xl font-black text-[#714B67] font-mono">{currentlyOnLeaveCount}</span>
+            <span className="text-xl font-black text-primary font-mono">{currentlyOnLeaveCount}</span>
             <span className="text-[10px] text-slate-400 block">موظف مجاز حالياً</span>
           </div>
-          <div className="p-2.5 bg-[#714B67]/10 text-[#714B67] rounded-xl">
+          <div className="p-2.5 bg-primary/10 text-primary rounded-xl">
             <Users size={20} />
           </div>
         </div>
@@ -210,7 +210,7 @@ export const AbsenceTimelineView: React.FC<AbsenceTimelineViewProps> = ({
           <button
             type="button"
             onClick={handleToday}
-            className="px-3 py-1.5 bg-slate-100 hover:bg-[#714B67] hover:text-white rounded-lg font-bold text-slate-700 transition cursor-pointer"
+            className="px-3 py-1.5 bg-slate-100 hover:bg-primary hover:text-white rounded-lg font-bold text-slate-700 transition cursor-pointer"
           >
             اليوم
           </button>
@@ -251,7 +251,7 @@ export const AbsenceTimelineView: React.FC<AbsenceTimelineViewProps> = ({
               type="button"
               onClick={() => setTimelineWindow('week')}
               className={`px-2.5 py-1 rounded-md font-bold transition cursor-pointer ${
-                timelineWindow === 'week' ? 'bg-[#714B67] text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                timelineWindow === 'week' ? 'bg-primary text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               أسبوع (7 أيام)
@@ -260,7 +260,7 @@ export const AbsenceTimelineView: React.FC<AbsenceTimelineViewProps> = ({
               type="button"
               onClick={() => setTimelineWindow('fortnight')}
               className={`px-2.5 py-1 rounded-md font-bold transition cursor-pointer ${
-                timelineWindow === 'fortnight' ? 'bg-[#714B67] text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                timelineWindow === 'fortnight' ? 'bg-primary text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               14 يوم
@@ -269,7 +269,7 @@ export const AbsenceTimelineView: React.FC<AbsenceTimelineViewProps> = ({
               type="button"
               onClick={() => setTimelineWindow('month')}
               className={`px-2.5 py-1 rounded-md font-bold transition cursor-pointer ${
-                timelineWindow === 'month' ? 'bg-[#714B67] text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                timelineWindow === 'month' ? 'bg-primary text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               شهر كامل
@@ -293,7 +293,7 @@ export const AbsenceTimelineView: React.FC<AbsenceTimelineViewProps> = ({
                     key={td.dateStr}
                     className={`p-2 text-center font-mono border-l border-slate-100 ${
                       td.isToday 
-                        ? 'bg-purple-100/70 text-[#714B67] font-black' 
+                        ? 'bg-purple-100/70 text-primary font-black' 
                         : td.isFriday 
                           ? 'bg-slate-100 text-slate-400' 
                           : 'text-slate-600'
@@ -354,7 +354,7 @@ export const AbsenceTimelineView: React.FC<AbsenceTimelineViewProps> = ({
                                     ? 'bg-blue-600'
                                     : req.leaveType === 'maternity'
                                       ? 'bg-pink-600'
-                                      : 'bg-[#714B67]'
+                                      : 'bg-primary'
                               } ${isStart ? 'rounded-r-lg font-mono' : ''} ${isEnd ? 'rounded-l-lg' : ''}`}
                               title={`${req.employeeName} - ${req.leaveType} (${req.startDate} إلى ${req.endDate})`}
                             >
@@ -389,7 +389,7 @@ export const AbsenceTimelineView: React.FC<AbsenceTimelineViewProps> = ({
               وضع وأمومة (Maternity)
             </span>
             <span className="flex items-center gap-1">
-              <span className="w-2.5 h-2.5 rounded bg-[#714B67] inline-block"></span>
+              <span className="w-2.5 h-2.5 rounded bg-primary inline-block"></span>
               أخرى
             </span>
           </div>

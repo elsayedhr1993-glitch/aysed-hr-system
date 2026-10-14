@@ -78,7 +78,7 @@ export const EmployeeOnboardingPlanPanel: React.FC<Props> = ({
       }`}
     >
       <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/80 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-[#714B67] font-bold text-sm">
+        <div className="flex items-center gap-2 text-primary font-bold text-sm">
           <ListChecks size={18} />
           <span>خطة التهيئة / Onboarding</span>
         </div>
@@ -88,11 +88,11 @@ export const EmployeeOnboardingPlanPanel: React.FC<Props> = ({
       <div className="px-4 py-3 border-b border-slate-100">
         <div className="flex items-center justify-between text-xs font-bold text-slate-600 mb-2">
           <span>التقدم الكلي</span>
-          <span className="font-mono text-[#714B67]">{progress}%</span>
+          <span className="font-mono text-primary">{progress}%</span>
         </div>
         <div className="h-2.5 rounded-full bg-slate-200 overflow-hidden">
           <div
-            className="h-full bg-gradient-to-l from-[#714B67] to-emerald-600 transition-all duration-300"
+            className="h-full bg-gradient-to-l from-primary to-emerald-600 transition-all duration-300"
             style={{ width: `${progress}%` }}
           />
         </div>

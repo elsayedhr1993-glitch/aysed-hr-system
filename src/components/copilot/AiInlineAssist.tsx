@@ -72,7 +72,7 @@ export const AiInlineAssist: React.FC<AiInlineAssistProps> = ({
         type="button"
         disabled={disabled || loading}
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-50 text-[#714B67] border border-purple-200 hover:bg-purple-100 disabled:opacity-50 cursor-pointer"
+        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-50 text-primary border border-purple-200 hover:bg-purple-100 disabled:opacity-50 cursor-pointer"
         title={isArabic ? `صياغة ذكية — ${label}` : `AI assist — ${label}`}
       >
         {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
@@ -95,13 +95,13 @@ export const AiInlineAssist: React.FC<AiInlineAssistProps> = ({
             value={instruction}
             onChange={(e) => setInstruction(e.target.value)}
             placeholder={isArabic ? 'تعليمات اختيارية (مثلاً: رسمي وقصير)...' : 'Optional instructions…'}
-            className="w-full text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:border-[#714B67] outline-none"
+            className="w-full text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:border-primary outline-none"
           />
           <button
             type="button"
             onClick={() => void runGenerate()}
             disabled={loading}
-            className="w-full py-1.5 rounded-lg bg-[#714B67] text-white text-xs font-bold hover:bg-[#5a3b52] disabled:opacity-50 cursor-pointer"
+            className="w-full py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-[#5a3b52] disabled:opacity-50 cursor-pointer"
           >
             {loading ? (isArabic ? 'جاري التوليد…' : 'Generating…') : isArabic ? 'توليد النص' : 'Generate'}
           </button>

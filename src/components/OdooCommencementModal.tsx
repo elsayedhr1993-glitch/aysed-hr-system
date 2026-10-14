@@ -222,7 +222,7 @@ export default function OdooCommencementModal({ isOpen, onClose, onSave, employe
               <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 font-bold transition">
                 إلغاء
               </button>
-              <button type="submit" className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-5 py-2 rounded-lg font-bold transition shadow-sm">
+              <button type="submit" className="bg-primary hover:bg-[#5a3a52] text-white px-5 py-2 rounded-lg font-bold transition shadow-sm">
                 حفظ وتثبيت المباشرة
               </button>
             </div>

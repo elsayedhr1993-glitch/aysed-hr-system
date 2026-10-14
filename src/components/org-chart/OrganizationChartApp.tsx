@@ -32,7 +32,7 @@ interface OrganizationChartAppProps {
   activeCompany: Company;
 }
 
-const CARD_COLORS = ['bg-[#714B67]', 'bg-blue-600', 'bg-emerald-600', 'bg-amber-600', 'bg-purple-600'];
+const CARD_COLORS = ['bg-primary', 'bg-blue-600', 'bg-emerald-600', 'bg-amber-600', 'bg-purple-600'];
 
 export const OrganizationChartApp: React.FC<OrganizationChartAppProps> = ({
   employees,
@@ -129,7 +129,7 @@ export const OrganizationChartApp: React.FC<OrganizationChartAppProps> = ({
             isFocused
               ? 'border-amber-500 shadow-lg ring-4 ring-amber-200/80'
               : inChain
-                ? 'border-[#714B67] shadow-md'
+                ? 'border-primary shadow-md'
                 : 'border-slate-300 shadow-sm hover:shadow-md'
           }`}
         >
@@ -141,7 +141,7 @@ export const OrganizationChartApp: React.FC<OrganizationChartAppProps> = ({
             </div>
             <div className="min-w-0 flex-1">
               <h4 className="font-bold text-xs text-slate-900 truncate">{node.name}</h4>
-              <p className="text-[10px] text-[#714B67] font-bold truncate">{node.jobTitle}</p>
+              <p className="text-[10px] text-primary font-bold truncate">{node.jobTitle}</p>
               <span className="inline-block bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded text-[9px] font-mono mt-1">
                 {node.department}
               </span>
@@ -165,15 +165,15 @@ export const OrganizationChartApp: React.FC<OrganizationChartAppProps> = ({
 
         {hasChildren && !isCollapsed && (
           <div className="flex flex-col items-center w-full">
-            <div className="w-0.5 h-6 bg-[#714B67]/40" />
+            <div className="w-0.5 h-6 bg-primary/40" />
             <div className="flex justify-center relative w-full pt-3">
               {node.children.length > 1 && (
-                <div className="absolute top-0 left-[15%] right-[15%] h-0.5 bg-[#714B67]/40" />
+                <div className="absolute top-0 left-[15%] right-[15%] h-0.5 bg-primary/40" />
               )}
               <div className="flex gap-6 flex-wrap justify-center">
                 {node.children.map((child, idx) => (
                   <div key={child.id} className="relative flex flex-col items-center">
-                    <div className="w-0.5 h-3 bg-[#714B67]/40 absolute -top-3" />
+                    <div className="w-0.5 h-3 bg-primary/40 absolute -top-3" />
                     <RenderNode node={child} colorIndex={colorIndex + 1 + idx} />
                   </div>
                 ))}
@@ -189,7 +189,7 @@ export const OrganizationChartApp: React.FC<OrganizationChartAppProps> = ({
     <div className="space-y-4 animate-in fade-in duration-300" dir="rtl">
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-[#714B67]/10 text-[#714B67] rounded-xl">
+          <div className="p-2.5 bg-primary/10 text-primary rounded-xl">
             <Network className="w-6 h-6" />
           </div>
           <div>
@@ -217,14 +217,14 @@ export const OrganizationChartApp: React.FC<OrganizationChartAppProps> = ({
               if (e.key === 'Enter' && matchedEmployeeId) expandPathTo(matchedEmployeeId);
             }}
             placeholder="بحث عن موظف (اسم، رمز، قسم...)"
-            className="w-full pr-9 pl-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#714B67]/30 focus:border-[#714B67]"
+            className="w-full pr-9 pl-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary"
           />
         </div>
         <button
           type="button"
           disabled={!matchedEmployeeId}
           onClick={() => matchedEmployeeId && expandPathTo(matchedEmployeeId)}
-          className="px-3 py-2 text-xs font-bold rounded-lg bg-[#714B67] text-white disabled:opacity-40"
+          className="px-3 py-2 text-xs font-bold rounded-lg bg-primary text-white disabled:opacity-40"
         >
           إظهار في الشجرة
         </button>
@@ -260,7 +260,7 @@ export const OrganizationChartApp: React.FC<OrganizationChartAppProps> = ({
         <button
           type="button"
           onClick={() => setShowPrint(true)}
-          className="px-3 py-2 text-xs font-bold rounded-lg bg-[#714B67] text-white flex items-center gap-1"
+          className="px-3 py-2 text-xs font-bold rounded-lg bg-primary text-white flex items-center gap-1"
         >
           <Printer className="w-4 h-4" /> طباعة A4
         </button>

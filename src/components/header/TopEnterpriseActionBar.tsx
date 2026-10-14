@@ -117,7 +117,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
       {
         key: 'new_employee',
         icon: Users,
-        iconClass: 'text-[#714B67]',
+        iconClass: 'text-primary',
         labelAr: 'موظف جديد',
         labelEn: 'New employee',
         onClick: () => onQuickAction('new_employee'),
@@ -141,7 +141,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
       {
         key: 'facility_license',
         icon: Award,
-        iconClass: 'text-[#714B67]',
+        iconClass: 'text-primary',
         labelAr: 'ترخيص منشأة',
         labelEn: 'Facility license',
         onClick: facilityAction,
@@ -155,7 +155,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
       {
         key: 'calc_eos',
         icon: Scale,
-        iconClass: 'text-[#714B67]',
+        iconClass: 'text-primary',
         labelAr: 'مكافأة نهاية الخدمة',
         labelEn: 'End of service (EOS)',
         onClick: () => onOpenCalculator('eos'),
@@ -400,7 +400,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
   };
 
   return (
-    <header className="odoo-enterprise-topbar no-print h-12 bg-[#714B67] text-white flex items-center justify-between px-2 sm:px-3 md:px-4 z-40 select-none shadow-md shrink-0 border-b border-white/10 w-full relative" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+    <header className="odoo-enterprise-topbar no-print h-12 bg-primary text-white flex items-center justify-between px-2 sm:px-3 md:px-4 z-40 select-none shadow-md shrink-0 border-b border-white/10 w-full relative" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       
       {/* 🧭 الجانب الأيمن: التنقل وهوية المنشأة */}
       <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
@@ -487,7 +487,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                     <span className="font-black text-xs text-slate-800 block">المنشآت والشركات المرخصة</span>
                     <span className="text-[10px] text-slate-500">اختر منشأة للتبديل الفوري دون تسجيل خروج</span>
                   </div>
-                  <span className="text-[10px] bg-purple-100 text-[#714B67] font-bold px-2 py-0.5 rounded-full font-mono">
+                  <span className="text-[10px] bg-purple-100 text-primary font-bold px-2 py-0.5 rounded-full font-mono">
                     {companies.length} شركات
                   </span>
                 </div>
@@ -503,12 +503,12 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                           setShowCompanyMenu(false);
                         }}
                         className={`w-full text-right p-2.5 rounded-xl flex items-center justify-between transition cursor-pointer ${
-                          isActive ? 'bg-purple-50 text-[#714B67] font-black' : 'hover:bg-slate-50 text-slate-700'
+                          isActive ? 'bg-purple-50 text-primary font-black' : 'hover:bg-slate-50 text-slate-700'
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
-                            isActive ? 'bg-[#714B67] text-white' : 'bg-slate-100 text-slate-600'
+                            isActive ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600'
                           }`}>
                             {comp.nameAr?.charAt(0) || 'ش'}
                           </div>
@@ -534,7 +534,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                         setShowCompanyMenu(false);
                         onAddNewCompany();
                       }}
-                      className="w-full bg-[#714B67] hover:bg-[#5a3a52] text-white py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                      className="w-full bg-primary hover:bg-[#5a3a52] text-white py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                     >
                       <Plus size={14} />
                       <span>+ إضافة منشأة ومشترك جديد</span>
@@ -639,7 +639,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
           onClick={() => setActiveApp(activeApp === 'settings' ? 'switcher' : 'settings')}
           className={`w-8 h-8 rounded-lg flex items-center justify-center transition cursor-pointer shrink-0 ${
             activeApp === 'settings'
-              ? 'bg-white text-[#714B67] shadow-sm font-bold ring-2 ring-white/40'
+              ? 'bg-white text-primary shadow-sm font-bold ring-2 ring-white/40'
               : 'bg-white/15 hover:bg-white/25 border border-white/15 text-white'
           }`}
           title="إعدادات المنظومة وبيانات المنشأة (Settings)"
@@ -661,7 +661,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
             <div className="absolute top-full left-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden py-1 z-50 text-slate-800 animate-in fade-in slide-in-from-top-2 duration-150">
               <div className="p-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Bell size={16} className="text-[#714B67]" />
+                  <Bell size={16} className="text-primary" />
                   <span className="font-black text-xs text-slate-800">مركز التنبيهات والامتثال</span>
                 </div>
                 <span className="text-[10px] bg-rose-100 text-rose-800 font-bold px-2 py-0.5 rounded-full">
@@ -789,7 +789,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                       setShowAlertsMenu(false);
                       onOpenCompanyLicenseArchive();
                     }}
-                    className="text-xs font-bold text-[#714B67] hover:underline cursor-pointer"
+                    className="text-xs font-bold text-primary hover:underline cursor-pointer"
                   >
                     أرشيف تراخيص المنشأة
                   </button>
@@ -836,7 +836,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                 alt="Admin Avatar" 
                 className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-full object-cover border-2 border-white/90 shadow-xs"
               />
-              <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-400 rounded-full border border-[#714B67]" title="متصل الآن بالسحابة"></span>
+              <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-400 rounded-full border border-primary" title="متصل الآن بالسحابة"></span>
             </div>
             <div className="text-right hidden xl:block shrink-0">
               <span className="block text-[11px] font-black text-white truncate max-w-[80px]">
@@ -860,7 +860,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                   <img 
                     src={userAvatar} 
                     alt="User Avatar" 
-                    className="w-11 h-11 rounded-full object-cover border-2 border-[#714B67] shadow-sm shrink-0"
+                    className="w-11 h-11 rounded-full object-cover border-2 border-primary shadow-sm shrink-0"
                   />
                   <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white" title="نشط الآن"></span>
                 </div>
@@ -872,7 +872,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                   </div>
                   <p className="text-[11px] text-slate-500 truncate font-mono">{user?.email || 'elsayedhr1993@gmail.com'}</p>
                   <div className="flex items-center gap-1 mt-1">
-                    <span className="inline-flex items-center text-[9px] bg-purple-100 text-[#714B67] font-bold px-2 py-0.5 rounded-md">
+                    <span className="inline-flex items-center text-[9px] bg-purple-100 text-primary font-bold px-2 py-0.5 rounded-md">
                       {isSuperAdmin ? 'مدير النظام (Super Admin)' : 'مدير الموارد البشرية'}
                     </span>
                   </div>
@@ -888,10 +888,10 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                     setShowAvatarModal(true);
                     setShowUserMenu(false);
                   }}
-                  className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100/80 hover:text-[#714B67] transition flex items-center justify-between cursor-pointer rounded-xl group"
+                  className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100/80 hover:text-primary transition flex items-center justify-between cursor-pointer rounded-xl group"
                 >
                   <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-purple-50 text-[#714B67] flex items-center justify-center group-hover:bg-purple-100 transition">
+                    <div className="w-7 h-7 rounded-lg bg-purple-50 text-primary flex items-center justify-center group-hover:bg-purple-100 transition">
                       <UserCircle size={15} />
                     </div>
                     <span>تعديل الصورة الشخصية</span>
@@ -904,7 +904,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                     await handlePasswordResetRequest();
                     setShowUserMenu(false);
                   }}
-                  className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100/80 hover:text-[#714B67] transition flex items-center justify-between cursor-pointer rounded-xl group"
+                  className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100/80 hover:text-primary transition flex items-center justify-between cursor-pointer rounded-xl group"
                 >
                   <div className="flex items-center gap-2.5">
                     <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center group-hover:bg-blue-100 transition">
@@ -928,7 +928,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                         setActiveApp('saas_admin'); 
                         setShowUserMenu(false); 
                       }}
-                      className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100/80 hover:text-[#714B67] transition flex items-center justify-between cursor-pointer rounded-xl group"
+                      className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100/80 hover:text-primary transition flex items-center justify-between cursor-pointer rounded-xl group"
                     >
                       <div className="flex items-center gap-2.5">
                         <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center group-hover:bg-emerald-100 transition">
@@ -944,7 +944,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                         setActiveApp('audit'); 
                         setShowUserMenu(false); 
                       }}
-                      className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100/80 hover:text-[#714B67] transition flex items-center justify-between cursor-pointer rounded-xl group"
+                      className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100/80 hover:text-primary transition flex items-center justify-between cursor-pointer rounded-xl group"
                     >
                       <div className="flex items-center gap-2.5">
                         <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center group-hover:bg-blue-100 transition">

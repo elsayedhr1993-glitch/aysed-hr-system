@@ -209,7 +209,7 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
             <button
               type="button"
               onClick={handlePrint}
-              className="px-4 py-2 bg-[#714B67] hover:bg-[#593a52] text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+              className="px-4 py-2 bg-primary hover:bg-[#593a52] text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
             >
               <Printer size={14} /> طباعة وثيقة المخالصة (A4)
             </button>
@@ -334,7 +334,7 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
               company={company}
               rightSlot={
                 <div className="text-left font-mono">
-                  <div className="inline-block bg-[#714B67] text-white px-3 py-1 rounded-md font-bold text-[11px] mb-1">
+                  <div className="inline-block bg-primary text-white px-3 py-1 rounded-md font-bold text-[11px] mb-1">
                     مخالصة نهائية وإبراء ذمة عمالي
                   </div>
                   <div className="text-[10px] text-slate-500">التاريخ: {new Date().toLocaleDateString('ar-KW')}</div>
@@ -374,7 +374,7 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
               </div>
               <div>
                 <span className="text-[10px] text-slate-500 block">مدة الخدمة الإجمالية:</span>
-                <span className="font-bold text-[#714B67]">{tenureYears.toFixed(2)} سنة ({tenureDays} يوماً)</span>
+                <span className="font-bold text-primary">{tenureYears.toFixed(2)} سنة ({tenureDays} يوماً)</span>
               </div>
               <div>
                 <span className="text-[10px] text-slate-500 block">الراتب الشامل المعتمد:</span>

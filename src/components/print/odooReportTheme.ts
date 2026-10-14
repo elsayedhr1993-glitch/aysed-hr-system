@@ -1,6 +1,7 @@
+import { tokens } from '../../design/tokens';
 /** هوية تقارير Odoo Enterprise (ألوان وخطوط موحّدة للطباعة و PDF) */
 export const ODOO_REPORT = {
-  primary: '#714B67',
+  primary: tokens.color.primary,
   primaryDark: '#5a3a52',
   headerBg: '#875A7B',
   headerText: '#ffffff',

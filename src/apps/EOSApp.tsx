@@ -250,11 +250,11 @@ export const EOSApp: React.FC<EOSAppProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-200">
         <div>
           <div className="flex items-center gap-2">
-            <Scale className="w-6 h-6 text-[#714B67]" />
+            <Scale className="w-6 h-6 text-primary" />
             <h2 className="text-xl font-bold text-slate-800">
               حاسبة مكافأة نهاية الخدمة وتصفية المستحقات (Kuwait EOS Settlement)
             </h2>
-            <span className="bg-purple-100 text-[#714B67] text-[10px] font-bold px-2 py-0.5 rounded-full border border-purple-200">
+            <span className="bg-purple-100 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full border border-purple-200">
               المادتان 51 و 53 - قانون العمل الكويتي
             </span>
           </div>
@@ -299,7 +299,7 @@ export const EOSApp: React.FC<EOSAppProps> = ({
             </button>
             <button
               onClick={handlePrint}
-              className="bg-[#714B67] hover:bg-[#5a3b52] text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 transition cursor-pointer"
+              className="bg-primary hover:bg-[#5a3b52] text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 transition cursor-pointer"
             >
               <Printer className="w-4 h-4 text-amber-400" />
               <span>طباعة سند المخالصة (Print)</span>
@@ -312,7 +312,7 @@ export const EOSApp: React.FC<EOSAppProps> = ({
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4 text-xs h-fit">
           <div className="font-bold text-slate-800 text-sm pb-2 border-b border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Calculator className="w-4 h-4 text-[#714B67]" />
+              <Calculator className="w-4 h-4 text-primary" />
               <span>معالج تصفية نهاية الخدمة</span>
             </div>
             <span className="text-[10px] text-slate-400 font-mono">hr.departure.wizard</span>
@@ -326,7 +326,7 @@ export const EOSApp: React.FC<EOSAppProps> = ({
                 setSelectedEmpId(e.target.value);
                 setManualUnpaidOverride(null);
               }}
-              className="w-full border border-slate-300 rounded-lg p-2 text-xs font-semibold outline-none focus:ring-2 focus:ring-[#714B67] bg-white"
+              className="w-full border border-slate-300 rounded-lg p-2 text-xs font-semibold outline-none focus:ring-2 focus:ring-primary bg-white"
             >
               {companyEmps.map(emp => (
                 <option key={emp.id} value={emp.id}>
@@ -386,7 +386,7 @@ export const EOSApp: React.FC<EOSAppProps> = ({
             <select
               value={terminationType || 'RESIGNATION'}
               onChange={(e) => setTerminationType(e.target.value as any)}
-              className="w-full border border-slate-300 rounded-lg p-2 text-xs outline-none bg-white font-medium focus:ring-2 focus:ring-[#714B67]"
+              className="w-full border border-slate-300 rounded-lg p-2 text-xs outline-none bg-white font-medium focus:ring-2 focus:ring-primary"
             >
               <option value="RESIGNATION">استقالة الموظف (Resignation)</option>
               <option value="TERMINATION">إنهاء خدمة من قبل الشركة / فصل تعسفي (Termination)</option>
@@ -401,7 +401,7 @@ export const EOSApp: React.FC<EOSAppProps> = ({
               type="date"
               value={leaveDate}
               onChange={(e) => setLeaveDate(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg p-2 text-xs outline-none bg-white font-mono focus:ring-2 focus:ring-[#714B67]"
+              className="w-full border border-slate-300 rounded-lg p-2 text-xs outline-none bg-white font-mono focus:ring-2 focus:ring-primary"
             />
           </div>
 
@@ -465,7 +465,7 @@ export const EOSApp: React.FC<EOSAppProps> = ({
                 min="0"
                 value={effectiveUnusedLeaveDays}
                 onChange={(e) => setManualLeaveDaysOverride(Math.max(0, parseFloat(e.target.value) || 0))}
-                className="w-full border border-slate-300 rounded-lg p-2 text-xs outline-none font-mono font-bold bg-white focus:ring-2 focus:ring-[#714B67]"
+                className="w-full border border-slate-300 rounded-lg p-2 text-xs outline-none font-mono font-bold bg-white focus:ring-2 focus:ring-primary"
               />
             </div>
             <p className="text-[10px] text-slate-500 mt-1">
@@ -480,7 +480,7 @@ export const EOSApp: React.FC<EOSAppProps> = ({
               step="0.001"
               value={otherDeductions}
               onChange={(e) => setOtherDeductions(parseFloat(e.target.value) || 0)}
-              className="w-full border border-slate-300 rounded-lg p-2 text-xs outline-none font-mono dir-ltr bg-white focus:ring-2 focus:ring-[#714B67]"
+              className="w-full border border-slate-300 rounded-lg p-2 text-xs outline-none font-mono dir-ltr bg-white focus:ring-2 focus:ring-primary"
             />
           </div>
         </div>
@@ -491,7 +491,7 @@ export const EOSApp: React.FC<EOSAppProps> = ({
             <div>
               <OfficialA4CompanyLetterhead
                 company={companyForPrint}
-                className="border-[#714B67] mb-6"
+                className="border-primary mb-6"
                 rightSlot={
                   <div className="text-left dir-ltr">
                     <span className="inline-block bg-rose-100 text-rose-800 text-xs font-bold px-3 py-1 rounded-full border border-rose-200">
@@ -504,7 +504,7 @@ export const EOSApp: React.FC<EOSAppProps> = ({
 
               <div className="odoo-report-center-title mb-6">
                 <h2 className="text-base font-bold text-slate-900">سند مخالصة وإبراء ذمة نهاية الخدمة</h2>
-                <p className="text-[11px] text-[#714B67] font-semibold mt-0.5">قانون العمل الكويتي — المواد 51 و 53 و 70</p>
+                <p className="text-[11px] text-primary font-semibold mt-0.5">قانون العمل الكويتي — المواد 51 و 53 و 70</p>
               </div>
 
               {/* Employee Summary Card */}
@@ -660,7 +660,7 @@ export const EOSApp: React.FC<EOSAppProps> = ({
               </div>
 
               {/* Total Settlement Box */}
-              <div className="bg-[#714B67] text-white rounded-xl p-5 shadow-inner mb-8 flex items-center justify-between">
+              <div className="bg-primary text-white rounded-xl p-5 shadow-inner mb-8 flex items-center justify-between">
                 <div>
                   <span className="text-xs text-amber-300 font-bold block">صافي مستحقات المخالصة النهائية وإبراء الذمة</span>
                   <span className="text-xs text-white/80">Net End of Service Settlement & Full Clearance</span>
@@ -788,7 +788,7 @@ export const EOSApp: React.FC<EOSAppProps> = ({
                 type="checkbox"
                 checked={clearanceConfirmed}
                 onChange={(e) => setClearanceConfirmed(e.target.checked)}
-                className="mt-0.5 rounded border-slate-300 text-[#714B67] focus:ring-[#714B67]"
+                className="mt-0.5 rounded border-slate-300 text-primary focus:ring-primary"
               />
               <span>
                 أقر بأن الموظف قد قام بإخلاء طرفه وتسليم كافة العهد الطبية والتقنية، وتمت مراجعة رصيد إجازاته وإبراء ذمته المالية.

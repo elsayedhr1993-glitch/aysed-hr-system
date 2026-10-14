@@ -101,7 +101,7 @@ export const LeaveClearanceDocument: React.FC<Props> = ({
         />
 
         <div className="odoo-report-center-title mt-4">
-          <h2 className="text-base font-bold text-[#714B67]">
+          <h2 className="text-base font-bold text-primary">
             {(settlement as any).settlementMode === 'ENCASHMENT_LIQUIDATION'
               ? 'سند صرف وتصفية البدل النقدي لرصيد الإجازات (Leave Encashment Voucher)'
               : 'سند تصفية مستحقات وبدل الإجازات (Leave Settlement Voucher)'}

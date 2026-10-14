@@ -261,7 +261,7 @@ export const EmployeeHRTab: React.FC<Props> = ({
                   type="number"
                   value={employee.carriedOverLeave2025 ?? employee.carriedOverBalance ?? employee.openingBalance ?? 0}
                   onChange={(e) => handleFieldChange('carriedOverLeave2025', parseFloat(e.target.value) || 0)}
-                  className="w-20 text-center font-mono font-bold text-sm border border-slate-300 rounded-md p-1 focus:outline-none focus:ring-1 focus:ring-[#714B67]"
+                  className="w-20 text-center font-mono font-bold text-sm border border-slate-300 rounded-md p-1 focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
             ) : (
@@ -345,7 +345,7 @@ export const EmployeeHRTab: React.FC<Props> = ({
             <button
               type="button"
               onClick={() => setShowAddForm(!showAddForm)}
-              className="flex items-center gap-1 px-3 py-1.5 bg-[#714B67] hover:bg-[#5a3c52] text-white rounded-lg text-xs font-bold transition-colors"
+              className="flex items-center gap-1 px-3 py-1.5 bg-primary hover:bg-[#5a3c52] text-white rounded-lg text-xs font-bold transition-colors"
             >
               {showAddForm ? 'إغلاق النموذج' : 'تسجيل تكليف جديد'}
               <Plus className="w-3.5 h-3.5" />
@@ -370,7 +370,7 @@ export const EmployeeHRTab: React.FC<Props> = ({
                 <select
                   value={holidayName}
                   onChange={(e) => setHolidayName(e.target.value)}
-                  className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-950 text-xs focus:ring-2 focus:ring-[#714B67] focus:outline-none"
+                  className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-950 text-xs focus:ring-2 focus:ring-primary focus:outline-none"
                 >
                   {popularHolidays.map((h, idx) => (
                     <option key={idx} value={h}>{h}</option>
@@ -386,7 +386,7 @@ export const EmployeeHRTab: React.FC<Props> = ({
                     required
                     value={customHolidayName}
                     onChange={(e) => setCustomHolidayName(e.target.value)}
-                    className="w-full border border-slate-300 rounded-lg p-2 font-semibold text-slate-950 text-xs focus:ring-2 focus:ring-[#714B67] focus:outline-none"
+                    className="w-full border border-slate-300 rounded-lg p-2 font-semibold text-slate-950 text-xs focus:ring-2 focus:ring-primary focus:outline-none"
                     placeholder="مثال: عطلة يوم الوقوف بعرفات"
                   />
                 </div>
@@ -399,7 +399,7 @@ export const EmployeeHRTab: React.FC<Props> = ({
                   required
                   value={workDate}
                   onChange={(e) => setWorkDate(e.target.value)}
-                  className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-950 text-xs focus:ring-2 focus:ring-[#714B67] focus:outline-none"
+                  className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-950 text-xs focus:ring-2 focus:ring-primary focus:outline-none"
                 />
               </div>
 
@@ -412,7 +412,7 @@ export const EmployeeHRTab: React.FC<Props> = ({
                   max={24}
                   value={hoursWorked}
                   onChange={(e) => setHoursWorked(parseInt(e.target.value) || 8)}
-                  className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-950 text-xs focus:ring-2 focus:ring-[#714B67] focus:outline-none"
+                  className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-950 text-xs focus:ring-2 focus:ring-primary focus:outline-none"
                 />
               </div>
 
@@ -421,7 +421,7 @@ export const EmployeeHRTab: React.FC<Props> = ({
                 <select
                   value={compensationType}
                   onChange={(e) => setCompensationType(e.target.value as any)}
-                  className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-950 text-xs focus:ring-2 focus:ring-[#714B67] focus:outline-none"
+                  className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-950 text-xs focus:ring-2 focus:ring-primary focus:outline-none"
                 >
                   <option value="COMP_OFF">🎁 يوم إجازة تعويضي مستقل (Comp-Off)</option>
                   <option value="ANNUAL_ACCRUAL">📈 إضافة مباشرة لرصيد الإجازات السنوية (+1 يوم)</option>
@@ -564,7 +564,7 @@ export const EmployeeHRTab: React.FC<Props> = ({
         </div>
 
         <div className="col-span-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex items-start gap-2.5 text-slate-700 text-xs font-medium leading-relaxed mt-2">
-          <span className="text-base text-[#714B67]">ℹ️</span>
+          <span className="text-base text-primary">ℹ️</span>
           <span>
             <strong>إدارة أرصدة الإجازات وتواريخ التعاقد:</strong> رصيد الموظف المرحّل يتم تتبعه واحتسابه ديناميكياً بناءً على طلبات الإجازات والتخصيصات (Allocations) المعتمدة في تطبيق <strong>"الإجازات"</strong>. كما أن تواريخ سريان ونهاية العقد تُستورد تلقائياً من تطبيق <strong>"العقود والرواتب"</strong> لضمان حوكمة البيانات.
           </span>
@@ -587,7 +587,7 @@ export const EmployeeHRTab: React.FC<Props> = ({
               rows={3}
               value={employee.notes || ''}
               onChange={(e) => handleFieldChange('notes', e.target.value)}
-              className="w-full border border-slate-300 rounded-lg p-3 font-semibold text-slate-900 bg-white focus:ring-2 focus:ring-[#714B67] focus:outline-none transition-shadow"
+              className="w-full border border-slate-300 rounded-lg p-3 font-semibold text-slate-900 bg-white focus:ring-2 focus:ring-primary focus:outline-none transition-shadow"
               placeholder="أي شروط خاصة أو ملاحظات إدارية ملحقة بملف الموظف..."
             />
           ) : (

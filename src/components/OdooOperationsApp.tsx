@@ -351,16 +351,16 @@ export const OdooOperationsApp: React.FC = () => {
           <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
             <span>إدارة العمليات والأصول</span>
             <span>/</span>
-            <span className="text-[#714B67] font-black">العهد والممتلكات</span>
+            <span className="text-primary font-black">العهد والممتلكات</span>
           </div>
           <h1 className="text-xl font-black text-slate-900 flex items-center gap-2.5">
-            <div className="p-2 bg-[#714B67]/10 text-[#714B67] rounded-xl">
+            <div className="p-2 bg-primary/10 text-primary rounded-xl">
               <Package size={22} />
             </div>
             العهد والممتلكات وأصول المنشأة
           </h1>
           <p className="text-xs text-slate-500">
-            المنشأة النشطة: <strong className="text-[#714B67] font-bold">{activeCompany?.nameAr || 'المؤسسة الطبية'}</strong> | حصر شامل للأجهزة والمعدات والمركبات وسندات إخلاء الطرف المعتمدة.
+            المنشأة النشطة: <strong className="text-primary font-bold">{activeCompany?.nameAr || 'المؤسسة الطبية'}</strong> | حصر شامل للأجهزة والمعدات والمركبات وسندات إخلاء الطرف المعتمدة.
           </p>
         </div>
 
@@ -375,7 +375,7 @@ export const OdooOperationsApp: React.FC = () => {
           </button>
           <button
             onClick={handleOpenAddModal}
-            className="bg-[#714B67] hover:bg-[#583950] text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm hover:shadow cursor-pointer"
+            className="bg-primary hover:bg-[#583950] text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm hover:shadow cursor-pointer"
           >
             <Plus size={16} /> تسجيل عهدة جديدة
           </button>
@@ -455,7 +455,7 @@ export const OdooOperationsApp: React.FC = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="بحث بالاسم، كود العهدة، السيريال، أو اسم الموظف..."
-              className="w-full pr-9 pl-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-[#714B67] transition"
+              className="w-full pr-9 pl-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-primary transition"
             />
             {searchQuery && (
               <button 
@@ -481,7 +481,7 @@ export const OdooOperationsApp: React.FC = () => {
                 onClick={() => setSelectedStatus(tab.id)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
                   selectedStatus === tab.id
-                    ? 'bg-[#714B67] text-white shadow-xs'
+                    ? 'bg-primary text-white shadow-xs'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
@@ -572,7 +572,7 @@ export const OdooOperationsApp: React.FC = () => {
                             {getCategoryIcon(custody.itemCategory)}
                           </div>
                           <div>
-                            <span className="font-mono font-bold text-[#714B67]">{custody.itemCode}</span>
+                            <span className="font-mono font-bold text-primary">{custody.itemCode}</span>
                             <div className="text-[10px] text-slate-400">{getCategoryLabel(custody.itemCategory)}</div>
                           </div>
                         </div>
@@ -646,7 +646,7 @@ export const OdooOperationsApp: React.FC = () => {
                           {/* Print Handover Voucher (سند تسليم) */}
                           <button
                             onClick={() => handleOpenPrintVoucher(custody, 'HANDOVER')}
-                            className="p-1.5 text-slate-500 hover:text-[#714B67] hover:bg-purple-50 rounded-lg transition"
+                            className="p-1.5 text-slate-500 hover:text-primary hover:bg-purple-50 rounded-lg transition"
                             title="طباعة إقرار واستلام عهدة رسمي A4"
                           >
                             <Printer size={15} />
@@ -719,7 +719,7 @@ export const OdooOperationsApp: React.FC = () => {
             
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
-                <div className="p-2 bg-[#714B67]/10 text-[#714B67] rounded-xl">
+                <div className="p-2 bg-primary/10 text-primary rounded-xl">
                   <Package size={18} />
                 </div>
                 <h3 className="font-bold text-base text-slate-900">
@@ -745,7 +745,7 @@ export const OdooOperationsApp: React.FC = () => {
                     required
                     value={editingItem.itemCode || ''}
                     onChange={(e) => setEditingItem(prev => ({ ...prev, itemCode: e.target.value }))}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 outline-none font-mono font-bold text-slate-800 bg-slate-50 focus:bg-white focus:border-[#714B67]"
+                    className="w-full border border-slate-300 rounded-xl p-2.5 outline-none font-mono font-bold text-slate-800 bg-slate-50 focus:bg-white focus:border-primary"
                   />
                 </div>
                 <div>
@@ -753,7 +753,7 @@ export const OdooOperationsApp: React.FC = () => {
                   <select
                     value={editingItem.itemCategory || 'ELECTRONICS'}
                     onChange={(e) => setEditingItem(prev => ({ ...prev, itemCategory: e.target.value as any }))}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 outline-none bg-white font-bold text-slate-800 focus:border-[#714B67]"
+                    className="w-full border border-slate-300 rounded-xl p-2.5 outline-none bg-white font-bold text-slate-800 focus:border-primary"
                   >
                     <option value="ELECTRONICS">أجهزة إلكترونية ولابتوبات</option>
                     <option value="VEHICLE">مركبة / سيارة شركة</option>
@@ -774,7 +774,7 @@ export const OdooOperationsApp: React.FC = () => {
                   value={editingItem.itemName || ''}
                   onChange={(e) => setEditingItem(prev => ({ ...prev, itemName: e.target.value }))}
                   placeholder="مثال: لابتوب MacBook Pro M3 Max 16-inch رمادي فلكي"
-                  className="w-full border border-slate-300 rounded-xl p-2.5 outline-none font-bold text-slate-800 focus:border-[#714B67]"
+                  className="w-full border border-slate-300 rounded-xl p-2.5 outline-none font-bold text-slate-800 focus:border-primary"
                 />
               </div>
 
@@ -790,7 +790,7 @@ export const OdooOperationsApp: React.FC = () => {
                     employeeId: e.target.value,
                     status: e.target.value ? 'ASSIGNED' : 'RETURNED'
                   }))}
-                  className="w-full border border-slate-300 rounded-xl p-2.5 outline-none bg-white font-bold text-slate-800 focus:border-[#714B67]"
+                  className="w-full border border-slate-300 rounded-xl p-2.5 outline-none bg-white font-bold text-slate-800 focus:border-primary"
                 >
                   <option value="">-- متوفرة في المستودع (غير مسندة لموظف) --</option>
                   {companyEmployees.map(emp => (
@@ -810,7 +810,7 @@ export const OdooOperationsApp: React.FC = () => {
                     value={editingItem.serialNumber || ''}
                     onChange={(e) => setEditingItem(prev => ({ ...prev, serialNumber: e.target.value }))}
                     placeholder="مثال: DL-992341A-KW"
-                    className="w-full border border-slate-300 rounded-xl p-2.5 outline-none font-mono text-slate-800 focus:border-[#714B67]"
+                    className="w-full border border-slate-300 rounded-xl p-2.5 outline-none font-mono text-slate-800 focus:border-primary"
                   />
                 </div>
                 <div>
@@ -822,7 +822,7 @@ export const OdooOperationsApp: React.FC = () => {
                     value={editingItem.valueKwd || ''}
                     onChange={(e) => setEditingItem(prev => ({ ...prev, valueKwd: parseFloat(e.target.value) }))}
                     placeholder="0.000"
-                    className="w-full border border-slate-300 rounded-xl p-2.5 outline-none font-mono font-bold text-slate-800 focus:border-[#714B67]"
+                    className="w-full border border-slate-300 rounded-xl p-2.5 outline-none font-mono font-bold text-slate-800 focus:border-primary"
                   />
                 </div>
               </div>
@@ -835,7 +835,7 @@ export const OdooOperationsApp: React.FC = () => {
                     type="date"
                     value={editingItem.handoverDate || ''}
                     onChange={(e) => setEditingItem(prev => ({ ...prev, handoverDate: e.target.value }))}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 outline-none font-mono text-slate-800 focus:border-[#714B67]"
+                    className="w-full border border-slate-300 rounded-xl p-2.5 outline-none font-mono text-slate-800 focus:border-primary"
                   />
                 </div>
                 <div>
@@ -844,7 +844,7 @@ export const OdooOperationsApp: React.FC = () => {
                     type="date"
                     value={editingItem.expiryDate || ''}
                     onChange={(e) => setEditingItem(prev => ({ ...prev, expiryDate: e.target.value }))}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 outline-none font-mono text-slate-800 focus:border-[#714B67]"
+                    className="w-full border border-slate-300 rounded-xl p-2.5 outline-none font-mono text-slate-800 focus:border-primary"
                   />
                 </div>
               </div>
@@ -856,7 +856,7 @@ export const OdooOperationsApp: React.FC = () => {
                   <select
                     value={editingItem.condition || 'EXCELLENT'}
                     onChange={(e) => setEditingItem(prev => ({ ...prev, condition: e.target.value as any }))}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 outline-none bg-white font-bold text-slate-800 focus:border-[#714B67]"
+                    className="w-full border border-slate-300 rounded-xl p-2.5 outline-none bg-white font-bold text-slate-800 focus:border-primary"
                   >
                     <option value="EXCELLENT">ممتازة (بحالة المصنع / جديدة)</option>
                     <option value="GOOD">جيدة ومستقرة</option>
@@ -869,7 +869,7 @@ export const OdooOperationsApp: React.FC = () => {
                   <select
                     value={editingItem.status || 'ASSIGNED'}
                     onChange={(e) => setEditingItem(prev => ({ ...prev, status: e.target.value as any }))}
-                    className="w-full border border-slate-300 rounded-xl p-2.5 outline-none bg-white font-bold text-slate-800 focus:border-[#714B67]"
+                    className="w-full border border-slate-300 rounded-xl p-2.5 outline-none bg-white font-bold text-slate-800 focus:border-primary"
                   >
                     <option value="ASSIGNED">مسلّمة قيد الاستخدام</option>
                     <option value="RETURNED">في المستودع (مستردة)</option>
@@ -887,7 +887,7 @@ export const OdooOperationsApp: React.FC = () => {
                   value={editingItem.notes || ''}
                   onChange={(e) => setEditingItem(prev => ({ ...prev, notes: e.target.value }))}
                   placeholder="الملحقات المسلمة (شاحن، حقيبة، مفتاح إضافي، رقم اللوحة...)"
-                  className="w-full border border-slate-300 rounded-xl p-2.5 outline-none text-slate-800 focus:border-[#714B67]"
+                  className="w-full border border-slate-300 rounded-xl p-2.5 outline-none text-slate-800 focus:border-primary"
                 />
               </div>
 
@@ -902,7 +902,7 @@ export const OdooOperationsApp: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 font-bold bg-[#714B67] hover:bg-[#583950] text-white rounded-xl shadow-xs transition cursor-pointer flex items-center gap-1.5"
+                  className="px-5 py-2 font-bold bg-primary hover:bg-[#583950] text-white rounded-xl shadow-xs transition cursor-pointer flex items-center gap-1.5"
                 >
                   <CheckCircle2 size={16} /> حفظ بيانات العهدة
                 </button>
@@ -929,7 +929,7 @@ export const OdooOperationsApp: React.FC = () => {
             </div>
             
             <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-200">
-              هل أنت متأكد من رغبتك في حذف العهدة: <strong className="text-slate-900">{deleteConfirm.itemName}</strong> (كود: <span className="font-mono text-[#714B67]">{deleteConfirm.itemCode}</span>)؟
+              هل أنت متأكد من رغبتك في حذف العهدة: <strong className="text-slate-900">{deleteConfirm.itemName}</strong> (كود: <span className="font-mono text-primary">{deleteConfirm.itemCode}</span>)؟
             </p>
 
             <div className="flex justify-end gap-2 pt-2">
@@ -960,7 +960,7 @@ export const OdooOperationsApp: React.FC = () => {
             {/* Top Toolbar (Hidden in Print) */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 print:hidden">
               <div className="flex items-center gap-2">
-                <Printer className="text-[#714B67]" size={20} />
+                <Printer className="text-primary" size={20} />
                 <span className="font-bold text-sm text-slate-800">
                   {printableRecord.type === 'HANDOVER' ? 'معاينة سند استلام وتسليم عهدة عينية' : 'معاينة شهادة إخلاء طرف واسترداد عهدة'}
                 </span>
@@ -974,7 +974,7 @@ export const OdooOperationsApp: React.FC = () => {
                 </button>
                 <button
                   onClick={() => OdooPdf.report.print('custody-voucher-print-area', printableRecord.type === 'HANDOVER' ? 'سند_استلام_عهدة' : 'شهادة_إخلاء_طرف_عهدة')}
-                  className="px-4 py-1.5 bg-[#714B67] hover:bg-[#583950] text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  className="px-4 py-1.5 bg-primary hover:bg-[#583950] text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
                 >
                   <Printer size={14} /> طباعة رسمية
                 </button>
@@ -992,10 +992,10 @@ export const OdooOperationsApp: React.FC = () => {
               
               <OfficialA4CompanyLetterhead
                 company={companyForPrint}
-                className="border-[#714B67] pb-4"
+                className="border-primary pb-4"
                 rightSlot={
                   <div className="text-left dir-ltr">
-                    <span className="text-[11px] font-black text-[#714B67] bg-purple-50 px-3 py-1 rounded-full border border-purple-200">
+                    <span className="text-[11px] font-black text-primary bg-purple-50 px-3 py-1 rounded-full border border-purple-200">
                       سند عهدة
                     </span>
                     <div className="text-[10px] text-slate-400 font-mono mt-1.5">
@@ -1022,7 +1022,7 @@ export const OdooOperationsApp: React.FC = () => {
 
               {/* Employee Information Box */}
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs space-y-2">
-                <div className="font-bold text-[#714B67] border-b border-slate-200 pb-1 flex items-center gap-1.5">
+                <div className="font-bold text-primary border-b border-slate-200 pb-1 flex items-center gap-1.5">
                   <User size={14} /> بيانات الموظف المعني:
                 </div>
                 <div className="grid grid-cols-2 gap-3 pt-1">
@@ -1048,7 +1048,7 @@ export const OdooOperationsApp: React.FC = () => {
               {/* Custody Details Table */}
               <div className="space-y-2">
                 <div className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
-                  <Package size={14} className="text-[#714B67]" /> تفاصيل العهدة المسجلة:
+                  <Package size={14} className="text-primary" /> تفاصيل العهدة المسجلة:
                 </div>
                 <div className="odoo-report-table-wrap">
                 <table className="odoo-report-table w-full text-right text-xs">
@@ -1063,7 +1063,7 @@ export const OdooOperationsApp: React.FC = () => {
                   </thead>
                   <tbody className="divide-y divide-slate-200">
                     <tr>
-                      <td className="p-2.5 font-mono font-bold text-[#714B67]">{printableRecord.custody.itemCode}</td>
+                      <td className="p-2.5 font-mono font-bold text-primary">{printableRecord.custody.itemCode}</td>
                       <td className="p-2.5 font-bold text-slate-900">{printableRecord.custody.itemName}</td>
                       <td className="p-2.5 font-mono text-slate-700">{printableRecord.custody.serialNumber || '—'}</td>
                       <td className="p-2.5 font-mono font-bold text-slate-900">{formatKWD(printableRecord.custody.valueKwd || 0)}</td>

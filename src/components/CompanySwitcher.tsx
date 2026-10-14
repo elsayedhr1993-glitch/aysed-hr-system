@@ -78,7 +78,7 @@ export const CompanySwitcher: React.FC<{ onOpenSaasPortal?: () => void }> = ({ o
               {isImpersonating ? (
                 <ShieldAlert size={15} className="text-amber-700" />
               ) : (
-                <ShieldCheck size={15} className="text-[#714B67]" />
+                <ShieldCheck size={15} className="text-primary" />
               )}
               <span className="text-[11px] font-bold text-slate-800">
                 {isImpersonating ? (isArabic ? 'وضع المحاكاة كمسؤول (Impersonation)' : 'Super-admin impersonation') : (isArabic ? 'البيئة النشطة (Master Context)' : 'Active environment (Master Context)')}
@@ -87,7 +87,7 @@ export const CompanySwitcher: React.FC<{ onOpenSaasPortal?: () => void }> = ({ o
             <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
               isImpersonating 
                 ? 'bg-amber-200 text-amber-900' 
-                : 'bg-[#714B67]/15 text-[#714B67]'
+                : 'bg-primary/15 text-primary'
             }`}>
               {isImpersonating ? (isArabic ? 'جلسة مشتركة' : 'Shared session') : (isArabic ? 'معزولة كلياً' : 'Fully isolated')}
             </span>
@@ -97,7 +97,7 @@ export const CompanySwitcher: React.FC<{ onOpenSaasPortal?: () => void }> = ({ o
           <div className="p-3 bg-white space-y-2">
             <div className="flex items-center gap-2.5">
               <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 ${
-                isImpersonating ? 'bg-amber-600 text-white' : 'bg-[#714B67] text-white'
+                isImpersonating ? 'bg-amber-600 text-white' : 'bg-primary text-white'
               }`}>
                 <Building size={16} />
               </div>

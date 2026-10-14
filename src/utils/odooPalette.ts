@@ -1,3 +1,4 @@
+import { tokens } from '../design/tokens';
 // Odoo Enterprise Unified Palette & Color Tags Architecture
 // Standard 8 Official Odoo Colors + Healthcare & Department System
 
@@ -62,16 +63,16 @@ export const ODOO_PALETTE: Record<OdooColorKey, OdooColorConfig> = {
     key: 'purple',
     label: 'البنفسجي الأساسي',
     labelEn: 'Primary purple',
-    hex: '#714B67',
+    hex: tokens.color.primary,
     bgLight: 'bg-purple-50',
-    bgBadge: 'bg-[#714B67]/10',
-    textBadge: 'text-[#714B67]',
-    borderClass: 'border-[#714B67]/30',
-    folderBg: 'bg-purple-50/70 text-[#714B67] border-purple-200 hover:border-[#714B67] hover:bg-purple-100/50',
-    folderText: 'text-[#714B67]',
-    folderHover: 'hover:border-[#714B67]',
-    ringClass: 'ring-[#714B67]',
-    dotColor: '#714B67'
+    bgBadge: 'bg-primary/10',
+    textBadge: 'text-primary',
+    borderClass: 'border-primary/30',
+    folderBg: 'bg-purple-50/70 text-primary border-purple-200 hover:border-primary hover:bg-purple-100/50',
+    folderText: 'text-primary',
+    folderHover: 'hover:border-primary',
+    ringClass: 'ring-primary',
+    dotColor: tokens.color.primary
   },
   green: {
     key: 'green',

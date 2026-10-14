@@ -99,7 +99,7 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
         {/* شريط الأدوات العلوي */}
         <div className="bg-slate-100 border-b border-slate-200 p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3 shrink-0 print:hidden">
           <div className="flex items-center gap-2">
-            <span className="bg-[#714B67] text-white text-xs font-bold px-3 py-1 rounded-lg">
+            <span className="bg-primary text-white text-xs font-bold px-3 py-1 rounded-lg">
               معاينة الطباعة الرسمية A4
             </span>
             <h3 className="font-black text-slate-800 text-sm">
@@ -117,7 +117,7 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
             </button>
             <button
               onClick={handlePrint}
-              className="bg-[#714B67] hover:bg-[#5a3b52] text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+              className="bg-primary hover:bg-[#5a3b52] text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 transition cursor-pointer shadow-xs"
             >
               <Printer className="w-4 h-4 text-amber-300" />
               <span>طباعة مستند A4 (PDF)</span>
@@ -142,7 +142,7 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
                   centerSlot={
                     <div className="odoo-report-center-title">
                       <h1 className="text-base font-bold text-slate-900">{reportTitle}</h1>
-                      <span className="text-[11px] font-semibold text-[#714B67] block mt-0.5">فترة الكشف: {selectedMonth}</span>
+                      <span className="text-[11px] font-semibold text-primary block mt-0.5">فترة الكشف: {selectedMonth}</span>
                       <span className="text-[9px] font-mono text-slate-400 block mt-1 tracking-widest uppercase">
                         OFFICIAL AUDIT REPORT
                       </span>
@@ -176,7 +176,7 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
               />
               <OdooReportKpiCell
                 label="مخصص نهاية الخدمة"
-                value={<span className="font-mono text-[#714B67]">{totalEosAccrual.toFixed(3)} د.ك</span>}
+                value={<span className="font-mono text-primary">{totalEosAccrual.toFixed(3)} د.ك</span>}
               />
             </OdooReportKpiStrip>
 
@@ -344,7 +344,7 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
 
             <OdooReportLegalNotice title="إقرار المطابقة والامتثال للتشريعات الكويتية">
               <p className="flex items-center gap-1.5 font-semibold text-slate-800 mb-1">
-                <ShieldCheck size={14} className="text-[#714B67] shrink-0" />
+                <ShieldCheck size={14} className="text-primary shrink-0" />
                 يُعد هذا الكشف للمراجعة الرسمية والتدقيق الداخلي.
               </p>
               <p>• تم إعداد هذا الكشف وفقاً لأحكام قانون العمل في القطاع الأهلي الكويتي (رقم 6 لسنة 2010) وقرارات الهيئة العامة للقوى العاملة (PAM).</p>
@@ -372,7 +372,7 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
             </button>
             <button
               onClick={handlePrint}
-              className="bg-[#714B67] hover:bg-[#5a3b52] text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+              className="bg-primary hover:bg-[#5a3b52] text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 transition cursor-pointer shadow-xs"
             >
               <Printer className="w-4 h-4 text-amber-300" />
               <span>طباعة مستند A4 (PDF)</span>

@@ -456,7 +456,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
       <div className="bg-white/90 backdrop-blur-md rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
         <div className="space-y-1.5">
           <div className="flex items-center gap-2.5">
-            <div className="p-2.5 bg-gradient-to-br from-[#714B67] to-purple-800 text-white rounded-xl shadow-md">
+            <div className="p-2.5 bg-gradient-to-br from-primary to-purple-800 text-white rounded-xl shadow-md">
               <Sliders className="w-6 h-6" />
             </div>
             <div>
@@ -464,7 +464,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
                 <h1 className="text-xl sm:text-2xl font-black text-slate-800">
                   ربط الميزات الخارجية وواجهات برمجة التطبيقات (System Integrations & API Config)
                 </h1>
-                <span className="bg-purple-50 text-[#714B67] text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border border-purple-200">
+                <span className="bg-purple-50 text-primary text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border border-purple-200">
                   API & Gateway Suite
                 </span>
               </div>
@@ -479,7 +479,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
           <button
             onClick={handleSaveAllConfig}
             disabled={isSaving}
-            className="flex items-center gap-2 bg-[#714B67] hover:bg-[#593951] text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md hover:shadow-lg transition cursor-pointer disabled:opacity-50"
+            className="flex items-center gap-2 bg-primary hover:bg-[#593951] text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md hover:shadow-lg transition cursor-pointer disabled:opacity-50"
           >
             {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             <span>حفظ وتطبيق كافة الإعدادات</span>
@@ -544,7 +544,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
                   >
                     <td className="p-3 font-bold text-slate-800">
                       <div className="flex items-center gap-2">
-                        <MapPin className={`w-4 h-4 ${isSelected ? 'text-[#714B67]' : 'text-slate-400'}`} />
+                        <MapPin className={`w-4 h-4 ${isSelected ? 'text-primary' : 'text-slate-400'}`} />
                         <span>{branch.branchName}</span>
                       </div>
                     </td>
@@ -573,7 +573,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
                       <div className="flex items-center justify-center gap-1">
                         <button
                           onClick={() => setSelectedBranchForPreview(branch)}
-                          className="p-1 text-[#714B67] hover:bg-purple-50 rounded transition"
+                          className="p-1 text-primary hover:bg-purple-50 rounded transition"
                           title="معاينة واختبار النطاق"
                         >
                           <Radio className="w-4 h-4" />
@@ -604,14 +604,14 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
         <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Radio className="w-4 h-4 text-[#714B67] animate-pulse" />
+              <Radio className="w-4 h-4 text-primary animate-pulse" />
               <h3 className="text-xs font-bold text-slate-800">
                 محاكي واختبار النطاق الجغرافي للفرع المختار: [{selectedBranchForPreview?.branchName || 'لا يوجد فرع محدد'}]
               </h3>
             </div>
             <button
               onClick={handleGetCurrentGPS}
-              className="flex items-center gap-1 text-[11px] text-[#714B67] bg-white border border-[#714B67]/20 hover:bg-purple-50 px-2.5 py-1 rounded-lg font-bold transition cursor-pointer"
+              className="flex items-center gap-1 text-[11px] text-primary bg-white border border-primary/20 hover:bg-purple-50 px-2.5 py-1 rounded-lg font-bold transition cursor-pointer"
             >
               <Navigation className="w-3.5 h-3.5" />
               <span>جلب موقعي الحالي بالـ GPS للمحاكاة</span>
@@ -715,7 +715,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
                 value={whatsAppConfig.instanceId || ''}
                 onChange={(e) => setWhatsAppConfig(prev => ({ ...prev, instanceId: e.target.value }))}
                 placeholder="مثال: instance98421"
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs text-left font-mono focus:ring-2 focus:ring-[#714B67] focus:bg-white outline-none"
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs text-left font-mono focus:ring-2 focus:ring-primary focus:bg-white outline-none"
               />
               <button
                 type="button"
@@ -740,7 +740,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
                 value={whatsAppConfig.apiToken || ''}
                 onChange={(e) => setWhatsAppConfig(prev => ({ ...prev, apiToken: e.target.value }))}
                 placeholder="wpp_token_secret_key_..."
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs text-left font-mono focus:ring-2 focus:ring-[#714B67] focus:bg-white outline-none pl-16"
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs text-left font-mono focus:ring-2 focus:ring-primary focus:bg-white outline-none pl-16"
               />
               <div className="absolute left-2 top-2.5 flex items-center gap-1.5 text-slate-400">
                 <button
@@ -773,7 +773,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
               <select
                 value={whatsAppConfig.defaultCountryCode || '+965'}
                 onChange={(e) => setWhatsAppConfig(prev => ({ ...prev, defaultCountryCode: e.target.value }))}
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs font-bold focus:ring-2 focus:ring-[#714B67] focus:bg-white outline-none"
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs font-bold focus:ring-2 focus:ring-primary focus:bg-white outline-none"
               >
                 <option value="+965">🇰🇼 دولة الكويت (+965)</option>
                 <option value="+966">🇸🇦 المملكة العربية السعودية (+966)</option>
@@ -799,7 +799,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
             value={whatsAppConfig.serverUrl || ''}
             onChange={(e) => setWhatsAppConfig(prev => ({ ...prev, serverUrl: e.target.value }))}
             placeholder="https://api.ultramsg.com/YOUR_INSTANCE_ID/messages/chat"
-            className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs text-left font-mono focus:ring-2 focus:ring-[#714B67] focus:bg-white outline-none"
+            className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs text-left font-mono focus:ring-2 focus:ring-primary focus:bg-white outline-none"
           />
         </div>
 
@@ -1320,7 +1320,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
                   <button
                     type="button"
                     onClick={handleGetCurrentGPS}
-                    className="w-full flex items-center justify-center gap-1.5 bg-purple-50 text-[#714B67] hover:bg-purple-100 border border-[#714B67]/30 text-xs font-bold p-2 rounded-lg transition"
+                    className="w-full flex items-center justify-center gap-1.5 bg-purple-50 text-primary hover:bg-purple-100 border border-primary/30 text-xs font-bold p-2 rounded-lg transition"
                   >
                     <Navigation className="w-3.5 h-3.5" />
                     <span>التقاط موقعي GPS</span>

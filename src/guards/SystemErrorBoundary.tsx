@@ -62,7 +62,7 @@ export class SystemErrorBoundary extends React.Component<Props, State> {
             <div className="flex flex-col sm:flex-row gap-3 pt-2">
               <button
                 onClick={this.handleReset}
-                className="flex-1 bg-[#714B67] hover:bg-[#5a3a52] text-white py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer"
+                className="flex-1 bg-primary hover:bg-[#5a3a52] text-white py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer"
               >
                 <RefreshCw size={15} /> إعادة تحميل الواجهة
               </button>

@@ -124,7 +124,7 @@ export const OdooDocumentScanner: React.FC<OdooDocumentScannerProps> = ({ onAppl
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 text-right font-sans" dir="rtl">
       <div className="border-b border-slate-100 pb-4 mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-[#714B67]/10 text-[#714B67] rounded-xl">
+          <div className="p-2.5 bg-primary/10 text-primary rounded-xl">
             <Scan className="w-6 h-6" />
           </div>
           <div>
@@ -144,7 +144,7 @@ export const OdooDocumentScanner: React.FC<OdooDocumentScannerProps> = ({ onAppl
             <select
               value={docType}
               onChange={(e) => setDocType(e.target.value as any)}
-              className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-[#714B67] outline-none"
+              className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-primary outline-none"
             >
               <option value="civil_id">🪪 بطاقة مدنية كويتية (Civil ID - يحدث الاسم، الرقم، الميلاد، الجنسية)</option>
               <option value="passport">🛂 جواز سفر (Passport - يحدث رقم الجواز، وتاريخ الانتهاء، والاسم بالإنجليزية)</option>
@@ -154,7 +154,7 @@ export const OdooDocumentScanner: React.FC<OdooDocumentScannerProps> = ({ onAppl
           </div>
 
           <label
-            className="border-2 border-dashed border-slate-300 hover:border-[#714B67] rounded-2xl p-6 flex flex-col items-center justify-center gap-3 cursor-pointer bg-slate-50 min-h-[200px] transition"
+            className="border-2 border-dashed border-slate-300 hover:border-primary rounded-2xl p-6 flex flex-col items-center justify-center gap-3 cursor-pointer bg-slate-50 min-h-[200px] transition"
             onDragOver={(e) => {
               e.preventDefault();
               setScanning(true);
@@ -178,7 +178,7 @@ export const OdooDocumentScanner: React.FC<OdooDocumentScannerProps> = ({ onAppl
               <img src={preview} alt="Doc" className="max-h-44 object-contain rounded-lg border shadow-xs" />
             ) : (
               <>
-                <div className="w-12 h-12 rounded-2xl bg-[#714B67]/10 text-[#714B67] flex items-center justify-center">
+                <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
                   <UploadCloud size={24} />
                 </div>
                 <p className="text-xs font-bold text-slate-800">اضغط أو اسحب لرفع صورة المستند الحقيقي</p>
@@ -187,7 +187,7 @@ export const OdooDocumentScanner: React.FC<OdooDocumentScannerProps> = ({ onAppl
             )}
           </label>
           {scanning && (
-            <div className="mt-3 p-3 bg-purple-50 text-[#714B67] rounded-xl text-xs font-bold flex items-center justify-center gap-2 animate-pulse border border-purple-100">
+            <div className="mt-3 p-3 bg-purple-50 text-primary rounded-xl text-xs font-bold flex items-center justify-center gap-2 animate-pulse border border-purple-100">
               <RefreshCw className="animate-spin w-4 h-4" /> جاري تحليل المستند الحقيقي واستخراج الحقول بدقة...
             </div>
           )}
@@ -323,7 +323,7 @@ export const OdooDocumentScanner: React.FC<OdooDocumentScannerProps> = ({ onAppl
               <button 
                 type="button" 
                 onClick={() => onApplyData && onApplyData(scanResult, docType)}
-                className="w-full mt-2 bg-[#714B67] hover:bg-[#5a3a52] text-white py-2 rounded-lg font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition"
+                className="w-full mt-2 bg-primary hover:bg-[#5a3a52] text-white py-2 rounded-lg font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition"
               >
                 <UserCheck size={15} /> اعتماد ونقل إلى بيانات الموظف
               </button>

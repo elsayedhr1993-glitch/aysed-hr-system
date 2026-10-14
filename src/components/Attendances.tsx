@@ -1167,7 +1167,7 @@ export const Attendances: React.FC = () => {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-100 pb-3">
           {/* Title & Organization Info */}
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-[#714B67]/10 text-[#714B67] rounded-xl flex-shrink-0">
+            <div className="p-2.5 bg-primary/10 text-primary rounded-xl flex-shrink-0">
               <Fingerprint className="w-6 h-6" />
             </div>
             <div>
@@ -1184,12 +1184,12 @@ export const Attendances: React.FC = () => {
                 >
                   الحضور والانصراف وتجميع البصمة (Attendances)
                 </UiStudioTarget>
-                <span className="text-xs bg-[#714B67]/10 text-[#714B67] px-2 py-0.5 rounded-full font-bold">
+                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold">
                   {liveTableData.length} سجل
                 </span>
               </h1>
               <p className="text-[11px] text-slate-500 font-medium">
-                المنشأة: <strong className="text-[#714B67]">{activeCompany?.nameAr || 'الشركة الرئيسية'}</strong> | معيار 26 يوم عمل واحتساب التأخير والإضافي
+                المنشأة: <strong className="text-primary">{activeCompany?.nameAr || 'الشركة الرئيسية'}</strong> | معيار 26 يوم عمل واحتساب التأخير والإضافي
               </p>
             </div>
           </div>
@@ -1200,7 +1200,7 @@ export const Attendances: React.FC = () => {
               type="button"
               onClick={() => setActiveView('table')}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                activeView === 'table' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                activeView === 'table' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Calendar size={14} />
@@ -1211,7 +1211,7 @@ export const Attendances: React.FC = () => {
               type="button"
               onClick={() => setActiveView('monthly')}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                activeView === 'monthly' ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                activeView === 'monthly' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <DollarSign size={14} />
@@ -1271,7 +1271,7 @@ export const Attendances: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsQrKioskOpen(true)}
-              className="bg-purple-50 hover:bg-purple-100 text-[#714B67] border border-purple-200 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs shrink-0"
+              className="bg-purple-50 hover:bg-purple-100 text-primary border border-purple-200 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs shrink-0"
               title="توليد باركود QR ديناميكي مع النطاق الجغرافي للتبصيم بالهاتف"
             >
               <QrCode size={14} />
@@ -1285,7 +1285,7 @@ export const Attendances: React.FC = () => {
                 setEditingManualRecord(null);
                 setIsManualModalOpen(true);
               }}
-              className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer shrink-0"
+              className="bg-primary hover:bg-[#5a3a52] text-white px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer shrink-0"
             >
               <PlusCircle size={14} />
               <span>+ تسجيل يدوي</span>
@@ -1471,7 +1471,7 @@ export const Attendances: React.FC = () => {
                       }}
                       className="bg-white/10 hover:bg-white/20 border border-white/10 hover:border-amber-400/50 p-4 rounded-2xl text-right transition cursor-pointer flex items-center gap-3 group"
                     >
-                      <div className="w-10 h-10 rounded-xl bg-[#714B67] text-white font-bold flex items-center justify-center text-xs flex-shrink-0 group-hover:scale-105 transition">
+                      <div className="w-10 h-10 rounded-xl bg-primary text-white font-bold flex items-center justify-center text-xs flex-shrink-0 group-hover:scale-105 transition">
                         {emp.name.slice(0, 2)}
                       </div>
                       <div className="overflow-hidden">
@@ -1577,14 +1577,14 @@ export const Attendances: React.FC = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="بحث باسم الموظف، الكود، أو القسم..."
-                className="w-full pr-9 pl-3 py-2 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:border-[#714B67]"
+                className="w-full pr-9 pl-3 py-2 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:border-primary"
               />
             </div>
 
             <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
               
               <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs">
-                <Calendar size={13} className="text-[#714B67]" />
+                <Calendar size={13} className="text-primary" />
                 <span className="font-bold text-slate-600">التاريخ:</span>
                 <input
                   type="date"
@@ -1597,7 +1597,7 @@ export const Attendances: React.FC = () => {
               <select
                 value={selectedDept}
                 onChange={(e) => setSelectedDept(e.target.value)}
-                className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-[#714B67]"
+                className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-primary"
               >
                 {departments.map(dept => (
                   <option key={dept} value={dept}>{dept}</option>
@@ -1607,7 +1607,7 @@ export const Attendances: React.FC = () => {
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
-                className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-[#714B67]"
+                className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-primary"
               >
                 <option value="all">كافة الحالات</option>
                 <option value="present">حاضر ملتزم</option>
@@ -1655,7 +1655,7 @@ export const Attendances: React.FC = () => {
                         {/* Employee & Code */}
                         <td className="p-3.5 pr-4">
                           <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-lg bg-[#714B67]/10 text-[#714B67] font-black flex items-center justify-center text-xs flex-shrink-0">
+                            <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary font-black flex items-center justify-center text-xs flex-shrink-0">
                               {row.employeeName.slice(0, 2)}
                             </div>
                             <div>
@@ -1716,7 +1716,7 @@ export const Attendances: React.FC = () => {
                         {/* Overtime */}
                         <td className="p-3.5 text-center font-mono">
                           {row.overtimeHours > 0 ? (
-                            <span className="bg-purple-100 text-[#714B67] font-bold px-2 py-0.5 rounded-md border border-purple-200">
+                            <span className="bg-purple-100 text-primary font-bold px-2 py-0.5 rounded-md border border-purple-200">
                               +{row.overtimeHours} س
                             </span>
                           ) : (
@@ -1833,7 +1833,7 @@ export const Attendances: React.FC = () => {
                                 });
                                 setIsManualModalOpen(true);
                               }}
-                              className="p-1 text-slate-400 hover:text-[#714B67] hover:bg-purple-50 rounded-md transition cursor-pointer"
+                              className="p-1 text-slate-400 hover:text-primary hover:bg-purple-50 rounded-md transition cursor-pointer"
                               title="تعديل السجل يدوياً"
                             >
                               <Edit3 size={13} />
@@ -1943,7 +1943,7 @@ export const Attendances: React.FC = () => {
             
             <div className="p-5 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-50 text-[#714B67] rounded-xl">
+                <div className="p-2 bg-purple-50 text-primary rounded-xl">
                   <FileSpreadsheet className="w-6 h-6" />
                 </div>
                 <div>

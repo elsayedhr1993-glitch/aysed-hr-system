@@ -104,7 +104,7 @@ export const CompactTabBar: React.FC<CompactTabBarProps> = ({
                 }}
                 className={`w-full text-right px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-2 cursor-pointer ${
                   activeMoreId === item.id
-                    ? 'bg-purple-50 text-[#714B67] font-bold'
+                    ? 'bg-purple-50 text-primary font-bold'
                     : 'text-slate-700 hover:bg-slate-50'
                 }`}
               >
@@ -131,7 +131,7 @@ export const CompactTabBar: React.FC<CompactTabBarProps> = ({
             }}
             className={`px-3.5 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 shrink-0 cursor-pointer duration-200 ${
               active
-                ? 'bg-white text-[#714B67] shadow-sm ring-1 ring-slate-200/50'
+                ? 'bg-white text-primary shadow-sm ring-1 ring-slate-200/50'
                 : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
             }`}
           >
@@ -150,7 +150,7 @@ export const CompactTabBar: React.FC<CompactTabBarProps> = ({
             onClick={toggleMore}
             className={`px-3.5 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
               moreActive
-                ? 'bg-white text-[#714B67] shadow-sm ring-1 ring-slate-200/50'
+                ? 'bg-white text-primary shadow-sm ring-1 ring-slate-200/50'
                 : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
             }`}
           >

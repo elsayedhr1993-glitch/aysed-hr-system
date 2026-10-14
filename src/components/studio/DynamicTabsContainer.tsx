@@ -90,7 +90,7 @@ export const DynamicTabsContainer: React.FC<DynamicTabsContainerProps> = ({
             type="button"
             onClick={() => onTabChange(tab.id)}
             className={`px-4 py-2.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-              isActive ? 'bg-white text-[#714B67] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              isActive ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <Icon size={15} className={tab.id === 'operational_absence' ? 'text-amber-600' : undefined} />

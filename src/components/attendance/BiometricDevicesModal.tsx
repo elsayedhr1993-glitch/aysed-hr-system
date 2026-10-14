@@ -644,7 +644,7 @@ while True:
           <button
             onClick={() => setActiveTab('devices')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-              activeTab === 'devices' ? 'bg-white text-[#714B67] shadow-xs border border-slate-200' : 'text-slate-600 hover:text-slate-900'
+              activeTab === 'devices' ? 'bg-white text-primary shadow-xs border border-slate-200' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <Server size={14} />
@@ -759,7 +759,7 @@ while True:
                     });
                     setIsDeviceModalOpen(true);
                   }}
-                  className="flex items-center gap-1.5 px-3.5 py-2 bg-[#714B67] hover:bg-[#5a3a52] text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-xs active:scale-95"
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-primary hover:bg-[#5a3a52] text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-xs active:scale-95"
                 >
                   <Plus size={14} />
                   <span>+ إضافة جهاز بصمة جديد</span>
@@ -1072,7 +1072,7 @@ while True:
                   className="hidden"
                 />
 
-                <div className="w-12 h-12 rounded-2xl bg-purple-50 text-[#714B67] flex items-center justify-center mx-auto">
+                <div className="w-12 h-12 rounded-2xl bg-purple-50 text-primary flex items-center justify-center mx-auto">
                   <Upload size={24} />
                 </div>
 
@@ -1086,7 +1086,7 @@ while True:
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isParsingFile}
-                  className="px-5 py-2.5 bg-[#714B67] hover:bg-[#5a3a52] text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
+                  className="px-5 py-2.5 bg-primary hover:bg-[#5a3a52] text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
                 >
                   {isParsingFile ? 'جاري التحليل الذكي...' : 'اختر ملف البصمة من جهازك'}
                 </button>

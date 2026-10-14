@@ -82,7 +82,7 @@ export const SmartNotificationsBanner: React.FC<SmartNotificationsBannerProps> =
             <div className="flex items-center gap-1.5">
               <h4 className="font-bold text-slate-900 text-xs flex items-center gap-1.5 truncate">
                 <span className="truncate">تنبيهات النظام الذكية والمخاطر</span>
-                <span className="text-[9px] bg-[#714B67] text-white px-1.5 py-0.2 rounded-full font-extrabold shrink-0">
+                <span className="text-[9px] bg-primary text-white px-1.5 py-0.2 rounded-full font-extrabold shrink-0">
                   Aysed S
                 </span>
               </h4>
@@ -126,7 +126,7 @@ export const SmartNotificationsBanner: React.FC<SmartNotificationsBannerProps> =
               onClick={() => setSelectedFilter('ALL')}
               className={`px-2.5 py-1 rounded-lg transition whitespace-nowrap ${
                 selectedFilter === 'ALL'
-                  ? 'bg-[#714B67] text-white font-bold'
+                  ? 'bg-primary text-white font-bold'
                   : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
               }`}
             >
@@ -159,7 +159,7 @@ export const SmartNotificationsBanner: React.FC<SmartNotificationsBannerProps> =
               onClick={() => setSelectedFilter('EXPIRATION')}
               className={`px-2.5 py-1 rounded-lg transition whitespace-nowrap ${
                 selectedFilter === 'EXPIRATION'
-                  ? 'bg-[#714B67] text-white font-bold'
+                  ? 'bg-primary text-white font-bold'
                   : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
               }`}
             >
@@ -170,7 +170,7 @@ export const SmartNotificationsBanner: React.FC<SmartNotificationsBannerProps> =
               onClick={() => setSelectedFilter('PROBATION')}
               className={`px-2.5 py-1 rounded-lg transition whitespace-nowrap ${
                 selectedFilter === 'PROBATION'
-                  ? 'bg-[#714B67] text-white font-bold'
+                  ? 'bg-primary text-white font-bold'
                   : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
               }`}
             >
@@ -181,7 +181,7 @@ export const SmartNotificationsBanner: React.FC<SmartNotificationsBannerProps> =
               onClick={() => setSelectedFilter('ATTENDANCE')}
               className={`px-2.5 py-1 rounded-lg transition whitespace-nowrap ${
                 selectedFilter === 'ATTENDANCE'
-                  ? 'bg-[#714B67] text-white font-bold'
+                  ? 'bg-primary text-white font-bold'
                   : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
               }`}
             >

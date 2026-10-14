@@ -159,7 +159,7 @@ export const OdooRichDocumentEditor: React.FC<RichEditorProps> = ({
         const range = selection.getRangeAt(0);
         range.deleteContents();
         const placeholderSpan = document.createElement('span');
-        placeholderSpan.className = 'smart-tag font-mono font-bold text-[#714B67] bg-[#714B67]/10 px-1 py-0.5 rounded border border-[#714B67]/20 mx-0.5 select-all';
+        placeholderSpan.className = 'smart-tag font-mono font-bold text-primary bg-primary/10 px-1 py-0.5 rounded border border-primary/20 mx-0.5 select-all';
         placeholderSpan.contentEditable = 'false';
         placeholderSpan.innerText = tag;
         range.insertNode(placeholderSpan);
@@ -169,7 +169,7 @@ export const OdooRichDocumentEditor: React.FC<RichEditorProps> = ({
         selection.removeAllRanges();
         selection.addRange(range);
       } else {
-        editorRef.current.innerHTML += `<span class="smart-tag font-mono font-bold text-[#714B67] bg-[#714B67]/10 px-1 py-0.5 rounded border border-[#714B67]/20 mx-0.5" contenteditable="false">${tag}</span>`;
+        editorRef.current.innerHTML += `<span class="smart-tag font-mono font-bold text-primary bg-primary/10 px-1 py-0.5 rounded border border-primary/20 mx-0.5" contenteditable="false">${tag}</span>`;
       }
       handleInput();
     }
@@ -406,7 +406,7 @@ export const OdooRichDocumentEditor: React.FC<RichEditorProps> = ({
       {!hideSmartPlaceholders && (
         <div className="p-3 bg-purple-50/50 border-b border-purple-100 text-xs">
           <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-1.5 font-bold text-[#714B67]">
+            <div className="flex items-center gap-1.5 font-bold text-primary">
               <Sparkles size={14} />
               <span>لوحة الحقول الذكية — انقر للإدراج مكان المؤشر</span>
             </div>
@@ -421,7 +421,7 @@ export const OdooRichDocumentEditor: React.FC<RichEditorProps> = ({
                   key={item.tag}
                   type="button"
                   onClick={() => insertPlaceholder(item.tag)}
-                  className="bg-white hover:bg-[#714B67] hover:text-white text-slate-700 border border-purple-200 hover:border-[#714B67] px-2 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer"
+                  className="bg-white hover:bg-primary hover:text-white text-slate-700 border border-purple-200 hover:border-primary px-2 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer"
                 >
                   + {item.label}
                 </button>

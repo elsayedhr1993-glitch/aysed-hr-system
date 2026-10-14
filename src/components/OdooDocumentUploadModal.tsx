@@ -261,7 +261,7 @@ export default function OdooDocumentUploadModal({ isOpen, onClose, onSave, emplo
             </button>
             <button 
               type="submit"
-              className="bg-[#714B67] hover:bg-[#5a3a52] text-white px-5 py-2 rounded-lg font-bold transition shadow-sm"
+              className="bg-primary hover:bg-[#5a3a52] text-white px-5 py-2 rounded-lg font-bold transition shadow-sm"
             >
               حفظ وأرشفة المستند (Save)
             </button>

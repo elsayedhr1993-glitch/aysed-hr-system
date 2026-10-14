@@ -88,7 +88,7 @@ export const OdooWorkResumptionApp: React.FC = () => {
       {/* 1. Header */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-[#714B67]/10 text-[#714B67] rounded-xl">
+          <div className="p-2.5 bg-primary/10 text-primary rounded-xl">
             <UserCheck className="w-6 h-6" />
           </div>
           <div>
@@ -98,7 +98,7 @@ export const OdooWorkResumptionApp: React.FC = () => {
         </div>
         <button
           onClick={() => setShowAddModal(true)}
-          className="bg-[#714B67] hover:bg-[#714B67]/90 text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition shadow-sm cursor-pointer"
+          className="bg-primary hover:bg-primary/90 text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition shadow-sm cursor-pointer"
         >
           <Plus size={15} /> قيد كتاب مباشرة جديد
         </button>
@@ -125,9 +125,9 @@ export const OdooWorkResumptionApp: React.FC = () => {
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
           <div>
             <span className="text-[11px] text-slate-400 block font-bold">إجمالي حركات الربع الحالي</span>
-            <span className="text-base font-black text-[#714B67] font-mono">{records.length} حركة</span>
+            <span className="text-base font-black text-primary font-mono">{records.length} حركة</span>
           </div>
-          <Calendar className="text-[#714B67] w-5 h-5 opacity-80" />
+          <Calendar className="text-primary w-5 h-5 opacity-80" />
         </div>
       </div>
 
@@ -141,7 +141,7 @@ export const OdooWorkResumptionApp: React.FC = () => {
             placeholder="بحث باسم الموظف أو رقم المعاملة..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pr-9 pl-4 py-2 text-xs border rounded-lg bg-slate-50 outline-none focus:border-[#714B67]"
+            className="w-full pr-9 pl-4 py-2 text-xs border rounded-lg bg-slate-50 outline-none focus:border-primary"
           />
         </div>
       </div>
@@ -164,7 +164,7 @@ export const OdooWorkResumptionApp: React.FC = () => {
             <tbody className="divide-y divide-slate-100">
               {filteredRecords.map((r, idx) => (
                 <tr key={r.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                  <td className="p-3.5 font-mono font-bold text-[#714B67]">{r.id}</td>
+                  <td className="p-3.5 font-mono font-bold text-primary">{r.id}</td>
                   <td className="p-3.5">
                     <span className="font-bold text-slate-900 block">{r.employeeName}</span>
                     <span className="text-[10px] text-slate-400 font-mono">{r.employeeId}</span>
@@ -213,7 +213,7 @@ export const OdooWorkResumptionApp: React.FC = () => {
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 text-xs">
             <div className="flex items-center justify-between border-b pb-3 mb-4">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <UserCheck className="text-[#714B67]" size={18} />
+                <UserCheck className="text-primary" size={18} />
                 قيد كتاب مباشرة عمل جديد (hr.resumption)
               </h3>
               <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600 font-bold cursor-pointer">
@@ -228,7 +228,7 @@ export const OdooWorkResumptionApp: React.FC = () => {
                   required
                   value={newRecord.employeeId}
                   onChange={(e) => setNewRecord({ ...newRecord, employeeId: e.target.value })}
-                  className="w-full p-2.5 border rounded-lg bg-slate-50 outline-none focus:border-[#714B67] font-bold"
+                  className="w-full p-2.5 border rounded-lg bg-slate-50 outline-none focus:border-primary font-bold"
                 >
                   {employees.map(emp => (
                     <option key={emp.id} value={emp.id}>{emp.name} ({emp.jobTitle})</option>
@@ -241,7 +241,7 @@ export const OdooWorkResumptionApp: React.FC = () => {
                 <select
                   value={newRecord.type}
                   onChange={(e) => setNewRecord({ ...newRecord, type: e.target.value as ResumptionRecord['type'] })}
-                  className="w-full p-2.5 border rounded-lg bg-slate-50 outline-none focus:border-[#714B67] font-bold"
+                  className="w-full p-2.5 border rounded-lg bg-slate-50 outline-none focus:border-primary font-bold"
                 >
                   <option value="RETURN_ANNUAL">عودة من إجازة دورية سنوية</option>
                   <option value="NEW_JOIN">تعيين ومباشرة عمل لأول مرة</option>
@@ -257,7 +257,7 @@ export const OdooWorkResumptionApp: React.FC = () => {
                   required
                   value={newRecord.resumptionDate}
                   onChange={(e) => setNewRecord({ ...newRecord, resumptionDate: e.target.value })}
-                  className="w-full p-2.5 border rounded-lg bg-slate-50 outline-none focus:border-[#714B67] font-mono font-bold"
+                  className="w-full p-2.5 border rounded-lg bg-slate-50 outline-none focus:border-primary font-mono font-bold"
                 />
               </div>
 
@@ -268,13 +268,13 @@ export const OdooWorkResumptionApp: React.FC = () => {
                   value={newRecord.notes}
                   onChange={(e) => setNewRecord({ ...newRecord, notes: e.target.value })}
                   placeholder="مثال: تمت مباشرة العمل في التوقيت الصباحي المعتاد وتم إخطار قسم الرواتب لاستئناف احتساب الدوام..."
-                  className="w-full p-2.5 border rounded-lg bg-slate-50 outline-none focus:border-[#714B67]"
+                  className="w-full p-2.5 border rounded-lg bg-slate-50 outline-none focus:border-primary"
                 />
               </div>
 
               <div className="flex justify-end gap-2 pt-4 border-t">
                 <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 rounded-lg bg-slate-100 font-bold transition">إلغاء</button>
-                <button type="submit" className="px-5 py-2 rounded-lg bg-[#714B67] text-white font-bold transition shadow-sm">حفظ ومسودة</button>
+                <button type="submit" className="px-5 py-2 rounded-lg bg-primary text-white font-bold transition shadow-sm">حفظ ومسودة</button>
               </div>
             </form>
           </div>

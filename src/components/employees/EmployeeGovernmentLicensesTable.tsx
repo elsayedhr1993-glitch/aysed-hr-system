@@ -107,7 +107,7 @@ export const EmployeeGovernmentLicensesTable: React.FC<Props> = ({
                         value={readNumber(row)}
                         onChange={(e) => writeNumber(row, e.target.value)}
                         placeholder={row.numberFields.placeholder}
-                        className="w-full max-w-[180px] border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] focus:border-[#714B67]/50 focus:outline-none"
+                        className="w-full max-w-[180px] border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] focus:border-primary/50 focus:outline-none"
                       />
                     ) : (
                       <span className="font-mono text-slate-700">{readNumber(row) || '—'}</span>
@@ -119,7 +119,7 @@ export const EmployeeGovernmentLicensesTable: React.FC<Props> = ({
                         type="date"
                         value={expiry}
                         onChange={(e) => handleFieldChange(row.expiryField, e.target.value)}
-                        className="border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] focus:border-[#714B67]/50 focus:outline-none"
+                        className="border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] focus:border-primary/50 focus:outline-none"
                       />
                     ) : (
                       <span className="font-mono text-slate-700">{expiry || '—'}</span>
@@ -153,7 +153,7 @@ export const EmployeeGovernmentLicensesTable: React.FC<Props> = ({
                           )}
                         </>
                       ) : isEditMode ? (
-                        <label className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-[#714B67]/10 text-[#714B67] border border-[#714B67]/20 font-bold cursor-pointer hover:bg-[#714B67]/15">
+                        <label className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/10 text-primary border border-primary/20 font-bold cursor-pointer hover:bg-primary/15">
                           <Upload className="w-3 h-3" />
                           رفع
                           <input
