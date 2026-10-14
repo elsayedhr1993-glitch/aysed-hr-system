@@ -12,5 +12,7 @@ interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
 
+declare const __AYSED_ALLOW_PROD_WRITES__: boolean;
+
 declare module 'arabic-persian-reshaper';
 declare module 'bidi-js';

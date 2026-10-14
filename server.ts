@@ -54,6 +54,22 @@ import {
 import { loadPamFontBytesSync } from "./server/pamContractFonts.ts";
 
 const app = express();
+
+app.use((req, res, next) => {
+  const emulatorOn = process.env.VITE_USE_EMULATOR === 'true' || Boolean(process.env.FIRESTORE_EMULATOR_HOST);
+  if (emulatorOn || process.env.ALLOW_PROD_WRITES === 'true') return next();
+  const host = String(req.hostname || '').toLowerCase();
+  const local = host === 'localhost' || host === '127.0.0.1' || host === '::1';
+  if (!local || req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
+  if (req.path.startsWith('/api/')) {
+    res.status(403).json({
+      error: 'localhost is read-only while it points at live data. Use npm run dev:emu, or set ALLOW_PROD_WRITES=true.',
+    });
+    return;
+  }
+  next();
+});
+
 const PREFERRED_PORT = Number(process.env.PORT) || 3000;
 
 function findAvailablePort(startPort: number, host = "0.0.0.0", maxAttempts = 25): Promise<number> {

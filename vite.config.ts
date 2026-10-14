@@ -7,12 +7,16 @@ export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss()],
     resolve: {
-      alias: {
-        '@': path.resolve(__dirname, './src'),
-      },
+      alias: [
+        { find: '@', replacement: path.resolve(__dirname, './src') },
+        { find: 'firebase/firestore', replacement: path.resolve(__dirname, 'src/safety/guardedFirestore.ts') },
+      ],
     },
     optimizeDeps: {
       include: ['bidi-js', 'arabic-persian-reshaper'],
+    },
+    define: {
+      __AYSED_ALLOW_PROD_WRITES__: JSON.stringify(process.env.ALLOW_PROD_WRITES === 'true'),
     },
     build: {
       outDir: 'dist',

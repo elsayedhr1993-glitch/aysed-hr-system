@@ -9,6 +9,8 @@
   "main": "server.cjs",
   "scripts": {
     "dev": "tsx server.ts",
+    "dev:emu": "tsx scripts/dev-emu.ts",
+    "seed:dev": "tsx scripts/seed-dev.ts",
     "build": "vite build && node scripts/bundle-vercel-ai.mjs",
     "build:server": "esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=server.cjs",
     "build:all": "npm run build && npm run build:server",

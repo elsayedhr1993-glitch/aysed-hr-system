@@ -7,6 +7,7 @@ import { AuthProvider } from './context/AuthContext';
 import { clearOutdatedLocalStorage } from './utils/persistentStorage';
 import { applyDesignTokens } from './design/tokens';
 import { brand } from './config/brand';
+import { ProdWriteGuard } from './safety/ProdWriteGuard';
 import './index.css';
 import './styles/odooReportPrint.css';
 
@@ -23,6 +24,7 @@ if (rootElement) {
       <ErrorBoundary>
         <AuthProvider>
           <AysedCoreProvider>
+            <ProdWriteGuard />
             <App />
           </AysedCoreProvider>
         </AuthProvider>
