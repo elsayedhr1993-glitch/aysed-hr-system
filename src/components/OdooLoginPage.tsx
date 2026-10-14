@@ -163,13 +163,7 @@ export const OdooLoginPage: React.FC = () => {
   const { user: sessionUser, isLoading: authHydrating } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem(REMEMBER_ME_KEY) === 'true';
-    } catch {
-      return false;
-    }
-  });
+  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [featureSlide, setFeatureSlide] = useState(0);
@@ -515,8 +509,8 @@ export const OdooLoginPage: React.FC = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className={`w-full p-3.5 ${isArabic ? 'pr-11' : 'pl-11'} ${isArabic ? 'pl-11' : 'pr-11'} bg-slate-50 focus:bg-white border border-slate-300 rounded-xl focus:border-[#1f6a7a] focus:ring-2 focus:ring-[#1f6a7a]/20 outline-none text-slate-900 text-xs transition-all`}
-                    placeholder="••••••••"
-                    autoComplete="current-password"
+                    placeholder=""
+                    autoComplete="off"
                     required
                     dir="ltr"
                     disabled={isBusy}

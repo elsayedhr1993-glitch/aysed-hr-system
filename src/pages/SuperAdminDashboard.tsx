@@ -354,7 +354,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       requesterName: '',
       email: '',
       phone: '',
-      password: 'Aysed2026#' + Math.random().toString(36).slice(-6, -1) + '!',
+      password: '',
       planType: 'medical',
       empCount: '11-50',
       initialStatus: 'approved'
@@ -1187,7 +1187,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                                   <button
                                     onClick={() => {
                                       const email = req.email || `${req.phone.replace(/[^0-9]/g, '')}@aysedhr.com`;
-                                      const existingPass = req.password || 'Aysed2026#Secure';
+                                      const existingPass = req.password || '';
                                       setSelectedActivation({
                                         companyName: req.name,
                                         email,
@@ -2232,7 +2232,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                     type="text"
                     value={newCompanyForm.password}
                     onChange={(e) => setNewCompanyForm({ ...newCompanyForm, password: e.target.value })}
-                    placeholder="Aysed2026#Secure"
+                    placeholder=""
                     className="w-full border border-gray-300 rounded-xl px-3 py-2 text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-[#71639e]/40 bg-white text-amber-700"
                   />
                 </div>

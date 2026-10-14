@@ -8,8 +8,8 @@ interface SecurityModalProps {
 }
 
 export const AdminSecurityModal: React.FC<SecurityModalProps> = ({ isOpen, onClose, onLogout }) => {
-  const currentEmail = localStorage.getItem('aysed_admin_email') || 'admin@aysed-hr.com';
-  const currentPwd = localStorage.getItem('aysed_admin_pwd') || 'Admin@2026';
+  const currentEmail = localStorage.getItem('aysed_admin_email') || '';
+  const currentPwd = localStorage.getItem('aysed_admin_pwd') || '';
 
   const [oldPassword, setOldPassword] = useState('');
   const [newEmail, setNewEmail] = useState(currentEmail);
