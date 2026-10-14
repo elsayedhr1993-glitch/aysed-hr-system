@@ -1,13 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
-  Clock,
   Eye,
   EyeOff,
   Globe,
   Lock,
   Mail,
-  Phone,
   Shield,
   ShieldCheck,
   AlertTriangle,
@@ -24,6 +22,7 @@ import { auth } from '../lib/firebase';
 import { AnimatePresence, motion } from 'motion/react';
 import { useLang } from '../lib/i18n';
 import { useAuth } from '../context/AuthContext';
+import { brand, hasBrandSupport } from '../config/brand';
 
 const REMEMBER_ME_KEY = 'aysed_remember_me';
 
@@ -63,23 +62,16 @@ type UiText = {
   hidePassword: string;
   langAr: string;
   langEn: string;
-  contactPerson: string;
-  contactRole: string;
-  contactPhoneLabel: string;
-  contactEmailLabel: string;
-  contactHours: string;
+  supportTitle: string;
+  supportLink: string;
 };
-
-const SUPPORT_WHATSAPP_URL = 'https://wa.me/96566968180';
-const SUPPORT_EMAIL = 'elsayedhr1993@gmail.com';
-const SUPPORT_PHONE_DISPLAY = '+965 66968180';
 
 const UI_TEXT: Record<UiLanguage, UiText> = {
   ar: {
     badge: 'بوابة دخول مؤسسية',
     title: 'تسجيل الدخول',
     subtitle: 'أدخل بيانات الحساب المعتمد للوصول إلى بيئة الشركة.',
-    leftTitle: 'منظومة Aysed HR 2026',
+    leftTitle: brand.name,
     leftSubtitle: 'الحل المؤسسي الشامل للموارد البشرية والامتثال الكويتي',
     secureCloud: 'بيئة سحابية مؤمنة للشركات',
     emailLabel: 'البريد الإلكتروني',
@@ -109,17 +101,14 @@ const UI_TEXT: Record<UiLanguage, UiText> = {
     hidePassword: 'إخفاء كلمة المرور',
     langAr: 'العربية',
     langEn: 'English',
-    contactPerson: 'السيد بخيت سويلم',
-    contactRole: 'تطوير المنظومة والدعم الفني',
-    contactPhoneLabel: 'هاتف / واتساب',
-    contactEmailLabel: 'البريد الإلكتروني',
-    contactHours: 'ساعات العمل: السبت – الخميس (9:00 ص – 9:00 م)',
+    supportTitle: 'الدعم',
+    supportLink: 'صفحة الدعم',
   },
   en: {
     badge: 'Secure access',
     title: 'Sign In',
     subtitle: 'Use your approved account credentials to access your company workspace.',
-    leftTitle: 'Aysed HR 2026',
+    leftTitle: brand.name,
     leftSubtitle: 'HR and Kuwait compliance platform',
     secureCloud: 'Secure business cloud environment',
     emailLabel: 'Email Address',
@@ -149,11 +138,8 @@ const UI_TEXT: Record<UiLanguage, UiText> = {
     hidePassword: 'Hide password',
     langAr: 'العربية',
     langEn: 'English',
-    contactPerson: 'Mr. Bukhit Suwailam',
-    contactRole: 'Platform development & technical support',
-    contactPhoneLabel: 'Phone / WhatsApp',
-    contactEmailLabel: 'Email',
-    contactHours: 'Hours: Sat – Thu (9:00 AM – 9:00 PM)',
+    supportTitle: 'Support',
+    supportLink: 'Support page',
   },
 };
 
@@ -376,9 +362,13 @@ export const OdooLoginPage: React.FC = () => {
 
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-12">
-            <div className="w-12 h-12 bg-white rounded-xl shadow-md flex items-center justify-center">
-              <Shield size={22} className="text-[#16476b]" />
-            </div>
+            {brand.logoSrc ? (
+              <img src={brand.logoSrc} alt={brand.logoAlt} className="w-12 h-12 rounded-xl bg-white object-contain shadow-md" />
+            ) : (
+              <div className="w-12 h-12 bg-white rounded-xl shadow-md flex items-center justify-center">
+                <Shield size={22} className="text-[#16476b]" />
+              </div>
+            )}
             <div>
               <span className="text-2xl font-black tracking-tight text-white block">{t.leftTitle}</span>
               <span className="text-sm text-slate-300 font-medium leading-snug block mt-1 max-w-md">{t.leftSubtitle}</span>
@@ -386,7 +376,7 @@ export const OdooLoginPage: React.FC = () => {
           </div>
 
           <h1 className="text-3xl sm:text-4xl leading-tight font-black text-white max-w-xl mt-4">
-            {isArabic ? 'منظومة Aysed HR 2026' : 'Aysed HR 2026'}
+            {brand.name}
           </h1>
           <p className="text-base text-slate-300 mt-3 max-w-xl leading-relaxed font-medium">
             {isArabic
@@ -425,7 +415,7 @@ export const OdooLoginPage: React.FC = () => {
             <Globe size={15} />
             <span>{t.secureCloud}</span>
           </div>
-          <span className="bg-black/25 px-2 py-1 rounded font-medium">Aysed HR</span>
+          <span className="bg-black/25 px-2 py-1 rounded font-medium">{brand.name}</span>
         </div>
       </motion.div>
 
@@ -586,55 +576,33 @@ export const OdooLoginPage: React.FC = () => {
               <span>{t.privacy}</span>
             </div>
 
-            <div
-              className={`w-full mt-2 rounded-xl border border-slate-100 bg-slate-50/60 p-3 sm:p-3.5 space-y-2.5 ${cardAlignment}`}
-              aria-label={isArabic ? 'بيانات التواصل مع الدعم الفني' : 'Technical support contact'}
-            >
-              <div>
-                <p className="text-[11px] sm:text-xs font-black text-slate-800 leading-snug">{t.contactPerson}</p>
-                <p className="text-[10px] text-slate-500 font-medium mt-0.5">{t.contactRole}</p>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <a
-                  href={SUPPORT_WHATSAPP_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-2.5 py-2 text-slate-700 hover:border-[#1f6a7a]/30 hover:text-[#1f6a7a] transition-colors"
-                >
-                  <span className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md bg-[#1f6a7a]/8 text-[#1f6a7a]">
-                    <Phone size={14} aria-hidden />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide">
-                      {t.contactPhoneLabel}
-                    </span>
-                    <span className="block text-[10px] sm:text-[11px] font-bold dir-ltr text-left" dir="ltr">
-                      {SUPPORT_PHONE_DISPLAY}
-                    </span>
-                  </span>
-                </a>
-                <a
-                  href={`mailto:${SUPPORT_EMAIL}`}
-                  className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-2.5 py-2 text-slate-700 hover:border-[#1f6a7a]/30 hover:text-[#1f6a7a] transition-colors"
-                >
-                  <span className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md bg-[#1f6a7a]/8 text-[#1f6a7a]">
+            {hasBrandSupport() && (
+              <div
+                className={`w-full mt-2 rounded-xl border border-slate-100 bg-slate-50/60 p-3 sm:p-3.5 space-y-2 ${cardAlignment}`}
+                aria-label={t.supportTitle}
+              >
+                <p className="text-[11px] sm:text-xs font-black text-slate-800 leading-snug">{t.supportTitle}</p>
+                {brand.supportEmail && (
+                  <a
+                    href={`mailto:${brand.supportEmail}`}
+                    className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-2.5 py-2 text-slate-700 hover:border-[#1f6a7a]/30 hover:text-[#1f6a7a] transition-colors"
+                  >
                     <Mail size={14} aria-hidden />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide">
-                      {t.contactEmailLabel}
-                    </span>
-                    <span className="block text-[10px] sm:text-[11px] font-bold truncate dir-ltr text-left" dir="ltr">
-                      {SUPPORT_EMAIL}
-                    </span>
-                  </span>
-                </a>
+                    <span className="text-[11px] font-bold truncate dir-ltr text-left" dir="ltr">{brand.supportEmail}</span>
+                  </a>
+                )}
+                {brand.supportUrl && (
+                  <a
+                    href={brand.supportUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] font-bold text-[#1f6a7a] hover:underline"
+                  >
+                    {t.supportLink}
+                  </a>
+                )}
               </div>
-              <div className="flex items-start sm:items-center gap-1.5 text-[10px] text-slate-500 font-medium pt-0.5">
-                <Clock size={13} className="shrink-0 text-slate-400 mt-0.5 sm:mt-0" aria-hidden />
-                <span>{t.contactHours}</span>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </motion.div>
