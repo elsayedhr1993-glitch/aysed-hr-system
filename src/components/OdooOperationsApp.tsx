@@ -351,7 +351,7 @@ export const OdooOperationsApp: React.FC = () => {
           <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
             <span>إدارة العمليات والأصول</span>
             <span>/</span>
-            <span className="text-[#714B67] font-black">العهد والممتلكات (Odoo 18 Assets & Custodies)</span>
+            <span className="text-[#714B67] font-black">العهد والممتلكات</span>
           </div>
           <h1 className="text-xl font-black text-slate-900 flex items-center gap-2.5">
             <div className="p-2 bg-[#714B67]/10 text-[#714B67] rounded-xl">
@@ -996,7 +996,7 @@ export const OdooOperationsApp: React.FC = () => {
                 rightSlot={
                   <div className="text-left dir-ltr">
                     <span className="text-[11px] font-black text-[#714B67] bg-purple-50 px-3 py-1 rounded-full border border-purple-200">
-                      Odoo 18 Custody Document
+                      سند عهدة
                     </span>
                     <div className="text-[10px] text-slate-400 font-mono mt-1.5">
                       التاريخ:{' '}

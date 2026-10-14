@@ -319,7 +319,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
         <div>
           <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
             <UserPlus className="w-6 h-6 text-[#714B67]" />
-            <span>نظام إدارة التوظيف والشهادات المرفقة (Odoo Recruitment)</span>
+            <span>نظام إدارة التوظيف والشهادات المرفقة</span>
           </h2>
           <p className="text-xs text-slate-500 mt-1">
             متابعة مراحل المقابلات، مراجعة شهادات ومستندات المتقدمين، ومعاينتها بتبويب جديد والتحويل المباشر للموظفين

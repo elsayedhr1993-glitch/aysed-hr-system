@@ -323,7 +323,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
                 </UiStudioTarget>
               </h2>
               <span className="bg-purple-100 text-[#714B67] text-[10px] font-bold px-2 py-0.5 rounded-full font-mono">
-                Odoo Documents v17
+                الأرشيف
               </span>
             </div>
             <p className="text-xs text-slate-500">
@@ -674,7 +674,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
                       <BellRing className="w-5 h-5" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-amber-900 text-sm">أنشطة التجديد الإدارية المطلوبة (Odoo Compliance)</h4>
+                      <h4 className="font-bold text-amber-900 text-sm">أنشطة التجديد الإدارية المطلوبة</h4>
                       <p className="text-xs text-amber-800 mt-0.5">
                         الوثائق التالية تتطلب إجراءات عاجلة للتجديد (منتهية أو تنتهي خلال 60 يوماً).
                       </p>

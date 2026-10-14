@@ -40,7 +40,7 @@ export const LayoutStudioDrawer: React.FC = () => {
       <button
         type="button"
         className="flex-1 bg-black/40 backdrop-blur-[2px]"
-        aria-label="إغلاق Studio"
+        aria-label="إغلاق وضع التخصيص"
         onClick={closeStudio}
       />
       <aside

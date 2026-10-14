@@ -106,7 +106,7 @@ export const PrintableLeaveFormModal: React.FC<PrintableLeaveFormModalProps> = (
             <div className="text-left text-[11px] text-slate-500 font-mono">
               <span>دولة الكويت</span>
               <span className="block text-[10px]">قانون العمل رقم 6/2010</span>
-              <span className="block text-emerald-700 font-bold text-[10px]">نظام Odoo 18 المعتمد</span>
+              <span className="block text-emerald-700 font-bold text-[10px]">نظام Aysed HR</span>
             </div>
           </div>
 
@@ -220,7 +220,7 @@ export const PrintableLeaveFormModal: React.FC<PrintableLeaveFormModalProps> = (
 
           {/* Footer */}
           <div className="pt-2 border-t text-center text-[9px] text-slate-400 flex items-center justify-between font-mono">
-            <span>تم الإنشاء عبر منظومة Aysed S HR 2026 - Odoo 18 Time Off Hub</span>
+            <span>تم الإنشاء عبر منظومة Aysed HR — مركز الإجازات</span>
             <span>النسخة الأصلية تحفظ في ملف خدمة الموظف</span>
           </div>
 

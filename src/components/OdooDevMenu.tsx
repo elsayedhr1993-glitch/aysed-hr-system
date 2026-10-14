@@ -35,7 +35,7 @@ export const OdooDevMenu: React.FC<OdooDevMenuProps> = ({ isDevMode, onToggleDev
   const handleCopyReport = () => {
     const report = {
       system: 'Aysed S HR 2026 - Kuwait',
-      engine: 'Odoo Enterprise Engine v18.0e',
+      engine: 'Aysed HR',
       debugMode: true,
       timestamp: new Date().toISOString(),
       userAgent: navigator.userAgent
@@ -46,7 +46,7 @@ export const OdooDevMenu: React.FC<OdooDevMenuProps> = ({ isDevMode, onToggleDev
   };
 
   const handleInspectModel = () => {
-    toast('⚙️ Odoo Model Inspector Activated', { icon: '🔍' });
+    toast('⚙️ فاحص السجل', { icon: '🔍' });
     setIsOpen(false);
   };
 
@@ -77,7 +77,7 @@ export const OdooDevMenu: React.FC<OdooDevMenuProps> = ({ isDevMode, onToggleDev
           <div className="px-3 py-2 border-b border-slate-100 bg-slate-50">
             <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
               <Bug size={14} className="text-orange-500" />
-              <span>Odoo Developer Tools</span>
+              <span>أدوات المطوّر</span>
             </div>
           </div>
           

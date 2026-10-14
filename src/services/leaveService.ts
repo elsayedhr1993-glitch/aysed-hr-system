@@ -561,7 +561,7 @@ export function runAutomatedLeaveAccrual(
       daysAdded: LEAVE_ACCRUAL_RATE_PER_MONTH,
       newBalance: newBalance,
       status: 'ACCRUED',
-      message: `تم إضافة ${LEAVE_ACCRUAL_RATE_PER_MONTH} يوم بنجاح وتوليد سجل تخصيص Odoo hr.leave.allocation (${prevBalance} -> ${newBalance})`
+      message: `تم إضافة ${LEAVE_ACCRUAL_RATE_PER_MONTH} يوم بنجاح وتوليد سجل تخصيص الإجازة (${prevBalance} -> ${newBalance})`
     });
 
     return {

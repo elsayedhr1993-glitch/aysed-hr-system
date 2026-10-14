@@ -115,7 +115,7 @@ export const AutomatedBackupCenter: React.FC = () => {
           <div className="space-y-2 max-w-2xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-400/30">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              محرك النسخ الاحتياطي التلقائي اليومي (Enterprise Auto-Backup)
+              النسخ الاحتياطي اليومي التلقائي
             </div>
             <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
               إدارة النسخ الاحتياطي السحابي والإرسال التلقائي الصامت

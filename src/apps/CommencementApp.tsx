@@ -295,7 +295,7 @@ export const CommencementApp: React.FC<CommencementAppProps> = ({
         location,
         status: existingComm?.status || 'PENDING',
         approvalDate: existingComm?.approvalDate || (isApproved ? new Date().toISOString().split('T')[0] : undefined),
-        approvedBy: existingComm?.approvedBy || 'مدير الموارد البشرية (Odoo HR)',
+        approvedBy: existingComm?.approvedBy || 'مدير الموارد البشرية',
         storageFolderUrl: existingComm?.storageFolderUrl || `supabase://storage/v1/bucket/employees/${selectedEmpId}/archive-vault`,
         notes,
       };
@@ -360,7 +360,7 @@ export const CommencementApp: React.FC<CommencementAppProps> = ({
       customScheduleNote,
       departmentId: emp.departmentId || 'dept-1',
       location,
-      approvedBy: 'مدير الموارد البشرية (Odoo HR)',
+      approvedBy: 'مدير الموارد البشرية',
       approvalDate: new Date().toISOString().split('T')[0],
       storageFolderUrl: `supabase://storage/v1/bucket/employees/${selectedEmpId}/archive-vault`,
       status: 'PENDING',
@@ -422,10 +422,10 @@ export const CommencementApp: React.FC<CommencementAppProps> = ({
 
   const handleCopyOdooCode = (code: string) => {
     navigator.clipboard.writeText(code);
-    toast.success('تم نسخ كود Odoo إلى الحافظة بنجاح');
+    toast.success('تم نسخ المواصفات التقنية إلى الحافظة بنجاح');
   };
 
-  const odooXmlCode = `<!-- تعديل واجهة مباشرة العمل لإضافة ساعات وجدول العمل (Odoo View Inheritance) -->
+  const odooXmlCode = `<!-- تعديل واجهة مباشرة العمل لإضافة ساعات وجدول العمل -->
 <record id="view_commencement_form_inherit" model="ir.ui.view">
     <field name="name">hr.commencement.form.inherit</field>
     <field name="model">hr.commencement</field> <!-- نموذج مباشرة العمل -->
@@ -467,7 +467,7 @@ class HrVersion(models.Model):
         return super(HrVersion, self).write(vals)
 
 
-# 2. نموذج مباشرة العمل المرتبط بالموظف والعقد ونظام البصمة في أودو
+# 2. نموذج مباشرة العمل المرتبط بالموظف والعقد ونظام البصمة
 class HrCommencement(models.Model):
     _name = 'hr.commencement'
     _inherit = ['mail.thread', 'mail.activity.mixin']
@@ -596,11 +596,11 @@ class HrCommencement(models.Model):
           <button
             onClick={() => setIsDevCodeModalOpen(true)}
             className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 border border-slate-300 transition cursor-pointer"
-            title="عرض كود Odoo View Inheritance و Python Model و HrVersion"
+            title="عرض المواصفات التقنية للشاشة"
             id="btn-view-odoo-dev-code"
           >
             <Code2 className="w-4 h-4 text-purple-700" />
-            <span>كود Odoo البرمجي (XML/Python)</span>
+            <span>المواصفات التقنية (XML/Python)</span>
           </button>
 
           <button
@@ -669,7 +669,7 @@ class HrCommencement(models.Model):
             </span>
           </div>
           <span className="text-[11px] text-slate-400">
-            تطبيق المادة القانونية وقواعد نظام أودو للموارد البشرية
+            تطبيق المادة القانونية وقواعد الموارد البشرية
           </span>
         </div>
 
@@ -1120,7 +1120,7 @@ class HrCommencement(models.Model):
               <div className="flex items-center gap-2">
                 <Code2 className="w-5 h-5 text-purple-400" />
                 <h3 className="font-bold text-sm text-white">
-                  كود التطوير لنظام Odoo (XML View Inherit & Python Model)
+                  المواصفات التقنية (XML و Python)
                 </h3>
               </div>
               <button 
@@ -1177,7 +1177,7 @@ class HrCommencement(models.Model):
 
             <div className="bg-slate-800 p-4 border-t border-slate-700 flex justify-between items-center text-right" dir="rtl">
               <span className="text-[11px] text-slate-400">
-                💡 جاهز للتضمين المباشر في وحدة Odoo HR المخصصة الخاصة بك.
+                💡 مواصفات مرجعية لشاشة مباشرة العمل.
               </span>
               <button
                 onClick={() => setIsDevCodeModalOpen(false)}

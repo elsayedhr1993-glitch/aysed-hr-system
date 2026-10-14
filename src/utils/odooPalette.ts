@@ -60,8 +60,8 @@ export const ODOO_PALETTE: Record<OdooColorKey, OdooColorConfig> = {
   },
   purple: {
     key: 'purple',
-    label: 'بنفسجي Odoo (Amethyst)',
-    labelEn: 'Odoo Amethyst',
+    label: 'البنفسجي الأساسي',
+    labelEn: 'Primary purple',
     hex: '#714B67',
     bgLight: 'bg-purple-50',
     bgBadge: 'bg-[#714B67]/10',

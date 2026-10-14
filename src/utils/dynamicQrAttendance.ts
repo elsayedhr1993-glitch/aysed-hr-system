@@ -320,5 +320,5 @@ export function buildAttendanceWhatsAppMessage(params: {
 🛡️ *المعرف الرقمي:* QR-${Date.now().toString().slice(-6)}
 
 نتمنى لك يوماً سعيداً وموفقاً! 🌟
-_نظام Odoo HRMS Kuwait للخدمة الذاتية_`;
+_Aysed HR — الخدمة الذاتية_`;
 }

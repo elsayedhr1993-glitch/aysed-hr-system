@@ -167,7 +167,7 @@ export const OdooDocScannerModal: React.FC<ScannerProps> = ({ isOpen, onClose, o
             </div>
             <div>
               <h3 className="font-black text-sm text-slate-900 flex items-center gap-2">
-                الماسح الضوئي الذكي (Odoo AI OCR Digitization)
+                الماسح الضوئي الذكي
                 <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
                   <Sparkles size={11} /> محرك بصري حقيقي
                 </span>

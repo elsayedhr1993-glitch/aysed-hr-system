@@ -313,7 +313,7 @@ export const EOSApp: React.FC<EOSAppProps> = ({
           <div className="font-bold text-slate-800 text-sm pb-2 border-b border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Calculator className="w-4 h-4 text-[#714B67]" />
-              <span>معالج تصفية نهاية الخدمة (Odoo EOS Wizard)</span>
+              <span>معالج تصفية نهاية الخدمة</span>
             </div>
             <span className="text-[10px] text-slate-400 font-mono">hr.departure.wizard</span>
           </div>

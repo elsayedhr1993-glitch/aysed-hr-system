@@ -132,13 +132,13 @@ export const UiStudioInspectorSidebar: React.FC = () => {
       className="fixed top-12 bottom-0 z-[190] w-[min(100%,20rem)] bg-white border-s border-slate-200 shadow-xl flex flex-col print:hidden"
       style={{ insetInlineStart: 0 }}
       dir="rtl"
-      aria-label="Odoo Studio Inspector"
+      aria-label="لوحة التخصيص"
     >
       <header className="shrink-0 px-3 py-2.5 border-b border-slate-200 bg-[#714B67] text-white flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <Sparkles size={16} className="shrink-0 text-amber-200" />
           <div className="min-w-0">
-            <div className="text-xs font-black leading-tight">Studio — لوحة الخصائص</div>
+            <div className="text-xs font-black leading-tight">لوحة التخصيص</div>
             <div className="text-[10px] text-white/75 font-medium">انقر على عنصر في الشاشة لتحريره</div>
           </div>
         </div>

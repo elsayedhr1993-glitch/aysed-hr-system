@@ -1428,7 +1428,7 @@ export const Attendances: React.FC = () => {
             <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md text-amber-400 flex items-center justify-center mx-auto mb-2 border border-white/20">
               <ScanLine className="w-8 h-8" />
             </div>
-            <h2 className="text-2xl font-black">كشك الحضور والانصراف السريع (Odoo Kiosk)</h2>
+            <h2 className="text-2xl font-black">كشك الحضور والانصراف السريع</h2>
             <p className="text-xs text-slate-300">
               اختر اسمك أو امسح الباركود، ثم أكد برمز الـ PIN أو بصمة الإصبع
             </p>

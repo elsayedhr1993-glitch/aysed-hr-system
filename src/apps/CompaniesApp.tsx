@@ -265,7 +265,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
         <div>
           <div className="flex items-center gap-2 text-xs font-bold text-purple-700 bg-purple-50 px-2.5 py-1 rounded-lg w-fit mb-2 border border-purple-100">
             <Building2 className="w-3.5 h-3.5" />
-            <span>نظام أودو الموحد للشركات والفروع (Odoo Multi-Company Hierarchy)</span>
+            <span>الشركات والفروع</span>
           </div>
           <h1 className="text-xl font-bold text-slate-900">إدارة الشركات والعيادات الطبية</h1>
           <p className="text-xs text-slate-500 mt-0.5">
@@ -501,7 +501,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
             <div className="bg-[#714B67] text-white p-4 flex items-center justify-between">
               <div className="flex items-center gap-2 font-bold text-sm">
                 <Building2 className="w-5 h-5" />
-                <span>{editingCompany.id ? 'نموذج تعديل الشركة / العيادة (Odoo Form View)' : 'إنشاء شركة أو عيادة جديدة'}</span>
+                <span>{editingCompany.id ? 'نموذج تعديل الشركة / العيادة' : 'إنشاء شركة أو عيادة جديدة'}</span>
               </div>
               <button 
                 onClick={() => setIsModalOpen(false)}

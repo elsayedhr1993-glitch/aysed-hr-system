@@ -291,7 +291,7 @@ const generateLeavePrintHtml = (
       </div>
 
       <div style="margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 10px; text-align: center; font-size: 10px; color: #94a3b8;">
-        تم إنشاؤه تلقائياً بواسطة نظام المنارة لتقنية المعلومات والموارد البشرية (Odoo 18 ERP) - تاريخ الاستخراج: ${new Date().toLocaleDateString('ar-KW')}
+        تم إنشاؤه تلقائياً بواسطة Aysed HR - تاريخ الاستخراج: ${new Date().toLocaleDateString('ar-KW')}
       </div>
     </div>
   `;
@@ -1662,7 +1662,7 @@ export function EmployeesApp(props?: any) {
               <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-3xs">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-bold text-slate-500">جداول الدوام المعتمدة</span>
-                  <span className="p-1 rounded-lg bg-blue-50 text-blue-600 text-xs">📅 Odoo Calendar</span>
+                  <span className="p-1 rounded-lg bg-blue-50 text-blue-600 text-xs">📅 التقويم</span>
                 </div>
                 <div className="text-2xl font-black text-slate-800 font-mono">6 جاهزة</div>
                 <p className="text-[10px] text-slate-400 mt-1">جداول عمل قياسية، شفتات، ودوام مرن مجهزة للتسكين</p>
@@ -1911,7 +1911,7 @@ export function EmployeesApp(props?: any) {
               {/* Odoo Chatter inside Commencement Modal */}
               <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-3">
                 <h4 className="font-bold text-slate-800 text-xs flex items-center gap-2">
-                  <span>💬</span> سجل الملاحظات والأنشطة (Odoo Chatter)
+                  <span>💬</span> سجل المتابعة
                 </h4>
 
                 <div className="space-y-2 max-h-32 overflow-y-auto">

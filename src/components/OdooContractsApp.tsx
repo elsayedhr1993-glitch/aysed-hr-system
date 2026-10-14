@@ -746,8 +746,8 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
               uiKey={UI_KEYS.appTitle('contracts')}
               defaults={{
                 label: {
-                  ar: 'عقود العمل وهيكل الرواتب والدوام (hr.contract)',
-                  en: 'Employment contracts (hr.contract)',
+                  ar: 'عقود العمل وهيكل الرواتب والدوام',
+                  en: 'Employment contracts',
                 },
               }}
               className="text-xl font-black text-slate-900 flex items-center gap-2"
@@ -1606,7 +1606,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
             className="text-xs font-bold text-slate-600 hover:text-[#714B67] flex items-center gap-2 transition cursor-pointer"
           >
             <MessageSquare size={14} />
-            <span>{showChatter ? 'إخفاء سجل التتبع والملاحظات (Odoo Chatter)' : 'عرض سجل التتبع والملاحظات الرسمية (Odoo Chatter)'}</span>
+            <span>{showChatter ? 'إخفاء سجل المتابعة' : 'عرض سجل المتابعة'}</span>
             {showChatter ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
         </div>
@@ -1619,7 +1619,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
                  if (normalizeContractStatus(c.contractStatus) === 'draft') {
                     messages.push({
                       id: `auto-contract-${c.id}`,
-                      author: 'نظام العقود (hr.contract)',
+                      author: 'نظام العقود',
                       date: new Date().toLocaleDateString('ar-KW'),
                       content: `يرجى مراجعة واعتماد مسودة العقد (${c.contractRef}) للموظف (${c.name}) - نوع الدوام: ${c.employmentType === 'part_time' ? 'دوام جزئي/بالساعة' : 'دوام كامل'}.`,
                       type: 'activity',

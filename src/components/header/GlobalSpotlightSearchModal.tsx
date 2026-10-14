@@ -222,7 +222,7 @@ export const GlobalSpotlightSearchModal: React.FC<GlobalSpotlightSearchModalProp
                         )}
                       </div>
                       <p className="text-[11px] text-slate-500 truncate mt-0.5">
-                        {(item as any).subtitle || (item.type === 'app' ? 'تطبيق نظام أودو' : 'وظيفة سريعة')}
+                        {(item as any).subtitle || (item.type === 'app' ? 'تطبيق' : 'وظيفة سريعة')}
                       </p>
                     </div>
                   </div>

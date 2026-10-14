@@ -84,7 +84,7 @@ export const UiStudioProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const toggleUiStudio = useCallback(() => {
     const next = !uiStudioActive;
     setUiStudioActive(next);
-    toast(next ? 'وضع Studio — انقر عنصراً لتحريره من اللوحة الجانبية' : 'تم إيقاف وضع التخصيص', {
+    toast(next ? 'وضع التخصيص — انقر عنصراً لتحريره من اللوحة الجانبية' : 'تم إيقاف وضع التخصيص', {
       icon: next ? '🎨' : '⏸️',
     });
   }, [uiStudioActive, setUiStudioActive]);
@@ -127,7 +127,7 @@ export const UiStudioProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
       if (!companyId || companyId === 'SAAS_PLATFORM') {
         if (!options?.quiet) {
-          toast.error('اختر شركة نشطة (معاينة/انتحال) قبل حفظ تخصيصات Studio');
+          toast.error('اختر شركة نشطة (معاينة/انتحال) قبل حفظ تخصيصات الواجهة');
         }
         return false;
       }
@@ -188,7 +188,7 @@ export const UiStudioProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast.success('تم تصدير تخصيصات Studio');
+    toast.success('تم تصدير تخصيصات الواجهة');
   }, [overridesDoc, companyId]);
 
   const reorderKeys = useCallback(

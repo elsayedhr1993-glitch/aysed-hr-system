@@ -1174,7 +1174,7 @@ export function _cron_aysed_monthly_accrual(employees: Array<{ id: string; statu
         return {
             addedCount: 0,
             allocations: [],
-            note: `تنبيه (توقيت الكويت): اليوم هو ${targetDate.getDate()} من الشهر وليس اليوم الأول (1). لن يتم إضافة الرصيد التلقائي إلا في أول يوم من الشهر طبقاً لقاعدة Odoo Cron.`
+            note: `تنبيه (توقيت الكويت): اليوم هو ${targetDate.getDate()} من الشهر وليس اليوم الأول (1). لن يُضاف الرصيد التلقائي إلا في أول يوم من الشهر.`
         };
     }
 

@@ -302,7 +302,7 @@ app.get("/api/health", (req, res) => {
   res.json({ 
     status: "ok", 
     system: "Aysed S HR 2026", 
-    odooVersion: "17.0-Enterprise",
+    odooVersion: "Aysed HR",
     supabase: {
       url: (process.env.VITE_SUPABASE_URL || 'https://ywukequruqkkwvqkvcia.supabase.co').replace(/\/rest\/v1\/?$/, ''),
       hasServiceRole,
@@ -1279,7 +1279,7 @@ async function executeSystemBackupCore(clientSnapshot?: any, triggerSource = 'MA
     const fullDumpPayload = {
       _meta: {
         system: "Aysed S HR 2026",
-        version: "17.0-Enterprise-Kuwait",
+        version: "Aysed HR",
         backupId,
         createdAt: new Date().toISOString(),
         timeZone: "Asia/Kuwait",
@@ -2080,7 +2080,7 @@ app.get("/api/settings/backup/download", async (req, res) => {
   const dump = {
     settings: systemSettingsStore,
     timestamp: new Date().toISOString(),
-    version: "Odoo Enterprise 2026",
+    version: "Aysed HR",
     sql_schema: `
 -- Aysed S HR 2026 System Settings Backup Dump
 INSERT INTO system_settings (
@@ -2162,7 +2162,7 @@ async function startServer() {
     console.warn(`[Server] Port ${PREFERRED_PORT} is busy; using http://0.0.0.0:${port} instead.`);
   }
   app.listen(port, "0.0.0.0", () => {
-    console.log(`Aysed S HR 2026 (Odoo Enterprise Kuwait) running on http://0.0.0.0:${port}`);
+    console.log(`Aysed HR running on http://0.0.0.0:${port}`);
     runStartupEnvironmentAudit();
   });
 }

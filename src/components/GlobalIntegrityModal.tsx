@@ -178,7 +178,7 @@ export const GlobalIntegrityModal: React.FC<GlobalIntegrityModalProps> = ({
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-black tracking-tight">حارس التحقق البرمجي العام (Global Integrity Constraints)</h2>
                 <span className="bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                  Odoo & Kuwait Law Engine Active
+                  محرك قانون العمل الكويتي
                 </span>
               </div>
               <p className="text-xs text-slate-300 mt-0.5">

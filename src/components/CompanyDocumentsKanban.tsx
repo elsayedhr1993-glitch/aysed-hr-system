@@ -181,7 +181,7 @@ export const CompanyDocumentsKanban: React.FC<CompanyDocumentsKanbanProps> = ({
         <div>
           <div className="flex items-center gap-2">
             <Shield className="w-8 h-8 text-[#714B67]" />
-            <h1 className="text-2xl font-bold text-slate-900">تراخيص ومستندات المنشأة (Odoo Kanban)</h1>
+            <h1 className="text-2xl font-bold text-slate-900">تراخيص ومستندات المنشأة</h1>
           </div>
           <p className="text-sm text-slate-500 mt-1">نظام تتبع صلاحية الوثائق والتنبيهات المسبقة وتواريخ التجديد آلياً</p>
         </div>

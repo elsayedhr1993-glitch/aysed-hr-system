@@ -116,11 +116,11 @@ const UI_TEXT: Record<UiLanguage, UiText> = {
     contactHours: 'ساعات العمل: السبت – الخميس (9:00 ص – 9:00 م)',
   },
   en: {
-    badge: 'Enterprise Access Gateway',
+    badge: 'Secure access',
     title: 'Sign In',
     subtitle: 'Use your approved account credentials to access your company workspace.',
     leftTitle: 'Aysed HR 2026',
-    leftSubtitle: 'Enterprise HR & Kuwait compliance platform',
+    leftSubtitle: 'HR and Kuwait compliance platform',
     secureCloud: 'Secure business cloud environment',
     emailLabel: 'Email Address',
     passwordLabel: 'Password',
@@ -131,9 +131,9 @@ const UI_TEXT: Record<UiLanguage, UiText> = {
     loadingSubmit: 'Signing in and preparing your workspace...',
     lockTitle: 'Sign-in attempts temporarily locked',
     lockRemaining: 'Time remaining',
-    terms: 'Enterprise Terms of Use',
+    terms: 'Terms of Use',
     privacy: 'Privacy Policy',
-    footerSecurity: 'Enterprise security policies are enforced for this sign-in session.',
+    footerSecurity: 'Security policies are enforced for this sign-in session.',
     emailPlaceholder: 'name@company.com',
     emailRequired: 'Please enter your email address.',
     emailInvalid: 'Please enter a valid email address.',
@@ -425,7 +425,7 @@ export const OdooLoginPage: React.FC = () => {
             <Globe size={15} />
             <span>{t.secureCloud}</span>
           </div>
-          <span className="bg-black/25 px-2 py-1 rounded font-medium">Enterprise</span>
+          <span className="bg-black/25 px-2 py-1 rounded font-medium">Aysed HR</span>
         </div>
       </motion.div>
 

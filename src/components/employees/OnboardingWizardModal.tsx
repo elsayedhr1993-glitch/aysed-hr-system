@@ -467,7 +467,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-purple-200">
-                إجراء مؤقت متعدد المراحل لإعداد مهام الموظف الجديد بأسلوب Odoo 18
+                إجراء مؤقت متعدد المراحل لإعداد مهام الموظف الجديد
               </p>
             </div>
           </div>

@@ -215,7 +215,7 @@ export const OdooMohMedicalHubApp: React.FC = () => {
             </div>
           </div>
           <div style="margin-top: 80px; border-top: 1px solid #e2e8f0; padding-top: 10px; text-align: center; font-size: 10px; color: #94a3b8;">
-            تم إصدار هذا الخطاب إلكترونياً عبر تطبيق تراخيص وزارة الصحة (Odoo 18 ERP) - تاريخ الاستخراج: ${today}
+            تم إصدار هذا الخطاب إلكترونياً عبر تطبيق تراخيص وزارة الصحة - تاريخ الاستخراج: ${today}
           </div>
           <script>window.onload = function() { window.focus(); window.print(); };</script>
         </body>

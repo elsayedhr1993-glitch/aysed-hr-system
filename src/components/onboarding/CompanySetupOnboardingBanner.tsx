@@ -101,8 +101,8 @@ export const CompanySetupOnboardingBanner: React.FC<Props> = ({
           </div>
           <p className="text-[10px] text-white/80 font-medium mt-0.5">
             {lang === 'ar'
-              ? 'أكمل الخطوات لتهيئة المنشأة وفق Odoo 18'
-              : 'Complete setup steps (Odoo 18 style)'}
+              ? 'أكمل الخطوات لتهيئة المنشأة'
+              : 'Complete the company setup steps'}
           </p>
         </div>
         <div className="flex items-center gap-2">

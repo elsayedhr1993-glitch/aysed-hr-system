@@ -19,13 +19,13 @@ export const GlobalStudioModeToggle: React.FC = () => {
             ? 'bg-amber-400 text-amber-950 border-amber-200 ring-2 ring-amber-200/50 shadow-inner'
             : 'bg-white/10 hover:bg-white/20 text-white/95 border-white/20'
         }`}
-        title={lang === 'ar' ? 'تخصيص الواجهة مثل Odoo Studio' : 'Odoo Studio customization mode'}
+        title={lang === 'ar' ? 'وضع التخصيص' : 'Customization mode'}
       >
         <Sparkles size={13} className={uiStudioActive ? 'text-amber-900' : 'text-amber-200'} />
         <span className="hidden lg:inline">
-          {lang === 'ar' ? 'وضع التخصيص / Studio' : 'Studio Mode'}
+          {lang === 'ar' ? 'وضع التخصيص' : 'Customize'}
         </span>
-        <span className="lg:hidden">Studio</span>
+        <span className="lg:hidden">{lang === 'ar' ? 'تخصيص' : 'Customize'}</span>
       </button>
       {uiStudioActive && (
         <button

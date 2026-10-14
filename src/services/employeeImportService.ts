@@ -295,7 +295,7 @@ export function downloadEmployeeImportTemplate(): void {
   ws['!cols'] = EMPLOYEE_IMPORT_COLUMNS.map(() => ({ wch: 22 }));
 
   const guide = XLSX.utils.aoa_to_sheet([
-    ['Aysed HR — Employee Import (Odoo 18 style)'],
+    ['Aysed HR — Employee Import'],
     [''],
     ['• الصف الأول: عناوين الأعمدة (عربي / English)'],
     ['• الصف الثاني: * = حقل إلزامي'],

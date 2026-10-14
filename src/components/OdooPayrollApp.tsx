@@ -807,7 +807,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
             uiKey={UI_KEYS.appTitle('payroll')}
             defaults={{
               label: {
-                ar: 'مسير الرواتب ونظام حماية الأجور (Odoo Kuwait WPS)',
+                ar: 'مسير الرواتب ونظام حماية الأجور (WPS)',
                 en: 'Payroll & WPS',
               },
             }}

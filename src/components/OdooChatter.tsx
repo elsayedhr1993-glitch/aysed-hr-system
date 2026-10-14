@@ -298,7 +298,7 @@ export const OdooChatter: React.FC<OdooChatterProps> = ({
               </h4>
             </div>
             <span className="text-[10px] bg-[#714B67]/10 text-[#714B67] font-bold px-2 py-0.5 rounded-md">
-              Odoo Activity Engine (Kuwait Expiry Triggers)
+              تنبيهات الانتهاء
             </span>
           </div>
 
@@ -530,7 +530,7 @@ export const OdooChatter: React.FC<OdooChatterProps> = ({
             <div className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <Clock className="w-5 h-5 text-amber-400 shrink-0" />
-                <h3 className="font-bold text-sm">جدولة نشاط جديد (Schedule Activity - Odoo)</h3>
+                <h3 className="font-bold text-sm">جدولة نشاط جديد</h3>
               </div>
               <button 
                 type="button" 
@@ -671,7 +671,7 @@ export const OdooChatter: React.FC<OdooChatterProps> = ({
                   className="px-5 py-2 bg-[#714B67] hover:bg-[#5a3a52] text-white font-bold rounded-lg transition flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
                   <Check size={14} />
-                  جدولة النشاط في الـ Chatter
+                  جدولة النشاط في سجل المتابعة
                 </button>
               </div>
 

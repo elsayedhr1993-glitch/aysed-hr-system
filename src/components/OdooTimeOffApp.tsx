@@ -483,7 +483,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
     return { teamOverlaps, replacementOverlap };
   }, [requests, newRequest]);
 
-  // Form Inputs - Time Off Allocation (Odoo 18 Enterprise Form Fields)
+  // Form Inputs - Time Off Allocation (Aysed HR Form Fields)
   const [newAllocation, setNewAllocation] = useState({
     employeeId: companyEmployees[0]?.id || '',
     employeeName: companyEmployees[0]?.name || (companyEmployees[0] as any)?.fullNameAr || '',
@@ -1012,7 +1012,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-black text-slate-900">نظام إدارة الإجازات (Time Off)</h1>
               <span className="bg-[#714B67]/10 text-[#714B67] text-[10px] font-bold px-2.5 py-0.5 rounded-full">
-                Odoo 18 Enterprise
+                Aysed HR
               </span>
               <div
                 className="flex items-center bg-white border border-slate-200 rounded-lg p-0.5 text-[10px] font-bold shadow-2xs"
@@ -1624,7 +1624,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
             <div>
               <h2 className="text-sm font-bold text-slate-900">سجل الأرصدة الافتتاحية والمرحّلة (Leave Allocations)</h2>
-              <p className="text-xs text-slate-500">إدارة أرصدة الإجازات السنوية المرحلة من السنوات السابقة وفق Odoo 18</p>
+              <p className="text-xs text-slate-500">إدارة أرصدة الإجازات السنوية المرحلة من السنوات السابقة</p>
             </div>
             <button
               type="button"
@@ -1868,7 +1868,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                 <Calendar className="text-[#714B67]" size={20} />
                 <div>
                   <h3 className="font-bold text-sm text-slate-900">تقديم طلب إجازة رسمي جديد</h3>
-                  <p className="text-[10px] text-slate-400">نظام Odoo 18 مع استبعاد العطلات الكويتية آلياً وفحص التعارضات</p>
+                  <p className="text-[10px] text-slate-400">يستبعد العطلات الكويتية آلياً ويفحص التعارضات</p>
                 </div>
               </div>
               <button 
@@ -2170,7 +2170,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
       )}
 
       {/* ======================================================== */}
-      {/* MODAL 2: TIME OFF ALLOCATION MODAL (Odoo 18 Enterprise) */}
+      {/* MODAL 2: TIME OFF ALLOCATION MODAL (Aysed HR) */}
       {/* ======================================================== */}
       {showAllocationModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-2xs flex items-center justify-center p-4 z-50 overflow-y-auto animate-fade-in">
@@ -2186,7 +2186,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                     تخصيص رصيد إجازات مرحّل (Time Off Allocation)
                   </h3>
                   <p className="text-[11px] text-slate-500">
-                    تخصيص الرصيد الافتتاحي والمرحل وفق نظام Odoo 18
+                    تخصيص الرصيد الافتتاحي والمرحل
                   </p>
                 </div>
               </div>

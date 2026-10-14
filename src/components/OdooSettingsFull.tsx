@@ -133,7 +133,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           to: targetEmail,
-          subject: 'اختبار خادم البريد (Aysed S HR 2026) - تهيئة أودو',
+          subject: 'اختبار خادم البريد (Aysed HR)',
           smtpHost: formData.smtpHost,
           smtpPort: formData.smtpPort,
           smtpUser: formData.smtpUser,
@@ -143,7 +143,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
             <div dir="rtl" style="font-family: Arial, sans-serif; padding: 25px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff; max-width: 600px; margin: 0 auto;">
               <h2 style="color: #714B67; font-size: 20px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 15px;">نجاح الاتصال والتحقق السحابي!</h2>
               <p style="font-size: 14px; color: #334155; line-height: 1.6;">مرحباً،</p>
-              <p style="font-size: 14px; color: #334155; line-height: 1.6;">هذه رسالة اختبار تلقائية من <strong>نظام إعدادات أودو للموارد البشرية (Aysed S HR 2026)</strong>.</p>
+              <p style="font-size: 14px; color: #334155; line-height: 1.6;">هذه رسالة اختبار تلقائية من <strong>نظام إعدادات Aysed HR</strong>.</p>
               <p style="font-size: 14px; color: #334155; line-height: 1.6;">تم التحقق من ربط وتكامل خادم البريد الإلكتروني SMTP بنجاح للمنشأة: <strong style="color: #0f172a;">${formData.companyNameAr || 'الفنار كلينك'}</strong></p>
               
               <div style="margin-top: 25px; padding: 15px; background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 12px; color: #475569;">
@@ -289,7 +289,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-base font-bold text-slate-900">الإعدادات العامة للتهيئة والسياسات</h1>
               <span className="bg-purple-100 text-[#714B67] text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0">
-                Odoo 18 Enterprise
+                Aysed HR
               </span>
             </div>
             <p className="text-xs text-slate-500 truncate">
@@ -776,7 +776,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
                     ربط أجهزة البصمة (ZKTeco / Hikvision & Cloud ADMS Push):
                   </div>
                   <span className="text-[10px] bg-[#714B67]/10 text-[#714B67] font-bold px-2.5 py-1 rounded-md">
-                    Odoo Cloud Attendance Sync
+                    مزامنة الحضور السحابية
                   </span>
                 </div>
 
@@ -998,7 +998,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
                       <div>
                         <div className="text-xs font-black text-slate-900">وضع المطور (Developer Mode)</div>
                         <div className="text-[10px] text-slate-500 font-medium">
-                          أدوات الفحص الميداني، Odoo Inspector، وتشخيص الحقول — للمسؤولين فقط.
+                          أدوات الفحص الميداني وفاحص الحقول — للمسؤولين فقط.
                         </div>
                       </div>
                     </div>

@@ -120,7 +120,7 @@ export const OdooOrgChartView: React.FC = () => {
             <Network className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-xl font-black text-slate-900">الهيكل التنظيمي والشجري (Odoo Org Chart)</h1>
+            <h1 className="text-xl font-black text-slate-900">الهيكل التنظيمي</h1>
             <p className="text-xs text-slate-500 font-medium">
               المنشأة: <strong className="text-[#714B67]">{activeCompany?.nameAr || activeCompany?.name || 'المنشأة النشطة'}</strong> | عرض تسلسل التبعية الإدارية والمستويات الإشرافية
             </p>

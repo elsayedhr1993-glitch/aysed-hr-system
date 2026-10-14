@@ -43,7 +43,7 @@ export const EmployeeRecordChatter: React.FC<EmployeeRecordChatterProps> = ({
       <div className="px-4 py-2.5 border-b border-slate-200 bg-white flex flex-wrap items-center justify-between gap-2">
         <h4 className="font-bold text-slate-800 text-xs flex items-center gap-2">
           <MessageCircle size={14} className="text-[#714B67]" />
-          سجل المراسلات والملاحظات (Chatter)
+          سجل المتابعة
         </h4>
         <div className="flex gap-1 text-[10px] font-bold">
           <button

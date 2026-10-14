@@ -466,7 +466,7 @@ export const OdooRichDocumentEditor: React.FC<RichEditorProps> = ({
 
       {/* Editor Status Bar */}
       <div className="p-2 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-500 flex items-center justify-between px-4 font-mono">
-        <span>محرر وثائق Odoo 18 الاحترافي - ورقة قياس A4 معتمدة</span>
+        <span>محرر الوثائق — ورقة قياس A4</span>
         <span>اتجاه النص: العربية (RTL) | التنسيق: HTML5 غني</span>
       </div>
 

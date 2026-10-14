@@ -74,7 +74,7 @@ export const OdooDebugMenu: React.FC<OdooDebugMenuProps> = ({
     url.searchParams.set('debug', '1');
     window.history.pushState({}, '', url.toString());
     setIsDebugActive(true);
-    toast.success('تم تفعيل وضع مطور أودو (Odoo Developer Mode)', {
+    toast.success('تم تفعيل وضع المطوّر', {
       icon: '🐞',
       style: { borderRadius: '10px', background: '#333', color: '#fff' },
     });
@@ -182,7 +182,7 @@ export const OdooDebugMenu: React.FC<OdooDebugMenuProps> = ({
           <button
             onClick={enableDebugMode}
             className="o_debug_manager flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-white bg-purple-700/90 hover:bg-purple-800 rounded-md transition shadow-xs border border-purple-400/40 cursor-pointer"
-            title="تفعيل وضع المطور (Odoo Debug Mode)"
+            title="تفعيل وضع المطوّر"
           >
             <Bug className="w-3.5 h-3.5 text-amber-300" />
             <span className="hidden md:inline">وضع المطور</span>
@@ -198,7 +198,7 @@ export const OdooDebugMenu: React.FC<OdooDebugMenuProps> = ({
                   ? 'bg-purple-600 text-white border-purple-400 shadow-md ring-2 ring-purple-300 animate-pulse'
                   : 'bg-amber-300/90 hover:bg-amber-400 text-slate-900 border-amber-400 shadow-xs'
               }`}
-              title="أدوات مطور أودو (Open Odoo Developer Tools)"
+              title="أدوات المطوّر"
             >
               <Bug className={`w-4 h-4 text-slate-950 ${isInspectorActive ? 'animate-bounce' : ''}`} />
               {isSuperuser && (
@@ -223,7 +223,7 @@ export const OdooDebugMenu: React.FC<OdooDebugMenuProps> = ({
                   <div className="px-3 py-2 bg-slate-900 text-white rounded-t-xl border-b border-slate-800 flex items-center justify-between">
                     <div className="flex items-center gap-1.5 font-bold">
                       <Bug className="w-4 h-4 text-amber-400" />
-                      <span>أدوات المطور (Odoo Debug)</span>
+                      <span>أدوات المطوّر</span>
                     </div>
                   </div>
 
@@ -344,7 +344,7 @@ export const OdooDebugMenu: React.FC<OdooDebugMenuProps> = ({
             <div className="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
               <div className="flex items-center gap-2 font-bold text-sm">
                 <Database className="w-4 h-4 text-amber-400" />
-                <span>معلومات السجل الفنية (Odoo View Metadata)</span>
+                <span>معلومات السجل الفنية</span>
               </div>
               <button
                 onClick={() => setShowMetadataModal(false)}
@@ -405,7 +405,7 @@ export const OdooDebugMenu: React.FC<OdooDebugMenuProps> = ({
               <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5">
                 <Info className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
                 <div className="text-[11px] text-amber-900 leading-relaxed">
-                  هذا النموذج مرتبط بقاعدة بيانات PostgreSQL السحابية المتوافقة مع بنية Odoo Enterprise 18.0 مع عزل بيانات الشركات المتعددة (Multi-Company Domain Rules).
+                  هذا النموذج مرتبط بقاعدة البيانات السحابية مع عزل بيانات الشركات.
                 </div>
               </div>
             </div>
@@ -428,7 +428,7 @@ export const OdooDebugMenu: React.FC<OdooDebugMenuProps> = ({
             <div className="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
               <div className="flex items-center gap-2 font-bold text-sm">
                 <FileCode className="w-4 h-4 text-emerald-400" />
-                <span>تعديل واجهة العرض: {currentViewType} (Odoo View Architecture)</span>
+                <span>تعديل واجهة العرض: {currentViewType}</span>
               </div>
               <button
                 onClick={() => setShowEditViewModal(false)}
@@ -457,7 +457,7 @@ export const OdooDebugMenu: React.FC<OdooDebugMenuProps> = ({
             </div>
 
             <div className="px-5 py-3 bg-slate-900 border-t border-slate-800 flex items-center justify-between text-xs">
-              <span className="text-slate-400">Odoo Studio / Architecture Viewer (Active Model)</span>
+              <span className="text-slate-400">عارض بنية الشاشة</span>
               <button
                 onClick={() => setShowEditViewModal(false)}
                 className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg transition"

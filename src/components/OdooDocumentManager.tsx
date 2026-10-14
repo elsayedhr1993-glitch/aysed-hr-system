@@ -339,7 +339,7 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
             <div className="text-[11px] font-bold text-slate-400">المجلدات المصنفة والترميز اللوني ({folders.length}):</div>
             <div className="text-[10px] text-slate-400 flex items-center gap-1">
               <Palette size={12} className="text-[#714B67]" />
-              <span>Odoo Palette Architecture</span>
+              <span>لوحة الألوان</span>
             </div>
           </div>
 
@@ -592,7 +592,7 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-slate-600 font-bold flex items-center gap-1">
                     <Palette size={13} className="text-[#714B67]" />
-                    <span>لون وتصنيف المجلد (Odoo Color Tag)</span>
+                    <span>لون وتصنيف المجلد</span>
                   </label>
                   <span className="text-[10px] text-slate-400 font-medium">
                     {ODOO_PALETTE[newFolderColor]?.label}
@@ -856,7 +856,7 @@ export const OdooDocumentManager: React.FC<OdooDocumentManagerProps> = ({
               </div>
               <div>
                 <h4 className="font-bold text-sm text-slate-800">{previewDoc.name}</h4>
-                <p className="text-xs text-slate-500 mt-1">مستند رسمي مؤرشف في نظام Odoo Documents</p>
+                <p className="text-xs text-slate-500 mt-1">مستند رسمي مؤرشف في أرشيف المستندات</p>
                 {previewDoc.documentNumber && (
                   <p className="text-xs font-mono text-[#714B67] font-bold mt-1">
                     رقم الوثيقة: {previewDoc.documentNumber}

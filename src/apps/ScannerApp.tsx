@@ -419,7 +419,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
             <div className="flex items-center gap-2">
               <h1 className="text-lg font-bold text-slate-900">الماسح الضوئي الذكي (AI Document Scanner)</h1>
               <span className="bg-purple-100 text-[#714B67] text-[10px] font-bold px-2 py-0.5 rounded-full font-mono">
-                Odoo 18 OCR Station
+                محطة المسح
               </span>
             </div>
             <p className="text-xs text-slate-500">

@@ -676,7 +676,7 @@ export const OdooReportsApp: React.FC = () => {
           </div>
           <h1 className="text-xl font-black text-slate-900 flex items-center gap-2">
             <BarChart3 className="text-[#714B67]" size={22} />
-            نظام التقارير والتحليلات المؤسسية (Odoo HR Reporting & Analytics)
+            نظام التقارير والتحليلات
           </h1>
           <p className="text-[11px] text-slate-500 font-medium">
             المنشأة: <strong className="text-[#714B67]">{companyDisplayName}</strong> | القطاع الطبي والخاص الكويتي (حسابات 26 يوم عمل بالدينار الكويتي 0.000 KWD)
@@ -1340,7 +1340,7 @@ export const OdooReportsApp: React.FC = () => {
             <div>
               <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
                 <Layers className="text-[#714B67]" size={18} />
-                الجدول المحوري التفاعلي (Odoo Interactive Pivot Table)
+                الجدول المحوري التفاعلي
               </h3>
               <p className="text-[11px] text-slate-500 mt-0.5">
                 تجميع وتحليل البيانات حسب: <strong className="text-[#714B67]">{pivotGroupBy}</strong>

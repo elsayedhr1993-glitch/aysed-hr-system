@@ -128,7 +128,7 @@ export const OdooDocumentScanner: React.FC<OdooDocumentScannerProps> = ({ onAppl
             <Scan className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-lg font-black text-slate-900">الماسح الضوئي الذكي (Odoo Document AI OCR)</h2>
+            <h2 className="text-lg font-black text-slate-900">الماسح الضوئي الذكي</h2>
             <p className="text-xs text-slate-500">استخراج البيانات الحقيقية آلياً من البطاقة المدنية والجواز وتعبئة ملف الموظف</p>
           </div>
         </div>

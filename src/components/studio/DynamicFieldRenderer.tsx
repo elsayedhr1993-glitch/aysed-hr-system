@@ -120,7 +120,7 @@ export const CustomFieldsFormBlock: React.FC<CustomFieldsFormBlockProps> = ({
 
   return (
     <div className="border-t border-dashed border-slate-200 pt-3 mt-1 space-y-3">
-      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">حقول مخصصة (Studio)</p>
+      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">حقول مخصصة</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {visible.map(field => (
           <DynamicFieldRenderer

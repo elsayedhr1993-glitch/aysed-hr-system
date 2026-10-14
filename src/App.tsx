@@ -746,13 +746,13 @@ function MainAppLayout() {
       case 'switcher': return lang === 'ar' ? 'التطبيقات الرئيسية' : 'App Launcher';
       case 'employees': return lang === 'ar' ? 'شؤون الموظفين (Employees)' : 'Employees';
       case 'recruitment': return lang === 'ar' ? 'التوظيف والمقابلات الذكية (Recruitment & ATS)' : 'Recruitment & ATS';
-      case 'contracts': return lang === 'ar' ? 'عقود العمل والبدلات الرسمية (Odoo Contracts & PAM)' : 'Contracts & PAM';
+      case 'contracts': return lang === 'ar' ? 'عقود العمل والبدلات الرسمية' : 'Contracts & PAM';
       case 'attendance': return lang === 'ar' ? 'الحضور والانصراف (Time & Attendance)' : 'Time & Attendance';
       case 'leaves': return lang === 'ar' ? 'الإجازات (Time Off)' : 'Time Off';
       case 'payroll': return lang === 'ar' ? 'الرواتب وحماية الأجور (Payroll & WPS)' : 'Payroll & WPS';
       case 'custody': return lang === 'ar' ? 'العهد والممتلكات (Assets & Custodies)' : 'Assets & Custodies';
       case 'archive': return lang === 'ar' ? 'أرشيف المستندات (Documents Archive)' : 'Documents Archive';
-      case 'scanner': return lang === 'ar' ? 'الماسح الضوئي الذكي (Odoo Document Scanner)' : 'Smart Document Scanner';
+      case 'scanner': return lang === 'ar' ? 'الماسح الضوئي الذكي' : 'Smart Document Scanner';
       case 'letters': return lang === 'ar' ? 'النماذج والخطابات (Templates & Letters)' : 'Templates & Letters';
       case 'holidays': return lang === 'ar' ? 'العطلات الرسمية (Public Holidays)' : 'Public Holidays';
       case 'reports': return lang === 'ar' ? 'التقارير والتحليلات (Reports & Analytics)' : 'Reports & Analytics';

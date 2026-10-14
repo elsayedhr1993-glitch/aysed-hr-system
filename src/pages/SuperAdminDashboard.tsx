@@ -212,7 +212,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     try {
       const backupData: any = {
         metadata: {
-          system: 'Aysed S HR 2026 - Central Enterprise Suite',
+          system: 'Aysed HR — المنصة المركزية',
           version: '2026.4',
           exportedAt: new Date().toISOString(),
           exportedBy: currentUserEmail || 'Super Admin',

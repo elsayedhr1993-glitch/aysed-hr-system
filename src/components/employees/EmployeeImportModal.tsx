@@ -96,7 +96,7 @@ export const EmployeeImportModal: React.FC<Props> = ({
               استيراد الموظفين (Excel / CSV)
             </div>
             <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-              Odoo 18 — رفع دفعة واحدة مع تاريخ المباشرة الأصلي لحساب EOS والأرصدة الافتتاحية
+              رفع دفعة واحدة مع تاريخ المباشرة الأصلي لحساب نهاية الخدمة والأرصدة الافتتاحية
             </p>
           </div>
           <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 cursor-pointer">

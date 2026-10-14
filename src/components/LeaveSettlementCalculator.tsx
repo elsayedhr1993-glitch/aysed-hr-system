@@ -1179,7 +1179,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                   <div className="space-y-1.5 text-right flex-1">
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <h4 className="text-xs sm:text-sm font-black text-rose-900 flex items-center gap-1.5">
-                        <span>حظر برمجيات الحساب (Odoo Constraint Violation)</span>
+                        <span>حظر برمجيات الحساب</span>
                         <span className="px-2 py-0.5 rounded-full bg-rose-200 text-rose-800 text-[10px] font-bold">
                           تم قفل الحفظ والطباعة تلقائياً
                         </span>
