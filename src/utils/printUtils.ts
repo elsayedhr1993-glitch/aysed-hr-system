@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import html2canvasPro from 'html2canvas-pro';
 import { triggerSystemAlert } from '../guards/SystemIntegrityGuard';
+import { reportAudit } from '../services/auditClient';
 import {
   collectDocumentStylesheets,
   ODOO_NATIVE_PRINT_CSS,
@@ -60,6 +61,7 @@ export async function exportElementToPdf(
 
     const cleanFileName = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
     pdf.save(cleanFileName);
+    reportAudit({ action: 'export', entityType: 'print', entityId: cleanFileName, after: { exported: true } });
     return true;
   } catch (error) {
     console.error('Failed to export PDF:', error);
@@ -159,8 +161,10 @@ export async function printDocument(htmlContentOrId: string, fileName: string = 
   targetEl.classList.add('odoo-report-print-root');
 
   if (openCleanPrintPopup(targetEl, fileName)) {
+    reportAudit({ action: 'export', entityType: 'print', entityId: fileName, after: { exported: true } });
     return;
   }
 
   printElementInPlace(targetEl);
+  reportAudit({ action: 'export', entityType: 'print', entityId: fileName, after: { exported: true } });
 }

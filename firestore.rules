@@ -574,9 +574,7 @@ service cloud.firestore {
       allow create: if isSuperAdmin()
         || (sameTenantIncoming() && auditRole())
         || (incomingTenantCanonical() != null && isAuthEmailCompanyAdmin(incomingTenantCanonical()));
-      allow update, delete: if isSuperAdmin()
-        || (canWriteTenantDoc() && auditRole())
-        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
+      allow update, delete: if false;
     }
     match /work_on_holidays/{docId} {
       allow read: if isSuperAdmin()

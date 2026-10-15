@@ -49,7 +49,7 @@ export const GlobalSpotlightSearchModal: React.FC<GlobalSpotlightSearchModalProp
     { id: 'holidays', name: 'العطلات الرسمية الكويتية (Public Holidays)', icon: Sparkles, category: 'apps' },
     { id: 'reports', name: 'التقارير والتحليلات ولوحة القيادة (Reports & Analytics & Pivot)', icon: Sparkles, category: 'apps' },
     { id: 'moh', name: 'تراخيص وزارة الصحة والكادر الطبي (MOH Medical Hub)', icon: Stethoscope, category: 'apps' },
-    { id: 'audit', name: 'سجل الرقابة وتتبع العمليات وفحص الجاهزية (Audit Logs & Diagnostics)', icon: ShieldCheck, category: 'apps' },
+    { id: 'audit', name: 'سجل الرقابة وتتبع العمليات', icon: ShieldCheck, category: 'apps' },
     { id: 'settings', name: 'بيانات المنشأة والإعدادات (Settings)', icon: Building2, category: 'apps' }
   ];
 

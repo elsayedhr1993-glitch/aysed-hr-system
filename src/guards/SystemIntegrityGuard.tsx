@@ -27,6 +27,14 @@ export const safePrintAction = (targetDocumentName = 'التقرير الرسم�
   try {
     if (typeof window !== 'undefined') {
       window.print();
+      void import('../services/auditClient').then(({ reportAudit }) => {
+        reportAudit({
+          action: 'export',
+          entityType: 'print',
+          entityId: targetDocumentName,
+          after: { exported: true },
+        });
+      }).catch(() => undefined);
       return;
     }
   } catch (err: any) {

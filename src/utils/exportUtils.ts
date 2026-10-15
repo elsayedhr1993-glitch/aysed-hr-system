@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { toast } from 'react-hot-toast';
+import { reportAudit } from '../services/auditClient';
 
 /**
  * Universal Excel Exporter (.xlsx) using SheetJS
@@ -28,6 +29,12 @@ export function exportToExcel(
     XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
 
     XLSX.writeFile(workbook, cleanFileName);
+    reportAudit({
+      action: 'export',
+      entityType: 'export',
+      entityId: cleanFileName,
+      after: { exported: true },
+    });
     toast.success(`تم تصدير ملف إكسيل بنجاح (${cleanFileName})`);
     return true;
   } catch (error) {
@@ -81,6 +88,12 @@ export function exportToCsv(
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
+    reportAudit({
+      action: 'export',
+      entityType: 'export',
+      entityId: cleanFileName,
+      after: { exported: true },
+    });
     toast.success(`تم تصدير ملف CSV بنجاح (${cleanFileName})`);
     return true;
   } catch (error) {

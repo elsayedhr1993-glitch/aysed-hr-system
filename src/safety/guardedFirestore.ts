@@ -1,6 +1,8 @@
 // @ts-nocheck
 import * as raw from '../../node_modules/firebase/firestore/dist/esm/index.esm.js';
 import { isLocalProdLocked } from './ProdWriteGuard';
+import { planFirestoreAudit } from '../services/auditClassify';
+import { reportAudit } from '../services/auditClient';
 
 const WRITE_NAMES = new Set([
   'setDoc',
@@ -17,23 +19,99 @@ function blockWrite(name: string) {
   return true;
 }
 
-function guard(name: string, fn: (...args: unknown[]) => unknown) {
+function roleChanged(before: unknown, after: unknown): boolean {
+  if (!after || typeof after !== 'object' || !('role' in (after as object))) return false;
+  if (!before || typeof before !== 'object' || !('role' in (before as object))) return true;
+  return String((before as { role?: unknown }).role) !== String((after as { role?: unknown }).role);
+}
+
+function observeWrite(
+  path: string,
+  data: unknown,
+  op: 'set' | 'delete',
+  before: unknown,
+  known: boolean,
+  merge: boolean
+) {
+  const plan = planFirestoreAudit(path, op === 'delete' ? before : data, op);
+  if (!plan) return;
+  if (plan.action === 'permission_change' && op !== 'delete' && !roleChanged(before, data)) return;
+  let action = plan.action;
+  if (!plan.keepAction) {
+    if (op === 'delete') action = 'delete';
+    else if (known) action = before ? 'update' : 'create';
+    else action = merge ? 'update' : 'create';
+  }
+  reportAudit({
+    action,
+    entityType: plan.entityType,
+    entityId: plan.entityId,
+    before,
+    after: op === 'delete' ? null : data,
+  });
+}
+
+function readBefore(ref: unknown): Promise<{ known: boolean; data: unknown }> {
+  const unknownSnap = { known: false, data: null as unknown };
+  if (!ref) return Promise.resolve(unknownSnap);
+  return Promise.race([
+    raw.getDoc(ref).then((snap: { exists?: () => boolean; data?: () => unknown }) => {
+      if (snap && typeof snap.exists === 'function' && snap.exists() && snap.data) {
+        return { known: true, data: snap.data() };
+      }
+      return { known: true, data: null };
+    }).catch(() => unknownSnap),
+    new Promise((resolve) => setTimeout(() => resolve(unknownSnap), 800)),
+  ]);
+}
+
+function guardSensitive(name: string, fn: (...args: unknown[]) => unknown, op: 'set' | 'delete') {
   return (...args: unknown[]) => {
     if (blockWrite(name)) return Promise.resolve(undefined);
-    return fn(...args);
+    const ref = args[0] as { path?: string } | undefined;
+    const data = op === 'delete' ? null : args[1];
+    const path = ref && ref.path ? String(ref.path) : '';
+    const merge = Boolean((args[2] as { merge?: boolean } | undefined)?.merge);
+    const root = path.split('/').filter(Boolean)[0] || '';
+    const deferAttendanceDelete = op === 'delete' && (root === 'attendance' || root === 'attendance_records');
+    const interesting = path && (planFirestoreAudit(path, data, op) || deferAttendanceDelete);
+    if (!interesting) return fn(...args);
+    return readBefore(ref).then((prior) => {
+      const result = fn(...args);
+      Promise.resolve(result).then(
+        () => observeWrite(path, data, op, prior.data, prior.known, merge),
+        () => undefined
+      );
+      return result;
+    });
   };
 }
 
 export function writeBatch(...args: unknown[]) {
   const batch = raw.writeBatch(...args);
-  if (!isLocalProdLocked()) return batch;
-  return new Proxy(batch, {
-    get(target, prop, receiver) {
-      if (prop === 'commit') return () => Promise.resolve();
-      const value = Reflect.get(target, prop, receiver);
-      return typeof value === 'function' ? value.bind(target) : value;
+  const ops: Array<{ path: string; data: unknown; op: 'set' | 'delete'; merge: boolean }> = [];
+  return {
+    set(ref: { path?: string }, data: unknown, options?: { merge?: boolean }) {
+      ops.push({ path: String(ref?.path || ''), data, op: 'set', merge: Boolean(options?.merge) });
+      return batch.set(ref, data, options);
     },
-  });
+    update(ref: { path?: string }, data: unknown) {
+      ops.push({ path: String(ref?.path || ''), data, op: 'set', merge: true });
+      return batch.update(ref, data);
+    },
+    delete(ref: { path?: string }) {
+      ops.push({ path: String(ref?.path || ''), data: null, op: 'delete', merge: false });
+      return batch.delete(ref);
+    },
+    commit() {
+      if (isLocalProdLocked()) return Promise.resolve();
+      const pending = batch.commit();
+      void Promise.resolve(pending).then(() => {
+        for (const op of ops) observeWrite(op.path, op.data, op.op, null, false, op.merge);
+      }, () => undefined);
+      return pending;
+    },
+  };
 }
 
 export function runTransaction(...args: unknown[]) {
@@ -41,10 +119,23 @@ export function runTransaction(...args: unknown[]) {
   return raw.runTransaction(...args);
 }
 
-export const setDoc = guard('setDoc', raw.setDoc);
-export const addDoc = guard('addDoc', raw.addDoc);
-export const updateDoc = guard('updateDoc', raw.updateDoc);
-export const deleteDoc = guard('deleteDoc', raw.deleteDoc);
+export const setDoc = guardSensitive('setDoc', raw.setDoc, 'set');
+export const updateDoc = guardSensitive('updateDoc', raw.updateDoc, 'set');
+export const deleteDoc = guardSensitive('deleteDoc', raw.deleteDoc, 'delete');
+export const addDoc = (...args: unknown[]) => {
+  if (blockWrite('addDoc')) return Promise.resolve(undefined);
+  const col = args[0] as { path?: string } | undefined;
+  const data = args[1];
+  const path = col && col.path ? String(col.path) : '';
+  const result = raw.addDoc(...args);
+  if (path) {
+    void Promise.resolve(result).then(
+      (ref: { id?: string }) => observeWrite(`${path}/${ref?.id || ''}`, data, 'set', null, true, false),
+      () => undefined
+    );
+  }
+  return result;
+};
 
 export const {
   collection,

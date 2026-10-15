@@ -114,13 +114,14 @@ const PLATFORM_ONLY = new Set<TenantCollection>(['subscriptions', 'subscription_
 export function decideTenantAccess(input: {
   role: string | undefined | null;
   collection: TenantCollection;
-  op: 'read' | 'write';
+  op: 'read' | 'write' | 'create' | 'update' | 'delete';
   sameTenant: boolean;
   platformAdmin?: boolean;
   ownRecord?: boolean;
   sameDepartment?: boolean;
   emailMatchesCompanyAdmin?: boolean;
 }): boolean {
+  if (input.collection === 'audit_logs' && (input.op === 'update' || input.op === 'delete')) return false;
   if (input.platformAdmin || normalizeHrRole(input.role) === 'SUPER_ADMIN') return true;
   const role = normalizeHrRole(input.role);
   if (role === 'UNKNOWN' && !input.emailMatchesCompanyAdmin) return false;
@@ -150,6 +151,7 @@ export function decideTenantAccess(input: {
     return writeHr;
   }
   if (input.collection === 'audit_logs') {
+    if (input.op === 'update' || input.op === 'delete') return false;
     return role === 'COMPANY_ADMIN' || role === 'HR_MANAGER';
   }
   if (input.collection === 'facility_alerts') {

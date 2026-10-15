@@ -13,6 +13,7 @@ import {
   recordLoginFailure,
 } from './authSecurity';
 import { recordIdentityView } from './identityAudit';
+import { recordAuditEvent } from './auditLog';
 import { sessionCookie } from './securityHeaders';
 import { generateTotpSecret, totpKeyUri, verifyTotp } from './totp';
 import { canRevealIdentity, totpRequiredForRole } from '../src/security/accessRoles';
@@ -42,6 +43,14 @@ export function registerAuthRoutes(app: Express): void {
   app.post('/api/auth/login-failure', (req, res) => {
     const email = String(req.body?.email || '').trim().toLowerCase();
     if (email) recordLoginFailure(attemptKey(clientIp(req), email));
+    recordAuditEvent({
+      actor: { uid: 'anonymous', name: email || 'غير معروف', role: 'UNKNOWN' },
+      action: 'login_failure',
+      entityType: 'session',
+      entityId: '',
+      ip: clientIp(req),
+      sessionCompanyId: '',
+    });
     return res.status(401).json({ success: false, error: GENERIC_LOGIN_ERROR });
   });
 
@@ -49,6 +58,18 @@ export function registerAuthRoutes(app: Express): void {
     const auth = await requireFirebaseAuthFromHeader(req.headers.authorization);
     if (!auth.ok) return res.status(401).json({ success: false, error: GENERIC_LOGIN_ERROR });
     clearLoginFailures(attemptKey(clientIp(req), auth.email));
+    const tenant = req.sessionTenant;
+    const adminRoles = new Set(['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_MANAGER']);
+    if (tenant && adminRoles.has(tenant.role)) {
+      recordAuditEvent({
+        actor: { uid: tenant.uid, name: tenant.email || auth.email, role: tenant.role },
+        action: 'login',
+        entityType: 'session',
+        entityId: tenant.uid,
+        ip: clientIp(req),
+        sessionCompanyId: tenant.companyId,
+      });
+    }
     res.setHeader('Set-Cookie', sessionCookie(auth.token, IDLE_MS, isSecureRequest(req)));
     return res.json({ success: true, idleMinutes: IDLE_MS / 60000 });
   });
@@ -186,12 +207,22 @@ export function registerAuthRoutes(app: Express): void {
       return res.status(403).json({ success: false, error: 'غير مخول لعرض الهوية كاملة' });
     }
     const kind = req.body?.kind === 'passport' ? 'passport' : 'civil';
+    const purpose = String(req.body?.purpose || 'view').slice(0, 80);
     const event = recordIdentityView({
       uid: tenant.uid,
       role: tenant.role,
       companyId: tenant.companyId,
       kind,
-      purpose: String(req.body?.purpose || 'view').slice(0, 80),
+      purpose,
+    });
+    recordAuditEvent({
+      actor: { uid: tenant.uid, name: tenant.email, role: tenant.role },
+      action: 'view_sensitive',
+      entityType: 'identity',
+      entityId: kind,
+      after: { purpose },
+      ip: clientIp(req),
+      sessionCompanyId: tenant.companyId,
     });
     return res.json({ success: true, id: event.id });
   });

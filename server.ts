@@ -43,6 +43,8 @@ import {
   resolveRegisteredDeviceCompany,
 } from "./server/deviceRegistry.ts";
 import { newTenantCredentials, registerAuthRoutes } from "./server/authRoutes.ts";
+import { registerAuditRoutes } from "./server/auditRoutes.ts";
+import { recordAuditEvent, requestIp } from "./server/auditLog.ts";
 import {
   getAdminApp,
   getAdminAuth,
@@ -84,6 +86,8 @@ app.use((req, res, next) => {
     '/api/auth/totp/verify',
     '/api/auth/session/touch',
     '/api/audit/identity-view',
+    '/api/audit/events',
+    '/api/audit/export',
   ]);
   if (memoryOnlyPosts.has(req.path)) return next();
   if (req.path.startsWith('/api/')) {
@@ -160,6 +164,7 @@ app.use(createTenantScopeMiddleware({
   resolveTenant: (auth) => resolveCallerRole(auth),
 }));
 registerAuthRoutes(app);
+registerAuditRoutes(app);
 
 let supabaseAdminClient: any = null;
 function getSupabaseAdmin() {
@@ -438,7 +443,15 @@ async function registeredDeviceCompany(req: any): Promise<string | undefined> {
   return companyId;
 }
 
-function rejectUnregisteredDevice(res: any, asText = false) {
+function rejectUnregisteredDevice(req: any, res: any, asText = false) {
+  recordAuditEvent({
+    actor: { uid: 'device', name: 'جهاز غير مسجل', role: 'UNKNOWN' },
+    action: 'device_rejected',
+    entityType: 'device',
+    entityId: String(req?.path || ''),
+    ip: requestIp(req || {}),
+    sessionCompanyId: req?.sessionTenant?.companyId || '',
+  });
   if (asText) return res.status(401).type('text/plain').send('Unauthorized');
   return res.status(401).json({ success: false, error: 'الجهاز غير مسجّل' });
 }
@@ -446,7 +459,7 @@ function rejectUnregisteredDevice(res: any, asText = false) {
 // 1. ZKTeco ADMS Handshake (GET /iclock/cdata)
 app.get("/iclock/cdata", async (req, res) => {
   const companyId = await registeredDeviceCompany(req);
-  if (!companyId) return rejectUnregisteredDevice(res, true);
+  if (!companyId) return rejectUnregisteredDevice(req, res, true);
   const sn = req.query.SN || "UNKNOWN";
   console.log(`[Biometric ADMS Handshake] Device registered`);
   void companyId;
@@ -456,7 +469,7 @@ app.get("/iclock/cdata", async (req, res) => {
 // 2. ZKTeco ADMS Real-time Data Push (POST /iclock/cdata)
 app.post("/iclock/cdata", express.text({ type: "*/*" }), async (req, res) => {
   const companyId = await registeredDeviceCompany(req);
-  if (!companyId) return rejectUnregisteredDevice(res, true);
+  if (!companyId) return rejectUnregisteredDevice(req, res, true);
   try {
     const rawData = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
     const sn = (req.query.SN as string) || "ZKTeco-ADMS";
@@ -499,7 +512,7 @@ app.post("/iclock/cdata", express.text({ type: "*/*" }), async (req, res) => {
 app.post("/api/biometrics/sync", express.json(), async (req, res) => {
   try {
     const companyId = await registeredDeviceCompany(req);
-    if (!companyId) return rejectUnregisteredDevice(res);
+    if (!companyId) return rejectUnregisteredDevice(req, res);
     const { logs } = req.body;
     if (Array.isArray(logs)) {
       logs.forEach((log: any) => {
@@ -890,7 +903,7 @@ app.post("/api/attendance/live-push", async (req, res) => {
   try {
     const { punches, deviceSn } = req.body;
     const sessionCompanyId = await registeredDeviceCompany(req);
-    if (!sessionCompanyId) return rejectUnregisteredDevice(res);
+    if (!sessionCompanyId) return rejectUnregisteredDevice(req, res);
     const rawPunches = Array.isArray(punches) ? punches : [req.body];
 
     if (!rawPunches || rawPunches.length === 0) {
@@ -990,7 +1003,7 @@ app.post("/api/attendance/live-push", async (req, res) => {
 app.all(["/api/zkteco/iclock/cdata"], express.text({ type: "*/*" }), async (req, res) => {
   const sn = (req.query.SN || req.body?.SN || '').toString();
   const effCompId = await registeredDeviceCompany(req);
-  if (!effCompId) return rejectUnregisteredDevice(res, true);
+  if (!effCompId) return rejectUnregisteredDevice(req, res, true);
 
   if (req.method === 'GET') {
     res.setHeader("Content-Type", "text/plain");
@@ -1065,7 +1078,7 @@ app.all(["/api/zkteco/iclock/cdata"], express.text({ type: "*/*" }), async (req,
 
 app.get("/api/attendance/live-logs", async (req, res) => {
   const compId = await registeredDeviceCompany(req);
-  if (!compId) return rejectUnregisteredDevice(res);
+  if (!compId) return rejectUnregisteredDevice(req, res);
   const filtered = livePunchesCache.filter(p => p.companyId === compId);
   return res.json({
     success: true,
@@ -1747,6 +1760,19 @@ app.post("/api/admin/set-tenant-active", express.json(), async (req, res) => {
   try {
     const userRecord = await admin.getUserByEmail(email);
     await admin.updateUser(userRecord.uid, { disabled: !active });
+    recordAuditEvent({
+      actor: {
+        uid: req.sessionTenant?.uid || 'platform',
+        name: req.sessionTenant?.email || 'platform',
+        role: req.sessionTenant?.role || 'SUPER_ADMIN',
+      },
+      action: 'update',
+      entityType: 'facility',
+      entityId: email,
+      after: { active, status: active ? 'active' : 'suspended' },
+      ip: requestIp(req),
+      sessionCompanyId: req.sessionTenant?.companyId || '',
+    });
     return res.json({
       success: true,
       message: active ? "تم تفعيل حساب المنشأة في Auth" : "تم تعليق حساب المنشأة في Auth",
@@ -1833,6 +1859,19 @@ app.post("/api/admin/create-tenant", express.json(), async (req, res) => {
         console.warn("Custom claims note:", claimErr);
       }
 
+      recordAuditEvent({
+        actor: {
+          uid: req.sessionTenant?.uid || 'platform',
+          name: req.sessionTenant?.email || 'platform',
+          role: req.sessionTenant?.role || 'SUPER_ADMIN',
+        },
+        action: 'create',
+        entityType: 'facility',
+        entityId: boundCompanyId,
+        after: { status: 'active' },
+        ip: requestIp(req),
+        sessionCompanyId: req.sessionTenant?.companyId || '',
+      });
       return res.json({
         success: true,
         uid,
@@ -1887,6 +1926,19 @@ app.post("/api/admin/delete-tenant", express.json(), async (req, res) => {
         await admin.deleteUser(targetUid);
       }
 
+      recordAuditEvent({
+        actor: {
+          uid: req.sessionTenant?.uid || 'platform',
+          name: req.sessionTenant?.email || 'platform',
+          role: req.sessionTenant?.role || 'SUPER_ADMIN',
+        },
+        action: 'delete',
+        entityType: 'facility',
+        entityId: String(email || uid || ''),
+        after: { archived: true },
+        ip: requestIp(req),
+        sessionCompanyId: req.sessionTenant?.companyId || '',
+      });
       return res.json({
         success: true,
         message: "تم حذف حساب مسؤول الشركة من Firebase Authentication بنجاح"

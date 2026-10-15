@@ -11,6 +11,7 @@ import { UiStudioContentGutter } from './components/studio/UiStudioContentGutter
 import { useCompany } from './context/CompanyContext';
 import { OdooHierarchyProvider, useOdooHierarchy } from './context/OdooHierarchyContext';
 import { useAuth } from './context/AuthContext';
+import { buildAuthedJsonHeaders } from './lib/clientAuth';
 import { toast, Toaster } from 'react-hot-toast';
 import { 
   Users, 
@@ -139,6 +140,7 @@ function MainAppLayout() {
   const [shifts, setShifts] = useState<any[]>([]);
   const [employeeShifts, setEmployeeShifts] = useState<any[]>([]);
   const [debugMode, setDebugMode] = useState(false);
+  const [auditLogsCount, setAuditLogsCount] = useState(0);
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   // User Avatar & Profile state
@@ -158,6 +160,29 @@ function MainAppLayout() {
   const [activeApp, setActiveApp] = useState<AppId>(() => {
     return 'switcher';
   });
+
+  useEffect(() => {
+    if (!user) {
+      setAuditLogsCount(0);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const headers = await buildAuthedJsonHeaders();
+        const res = await fetch('/api/audit/events?pageSize=1', { headers });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && typeof data.total === 'number') setAuditLogsCount(data.total);
+      } catch {
+        /* the launcher count stays at the last successful read */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid, activeApp]);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [documents, setDocuments] = useState<any[]>([]);
   const [companyDocumentsCount, setCompanyDocumentsCount] = useState(0);
@@ -734,7 +759,7 @@ function MainAppLayout() {
     { id: 'holidays', name: 'العطلات الرسمية', subtitle: 'Public Holidays', icon: Sparkles, color: 'bg-purple-600' },
     { id: 'reports', name: 'التقارير والتحليلات', subtitle: 'Reports, Pivot & Executive Dashboard', icon: BarChart3, color: 'bg-blue-600' },
     { id: 'moh', name: 'تراخيص وزارة الصحة', subtitle: 'MOH Medical Hub', icon: Stethoscope, color: 'bg-teal-700' },
-    { id: 'audit', name: 'سجل الرقابة وتتبع العمليات', subtitle: 'Audit Logs & Diagnostics', icon: ShieldAlert, color: 'bg-zinc-800' },
+    { id: 'audit', name: 'سجل الرقابة وتتبع العمليات', subtitle: 'Audit log', icon: ShieldAlert, color: 'bg-zinc-800' },
   ];
 
   const filteredApps = appsList.filter(app => 
@@ -759,7 +784,7 @@ function MainAppLayout() {
       case 'reports': return lang === 'ar' ? 'التقارير والتحليلات (Reports & Analytics)' : 'Reports & Analytics';
       case 'moh': return lang === 'ar' ? 'إدارة التراخيص الطبية والكادر الصحي (MOH Medical Hub)' : 'MOH Medical Hub';
       case 'compliance_tree': return lang === 'ar' ? 'شجرة الامتثال الحكومي والتراخيص' : 'Government Compliance Tree';
-      case 'audit': return lang === 'ar' ? 'سجل الرقابة وتتبع العمليات (Audit Logs & Diagnostic Center)' : 'Audit Logs & Diagnostic Center';
+      case 'audit': return lang === 'ar' ? 'سجل الرقابة وتتبع العمليات' : 'Audit log';
       case 'settings': return lang === 'ar'
         ? (isSuperAdmin ? 'الإعدادات والمشتركين (Settings)' : 'بيانات المنشأة والإعدادات (Settings)')
         : (isSuperAdmin ? 'Settings & SaaS Tenants' : 'Company Settings');
@@ -958,7 +983,7 @@ function MainAppLayout() {
                 automationsCount: 0,
                 custodiesCount: 0,
                 templatesCount: 0,
-                auditLogsCount: 0,
+                auditLogsCount,
                 shiftsCount: shifts?.length || 0,
                 totalSalariesThisMonth: employees?.reduce((acc: number, e: any) => acc + (Number(e.basicSalary || e.salary || 0) + Number(e.housingAllowance || 0) + Number(e.transportAllowance || 0) + Number(e.natureOfWorkAllowance || 0)), 0) || 0,
                 onLeaveToday: leaveStats.onLeaveToday,
