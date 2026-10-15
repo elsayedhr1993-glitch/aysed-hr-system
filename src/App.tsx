@@ -161,6 +161,15 @@ function MainAppLayout() {
   const [activeApp, setActiveApp] = useState<AppId>(() => {
     return 'switcher';
   });
+  const [employeesChrome, setEmployeesChrome] = useState({ directoryList: false, chromeVisible: false });
+  const onEmployeesChromeState = useCallback(
+    (next: { directoryList: boolean; chromeVisible: boolean }) => {
+      setEmployeesChrome((prev) =>
+        prev.directoryList === next.directoryList && prev.chromeVisible === next.chromeVisible ? prev : next
+      );
+    },
+    []
+  );
 
   useEffect(() => {
     if (!user) {
@@ -907,6 +916,11 @@ function MainAppLayout() {
         setDebugMode={setDebugMode}
         debugMode={debugMode}
         logout={logout}
+        hideGlobalSearch={activeApp === 'employees' && employeesChrome.directoryList}
+        hideScreenPath={activeApp === 'employees' && employeesChrome.chromeVisible}
+        hiddenQuickActionKeys={
+          activeApp === 'employees' && employeesChrome.directoryList ? ['new_employee'] : []
+        }
       />
 
 
@@ -1014,6 +1028,7 @@ function MainAppLayout() {
                 {...employeeAppProps}
                 isSuperAdmin={isSuperAdmin}
                 onNavigateToApp={(appId: string) => setActiveApp(appId as typeof activeApp)}
+                onEmployeesChromeState={onEmployeesChromeState}
               />
           </OdooAppCanvas>
         )}

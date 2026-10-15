@@ -1388,6 +1388,13 @@ export function EmployeesApp(props?: any) {
   const hasActiveDirectoryFilters =
     Boolean(searchQuery || selectedDept || selectedStatus || kpiFilter !== 'all');
 
+  useEffect(() => {
+    const directoryList = activeTab === 'directory' && !selectedEmployee;
+    const chromeVisible = !(selectedEmployee && activeTab === 'directory');
+    props?.onEmployeesChromeState?.({ directoryList, chromeVisible });
+    return () => props?.onEmployeesChromeState?.({ directoryList: false, chromeVisible: false });
+  }, [activeTab, selectedEmployee, props?.onEmployeesChromeState]);
+
   return (
     <div className="flex-1 flex flex-col w-full font-sans select-none text-slate-800 min-h-0" dir="rtl">
 

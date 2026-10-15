@@ -47,6 +47,12 @@ interface TopEnterpriseActionBarProps {
   setDebugMode: React.Dispatch<React.SetStateAction<boolean>>;
   debugMode: boolean;
   logout: () => void;
+  /** إخفاء بحث الشريط عندما تعرض الشاشة بحثها الخاص. */
+  hideGlobalSearch?: boolean;
+  /** إخفاء مسار الشريط عندما تعرض الشاشة مسارها. */
+  hideScreenPath?: boolean;
+  /** مفاتيح إجراءات سريعة تُخفى من القائمة، مثل new_employee على الدليل. */
+  hiddenQuickActionKeys?: string[];
 }
 
 export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
@@ -78,7 +84,10 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
   setShowAvatarModal,
   setDebugMode,
   debugMode,
-  logout
+  logout,
+  hideGlobalSearch = false,
+  hideScreenPath = false,
+  hiddenQuickActionKeys = [],
 }) => {
   const { isActualSuperAdmin, isTenantViewEnabled, setIsTenantViewEnabled } = useTenant();
   const { lang, setLang } = useLang();
@@ -546,17 +555,20 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
           </div>
         )}
 
-        {/* عنوان الشاشة الحالية - معروض فقط على الشاشات العريضة جداً لتوفير المساحة */}
-        <div className="hidden lg:flex items-center gap-2 text-white/90 text-xs font-bold border-r border-white/20 pr-2.5 mr-1 min-w-0 max-w-[min(100%,22rem)]">
-          <span className="text-white/70 font-normal shrink-0">{lang === 'ar' ? 'المسار:' : 'Path:'}</span>
-          <span className="text-white font-black leading-tight line-clamp-2 lg:line-clamp-1" title={getActiveAppTitle()}>
-            {getActiveAppTitle()}
-          </span>
-        </div>
+        {/* عنوان الشاشة الحالية — يُخفى عندما تعرض الصفحة مسارها */}
+        {!hideScreenPath && (
+          <div className="hidden lg:flex items-center gap-2 text-white/90 text-xs font-bold border-r border-white/20 pr-2.5 mr-1 min-w-0 max-w-[min(100%,22rem)]">
+            <span className="text-white/70 font-normal shrink-0">{lang === 'ar' ? 'المسار:' : 'Path:'}</span>
+            <span className="text-white font-black leading-tight line-clamp-2 lg:line-clamp-1" title={getActiveAppTitle()}>
+              {getActiveAppTitle()}
+            </span>
+          </div>
+        )}
 
       </div>
 
       {/* 🔍 المنتصف: شريط البحث الشامل Spotlight Search */}
+      {!hideGlobalSearch && (
       <div className="flex-1 min-w-[100px] max-w-[160px] sm:max-w-[200px] md:max-w-[240px] lg:max-w-xs mx-1.5 sm:mx-2">
         <button
           onClick={onOpenSpotlight}
@@ -575,6 +587,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
           </div>
         </button>
       </div>
+      )}
 
       {/* ⚡ الجانب الأيسر: الوظائف السريعة، الحاسبة، الإشعارات، والملف الشخصي */}
       <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
@@ -606,7 +619,11 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
               dir={lang === 'ar' ? 'rtl' : 'ltr'}
             >
               <div className="grid grid-cols-2 divide-x divide-slate-200">
-                {renderOdooMenuColumn('العمليات والسجلات', 'Operations & records', operationsColumnItems)}
+                {renderOdooMenuColumn(
+                  'العمليات والسجلات',
+                  'Operations & records',
+                  operationsColumnItems.filter((item) => !hiddenQuickActionKeys.includes(item.key))
+                )}
                 {renderOdooMenuColumn('الحاسبات والأدوات', 'Calculators & tools', toolsColumnItems)}
               </div>
             </div>

@@ -150,47 +150,78 @@ export const HeaderBar: React.FC<EmployeesHeaderBarProps> = ({
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-600 block mb-1">الحالة</label>
-                <select
-                  value={selectedStatus || ''}
-                  onChange={(e) => onStatusChange(e.target.value || null)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-md px-2 py-1.5 text-[11px] cursor-pointer"
-                >
-                  <option value="">كل الحالات</option>
-                  <option value="على رأس العمل">على رأس العمل</option>
-                  <option value="في إجازة">في إجازة</option>
-                  <option value="قيد التعيين">قيد التعيين</option>
-                </select>
-              </div>
-              {onKpiFilterChange && directoryCounts ? (
+              {onKpiFilterChange ? (
                 <div>
-                  <label className="text-[10px] font-bold text-slate-600 block mb-1.5">مؤشرات سريعة</label>
+                  <label className="text-[10px] font-bold text-slate-600 block mb-1.5">الحالة</label>
                   <div className="flex flex-wrap gap-1">
                     {(
                       [
-                        ['all', `الكل ${directoryCounts.total}`],
-                        ['on_duty', `على رأس العمل ${directoryCounts.onDuty}`],
-                        ['on_leave', `في إجازة ${directoryCounts.onLeave}`],
-                        ['residency_expiring', `إقامات ${directoryCounts.residencyExpiring}`],
+                        ['all', directoryCounts ? `الكل ${directoryCounts.total}` : 'الكل'],
+                        ['on_duty', directoryCounts ? `على رأس العمل ${directoryCounts.onDuty}` : 'على رأس العمل'],
+                        ['on_leave', directoryCounts ? `في إجازة ${directoryCounts.onLeave}` : 'في إجازة'],
+                        ['hiring', 'قيد التعيين'],
+                        ['residency', directoryCounts ? `إقامات ${directoryCounts.residencyExpiring}` : 'إقامات'],
                       ] as const
-                    ).map(([id, label]) => (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => onKpiFilterChange(id)}
-                        className={`px-2 py-0.5 rounded text-[10px] cursor-pointer border ${
-                          kpiFilter === id
-                            ? 'bg-primary text-white border-primary font-bold'
-                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
+                    ).map(([id, label]) => {
+                      const active =
+                        id === 'all'
+                          ? !selectedStatus && (!kpiFilter || kpiFilter === 'all')
+                          : id === 'on_duty'
+                            ? selectedStatus === 'على رأس العمل' && (!kpiFilter || kpiFilter === 'all')
+                            : id === 'on_leave'
+                              ? selectedStatus === 'في إجازة' && (!kpiFilter || kpiFilter === 'all')
+                              : id === 'hiring'
+                                ? selectedStatus === 'قيد التعيين' && (!kpiFilter || kpiFilter === 'all')
+                                : kpiFilter === 'residency_expiring' && !selectedStatus;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => {
+                            if (id === 'all') {
+                              onStatusChange(null);
+                              onKpiFilterChange('all');
+                            } else if (id === 'on_duty') {
+                              onStatusChange('على رأس العمل');
+                              onKpiFilterChange('all');
+                            } else if (id === 'on_leave') {
+                              onStatusChange('في إجازة');
+                              onKpiFilterChange('all');
+                            } else if (id === 'hiring') {
+                              onStatusChange('قيد التعيين');
+                              onKpiFilterChange('all');
+                            } else {
+                              onStatusChange(null);
+                              onKpiFilterChange('residency_expiring');
+                            }
+                          }}
+                          className={`px-2 py-0.5 rounded text-[10px] cursor-pointer border ${
+                            active
+                              ? 'bg-primary text-white border-primary font-bold'
+                              : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
-              ) : null}
+              ) : (
+                <div>
+                  <label className="text-[10px] font-bold text-slate-600 block mb-1">الحالة</label>
+                  <select
+                    value={selectedStatus || ''}
+                    onChange={(e) => onStatusChange(e.target.value || null)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-md px-2 py-1.5 text-[11px] cursor-pointer"
+                  >
+                    <option value="">كل الحالات</option>
+                    <option value="على رأس العمل">على رأس العمل</option>
+                    <option value="في إجازة">في إجازة</option>
+                    <option value="قيد التعيين">قيد التعيين</option>
+                  </select>
+                </div>
+              )}
             </div>
           ) : null}
         </div>
