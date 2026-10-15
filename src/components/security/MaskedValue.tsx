@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { buildAuthedJsonHeaders } from '../../lib/clientAuth';
 import { canRevealIdentity } from '../../security/accessRoles';
-import { maskIdentity, type IdentityKind } from '../../security/identityMask';
+import { maskIdentity, shownIdentity, type IdentityKind } from '../../security/identityMask';
+import { logIdentityView } from '../../security/logIdentityView';
 
 interface MaskedValueProps {
   value?: string | number | null;
@@ -13,20 +13,6 @@ interface MaskedValueProps {
   autoReveal?: boolean;
   purpose?: string;
   className?: string;
-}
-
-async function logIdentityView(kind: IdentityKind, purpose: string): Promise<void> {
-  try {
-    const headers = await buildAuthedJsonHeaders();
-    await fetch('/api/audit/identity-view', {
-      method: 'POST',
-      headers,
-      credentials: 'same-origin',
-      body: JSON.stringify({ kind, purpose }),
-    });
-  } catch {
-    /* the view log must not block the screen */
-  }
 }
 
 export const MaskedValue: React.FC<MaskedValueProps> = ({
@@ -52,7 +38,7 @@ export const MaskedValue: React.FC<MaskedValueProps> = ({
 
   if (!raw) return <span className={className}>{fallback}</span>;
 
-  const shown = open && allowed ? raw : maskIdentity(raw, kind);
+  const shown = shownIdentity(value, kind, user?.role, open);
 
   const reveal = () => {
     if (!allowed) return;

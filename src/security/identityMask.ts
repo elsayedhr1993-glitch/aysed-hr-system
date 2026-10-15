@@ -1,3 +1,5 @@
+import { canRevealIdentity } from './accessRoles';
+
 export type IdentityKind = 'civil' | 'passport';
 
 const EXPIRY_HINT = /expiry|expir|انتهاء|تاريخ/i;
@@ -18,4 +20,17 @@ export function maskIdentity(raw: string | number | null | undefined, kind: Iden
   if (value.length <= tail) return '•'.repeat(value.length);
   const hidden = Math.max(4, value.length - tail);
   return `${'•'.repeat(hidden)}${value.slice(-tail)}`;
+}
+
+/** Full value only after an authorized reveal. Everyone else keeps the mask. */
+export function shownIdentity(
+  value: string | number | null | undefined,
+  kind: IdentityKind,
+  role: string | null | undefined,
+  revealed: boolean,
+): string {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+  if (revealed && canRevealIdentity(role)) return raw;
+  return maskIdentity(raw, kind);
 }
