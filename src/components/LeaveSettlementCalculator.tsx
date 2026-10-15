@@ -1087,9 +1087,6 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                 <span className="block text-base font-black font-mono text-purple-950 mt-0.5">
                   {finalNetAvailable.toFixed(2)} يوم
                 </span>
-                <span className="block text-[9px] text-purple-700 font-medium mt-0.5">
-                  (الصافي من محرك الإجازات: {finalNetAvailable.toFixed(2)} يوم)
-                </span>
               </div>
 
               <div className={`bg-blue-50/70 border border-blue-200 rounded-xl p-3 ${textAlignClass}`}>
