@@ -26,7 +26,6 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
   
   // Search and filter
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStageFilter, setSelectedStageFilter] = useState<string>('ALL');
 
   // New/Editing candidate state
   const [fullName, setFullName] = useState('');
@@ -67,8 +66,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
       (c.degree && c.degree.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (c.certificates && c.certificates.some(cert => cert.toLowerCase().includes(searchQuery.toLowerCase())));
     
-    const matchesStage = selectedStageFilter === 'ALL' || c.stage === selectedStageFilter;
-    return matchesSearch && matchesStage;
+    return matchesSearch;
   });
 
   // Helper to open document preview in new tab
@@ -349,31 +347,6 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pr-9 pl-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:bg-white focus:border-primary"
           />
-        </div>
-
-        {/* Stage Filter Pills */}
-        <div className="flex items-center gap-1 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
-          <button
-            onClick={() => setSelectedStageFilter('ALL')}
-            className={`px-3 py-1.5 rounded-lg font-bold text-xs transition ${
-              selectedStageFilter === 'ALL' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            جميع المتقدمين ({companyCandidates.length})
-          </button>
-          {stages.map(stg => {
-            const count = companyCandidates.filter(c => c.stage === stg.id).length;
-            return (
-              <button
-                key={stg.id}
-                onClick={() => setSelectedStageFilter(stg.id)}
-                className={`px-2.5 py-1.5 rounded-lg font-bold text-xs whitespace-nowrap transition ${
-                  selectedStageFilter === stg.id ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {stg.label.split(' ')[0]} ({count})
-              </button>);
-          })}
         </div>
       </div>
 
