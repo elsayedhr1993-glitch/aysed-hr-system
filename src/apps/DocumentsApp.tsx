@@ -23,7 +23,7 @@ import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
 import { syncTenantLicensesAndCompanyProfile } from '../services/companyLicenseSync';
 import { 
   FolderOpen, FileText, Upload, Trash2, Search, X, CheckCircle2, 
-  Scan, AlertTriangle, Download, Calendar, BellRing, Shield, 
+  Scan, AlertTriangle, Download, BellRing, Shield, 
   LayoutGrid, List, FileSpreadsheet, Printer, Eye, Plus, Building2, 
   User, Clock, Filter, Sparkles
 } from 'lucide-react';
@@ -238,7 +238,6 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
       if (activeFolder === 'RESIDENCY' && doc.category !== 'RESIDENCY') return false;
       if (activeFolder === 'CONTRACTS' && !['CONTRACT', 'WORK_CONTRACT'].includes(doc.category)) return false;
       if (activeFolder === 'MEDICAL' && doc.category !== 'MOH_LICENSE') return false;
-      if (activeFolder === 'ACTIVITIES' && doc.currentStatus === 'active') return false;
 
       // Status filter
       if (statusFilter === 'ACTIVE' && doc.currentStatus !== 'active') return false;
@@ -541,31 +540,6 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
                 </ul>
               </section>
 
-              {/* Activities section */}
-              <section>
-                <header className="font-bold text-slate-700 text-xs mb-2.5 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-primary"/> المتابعة والأنشطة (Activities)
-                </header>
-                <ul className="space-y-1 text-xs font-semibold">
-                  <li 
-                    onClick={() => setActiveFolder('ACTIVITIES')} 
-                    className={`p-2.5 rounded-xl cursor-pointer transition flex justify-between items-center ${
-                      activeFolder === 'ACTIVITIES' ? 'bg-amber-500 text-white shadow-xs' : 'hover:bg-amber-50 text-amber-900 border border-amber-200'
-                    }`}
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <BellRing className="w-3.5 h-3.5" />
-                      تتطلب تجديداً عاجلاً
-                    </span>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-                      activeFolder === 'ACTIVITIES' ? 'bg-white text-amber-900' : 'bg-amber-200 text-amber-900'
-                    }`}>
-                      {metrics.nearExpiry + metrics.expired}
-                    </span>
-                  </li>
-                </ul>
-              </section>
-
             </div>
           </div>
 
@@ -667,7 +641,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
             <div className="flex-1 overflow-y-auto p-6">
               
               {/* Alert notice if viewing activities */}
-              {activeFolder === 'ACTIVITIES' && (
+              {(statusFilter === 'NEAR_EXPIRY' || statusFilter === 'EXPIRED') && (
                 <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl shadow-xs flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0">
@@ -932,7 +906,11 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
         documents={filteredDocs}
         employees={employees}
         company={companyForPrint}
-        filterTitle={activeFolder === 'ACTIVITIES' ? 'الوثائق المطلوب تجديدها عاجلاً' : 'أرشيف الوثائق العام'}
+        filterTitle={
+          statusFilter === 'NEAR_EXPIRY' || statusFilter === 'EXPIRED'
+            ? 'الوثائق المطلوب تجديدها عاجلاً'
+            : 'أرشيف الوثائق العام'
+        }
       />
 
     </div>
