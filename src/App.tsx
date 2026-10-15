@@ -141,6 +141,7 @@ function MainAppLayout() {
   const [employeeShifts, setEmployeeShifts] = useState<any[]>([]);
   const [debugMode, setDebugMode] = useState(false);
   const [auditLogsCount, setAuditLogsCount] = useState(0);
+  const [auditPersistence, setAuditPersistence] = useState<'memory' | 'firestore' | ''>('');
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   // User Avatar & Profile state
@@ -173,7 +174,9 @@ function MainAppLayout() {
         const res = await fetch('/api/audit/events?pageSize=1', { headers });
         if (!res.ok) return;
         const data = await res.json();
-        if (!cancelled && typeof data.total === 'number') setAuditLogsCount(data.total);
+        if (cancelled) return;
+        if (typeof data.total === 'number') setAuditLogsCount(data.total);
+        if (data.persistence === 'memory' || data.persistence === 'firestore') setAuditPersistence(data.persistence);
       } catch {
         /* the launcher count stays at the last successful read */
       }
@@ -814,6 +817,12 @@ function MainAppLayout() {
     <div className="h-screen w-full flex flex-col font-sans overflow-hidden bg-slate-100 text-slate-800" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       <Toaster position="top-center" containerStyle={{ zIndex: 99999 }} reverseOrder={false} />
       <UiStudioInspectorSidebar />
+
+      {auditPersistence === 'memory' && (
+        <div className="no-print shrink-0 bg-amber-100 text-amber-950 text-xs font-bold px-4 py-2 border-b border-amber-300">
+          سجل الرقابة في ذاكرة هذه العملية فقط. التشغيل محلي بدون المحاكي، والأحداث تختفي عند إعادة تشغيل الخادم.
+        </div>
+      )}
 
       {/* شريط تنبيه الدخول كمسؤول (Strict Impersonation Banner) */}
       {isActualSuperAdmin && (impersonatingCompanyId || isImpersonating) && activeApp !== 'saas_admin' && (

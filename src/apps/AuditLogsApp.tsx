@@ -33,6 +33,7 @@ interface AuditRow {
   after: Record<string, unknown> | null;
   ip: string;
   companyId: string;
+  details?: string;
 }
 
 const ACTION_LABELS: Record<string, string> = {
@@ -93,6 +94,8 @@ export const AuditLogsApp: React.FC<AuditLogsAppProps> = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [healthStatus, setHealthStatus] = useState('');
+  const [persistence, setPersistence] = useState<'memory' | 'firestore' | ''>('');
+  const [alerts, setAlerts] = useState<Array<{ at: string; message: string }>>([]);
   const pageSize = 10;
 
   const query = useMemo(() => {
@@ -128,6 +131,8 @@ export const AuditLogsApp: React.FC<AuditLogsAppProps> = () => {
         setRows(Array.isArray(data.events) ? data.events : []);
         setTotal(Number(data.total) || 0);
         setScope(data.scope === 'platform' ? 'platform' : 'company');
+        setPersistence(data.persistence === 'memory' ? 'memory' : data.persistence === 'firestore' ? 'firestore' : '');
+        setAlerts(Array.isArray(data.alerts) ? data.alerts : []);
       } catch {
         if (!cancelled) setError('تعذر الاتصال بسجل الرقابة');
       } finally {
@@ -194,6 +199,16 @@ export const AuditLogsApp: React.FC<AuditLogsAppProps> = () => {
 
   return (
     <div className="space-y-5 font-sans text-slate-800" dir="rtl">
+      {persistence === 'memory' ? (
+        <div className="bg-amber-100 text-amber-950 text-xs font-bold px-4 py-2 rounded-lg border border-amber-300">
+          سجل الرقابة في ذاكرة هذه العملية فقط. التشغيل محلي بدون المحاكي، والأحداث تختفي عند إعادة تشغيل الخادم.
+        </div>
+      ) : null}
+      {alerts.length > 0 ? (
+        <div className="bg-rose-50 text-rose-800 text-xs font-bold px-4 py-2 rounded-lg border border-rose-200">
+          تعذر حفظ أو قراءة بعض أحداث الرقابة. العملية الأصلية لم تُلغَ. {alerts[alerts.length - 1]?.message}
+        </div>
+      ) : null}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
@@ -360,6 +375,7 @@ export const AuditLogsApp: React.FC<AuditLogsAppProps> = () => {
             ) : (
               <>
                 <p><span className="font-bold">IP: </span>{selected.ip || '—'}</p>
+                {selected.details ? <p><span className="font-bold">التفاصيل: </span>{selected.details}</p> : null}
                 <p><span className="font-bold">المنشأة: </span>{selected.companyId || 'سجل المنصة'}</p>
                 <div>
                   <p className="font-bold mb-1">قبل</p>

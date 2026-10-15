@@ -3,6 +3,7 @@ import * as raw from '../../node_modules/firebase/firestore/dist/esm/index.esm.j
 import { isLocalProdLocked } from './ProdWriteGuard';
 import { planFirestoreAudit } from '../services/auditClassify';
 import { reportAudit } from '../services/auditClient';
+import { captureBatchBefores } from '../services/auditBatch';
 
 const WRITE_NAMES = new Set([
   'setDoc',
@@ -89,27 +90,32 @@ function guardSensitive(name: string, fn: (...args: unknown[]) => unknown, op: '
 
 export function writeBatch(...args: unknown[]) {
   const batch = raw.writeBatch(...args);
-  const ops: Array<{ path: string; data: unknown; op: 'set' | 'delete'; merge: boolean }> = [];
+  const ops: Array<{ ref: unknown; path: string; data: unknown; op: 'set' | 'delete'; merge: boolean }> = [];
   return {
     set(ref: { path?: string }, data: unknown, options?: { merge?: boolean }) {
-      ops.push({ path: String(ref?.path || ''), data, op: 'set', merge: Boolean(options?.merge) });
+      ops.push({ ref, path: String(ref?.path || ''), data, op: 'set', merge: Boolean(options?.merge) });
       return batch.set(ref, data, options);
     },
     update(ref: { path?: string }, data: unknown) {
-      ops.push({ path: String(ref?.path || ''), data, op: 'set', merge: true });
+      ops.push({ ref, path: String(ref?.path || ''), data, op: 'set', merge: true });
       return batch.update(ref, data);
     },
     delete(ref: { path?: string }) {
-      ops.push({ path: String(ref?.path || ''), data: null, op: 'delete', merge: false });
+      ops.push({ ref, path: String(ref?.path || ''), data: null, op: 'delete', merge: false });
       return batch.delete(ref);
     },
     commit() {
       if (isLocalProdLocked()) return Promise.resolve();
-      const pending = batch.commit();
-      void Promise.resolve(pending).then(() => {
-        for (const op of ops) observeWrite(op.path, op.data, op.op, null, false, op.merge);
-      }, () => undefined);
-      return pending;
+      return captureBatchBefores(ops, readBefore).then((priors) => {
+        const pending = batch.commit();
+        void Promise.resolve(pending).then(() => {
+          ops.forEach((op, index) => {
+            const prior = priors[index] || { known: false, data: null };
+            observeWrite(op.path, op.data, op.op, prior.data, prior.known, op.merge);
+          });
+        }, () => undefined);
+        return pending;
+      });
     },
   };
 }

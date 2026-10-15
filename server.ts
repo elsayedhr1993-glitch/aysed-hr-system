@@ -443,8 +443,8 @@ async function registeredDeviceCompany(req: any): Promise<string | undefined> {
   return companyId;
 }
 
-function rejectUnregisteredDevice(req: any, res: any, asText = false) {
-  recordAuditEvent({
+async function rejectUnregisteredDevice(req: any, res: any, asText = false) {
+  await recordAuditEvent({
     actor: { uid: 'device', name: 'جهاز غير مسجل', role: 'UNKNOWN' },
     action: 'device_rejected',
     entityType: 'device',
@@ -1760,7 +1760,7 @@ app.post("/api/admin/set-tenant-active", express.json(), async (req, res) => {
   try {
     const userRecord = await admin.getUserByEmail(email);
     await admin.updateUser(userRecord.uid, { disabled: !active });
-    recordAuditEvent({
+    await recordAuditEvent({
       actor: {
         uid: req.sessionTenant?.uid || 'platform',
         name: req.sessionTenant?.email || 'platform',
@@ -1859,7 +1859,7 @@ app.post("/api/admin/create-tenant", express.json(), async (req, res) => {
         console.warn("Custom claims note:", claimErr);
       }
 
-      recordAuditEvent({
+      await recordAuditEvent({
         actor: {
           uid: req.sessionTenant?.uid || 'platform',
           name: req.sessionTenant?.email || 'platform',
@@ -1926,7 +1926,7 @@ app.post("/api/admin/delete-tenant", express.json(), async (req, res) => {
         await admin.deleteUser(targetUid);
       }
 
-      recordAuditEvent({
+      await recordAuditEvent({
         actor: {
           uid: req.sessionTenant?.uid || 'platform',
           name: req.sessionTenant?.email || 'platform',

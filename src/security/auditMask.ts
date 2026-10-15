@@ -21,6 +21,11 @@ function isKeptKey(key: string): boolean {
   );
 }
 
+export function maskAuditDetails(value: unknown): string {
+  const text = String(value ?? '').slice(0, 240);
+  return text.replace(/\d{8,}/g, (run) => maskIdentity(run, 'civil'));
+}
+
 export function maskAuditSnapshot(value: unknown, depth = 0): Record<string, unknown> | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   if (depth > 4) return null;

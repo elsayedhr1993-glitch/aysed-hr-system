@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { maskAuditSnapshot } from '../src/security/auditMask';
+import { maskAuditDetails, maskAuditSnapshot } from '../src/security/auditMask';
 
 export const AUDIT_ACTIONS = [
   'create',
@@ -31,9 +31,63 @@ export interface AuditEvent {
   after: Record<string, unknown> | null;
   ip: string;
   companyId: string;
+  details: string;
 }
 
-const events: AuditEvent[] = [];
+export interface AuditAlert {
+  at: string;
+  eventId: string;
+  message: string;
+}
+
+export interface AuditAppendStore {
+  append(event: AuditEvent): Promise<void>;
+  listAll(): Promise<AuditEvent[]>;
+}
+
+const memoryEvents: AuditEvent[] = [];
+const alerts: AuditAlert[] = [];
+let injectedStore: AuditAppendStore | null = null;
+
+const memoryStore: AuditAppendStore = {
+  async append(event) {
+    memoryEvents.push(event);
+  },
+  async listAll() {
+    return memoryEvents.map((event) => ({ ...event }));
+  },
+};
+
+/**
+ * Local development without the emulator stays in memory.
+ * Production, Vercel, and the emulator append through the Admin SDK.
+ * The request Host header is not consulted.
+ */
+export function auditPersistenceMode(env: NodeJS.ProcessEnv = process.env): 'memory' | 'firestore' {
+  if (env.VITE_USE_EMULATOR === 'true' || env.FIRESTORE_EMULATOR_HOST) return 'firestore';
+  if (env.NODE_ENV === 'production' || env.VERCEL) return 'firestore';
+  return 'memory';
+}
+
+function activeStore(): AuditAppendStore {
+  if (injectedStore) return injectedStore;
+  if (auditPersistenceMode() === 'memory') return memoryStore;
+  return {
+    async append(event) {
+      const { appendAuditToFirestore } = await import('./auditFirestoreStore');
+      await appendAuditToFirestore(event);
+    },
+    async listAll() {
+      const { listAuditFromFirestore } = await import('./auditFirestoreStore');
+      return listAuditFromFirestore();
+    },
+  };
+}
+
+function pushAlert(alert: AuditAlert): void {
+  alerts.push(alert);
+  if (alerts.length > 20) alerts.shift();
+}
 
 export function isAuditAction(value: unknown): value is AuditAction {
   return typeof value === 'string' && (AUDIT_ACTIONS as readonly string[]).includes(value);
@@ -51,9 +105,10 @@ export function requestIp(req: {
 
 /**
  * Append one audit event. companyId is the session value only.
+ * A failed append is logged and raised as an alert. It does not throw.
  * There is no update or delete operation on this store.
  */
-export function recordAuditEvent(input: {
+export async function recordAuditEvent(input: {
   actor: { uid?: string; name?: string; role?: string };
   action: AuditAction;
   entityType: string;
@@ -63,7 +118,8 @@ export function recordAuditEvent(input: {
   ip?: string;
   sessionCompanyId?: string | null;
   at?: string;
-}): AuditEvent {
+  details?: string;
+}): Promise<AuditEvent> {
   const event: AuditEvent = {
     id: crypto.randomBytes(8).toString('hex'),
     at: input.at || new Date().toISOString(),
@@ -77,8 +133,20 @@ export function recordAuditEvent(input: {
     after: maskAuditSnapshot(input.after),
     ip: String(input.ip || '').slice(0, 80),
     companyId: String(input.sessionCompanyId || ''),
+    details: maskAuditDetails(input.details),
   };
-  events.push(event);
+  try {
+    await activeStore().append(event);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'تعذر حفظ سجل الرقابة';
+    console.error('[audit] append failed', {
+      id: event.id,
+      action: event.action,
+      entityType: event.entityType,
+      message,
+    });
+    pushAlert({ at: new Date().toISOString(), eventId: event.id, message });
+  }
   return event;
 }
 
@@ -96,14 +164,14 @@ export interface AuditListQuery {
   now?: number;
 }
 
-export function listAuditEvents(query: AuditListQuery): {
+export async function listAuditEvents(query: AuditListQuery): Promise<{
   scope: 'platform' | 'company';
   companyId: string;
   events: AuditEvent[];
   total: number;
   page: number;
   pageSize: number;
-} {
+}> {
   const platform = query.viewerRole === 'SUPER_ADMIN';
   const companyId = String(query.sessionCompanyId || '');
   const now = query.now ?? Date.now();
@@ -115,6 +183,14 @@ export function listAuditEvents(query: AuditListQuery): {
   const entity = String(query.entity || '').trim();
   const pageSize = Math.min(50, Math.max(1, Number(query.pageSize) || 10));
   const page = Math.max(1, Number(query.page) || 1);
+  let events: AuditEvent[] = [];
+  try {
+    events = await activeStore().listAll();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'تعذر قراءة سجل الرقابة';
+    console.error('[audit] list failed', { message });
+    pushAlert({ at: new Date().toISOString(), eventId: '', message });
+  }
 
   const matched = events.filter((event) => {
     const at = Date.parse(event.at);
@@ -128,7 +204,7 @@ export function listAuditEvents(query: AuditListQuery): {
       if (!blob.includes(user)) return false;
     }
     if (q) {
-      const blob = `${event.userName} ${event.userId} ${event.entityType} ${event.entityId} ${event.action} ${event.role}`.toLowerCase();
+      const blob = `${event.userName} ${event.userId} ${event.entityType} ${event.entityId} ${event.action} ${event.role} ${event.details}`.toLowerCase();
       if (!blob.includes(q)) return false;
     }
     return true;
@@ -146,12 +222,21 @@ export function listAuditEvents(query: AuditListQuery): {
   };
 }
 
+export function listAuditAlerts(): AuditAlert[] {
+  return alerts.map((alert) => ({ ...alert }));
+}
+
+export function __setAuditStoreForTests(store: AuditAppendStore | null): void {
+  injectedStore = store;
+}
+
 export function __resetAuditLogForTests(): void {
-  events.length = 0;
+  memoryEvents.length = 0;
+  alerts.length = 0;
 }
 
 export function __auditEventCountForTests(): number {
-  return events.length;
+  return memoryEvents.length;
 }
 
 function boundMs(value: string | undefined, edge: 'start' | 'end'): number | null {

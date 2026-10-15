@@ -40,10 +40,10 @@ export function registerAuthRoutes(app: Express): void {
     return res.json({ success: true });
   });
 
-  app.post('/api/auth/login-failure', (req, res) => {
+  app.post('/api/auth/login-failure', async (req, res) => {
     const email = String(req.body?.email || '').trim().toLowerCase();
     if (email) recordLoginFailure(attemptKey(clientIp(req), email));
-    recordAuditEvent({
+    await recordAuditEvent({
       actor: { uid: 'anonymous', name: email || 'غير معروف', role: 'UNKNOWN' },
       action: 'login_failure',
       entityType: 'session',
@@ -61,7 +61,7 @@ export function registerAuthRoutes(app: Express): void {
     const tenant = req.sessionTenant;
     const adminRoles = new Set(['SUPER_ADMIN', 'COMPANY_ADMIN', 'HR_MANAGER']);
     if (tenant && adminRoles.has(tenant.role)) {
-      recordAuditEvent({
+      await recordAuditEvent({
         actor: { uid: tenant.uid, name: tenant.email || auth.email, role: tenant.role },
         action: 'login',
         entityType: 'session',
@@ -200,7 +200,7 @@ export function registerAuthRoutes(app: Express): void {
     return res.json({ success: true });
   });
 
-  app.post('/api/audit/identity-view', (req, res) => {
+  app.post('/api/audit/identity-view', async (req, res) => {
     const tenant = req.sessionTenant;
     if (!tenant) return res.status(401).json({ success: false, error: 'Unauthorized' });
     if (!canRevealIdentity(tenant.role)) {
@@ -215,7 +215,7 @@ export function registerAuthRoutes(app: Express): void {
       kind,
       purpose,
     });
-    recordAuditEvent({
+    await recordAuditEvent({
       actor: { uid: tenant.uid, name: tenant.email, role: tenant.role },
       action: 'view_sensitive',
       entityType: 'identity',

@@ -121,7 +121,7 @@ export function decideTenantAccess(input: {
   sameDepartment?: boolean;
   emailMatchesCompanyAdmin?: boolean;
 }): boolean {
-  if (input.collection === 'audit_logs' && (input.op === 'update' || input.op === 'delete')) return false;
+  if (input.collection === 'audit_logs' && input.op !== 'read') return false;
   if (input.platformAdmin || normalizeHrRole(input.role) === 'SUPER_ADMIN') return true;
   const role = normalizeHrRole(input.role);
   if (role === 'UNKNOWN' && !input.emailMatchesCompanyAdmin) return false;
