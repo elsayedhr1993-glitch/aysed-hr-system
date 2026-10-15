@@ -13,7 +13,7 @@ import { storage } from '../lib/firebase';
 import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import toast from 'react-hot-toast';
 import { createArchiveDocumentId } from '../utils/documentArchiveUtils';
-import { IdentityInput, MaskedValue } from '../components/security/MaskedValue';
+import { IdentityInput, MaskedCivilField, MaskedValue } from '../components/security/MaskedValue';
 
 interface ScannerAppProps {
   documents: DocumentItem[];
@@ -836,9 +836,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="block font-bold text-slate-700 mb-1">الرقم المدني (12 رقماً):</label>
-                      <IdentityInput
-                        kind="civil"
-                        type="text"
+                      <MaskedCivilField
                         maxLength={12}
                         value={scanResult.extractedData.civilId || ''}
                         onChange={(val) => {

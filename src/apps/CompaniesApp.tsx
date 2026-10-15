@@ -11,7 +11,8 @@ import { EditableField } from '../components/EditableField';
 import { OdooScreenEditToolbar } from '../components/ui/OdooScreenEditToolbar';
 import { useOdooScreenEditMode } from '../hooks/useOdooScreenEditMode';
 import { InlineEditProvider, type InlinePersistPatch } from '../context/InlineEditContext';
-import { MaskedValue } from '../components/security/MaskedValue';
+import { MaskedCivilField, MaskedValue } from '../components/security/MaskedValue';
+import { readAdminCompanyPickerHint } from '../utils/tenantCompanyId';
 
 interface CompaniesAppProps {
   companies: Company[];
@@ -35,6 +36,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
   const isSuperAdmin = currentUserRole === 'SUPER_ADMIN' || 
     currentUserEmail?.toLowerCase() === 'elsayedhr1993@gmail.com' || 
     currentUserEmail?.toLowerCase() === 'admin@aysed.com';
+  const linkedCompanyHint = readAdminCompanyPickerHint(Boolean(currentUserEmail), isSuperAdmin);
 
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [searchTerm, setSearchTerm] = useState('');
@@ -272,6 +274,11 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
           <p className="text-xs text-slate-500 mt-0.5">
             إدارة الهيكل التنظيمي، الترويسات الرسمية، البيانات الضريبية، وعزل بيانات الموظفين والرواتب لكل فرع
           </p>
+          {linkedCompanyHint && (
+            <p className="text-[11px] text-slate-500 mt-1">
+              اختيار المنشأة في الرابط: <span className="font-mono">{linkedCompanyHint}</span>
+            </p>
+          )}
         </div>
 
         <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
@@ -665,10 +672,9 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">الرقم المدني للجهة (Civil ID Company)</label>
-                      <input
-                        type="text"
+                      <MaskedCivilField
                         value={companyDraft.civilIdCompany || ''}
-                        onChange={(e) => patchCompany({ civilIdCompany: e.target.value })}
+                        onChange={(val) => patchCompany({ civilIdCompany: val })}
                         placeholder="200000000"
                         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-primary outline-none font-mono"
                       />

@@ -83,6 +83,63 @@ export const MaskedValue: React.FC<MaskedValueProps> = ({
   );
 };
 
+interface MaskedCivilFieldProps {
+  value?: string | number | null;
+  onChange?: (value: string) => void;
+  className?: string;
+  placeholder?: string;
+  maxLength?: number;
+  readOnly?: boolean;
+}
+
+/**
+ * The stored civil id is shown with MaskedValue.
+ * The text box starts empty, so the stored number is not its value.
+ */
+export const MaskedCivilField: React.FC<MaskedCivilFieldProps> = ({
+  value,
+  onChange,
+  className = '',
+  placeholder = 'إدخال أو تصحيح الرقم',
+  maxLength,
+  readOnly = false,
+}) => {
+  const [draft, setDraft] = useState('');
+  const stored = String(value ?? '').trim();
+
+  const commit = (nextRaw: string) => {
+    const next = nextRaw.trim();
+    if (!onChange || !next || next === stored) return;
+    onChange(next);
+    setDraft('');
+  };
+
+  return (
+    <div className="space-y-1">
+      <MaskedValue kind="civil" value={value} />
+      {!readOnly && onChange && (
+        <input
+          value={draft}
+          maxLength={maxLength}
+          placeholder={stored ? placeholder : 'الرقم المدني'}
+          className={className}
+          autoComplete="off"
+          onChange={(event) => {
+            const next = event.target.value;
+            setDraft(next);
+            if (!stored) onChange(next);
+            else if (next.replace(/\D/g, '').length >= 12) commit(next);
+          }}
+          onBlur={() => {
+            if (stored && draft.trim().length >= 6) commit(draft);
+            setDraft('');
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
 interface IdentityInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'> {
   value?: string | number | null;
   kind: IdentityKind;

@@ -72,28 +72,9 @@ const CompanyContext = createContext<CompanyContextType | undefined>(undefined);
 const getPreferredCompanyId = (
   authCompanyId: string | null,
   isSuperAdmin: boolean,
-  authEmail?: string | null
+  _authEmail?: string | null
 ) => {
-  const urlCompanyId =
-    typeof window !== 'undefined'
-      ? (new URLSearchParams(window.location.search).get('companyId') ||
-          new URLSearchParams(window.location.search).get('company_id') ||
-          '')
-      : '';
-
-  // Tenant: profile companyId only, unless deep link matches the bound tenant
-  if (!isSuperAdmin) {
-    if (authCompanyId && urlCompanyId && urlCompanyId === authCompanyId) {
-      return authCompanyId;
-    }
-    return authCompanyId || '';
-  }
-
-  if (typeof window !== 'undefined') {
-    const params = new URLSearchParams(window.location.search);
-    const urlCompanyId = params.get('companyId') || params.get('company_id') || '';
-    if (urlCompanyId) return urlCompanyId;
-  }
+  if (!isSuperAdmin) return authCompanyId || '';
 
   try {
     return localStorage.getItem('lastActiveCompanyId') || localStorage.getItem('activeCompanyId') || authCompanyId || '';

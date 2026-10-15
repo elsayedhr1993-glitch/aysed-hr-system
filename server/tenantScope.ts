@@ -74,6 +74,7 @@ const DEVICE_API_PREFIXES = [
   '/api/biometrics/sync',
   '/api/zkteco',
   '/api/attendance/live-push',
+  '/api/attendance/live-logs',
 ];
 
 function isDeviceIngest(path: string): boolean {

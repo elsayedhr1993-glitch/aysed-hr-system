@@ -93,6 +93,34 @@ service cloud.firestore {
       return isSuperAdmin() || isCompanyAdmin() || isHrManager() || isFinance();
     }
 
+    function hrRead() {
+      return isCompanyAdmin() || isHrManager() || isHrUser() || isFinance();
+    }
+
+    function hrWrite() {
+      return isCompanyAdmin() || isHrManager() || isHrUser();
+    }
+
+    function auditRole() {
+      return isCompanyAdmin() || isHrManager();
+    }
+
+    function ownByEmployeeId() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && 'employeeId' in userDoc()
+        && 'employeeId' in resource.data
+        && userDoc().employeeId == resource.data.employeeId;
+    }
+
+    function incomingOwnEmployee() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && 'employeeId' in userDoc()
+        && 'employeeId' in request.resource.data
+        && userDoc().employeeId == request.resource.data.employeeId;
+    }
+
     function tokenCompanyId() {
       return request.auth.token.companyId;
     }
@@ -142,13 +170,14 @@ service cloud.firestore {
 
     function canReadSystemConfigDoc(docId) {
       return isSuperAdmin()
-        || systemConfigDocForCaller(docId)
+        || (systemConfigDocForCaller(docId) && hrRead())
         || (callerCompanyId() != null && isAuthEmailCompanyAdmin(callerCompanyId()));
     }
 
     function canWriteSystemConfigDoc(docId) {
       return isSuperAdmin()
-        || (systemConfigDocForCaller(docId) && (isCompanyAdmin() || isAuthEmailCompanyAdmin(callerCompanyId())));
+        || (systemConfigDocForCaller(docId) && isCompanyAdmin())
+        || (callerCompanyId() != null && isAuthEmailCompanyAdmin(callerCompanyId()));
     }
 
     function companyFieldEmailLower(fieldName) {
@@ -354,9 +383,15 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
     match /company_templates/{docId} {
-      allow read: if signedIn() && (isSuperAdmin() || sameTenantResource() || !('companyId' in resource.data));
-      allow create: if signedIn() && (isSuperAdmin() || sameTenantIncoming());
-      allow update, delete: if isSuperAdmin() || canWriteTenantDoc();
+      allow read: if isSuperAdmin()
+        || (sameTenantResource() && hrRead())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
+      allow create: if isSuperAdmin()
+        || (sameTenantIncoming() && hrWrite())
+        || (incomingTenantCanonical() != null && isAuthEmailCompanyAdmin(incomingTenantCanonical()));
+      allow update, delete: if isSuperAdmin()
+        || (canWriteTenantDoc() && hrWrite())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
     }
 
     // Tenant-scoped operational collections
@@ -401,39 +436,81 @@ service cloud.firestore {
         || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
     }
     match /commencements/{docId} {
-      allow read: if canReadTenantDoc();
-      allow create: if canCreateTenantDoc();
-      allow update, delete: if canWriteTenantDoc();
+      allow read: if isSuperAdmin()
+        || (sameTenantResource() && hrRead())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
+      allow create: if isSuperAdmin()
+        || (sameTenantIncoming() && hrWrite())
+        || (incomingTenantCanonical() != null && isAuthEmailCompanyAdmin(incomingTenantCanonical()));
+      allow update, delete: if isSuperAdmin()
+        || (canWriteTenantDoc() && hrWrite())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
     }
     match /leave_requests/{docId} {
-      allow read: if canReadTenantDoc();
-      allow create: if canCreateTenantDoc();
-      allow update, delete: if canWriteTenantDoc();
+      allow read: if isSuperAdmin()
+        || (sameTenantResource() && (hrRead() || sameDepartment() || ownByEmployeeId()))
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
+      allow create: if isSuperAdmin()
+        || (sameTenantIncoming() && (hrWrite() || incomingOwnEmployee()))
+        || (incomingTenantCanonical() != null && isAuthEmailCompanyAdmin(incomingTenantCanonical()));
+      allow update, delete: if isSuperAdmin()
+        || (canWriteTenantDoc() && (hrWrite() || ownByEmployeeId()))
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
     }
     match /leave_allocations/{docId} {
-      allow read: if canReadTenantDoc();
-      allow create: if canCreateTenantDoc();
-      allow update, delete: if canWriteTenantDoc();
+      allow read: if isSuperAdmin()
+        || (sameTenantResource() && (hrRead() || sameDepartment() || ownByEmployeeId()))
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
+      allow create: if isSuperAdmin()
+        || (sameTenantIncoming() && hrWrite())
+        || (incomingTenantCanonical() != null && isAuthEmailCompanyAdmin(incomingTenantCanonical()));
+      allow update, delete: if isSuperAdmin()
+        || (canWriteTenantDoc() && hrWrite())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
     }
     match /leave_settlements/{docId} {
-      allow read: if canReadTenantDoc();
-      allow create: if canCreateTenantDoc();
-      allow update, delete: if canWriteTenantDoc();
+      allow read: if isSuperAdmin()
+        || (sameTenantResource() && payrollRole())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
+      allow create: if isSuperAdmin()
+        || (sameTenantIncoming() && payrollRole())
+        || (incomingTenantCanonical() != null && isAuthEmailCompanyAdmin(incomingTenantCanonical()));
+      allow update, delete: if isSuperAdmin()
+        || (canWriteTenantDoc() && payrollRole())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
     }
     match /onboarding_plans/{docId} {
-      allow read: if canReadTenantDoc();
-      allow create: if canCreateTenantDoc();
-      allow update, delete: if canWriteTenantDoc();
+      allow read: if isSuperAdmin()
+        || (sameTenantResource() && hrRead())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
+      allow create: if isSuperAdmin()
+        || (sameTenantIncoming() && hrWrite())
+        || (incomingTenantCanonical() != null && isAuthEmailCompanyAdmin(incomingTenantCanonical()));
+      allow update, delete: if isSuperAdmin()
+        || (canWriteTenantDoc() && hrWrite())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
     }
     match /documents/{docId} {
-      allow read: if canReadTenantDoc();
-      allow create: if canCreateTenantDoc();
-      allow update, delete: if canWriteTenantDoc();
+      allow read: if isSuperAdmin()
+        || (sameTenantResource() && hrRead())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
+      allow create: if isSuperAdmin()
+        || (sameTenantIncoming() && hrWrite())
+        || (incomingTenantCanonical() != null && isAuthEmailCompanyAdmin(incomingTenantCanonical()));
+      allow update, delete: if isSuperAdmin()
+        || (canWriteTenantDoc() && hrWrite())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
     }
     match /company_documents/{docId} {
-      allow read: if canReadTenantDoc();
-      allow create: if canCreateTenantDoc();
-      allow update, delete: if canWriteTenantDoc();
+      allow read: if isSuperAdmin()
+        || (sameTenantResource() && hrRead())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
+      allow create: if isSuperAdmin()
+        || (sameTenantIncoming() && hrWrite())
+        || (incomingTenantCanonical() != null && isAuthEmailCompanyAdmin(incomingTenantCanonical()));
+      allow update, delete: if isSuperAdmin()
+        || (canWriteTenantDoc() && hrWrite())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
     }
     match /payslips/{docId} {
       allow read: if isSuperAdmin()
@@ -447,54 +524,125 @@ service cloud.firestore {
         || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
     }
     match /attendance_records/{docId} {
-      allow read: if canReadTenantDoc();
-      allow create: if canCreateTenantDoc();
-      allow update, delete: if canWriteTenantDoc();
+      allow read: if isSuperAdmin()
+        || (sameTenantResource() && (hrRead() || sameDepartment()))
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
+      allow create: if isSuperAdmin()
+        || (sameTenantIncoming() && hrWrite())
+        || (incomingTenantCanonical() != null && isAuthEmailCompanyAdmin(incomingTenantCanonical()));
+      allow update, delete: if isSuperAdmin()
+        || (canWriteTenantDoc() && hrWrite())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
     }
     match /attendance/{docId} {
-      allow read: if canReadTenantDoc();
-      allow create: if canCreateTenantDoc();
-      allow update, delete: if canWriteTenantDoc();
+      allow read: if isSuperAdmin()
+        || (sameTenantResource() && (hrRead() || sameDepartment()))
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
+      allow create: if isSuperAdmin()
+        || (sameTenantIncoming() && hrWrite())
+        || (incomingTenantCanonical() != null && isAuthEmailCompanyAdmin(incomingTenantCanonical()));
+      allow update, delete: if isSuperAdmin()
+        || (canWriteTenantDoc() && hrWrite())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
     }
     match /work_entries/{docId} {
-      allow read: if canReadTenantDoc();
-      allow create: if canCreateTenantDoc();
-      allow update, delete: if canWriteTenantDoc();
+      allow read: if isSuperAdmin()
+        || (sameTenantResource() && (hrRead() || sameDepartment()))
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
+      allow create: if isSuperAdmin()
+        || (sameTenantIncoming() && hrWrite())
+        || (incomingTenantCanonical() != null && isAuthEmailCompanyAdmin(incomingTenantCanonical()));
+      allow update, delete: if isSuperAdmin()
+        || (canWriteTenantDoc() && hrWrite())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
     }
     match /employee_lifecycle_events/{docId} {
-      allow read: if canReadTenantDoc();
-      allow create: if canCreateTenantDoc();
-      allow update, delete: if canWriteTenantDoc();
+      allow read: if isSuperAdmin()
+        || (sameTenantResource() && hrRead())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
+      allow create: if isSuperAdmin()
+        || (sameTenantIncoming() && hrWrite())
+        || (incomingTenantCanonical() != null && isAuthEmailCompanyAdmin(incomingTenantCanonical()));
+      allow update, delete: if isSuperAdmin()
+        || (canWriteTenantDoc() && hrWrite())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
     }
     match /audit_logs/{docId} {
-      allow read: if canReadTenantDoc();
-      allow create: if canCreateTenantDoc();
-      allow update, delete: if canWriteTenantDoc();
+      allow read: if isSuperAdmin()
+        || (sameTenantResource() && auditRole())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
+      allow create: if isSuperAdmin()
+        || (sameTenantIncoming() && auditRole())
+        || (incomingTenantCanonical() != null && isAuthEmailCompanyAdmin(incomingTenantCanonical()));
+      allow update, delete: if isSuperAdmin()
+        || (canWriteTenantDoc() && auditRole())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
     }
     match /work_on_holidays/{docId} {
-      allow read: if canReadTenantDoc();
-      allow create: if canCreateTenantDoc();
-      allow update, delete: if canWriteTenantDoc();
+      allow read: if isSuperAdmin()
+        || (sameTenantResource() && (hrRead() || sameDepartment()))
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
+      allow create: if isSuperAdmin()
+        || (sameTenantIncoming() && hrWrite())
+        || (incomingTenantCanonical() != null && isAuthEmailCompanyAdmin(incomingTenantCanonical()));
+      allow update, delete: if isSuperAdmin()
+        || (canWriteTenantDoc() && hrWrite())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
     }
     match /loans/{docId} {
-      allow read: if canReadTenantDoc();
-      allow create: if canCreateTenantDoc();
-      allow update, delete: if canWriteTenantDoc();
+      allow read: if isSuperAdmin()
+        || (sameTenantResource() && payrollRole())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
+      allow create: if isSuperAdmin()
+        || (sameTenantIncoming() && payrollRole())
+        || (incomingTenantCanonical() != null && isAuthEmailCompanyAdmin(incomingTenantCanonical()));
+      allow update, delete: if isSuperAdmin()
+        || (canWriteTenantDoc() && payrollRole())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
     }
     match /custodies/{docId} {
-      allow read: if canReadTenantDoc();
-      allow create: if canCreateTenantDoc();
-      allow update, delete: if canWriteTenantDoc();
+      allow read: if isSuperAdmin()
+        || (sameTenantResource() && hrRead())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
+      allow create: if isSuperAdmin()
+        || (sameTenantIncoming() && hrWrite())
+        || (incomingTenantCanonical() != null && isAuthEmailCompanyAdmin(incomingTenantCanonical()));
+      allow update, delete: if isSuperAdmin()
+        || (canWriteTenantDoc() && hrWrite())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
     }
     match /candidates/{docId} {
-      allow read: if canReadTenantDoc();
-      allow create: if canCreateTenantDoc();
-      allow update, delete: if canWriteTenantDoc();
+      allow read: if isSuperAdmin()
+        || (sameTenantResource() && hrRead())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
+      allow create: if isSuperAdmin()
+        || (sameTenantIncoming() && hrWrite())
+        || (incomingTenantCanonical() != null && isAuthEmailCompanyAdmin(incomingTenantCanonical()));
+      allow update, delete: if isSuperAdmin()
+        || (canWriteTenantDoc() && hrWrite())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
     }
     match /facility_alerts/{docId} {
-      allow read: if canReadTenantDoc() || isSuperAdmin();
-      allow create: if canCreateTenantDoc() || isSuperAdmin();
-      allow update, delete: if canWriteTenantDoc() || isSuperAdmin();
+      allow read: if isSuperAdmin()
+        || (sameTenantResource() && (auditRole() || isHrUser()))
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
+      allow create: if isSuperAdmin()
+        || (sameTenantIncoming() && auditRole())
+        || (incomingTenantCanonical() != null && isAuthEmailCompanyAdmin(incomingTenantCanonical()));
+      allow update, delete: if isSuperAdmin()
+        || (canWriteTenantDoc() && auditRole())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
+    }
+    match /biometric_devices/{docId} {
+      allow read: if isSuperAdmin()
+        || (sameTenantResource() && hrRead())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
+      allow create: if isSuperAdmin()
+        || (sameTenantIncoming() && hrWrite())
+        || (incomingTenantCanonical() != null && isAuthEmailCompanyAdmin(incomingTenantCanonical()));
+      allow update, delete: if isSuperAdmin()
+        || (canWriteTenantDoc() && hrWrite())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
     }
 
     // Deny everything else by default

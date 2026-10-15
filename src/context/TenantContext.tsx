@@ -187,12 +187,6 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return authCompanyId || (companies[0]?.id ?? null);
     }
 
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const urlCompanyId = params.get('companyId') || params.get('company_id') || '';
-      if (urlCompanyId) return urlCompanyId;
-    }
-
     const storedCompanyId = getStoredPreferredCompanyId();
     if (storedCompanyId) return storedCompanyId;
     if (authCompanyId) return authCompanyId;

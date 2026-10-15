@@ -35,6 +35,7 @@ import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
 import { useOdooHierarchy } from '../context/OdooHierarchyContext';
 import { exportToExcel } from '../utils/exportUtils';
 import { toast } from 'react-hot-toast';
+import { MaskedValue } from './security/MaskedValue';
 import {
   approveHolidayWork,
   persistHolidayDutyRecord,
@@ -989,12 +990,9 @@ export const OdooPublicHolidaysApp: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">الرقم المدني:</label>
-                  <input
-                    type="text"
-                    readOnly
-                    value={dutyForm.civilId}
-                    className="w-full p-2.5 bg-slate-50 border rounded-xl font-mono text-slate-600 outline-none"
-                  />
+                  <div className="w-full p-2.5 bg-slate-50 border rounded-xl font-mono text-slate-600">
+                    <MaskedValue kind="civil" value={dutyForm.civilId} />
+                  </div>
                 </div>
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">المسمى الوظيفي والقسم:</label>

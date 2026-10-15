@@ -756,7 +756,6 @@ export const TenantDatabaseService = {
     try {
       const queries = buildTenantEmployeeFirestoreQueries(companyId, {
         includeLegacyCompanyIdField: true,
-        includeUrlCompanyId: true,
       });
       const merged = new Map<string, Employee>();
       for (const employeesQuery of queries) {

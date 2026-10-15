@@ -10,12 +10,21 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
+import { useAuth } from '../context/AuthContext';
+import { isSuperAdminPrincipal } from '../config/superAdminAccess';
+import { readAdminCompanyPickerHint } from '../utils/tenantCompanyId';
 import { useLang } from '../lib/i18n';
 import { toast } from 'react-hot-toast';
 
 export const CompanySwitcher: React.FC<{ onOpenSaasPortal?: () => void }> = ({ onOpenSaasPortal }) => {
   const { activeCompany, isImpersonating, exitImpersonation } = useCompany();
+  const { user, isLoading } = useAuth();
   const { lang } = useLang();
+  const sessionVerified = Boolean(user) && !isLoading;
+  const pickerHint = readAdminCompanyPickerHint(
+    sessionVerified,
+    isSuperAdminPrincipal({ role: user?.role, email: user?.email })
+  );
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -111,6 +120,13 @@ export const CompanySwitcher: React.FC<{ onOpenSaasPortal?: () => void }> = ({ o
                 </div>
               </div>
             </div>
+
+            {pickerHint && (
+              <p className="text-[10px] text-slate-500 leading-relaxed">
+                {isArabic ? 'اختيار المنشأة في الرابط:' : 'Facility in the link:'}{' '}
+                <span className="font-mono">{pickerHint}</span>
+              </p>
+            )}
 
             <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 text-[11px] text-slate-600 space-y-1">
               <div className="flex justify-between">

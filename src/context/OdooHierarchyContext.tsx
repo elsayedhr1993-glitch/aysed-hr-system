@@ -17,7 +17,6 @@ import { normalizeContractStatus } from '../utils/contractStatus';
 import { employeeVisibleInDirectory } from '../utils/contractTenantRules';
 import { subscribeMergedTenantEmployees } from '../utils/subscribeTenantEmployees';
 import { logEmployeeFetchPipeline } from '../utils/employeeFetchDebug';
-import { readCompanyIdFromUrl } from '../utils/tenantCompanyId';
 
 function readIncludeExtendedEmployeeDirectory(): boolean {
   try {
@@ -285,7 +284,6 @@ export const OdooHierarchyProvider: React.FC<{ children: React.ReactNode }> = ({
       {
         includeUnlinked: includeExtended,
         includeLegacyCompanyIdField: true,
-        includeUrlCompanyId: includeExtended || Boolean(readCompanyIdFromUrl()),
       },
       (docs) => {
         let droppedByMap = 0;

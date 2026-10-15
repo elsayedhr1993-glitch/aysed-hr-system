@@ -33,6 +33,9 @@ import {
   Activity
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { doc, deleteDoc, setDoc } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
+import { acceptedDeviceCompanyId } from '../../security/deviceCompany';
 import { useCompany } from '../../context/CompanyContext';
 import { useOdooHierarchy, computeAttendanceAndOvertime } from '../../context/OdooHierarchyContext';
 import { parseAttendanceFile } from '../../utils/attendanceParser';
@@ -48,6 +51,7 @@ export interface BiometricDevice {
   port: number;
   commKey: string; // Password / ComKey
   serialNumber: string;
+  token?: string;
   protocol: 'ADMS_CLOUD' | 'LOCAL_IP' | 'PULL_AGENT' | 'USB_MANUAL';
   status: 'online' | 'offline' | 'syncing';
   lastSyncTime?: string;
@@ -291,6 +295,10 @@ export const BiometricDevicesModal: React.FC<BiometricDevicesModalProps> = ({
     }
 
     const isAlmanarTarget = isTargetAlmanar || editingDevice.ipAddress === '192.168.0.7';
+    const token = editingDevice.token
+      || (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `tok-${Date.now()}`);
 
     const deviceToSave: BiometricDevice = {
       id: editingDevice.id || `dev-${Date.now()}`,
@@ -302,6 +310,7 @@ export const BiometricDevicesModal: React.FC<BiometricDevicesModalProps> = ({
       port: Number(editingDevice.port) || 4370,
       commKey: editingDevice.commKey || '0',
       serialNumber: editingDevice.serialNumber || `SN-${Math.floor(Math.random() * 899999 + 100000)}`,
+      token,
       protocol: editingDevice.protocol || 'ADMS_CLOUD',
       status: 'online',
       lastSyncTime: 'الآن',
@@ -321,6 +330,17 @@ export const BiometricDevicesModal: React.FC<BiometricDevicesModalProps> = ({
       return [...prev, deviceToSave];
     });
 
+    const registeredCompanyId = acceptedDeviceCompanyId(deviceToSave.company_id);
+    if (registeredCompanyId && deviceToSave.serialNumber && deviceToSave.token) {
+      void setDoc(doc(db, 'biometric_devices', deviceToSave.serialNumber), {
+        serialNumber: deviceToSave.serialNumber,
+        token: deviceToSave.token,
+        companyId: registeredCompanyId,
+        enabled: deviceToSave.enabled !== false,
+      }, { merge: true }).catch(() => {
+        toast.error('تعذر تسجيل الجهاز في قاعدة البيانات');
+      });
+    }
     toast.success('تم حفظ جهاز البصمة بنجاح ضمن نطاق المنشأة المحددة');
     setIsDeviceModalOpen(false);
     setEditingDevice(null);
@@ -329,7 +349,11 @@ export const BiometricDevicesModal: React.FC<BiometricDevicesModalProps> = ({
   // Delete Device
   const handleDeleteDevice = (id: string, name: string) => {
     if (confirm(`هل أنت متأكد من حذف جهاز البصمة (${name})؟`)) {
+      const target = devices.find((item) => item.id === id);
       setDevices(prev => prev.filter(d => d.id !== id));
+      if (target?.serialNumber) {
+        void deleteDoc(doc(db, 'biometric_devices', target.serialNumber)).catch(() => {});
+      }
       toast.success('تم حذف الجهاز');
     }
   };
@@ -504,7 +528,7 @@ export const BiometricDevicesModal: React.FC<BiometricDevicesModalProps> = ({
 
   // Local Sync Script Generator (Python Script)
   const generatePythonSyncScript = () => {
-    const primaryDevice = devices[0] || { ipAddress: '192.168.1.201', port: 4370, commKey: '0' };
+    const primaryDevice = devices[0] || { ipAddress: '192.168.1.201', port: 4370, commKey: '0', serialNumber: '', token: '' };
     return `# ========================================================
 #  Aysed S HR 2026 - Biometric Local Sync Bridge (PyZK)
 #  المزامنة التلقائية لأجهزة البصمة ZKTeco مع السحابة
@@ -523,11 +547,12 @@ except ImportError:
 DEVICE_IP = "${primaryDevice.ipAddress}"
 DEVICE_PORT = ${primaryDevice.port}
 DEVICE_COMM_KEY = ${primaryDevice.commKey || 0}
-COMPANY_ID = "${activeCompId}"
+DEVICE_SERIAL = "${primaryDevice.serialNumber || ''}"
+DEVICE_TOKEN = "${primaryDevice.token || ''}"
 CLOUD_API_URL = "https://${window.location.host}/api/biometrics/sync"
 SYNC_INTERVAL_SECONDS = 60  # سحب الحركات كل دقيقة
 
-print(f"[*] بدء تشغيل وسيط مزامنة البصمات - منشأة: {COMPANY_ID}")
+print("[*] بدء تشغيل وسيط مزامنة البصمات")
 print(f"[*] الاتصال بالجهاز على: {DEVICE_IP}:{DEVICE_PORT}")
 
 zk = ZK(DEVICE_IP, port=DEVICE_PORT, timeout=5, password=DEVICE_COMM_KEY, force_udp=False, ommit_ping=False)
@@ -550,7 +575,7 @@ def sync_logs():
 
         # إرسال الحركات إلى نظام الـ HR السحابي
         headers = {"Content-Type": "application/json"}
-        res = requests.post(CLOUD_API_URL, json={"companyId": COMPANY_ID, "logs": payload}, headers=headers, timeout=10)
+        res = requests.post(CLOUD_API_URL, json={"serialNumber": DEVICE_SERIAL, "token": DEVICE_TOKEN, "logs": payload}, headers=headers, timeout=10)
         
         if res.status_code == 200:
             print(f"[✓] تمت المزامنة السحابية بنجاح: {res.json().get('message', 'OK')}")

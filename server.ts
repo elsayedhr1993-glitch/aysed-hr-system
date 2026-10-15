@@ -36,7 +36,12 @@ import { handleAiTestKeyRequest } from "./server/aiTestKeyCore.ts";
 import { requireFirebaseAuthFromHeader, resolveCallerRole } from "./server/apiAuth.ts";
 import { applySecurityHeaders } from "./server/securityHeaders.ts";
 import { createTenantScopeMiddleware } from "./server/tenantScope.ts";
-import { companyForDevice } from "./server/deviceTenantMap.ts";
+import { localAuthWriteBypassEnabled } from "./server/localAuthBypass.ts";
+import {
+  devicePresentedFrom,
+  recordUnregisteredDeviceAttempt,
+  resolveRegisteredDeviceCompany,
+} from "./server/deviceRegistry.ts";
 import { newTenantCredentials, registerAuthRoutes } from "./server/authRoutes.ts";
 import {
   getAdminApp,
@@ -60,6 +65,12 @@ import { loadPamFontBytesSync } from "./server/pamContractFonts.ts";
 const app = express();
 
 app.use((req, res, next) => {
+  if (
+    (req.path === '/api/auth/totp/confirm' || req.path === '/api/auth/change-password')
+    && localAuthWriteBypassEnabled()
+  ) {
+    return next();
+  }
   const emulatorOn = process.env.VITE_USE_EMULATOR === 'true' || Boolean(process.env.FIRESTORE_EMULATOR_HOST);
   if (emulatorOn || process.env.ALLOW_PROD_WRITES === 'true') return next();
   const host = String(req.hostname || '').toLowerCase();
@@ -416,20 +427,40 @@ const biometricLiveBuffer: Array<{
   receivedAt: string;
 }> = [];
 
+async function registeredDeviceCompany(req: any): Promise<string | undefined> {
+  const presented = devicePresentedFrom({
+    query: req.query as Record<string, unknown>,
+    body: req.body,
+    headerToken: req.headers?.['x-device-token'],
+  });
+  const companyId = await resolveRegisteredDeviceCompany(presented);
+  if (!companyId) recordUnregisteredDeviceAttempt(req.path, presented.serial);
+  return companyId;
+}
+
+function rejectUnregisteredDevice(res: any, asText = false) {
+  if (asText) return res.status(401).type('text/plain').send('Unauthorized');
+  return res.status(401).json({ success: false, error: 'الجهاز غير مسجّل' });
+}
+
 // 1. ZKTeco ADMS Handshake (GET /iclock/cdata)
-app.get("/iclock/cdata", (req, res) => {
+app.get("/iclock/cdata", async (req, res) => {
+  const companyId = await registeredDeviceCompany(req);
+  if (!companyId) return rejectUnregisteredDevice(res, true);
   const sn = req.query.SN || "UNKNOWN";
-  console.log(`[Biometric ADMS Handshake] Device SN: ${sn}`);
-  // ZKTeco standard response format
+  console.log(`[Biometric ADMS Handshake] Device registered`);
+  void companyId;
   res.send("GET OPTION FROM: " + sn + "\nATTLOGStamp=None\nOPERLOGStamp=None\nATTPHOTOStamp=None\nErrorDelay=30\nDelay=10\nTransTimes=00:00;14:00\nTransInterval=1\nTransFlag=1111000000\nRealtime=1\nEncrypt=0");
 });
 
 // 2. ZKTeco ADMS Real-time Data Push (POST /iclock/cdata)
-app.post("/iclock/cdata", express.text({ type: "*/*" }), (req, res) => {
+app.post("/iclock/cdata", express.text({ type: "*/*" }), async (req, res) => {
+  const companyId = await registeredDeviceCompany(req);
+  if (!companyId) return rejectUnregisteredDevice(res, true);
   try {
     const rawData = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
     const sn = (req.query.SN as string) || "ZKTeco-ADMS";
-    console.log(`[Biometric ADMS Push] Incoming log from ${sn}:`, rawData.substring(0, 100));
+    console.log(`[Biometric ADMS Push] Incoming log from registered device:`, rawData.substring(0, 100));
 
     // Parse standard ZK tab-separated lines
     const lines = rawData.split(/\r?\n/);
@@ -445,6 +476,7 @@ app.post("/iclock/cdata", express.text({ type: "*/*" }), (req, res) => {
             timestamp: timeStr,
             status: parts[2] || '0',
             source: `ZKTeco (${sn})`,
+            companyId,
             receivedAt: new Date().toISOString()
           });
         }
@@ -464,10 +496,11 @@ app.post("/iclock/cdata", express.text({ type: "*/*" }), (req, res) => {
 });
 
 // 3. Local Sync Agent / Webhook Endpoint (POST /api/biometrics/sync)
-app.post("/api/biometrics/sync", express.json(), (req, res) => {
+app.post("/api/biometrics/sync", express.json(), async (req, res) => {
   try {
+    const companyId = await registeredDeviceCompany(req);
+    if (!companyId) return rejectUnregisteredDevice(res);
     const { logs } = req.body;
-    const sessionCompanyId = req.sessionTenant?.companyId;
     if (Array.isArray(logs)) {
       logs.forEach((log: any) => {
         biometricLiveBuffer.unshift({
@@ -476,7 +509,7 @@ app.post("/api/biometrics/sync", express.json(), (req, res) => {
           timestamp: log.timestamp || new Date().toISOString(),
           status: String(log.status || '0'),
           source: 'Local Agent (PyZK)',
-          companyId: sessionCompanyId,
+          companyId,
           receivedAt: new Date().toISOString()
         });
       });
@@ -856,7 +889,8 @@ const livePunchesCache: Array<{
 app.post("/api/attendance/live-push", async (req, res) => {
   try {
     const { punches, deviceSn } = req.body;
-    const sessionCompanyId = req.sessionTenant?.companyId || companyForDevice(String(deviceSn || ''));
+    const sessionCompanyId = await registeredDeviceCompany(req);
+    if (!sessionCompanyId) return rejectUnregisteredDevice(res);
     const rawPunches = Array.isArray(punches) ? punches : [req.body];
 
     if (!rawPunches || rawPunches.length === 0) {
@@ -877,8 +911,7 @@ app.post("/api/attendance/live-push", async (req, res) => {
       const dateStr = isValidDate ? parsedDateObj.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
       const timeStr = isValidDate ? parsedDateObj.toTimeString().split(' ')[0].substring(0, 5) : '08:00';
       const typeStr = (p.type || p.status || p.punchType || 'IN').toString().toUpperCase().includes('OUT') ? 'OUT' : 'IN';
-      const effCompId = sessionCompanyId || companyForDevice(String(p.deviceSn || deviceSn || ''));
-      if (!effCompId) continue;
+      const effCompId = sessionCompanyId;
       const effDevSn = deviceSn || p.deviceSn || p.sn || 'ZK-LOCAL-SYNC';
 
       const punchItem = {
@@ -954,8 +987,10 @@ app.post("/api/attendance/live-push", async (req, res) => {
   }
 });
 
-app.all(["/iclock/cdata", "/api/zkteco/iclock/cdata"], async (req, res) => {
-  const sn = (req.query.SN || req.body?.SN || 'ZK-DEVICE').toString();
+app.all(["/api/zkteco/iclock/cdata"], express.text({ type: "*/*" }), async (req, res) => {
+  const sn = (req.query.SN || req.body?.SN || '').toString();
+  const effCompId = await registeredDeviceCompany(req);
+  if (!effCompId) return rejectUnregisteredDevice(res, true);
 
   if (req.method === 'GET') {
     res.setHeader("Content-Type", "text/plain");
@@ -963,10 +998,9 @@ app.all(["/iclock/cdata", "/api/zkteco/iclock/cdata"], async (req, res) => {
   }
 
   const bodyText = typeof req.body === 'string' ? req.body : JSON.stringify(req.body || {});
-  console.log(`[ZKTeco ADMS Cloud Push] Incoming logs from SN ${sn}: ${bodyText.substring(0, 200)}`);
+  console.log(`[ZKTeco ADMS Cloud Push] Incoming logs from registered device: ${bodyText.substring(0, 200)}`);
 
   let count = 0;
-  const effCompId = req.sessionTenant?.companyId || companyForDevice(sn);
 
   try {
     const lines = bodyText.split(/\r?\n/).filter(l => l.trim().length > 0);
@@ -1029,9 +1063,9 @@ app.all(["/iclock/cdata", "/api/zkteco/iclock/cdata"], async (req, res) => {
   return res.send(`OK: ${count}`);
 });
 
-app.get("/api/attendance/live-logs", (req, res) => {
-  const compId = req.sessionTenant?.companyId || '';
-  if (!compId) return res.status(403).json({ success: false, error: 'لا توجد منشأة في الجلسة' });
+app.get("/api/attendance/live-logs", async (req, res) => {
+  const compId = await registeredDeviceCompany(req);
+  if (!compId) return rejectUnregisteredDevice(res);
   const filtered = livePunchesCache.filter(p => p.companyId === compId);
   return res.json({
     success: true,

@@ -29,8 +29,8 @@ import {
 } from '../utils/contractTenantRules';
 import { subscribeMergedTenantEmployees } from '../utils/subscribeTenantEmployees';
 import { logEmployeeFetchPipeline } from '../utils/employeeFetchDebug';
-import { readCompanyIdFromUrl } from '../utils/tenantCompanyId';
 import { EmployeeOnboardingValidationError } from '../services/employeeOnboardingService';
+import { MaskedCivilField } from '../components/security/MaskedValue';
 import {
   backfillMissingPlanStatuses,
   buildActiveOnboardingDirectoryKeys,
@@ -591,7 +591,6 @@ export function EmployeesApp(props?: any) {
       {
         includeUnlinked: includeExtendedEmployeeDirectory,
         includeLegacyCompanyIdField: true,
-        includeUrlCompanyId: includeExtendedEmployeeDirectory || Boolean(readCompanyIdFromUrl()),
       },
       (docs) => {
         let droppedByMap = 0;
@@ -1280,7 +1279,6 @@ export function EmployeesApp(props?: any) {
       droppedByTenant: employees.length - visibleEmployees.length,
       extra: {
         includeExtendedEmployeeDirectory,
-        urlCompanyId: readCompanyIdFromUrl() || null,
       },
     });
   }, [
@@ -1498,7 +1496,6 @@ export function EmployeesApp(props?: any) {
                   />
                   <span>
                     عرض غير المرتبطين وشركات سابقة
-                    {readCompanyIdFromUrl() ? ` (يشمل companyId من الرابط)` : ''}
                   </span>
                 </label>
               }
@@ -1849,10 +1846,10 @@ export function EmployeesApp(props?: any) {
 
                 <div>
                   <label className="block text-slate-500 font-semibold mb-1">الرقم المدني الكويتي (12 رقم)</label>
-                  <input 
-                    type="text" 
+                  <MaskedCivilField
+                    maxLength={12}
                     value={selectedCommencement.civilId}
-                    onChange={(e) => setSelectedCommencement({...selectedCommencement, civilId: e.target.value})}
+                    onChange={(val) => setSelectedCommencement({...selectedCommencement, civilId: val})}
                     className="w-full bg-white border border-slate-300 rounded-lg p-2 font-mono font-bold text-slate-800"
                   />
                 </div>

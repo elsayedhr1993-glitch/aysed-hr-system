@@ -45,11 +45,67 @@ export function totpRequiredForRole(role: string | undefined | null): boolean {
   return TOTP_REQUIRED_ROLES.has(normalizeHrRole(role));
 }
 
-export type TenantCollection =
-  | 'payslips'
-  | 'contracts'
-  | 'employees'
-  | 'other';
+export const RULED_COLLECTIONS = [
+  'employees',
+  'contracts',
+  'payslips',
+  'leave_settlements',
+  'loans',
+  'commencements',
+  'onboarding_plans',
+  'documents',
+  'company_documents',
+  'attendance_records',
+  'attendance',
+  'work_entries',
+  'employee_lifecycle_events',
+  'work_on_holidays',
+  'custodies',
+  'candidates',
+  'biometric_devices',
+  'company_templates',
+  'leave_requests',
+  'leave_allocations',
+  'audit_logs',
+  'facility_alerts',
+  'users',
+  'companies',
+  'dev_companies',
+  'subscriptions',
+  'subscription_requests',
+  'system_config',
+] as const;
+
+export type TenantCollection = (typeof RULED_COLLECTIONS)[number] | 'other';
+
+const HR_OPERATIONS = new Set<TenantCollection>([
+  'commencements',
+  'onboarding_plans',
+  'documents',
+  'company_documents',
+  'attendance_records',
+  'attendance',
+  'work_entries',
+  'employee_lifecycle_events',
+  'work_on_holidays',
+  'custodies',
+  'candidates',
+  'biometric_devices',
+  'company_templates',
+]);
+
+const DEPARTMENT_READ = new Set<TenantCollection>([
+  'attendance_records',
+  'attendance',
+  'work_entries',
+  'work_on_holidays',
+  'leave_requests',
+  'leave_allocations',
+]);
+
+const PAYROLL_COLLECTIONS = new Set<TenantCollection>(['payslips', 'leave_settlements', 'loans']);
+
+const PLATFORM_ONLY = new Set<TenantCollection>(['subscriptions', 'subscription_requests']);
 
 /**
  * Simulation of the Firestore role matrix. Tests call this instead of production.
@@ -66,30 +122,50 @@ export function decideTenantAccess(input: {
   emailMatchesCompanyAdmin?: boolean;
 }): boolean {
   if (input.platformAdmin || normalizeHrRole(input.role) === 'SUPER_ADMIN') return true;
-  if (!input.sameTenant && !input.emailMatchesCompanyAdmin) return false;
   const role = normalizeHrRole(input.role);
+  if (role === 'UNKNOWN' && !input.emailMatchesCompanyAdmin) return false;
+  if (PLATFORM_ONLY.has(input.collection)) return false;
+  if (!input.sameTenant && !input.emailMatchesCompanyAdmin) return false;
   if (input.emailMatchesCompanyAdmin) return true;
 
-  if (input.collection === 'payslips') {
-    return input.op === 'read' ? canReadPayroll(role) : canReadPayroll(role);
-  }
+  const readHr = role === 'COMPANY_ADMIN' || role === 'HR_MANAGER' || role === 'HR_USER' || role === 'FINANCE';
+  const writeHr = role === 'COMPANY_ADMIN' || role === 'HR_MANAGER' || role === 'HR_USER';
+  const deptRead = role === 'DEPARTMENT_MANAGER' && Boolean(input.sameDepartment);
+  const own = Boolean(input.ownRecord);
+
+  if (PAYROLL_COLLECTIONS.has(input.collection)) return canReadPayroll(role);
   if (input.collection === 'contracts') {
-    return input.op === 'read'
-      ? canReadContracts(role, input.ownRecord)
-      : canWriteContracts(role);
+    return input.op === 'read' ? canReadContracts(role, own) : canWriteContracts(role);
   }
   if (input.collection === 'employees') {
-    if (input.op === 'read') {
-      return (
-        role === 'COMPANY_ADMIN' ||
-        role === 'HR_MANAGER' ||
-        role === 'HR_USER' ||
-        role === 'FINANCE' ||
-        (role === 'DEPARTMENT_MANAGER' && Boolean(input.sameDepartment)) ||
-        Boolean(input.ownRecord)
-      );
-    }
-    return role === 'COMPANY_ADMIN' || role === 'HR_MANAGER' || role === 'HR_USER';
+    if (input.op === 'read') return readHr || deptRead || own;
+    return writeHr;
   }
-  return role !== 'UNKNOWN' && role !== 'EMPLOYEE';
+  if (input.collection === 'leave_requests') {
+    if (input.op === 'read') return readHr || deptRead || own;
+    return writeHr || own;
+  }
+  if (input.collection === 'leave_allocations') {
+    if (input.op === 'read') return readHr || deptRead || own;
+    return writeHr;
+  }
+  if (input.collection === 'audit_logs') {
+    return role === 'COMPANY_ADMIN' || role === 'HR_MANAGER';
+  }
+  if (input.collection === 'facility_alerts') {
+    if (input.op === 'read') return role === 'COMPANY_ADMIN' || role === 'HR_MANAGER' || role === 'HR_USER';
+    return role === 'COMPANY_ADMIN' || role === 'HR_MANAGER';
+  }
+  if (input.collection === 'users') return own;
+  if (input.collection === 'companies' || input.collection === 'dev_companies') {
+    return input.op === 'read';
+  }
+  if (input.collection === 'system_config') {
+    return input.op === 'read' ? readHr : role === 'COMPANY_ADMIN';
+  }
+  if (HR_OPERATIONS.has(input.collection)) {
+    if (input.op === 'read') return readHr || (deptRead && DEPARTMENT_READ.has(input.collection));
+    return writeHr;
+  }
+  return false;
 }

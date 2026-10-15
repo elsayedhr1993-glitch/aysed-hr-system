@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
 import { auth, db, getCompaniesCollectionName, isTenantPurged } from '../lib/firebase';
 import { resolveTenantCompanyIdForEmail } from '../services/tenantCompanyLookup';
-import { readCompanyIdFromUrl } from '../utils/tenantCompanyId';
 import { ensureSessionTenantBinding } from '../services/sessionTenantBindingService';
 import { doc, getDoc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
@@ -163,8 +162,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             const canonicalCompanyId = await resolveTenantCompanyIdForEmail(
               email,
-              currentCompanyId,
-              readCompanyIdFromUrl()
+              currentCompanyId
             );
             if (canonicalCompanyId) {
               await writeUser(

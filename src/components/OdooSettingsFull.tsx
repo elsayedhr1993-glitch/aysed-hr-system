@@ -32,6 +32,7 @@ import {
 import { useSystemSettings, SystemSettings } from '../context/SystemSettingsContext';
 import { useCompany } from '../context/CompanyContext';
 import { toast } from 'react-hot-toast';
+import { MaskedCivilField } from './security/MaskedValue';
 import { BiometricDevicesModal } from './attendance/BiometricDevicesModal';
 import { SystemIntegrationsPage } from './SystemIntegrationsPage';
 import {
@@ -474,10 +475,9 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">الرقم المدني للجهة (Civil ID Org)</label>
-                    <input
-                      type="text"
+                    <MaskedCivilField
                       value={formData.civilIdCompany}
-                      onChange={(e) => handleFieldChange('civilIdCompany', e.target.value)}
+                      onChange={(val) => handleFieldChange('civilIdCompany', val)}
                       className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 focus:border-primary outline-hidden shadow-2xs"
                     />
                   </div>

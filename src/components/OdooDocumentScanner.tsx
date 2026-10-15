@@ -13,6 +13,7 @@ import {
 import { processAnyDocument, ScannedData } from '../utils/ocrService';
 import { validateKuwaitCivilId, parseKuwaitCivilId } from '../utils/kuwaitLaw';
 import toast from 'react-hot-toast';
+import { MaskedCivilField } from './security/MaskedValue';
 
 export interface ExtractedData {
   civilId: string;
@@ -213,11 +214,10 @@ export const OdooDocumentScanner: React.FC<OdooDocumentScannerProps> = ({ onAppl
 
               <div>
                 <label className="text-slate-500 block text-[10px] font-bold mb-0.5">الرقم المدني (Civil ID):</label>
-                <input
-                  type="text"
+                <MaskedCivilField
+                  maxLength={12}
                   value={scanResult.civilId}
-                  onChange={(e) => {
-                    const val = e.target.value;
+                  onChange={(val) => {
                     setScanResult(prev => {
                       if (!prev) return prev;
                       let bDate = prev.birthDate;

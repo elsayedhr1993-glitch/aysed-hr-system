@@ -11,8 +11,6 @@ type Policy = {
 
 type Step = 'loading' | 'ready' | 'totp' | 'enroll' | 'password';
 
-const READONLY_HINT = 'read-only';
-
 async function authedFetch(path: string, init?: RequestInit): Promise<Response> {
   const headers = await buildAuthedJsonHeaders();
   return fetch(path, {
@@ -101,12 +99,6 @@ export const SessionSecurityGate: React.FC<{ children: React.ReactNode }> = ({ c
       setStep('ready');
       return;
     }
-    const text = await res.text();
-    if (res.status === 403 && text.toLowerCase().includes(READONLY_HINT)) {
-      sessionStorage.setItem('aysed_totp_enroll_deferred', '1');
-      setStep('ready');
-      return;
-    }
     setMessage('تعذر تثبيت التحقق بخطوتين');
   };
 
@@ -118,11 +110,6 @@ export const SessionSecurityGate: React.FC<{ children: React.ReactNode }> = ({ c
     });
     if (res.ok) {
       setStep(policy?.totpRequired ? (policy.totpEnrolled ? 'totp' : 'enroll') : 'ready');
-      return;
-    }
-    const text = await res.text();
-    if (res.status === 403 && text.toLowerCase().includes(READONLY_HINT)) {
-      setStep('ready');
       return;
     }
     setMessage('تعذر تغيير كلمة المرور');

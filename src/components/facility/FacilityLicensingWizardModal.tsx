@@ -10,6 +10,7 @@ import { syncFacilityWizardDraft, syncTenantLicensesAndCompanyProfile } from '..
 
 import type { FacilityLicenseData } from '../../types/facilityLicense';
 import { createEmptyFacilityData } from '../../types/facilityLicense';
+import { MaskedCivilField } from '../security/MaskedValue';
 
 export type { FacilityLicenseData } from '../../types/facilityLicense';
 export { createEmptyFacilityData } from '../../types/facilityLicense';
@@ -363,10 +364,9 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
 
                 <div className="sm:col-span-2">
                   <label className="block text-slate-700 font-bold text-xs mb-1">الرقم المدني للجهة / الرقم الآلي (PACI) *</label>
-                  <input
-                    type="text"
+                  <MaskedCivilField
                     value={formData.paciCivilId}
-                    onChange={(e) => handleFieldChange('paciCivilId', e.target.value)}
+                    onChange={(val) => handleFieldChange('paciCivilId', val)}
                     placeholder="988123049182"
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs font-bold font-mono text-slate-900 focus:bg-white focus:border-primary"
                   />
@@ -572,10 +572,9 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
 
                 <div>
                   <label className="block text-slate-700 font-bold text-xs mb-1">الرقم المدني للمفوض بالتوقيع</label>
-                  <input
-                    type="text"
+                  <MaskedCivilField
                     value={formData.authorizedSignatoryCivilId}
-                    onChange={(e) => handleFieldChange('authorizedSignatoryCivilId', e.target.value)}
+                    onChange={(val) => handleFieldChange('authorizedSignatoryCivilId', val)}
                     placeholder="285091204918"
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs font-bold font-mono text-slate-900"
                   />

@@ -33,7 +33,8 @@ export const db = firestoreInstance;
 export const auth = getAuth(app);
 export const storage = getStorage(app);
 
-if (import.meta.env.VITE_USE_EMULATOR === 'true') {
+const viteEnv = (import.meta as { env?: { VITE_USE_EMULATOR?: string } }).env;
+if (viteEnv?.VITE_USE_EMULATOR === 'true') {
   connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
   connectFirestoreEmulator(db, '127.0.0.1', 8080);
 }

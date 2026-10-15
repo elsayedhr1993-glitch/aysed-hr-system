@@ -31,12 +31,6 @@ const normalizeCompanyName = (value: unknown, fallback = 'Company') => {
   return fallback;
 };
 
-const readUrlCompanyId = () => {
-  if (typeof window === 'undefined') return '';
-  const params = new URLSearchParams(window.location.search);
-  return params.get('companyId') || params.get('company_id') || '';
-};
-
 const readLastActiveCompanyId = () => {
   try {
     return localStorage.getItem('lastActiveCompanyId') || localStorage.getItem('activeCompanyId') || '';
@@ -46,14 +40,12 @@ const readLastActiveCompanyId = () => {
 };
 
 const resolveSelectedCompanyId = (
-  urlCompanyId: string,
   firebaseCompanyId: string,
   fallbackCompanyId: string,
   currentCompanyId: string,
   currentCompanyName: string
 ) => {
   const candidates = [
-    urlCompanyId,
     firebaseCompanyId,
     fallbackCompanyId,
     currentCompanyId,
@@ -65,7 +57,6 @@ const resolveSelectedCompanyId = (
 
   if (fallbackCompanyId) return fallbackCompanyId;
   if (currentCompanyId) return currentCompanyId;
-  if (urlCompanyId) return urlCompanyId;
   if (firebaseCompanyId) return firebaseCompanyId;
   return 'comp-super-admin';
 };
@@ -93,7 +84,6 @@ const AysedCoreShell: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   const initializeSystem = async () => {
     const authUser = auth.currentUser;
-    const urlCompanyId = readUrlCompanyId();
     const localProfileCompanyId = readLastActiveCompanyId();
 
     let firebaseCompanyId = '';
@@ -111,7 +101,6 @@ const AysedCoreShell: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
     const fallbackCompanyId = activeCompanyId || activeCompany?.id || localProfileCompanyId || '';
     const selectedCompanyId = resolveSelectedCompanyId(
-      urlCompanyId,
       firebaseCompanyId,
       fallbackCompanyId,
       activeCompanyId || activeCompany?.id || '',
@@ -140,13 +129,6 @@ const AysedCoreShell: React.FC<{ children: React.ReactNode }> = ({ children }) =
       } catch {
         // Ignore persistence failures; the selection is still valid in-memory.
       }
-    }
-
-    if (selectedCompanyId && selectedCompanyId !== urlCompanyId && typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      params.set('companyId', selectedCompanyId);
-      const nextUrl = `${window.location.pathname}?${params.toString()}`;
-      window.history.replaceState({}, '', nextUrl);
     }
 
     setSystemState({

@@ -2,9 +2,8 @@ import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { isSuperAdminPrincipal } from '../config/superAdminAccess';
 import { resolveTenantCompanyIdForEmail } from './tenantCompanyLookup';
-import { readCompanyIdFromUrl } from '../utils/tenantCompanyId';
 
-/** Idempotent: align users/{uid} with company from email + URL (fixes external deep links). */
+/** Idempotent: align users/{uid} with the company resolved from the account email. */
 export async function ensureSessionTenantBinding(
   uid: string,
   email: string,
@@ -23,11 +22,7 @@ export async function ensureSessionTenantBinding(
     return undefined;
   }
 
-  const companyId = await resolveTenantCompanyIdForEmail(
-    normalizedEmail,
-    undefined,
-    readCompanyIdFromUrl()
-  );
+  const companyId = await resolveTenantCompanyIdForEmail(normalizedEmail);
   if (!companyId) return undefined;
 
   const nextRole = String(role || 'COMPANY_ADMIN').toUpperCase() === 'TENANT_ADMIN'

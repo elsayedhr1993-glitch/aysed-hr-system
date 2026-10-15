@@ -31,7 +31,7 @@ import { UiStudioScreenTitle } from './studio/UiStudioScreenTitle';
 import { UI_KEYS } from '../utils/uiStudioKeys';
 import { UiStudioTarget } from './studio/UiStudioTarget';
 import { TimeOffPayrollFinancePanel } from './timeoff/TimeOffPayrollFinancePanel';
-import { IdentityInput, MaskedValue } from './security/MaskedValue';
+import { MaskedCivilField, MaskedValue } from './security/MaskedValue';
 
 export interface PayslipItem {
   id: string;
@@ -1627,10 +1627,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                 </div>
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">الرقم المدني (12 رقم) *</label>
-                  <IdentityInput
-                    kind="civil"
-                    type="text"
-                    required
+                  <MaskedCivilField
                     maxLength={12}
                     placeholder="الرقم المدني"
                     value={newForm.civilId}

@@ -25,6 +25,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { MaskedCivilField } from '../security/MaskedValue';
 import { processAnyDocument } from '../../utils/ocrService';
 import { OnboardingPlan, OnboardingTask } from '../../types';
 import { useCompany } from '../../context/CompanyContext';
@@ -743,11 +744,10 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
 
                 <div>
                   <label className="block text-slate-700 font-bold mb-1">الرقم المدني (إن وجد)</label>
-                  <input
-                    type="text"
+                  <MaskedCivilField
                     maxLength={12}
                     value={civilId}
-                    onChange={(e) => setCivilId(e.target.value)}
+                    onChange={(val) => setCivilId(val)}
                     placeholder="الرقم المدني"
                     className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-mono font-bold text-slate-900"
                   />

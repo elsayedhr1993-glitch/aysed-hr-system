@@ -8,8 +8,8 @@ import { useFieldPersist } from '../context/InlineEditContext';
 import { EMPLOYEE_FIELD_MIRRORS } from '../utils/employeeFieldMirrors';
 import { useAuth } from '../context/AuthContext';
 import { canRevealIdentity } from '../security/accessRoles';
-import { identityKindFromField, maskIdentity } from '../security/identityMask';
-import { MaskedValue } from './security/MaskedValue';
+import { identityKindFromField } from '../security/identityMask';
+import { MaskedCivilField, MaskedValue } from './security/MaskedValue';
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -100,8 +100,8 @@ export const EditableField: React.FC<EditableFieldProps> = ({
   const saveOnBlur = autoSaveOnBlur ?? Boolean(effectivePersist);
 
   useEffect(() => {
-    if (!editing) setDraft(displayValue);
-  }, [displayValue, editing]);
+    if (!editing) setDraft(identityKind ? '' : displayValue);
+  }, [displayValue, editing, identityKind]);
 
   useEffect(() => {
     if (editing && inputRef.current) {
@@ -111,12 +111,16 @@ export const EditableField: React.FC<EditableFieldProps> = ({
   }, [editing]);
 
   const cancelEdit = useCallback(() => {
-    setDraft(displayValue);
+    setDraft(identityKind ? '' : displayValue);
     setEditing(false);
-  }, [displayValue]);
+  }, [displayValue, identityKind]);
 
   const commit = useCallback(async () => {
     const next = draft.trim();
+    if (identityKind && !next) {
+      setEditing(false);
+      return;
+    }
     if (next === displayValue) {
       setEditing(false);
       return;
@@ -132,12 +136,12 @@ export const EditableField: React.FC<EditableFieldProps> = ({
         console.error(err);
         setSaveState('error');
         onChange(displayValue);
-        setDraft(displayValue);
+        setDraft(identityKind ? '' : displayValue);
         toast.error('تعذر حفظ الحقل في السحابة');
       }
     }
     setEditing(false);
-  }, [draft, displayValue, onChange, effectivePersist]);
+  }, [draft, displayValue, onChange, effectivePersist, identityKind]);
 
   useEffect(() => {
     if (!editing) return;
@@ -250,19 +254,26 @@ export const EditableField: React.FC<EditableFieldProps> = ({
       )}
 
       {isEditMode ? (
+        identityKind ? (
+          <MaskedCivilField
+            value={displayValue}
+            onChange={mayRevealIdentity ? onChange : undefined}
+            readOnly={!mayRevealIdentity}
+            maxLength={maxLength}
+            placeholder={placeholder}
+            className="w-full border border-slate-300 focus:border-primary rounded-lg px-2.5 py-1.5 font-bold text-slate-900 bg-white focus:ring-1 focus:ring-primary focus:outline-none text-sm transition"
+          />
+        ) : (
         <input
           type={type}
           maxLength={maxLength}
-          value={identityKind && !mayRevealIdentity ? maskIdentity(displayValue, identityKind) : displayValue}
-          readOnly={Boolean(identityKind && !mayRevealIdentity)}
-          onChange={(e) => {
-            if (identityKind && !mayRevealIdentity) return;
-            onChange(e.target.value);
-          }}
+          value={displayValue}
+          onChange={(e) => onChange(e.target.value)}
           className="w-full border border-slate-300 focus:border-primary rounded-lg px-2.5 py-1.5 font-bold text-slate-900 bg-white focus:ring-1 focus:ring-primary focus:outline-none text-sm transition"
           placeholder={placeholder}
           dir={lang === 'ar' ? 'rtl' : 'ltr'}
         />
+        )
       ) : identityKind ? (
         <div className="w-full min-h-[30px] flex items-center justify-between gap-2 px-2 py-1">
           <MaskedValue kind={identityKind} value={displayValue} purpose={studioFieldKey || label} />

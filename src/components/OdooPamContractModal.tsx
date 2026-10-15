@@ -18,6 +18,7 @@ import { DEFAULT_PAM_COORDINATES, PamCoordinatesConfig, PamFontChoice } from '..
 import { OdooPdf, type PamContractData } from '../services/odooPdfService';
 import toast from 'react-hot-toast';
 import { useCompany } from '../context/CompanyContext';
+import { MaskedCivilField } from './security/MaskedValue';
 import { useAuth } from '../context/AuthContext';
 import { buildPamFormDataFromSources, resolvePamCompanyId } from '../lib/pamContractHelpers';
 import type { Company } from '../types';
@@ -481,10 +482,9 @@ export const OdooPamContractModal: React.FC<Props> = ({
                 </div>
                 <div>
                   <label className="text-slate-500 block mb-0.5">رقم مدني المفوض بالتوقيع</label>
-                  <input
-                    type="text"
+                  <MaskedCivilField
                     value={formData.companyRepCivilId}
-                    onChange={e => setFormData({ ...formData, companyRepCivilId: e.target.value })}
+                    onChange={(val) => setFormData({ ...formData, companyRepCivilId: val })}
                     className="w-full p-2 border border-slate-200 rounded-xl bg-slate-50 font-bold focus:bg-white transition"
                   />
                 </div>
@@ -527,11 +527,10 @@ export const OdooPamContractModal: React.FC<Props> = ({
                 </div>
                 <div>
                   <label className="text-slate-500 block mb-0.5">الرقم المدني (12 رقم)</label>
-                  <input
-                    type="text"
+                  <MaskedCivilField
                     maxLength={12}
                     value={formData.employeeCivilId}
-                    onChange={e => setFormData({ ...formData, employeeCivilId: e.target.value })}
+                    onChange={(val) => setFormData({ ...formData, employeeCivilId: val })}
                     className="w-full p-2 border border-slate-200 rounded-xl bg-slate-50 font-bold font-mono focus:bg-white transition"
                   />
                 </div>

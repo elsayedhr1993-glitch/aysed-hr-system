@@ -8,8 +8,7 @@ import {
   type QuerySnapshot,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { contractQueryCompanyIds, normalizeTenantCompanyId } from './contractTenantRules';
-import { readCompanyIdFromUrl } from './tenantCompanyId';
+import { contractQueryCompanyIds } from './contractTenantRules';
 import { logEmployeeFetchPipeline, logFirestoreEmployeeFetchSummary } from './employeeFetchDebug';
 
 export type TenantEmployeeSubscribeOptions = {
@@ -17,8 +16,6 @@ export type TenantEmployeeSubscribeOptions = {
   includeUnlinked?: boolean;
   /** Also query legacy `company_id` field (default: true — no row cap on queries) */
   includeLegacyCompanyIdField?: boolean;
-  /** When URL has ?companyId=, include that id in Firestore queries */
-  includeUrlCompanyId?: boolean;
 };
 
 function chunkCompanyIds(ids: string[]): string[][] {
@@ -40,14 +37,6 @@ export function buildTenantEmployeeFirestoreQueries(
   const includeLegacy = options.includeLegacyCompanyIdField !== false;
 
   const companyIds = new Set(contractQueryCompanyIds(id));
-  if (options.includeUrlCompanyId) {
-    const urlCo = readCompanyIdFromUrl();
-    if (urlCo) {
-      companyIds.add(urlCo);
-      const normalized = normalizeTenantCompanyId(urlCo);
-      if (normalized) companyIds.add(normalized);
-    }
-  }
   if (options.includeUnlinked) {
     companyIds.add('comp-super-admin');
   }
@@ -110,7 +99,6 @@ export function subscribeMergedTenantEmployees(
       queryCount: queries.length,
       includeUnlinked: options.includeUnlinked,
       includeLegacyCompanyIdField,
-      includeUrlCompanyId: options.includeUrlCompanyId,
     });
     logEmployeeFetchPipeline('firestore-merged', {
       companyId: activeCompanyId,
@@ -118,7 +106,6 @@ export function subscribeMergedTenantEmployees(
       extra: {
         queryCount: queries.length,
         includeUnlinked: options.includeUnlinked,
-        includeUrlCompanyId: options.includeUrlCompanyId,
       },
     });
     onMergedSnapshot(rows);

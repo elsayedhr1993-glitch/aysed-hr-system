@@ -8,7 +8,7 @@ import {
   pickAllowedCustomData,
   validateCustomFieldValue,
 } from '../../utils/customLayoutUtils';
-import { IdentityInput } from '../security/MaskedValue';
+import { MaskedCivilField } from '../security/MaskedValue';
 
 interface Props {
   isOpen: boolean;
@@ -208,13 +208,11 @@ export const EmployeeQuickEditModal: React.FC<Props> = ({ isOpen, employee, onCl
             </label>
             <label className="block">
               <span className="text-slate-500 font-semibold mb-1 block">الرقم المدني</span>
-              <IdentityInput
-                kind="civil"
+              <MaskedCivilField
                 value={form.civilId}
                 onChange={(val) => setField('civilId', val)}
                 maxLength={12}
                 className="w-full border border-slate-200 rounded-lg px-2.5 py-2 font-mono focus:border-primary focus:outline-none"
-                dir="ltr"
               />
             </label>
             <label className="block">
