@@ -111,7 +111,11 @@ export const OdooOperationsApp: React.FC = () => {
         empName.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesCat = selectedCategory === 'ALL' || item.itemCategory === selectedCategory;
-      const matchesStatus = selectedStatus === 'ALL' || item.status === selectedStatus;
+      const matchesStatus =
+        selectedStatus === 'ALL' ||
+        (selectedStatus === 'ASSIGNED' && item.status === 'ASSIGNED') ||
+        (selectedStatus === 'IN_STOCK' && (item.status === 'RETURNED' || !item.employeeId)) ||
+        (selectedStatus === 'ATTENTION' && (item.status === 'MAINTENANCE' || item.status === 'DAMAGED'));
 
       return matchesSearch && matchesCat && matchesStatus;
     });
@@ -387,7 +391,13 @@ export const OdooOperationsApp: React.FC = () => {
       <div className="odoo-kanban-grid gap-3.5">
         
         {/* Metric 1: Total Value */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setSelectedStatus('ALL')}
+          className={`bg-white p-4 rounded-2xl border shadow-xs flex items-center justify-between text-right cursor-pointer ${
+            selectedStatus === 'ALL' ? 'border-indigo-400 ring-2 ring-indigo-100' : 'border-slate-200'
+          }`}
+        >
           <div className="space-y-1">
             <span className="text-xs font-bold text-slate-500">القيمة التقديرية للأصول</span>
             <div className="text-xl font-black text-slate-900 font-mono tracking-tight">
@@ -398,10 +408,15 @@ export const OdooOperationsApp: React.FC = () => {
           <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
             <CreditCard size={24} />
           </div>
-        </div>
+        </button>
 
-        {/* Metric 2: Assigned to Employees */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setSelectedStatus('ASSIGNED')}
+          className={`bg-white p-4 rounded-2xl border shadow-xs flex items-center justify-between text-right cursor-pointer ${
+            selectedStatus === 'ASSIGNED' ? 'border-emerald-500 ring-2 ring-emerald-100' : 'border-slate-200'
+          }`}
+        >
           <div className="space-y-1">
             <span className="text-xs font-bold text-slate-500">عهد قيد الاستخدام (مسلّمة)</span>
             <div className="text-xl font-black text-emerald-700 font-mono">
@@ -412,10 +427,15 @@ export const OdooOperationsApp: React.FC = () => {
           <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
             <CheckCircle2 size={24} />
           </div>
-        </div>
+        </button>
 
-        {/* Metric 3: In Stock / Returned */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setSelectedStatus('IN_STOCK')}
+          className={`bg-white p-4 rounded-2xl border shadow-xs flex items-center justify-between text-right cursor-pointer ${
+            selectedStatus === 'IN_STOCK' ? 'border-blue-500 ring-2 ring-blue-100' : 'border-slate-200'
+          }`}
+        >
           <div className="space-y-1">
             <span className="text-xs font-bold text-slate-500">متاحة في المستودع</span>
             <div className="text-xl font-black text-blue-700 font-mono">
@@ -426,10 +446,15 @@ export const OdooOperationsApp: React.FC = () => {
           <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
             <Package size={24} />
           </div>
-        </div>
+        </button>
 
-        {/* Metric 4: Maintenance / Damaged */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setSelectedStatus('ATTENTION')}
+          className={`bg-white p-4 rounded-2xl border shadow-xs flex items-center justify-between text-right cursor-pointer ${
+            selectedStatus === 'ATTENTION' ? 'border-amber-500 ring-2 ring-amber-100' : 'border-slate-200'
+          }`}
+        >
           <div className="space-y-1">
             <span className="text-xs font-bold text-slate-500">تحت الصيانة أو تالفة</span>
             <div className="text-xl font-black text-amber-700 font-mono">
@@ -440,7 +465,7 @@ export const OdooOperationsApp: React.FC = () => {
           <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
             <AlertTriangle size={24} />
           </div>
-        </div>
+        </button>
 
       </div>
 
@@ -466,29 +491,6 @@ export const OdooOperationsApp: React.FC = () => {
                 <X size={14} />
               </button>
             )}
-          </div>
-
-          {/* Status Tabs */}
-          <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0">
-            {[
-              { id: 'ALL', label: 'الكل' },
-              { id: 'ASSIGNED', label: 'مسلّمة قيد الاستخدام' },
-              { id: 'RETURNED', label: 'بالمستودع' },
-              { id: 'MAINTENANCE', label: 'صيانة' },
-              { id: 'DAMAGED', label: 'تالفة' },
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setSelectedStatus(tab.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
-                  selectedStatus === tab.id
-                    ? 'bg-primary text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
           </div>
 
         </div>
