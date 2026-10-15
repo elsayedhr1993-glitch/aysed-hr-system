@@ -9,7 +9,15 @@ import {
 import { assertClientCompanyAccess } from '../src/lib/aiCopilotContext';
 import { COPILOT_APP_IDS, COPILOT_FUNCTION_NAMES, COPILOT_MODAL_IDS } from '../src/lib/aiCopilotTypes';
 import { requireFirebaseAuthFromHeader, resolveCallerRole } from './apiAuth';
+import { recordAuditEvent } from './auditLog';
 import { getGeminiClient, type GeminiClient } from './geminiServer';
+import {
+  assertChatSession,
+  buildChatModelParts,
+  buildGenerateModelText,
+  buildSummarizeModelText,
+  redactModelText,
+} from './aiOutbound';
 import {
   parseEmployeeStatsFromContextSummary,
   tryLocalFaqAnswer,
@@ -143,7 +151,8 @@ function companyNameFromContextSummary(contextSummary: unknown): string | undefi
 async function copilotToolSuccessBody(
   promptText: string,
   companyId: string,
-  contextSummary: unknown
+  contextSummary: unknown,
+  role: string
 ): Promise<AiChatHttpResult | null> {
   const intent = classifyCopilotIntent(promptText, 'chat');
   if (!isToolIntent(intent)) return null;
@@ -177,7 +186,7 @@ async function copilotToolSuccessBody(
       status: 200,
       body: {
         success: true,
-        reply: result.reply,
+        reply: redactModelText(result.reply, role),
         source: `tool:${result.toolId}`,
         toolId: result.toolId,
       },
@@ -194,7 +203,7 @@ async function copilotToolSuccessBody(
       status: 503,
       body: {
         success: false,
-        error: message || 'فشل تنفيذ أداة المساعد',
+        error: 'تعذر تنفيذ الطلب الآن. أعد المحاولة بعد قليل.',
         code: 'TOOL_FAILED',
         toolId,
       },
@@ -258,17 +267,39 @@ function localFaqSuccessBody(
   };
 }
 
+export type AiChatRuntime = {
+  requireAuth?: typeof requireFirebaseAuthFromHeader;
+  resolveRole?: typeof resolveCallerRole;
+  ip?: string;
+};
+
+function sealReply(result: AiChatHttpResult, role: string): AiChatHttpResult {
+  const reply = result.body.reply;
+  if (typeof reply !== 'string' || !reply) return result;
+  return { ...result, body: { ...result.body, reply: redactModelText(reply, role) } };
+}
+
 export async function handleAiChatRequest(
   body: Record<string, unknown> | null | undefined,
   authHeader: string | string[] | undefined,
-  getClient: () => GeminiClient | null = getGeminiClient
+  getClient: () => GeminiClient | null = getGeminiClient,
+  runtime: AiChatRuntime = {}
 ): Promise<AiChatHttpResult> {
   try {
-    const authCheck = await requireFirebaseAuthFromHeader(authHeader);
+    const requireAuth = runtime.requireAuth || requireFirebaseAuthFromHeader;
+    const authCheck = await requireAuth(authHeader);
     if (authCheck.ok === false) {
+      console.error('[ai-chat] auth rejected', { status: authCheck.status, detail: authCheck.error });
+      const unavailable = authCheck.status >= 500;
       return {
         status: authCheck.status,
-        body: { success: false, error: authCheck.error, code: 'UNAUTHORIZED' },
+        body: {
+          success: false,
+          error: unavailable
+            ? 'المساعد غير جاهز حالياً. أعد المحاولة بعد قليل.'
+            : 'يلزم تسجيل الدخول قبل استخدام المساعد.',
+          code: unavailable ? 'AI_UNAVAILABLE' : 'UNAUTHORIZED',
+        },
       };
     }
 
@@ -278,7 +309,6 @@ export async function handleAiChatRequest(
       conversationHistory,
       companyId: bodyCompanyId,
       activeApp,
-      screen,
       screenSummary,
       mode: bodyMode,
       fieldKind,
@@ -286,7 +316,6 @@ export async function handleAiChatRequest(
       maxLength,
       entityBundle,
       entityType,
-      entityId,
     } = body || {};
 
     const mode = normalizeAssistMode(bodyMode);
@@ -314,62 +343,90 @@ export async function handleAiChatRequest(
       };
     }
 
-    const resolved = await resolveCallerRole(authCheck);
+    const resolveRole = runtime.resolveRole || resolveCallerRole;
+    const resolved = await resolveRole(authCheck);
     const isSuperAdmin = isSuperAdminPrincipal({
       role: resolved.role,
       email: authCheck.email,
     });
+    const session = assertChatSession({
+      uid: authCheck.uid,
+      role: resolved.role,
+      companyId: resolved.companyId,
+    });
+    if (session.ok === false) {
+      console.error('[ai-chat] session rejected', {
+        code: session.code,
+        uid: authCheck.uid,
+        role: resolved.role || '',
+      });
+      return {
+        status: session.status,
+        body: { success: false, error: session.error, code: session.code },
+      };
+    }
     const access = assertClientCompanyAccess(
-      bodyCompanyId ? String(bodyCompanyId) : resolved.companyId,
-      resolved.companyId,
+      bodyCompanyId ? String(bodyCompanyId) : session.companyId,
+      session.companyId,
       isSuperAdmin
     );
     if (!access.ok) {
       const denied = access as { ok: false; reason: string };
+      console.error('[ai-chat] company rejected', {
+        sessionCompanyId: session.companyId,
+        bodyCompanyId: bodyCompanyId ? String(bodyCompanyId) : '',
+      });
       return {
         status: 403,
         body: { success: false, error: denied.reason, code: 'COMPANY_MISMATCH' },
       };
     }
 
+    await recordAuditEvent({
+      actor: { uid: session.uid, name: authCheck.email, role: session.role },
+      action: 'ai_query',
+      entityType: 'ai_chat',
+      entityId: mode,
+      ip: runtime.ip,
+      sessionCompanyId: access.companyId,
+      details: redactModelText(promptText || 'تلخيص سجل', 'EMPLOYEE'),
+    });
+
     const safeRegexAction = resolveSafeLocalAction(mode, promptText);
 
     if (mode === 'chat' && promptText) {
-      const toolBody = await copilotToolSuccessBody(promptText, access.companyId, contextSummary);
-      if (toolBody) return toolBody;
+      const toolBody = await copilotToolSuccessBody(
+        promptText,
+        access.companyId,
+        contextSummary,
+        session.role
+      );
+      if (toolBody) return sealReply(toolBody, session.role);
     }
 
     const ai = getClient();
 
     if (!ai) {
       const localOnly = localActionSuccessBody(safeRegexAction);
-      if (localOnly) return localOnly;
+      if (localOnly) return sealReply(localOnly, session.role);
       const faqOnly = localFaqSuccessBody(promptText, contextSummary);
-      if (faqOnly) return faqOnly;
+      if (faqOnly) return sealReply(faqOnly, session.role);
       if (mode === 'chat') {
         const dashboard = await localDashboardFallbackBody(promptText, access.companyId, contextSummary);
-        if (dashboard) return dashboard;
+        if (dashboard) return sealReply(dashboard, session.role);
       }
+      console.error('[ai-chat] model client missing');
       return {
         status: 503,
         body: {
           success: false,
-          error: 'محرك الذكاء الاصطناعي غير مهيأ على الخادم (GEMINI_API_KEY أو GOOGLE_API_KEY في Vercel).',
+          error: 'المساعد غير جاهز حالياً. راجع مسؤول النظام.',
           code: 'AI_NOT_CONFIGURED',
         },
       };
     }
 
     if (mode === 'generate') {
-      const genParts: { text: string }[] = [];
-      genParts.push({
-        text: `[سياق مختصر]\ncompanyId=${access.companyId}\n${String(contextSummary || '').slice(0, 2500)}`,
-      });
-      if (activeApp || screenSummary) {
-        genParts.push({
-          text: `[شاشة]\nactiveApp=${String(activeApp || '')}\n${screenSummary ? String(screenSummary).slice(0, 800) : ''}`,
-        });
-      }
       const fieldHints: Record<string, string> = {
         admin_decision: 'صياغة قرار إداري رسمي (عربي مهني، مرجعية قانون العمل 6/2010 عند الحاجة).',
         employee_notice: 'إشعار أو مراسلة موجهة للموظف (واضحة، محترمة، بدون تهديد غير قانوني).',
@@ -379,17 +436,30 @@ export async function handleAiChatRequest(
       };
       const kind = String(fieldKind || 'general');
       const hint = fieldHints[kind] || 'نص عام لنظام موارد بشرية.';
-      genParts.push({
-        text: `نوع الحقل: ${kind}\nتوجيه الصياغة: ${hint}\nالحد الأقصى للأحرف: ${maxLength ? Number(maxLength) : 'غير محدد'}\nالنص الحالي في الحقل:\n${String(currentValue || '').slice(0, 2000) || '—'}\n\nتعليمات المستخدم:\n${promptText}`,
-      });
+      const genParts: { text: string }[] = [
+        {
+          text: buildGenerateModelText({
+            role: session.role,
+            prompt: promptText,
+            contextSummary,
+            activeApp,
+            screenSummary,
+            fieldKind: kind,
+            fieldHint: hint,
+            currentValue,
+            maxLength,
+          }),
+        },
+      ];
 
       const genResult = await generateWithReplySchema(ai, GENERATE_SYSTEM, genParts, 0.4);
       if (!genResult) {
+        console.error('[ai-chat] generate failed');
         return {
           status: 503,
           body: {
             success: false,
-            error: 'تعذر الاتصال بمحرك الذكاء الاصطناعي. تحقق من الرصيد وأسماء النماذج.',
+            error: 'تعذر إكمال الطلب الآن. أعد المحاولة بعد قليل.',
             code: 'AI_UNAVAILABLE',
           },
         };
@@ -401,66 +471,65 @@ export async function handleAiChatRequest(
         reply = `${reply.slice(0, cap)}…`;
       }
 
-      return {
-        status: 200,
-        body: {
-          success: true,
-          reply,
-          source: genResult.source,
+      return sealReply(
+        {
+          status: 200,
+          body: {
+            success: true,
+            reply,
+            source: genResult.source,
+          },
         },
-      };
+        session.role
+      );
     }
 
     if (mode === 'summarize') {
-      const sumParts: { text: string }[] = [];
-      sumParts.push({
-        text: `[سجل للتلخيص — entityType=${String(entityType || 'entity')} entityId=${String(entityId || '')}]\n${String(entityBundle).slice(0, 12000)}`,
-      });
-      sumParts.push({
-        text: `تعليمات التلخيص:\n${promptText || 'لخّص الحالة الإدارية بشكل مهني ومختصر.'}`,
-      });
+      const sumParts: { text: string }[] = [
+        {
+          text: buildSummarizeModelText({
+            role: session.role,
+            prompt: promptText,
+            entityType,
+            entityBundle,
+          }),
+        },
+      ];
 
       const sumResult = await generateWithReplySchema(ai, SUMMARIZE_SYSTEM, sumParts, 0.3);
       if (!sumResult) {
+        console.error('[ai-chat] summarize failed');
         return {
           status: 503,
           body: {
             success: false,
-            error: 'تعذر الاتصال بمحرك الذكاء الاصطناعي. تحقق من الرصيد وأسماء النماذج.',
+            error: 'تعذر إكمال الطلب الآن. أعد المحاولة بعد قليل.',
             code: 'AI_UNAVAILABLE',
           },
         };
       }
 
-      return {
-        status: 200,
-        body: {
-          success: true,
-          reply: sumResult.reply,
-          source: sumResult.source,
+      return sealReply(
+        {
+          status: 200,
+          body: {
+            success: true,
+            reply: sumResult.reply,
+            source: sumResult.source,
+          },
         },
-      };
+        session.role
+      );
     }
 
-    const parts: { text: string }[] = [];
-    const screenBlock =
-      activeApp || screen || screenSummary
-        ? `\n[سياق الشاشة]\nactiveApp=${String(activeApp || '')}\nscreen=${screen ? JSON.stringify(screen).slice(0, 2000) : '—'}\n${screenSummary ? `ملخص: ${String(screenSummary).slice(0, 1500)}` : ''}`
-        : '';
-    parts.push({
-      text: `[سياق الشركة — بيانات مجمّعة فقط]\n${contextSummary || 'لا يوجد سياق إضافي.'}\ncompanyId=${access.companyId}${screenBlock}`,
+    const parts = buildChatModelParts({
+      role: session.role,
+      prompt: promptText,
+      contextSummary,
+      activeApp,
+      screenSummary,
+      conversationHistory,
     });
-
-    if (Array.isArray(conversationHistory)) {
-      for (const msg of conversationHistory.slice(-12)) {
-        const role = (msg as { role?: string }).role;
-        const content = (msg as { content?: string }).content;
-        parts.push({
-          text: `${role === 'user' ? 'المستخدم' : 'المساعد'}: ${String(content || '').slice(0, 4000)}`,
-        });
-      }
-    }
-    parts.push({ text: `سؤال المستخدم: ${promptText}` });
 
     const models = getChatModelCandidates();
     let lastErr: unknown = null;
@@ -502,15 +571,18 @@ export async function handleAiChatRequest(
         const { reply, action: parsedAction } = parseModelCopilotPayload(rawText);
         const action = parsedAction || safeRegexAction;
 
-        return {
-          status: 200,
-          body: {
-            success: true,
-            reply: reply || 'تمت المعالجة.',
-            source: `gemini:${modelName}`,
-            action: action ? sanitizeCopilotAction(action) : null,
+        return sealReply(
+          {
+            status: 200,
+            body: {
+              success: true,
+              reply: reply || 'تمت المعالجة.',
+              source: `gemini:${modelName}`,
+              action: action ? sanitizeCopilotAction(action) : null,
+            },
           },
-        };
+          session.role
+        );
       } catch (err) {
         lastErr = err;
         console.warn(`[ai-chat] model ${modelName} failed:`, err);
@@ -520,17 +592,17 @@ export async function handleAiChatRequest(
     console.error('[ai-chat] all models failed', lastErr);
 
     const localAfterModelFail = localActionSuccessBody(safeRegexAction);
-    if (localAfterModelFail) return localAfterModelFail;
+    if (localAfterModelFail) return sealReply(localAfterModelFail, session.role);
 
     const faqAfterModelFail = localFaqSuccessBody(promptText, contextSummary);
-    if (faqAfterModelFail) return faqAfterModelFail;
+    if (faqAfterModelFail) return sealReply(faqAfterModelFail, session.role);
 
     const dashboardAfterFail = await localDashboardFallbackBody(
       promptText,
       access.companyId,
       contextSummary
     );
-    if (dashboardAfterFail) return dashboardAfterFail;
+    if (dashboardAfterFail) return sealReply(dashboardAfterFail, session.role);
 
     return {
       status: 200,

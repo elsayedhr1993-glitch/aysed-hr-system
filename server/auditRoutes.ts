@@ -37,7 +37,7 @@ export function registerAuditRoutes(app: Express): void {
     if (!tenant) return deny(res, 401, 'Unauthorized');
     if (!tenant.role || tenant.role === 'UNKNOWN') return deny(res, 403, 'Unauthorized');
     const action = req.body?.action;
-    if (!isAuditAction(action) || action === 'device_rejected') {
+    if (!isAuditAction(action) || action === 'device_rejected' || action === 'ai_query') {
       return deny(res, 400, 'إجراء غير مدعوم');
     }
     const event = await recordAuditEvent({

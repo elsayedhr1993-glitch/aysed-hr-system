@@ -15,31 +15,13 @@ export function isRetiredVisionModel(model: string): boolean {
   return RETIRED_VISION_MODEL_RE.test(String(model || '').trim());
 }
 
+/** Server process env only. The Vite client env object is not read here: it breaks the Vercel CJS bundle and would inline VITE_* into the browser. */
 function readConfigEnv(key: string): string | undefined {
-  if (typeof process !== 'undefined' && process.env) {
-    const direct = process.env[key];
-    if (direct) {
-      const v = String(direct).trim();
-      if (v) return v;
-    }
-    // Do not map VITE_* into AI_* — avoids stale client build vars on the server.
-    if (!key.startsWith('AI_')) {
-      const mirrored = process.env[`VITE_${key}`];
-      if (mirrored) {
-        const v = String(mirrored).trim();
-        if (v) return v;
-      }
-    }
-  }
-  const viteEnv =
-    typeof import.meta !== 'undefined'
-      ? (import.meta.env as Record<string, string | undefined> | undefined)
-      : undefined;
-  if (!viteEnv) return undefined;
-  if (key.startsWith('AI_')) {
-    return viteEnv[key]?.trim() || undefined;
-  }
-  return viteEnv[key] ?? viteEnv[`VITE_${key}`];
+  if (typeof process === 'undefined' || !process.env) return undefined;
+  const direct = process.env[key];
+  if (!direct) return undefined;
+  const value = String(direct).trim();
+  return value || undefined;
 }
 
 export function getPrimaryChatModel(): string {

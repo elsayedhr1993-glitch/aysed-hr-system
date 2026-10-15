@@ -1,4 +1,5 @@
 import type { Express, Request, Response } from 'express';
+import { requestIp } from './auditLog';
 import { handleAiChatRequest } from './aiChatCore';
 import type { GeminiClient } from './geminiServer';
 
@@ -13,9 +14,16 @@ type AuthDeps = {
 };
 
 export function registerAiChatRoute(app: Express, deps: AuthDeps) {
-  app.post('/api/ai-chat', async (req: Request, res: Response) => {
+  const onChat = async (req: Request, res: Response) => {
     const authHeader = req.headers.authorization || req.headers.Authorization;
-    const result = await handleAiChatRequest(req.body, authHeader as string | undefined, deps.getGeminiClient);
+    const result = await handleAiChatRequest(
+      req.body,
+      authHeader as string | undefined,
+      deps.getGeminiClient,
+      { ip: requestIp(req) }
+    );
     return res.status(result.status).json(result.body);
-  });
+  };
+  app.post('/api/chat', onChat);
+  app.post('/api/ai-chat', onChat);
 }

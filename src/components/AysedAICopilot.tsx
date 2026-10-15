@@ -31,6 +31,8 @@ export interface CopilotMessage {
   timestamp: string;
   action?: CopilotAction | null;
   source?: string;
+  failed?: boolean;
+  retryText?: string;
 }
 
 interface AysedAICopilotProps {
@@ -46,7 +48,7 @@ interface AysedAICopilotProps {
 function formatSourceLabel(source?: string, isArabic?: boolean): string | null {
   if (!source) return null;
   if (source.startsWith('gemini:')) {
-    return isArabic ? `Gemini (${source.replace('gemini:', '')})` : `Gemini (${source.replace('gemini:', '')})`;
+    return isArabic ? 'مساعد Aysed' : 'Aysed assistant';
   }
   if (source === 'regex_action') return isArabic ? 'إجراء محلي (تحليل نص)' : 'Local action (text parse)';
   if (source === 'local_faq') return isArabic ? 'إجابة محلية (بيانات الشركة)' : 'Local answer (tenant data)';
@@ -264,8 +266,6 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
       return;
     }
 
-    console.log('💬 [Aysed Copilot Query Input]:', queryText);
-
     const userMsg: CopilotMessage = {
       id: Date.now().toString(),
       sender: 'user',
@@ -323,7 +323,7 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/ai-chat', {
+      const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -358,22 +358,15 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
       if (contentType.includes('application/json')) {
         data = (await response.json()) as AiChatApiResponse;
       } else {
-        const snippet = (await response.text()).slice(0, 120);
-        const looksLikeHtml = snippet.trim().startsWith('<');
+        await response.text();
         data = {
           success: false,
           code: 'API_ROUTE_UNAVAILABLE',
-          error: looksLikeHtml
-            ? isArabic
-              ? 'مسار API غير متاح على هذا الاستضافة (تم استلام صفحة ويب بدل JSON). تأكد من نشر دوال /api على Vercel أو تشغيل npm run dev على المنفذ 3000.'
-              : 'API route is unavailable on this host (received HTML instead of JSON). Deploy /api functions on Vercel or run npm run dev on port 3000.'
-            : isArabic
-              ? 'استجابة غير متوقعة من الخادم.'
-              : 'Unexpected response from server.',
+          error: isArabic
+            ? 'مسار المساعد غير متاح الآن. أعد المحاولة بعد قليل.'
+            : 'The assistant is unavailable right now. Please try again shortly.',
         };
       }
-      console.log('🤖 [Aysed Copilot AI Response]:', data);
-
       const serverAction =
         data.action && typeof data.action === 'object'
           ? sanitizeCopilotAction(data.action) || (data.action as CopilotAction)
@@ -421,45 +414,24 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
       }
 
       if (!response.ok || !data.success) {
-        const errText =
-          String(data.error || '') ||
-          (isArabic ? 'تعذر الاتصال بالمساعد الذكي.' : 'Could not reach the AI assistant.');
-        const hint =
-          data.code === 'AI_NOT_CONFIGURED'
-            ? isArabic
-              ? '\n\nالمفتاح غير مهيأ على الخادم (GEMINI_API_KEY في Vercel).'
-              : '\n\nServer API key is not configured (GEMINI_API_KEY on Vercel).'
-            : data.code === 'COMPANY_MISMATCH'
-              ? isArabic
-                ? '\n\nاختر شركة مستأجر (معاينة منشأة) قبل استخدام المساعد.'
-                : '\n\nSelect a tenant company before using the copilot.'
-              : data.code === 'API_ROUTE_UNAVAILABLE'
-                ? isArabic
-                  ? '\n\nتأكد من نشر دوال /api على Vercel (npm run build يولّد ai-chat.cjs).'
-                  : '\n\nEnsure /api functions are deployed (npm run build bundles ai-chat.cjs).'
-                : data.code === 'BUNDLE_MISSING'
-                  ? isArabic
-                    ? '\n\nأعد النشر بعد npm run build لإنشاء حزمة الخادم.'
-                    : '\n\nRedeploy after npm run build to include the server bundle.'
-                : !token
-                  ? isArabic
-                    ? '\n\nتأكد من تسجيل الدخول.'
-                    : '\n\nPlease sign in again.'
-                  : '';
-        const fullErr = `⚠️ ${errText}${hint}`;
+        const errText = isArabic
+          ? String(data.error || '').trim() || 'تعذر إكمال الطلب. أعد المحاولة.'
+          : 'The request could not be completed. Please try again.';
         toast.error(errText.split('\n')[0], { duration: 6000 });
         setMessages((prev) => [
           ...prev,
           {
             id: (Date.now() + 1).toString(),
             sender: 'bot',
-            text: fullErr,
+            text: errText,
             timestamp: new Date().toLocaleTimeString(isArabic ? 'ar-KW' : 'en-US', {
               hour: '2-digit',
               minute: '2-digit',
             }),
             action: (data.action as CopilotAction | null) || null,
             source: data.code || 'unavailable',
+            failed: true,
+            retryText: queryText,
           },
         ]);
         return;
@@ -475,8 +447,7 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
       };
 
       setMessages(prev => [...prev, botMsg]);
-    } catch (err) {
-      console.error('Copilot Chat Error:', err);
+    } catch {
       const faqOffline = tryLocalFaqAnswer(
         queryText,
         computeCopilotEmployeeStats(scopedEmployees, activeCompany?.nameAr || activeCompany?.name),
@@ -519,12 +490,14 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
             id: (Date.now() + 1).toString(),
             sender: 'bot',
             text: isArabic
-              ? 'حدث خطأ أثناء الاتصال بالمساعد الذكي. يرجى المحاولة مرة أخرى.'
-              : 'The AI assistant connection failed. Please try again.',
+              ? 'تعذر الاتصال بالمساعد. أعد المحاولة.'
+              : 'Could not reach the assistant. Please try again.',
             timestamp: new Date().toLocaleTimeString(isArabic ? 'ar-KW' : 'en-US', {
               hour: '2-digit',
               minute: '2-digit',
             }),
+            failed: true,
+            retryText: queryText,
           },
         ]);
       }
@@ -534,7 +507,6 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
   };
 
   const handleExecuteAction = async (action: CopilotAction) => {
-    console.log('⚡ [Aysed Copilot Action Execution Triggered]:', action);
     await executeCopilotAction(action);
   };
 
@@ -800,6 +772,17 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
                   </div>
                 )}
 
+                {msg.sender === 'bot' && msg.failed && msg.retryText && (
+                  <button
+                    type="button"
+                    onClick={() => handleSend(msg.retryText)}
+                    disabled={isLoading || isUploadingDoc}
+                    className="mt-2 px-2.5 py-1.5 bg-white border border-slate-300 text-slate-800 rounded-lg text-[10px] font-bold hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
+                  >
+                    {isArabic ? 'إعادة المحاولة' : 'Retry'}
+                  </button>
+                )}
+
                 {msg.sender === 'bot' && msg.source && (
                   <span className="text-[9px] block mt-1 font-semibold text-slate-500">
                     {formatSourceLabel(msg.source, isArabic)}
@@ -813,7 +796,11 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
           ))}
 
           {(isLoading || isUploadingDoc) && (
-            <div className="flex items-center gap-2 text-slate-500 text-xs bg-white p-3 rounded-xl border border-slate-200 w-fit">
+            <div
+              className="flex items-center gap-2 text-slate-500 text-xs bg-white p-3 rounded-xl border border-slate-200 w-fit"
+              role="status"
+              aria-live="polite"
+            >
               <span className="animate-spin text-amber-600">⏳</span>
               <span>
                 {isUploadingDoc
@@ -821,8 +808,8 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
                     ? 'جاري قراءة المستند ورفعه...'
                     : 'Scanning and uploading document...'
                   : isArabic
-                    ? 'جاري المعالجة وتنفيذ الذكاء الاصطناعي...'
-                    : 'Processing with the AI assistant...'}
+                    ? 'جاري التحميل...'
+                    : 'Loading...'}
               </span>
             </div>
           )}

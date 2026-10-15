@@ -28,6 +28,7 @@ export const AiInlineAssist: React.FC<AiInlineAssistProps> = ({
   const [open, setOpen] = useState(false);
   const [instruction, setInstruction] = useState('');
   const [preview, setPreview] = useState('');
+  const [error, setError] = useState('');
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -49,9 +50,12 @@ export const AiInlineAssist: React.FC<AiInlineAssistProps> = ({
       maxLength,
     });
     if (!result.success || !result.reply) {
-      toast.error(result.error || (isArabic ? 'تعذر التوليد.' : 'Generation failed.'));
+      const message = result.error || (isArabic ? 'تعذر التوليد. أعد المحاولة.' : 'Generation failed. Please try again.');
+      setError(message);
+      toast.error(message);
       return;
     }
+    setError('');
     setPreview(result.reply);
   };
 
@@ -103,8 +107,17 @@ export const AiInlineAssist: React.FC<AiInlineAssistProps> = ({
             disabled={loading}
             className="w-full py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-[#5a3b52] disabled:opacity-50 cursor-pointer"
           >
-            {loading ? (isArabic ? 'جاري التوليد…' : 'Generating…') : isArabic ? 'توليد النص' : 'Generate'}
+            {loading ? (isArabic ? 'جاري التحميل…' : 'Loading…') : isArabic ? 'توليد النص' : 'Generate'}
           </button>
+          {error && !loading && (
+            <button
+              type="button"
+              onClick={() => void runGenerate()}
+              className="w-full py-1.5 rounded-lg border border-slate-300 text-slate-800 text-xs font-bold hover:bg-slate-50 cursor-pointer"
+            >
+              {isArabic ? 'إعادة المحاولة' : 'Retry'}
+            </button>
+          )}
           {preview && (
             <textarea
               readOnly

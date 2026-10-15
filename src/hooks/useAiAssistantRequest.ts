@@ -51,7 +51,7 @@ export function useAiAssistantRequest() {
       }
 
       try {
-        const response = await fetch('/api/ai-chat', {
+        const response = await fetch('/api/chat', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -85,33 +85,25 @@ export function useAiAssistantRequest() {
           }
         }
         if (!contentType.includes('application/json') || Object.keys(data).length === 0) {
-          const serverHint =
-            response.status >= 500
-              ? isArabic
-                ? 'خادم /api/ai-chat فشل (أعد النشر بعد npm run build).'
-                : '/api/ai-chat server error (redeploy after npm run build).'
-              : isArabic
-                ? 'استجابة غير متوقعة من الخادم.'
-                : 'Unexpected server response.';
           return {
             success: false,
-            error: serverHint,
+            error: isArabic
+              ? 'مسار المساعد غير متاح الآن. أعد المحاولة بعد قليل.'
+              : 'The assistant is unavailable right now. Please try again shortly.',
             code: response.status >= 500 ? 'AI_UNAVAILABLE' : 'API_ROUTE_UNAVAILABLE',
           };
         }
 
         if (!response.ok || !data.success) {
           const code = String(data.code || '');
-          let error = String(data.error || (isArabic ? 'تعذر إكمال الطلب.' : 'Request failed.'));
-          if (code === 'AI_NOT_CONFIGURED' || code === 'BUNDLE_MISSING') {
-            error = isArabic
-              ? 'المساعد غير مهيأ على الخادم. أضف GEMINI_API_KEY أو GOOGLE_API_KEY في إعدادات Vercel ثم أعد النشر.'
-              : 'Assistant is not configured on the server. Set GEMINI_API_KEY or GOOGLE_API_KEY in Vercel and redeploy.';
-          } else if (code === 'API_ROUTE_UNAVAILABLE') {
-            error = isArabic
-              ? 'مسار /api/ai-chat غير متاح. تأكد من نشر المشروع على Vercel مع npm run build.'
-              : '/api/ai-chat is unavailable. Deploy to Vercel with a full production build.';
-          }
+          const serverError = String(data.error || '').trim();
+          const technical = /GEMINI|GOOGLE_API|Vercel|npm |Firebase|stack/i.test(serverError);
+          const error =
+            isArabic && serverError && !technical
+              ? serverError
+              : isArabic
+                ? 'تعذر إكمال الطلب. أعد المحاولة.'
+                : 'The request could not be completed. Please try again.';
           return {
             success: false,
             error,
@@ -128,8 +120,8 @@ export function useAiAssistantRequest() {
         return {
           success: false,
           error: isArabic
-            ? 'تعذر الاتصال بالمساعد (شبكة أو مهلة Vercel). تحقق من الاتصال وحاول مجدداً.'
-            : 'Could not reach the assistant (network or Vercel timeout). Check connectivity and retry.',
+            ? 'تعذر الاتصال بالمساعد. أعد المحاولة.'
+            : 'Could not reach the assistant. Please try again.',
           code: 'AI_UNAVAILABLE',
         };
       }

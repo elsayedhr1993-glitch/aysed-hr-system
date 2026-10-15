@@ -1,5 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { requestIp } from '../auditLog';
 import { handleAiChatRequest } from '../aiChatCore';
+import { getGeminiClient } from '../geminiServer';
 
 async function aiChatVercelHandler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -11,10 +13,16 @@ async function aiChatVercelHandler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (req.method !== 'POST') {
-    return res.status(405).json({ success: false, error: 'Method not allowed' });
+    return res.status(405).json({
+      success: false,
+      error: 'طريقة الطلب غير مدعومة.',
+      code: 'METHOD_NOT_ALLOWED',
+    });
   }
 
-  const result = await handleAiChatRequest(req.body, req.headers.authorization);
+  const result = await handleAiChatRequest(req.body, req.headers.authorization, getGeminiClient, {
+    ip: requestIp(req),
+  });
   return res.status(result.status).json(result.body);
 }
 

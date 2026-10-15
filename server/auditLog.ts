@@ -12,6 +12,7 @@ export const AUDIT_ACTIONS = [
   'permission_change',
   'customization',
   'device_rejected',
+  'ai_query',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

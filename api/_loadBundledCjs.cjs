@@ -41,10 +41,8 @@ function loadBundledHandler(bundleFileName) {
   return async (_req, res) => {
     res.status(503).json({
       success: false,
-      error:
-        'حزمة خادم الذكاء الاصطناعي غير متوفرة على هذا النشر. أعد النشر بعد npm run build (bundle-vercel-ai).',
+      error: 'المساعد غير جاهز على هذا الخادم. أعد المحاولة بعد قليل.',
       code: 'BUNDLE_MISSING',
-      bundle: bundleFileName,
     });
   };
 }
