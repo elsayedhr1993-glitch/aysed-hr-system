@@ -947,7 +947,13 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
               {/* Stats Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-xs flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('all')}
+                  className={`bg-white p-4 rounded-xl border shadow-xs flex items-center justify-between text-right cursor-pointer ${
+                    statusFilter === 'all' ? 'border-[#71639e] ring-2 ring-purple-100' : 'border-gray-200'
+                  }`}
+                >
                   <div>
                     <p className="text-xs text-gray-500 font-medium">إجمالي المنشآت</p>
                     <p className="text-2xl font-bold text-gray-900 mt-0.5">{requests.length}</p>
@@ -955,9 +961,15 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   <div className="p-2.5 bg-purple-50 text-[#71639e] rounded-xl border border-purple-100">
                     <Building2 size={24} />
                   </div>
-                </div>
+                </button>
 
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-xs flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('draft')}
+                  className={`bg-white p-4 rounded-xl border shadow-xs flex items-center justify-between text-right cursor-pointer ${
+                    statusFilter === 'draft' ? 'border-amber-500 ring-2 ring-amber-100' : 'border-gray-200'
+                  }`}
+                >
                   <div>
                     <p className="text-xs text-gray-500 font-medium">طلبات جديدة</p>
                     <p className="text-2xl font-bold text-amber-600 mt-0.5">
@@ -967,9 +979,15 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   <div className="p-2.5 bg-amber-50 text-amber-600 rounded-xl border border-amber-100">
                     <Clock size={24} />
                   </div>
-                </div>
+                </button>
 
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-xs flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('approved')}
+                  className={`bg-white p-4 rounded-xl border shadow-xs flex items-center justify-between text-right cursor-pointer ${
+                    statusFilter === 'approved' ? 'border-emerald-500 ring-2 ring-emerald-100' : 'border-gray-200'
+                  }`}
+                >
                   <div>
                     <p className="text-xs text-gray-500 font-medium">منشآت مفعلة</p>
                     <p className="text-2xl font-bold text-emerald-600 mt-0.5">
@@ -979,9 +997,15 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100">
                     <CheckCircle2 size={24} />
                   </div>
-                </div>
+                </button>
 
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-xs flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('suspended')}
+                  className={`bg-white p-4 rounded-xl border shadow-xs flex items-center justify-between text-right cursor-pointer ${
+                    statusFilter === 'suspended' ? 'border-rose-500 ring-2 ring-rose-100' : 'border-gray-200'
+                  }`}
+                >
                   <div>
                     <p className="text-xs text-gray-500 font-medium">منشآت معلقة</p>
                     <p className="text-2xl font-bold text-rose-600 mt-0.5">
@@ -991,14 +1015,14 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   <div className="p-2.5 bg-rose-50 text-rose-600 rounded-xl border border-rose-100">
                     <PauseCircle size={24} />
                   </div>
-                </div>
+                </button>
               </div>
 
               {/* Table Container */}
               <div className="bg-white border border-gray-200 rounded-xl shadow-xs overflow-hidden">
                 
                 {/* Search and Filters Bar */}
-                <div className="p-3.5 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 bg-gray-50/80">
+                <div className="p-3.5 border-b border-gray-200 bg-gray-50/80">
                   <div className="relative flex-1 max-w-md">
                     <Search size={15} className="absolute right-3 top-2.5 text-gray-400" />
                     <input 
@@ -1008,33 +1032,6 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="w-full bg-white border border-gray-300 rounded-lg pr-9 pl-4 py-1.5 text-xs text-gray-800 outline-none focus:border-[#71639e] focus:ring-1 focus:ring-[#71639e]"
                     />
-                  </div>
-
-                  <div className="flex flex-wrap gap-1.5 items-center">
-                    <button 
-                      onClick={() => setStatusFilter('all')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${statusFilter === 'all' ? 'bg-[#71639e] text-white shadow-xs' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-100'}`}
-                    >
-                      الكل ({requests.length})
-                    </button>
-                    <button 
-                      onClick={() => setStatusFilter('draft')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${statusFilter === 'draft' ? 'bg-amber-500 text-white shadow-xs' : 'bg-white border border-amber-200 text-amber-800 hover:bg-amber-50'}`}
-                    >
-                      جديدة ({requests.filter(r => r.state === 'draft').length})
-                    </button>
-                    <button 
-                      onClick={() => setStatusFilter('approved')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${statusFilter === 'approved' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-white border border-emerald-200 text-emerald-800 hover:bg-emerald-50'}`}
-                    >
-                      مفعلة ({requests.filter(r => r.state === 'approved').length})
-                    </button>
-                    <button 
-                      onClick={() => setStatusFilter('suspended')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${statusFilter === 'suspended' ? 'bg-rose-600 text-white shadow-xs' : 'bg-white border border-rose-200 text-rose-800 hover:bg-rose-50'}`}
-                    >
-                      معلقة ({requests.filter(r => r.state === 'suspended').length})
-                    </button>
                   </div>
                 </div>
 
