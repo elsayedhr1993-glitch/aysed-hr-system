@@ -693,16 +693,6 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">رمز حماية الأجور (WSI Code - الشؤون)</label>
-                      <input
-                        type="text"
-                        value={companyDraft.wsiCode || ''}
-                        onChange={(e) => patchCompany({ wsiCode: e.target.value })}
-                        placeholder="WSI-9876"
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-primary outline-none font-mono"
-                      />
-                    </div>
-                    <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">رقم الآيبان البنكي (IBAN)</label>
                       <input
                         type="text"
