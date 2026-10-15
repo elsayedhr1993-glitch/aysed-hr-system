@@ -67,7 +67,7 @@ export async function createTenantUserSafely(email: string, pass: string) {
     await signOut(secondaryAuth);
     const { deleteApp } = await import('firebase/app');
     await deleteApp(secondaryApp);
-    return { success: true, uid, alreadyExisted: false };
+    return { success: true, uid, alreadyExisted: false, temporaryPassword: pass };
   } catch (err: any) {
     try {
       const { deleteApp } = await import('firebase/app');
@@ -95,7 +95,9 @@ export async function provisionTenantAuth(params: {
   planType?: string;
 }) {
   const cleanEmail = params.email.trim().toLowerCase();
-  const pass = params.password || 'Aysed2026#Secure';
+  const bytes = new Uint8Array(12);
+  crypto.getRandomValues(bytes);
+  const pass = Array.from(bytes, (b) => 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'[b % 54]).join('');
 
   try {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -111,7 +113,7 @@ export async function provisionTenantAuth(params: {
         email: cleanEmail,
         password: pass,
         companyName: params.companyName,
-        companyId: params.companyId,
+        newCompanyId: params.companyId,
         ownerName: params.ownerName,
         phone: params.phone,
         planType: params.planType
@@ -121,7 +123,15 @@ export async function provisionTenantAuth(params: {
     if (res.ok) {
       const data = await res.json();
       if (data.success) {
-        return { success: true, uid: data.uid, alreadyExisted: data.alreadyExisted, message: data.message };
+        return {
+          success: true,
+          uid: data.uid,
+          companyId: data.companyId as string | undefined,
+          temporaryPassword: data.temporaryPassword as string | undefined,
+          mustChangePassword: true,
+          alreadyExisted: data.alreadyExisted,
+          message: data.message,
+        };
       }
       if (!data.useClientFallback) {
         console.warn("Admin create-tenant returned error:", data.error);
@@ -132,7 +142,8 @@ export async function provisionTenantAuth(params: {
   }
 
   // Safe client-side fallback using isolated secondary auth app
-  return await createTenantUserSafely(cleanEmail, pass);
+  const fallback = await createTenantUserSafely(cleanEmail, pass);
+  return { ...fallback, temporaryPassword: pass, mustChangePassword: true };
 }
 
 /**

@@ -34,6 +34,10 @@ import { registerOcrScanRoute } from "./server/ocrScanRoute.ts";
 import { registerLeaveApproveRoute } from "./server/leaveApproveRoute.ts";
 import { handleAiTestKeyRequest } from "./server/aiTestKeyCore.ts";
 import { requireFirebaseAuthFromHeader, resolveCallerRole } from "./server/apiAuth.ts";
+import { applySecurityHeaders } from "./server/securityHeaders.ts";
+import { createTenantScopeMiddleware } from "./server/tenantScope.ts";
+import { companyForDevice } from "./server/deviceTenantMap.ts";
+import { newTenantCredentials, registerAuthRoutes } from "./server/authRoutes.ts";
 import {
   getAdminApp,
   getAdminAuth,
@@ -61,6 +65,16 @@ app.use((req, res, next) => {
   const host = String(req.hostname || '').toLowerCase();
   const local = host === 'localhost' || host === '127.0.0.1' || host === '::1';
   if (!local || req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
+  const memoryOnlyPosts = new Set([
+    '/api/auth/login-guard',
+    '/api/auth/login-failure',
+    '/api/auth/login-success',
+    '/api/auth/password-reset',
+    '/api/auth/totp/verify',
+    '/api/auth/session/touch',
+    '/api/audit/identity-view',
+  ]);
+  if (memoryOnlyPosts.has(req.path)) return next();
   if (req.path.startsWith('/api/')) {
     res.status(403).json({
       error: 'localhost is read-only while it points at live data. Use npm run dev:emu, or set ALLOW_PROD_WRITES=true.',
@@ -128,7 +142,13 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use(applySecurityHeaders);
 app.use(express.json({ limit: "25mb" }));
+app.use(createTenantScopeMiddleware({
+  requireAuth: async (req) => requireFirebaseAuthFromHeader(req.headers.authorization || req.headers.Authorization),
+  resolveTenant: (auth) => resolveCallerRole(auth),
+}));
+registerAuthRoutes(app);
 
 let supabaseAdminClient: any = null;
 function getSupabaseAdmin() {
@@ -446,7 +466,8 @@ app.post("/iclock/cdata", express.text({ type: "*/*" }), (req, res) => {
 // 3. Local Sync Agent / Webhook Endpoint (POST /api/biometrics/sync)
 app.post("/api/biometrics/sync", express.json(), (req, res) => {
   try {
-    const { companyId, logs } = req.body;
+    const { logs } = req.body;
+    const sessionCompanyId = req.sessionTenant?.companyId;
     if (Array.isArray(logs)) {
       logs.forEach((log: any) => {
         biometricLiveBuffer.unshift({
@@ -455,7 +476,7 @@ app.post("/api/biometrics/sync", express.json(), (req, res) => {
           timestamp: log.timestamp || new Date().toISOString(),
           status: String(log.status || '0'),
           source: 'Local Agent (PyZK)',
-          companyId,
+          companyId: sessionCompanyId,
           receivedAt: new Date().toISOString()
         });
       });
@@ -834,7 +855,8 @@ const livePunchesCache: Array<{
 
 app.post("/api/attendance/live-push", async (req, res) => {
   try {
-    const { punches, companyId, deviceSn } = req.body;
+    const { punches, deviceSn } = req.body;
+    const sessionCompanyId = req.sessionTenant?.companyId || companyForDevice(String(deviceSn || ''));
     const rawPunches = Array.isArray(punches) ? punches : [req.body];
 
     if (!rawPunches || rawPunches.length === 0) {
@@ -855,7 +877,8 @@ app.post("/api/attendance/live-push", async (req, res) => {
       const dateStr = isValidDate ? parsedDateObj.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
       const timeStr = isValidDate ? parsedDateObj.toTimeString().split(' ')[0].substring(0, 5) : '08:00';
       const typeStr = (p.type || p.status || p.punchType || 'IN').toString().toUpperCase().includes('OUT') ? 'OUT' : 'IN';
-      const effCompId = companyId || p.companyId || 'default';
+      const effCompId = sessionCompanyId || companyForDevice(String(p.deviceSn || deviceSn || ''));
+      if (!effCompId) continue;
       const effDevSn = deviceSn || p.deviceSn || p.sn || 'ZK-LOCAL-SYNC';
 
       const punchItem = {
@@ -943,7 +966,7 @@ app.all(["/iclock/cdata", "/api/zkteco/iclock/cdata"], async (req, res) => {
   console.log(`[ZKTeco ADMS Cloud Push] Incoming logs from SN ${sn}: ${bodyText.substring(0, 200)}`);
 
   let count = 0;
-  const effCompId = (req.query.companyId || req.query.cid || 'comp-clinic-01').toString();
+  const effCompId = req.sessionTenant?.companyId || companyForDevice(sn);
 
   try {
     const lines = bodyText.split(/\r?\n/).filter(l => l.trim().length > 0);
@@ -973,7 +996,7 @@ app.all(["/iclock/cdata", "/api/zkteco/iclock/cdata"], async (req, res) => {
           livePunchesCache.unshift(punchItem);
           if (livePunchesCache.length > 500) livePunchesCache.pop();
 
-          if (getAdminApp()) {
+          if (effCompId && getAdminApp()) {
             const db = getFirestore(getAdminApp());
             const attDocId = `att-live-${effCompId}-${empCode}-${dateStr}`;
             const attRef = db.collection("attendance").doc(attDocId);
@@ -1007,8 +1030,9 @@ app.all(["/iclock/cdata", "/api/zkteco/iclock/cdata"], async (req, res) => {
 });
 
 app.get("/api/attendance/live-logs", (req, res) => {
-  const compId = (req.query.companyId || 'default').toString();
-  const filtered = livePunchesCache.filter(p => p.companyId === compId || compId === 'ALL');
+  const compId = req.sessionTenant?.companyId || '';
+  if (!compId) return res.status(403).json({ success: false, error: 'لا توجد منشأة في الجلسة' });
+  const filtered = livePunchesCache.filter(p => p.companyId === compId);
   return res.json({
     success: true,
     totalCount: filtered.length,
@@ -1730,7 +1754,9 @@ app.post("/api/admin/create-tenant", express.json(), async (req, res) => {
   const authCheck = await requireSuperAdmin(req);
   if (!authCheck.ok) return rejectUnauthorized(res, authCheck);
 
-  const { email, password, companyName, companyId, ownerName, phone, planType } = req.body;
+  const { email, companyName, newCompanyId } = req.body;
+  const issued = newTenantCredentials();
+  const boundCompanyId = String(newCompanyId || '').trim() || issued.companyId;
   
   if (!email || !companyName) {
     return res.status(400).json({ success: false, error: "البريد الإلكتروني واسم الشركة مطلوبان" });
@@ -1747,18 +1773,12 @@ app.post("/api/admin/create-tenant", express.json(), async (req, res) => {
         const existingUser = await admin.getUserByEmail(cleanEmail);
         uid = existingUser.uid;
         alreadyExisted = true;
-        // Optionally update password if provided
-        if (password) {
-          await admin.updateUser(uid, {
-            password: password,
-            displayName: companyName
-          });
-        }
+        await admin.updateUser(uid, { displayName: companyName });
       } catch (notFoundErr: any) {
         if (notFoundErr.code === 'auth/user-not-found') {
           const newUser = await admin.createUser({
             email: cleanEmail,
-            password: password || 'Aysed2026#Secure',
+            password: issued.temporaryPassword,
             displayName: companyName,
             emailVerified: true
           });
@@ -1772,7 +1792,8 @@ app.post("/api/admin/create-tenant", express.json(), async (req, res) => {
       try {
         await admin.setCustomUserClaims(uid, {
           role: 'COMPANY_ADMIN',
-          companyId: companyId || `comp_${Date.now()}`
+          companyId: boundCompanyId,
+          mustChangePassword: !alreadyExisted
         });
       } catch (claimErr) {
         console.warn("Custom claims note:", claimErr);
@@ -1781,6 +1802,9 @@ app.post("/api/admin/create-tenant", express.json(), async (req, res) => {
       return res.json({
         success: true,
         uid,
+        companyId: boundCompanyId,
+        temporaryPassword: alreadyExisted ? undefined : issued.temporaryPassword,
+        mustChangePassword: !alreadyExisted,
         alreadyExisted,
         message: alreadyExisted ? "تم ربط الحساب الموجود وتحديث بيانات الدخول" : "تم إنشاء حساب المستخدم في Firebase Auth بنجاح"
       });
@@ -1934,12 +1958,7 @@ let otpIdCounter = 1;
 app.get("/api/settings", async (req, res) => {
   const authCheck = await requireFirebaseAuth(req);
   if (!authCheck.ok) return rejectUnauthorized(res, authCheck);
-  const resolved = await resolveCallerRole(authCheck as any);
-  const headerCompanyId = (req.headers["x-company-id"] as string) || "";
-  const companyId =
-    resolved.role === "SUPER_ADMIN"
-      ? headerCompanyId || resolved.companyId || "default"
-      : resolved.companyId || "default";
+  const companyId = req.sessionTenant?.companyId || `session:${req.sessionTenant?.uid || 'none'}`;
   if (!multiCompanySettings[companyId]) {
     multiCompanySettings[companyId] = {
       ...systemSettingsStore,
@@ -1953,12 +1972,7 @@ app.put("/api/settings", express.json(), async (req, res) => {
   try {
     const authCheck = await requireFirebaseAuth(req);
     if (!authCheck.ok) return rejectUnauthorized(res, authCheck);
-    const resolved = await resolveCallerRole(authCheck as any);
-    const headerCompanyId = (req.headers["x-company-id"] as string) || "";
-    const companyId =
-      resolved.role === "SUPER_ADMIN"
-        ? headerCompanyId || resolved.companyId || "default"
-        : resolved.companyId || "default";
+    const companyId = req.sessionTenant?.companyId || `session:${req.sessionTenant?.uid || 'none'}`;
     const data = req.body;
     if (!multiCompanySettings[companyId]) {
       multiCompanySettings[companyId] = { ...systemSettingsStore };
@@ -2060,7 +2074,7 @@ app.post("/api/auth/send-2fa-otp", express.json(), async (req, res) => {
       console.warn("SMTP delivery notice (mock fallback active):", mailErr);
     }
 
-    res.json({ success: true, message: "تم إرسال رمز التحقق إلى بريدك الإلكتروني", debugOtp: otp });
+    res.json({ success: true, message: "تم إرسال رمز التحقق إلى بريدك الإلكتروني" });
   } catch (error: any) {
     res.status(500).json({ success: false, message: "فشل إرسال الرمز", error: error.message });
   }

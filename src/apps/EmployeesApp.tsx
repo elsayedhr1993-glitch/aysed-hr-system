@@ -71,6 +71,7 @@ import {
 import { OdooOfficialA4ReportLayout } from '../components/print/OdooOfficialA4ReportLayout';
 import { getCompanyPrintProfile } from '../utils/companyPrintProfile';
 import { OdooPdf } from '../services/odooPdfService';
+import { maskIdentity } from '../security/identityMask';
 
 export const safePrintA4Document = (htmlContent: string) => {
   try {
@@ -1296,7 +1297,7 @@ export function EmployeesApp(props?: any) {
     const rows = filteredEmployees.map(e => [
       e.id,
       `"${e.nameAr}"`,
-      `="${e.civilId}"`,
+      `="${maskIdentity(String(e.civilId ?? ''), 'civil')}"`,
       `"${e.jobTitle}"`,
       `"${e.dept}"`,
       `"${e.phone}"`,

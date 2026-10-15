@@ -69,6 +69,7 @@ import { OdooMohMedicalHubApp } from './apps/OdooMohMedicalHubApp';
 import { SuperAdminDashboard } from './pages/SuperAdminDashboard';
 import { OdooDebugMenu } from './components/OdooDebugMenu';
 import OdooLoginPage from './components/OdooLoginPage';
+import { SessionSecurityGate } from './components/security/SessionSecurityGate';
 import { TenantDatabaseService } from './services/tenantDataService';
 import { AuditLogsApp } from './apps/AuditLogsApp';
 import { RecruitmentApp } from './apps/RecruitmentApp';
@@ -782,6 +783,7 @@ function MainAppLayout() {
   }
 
   return (
+    <SessionSecurityGate>
     <CopilotProvider runtime={copilotRuntime} initialActiveApp={activeApp}>
     <CopilotAppBridge onBindOpen={bindOpenCopilot} />
     <div className="h-screen w-full flex flex-col font-sans overflow-hidden bg-slate-100 text-slate-800" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
@@ -1353,6 +1355,7 @@ function MainAppLayout() {
       />
     </div>
     </CopilotProvider>
+    </SessionSecurityGate>
   );
 }
 

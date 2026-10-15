@@ -53,6 +53,8 @@ import {
   syncPlanToEmployeeRecord,
 } from '../../services/onboardingService';
 import { CompactTabBar } from '../ui/CompactTabBar';
+import { MaskedValue } from '../security/MaskedValue';
+import { maskIdentity } from '../../security/identityMask';
 
 const CORE_DOC_KEYS = ['civilIdScan', 'passportScan', 'pamWorkPermit', 'mohLicense'] as const;
 
@@ -749,7 +751,7 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
                       </div>
                       <div>
                         <span className="text-slate-500">الرقم المدني:</span>
-                        <strong className="block text-slate-900 font-mono">{pendingOcrData.data.civilId || 'غير رصيد'}</strong>
+                        <strong className="block text-slate-900 font-mono"><MaskedValue kind="civil" value={pendingOcrData.data.civilId} fallback={'غير رصيد'} /></strong>
                       </div>
                       {pendingOcrData.data.expiryDate && (
                         <div>
@@ -766,7 +768,7 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
                       {pendingOcrData.data.passportNo && (
                         <div>
                           <span className="text-slate-500">رقم جواز السفر:</span>
-                          <strong className="block text-slate-900 font-mono">{pendingOcrData.data.passportNo}</strong>
+                          <strong className="block text-slate-900 font-mono"><MaskedValue kind="passport" value={pendingOcrData.data.passportNo} /></strong>
                         </div>
                       )}
                     </div>
@@ -1298,7 +1300,7 @@ export const OnboardingTrackerApp: React.FC<OnboardingTrackerAppProps> = ({
                                 <div class="box">
                                   <strong>أولاً: بيانات الموظف الأساسية:</strong>
                                   <table>
-                                    <tr><th>اسم الموظف</th><td>${selectedPlan.employeeName}</td><th>الرقم المدني الكويتي</th><td>${selectedPlan.civilId || 'غير محدد'}</td></tr>
+                                    <tr><th>اسم الموظف</th><td>${selectedPlan.employeeName}</td><th>الرقم المدني الكويتي</th><td>${maskIdentity(String(selectedPlan.civilId ?? ''), 'civil') || 'غير محدد'}</td></tr>
                                     <tr><th>المسمى الوظيفي</th><td>${selectedPlan.jobTitle}</td><th>القسم / الإدارة</th><td>${selectedPlan.department}</td></tr>
                                     <tr><th>تاريخ المباشرة الفعلية</th><td>${selectedPlan.commencementDetails?.actualJoiningDate || 'معلق'}</td><th>المشرف المباشر</th><td>${selectedPlan.commencementDetails?.directSupervisor || 'غير محدد'}</td></tr>
                                     <tr><th>مقر العمل / الفرع</th><td>${selectedPlan.commencementDetails?.branchLocation || 'المركز الرئيسي'}</td><th>حالة اللياقة الطبية</th><td>${selectedPlan.medicalFitnessStatus === 'fit' ? 'لائق طبياً (مكتمل الفحص)' : 'معلق الفحص'}</td></tr>

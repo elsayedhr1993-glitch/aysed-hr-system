@@ -13,6 +13,7 @@ import { storage } from '../lib/firebase';
 import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import toast from 'react-hot-toast';
 import { createArchiveDocumentId } from '../utils/documentArchiveUtils';
+import { IdentityInput, MaskedValue } from '../components/security/MaskedValue';
 
 interface ScannerAppProps {
   documents: DocumentItem[];
@@ -768,7 +769,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                         <option value="">-- اضغط لاختيار الموظف --</option>
                         {employees.map(emp => (
                           <option key={emp.id} value={emp.id}>
-                            {emp.fullNameAr} ({emp.civilId || 'بدون رقم مدني'}) - {emp.jobTitle || emp.department || ''}
+                            {emp.fullNameAr} (<MaskedValue kind="civil" value={emp.civilId} fallback={'بدون رقم مدني'} />) - {emp.jobTitle || emp.department || ''}
                           </option>
                         ))}
                       </select>
@@ -835,15 +836,16 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="block font-bold text-slate-700 mb-1">الرقم المدني (12 رقماً):</label>
-                      <input
+                      <IdentityInput
+                        kind="civil"
                         type="text"
                         maxLength={12}
                         value={scanResult.extractedData.civilId || ''}
-                        onChange={(e) => {
-                          const val = e.target.value.replace(/\D/g, '');
+                        onChange={(val) => {
+                          const cleaned = val.replace(/\D/g, '');
                           setScanResult({
                             ...scanResult,
-                            extractedData: { ...scanResult.extractedData, civilId: val }
+                            extractedData: { ...scanResult.extractedData, civilId: cleaned }
                           });
                         }}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-900 font-mono font-bold focus:bg-white focus:border-primary outline-none"
@@ -879,12 +881,13 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                     </div>
                     <div>
                       <label className="block font-bold text-slate-700 mb-1">رقم جواز السفر:</label>
-                      <input
+                      <IdentityInput
+                        kind="passport"
                         type="text"
                         value={scanResult.extractedData.passportNo || ''}
-                        onChange={(e) => setScanResult({
+                        onChange={(val) => setScanResult({
                           ...scanResult,
-                          extractedData: { ...scanResult.extractedData, passportNo: e.target.value.toUpperCase() }
+                          extractedData: { ...scanResult.extractedData, passportNo: val.toUpperCase() }
                         })}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-900 font-mono focus:bg-white focus:border-primary outline-none"
                       />

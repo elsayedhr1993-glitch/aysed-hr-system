@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { MaskedValue } from './security/MaskedValue';
 import { 
   FileText, 
   Search, 
@@ -1239,13 +1240,9 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
                   </div>
                   <div>
                     <label className="text-slate-500 block mb-1">الرقم المدني (Civil ID)</label>
-                    <input
-                      type="text"
-                      readOnly
-                      value={selectedContract.civilId}
-                      className="w-full p-2 bg-slate-100 border border-slate-200 rounded-lg font-mono font-bold text-slate-700 cursor-not-allowed"
-                      title="يُجلب تلقائياً من ملف الموظف"
-                    />
+                    <div className="w-full p-2 bg-slate-100 border border-slate-200 rounded-lg font-mono font-bold text-slate-700" title="يُجلب تلقائياً من ملف الموظف">
+                      <MaskedValue kind="civil" value={selectedContract.civilId} />
+                    </div>
                   </div>
                 </div>
               </div>

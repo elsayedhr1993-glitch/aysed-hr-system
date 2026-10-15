@@ -1,4 +1,5 @@
 import { WhatsAppGatewayConfig } from '../types';
+import { buildAuthedJsonHeaders } from '../lib/clientAuth';
 
 export interface SendMessageResponse {
   sent: boolean;
@@ -84,9 +85,7 @@ export const sendWhatsAppMessage = async (
   try {
     const serverRes = await fetch('/api/send-whatsapp', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: await buildAuthedJsonHeaders(),
       body: JSON.stringify({
         instanceId: effectiveInstance,
         apiToken: effectiveToken,

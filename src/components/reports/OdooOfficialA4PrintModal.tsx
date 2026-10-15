@@ -28,6 +28,7 @@ import {
   OdooReportLegalNotice,
 } from '../print/OdooReportPrimitives';
 import { OdooOfficialA4ReportLayout } from '../print/OdooOfficialA4ReportLayout';
+import { MaskedValue } from '../security/MaskedValue';
 
 interface OdooOfficialA4PrintModalProps {
   isOpen: boolean;
@@ -204,7 +205,7 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
                         <td className="p-2.5 font-bold">{idx + 1}</td>
                         <td className="p-2.5 font-sans">
                           <div className="font-bold text-slate-900">{emp.name}</div>
-                          <div className="text-[10px] text-slate-500 font-mono">{emp.civilId}</div>
+                          <div className="text-[10px] text-slate-500 font-mono"><MaskedValue kind="civil" value={emp.civilId} /></div>
                         </td>
                         <td className="p-2.5 font-sans text-slate-700">{emp.department}</td>
                         <td className="p-2.5 text-left">{emp.basicSalary.toFixed(3)}</td>
@@ -250,7 +251,7 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
                         <td className="p-2.5 font-bold">{idx + 1}</td>
                         <td className="p-2.5 font-sans">
                           <div className="font-bold text-slate-900">{emp.name}</div>
-                          <div className="text-[10px] text-slate-500">{emp.civilId}</div>
+                          <div className="text-[10px] text-slate-500"><MaskedValue kind="civil" value={emp.civilId} /></div>
                         </td>
                         <td className="p-2.5">{emp.isKuwaiti ? 'مواطن' : emp.residencyExpiryDate}</td>
                         <td className="p-2.5">
@@ -315,7 +316,7 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
                         <td className="p-2.5 font-bold">{idx + 1}</td>
                         <td className="p-2.5 font-sans">
                           <div className="font-bold text-slate-900">{emp.name}</div>
-                          <div className="text-[10px] text-slate-500 font-mono">{emp.civilId}</div>
+                          <div className="text-[10px] text-slate-500 font-mono"><MaskedValue kind="civil" value={emp.civilId} /></div>
                         </td>
                         <td className="p-2.5 font-sans">
                           <div className="text-slate-800">{emp.jobTitle}</div>

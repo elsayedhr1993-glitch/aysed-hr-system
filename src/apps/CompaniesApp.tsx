@@ -11,6 +11,7 @@ import { EditableField } from '../components/EditableField';
 import { OdooScreenEditToolbar } from '../components/ui/OdooScreenEditToolbar';
 import { useOdooScreenEditMode } from '../hooks/useOdooScreenEditMode';
 import { InlineEditProvider, type InlinePersistPatch } from '../context/InlineEditContext';
+import { MaskedValue } from '../components/security/MaskedValue';
 
 interface CompaniesAppProps {
   companies: Company[];
@@ -371,7 +372,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                       </div>
                       <div>
                         <span className="text-slate-400 block text-[10px]">الرقم المدني للجهة</span>
-                        <span className="font-mono font-bold text-slate-800">{comp.civilIdCompany || 'غير محدد'}</span>
+                        <span className="font-mono font-bold text-slate-800"><MaskedValue kind="civil" value={comp.civilIdCompany} fallback={'غير محدد'} /></span>
                       </div>
                     </div>
 
@@ -451,7 +452,7 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
                       </div>
                     </td>
                     <td className="p-4 font-mono font-semibold text-slate-700">{comp.mohLicense || '-'}</td>
-                    <td className="p-4 font-mono font-semibold text-slate-700">{comp.civilIdCompany || '-'}</td>
+                    <td className="p-4 font-mono font-semibold text-slate-700"><MaskedValue kind="civil" value={comp.civilIdCompany} fallback={'-'} /></td>
                     <td className="p-4 text-slate-600">
                       <div>{comp.area || 'الكويت'}</div>
                       <div className="text-[10px] text-slate-400 font-mono">{comp.phone}</div>

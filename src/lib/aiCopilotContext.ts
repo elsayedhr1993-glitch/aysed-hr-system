@@ -113,22 +113,16 @@ export function buildCopilotPayloadContext(input: {
 export function assertClientCompanyAccess(
   requestedCompanyId: string | undefined,
   callerCompanyId: string | undefined,
-  isSuperAdmin: boolean
+  _isSuperAdmin: boolean
 ): { ok: true; companyId: string } | { ok: false; reason: string } {
   const req = String(requestedCompanyId || '').trim();
   const caller = String(callerCompanyId || '').trim();
 
-  if (!req) {
-    return { ok: false, reason: 'companyId مطلوب في طلب المساعد' };
+  if (!caller || caller === 'SAAS_PLATFORM' || caller === 'comp-super-admin') {
+    return { ok: false, reason: 'لا توجد منشأة مرتبطة بجلسة الدخول' };
   }
-  if (req === 'SAAS_PLATFORM' || req === 'comp-super-admin') {
-    return { ok: false, reason: 'اختر شركة مستأجر قبل استخدام المساعد' };
+  if (req && req !== caller) {
+    return { ok: false, reason: 'معرّف المنشأة في الطلب لا يُعتمد' };
   }
-  if (isSuperAdmin) {
-    return { ok: true, companyId: req };
-  }
-  if (!caller || caller !== req) {
-    return { ok: false, reason: 'لا يمكن استخدام المساعد لشركة غير مرتبطة بحسابك' };
-  }
-  return { ok: true, companyId: req };
+  return { ok: true, companyId: caller };
 }

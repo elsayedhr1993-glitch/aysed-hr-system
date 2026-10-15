@@ -16,6 +16,7 @@ import {
 } from '../print/OdooReportPrimitives';
 import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
 import { OdooPdf } from '../../services/odooPdfService';
+import { MaskedValue } from '../security/MaskedValue';
 
 export interface WpsAuditItem {
   id: string;
@@ -302,7 +303,7 @@ export const WpsAuditShieldModal: React.FC<WpsAuditShieldModalProps> = ({
                             <strong className="text-slate-900 block">{row.employeeName}</strong>
                             <span className="text-[10px] text-slate-400 font-mono">{row.employeeId}</span>
                           </td>
-                          <td className="p-3 font-mono text-slate-700">{row.civilId}</td>
+                          <td className="p-3 font-mono text-slate-700"><MaskedValue kind="civil" value={row.civilId} /></td>
                           <td className="p-3 font-mono text-[10px] text-slate-600">
                             {row.iban ? (
                               <span className="tracking-wider">{row.iban}</span>

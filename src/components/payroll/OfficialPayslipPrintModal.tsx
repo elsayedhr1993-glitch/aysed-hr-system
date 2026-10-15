@@ -5,6 +5,7 @@ import type { Company } from '../../types';
 import { OfficialA4CompanyLetterheadCompact } from '../print/OfficialA4CompanyLetterhead';
 import { OdooReportFooter } from '../print/OdooReportPrimitives';
 import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
+import { MaskedValue } from '../security/MaskedValue';
 
 export interface PayslipPrintData {
   payslipNumber: string;
@@ -111,7 +112,7 @@ export const OfficialPayslipPrintModal: React.FC<OfficialPayslipPrintModalProps>
               </div>
               <div>
                 <span className="text-[10px] text-slate-500 block">الرقم المدني:</span>
-                <span className="font-mono font-bold text-slate-800">{payslip.civilId}</span>
+                <span className="font-mono font-bold text-slate-800"><MaskedValue kind="civil" value={payslip.civilId} /></span>
               </div>
               <div>
                 <span className="text-[10px] text-slate-500 block">الرقم الوظيفي:</span>

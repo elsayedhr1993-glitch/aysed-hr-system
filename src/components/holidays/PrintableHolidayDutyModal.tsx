@@ -7,6 +7,7 @@ import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
 import { formatEmployerRegistryLine } from '../../utils/mohMedicalFacility';
 import { OdooReportFooter } from '../print/OdooReportPrimitives';
 import { OfficialA4CompanyLetterheadCompact } from '../print/OfficialA4CompanyLetterhead';
+import { MaskedValue } from '../security/MaskedValue';
 
 interface PrintableHolidayDutyModalProps {
   duty: HolidayDutyAssignment | null;
@@ -100,7 +101,7 @@ export const PrintableHolidayDutyModal: React.FC<PrintableHolidayDutyModalProps>
               </div>
               <div>
                 <span className="text-slate-400 block text-[9px] font-sans">الرقم المدني:</span>
-                <strong className="text-slate-900">{duty.civilId || '---'}</strong>
+                <strong className="text-slate-900"><MaskedValue kind="civil" value={duty.civilId} fallback={'---'} /></strong>
               </div>
               <div>
                 <span className="text-slate-400 block text-[9px] font-sans">المسمى الوظيفي:</span>

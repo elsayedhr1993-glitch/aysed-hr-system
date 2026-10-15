@@ -7,6 +7,7 @@ import type { Company } from '../../types';
 import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
 import { OfficialA4CompanyLetterhead } from '../print/OfficialA4CompanyLetterhead';
 import { OdooReportFooter, OdooReportLegalNotice } from '../print/OdooReportPrimitives';
+import { MaskedValue } from '../security/MaskedValue';
 
 interface OfficialPublicHolidaysPrintModalProps {
   isOpen: boolean;
@@ -220,7 +221,7 @@ export const OfficialPublicHolidaysPrintModal: React.FC<OfficialPublicHolidaysPr
                       <td className="p-2 text-center font-mono">{idx + 1}</td>
                       <td className="p-2 font-mono text-[9px]">{d.id}</td>
                       <td className="p-2 font-bold">{d.employeeName}</td>
-                      <td className="p-2 font-mono">{d.civilId || '—'}</td>
+                      <td className="p-2 font-mono"><MaskedValue kind="civil" value={d.civilId} fallback={'—'} /></td>
                       <td className="p-2">{d.holidayName}</td>
                       <td className="p-2 font-mono">{d.dutyDate}</td>
                       <td className="p-2">{compensationLabel(d.compensationType)}</td>

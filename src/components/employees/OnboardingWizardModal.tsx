@@ -29,6 +29,7 @@ import { processAnyDocument } from '../../utils/ocrService';
 import { OnboardingPlan, OnboardingTask } from '../../types';
 import { useCompany } from '../../context/CompanyContext';
 import { createDraftEmployee, validateDraftEmployee } from '../../lib/onboardingStateMachine';
+import { MaskedValue } from '../security/MaskedValue';
 
 const KUWAIT_BANK_OPTIONS = [
   'بنك الكويت الوطني (NBK)',
@@ -695,7 +696,7 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
                         <div><strong className="text-slate-900 font-bold">الرقم المدني:</strong> <span className="font-mono font-bold text-emerald-700">{civilId || '—'}</span></div>
                         {scannedData.nationality && <div><strong className="text-slate-900 font-bold">الجنسية:</strong> {scannedData.nationality}</div>}
                         {scannedData.dob && <div><strong className="text-slate-900 font-bold">الميلاد:</strong> {scannedData.dob}</div>}
-                        {scannedData.passportNo && <div><strong className="text-slate-900 font-bold">الجواز:</strong> <span className="font-mono">{scannedData.passportNo}</span></div>}
+                        {scannedData.passportNo && <div><strong className="text-slate-900 font-bold">الجواز:</strong> <span className="font-mono"><MaskedValue kind="passport" value={scannedData.passportNo} /></span></div>}
                         {scannedData.mohLicenseNo && <div><strong className="text-slate-900 font-bold">ترخيص صحي:</strong> {scannedData.mohLicenseNo}</div>}
                       </div>
                     )}

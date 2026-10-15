@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { buildAuthedJsonHeaders } from '../lib/clientAuth';
 import { 
   Globe, 
   MapPin, 
@@ -372,7 +373,7 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
     try {
       const res = await fetch('/api/ai/test-key', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await buildAuthedJsonHeaders(),
         body: JSON.stringify({}),
       });
 

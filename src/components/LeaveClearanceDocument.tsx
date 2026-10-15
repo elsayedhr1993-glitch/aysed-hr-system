@@ -6,6 +6,7 @@ import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { useLang } from '../lib/i18n';
 import { OfficialA4CompanyLetterheadCompact } from './print/OfficialA4CompanyLetterhead';
 import { formatLeaveScopeLabel, normalizeLeaveScope } from '../utils/leaveScopeAccrual';
+import { MaskedValue } from './security/MaskedValue';
 
 export interface EmployeeInfo {
   name: string;
@@ -129,7 +130,7 @@ export const LeaveClearanceDocument: React.FC<Props> = ({
             </tr>
             <tr className="border-b border-slate-200">
               <td className="p-2 bg-slate-50 font-bold text-slate-700">الرقم المدني:</td>
-              <td className="p-2 font-mono font-bold">{employee.civilId || '-'}</td>
+              <td className="p-2 font-mono font-bold"><MaskedValue kind="civil" value={employee.civilId} fallback={'-'} /></td>
               <td className="p-2 bg-slate-50 font-bold text-slate-700">تاريخ المباشرة:</td>
               <td className="p-2 font-mono">{employee.joinDate || '-'}</td>
             </tr>

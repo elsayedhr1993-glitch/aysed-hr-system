@@ -7,6 +7,7 @@ import { ensureSessionTenantBinding } from '../services/sessionTenantBindingServ
 import { doc, getDoc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { isSuperAdminEmail } from '../config/superAdminAccess';
+import { buildAuthedJsonHeaders } from '../lib/clientAuth';
 
 const AUTH_USER_KEY = 'aysed_auth_user';
 const AUTH_TOKEN_KEY = 'aysed_auth_token';
@@ -356,6 +357,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      const headers = await buildAuthedJsonHeaders();
+      if (cancelled || !headers.Authorization) return;
+      await fetch('/api/auth/login-success', {
+        method: 'POST',
+        headers,
+        credentials: 'same-origin',
+      }).catch(() => {});
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
   // Inactivity Firewall Monitor (Auto-logout on idle)
   useEffect(() => {
     if (!user) {
@@ -363,8 +381,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
+    let lastTouch = 0;
     const resetInactivityTimer = () => {
       if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+      const now = Date.now();
+      if (now - lastTouch > 4 * 60 * 1000) {
+        lastTouch = now;
+        void buildAuthedJsonHeaders().then((headers) => {
+          if (!headers.Authorization) return;
+          return fetch('/api/auth/session/touch', {
+            method: 'POST',
+            headers,
+            credentials: 'same-origin',
+          });
+        }).catch(() => {});
+      }
       inactivityTimerRef.current = setTimeout(() => {
         toast.error('تم إنهاء الجلسة وإغلاق الحساب تلقائياً بسبب عدم النشاط (الجدار الناري).', { duration: 6000 });
         logout();

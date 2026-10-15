@@ -1,5 +1,6 @@
 import React from 'react';
 import { ExternalLink } from 'lucide-react';
+import { maskIdentity } from '../../../security/identityMask';
 
 interface Props {
   employee: any;
@@ -52,7 +53,7 @@ export const EmployeeCommencementTab: React.FC<Props> = ({
           </div>
           <div class="box">
             <table>
-              <tr><th>اسم الموظف</th><td>${employee.nameAr || employee.name}</td><th>الرقم المدني</th><td>${employee.civilId || '-'}</td></tr>
+              <tr><th>اسم الموظف</th><td>${employee.nameAr || employee.name}</td><th>الرقم المدني</th><td>${maskIdentity(String(employee.civilId ?? ''), 'civil') || '-'}</td></tr>
               <tr><th>تاريخ المباشرة</th><td>${joiningDate}</td><th>حالة الإقرار</th><td>${status}</td></tr>
               <tr><th>المشرف</th><td>${employee.directSupervisor || employee.manager || '-'}</td><th>جدول العمل</th><td>${commencementRecord?.workingSchedule || employee.workingSchedule || '-'}</td></tr>
             </table>

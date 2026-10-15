@@ -39,6 +39,7 @@ import { OdooPdf } from '../services/odooPdfService';
 import { toast } from 'react-hot-toast';
 import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { cleanFirestoreData, db } from '../lib/firebase';
+import { MaskedValue } from './security/MaskedValue';
 
 export const OdooOperationsApp: React.FC = () => {
   const { activeCompany } = useCompany();
@@ -595,7 +596,7 @@ export const OdooOperationsApp: React.FC = () => {
                               {emp.name}
                             </div>
                             <div className="text-[10px] text-slate-400 font-mono">
-                              {emp.civilId || 'كادر معتمد'}
+                              <MaskedValue kind="civil" value={emp.civilId} fallback={'كادر معتمد'} />
                             </div>
                           </div>
                         ) : (
@@ -795,7 +796,7 @@ export const OdooOperationsApp: React.FC = () => {
                   <option value="">-- متوفرة في المستودع (غير مسندة لموظف) --</option>
                   {companyEmployees.map(emp => (
                     <option key={emp.id} value={emp.id}>
-                      {emp.name} ({emp.civilId || 'موظف'})
+                      {emp.name} (<MaskedValue kind="civil" value={emp.civilId} fallback={'موظف'} />)
                     </option>
                   ))}
                 </select>

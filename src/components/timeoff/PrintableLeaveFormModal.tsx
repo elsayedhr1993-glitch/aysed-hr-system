@@ -7,6 +7,7 @@ import type { Company } from '../../types';
 import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
 import { formatEmployerRegistryLine } from '../../utils/mohMedicalFacility';
 import { formatLeaveScopeLabel, leaveScopeFromRecord } from '../../utils/leaveScopeAccrual';
+import { MaskedValue } from '../security/MaskedValue';
 
 interface PrintableLeaveFormModalProps {
   request: LeaveRequest | null;
@@ -123,7 +124,7 @@ export const PrintableLeaveFormModal: React.FC<PrintableLeaveFormModalProps> = (
               </div>
               <div>
                 <span className="text-slate-400 block text-[10px]">الرقم المدني:</span>
-                <span className="font-mono font-bold text-slate-800">{request.civilId || '---'}</span>
+                <span className="font-mono font-bold text-slate-800"><MaskedValue kind="civil" value={request.civilId} fallback={'---'} /></span>
               </div>
               <div>
                 <span className="text-slate-400 block text-[10px]">القسم / الإدارة:</span>

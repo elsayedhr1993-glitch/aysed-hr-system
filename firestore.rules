@@ -38,6 +38,61 @@ service cloud.firestore {
         && (userDoc().role == 'COMPANY_ADMIN' || userDoc().role == 'TENANT_ADMIN');
     }
 
+    function profileRole() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && userDoc().role is string
+        ? userDoc().role
+        : (request.auth.token.role is string ? request.auth.token.role : '');
+    }
+
+    function isHrManager() {
+      return signedIn() && profileRole() == 'HR_MANAGER';
+    }
+
+    function isHrUser() {
+      return signedIn() && profileRole() == 'HR_USER';
+    }
+
+    function isFinance() {
+      return signedIn() && profileRole() == 'FINANCE';
+    }
+
+    function isDepartmentManager() {
+      return signedIn() && (profileRole() == 'DEPARTMENT_MANAGER' || profileRole() == 'DEPT_MANAGER');
+    }
+
+    function isEmployeeRole() {
+      return signedIn() && profileRole() == 'EMPLOYEE';
+    }
+
+    function sameDepartment() {
+      return isDepartmentManager()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && 'departmentId' in userDoc()
+        && 'departmentId' in resource.data
+        && userDoc().departmentId == resource.data.departmentId;
+    }
+
+    function ownEmployeeRecord() {
+      return signedIn() && (
+        ('authUid' in resource.data && resource.data.authUid == request.auth.uid)
+        || ('uid' in resource.data && resource.data.uid == request.auth.uid)
+        || ('email' in resource.data && resource.data.email is string && resource.data.email.lower() == authEmailLower() && authEmailLower() != '')
+      );
+    }
+
+    function ownContract() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && 'employeeId' in userDoc()
+        && 'employeeId' in resource.data
+        && userDoc().employeeId == resource.data.employeeId;
+    }
+
+    function payrollRole() {
+      return isSuperAdmin() || isCompanyAdmin() || isHrManager() || isFinance();
+    }
+
     function tokenCompanyId() {
       return request.auth.token.companyId;
     }
@@ -306,9 +361,17 @@ service cloud.firestore {
 
     // Tenant-scoped operational collections
     match /employees/{docId} {
-      allow read: if canReadTenantDoc();
-      allow create: if canCreateTenantDoc();
-      allow update, delete: if canWriteTenantDoc();
+      allow read: if isSuperAdmin()
+        || (sameTenantResource() && (
+          isCompanyAdmin() || isHrManager() || isHrUser() || isFinance() || sameDepartment() || ownEmployeeRecord()
+        ))
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
+      allow create: if isSuperAdmin()
+        || (sameTenantIncoming() && (isCompanyAdmin() || isHrManager() || isHrUser()))
+        || (incomingTenantCanonical() != null && isAuthEmailCompanyAdmin(incomingTenantCanonical()));
+      allow update, delete: if isSuperAdmin()
+        || (canWriteTenantDoc() && (isCompanyAdmin() || isHrManager() || isHrUser()))
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
 
       match /onboarding/{onboardingDocId} {
         function employeeParentCompanyId() {
@@ -327,9 +390,15 @@ service cloud.firestore {
       }
     }
     match /contracts/{docId} {
-      allow read: if canReadTenantDoc();
-      allow create: if canCreateTenantDoc();
-      allow update, delete: if canWriteTenantDoc();
+      allow read: if isSuperAdmin()
+        || (sameTenantResource() && (payrollRole() || isHrUser() || ownContract()))
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
+      allow create: if isSuperAdmin()
+        || (sameTenantIncoming() && (isCompanyAdmin() || isHrManager()))
+        || (incomingTenantCanonical() != null && isAuthEmailCompanyAdmin(incomingTenantCanonical()));
+      allow update, delete: if isSuperAdmin()
+        || (canWriteTenantDoc() && (isCompanyAdmin() || isHrManager()))
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
     }
     match /commencements/{docId} {
       allow read: if canReadTenantDoc();
@@ -367,9 +436,15 @@ service cloud.firestore {
       allow update, delete: if canWriteTenantDoc();
     }
     match /payslips/{docId} {
-      allow read: if canReadTenantDoc();
-      allow create: if canCreateTenantDoc();
-      allow update, delete: if canWriteTenantDoc();
+      allow read: if isSuperAdmin()
+        || (sameTenantResource() && payrollRole())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
+      allow create: if isSuperAdmin()
+        || (sameTenantIncoming() && payrollRole())
+        || (incomingTenantCanonical() != null && isAuthEmailCompanyAdmin(incomingTenantCanonical()));
+      allow update, delete: if isSuperAdmin()
+        || (canWriteTenantDoc() && payrollRole())
+        || (resourceTenantCanonical() != null && isAuthEmailCompanyAdmin(resourceTenantCanonical()));
     }
     match /attendance_records/{docId} {
       allow read: if canReadTenantDoc();

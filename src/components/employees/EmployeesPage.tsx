@@ -8,6 +8,7 @@ import type {
 import { HeaderBar, type EmployeesDirectoryViewMode } from './HeaderBar';
 import { EmployeeCard } from './EmployeeCard';
 import { checkDocumentExpiry } from '../../utils/dateUtils';
+import { MaskedValue } from '../security/MaskedValue';
 
 const PAGE_SIZE = 24;
 
@@ -302,7 +303,7 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({
                     <div className="font-medium">{emp.jobTitle}</div>
                     <div className="text-[10px] text-slate-400">{emp.dept || emp.department}</div>
                   </td>
-                  <td className="p-3 font-mono text-slate-600">{emp.civilId || '—'}</td>
+                  <td className="p-3 font-mono text-slate-600"><MaskedValue kind="civil" value={emp.civilId} fallback={'—'} /></td>
                   <td className="p-3">{renderStatusBadge(emp)}</td>
                   <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
                     <button

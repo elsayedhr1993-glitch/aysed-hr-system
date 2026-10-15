@@ -1,4 +1,5 @@
 import React from 'react';
+import { MaskedValue } from './security/MaskedValue';
 
 export interface EmployeeData {
   name: string;
@@ -153,7 +154,7 @@ export const SalaryCertificate: React.FC<SalaryCertificateProps> = ({
         {/* نص الشهادة المعتمد */}
         <div className="space-y-4 text-base text-gray-800 leading-[2.3]">
           <p>
-            نحيط سيادتكم علماً بأن/ <strong>{employee.name}</strong> (الجنسية: {formattedNationality}) بموجب بطاقة مدنية رقم/ <strong>{employee.civilId}</strong>، {verbText} <strong>{formattedCompanyName}</strong>، بوظيفة/ <strong>{employee.jobTitle}</strong> وذلك إعتباراً من <span className="inline-block whitespace-nowrap font-bold" dir="ltr">{formattedJoinDate}</span> براتب شهري وقدره (<strong>{formattedSalary} د.ك</strong>) {cleanSalaryInWords}، ويتم تحويل {salaryPronoun} إلى {accountPronoun} لدى <strong>{formattedBankName}</strong> رقم الآيبان (<span className="inline-block whitespace-nowrap font-bold" dir="ltr">{employee.iban}</span>) {ongoingStatus}.
+            نحيط سيادتكم علماً بأن/ <strong>{employee.name}</strong> (الجنسية: {formattedNationality}) بموجب بطاقة مدنية رقم/ <strong><MaskedValue kind="civil" value={employee.civilId} /></strong>، {verbText} <strong>{formattedCompanyName}</strong>، بوظيفة/ <strong>{employee.jobTitle}</strong> وذلك إعتباراً من <span className="inline-block whitespace-nowrap font-bold" dir="ltr">{formattedJoinDate}</span> براتب شهري وقدره (<strong>{formattedSalary} د.ك</strong>) {cleanSalaryInWords}، ويتم تحويل {salaryPronoun} إلى {accountPronoun} لدى <strong>{formattedBankName}</strong> رقم الآيبان (<span className="inline-block whitespace-nowrap font-bold" dir="ltr">{employee.iban}</span>) {ongoingStatus}.
           </p>
 
           <p>

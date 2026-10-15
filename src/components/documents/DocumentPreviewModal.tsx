@@ -1,5 +1,6 @@
 import React from 'react';
 import { DocumentItem, Employee } from '../../types';
+import { MaskedValue } from '../security/MaskedValue';
 import { 
   X, Download, Printer, Trash2, Calendar, User, 
   FileText, Shield, AlertCircle, CheckCircle2, Clock, ExternalLink 
@@ -211,7 +212,7 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
                   <div className="space-y-1 text-xs">
                     <p className="font-bold text-slate-900 text-sm">{employee.fullNameAr || employee.fullNameEn}</p>
                     <div className="grid grid-cols-2 gap-2 text-slate-600 pt-1">
-                      <div><span className="text-slate-400">الرقم المدني:</span> <span className="font-mono">{employee.civilId || '—'}</span></div>
+                      <div><span className="text-slate-400">الرقم المدني:</span> <span className="font-mono"><MaskedValue kind="civil" value={employee.civilId} fallback={'—'} /></span></div>
                       <div><span className="text-slate-400">القسم:</span> {employee.department || '—'}</div>
                       <div><span className="text-slate-400">المسمى:</span> {employee.jobTitle || '—'}</div>
                       <div><span className="text-slate-400">الجنسية:</span> {employee.nationality || (employee.isKuwaiti ? 'كويتي' : 'غير كويتي')}</div>

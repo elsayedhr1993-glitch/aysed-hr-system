@@ -15,6 +15,7 @@ import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
 import { OfficialA4CompanyLetterhead } from '../components/print/OfficialA4CompanyLetterhead';
 import { OdooReportFooter, OdooReportLegalNotice } from '../components/print/OdooReportPrimitives';
 import { getCompanyPrintProfile } from '../utils/companyPrintProfile';
+import { MaskedValue } from '../components/security/MaskedValue';
 
 interface EOSAppProps {
   employees: Employee[];
@@ -330,7 +331,7 @@ export const EOSApp: React.FC<EOSAppProps> = ({
             >
               {companyEmps.map(emp => (
                 <option key={emp.id} value={emp.id}>
-                  {emp.fullNameAr} ({emp.civilId}) - {emp.jobTitle}
+                  {emp.fullNameAr} (<MaskedValue kind="civil" value={emp.civilId} />) - {emp.jobTitle}
                 </option>))}
             </select>
           </div>
@@ -343,7 +344,7 @@ export const EOSApp: React.FC<EOSAppProps> = ({
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-500">الرقم المدني:</span>
-                <span className="font-mono font-bold text-slate-800 dir-ltr">{activeEmp.civilId}</span>
+                <span className="font-mono font-bold text-slate-800 dir-ltr"><MaskedValue kind="civil" value={activeEmp.civilId} /></span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-500">نوع العقد:</span>
@@ -515,7 +516,7 @@ export const EOSApp: React.FC<EOSAppProps> = ({
                 </div>
                 <div>
                   <span className="text-slate-400 block text-[10px]">الرقم المدني:</span>
-                  <span className="font-mono font-bold text-slate-900 dir-ltr">{eosResult.civilId}</span>
+                  <span className="font-mono font-bold text-slate-900 dir-ltr"><MaskedValue kind="civil" value={eosResult.civilId} /></span>
                 </div>
                 <div>
                   <span className="text-slate-400 block text-[10px]">تاريخ المباشرة والانتهاء:</span>

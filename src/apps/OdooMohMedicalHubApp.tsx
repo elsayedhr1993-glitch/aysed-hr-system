@@ -10,6 +10,8 @@ import { useCompany } from '../context/CompanyContext';
 import { TenantDatabaseService } from '../services/tenantDataService';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { processAnyDocument } from '../utils/ocrService';
+import { MaskedValue } from '../components/security/MaskedValue';
+import { maskIdentity } from '../security/identityMask';
 
 const getDaysUntilExpiry = (expiryDateString?: string) => {
   if (!expiryDateString) return 999;
@@ -150,7 +152,7 @@ export const OdooMohMedicalHubApp: React.FC = () => {
         <p>بالإشارة إلى الموضوع أعلاه، نود إفادتكم بأن المكلف أدناه يعمل لدينا بكامل الكفاءة والانتظام، ونرجو التفضل بالموافقة على تجديد ترخيص مزاولة المهنة الخاص به:</p>
         <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 13px;">
           <tr><td style="padding: 8px; border: 1px solid #cbd5e1; width: 30%; background: #f8fafc; font-weight: bold;">اسم الموظف:</td><td style="padding: 8px; border: 1px solid #cbd5e1;">${emp.nameAr || emp.fullNameAr}</td></tr>
-          <tr><td style="padding: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight: bold;">الرقم المدني:</td><td style="padding: 8px; border: 1px solid #cbd5e1; font-family: monospace;">${emp.civilId || '—'}</td></tr>
+          <tr><td style="padding: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight: bold;">الرقم المدني:</td><td style="padding: 8px; border: 1px solid #cbd5e1; font-family: monospace;">${maskIdentity(String(emp.civilId ?? ''), 'civil') || '—'}</td></tr>
           <tr><td style="padding: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight: bold;">المسمى الوظيفي:</td><td style="padding: 8px; border: 1px solid #cbd5e1;">${emp.jobTitle || 'طبيب / ممارس'}</td></tr>
           <tr><td style="padding: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight: bold;">رقم الترخيص الحالي:</td><td style="padding: 8px; border: 1px solid #cbd5e1; font-family: monospace; color: ${tokens.color.primary}; font-weight: bold;">${emp.mohLicenseNo || emp.mohLicense || 'MOH-NEW'}</td></tr>
           <tr><td style="padding: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight: bold;">تاريخ انتهاء الترخيص:</td><td style="padding: 8px; border: 1px solid #cbd5e1; font-family: monospace;">${emp.mohLicenseExpiry || emp.mohExpiry || '2026-12-31'}</td></tr>
@@ -165,7 +167,7 @@ export const OdooMohMedicalHubApp: React.FC = () => {
         <p>نحيطكم علماً بأن المكلف أدناه قد باشر فعلياً مهام عمله في منشأتنا الطبية اعتباراً من تاريخ اليوم، ومستوفٍ لكافة الشروط والمستندات القانونية:</p>
         <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 13px;">
           <tr><td style="padding: 8px; border: 1px solid #cbd5e1; width: 30%; background: #f8fafc; font-weight: bold;">اسم الموظف:</td><td style="padding: 8px; border: 1px solid #cbd5e1;">${emp.nameAr || emp.fullNameAr}</td></tr>
-          <tr><td style="padding: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight: bold;">الرقم المدني:</td><td style="padding: 8px; border: 1px solid #cbd5e1; font-family: monospace;">${emp.civilId || '—'}</td></tr>
+          <tr><td style="padding: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight: bold;">الرقم المدني:</td><td style="padding: 8px; border: 1px solid #cbd5e1; font-family: monospace;">${maskIdentity(String(emp.civilId ?? ''), 'civil') || '—'}</td></tr>
           <tr><td style="padding: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight: bold;">التخصص الطبي:</td><td style="padding: 8px; border: 1px solid #cbd5e1;">${emp.jobTitle || 'كادر طبي'}</td></tr>
         </table>
         <p>ولكم جزيل الشكر والامتنان،،</p>
@@ -437,7 +439,7 @@ export const OdooMohMedicalHubApp: React.FC = () => {
                             </div>
                             <div>
                               <div>{emp.nameAr || emp.fullNameAr || 'غير متوفر'}</div>
-                              <div className="text-[10px] text-slate-400 font-mono">المدني: {emp.civilId || '—'}</div>
+                              <div className="text-[10px] text-slate-400 font-mono">المدني: <MaskedValue kind="civil" value={emp.civilId} fallback="—" /></div>
                             </div>
                           </td>
                           <td className="p-3.5 text-slate-700">
@@ -572,7 +574,7 @@ export const OdooMohMedicalHubApp: React.FC = () => {
                       <option value="">— اضغط لاختيار الطبيب أو الكادر الصحي من القائمة —</option>
                       {employees.map(emp => (
                         <option key={emp.id} value={emp.id}>
-                          {emp.nameAr || emp.fullNameAr} ({emp.jobTitle || 'كادر طبي'} - المدني: {emp.civilId || '—'})
+                          {emp.nameAr || emp.fullNameAr} ({emp.jobTitle || 'كادر طبي'} - المدني: <MaskedValue kind="civil" value={emp.civilId} fallback="—" />)
                         </option>
                       ))}
                     </select>

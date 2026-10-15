@@ -7,6 +7,7 @@ import {
   calculateServerSettlement,
   calculateServerWorkingDays
 } from '../../server/leaveCalculatorServer';
+import { buildAuthedJsonHeaders } from '../lib/clientAuth';
 
 export type { ServerLeaveBalanceResult, ServerSettlementCalculationParams, ServerSettlementCalculationResult };
 
@@ -23,7 +24,7 @@ export async function fetchServerLeaveBalance(
   try {
     const response = await fetch('/api/leave/calculate-balance', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await buildAuthedJsonHeaders(),
       body: JSON.stringify({
         employee,
         allocations,
@@ -60,7 +61,7 @@ export async function fetchServerBatchBalances(
   try {
     const response = await fetch('/api/leave/batch-balances', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await buildAuthedJsonHeaders(),
       body: JSON.stringify({
         employees,
         allocations,
@@ -104,7 +105,7 @@ export async function fetchServerSettlement(
   try {
     const response = await fetch('/api/leave/calculate-settlement', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await buildAuthedJsonHeaders(),
       body: JSON.stringify(params)
     });
 
@@ -131,7 +132,7 @@ export async function fetchServerWorkingDays(
   try {
     const response = await fetch('/api/leave/working-days', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await buildAuthedJsonHeaders(),
       body: JSON.stringify({ startDate, endDate })
     });
 

@@ -5,6 +5,7 @@ import {
   ChevronLeft, Sparkles, Wand2, Check, Zap
 } from 'lucide-react';
 import { Employee, Contract, AttendanceRecord, LeaveRequest, Payslip } from '../types';
+import { buildAuthedJsonHeaders } from '../lib/clientAuth';
 import { 
   runGlobalSystemIntegrityAudit, 
   autoFixGlobalIntegrityIssues, 
@@ -103,7 +104,7 @@ export const GlobalIntegrityModal: React.FC<GlobalIntegrityModalProps> = ({
       try {
         await fetch('/api/guards/clean-duplicate-punches', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: await buildAuthedJsonHeaders(),
           body: JSON.stringify({ punches: fixResult.updatedAttendance })
         });
       } catch (e) {

@@ -130,7 +130,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     try {
       const response = await fetch('/api/ai/test-key', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await buildAuthedJsonHeaders(),
         body: JSON.stringify({})
       });
       const data = await response.json();
@@ -376,22 +376,19 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     }
 
     setIsCreatingCompany(true);
-    const compId = 'comp-' + Date.now();
     const reqId = 'req-' + Date.now();
     const subId = 'sub-' + Date.now();
-    const password = newCompanyForm.password || ('Aysed2026#' + Math.random().toString(36).slice(-6, -1) + '!');
 
     try {
-      // 1. Provision Auth account safely without overriding Super Admin session
       const authResult = await provisionTenantAuth({
         email: cleanEmail,
-        password: password,
         companyName: newCompanyForm.companyName.trim(),
-        companyId: compId,
         ownerName: newCompanyForm.requesterName.trim(),
         phone: newCompanyForm.phone.trim(),
         planType: newCompanyForm.planType
       });
+      const compId = authResult.companyId || ('comp-' + Date.now());
+      const password = authResult.temporaryPassword || '';
 
       const userUid = authResult.uid || `usr_${Date.now()}`;
 
@@ -461,6 +458,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         role: 'COMPANY_ADMIN',
         companyId: compId,
         companyName: newCompanyForm.companyName.trim(),
+        mustChangePassword: true,
         createdAt: new Date().toISOString(),
         lastLogin: new Date().toISOString()
       }, { merge: true });
@@ -697,21 +695,17 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   const handleActivate = async (req: SubscriptionRequest) => {
     try {
       const email = (req.email || `${req.phone.replace(/[^0-9]/g, '') || Date.now()}@aysedhr.com`).trim().toLowerCase();
-      const tempPass = req.password || ('Aysed2026#' + Math.random().toString(36).slice(-6, -1) + '!');
-      const compId = req.id.startsWith('comp-') ? req.id : `comp-${Date.now()}`;
-
-      // 1. Provision official company account safely without overriding Super Admin session
       const authResult = await provisionTenantAuth({
         email,
-        password: tempPass,
         companyName: req.name,
-        companyId: compId,
         ownerName: req.requester_name,
         phone: req.phone,
         planType: req.plan_type
       });
 
       const userUid = authResult.uid || `usr_${Date.now()}`;
+      const compId = authResult.companyId || (req.id.startsWith('comp-') ? req.id : `comp-${Date.now()}`);
+      const tempPass = authResult.temporaryPassword || '';
 
       // 2. Set or update document in companies collection with exact requested schema
       const companyDocData = {

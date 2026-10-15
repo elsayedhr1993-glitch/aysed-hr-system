@@ -6,6 +6,10 @@ import { UI_KEYS } from '../utils/uiStudioKeys';
 import { UiStudioTarget, useUiStudioLabel } from './studio/UiStudioTarget';
 import { useFieldPersist } from '../context/InlineEditContext';
 import { EMPLOYEE_FIELD_MIRRORS } from '../utils/employeeFieldMirrors';
+import { useAuth } from '../context/AuthContext';
+import { canRevealIdentity } from '../security/accessRoles';
+import { identityKindFromField, maskIdentity } from '../security/identityMask';
+import { MaskedValue } from './security/MaskedValue';
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -58,6 +62,9 @@ export const EditableField: React.FC<EditableFieldProps> = ({
   inlineEdit,
 }) => {
   const { lang } = useLang();
+  const { user } = useAuth();
+  const identityKind = identityKindFromField(studioFieldKey || persistFieldKey, label);
+  const mayRevealIdentity = !identityKind || canRevealIdentity(user?.role);
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [editing, setEditing] = useState(false);
@@ -246,12 +253,25 @@ export const EditableField: React.FC<EditableFieldProps> = ({
         <input
           type={type}
           maxLength={maxLength}
-          value={displayValue}
-          onChange={(e) => onChange(e.target.value)}
+          value={identityKind && !mayRevealIdentity ? maskIdentity(displayValue, identityKind) : displayValue}
+          readOnly={Boolean(identityKind && !mayRevealIdentity)}
+          onChange={(e) => {
+            if (identityKind && !mayRevealIdentity) return;
+            onChange(e.target.value);
+          }}
           className="w-full border border-slate-300 focus:border-primary rounded-lg px-2.5 py-1.5 font-bold text-slate-900 bg-white focus:ring-1 focus:ring-primary focus:outline-none text-sm transition"
           placeholder={placeholder}
           dir={lang === 'ar' ? 'rtl' : 'ltr'}
         />
+      ) : identityKind ? (
+        <div className="w-full min-h-[30px] flex items-center justify-between gap-2 px-2 py-1">
+          <MaskedValue kind={identityKind} value={displayValue} purpose={studioFieldKey || label} />
+          {mayRevealIdentity && !readOnly && (
+            <button type="button" onClick={startEdit} className="text-slate-400" aria-label="تعديل">
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       ) : editing ? (
         renderInput(saveOnBlur)
       ) : (

@@ -1,4 +1,5 @@
 import { tokens } from '../design/tokens';
+import { buildAuthedJsonHeaders } from '../lib/clientAuth';
 import React, { useState, useMemo, useCallback } from 'react';
 import { 
   Building2, 
@@ -131,7 +132,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
     try {
       const response = await fetch('/api/send-email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await buildAuthedJsonHeaders(),
         body: JSON.stringify({
           to: targetEmail,
           subject: 'اختبار خادم البريد (Aysed HR)',

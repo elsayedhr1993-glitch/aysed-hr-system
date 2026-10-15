@@ -71,7 +71,7 @@ export async function resolveCallerRole(authCheck: {
       const snap = await dbAdmin.collection('users').doc(authCheck.uid).get();
       if (snap.exists) {
         const data = snap.data() || {};
-        const role = String(data.role || 'COMPANY_ADMIN').toUpperCase();
+        const role = String(data.role || claimRole || 'UNKNOWN').toUpperCase();
         const companyId = data.companyId ? String(data.companyId) : claimCompanyId;
         if (role === 'SUPER_ADMIN' || isSuperAdminEmail(String(data.email || email))) {
           return { role: 'SUPER_ADMIN', companyId };
@@ -87,5 +87,9 @@ export async function resolveCallerRole(authCheck: {
     console.warn('[Auth] Failed to resolve role from Firestore users doc:', err);
   }
 
-  return { role: 'COMPANY_ADMIN', companyId: claimCompanyId };
+  const fallbackRole = claimRole && claimRole !== 'UNKNOWN' ? claimRole : 'UNKNOWN';
+  return {
+    role: fallbackRole === 'TENANT_ADMIN' ? 'COMPANY_ADMIN' : fallbackRole,
+    companyId: claimCompanyId,
+  };
 }

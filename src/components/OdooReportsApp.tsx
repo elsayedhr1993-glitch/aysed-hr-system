@@ -56,6 +56,7 @@ import {
 } from '../utils/reportsPeriodData';
 import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { MaskedValue } from './security/MaskedValue';
 
 function mapFirestorePayslip(raw: Record<string, unknown>): ReportsPayslipSnapshot {
   const basicSalary = Number(raw.basicSalary || 0);
@@ -1042,7 +1043,7 @@ export const OdooReportsApp: React.FC = () => {
                       </UiStudioTableCell>
                       <UiStudioTableCell uiKey="reports.wps.col.employee" defaults={{ label: { ar: 'الموظف', en: 'Employee' } }} className="p-3.5">
                         <div className="font-bold text-slate-900 font-sans">{emp.name}</div>
-                        <div className="text-[10px] text-slate-400">{emp.civilId}</div>
+                        <div className="text-[10px] text-slate-400"><MaskedValue kind="civil" value={emp.civilId} /></div>
                       </UiStudioTableCell>
                       <UiStudioTableCell uiKey="reports.wps.col.dept" defaults={{ label: { ar: 'القسم', en: 'Dept' } }} className="p-3.5 font-sans">
                         <div className="font-semibold text-slate-800">{emp.jobTitle}</div>
@@ -1114,7 +1115,7 @@ export const OdooReportsApp: React.FC = () => {
                     <tr key={emp.id} className={`hover:bg-purple-50/40 transition ${idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
                       <td className="p-3.5 font-sans">
                         <div className="font-bold text-slate-900">{emp.name}</div>
-                        <div className="text-[10px] text-slate-400 font-mono">{emp.civilId} - {emp.jobTitle}</div>
+                        <div className="text-[10px] text-slate-400 font-mono"><MaskedValue kind="civil" value={emp.civilId} /> - {emp.jobTitle}</div>
                       </td>
                       <td className="p-3.5 font-sans">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${emp.isKuwaiti ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-700'}`}>
@@ -1193,7 +1194,7 @@ export const OdooReportsApp: React.FC = () => {
                     <tr key={emp.id} className={`hover:bg-purple-50/40 transition ${idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
                       <td className="p-3.5 font-sans">
                         <div className="font-bold text-slate-900">{emp.name}</div>
-                        <div className="text-[10px] text-slate-400 font-mono">{emp.civilId} - {emp.jobTitle}</div>
+                        <div className="text-[10px] text-slate-400 font-mono"><MaskedValue kind="civil" value={emp.civilId} /> - {emp.jobTitle}</div>
                       </td>
                       <td className="p-3.5">{emp.joinDate}</td>
                       <td className="p-3.5 font-bold font-sans text-slate-800">{emp.serviceYears} سنوات</td>
@@ -1240,7 +1241,7 @@ export const OdooReportsApp: React.FC = () => {
                     <tr key={emp.id} className={`hover:bg-purple-50/40 transition ${idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
                       <td className="p-3.5 font-sans">
                         <div className="font-bold text-slate-900">{emp.name}</div>
-                        <div className="text-[10px] text-slate-400 font-mono">{emp.civilId}</div>
+                        <div className="text-[10px] text-slate-400 font-mono"><MaskedValue kind="civil" value={emp.civilId} /></div>
                       </td>
                       <td className="p-3.5 font-sans">
                         <div className="font-semibold text-slate-800">{emp.jobTitle}</div>
@@ -1288,7 +1289,7 @@ export const OdooReportsApp: React.FC = () => {
                       <tr key={emp.id} className={`hover:bg-purple-50/40 transition ${idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}`}>
                         <td className="p-3.5 font-sans">
                           <div className="font-bold text-slate-900">{emp.name}</div>
-                          <div className="text-[10px] text-slate-400 font-mono">{emp.civilId} - {emp.jobTitle}</div>
+                          <div className="text-[10px] text-slate-400 font-mono"><MaskedValue kind="civil" value={emp.civilId} /> - {emp.jobTitle}</div>
                         </td>
                         <td className="p-3.5 font-sans">
                           <div className="font-semibold text-slate-800">{emp.department}</div>

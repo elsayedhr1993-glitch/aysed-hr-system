@@ -19,6 +19,8 @@ import { classifyCopilotIntent, isToolIntent } from '../lib/copilotIntentRouter'
 import { sanitizeCopilotAction } from '../lib/aiCopilotActions';
 import { computeCopilotEmployeeStats, tryLocalFaqAnswer } from '../lib/copilotLocalFaq';
 import { employeeBelongsToTenant } from '../utils/contractTenantRules';
+import { MaskedValue } from './security/MaskedValue';
+import { maskIdentity } from '../security/identityMask';
 
 export type { CopilotAction };
 
@@ -600,7 +602,7 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
         const extra =
           result.candidates?.length
             ? `\n${isArabic ? 'مرشحون:' : 'Candidates:'}\n${result.candidates
-                .map((c) => `• ${c.name}${c.civilId ? ` (${c.civilId})` : ''}`)
+                .map((c) => `• ${c.name}${c.civilId ? ` (${maskIdentity(String(c.civilId), 'civil')})` : ''}`)
                 .join('\n')}`
             : '';
         appendBotMessage(`⚠️ ${result.message}${extra}`);
@@ -769,7 +771,7 @@ export const AysedAICopilot: React.FC<AysedAICopilotProps> = ({
                     {msg.action.employeeData && (
                       <div className="w-full bg-black/30 rounded-lg p-2.5 text-[11px] space-y-1 border border-white/10 my-1">
                         <div className="flex justify-between"><span className="text-purple-300">{isArabic ? 'الاسم:' : 'Name:'}</span> <span className="font-bold">{msg.action.employeeData.nameAr || msg.action.employeeData.nameEn || (isArabic ? 'غير محدد' : 'Not set')}</span></div>
-                        {msg.action.employeeData.civilId && <div className="flex justify-between"><span className="text-purple-300">{isArabic ? 'الرقم المدني:' : 'Civil ID:'}</span> <span className="font-mono text-amber-300 font-bold">{msg.action.employeeData.civilId}</span></div>}
+                        {msg.action.employeeData.civilId && <div className="flex justify-between"><span className="text-purple-300">{isArabic ? 'الرقم المدني:' : 'Civil ID:'}</span> <span className="font-mono text-amber-300 font-bold"><MaskedValue kind="civil" value={msg.action.employeeData.civilId} /></span></div>}
                         {msg.action.employeeData.jobTitle && <div className="flex justify-between"><span className="text-purple-300">{isArabic ? 'الوظيفة:' : 'Job title:'}</span> <span>{msg.action.employeeData.jobTitle}</span></div>}
                         {msg.action.employeeData.department && <div className="flex justify-between"><span className="text-purple-300">{isArabic ? 'القسم:' : 'Department:'}</span> <span>{msg.action.employeeData.department}</span></div>}
                         {msg.action.employeeData.basicSalary && <div className="flex justify-between"><span className="text-purple-300">{isArabic ? 'الراتب الأساسي:' : 'Basic salary:'}</span> <span className="text-emerald-400 font-bold">{msg.action.employeeData.basicSalary} {isArabic ? 'د.ك' : 'KWD'}</span></div>}

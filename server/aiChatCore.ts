@@ -552,11 +552,16 @@ export async function handleAiChatRequest(
     const faqCatch = localFaqSuccessBody(promptText, body?.contextSummary);
     if (faqCatch) return faqCatch;
     if (mode === 'chat') {
-      const companyId = String(body?.companyId || '').trim();
-      if (companyId) {
-        const dash = await localDashboardFallbackBody(promptText, companyId, body?.contextSummary);
-        if (dash) return dash;
-      }
+      return {
+        status: 200,
+        body: {
+          success: true,
+          reply: promptLooksArabic(promptText)
+            ? 'تعذر إكمال الطلب بدون منشأة مرتبطة بالجلسة.'
+            : 'The request could not be completed without a company on the session.',
+          source: 'session_scope',
+        },
+      };
     }
     return {
       status: 200,

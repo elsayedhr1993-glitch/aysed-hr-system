@@ -31,6 +31,7 @@ import { UiStudioScreenTitle } from './studio/UiStudioScreenTitle';
 import { UI_KEYS } from '../utils/uiStudioKeys';
 import { UiStudioTarget } from './studio/UiStudioTarget';
 import { TimeOffPayrollFinancePanel } from './timeoff/TimeOffPayrollFinancePanel';
+import { IdentityInput, MaskedValue } from './security/MaskedValue';
 
 export interface PayslipItem {
   id: string;
@@ -1064,7 +1065,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                   <div>
                     <h2 className="text-lg font-black text-slate-900">{activePayslip.employeeName}</h2>
                     <p className="text-xs text-slate-500 font-mono mt-0.5">
-                      كود: {activePayslip.employeeId} | الرقم المدني: {activePayslip.civilId} | الوظيفة: {activePayslip.jobTitle}
+                      كود: {activePayslip.employeeId} | الرقم المدني: <MaskedValue kind="civil" value={activePayslip.civilId} /> | الوظيفة: {activePayslip.jobTitle}
                     </p>
                   </div>
                   <div className="text-left font-mono">
@@ -1168,7 +1169,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                       </div>
                       <div>
                         <span className="text-slate-500 block">الرقم المدني لصاحب الحساب:</span>
-                        <strong className="font-mono text-slate-800">{activePayslip.civilId}</strong>
+                        <strong className="font-mono text-slate-800"><MaskedValue kind="civil" value={activePayslip.civilId} /></strong>
                       </div>
                       <div>
                         <span className="text-slate-500 block">حالة التطابق مع راتب الشؤون:</span>
@@ -1304,7 +1305,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                               </button>
                               <span className="text-[10px] text-slate-400 font-mono">{p.employeeId} - {p.jobTitle}</span>
                             </td>
-                            <td className="p-3 font-mono text-slate-700">{p.civilId}</td>
+                            <td className="p-3 font-mono text-slate-700"><MaskedValue kind="civil" value={p.civilId} /></td>
                             <td className="p-3 font-mono font-bold text-slate-800">{p.basicSalary.toFixed(3)}</td>
                             <td className="p-3 font-mono text-emerald-700">
                               {p.overtimeAmount > 0 ? `+${p.overtimeAmount.toFixed(3)}` : '-'}
@@ -1626,13 +1627,14 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                 </div>
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">الرقم المدني (12 رقم) *</label>
-                  <input
+                  <IdentityInput
+                    kind="civil"
                     type="text"
                     required
                     maxLength={12}
                     placeholder="الرقم المدني"
                     value={newForm.civilId}
-                    onChange={(e) => setNewForm({ ...newForm, civilId: e.target.value })}
+                    onChange={(val) => setNewForm({ ...newForm, civilId: val })}
                     className="w-full p-2.5 border rounded-lg font-mono outline-none focus:border-primary"
                   />
                 </div>

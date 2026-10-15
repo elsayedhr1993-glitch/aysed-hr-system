@@ -1,5 +1,6 @@
 import { Employee, LeaveRequest, Payslip, EmployeeNotification, WhatsAppGatewayConfig } from '../types';
 import { formatKWD } from './kuwaitLaw';
+import { buildAuthedJsonHeaders } from '../lib/clientAuth';
 
 /**
  * Live WhatsApp sending result interface
@@ -57,9 +58,7 @@ export async function sendLiveWhatsAppMessage(params: {
     // 1. Call secure server-side proxy route /api/send-whatsapp
     const response = await fetch('/api/send-whatsapp', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: await buildAuthedJsonHeaders(),
       body: JSON.stringify({
         instanceId: gatewayConfig.instanceId || 'instance',
         apiToken: gatewayConfig.apiToken,

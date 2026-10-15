@@ -5,6 +5,7 @@ import {
   Calculator, CheckCircle2, Shield, FolderArchive,
   Stethoscope, ShieldCheck
 } from 'lucide-react';
+import { maskIdentity } from '../../security/identityMask';
 
 interface GlobalSpotlightSearchModalProps {
   isOpen: boolean;
@@ -81,7 +82,7 @@ export const GlobalSpotlightSearchModal: React.FC<GlobalSpotlightSearchModalProp
     }).slice(0, 8).map(emp => ({
       id: emp.id,
       name: emp.fullNameAr || emp.nameAr || emp.name || 'موظف',
-      subtitle: `${emp.jobTitle || 'موظف'} • ${emp.department || 'إدارة'} • مدني: ${emp.civilId || emp.civil_id_number || '---'}`,
+      subtitle: `${emp.jobTitle || 'موظف'} • ${emp.department || 'إدارة'} • مدني: ${maskIdentity(String(emp.civilId || emp.civil_id_number || ''), 'civil') || '---'}`,
       empData: emp,
       type: 'employee',
       icon: Users

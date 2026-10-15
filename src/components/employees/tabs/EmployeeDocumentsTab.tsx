@@ -6,6 +6,7 @@ import { employeeRequiresMohCompliance } from '../../../utils/employeeCompliance
 import { processAnyDocument } from '../../../utils/ocrService';
 import { OcrScanError } from '../../../utils/ocrErrors';
 import toast from 'react-hot-toast';
+import { maskIdentity } from '../../../security/identityMask';
 
 interface Props {
   employee: any;
@@ -118,7 +119,7 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
       title: 'البطاقة المدنية',
       ocrType: 'civil_id',
       uploadTitle: 'البطاقة المدنية',
-      getNumber: (e) => e.civilId || e.civil_id_number || '—',
+      getNumber: (e) => maskIdentity(e.civilId || e.civil_id_number || '', 'civil') || '—',
       getExpiry: (e) => e.civilIdExpiry || e.civilIdExpiryDate || e.civil_id_expiry,
       editFields: {
         numberKey: 'civilId',
@@ -133,7 +134,7 @@ export const EmployeeDocumentsTab: React.FC<Props> = ({
       title: 'جواز السفر',
       ocrType: 'passport',
       uploadTitle: 'جواز السفر',
-      getNumber: (e) => e.passportNo || '—',
+      getNumber: (e) => maskIdentity(e.passportNo || '', 'passport') || '—',
       getExpiry: (e) => e.passportExpiry || e.passportExpiryDate,
       editFields: { numberKey: 'passportNo', expiryKey: 'passportExpiry', numberLabel: 'رقم الجواز' },
       show: (_, c) => !!c.passportScan,

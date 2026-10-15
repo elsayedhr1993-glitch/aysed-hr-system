@@ -14,7 +14,6 @@ import {
 import {
   browserLocalPersistence,
   browserSessionPersistence,
-  sendPasswordResetEmail,
   setPersistence,
   signInWithEmailAndPassword
 } from 'firebase/auth';
@@ -90,13 +89,13 @@ const UI_TEXT: Record<UiLanguage, UiText> = {
     emailRequired: 'يرجى إدخال البريد الإلكتروني.',
     emailInvalid: 'صيغة البريد الإلكتروني غير صحيحة.',
     passwordRequired: 'يرجى إدخال كلمة المرور.',
-    loginInvalid: 'بيانات الدخول غير صحيحة.',
-    loginThrottled: 'تم تقييد المحاولات مؤقتا. يرجى المحاولة لاحقا.',
-    loginGeneric: 'تعذر إتمام تسجيل الدخول حاليا. يرجى المحاولة مرة أخرى.',
-    lockedError: 'تم تعليق المحاولات لمدة 60 ثانية لحماية الحساب.',
-    resetNeedEmail: 'أدخل البريد الإلكتروني أولا لإرسال رابط الاستعادة.',
-    resetSuccess: 'تم إرسال رابط استعادة كلمة المرور إلى البريد الإلكتروني.',
-    resetFailed: 'تعذر إرسال رابط الاستعادة حاليا. يرجى المحاولة لاحقا.',
+    loginInvalid: 'بيانات الدخول غير صحيحة',
+    loginThrottled: 'بيانات الدخول غير صحيحة',
+    loginGeneric: 'بيانات الدخول غير صحيحة',
+    lockedError: 'بيانات الدخول غير صحيحة',
+    resetNeedEmail: 'أدخل البريد الإلكتروني أولا.',
+    resetSuccess: 'إذا كان الحساب موجوداً فسيصلك رابط لإعادة التعيين',
+    resetFailed: 'إذا كان الحساب موجوداً فسيصلك رابط لإعادة التعيين',
     showPassword: 'إظهار كلمة المرور',
     hidePassword: 'إخفاء كلمة المرور',
     langAr: 'العربية',
@@ -127,13 +126,13 @@ const UI_TEXT: Record<UiLanguage, UiText> = {
     emailRequired: 'Please enter your email address.',
     emailInvalid: 'Please enter a valid email address.',
     passwordRequired: 'Please enter your password.',
-    loginInvalid: 'Invalid login credentials.',
-    loginThrottled: 'Too many attempts. Please try again later.',
-    loginGeneric: 'Unable to complete sign-in right now. Please try again.',
-    lockedError: 'Attempts are blocked for 60 seconds to protect your account.',
-    resetNeedEmail: 'Enter your email first to receive a reset link.',
-    resetSuccess: 'A password reset link has been sent to your email.',
-    resetFailed: 'Unable to send reset link right now. Please try again later.',
+    loginInvalid: 'The sign-in details are incorrect',
+    loginThrottled: 'The sign-in details are incorrect',
+    loginGeneric: 'The sign-in details are incorrect',
+    lockedError: 'The sign-in details are incorrect',
+    resetNeedEmail: 'Enter an email address first.',
+    resetSuccess: 'If the account exists, a reset link will be sent.',
+    resetFailed: 'If the account exists, a reset link will be sent.',
     showPassword: 'Show password',
     hidePassword: 'Hide password',
     langAr: 'العربية',
@@ -174,6 +173,11 @@ export const OdooLoginPage: React.FC = () => {
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [isLocked, setIsLocked] = useState(false);
   const [lockoutTime, setLockoutTime] = useState(0);
+  const resetToken = useMemo(() => {
+    if (typeof window === 'undefined') return '';
+    return new URLSearchParams(window.location.search).get('resetToken') || '';
+  }, []);
+  const [newPassword, setNewPassword] = useState('');
 
   const language: UiLanguage = lang;
   const isArabic = lang === 'ar';
@@ -280,6 +284,17 @@ export const OdooLoginPage: React.FC = () => {
 
     let awaitingSession = false;
     try {
+      const guard = await fetch('/api/auth/login-guard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail }),
+      });
+      if (guard.status === 429) {
+        setIsLocked(true);
+        setLockoutTime(15 * 60);
+        setErrorMsg(t.loginInvalid);
+        return;
+      }
       persistRememberPreference(rememberMe);
       await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
       awaitingSession = true;
@@ -288,23 +303,21 @@ export const OdooLoginPage: React.FC = () => {
       await auth.authStateReady();
       setFailedAttempts(0);
       return;
-    } catch (error: any) {
+    } catch {
       awaitingSession = false;
       setIsSigningIn(false);
+      await fetch('/api/auth/login-failure', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail }),
+      }).catch(() => {});
       const newFailed = failedAttempts + 1;
       setFailedAttempts(newFailed);
-
-      if (newFailed >= 4) {
+      if (newFailed >= 5) {
         setIsLocked(true);
-        setLockoutTime(60);
-        setErrorMsg(t.lockedError);
-      } else if (error?.code === 'auth/invalid-credential' || error?.code === 'auth/wrong-password' || error?.code === 'auth/user-not-found') {
-        setErrorMsg(`${t.loginInvalid} (${4 - newFailed})`);
-      } else if (error?.code === 'auth/too-many-requests') {
-        setErrorMsg(t.loginThrottled);
-      } else {
-        setErrorMsg(t.loginGeneric);
+        setLockoutTime(15 * 60);
       }
+      setErrorMsg(t.loginInvalid);
     } finally {
       if (!awaitingSession) setIsLoading(false);
     }
@@ -330,16 +343,56 @@ export const OdooLoginPage: React.FC = () => {
     setErrorMsg('');
 
     try {
-      await sendPasswordResetEmail(auth, cleanEmail);
+      await fetch('/api/auth/password-reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail }),
+      });
       setErrorMsg(t.resetSuccess);
       setFeedbackType('success');
     } catch {
-      setErrorMsg(t.resetFailed);
-      setFeedbackType('error');
+      setErrorMsg(t.resetSuccess);
+      setFeedbackType('success');
     } finally {
       setIsResettingPassword(false);
     }
   };
+
+  if (resetToken) {
+    return (
+      <form
+        className="min-h-screen flex items-center justify-center p-6"
+        dir={dir}
+        onSubmit={async (event) => {
+          event.preventDefault();
+          setIsResettingPassword(true);
+          const res = await fetch('/api/auth/password-reset/complete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: resetToken, password: newPassword }),
+          });
+          setIsResettingPassword(false);
+          setFeedbackType(res.ok ? 'success' : 'error');
+          setErrorMsg(res.ok ? t.resetSuccess : t.loginInvalid);
+        }}
+      >
+        <div className="w-full max-w-sm space-y-3">
+          <h1 className="text-lg font-bold">{t.forgotPassword}</h1>
+          <input
+            type="password"
+            value={newPassword}
+            onChange={(event) => setNewPassword(event.target.value)}
+            className="w-full border rounded-lg px-3 py-2"
+            autoComplete="new-password"
+          />
+          {errorMsg && <p className="text-sm">{errorMsg}</p>}
+          <button type="submit" className="w-full bg-slate-900 text-white rounded-lg py-2" disabled={isResettingPassword}>
+            {t.submit}
+          </button>
+        </div>
+      </form>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white flex font-sans text-slate-800 selection:bg-[#1f4d4d] selection:text-white" dir={dir}>
