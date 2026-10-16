@@ -27,11 +27,63 @@ import {
 } from '../utils/kuwaitPayrollMath';
 import { collection, doc, getDoc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { employerPamOrEstablishmentCode, isMohMedicalEstablishment } from '../utils/mohMedicalFacility';
-import { UiStudioScreenTitle } from './studio/UiStudioScreenTitle';
-import { UI_KEYS } from '../utils/uiStudioKeys';
-import { UiStudioTarget } from './studio/UiStudioTarget';
 import { TimeOffPayrollFinancePanel } from './timeoff/TimeOffPayrollFinancePanel';
-import { MaskedCivilField, MaskedValue } from './security/MaskedValue';
+import { MaskedCivilField } from './security/MaskedValue';
+import { PageHeader } from './ui/PageHeader';
+import { StatStrip } from './ui/StatStrip';
+import { DataTable, type DataTableColumn } from './ui/DataTable';
+import { RowActions } from './ui/RowActions';
+import { StatusBadge } from './ui/StatusBadge';
+import { ConfirmDialog } from './ui/ConfirmDialog';
+import { Modal } from './ui';
+import { MaskedValue } from './ui/MaskedValue';
+import { tokens } from '../design/tokens';
+import {
+  LAW_51_53_TEXT,
+  LAW_59_TEXT,
+  LAW_66_TEXT,
+  LAW_70_TEXT,
+  LAW_71_TEXT,
+  buildPayrollReversal,
+  columnAllZero,
+  payslipHasReversal,
+} from './payroll/payrollDisplay';
+
+function LawTip({ text, children }: { text: string; children: React.ReactNode }) {
+  return (
+    <span className="group relative inline-flex">
+      {children}
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute z-20 hidden w-64 text-white group-hover:block group-focus-within:block"
+        style={{
+          bottom: '100%',
+          insetInlineStart: 0,
+          marginBlockEnd: tokens.space[1],
+          background: tokens.color.gray[900],
+          paddingInline: tokens.space[2],
+          paddingBlock: tokens.space[1],
+          borderRadius: tokens.radius.sm,
+          fontSize: tokens.text.xs,
+          fontWeight: 400,
+          lineHeight: 1.6,
+          whiteSpace: 'normal',
+        }}
+      >
+        {text}
+      </span>
+    </span>
+  );
+}
+
+function payslipStatusLabel(slip: PayslipItem, all: readonly PayslipItem[]) {
+  if (slip.reversalOfId) return 'قيد عكسي';
+  if (payslipHasReversal(all, slip.id)) return 'ملغى';
+  if (slip.status === 'review') return 'قيد المراجعة';
+  if (slip.status === 'draft') return 'مسودة';
+  if (slip.status === 'confirmed') return 'معتمد';
+  return 'مصروف';
+}
 
 export interface PayslipItem {
   id: string;
@@ -63,6 +115,8 @@ export interface PayslipItem {
   status: 'draft' | 'review' | 'confirmed' | 'paid';
   wpsFileRef?: string;
   notes?: string;
+  reversalOfId?: string;
+  reversalReason?: string;
 }
 
 interface MonthlyAttendanceRollupEntry {
@@ -123,6 +177,11 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
   const [showPayrollWizard, setShowPayrollWizard] = useState(false);
   const [showEosWizard, setShowEosWizard] = useState(false);
   const [showEosEngineModal, setShowEosEngineModal] = useState(false);
+  const [statFocus, setStatFocus] = useState<string | undefined>();
+  const [deleteDraftId, setDeleteDraftId] = useState<string | null>(null);
+  const [reverseTargetId, setReverseTargetId] = useState<string | null>(null);
+  const [reverseReason, setReverseReason] = useState('');
+  const [deleteLoanId, setDeleteLoanId] = useState<string | null>(null);
 
   const [payslips, setPayslips] = useState<PayslipItem[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
@@ -229,6 +288,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
   const round3 = (value: number) => Math.round((Number(value) || 0) * 1000) / 1000;
 
   const normalizePayslipItem = (raw: PayslipItem): PayslipItem => {
+    if (raw.reversalOfId) return raw;
     const grossSalary = Number(
       raw.grossSalary ??
         (raw.basicSalary || 0) +
@@ -351,7 +411,8 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
       };
     });
 
-    savePayslips(initialList);
+    const reversals = payslips.filter((slip) => slip.reversalOfId && slip.period === selectedMonth);
+    savePayslips([...initialList, ...reversals]);
   };
 
   // Loan state
@@ -419,14 +480,41 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
     savePayslips(updated);
   };
 
-  const handleDeletePayslip = (id: string) => {
-    if (confirm('هل أنت متأكد من حذف مسير الراتب هذا نهائياً؟')) {
-      const updated = payslips.filter(p => p.id !== id);
-      savePayslips(updated);
-      if (activePayslipId === id) {
-        setActivePayslipId(null);
-      }
+  const confirmDeleteDraftPayslip = () => {
+    if (!deleteDraftId) return;
+    const target = payslips.find((slip) => slip.id === deleteDraftId);
+    if (!target || target.status !== 'draft' || target.reversalOfId) {
+      setDeleteDraftId(null);
+      return;
     }
+    savePayslips(payslips.filter((slip) => slip.id !== deleteDraftId));
+    if (activePayslipId === deleteDraftId) setActivePayslipId(null);
+    setDeleteDraftId(null);
+  };
+
+  const confirmReversePayslip = () => {
+    const reason = reverseReason.trim();
+    if (!reverseTargetId || !reason) return;
+    const source = payslips.find((slip) => slip.id === reverseTargetId);
+    if (!source || source.status === 'draft' || source.reversalOfId || payslipHasReversal(payslips, source.id)) {
+      setReverseTargetId(null);
+      setReverseReason('');
+      return;
+    }
+    const reversal = buildPayrollReversal(source, reason, `REV-${source.id}`);
+    savePayslips([reversal, ...payslips]);
+    setReverseTargetId(null);
+    setReverseReason('');
+  };
+
+  const requestPayslipRemoval = (slip: PayslipItem) => {
+    if (slip.reversalOfId || payslipHasReversal(payslips, slip.id)) return;
+    if (slip.status === 'draft') {
+      setDeleteDraftId(slip.id);
+      return;
+    }
+    setReverseReason('');
+    setReverseTargetId(slip.id);
   };
 
   // New Payslip Modal Form State
@@ -615,7 +703,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
   // Re-compute single payslip based on Kuwait Labor Law (26 days)
   const handleRecomputePayslip = async (id: string) => {
     const targetPayslip = payslips.find(p => p.id === id);
-    if (!targetPayslip) return;
+    if (!targetPayslip || targetPayslip.reversalOfId) return;
 
     const targetEmployee = employees.find(emp => emp.id === targetPayslip.employeeId);
     if (!targetEmployee) {
@@ -699,7 +787,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
   };
 
   // Filtered List
-  const filteredPayslips = useMemo(() => {
+  const monthPayslips = useMemo(() => {
     return payslips.filter(p => {
       const matchMonth = p.period === selectedMonth;
       const matchStatus = statusFilter === 'all' || p.status === statusFilter;
@@ -711,12 +799,20 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
     });
   }, [payslips, selectedMonth, statusFilter, searchQuery]);
 
+  const filteredPayslips = useMemo(() => {
+    if (!statFocus || statFocus === 'count') return monthPayslips;
+    if (statFocus === 'gross') return monthPayslips.filter((slip) => slip.grossSalary !== 0);
+    if (statFocus === 'deductions') return monthPayslips.filter((slip) => slip.totalDeductions !== 0);
+    if (statFocus === 'net') return monthPayslips.filter((slip) => slip.netSalary !== 0);
+    return monthPayslips;
+  }, [monthPayslips, statFocus]);
+
   const activePayslip = payslips.find(p => p.id === activePayslipId) || null;
 
-  // KPI calculations
-  const totalNet = filteredPayslips.reduce((sum, p) => sum + p.netSalary, 0);
-  const totalGross = filteredPayslips.reduce((sum, p) => sum + p.grossSalary, 0);
-  const totalDeductionsAll = filteredPayslips.reduce((sum, p) => sum + p.totalDeductions, 0);
+  // KPI calculations stay on the month list. The strip click only filters rows.
+  const totalNet = monthPayslips.reduce((sum, p) => sum + p.netSalary, 0);
+  const totalGross = monthPayslips.reduce((sum, p) => sum + p.grossSalary, 0);
+  const totalDeductionsAll = monthPayslips.reduce((sum, p) => sum + p.totalDeductions, 0);
 
   const normalizeSettlementEmployee = (emp: any, empLoan?: any) => {
     const basicSalary = Number(emp?.basicSalary || emp?.salary || 0);
@@ -777,216 +873,177 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
     });
   }, [employees, activeCompany?.id]);
 
+  const hideLoanPaidColumn = columnAllZero(loans, (loan) => loan.totalAmount - loan.remainingAmount);
+  const hideLoanRemainColumn = columnAllZero(loans, (loan) => loan.remainingAmount);
+  const showBasicColumn = !columnAllZero(filteredPayslips, (slip) => slip.basicSalary);
+  const showOvertimeColumn = !columnAllZero(filteredPayslips, (slip) => slip.overtimeAmount);
+  const showDeductionColumn = !columnAllZero(filteredPayslips, (slip) => slip.totalDeductions);
+  const payslipColumns: DataTableColumn<PayslipItem>[] = [
+    { id: 'number', header: 'رقم المسير', cell: (slip) => slip.payslipNumber },
+    { id: 'employee', header: 'الموظف', cell: (slip) => slip.employeeName },
+    {
+      id: 'civil',
+      header: 'الرقم المدني',
+      cell: (slip) => <MaskedValue kind="civil" value={slip.civilId} purpose="payroll-list" />,
+    },
+    ...(showBasicColumn
+      ? [{
+          id: 'basic',
+          header: 'الأساسي',
+          money: true,
+          cell: (slip: PayslipItem) => slip.basicSalary,
+          total: (rows: readonly PayslipItem[]) => rows.reduce((sum, row) => sum + row.basicSalary, 0),
+        } satisfies DataTableColumn<PayslipItem>]
+      : []),
+    ...(showOvertimeColumn
+      ? [{
+          id: 'overtime',
+          header: 'الإضافي',
+          money: true,
+          cell: (slip: PayslipItem) => slip.overtimeAmount,
+          total: (rows: readonly PayslipItem[]) => rows.reduce((sum, row) => sum + row.overtimeAmount, 0),
+        } satisfies DataTableColumn<PayslipItem>]
+      : []),
+    ...(showDeductionColumn
+      ? [{
+          id: 'deductions',
+          header: 'الاستقطاعات',
+          money: true,
+          cell: (slip: PayslipItem) => slip.totalDeductions,
+          total: (rows: readonly PayslipItem[]) => rows.reduce((sum, row) => sum + row.totalDeductions, 0),
+        } satisfies DataTableColumn<PayslipItem>]
+      : []),
+    {
+      id: 'net',
+      header: 'الصافي',
+      money: true,
+      cell: (slip) => slip.netSalary,
+      total: (rows) => rows.reduce((sum, row) => sum + row.netSalary, 0),
+    },
+    {
+      id: 'status',
+      header: 'الحالة',
+      cell: (slip) => {
+        const label = payslipStatusLabel(slip, payslips);
+        if (label === 'ملغى') return <StatusBadge tone="danger">{label}</StatusBadge>;
+        if (label === 'قيد المراجعة') return <StatusBadge tone="warning">{label}</StatusBadge>;
+        return label;
+      },
+    },
+    {
+      id: 'actions',
+      header: 'إجراءات',
+      cell: (slip) => (
+        <RowActions
+          actions={[
+            { id: 'view', label: 'عرض', icon: Eye, onSelect: () => setActivePayslipId(slip.id) },
+            { id: 'pdf', label: 'قسيمة', icon: Printer, onSelect: () => handleOpenPrintModal(slip) },
+          ]}
+          menu={
+            slip.reversalOfId || payslipHasReversal(payslips, slip.id)
+              ? []
+              : [
+                  slip.status === 'draft'
+                    ? { id: 'delete', label: 'حذف المسودة', onSelect: () => requestPayslipRemoval(slip) }
+                    : { id: 'reverse', label: 'إلغاء بقيد عكسي', onSelect: () => requestPayslipRemoval(slip) },
+                ]
+          }
+        />
+      ),
+    },
+  ];
+
+  const payrollTabs: { id: typeof activeSubTab; label: string }[] = [
+    { id: 'payslips', label: 'مسيرات الرواتب' },
+    { id: 'wps', label: 'حماية الأجور' },
+    { id: 'loans', label: 'السلف والأقساط' },
+    { id: 'settlements', label: 'التسويات ونهاية الخدمة' },
+    { id: 'leave_finance', label: 'تسويات الإجازات' },
+  ];
+
+  const payrollPrimary = activePayslip
+    ? { label: 'طباعة القسيمة', onClick: () => handleOpenPrintModal(activePayslip) }
+    : activeSubTab === 'wps'
+      ? { label: 'تنزيل ملف التحويل', onClick: () => setShowWpsAuditModal(true) }
+      : activeSubTab === 'loans'
+        ? { label: 'تسجيل سلفة', onClick: () => setShowLoanModal(true) }
+        : activeSubTab === 'settlements'
+          ? { label: 'مخالصة نهاية الخدمة', onClick: () => setShowFinalSettlementModal(true) }
+          : activeSubTab === 'leave_finance'
+            ? {
+                label: 'عرض التسويات',
+                onClick: () => document.getElementById('leave-finance-panel')?.scrollIntoView({ block: 'start' }),
+              }
+            : { label: 'إنشاء مسير', onClick: () => setShowNewPayslipModal(true) };
+
+  const payrollMenu = [
+    ...(activePayslip
+      ? [
+          { id: 'back', label: 'العودة للمسيرات', onSelect: () => setActivePayslipId(null) },
+          { id: 'recompute', label: 'إعادة الحساب', onSelect: () => void handleRecomputePayslip(activePayslip.id) },
+          ...(activePayslip.reversalOfId || payslipHasReversal(payslips, activePayslip.id)
+            ? []
+            : [
+                activePayslip.status === 'draft'
+                  ? { id: 'delete-open', label: 'حذف المسودة', onSelect: () => requestPayslipRemoval(activePayslip) }
+                  : { id: 'reverse-open', label: 'إلغاء بقيد عكسي', onSelect: () => requestPayslipRemoval(activePayslip) },
+              ]),
+        ]
+      : []),
+    { id: 'structure', label: 'هيكل الأجور', onSelect: () => setShowPayrollWizard(true) },
+    { id: 'pull', label: 'سحب حركات الدوام', onSelect: () => generateInitialPayslips() },
+    { id: 'wps-check', label: 'فحص حماية الأجور', onSelect: () => setShowWpsAuditModal(true) },
+    ...(!activePayslip && (activeSubTab === 'settlements' || activeSubTab === 'leave_finance')
+      ? [
+          { id: 'eos-rules', label: 'لائحة نهاية الخدمة', onSelect: () => setShowEosWizard(true) },
+          { id: 'eos-engine', label: 'محرك نهاية الخدمة', onSelect: () => setShowEosEngineModal(true) },
+        ]
+      : []),
+  ];
+
   return (
     <div className="odoo-app-surface space-y-5 font-sans dir-rtl text-right text-slate-800 animate-fade-in" dir="rtl">
       
-      {/* 1. ODOO CONTROL PANEL & HEADER */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        
-        {/* Left: Breadcrumbs & Navigation */}
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
-            <span>الرواتب</span>
-            <span>/</span>
-            {activePayslip ? (
-              <>
-                <button 
-                  onClick={() => setActivePayslipId(null)}
-                  className="text-slate-600 hover:text-primary hover:underline cursor-pointer"
-                >
-                  مسيرات الرواتب (Batch Payslips)
-                </button>
-                <span>/</span>
-                <span className="text-primary font-black">{activePayslip.payslipNumber} ({activePayslip.employeeName})</span>
-              </>
-            ) : (
-              <span className="text-primary font-black">مسيرات الرواتب (Batch Payslips - شهر {selectedMonth})</span>
-            )}
-          </div>
-
-          <UiStudioScreenTitle
-            uiKey={UI_KEYS.appTitle('payroll')}
-            defaults={{
-              label: {
-                ar: 'مسير الرواتب ونظام حماية الأجور (WPS)',
-                en: 'Payroll & WPS',
-              },
-            }}
-            icon={<CreditCard className="text-primary" size={22} />}
-            subtitleUiKey={UI_KEYS.appSubtitle('payroll')}
-            subtitleDefaults={{
-              label: {
-                ar: 'حسابات قانون العمل الكويتي (أساس 26 يوماً / 8 ساعات)',
-                en: 'Kuwait labour payroll rules',
-              },
-            }}
-          />
-          <p className="text-[11px] text-slate-500">
-            المنشأة: <strong className="text-primary">{activeCompany?.nameAr || 'المؤسسة الطبية'}</strong> | حسابات قانون العمل الكويتي (أساس 26 يوماً / 8 ساعات)
-          </p>
-          
-          {!activePayslip && (
-            <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold gap-1 mt-3 w-full md:w-auto overflow-x-auto">
-              <button
-                type="button"
-                onClick={() => setActiveSubTab('payslips')}
-                className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer ${
-                  activeSubTab === 'payslips' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <CreditCard size={14} />
-                <UiStudioTarget
-                  uiKey={UI_KEYS.appSubTab('payroll', 'payslips')}
-                  kind="tab"
-                  defaults={{ label: { ar: 'مسيرات الرواتب', en: 'Payslips' } }}
-                >
-                  مسيرات الرواتب
-                </UiStudioTarget>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveSubTab('wps')}
-                className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer ${
-                  activeSubTab === 'wps' ? 'bg-white text-emerald-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <ShieldCheck size={14} className="text-emerald-600" />
-                <UiStudioTarget
-                  uiKey={UI_KEYS.appSubTab('payroll', 'wps')}
-                  kind="tab"
-                  defaults={{ label: { ar: 'حماية الأجور (WPS & SIF)', en: 'WPS & SIF' } }}
-                >
-                  حماية الأجور (WPS & SIF)
-                </UiStudioTarget>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveSubTab('loans')}
-                className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer ${
-                  activeSubTab === 'loans' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <DollarSign size={14} />
-                <UiStudioTarget
-                  uiKey={UI_KEYS.appSubTab('payroll', 'loans')}
-                  kind="tab"
-                  defaults={{ label: { ar: 'السلف والأقساط', en: 'Loans' } }}
-                >
-                  السلف والأقساط
-                </UiStudioTarget>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveSubTab('settlements')}
-                className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer ${
-                  activeSubTab === 'settlements' ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Calculator size={14} className="text-indigo-600" /> التسويات ونهاية الخدمة (EOS)
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveSubTab('leave_finance')}
-                className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer ${
-                  activeSubTab === 'leave_finance' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <FileText size={14} className="text-primary" /> تسويات وسلف الإجازات (م71)
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Right: Actions */}
-        <div className="flex items-center flex-wrap gap-2 w-full md:w-auto">
-          {activePayslip ? (
-            <>
-              <button
-                onClick={() => setActivePayslipId(null)}
-                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-              >
-                <ArrowRight size={14} /> العودة للمسيرات
-              </button>
-              <button
-                onClick={() => handleOpenPrintModal(activePayslip)}
-                className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
-              >
-                <Printer size={14} /> طباعة القسيمة الرسمية (A4)
-              </button>
-            </>
-          ) : activeSubTab === 'payslips' ? (
-            <>
-              <button
-                onClick={() => setShowPayrollWizard(true)}
-                className="bg-purple-900 hover:bg-purple-950 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer border border-purple-800"
-                title="تثبيت هيكل الأجور ومسير البنك (WPS)"
-              >
-                <Sliders size={15} className="text-amber-300" /> هيكل الأجور ومسير WPS
-              </button>
-
-              <button
-                onClick={() => setShowNewPayslipModal(true)}
-                className="bg-primary hover:bg-[#583950] text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
-              >
-                <Plus size={15} /> + إنشاء مسير جديد
-              </button>
-              <button
-                onClick={generateInitialPayslips}
-                className="bg-purple-50 hover:bg-purple-100 text-primary border border-purple-200 px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-                title="تحديث وسحب حركات البصمة والسلف الحالية"
-              >
-                <RefreshCw size={14} /> سحب حركات الدوام
-              </button>
-              <button
-                onClick={() => setShowWpsAuditModal(true)}
-                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-              >
-                <ShieldCheck size={14} /> فحص حماية الأجور
-              </button>
-            </>
-          ) : activeSubTab === 'wps' ? (
-            <>
-              <button
-                onClick={() => setShowWpsAuditModal(true)}
-                className="bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
-              >
-                <ShieldCheck size={15} /> درع فحص حماية الأجور (Audit Shield)
-              </button>
-            </>
-          ) : activeSubTab === 'loans' ? (
+      <PageHeader
+        title="مسير الرواتب وحماية الأجور"
+        subtitle={activePayslip ? activePayslip.employeeName + ' — ' + activePayslip.payslipNumber : 'شهر ' + selectedMonth}
+        primaryAction={payrollPrimary}
+        menu={payrollMenu}
+      />
+      {!activePayslip && (
+        <div className="flex overflow-x-auto border-b bg-white" style={{ borderColor: tokens.color.gray[200], fontFamily: 'var(--font-sans)' }}>
+          {payrollTabs.map((tab) => (
             <button
-              onClick={() => setShowLoanModal(true)}
-              className="bg-primary hover:bg-[#583950] text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveSubTab(tab.id)}
+              style={{
+                paddingInline: tokens.space[3],
+                paddingBlock: tokens.space[2],
+                fontSize: tokens.text.xs,
+                fontWeight: 700,
+                color: activeSubTab === tab.id ? tokens.color.primary : tokens.color.gray[500],
+                borderBottom: activeSubTab === tab.id ? '2px solid ' + tokens.color.primary : '2px solid transparent',
+                whiteSpace: 'nowrap',
+              }}
             >
-              <Plus size={15} /> + تسجيل سلفة جديدة
+              {tab.id === 'loans' ? <LawTip text={LAW_59_TEXT}>{tab.label}</LawTip> : tab.id === 'settlements' ? <LawTip text={LAW_51_53_TEXT + ' — ' + LAW_70_TEXT}>{tab.label}</LawTip> : tab.id === 'leave_finance' ? <LawTip text={LAW_71_TEXT}>{tab.label}</LawTip> : tab.label}
             </button>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setShowEosWizard(true)}
-                className="bg-emerald-900 hover:bg-emerald-950 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer border border-emerald-800"
-                title="تثبيت لائحة ومحرك مكافأة نهاية الخدمة (المادتين 51 و 53)"
-              >
-                <Scale size={15} className="text-amber-300" /> لائحة نهاية الخدمة والتسويات
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowEosEngineModal(true)}
-                className="bg-indigo-700 hover:bg-indigo-800 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
-                title="محرك EOS الموحد (leaveEngine + المادتين 51 و53)"
-              >
-                <Calculator size={15} /> محرك نهاية الخدمة (EOS)
-              </button>
-              <button
-                onClick={() => setShowFinalSettlementModal(true)}
-                className="bg-primary hover:bg-[#583950] text-white px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-              >
-                <FileText size={14} /> مخالصة نهاية الخدمة (Clearance)
-              </button>
-            </div>
-          )}
+          ))}
         </div>
-      </div>
+      )}
+      {activeSubTab === 'payslips' && !activePayslip && (
+        <StatStrip
+          items={[
+            { id: 'count', label: 'عدد المسيرات', value: monthPayslips.length, kind: 'count' },
+            { id: 'gross', label: 'الإجمالي', value: totalGross, kind: 'money' },
+            { id: 'deductions', label: 'الاستقطاعات', value: totalDeductionsAll, kind: 'money' },
+            { id: 'net', label: 'الصافي', value: totalNet, kind: 'money' },
+          ]}
+          activeId={statFocus}
+          onSelect={(id) => setStatFocus((current) => (current === id ? undefined : id))}
+        />
+      )}
 
       {/* 2. SUBTAB: PAYSLIPS (TREE OR FORM) */}
       {activeSubTab === 'payslips' && (
@@ -1005,7 +1062,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                         activePayslip.status === 'draft' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
                     >
-                      مسودة (Draft)
+                      مسودة
                     </button>
                     <span className="text-slate-300">➔</span>
                     <button
@@ -1014,7 +1071,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                         activePayslip.status === 'review' ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
                     >
-                      مراجعة (Review)
+                      مراجعة
                     </button>
                     <span className="text-slate-300">➔</span>
                     <button
@@ -1023,7 +1080,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                         activePayslip.status === 'confirmed' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
                     >
-                      معتمد (Confirmed)
+                      معتمد
                     </button>
                     <span className="text-slate-300">➔</span>
                     <button
@@ -1032,31 +1089,14 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                         activePayslip.status === 'paid' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
                     >
-                      تم الصرف والتحويل (Paid)
+                      مصروف
                     </button>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleRecomputePayslip(activePayslip.id)}
-                    className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-primary border border-purple-200 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <RotateCcw size={13} /> إعادة الحساب الهرمي
-                  </button>
-                  <button
-                    onClick={() => handleOpenPrintModal(activePayslip)}
-                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Printer size={13} /> طباعة القسيمة
-                  </button>
-                  <button
-                    onClick={() => handleDeletePayslip(activePayslip.id)}
-                    className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
-                  >
-                    <Trash2 size={13} /> حذف
-                  </button>
-                </div>
+                <LawTip text={LAW_66_TEXT}>
+                  <span className="text-xs text-slate-500">مرجع العمل الإضافي</span>
+                </LawTip>
               </div>
 
               {/* Payslip Header Card */}
@@ -1082,7 +1122,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                       formActiveTab === 'computation' ? 'border-b-2 border-primary text-primary' : 'text-slate-500 hover:text-slate-800'
                     }`}
                   >
-                    احتساب الراتب (Salary Computation)
+                    احتساب الراتب
                   </button>
                   <button
                     onClick={() => setFormActiveTab('wps_bank')}
@@ -1090,7 +1130,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                       formActiveTab === 'wps_bank' ? 'border-b-2 border-primary text-primary' : 'text-slate-500 hover:text-slate-800'
                     }`}
                   >
-                    بيانات البنك وحماية الأجور (WPS Info)
+                    بيانات البنك وحماية الأجور
                   </button>
                   <button
                     onClick={() => setFormActiveTab('work_entries')}
@@ -1098,7 +1138,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                       formActiveTab === 'work_entries' ? 'border-b-2 border-primary text-primary' : 'text-slate-500 hover:text-slate-800'
                     }`}
                   >
-                    حركات الدوام والغياب (Work Entries)
+                    حركات الدوام والغياب
                   </button>
                 </div>
 
@@ -1198,7 +1238,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                     </div>
                     <div className="flex justify-between py-1">
                       <span className="text-slate-600">معامل العمل الإضافي المطبق:</span>
-                      <span className="font-bold text-purple-800 font-mono">1.25x (الأيام العادية طبقاً للمادة 66)</span>
+                      <LawTip text={LAW_66_TEXT}><span className="font-bold text-purple-800 font-mono">1.25</span></LawTip>
                     </div>
                   </div>
                 )}
@@ -1248,113 +1288,17 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                 </div>
               </div>
 
-              {/* KPI Summary Banner */}
-              <div className="odoo-kpi-grid">
-                <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
-                  <span className="text-slate-500 text-[10px] block">إجمالي المسيرات</span>
-                  <div className="text-lg font-black font-mono text-slate-900 mt-1">{filteredPayslips.length}</div>
-                </div>
-                <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
-                  <span className="text-slate-500 text-[10px] block">إجمالي الرواتب الشاملة</span>
-                  <div className="text-base font-black font-mono text-slate-800 mt-1">{totalGross.toFixed(3)} د.ك</div>
-                </div>
-                <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
-                  <span className="text-slate-500 text-[10px] block">إجمالي الاستقطاعات</span>
-                  <div className="text-base font-black font-mono text-rose-700 mt-1">-{totalDeductionsAll.toFixed(3)} د.ك</div>
-                </div>
-                <div className="bg-emerald-50 p-3.5 rounded-xl border border-emerald-200 shadow-2xs">
-                  <span className="text-emerald-800 text-[10px] block">صافي الرواتب المستحقة (WPS)</span>
-                  <div className="text-lg font-black font-mono text-emerald-800 mt-1">{totalNet.toFixed(3)} د.ك</div>
-                </div>
-              </div>
+              <DataTable
+                columns={payslipColumns}
+                rows={filteredPayslips}
+                rowKey={(slip) => slip.id}
+                empty={{
+                  message: 'لا توجد مسيرات لهذا الشهر.',
+                  actionLabel: 'إنشاء مسير',
+                  onAction: () => setShowNewPayslipModal(true),
+                }}
+              />
 
-              {/* Table List */}
-              <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-right text-xs border-collapse">
-                    <thead>
-                      <tr className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 text-[11px]">
-                        <th className="p-3">رقم المسير</th>
-                        <th className="p-3">الموظف</th>
-                        <th className="p-3">الرقم المدني</th>
-                        <th className="p-3">الأساسي</th>
-                        <th className="p-3">الإضافي</th>
-                        <th className="p-3">الخصومات</th>
-                        <th className="p-3">صافي الراتب</th>
-                        <th className="p-3">الحالة</th>
-                        <th className="p-3 text-center">الإجراءات</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {filteredPayslips.length === 0 ? (
-                        <tr>
-                          <td colSpan={9} className="p-8 text-center text-slate-400">
-                            لا توجد قسائم رواتب مسجلة لهذا الشهر. اضغط على "+ إنشاء مسير جديد" أو "سحب حركات الدوام".
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredPayslips.map((p) => (
-                          <tr key={p.id} className="hover:bg-slate-50/80 transition">
-                            <td className="p-3 font-mono font-bold text-slate-600">{p.payslipNumber}</td>
-                            <td className="p-3">
-                              <button
-                                onClick={() => setActivePayslipId(p.id)}
-                                className="font-bold text-slate-900 hover:text-primary hover:underline cursor-pointer block text-right"
-                              >
-                                {p.employeeName}
-                              </button>
-                              <span className="text-[10px] text-slate-400 font-mono">{p.employeeId} - {p.jobTitle}</span>
-                            </td>
-                            <td className="p-3 font-mono text-slate-700"><MaskedValue kind="civil" value={p.civilId} /></td>
-                            <td className="p-3 font-mono font-bold text-slate-800">{p.basicSalary.toFixed(3)}</td>
-                            <td className="p-3 font-mono text-emerald-700">
-                              {p.overtimeAmount > 0 ? `+${p.overtimeAmount.toFixed(3)}` : '-'}
-                            </td>
-                            <td className="p-3 font-mono text-rose-700">
-                              {p.totalDeductions > 0 ? `-${p.totalDeductions.toFixed(3)}` : '0.000'}
-                            </td>
-                            <td className="p-3 font-mono font-black text-emerald-700 text-sm">{p.netSalary.toFixed(3)} د.ك</td>
-                            <td className="p-3">
-                              <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                p.status === 'draft' ? 'bg-slate-100 text-slate-700' :
-                                p.status === 'review' ? 'bg-amber-100 text-amber-800' :
-                                p.status === 'confirmed' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'
-                              }`}>
-                                {p.status === 'draft' ? 'مسودة' : p.status === 'review' ? 'قيد المراجعة' : p.status === 'confirmed' ? 'معتمد' : 'مدفوع'}
-                              </span>
-                            </td>
-                            <td className="p-3">
-                              <div className="flex items-center justify-center gap-1.5">
-                                <button
-                                  onClick={() => handleOpenPrintModal(p)}
-                                  className="p-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition cursor-pointer"
-                                  title="طباعة قسيمة الراتب A4"
-                                >
-                                  <Printer size={15} />
-                                </button>
-                                <button
-                                  onClick={() => setActivePayslipId(p.id)}
-                                  className="p-1 text-primary hover:bg-purple-50 rounded-md transition cursor-pointer"
-                                  title="معاينة تفاصيل المسير"
-                                >
-                                  <Eye size={15} />
-                                </button>
-                                <button
-                                  onClick={() => handleDeletePayslip(p.id)}
-                                  className="p-1 text-rose-500 hover:bg-rose-50 rounded-md transition cursor-pointer"
-                                  title="حذف المسير"
-                                >
-                                  <Trash2 size={15} />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
             </div>
           )}
         </>
@@ -1368,19 +1312,11 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
               <div>
                 <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
                   <ShieldCheck className="text-emerald-600" size={20} />
-                  نظام حماية الأجور الكويتي والربط البنكي (Kuwait WPS & SIF Generator)
+                  حماية الأجور وملف التحويل
                 </h3>
                 <p className="text-xs text-slate-500 mt-1">
-                  توليد ملف التحويل المصرفي (.SIF) المعتمد من بنك الكويت المركزي وتدقيق مطابقة رواتب إذن العمل (القوى العاملة).
+                  توليد ملف التحويل المصرفي المعتمد من بنك الكويت المركزي وتدقيق مطابقة رواتب إذن العمل.
                 </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setShowWpsAuditModal(true)}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
-                >
-                  <ShieldCheck size={14} /> فحص اللوائح والآيبان (Compliance Shield)
-                </button>
               </div>
             </div>
 
@@ -1388,7 +1324,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
               <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
                 <span className="text-slate-500 block text-[11px]">
                   {isMohMedicalEstablishment(activeCompany)
-                    ? 'ترخيص وزارة الصحة / ملف الشؤون (PAM):'
+                    ? 'ترخيص وزارة الصحة / ملف الشؤون:'
                     : 'رمز المنشأة / السجل التجاري:'}
                 </span>
                 <strong className="text-sm font-mono text-slate-900 mt-1 block">
@@ -1401,26 +1337,17 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                 <strong className="text-sm font-mono text-emerald-700 mt-1 block">
                   {totalNet.toFixed(3)} د.ك
                 </strong>
-                <span className="text-[10px] text-slate-400 mt-1 block">عدد الموظفين المشمولين: {filteredPayslips.length}</span>
+                <span className="text-[10px] text-slate-400 mt-1 block">عدد الموظفين المشمولين: {monthPayslips.length}</span>
               </div>
               <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
                 <span className="text-slate-500 block text-[11px]">التوافق مع بنك الكويت المركزي:</span>
                 <span className="inline-flex items-center gap-1 text-emerald-700 font-bold mt-1 block">
-                  <CheckCircle2 size={14} /> متوافق مع معايير CBK & PAM
+                  <CheckCircle2 size={14} /> متوافق مع معايير بنك الكويت المركزي والقوى العاملة
                 </span>
-                <span className="text-[10px] text-slate-400 mt-1 block">ملف SIF مشفر بنظام التبادل المصرفي</span>
+                <span className="text-[10px] text-slate-400 mt-1 block">ملف التحويل يُجهَّز من فحص حماية الأجور</span>
               </div>
             </div>
 
-            <div className="pt-2">
-              <button
-                onClick={() => setShowWpsAuditModal(true)}
-                className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <ShieldCheck size={16} className="text-emerald-400" />
-                فتح درع التدقيق التلقائي وتنزيل ملف SIF وخطاب البنك الرسمي
-              </button>
-            </div>
           </div>
         </div>
       )}
@@ -1430,17 +1357,10 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
         <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
           <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex justify-between items-center">
             <div>
-              <h3 className="font-bold text-sm text-slate-800">إدارة السلف والأقساط الشهرية للموظفين</h3>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                تطبيق المادة 59 من قانون العمل الكويتي (لا يجوز استقطاع أكثر من 10% من أجر العامل وفاءً لما يقترضه).
-              </p>
+              <h3 className="font-bold text-sm text-slate-800">
+                <LawTip text={LAW_59_TEXT}>السلف والأقساط</LawTip>
+              </h3>
             </div>
-            <button
-              onClick={() => setShowLoanModal(true)}
-              className="bg-primary hover:bg-[#583950] text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
-            >
-              <Plus size={14} /> سلفة جديدة
-            </button>
           </div>
           <table className="w-full text-right text-xs">
             <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
@@ -1449,8 +1369,8 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                 <th className="p-3.5">الموظف</th>
                 <th className="p-3.5">إجمالي السلفة</th>
                 <th className="p-3.5">القسط الشهري</th>
-                <th className="p-3.5">ما تم سداده</th>
-                <th className="p-3.5">الرصيد المتبقي</th>
+                {!hideLoanPaidColumn && <th className="p-3.5">ما تم سداده</th>}
+                {!hideLoanRemainColumn && <th className="p-3.5">الرصيد المتبقي</th>}
                 <th className="p-3.5">الحالة</th>
                 <th className="p-3.5">الإجراءات</th>
               </tr>
@@ -1473,8 +1393,8 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                       <td className="p-3.5 font-bold text-slate-900">{emp?.name || '---'}</td>
                       <td className="p-3.5 font-bold font-mono text-slate-800">{ln.totalAmount.toFixed(3)} د.ك</td>
                       <td className="p-3.5 font-bold font-mono text-blue-600">{ln.monthlyInstallment.toFixed(3)} د.ك / شهر</td>
-                      <td className="p-3.5 font-bold font-mono text-emerald-600">{paidAmt.toFixed(3)} د.ك</td>
-                      <td className="p-3.5 font-bold font-mono text-rose-600">{ln.remainingAmount.toFixed(3)} د.ك</td>
+                      {!hideLoanPaidColumn && <td className="p-3.5 font-bold font-mono text-emerald-600">{paidAmt.toFixed(3)} د.ك</td>}
+                      {!hideLoanRemainColumn && <td className="p-3.5 font-bold font-mono text-rose-600">{ln.remainingAmount.toFixed(3)} د.ك</td>}
                       <td className="p-3.5">
                         <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${isPaidOff ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'}`}>
                           {isPaidOff ? 'تم السداد بالكامل' : 'جاري الخصم بالراتب'}
@@ -1490,13 +1410,15 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                             سداد قسط
                           </button>
                         )}
-                        <button 
-                          onClick={() => deleteLoan(ln.id)} 
-                          className="text-rose-500 hover:text-rose-700 p-1 rounded-md hover:bg-rose-50 transition cursor-pointer" 
-                          title="حذف السلفة"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        {paidAmt === 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setDeleteLoanId(ln.id)}
+                            className="text-slate-600 hover:text-slate-900 p-1 rounded-md hover:bg-slate-100 transition cursor-pointer"
+                          >
+                            حذف المسودة
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -1509,7 +1431,9 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
 
       {/* 5. SUBTAB: SETTLEMENTS & EOS */}
       {activeSubTab === 'leave_finance' && (
-        <TimeOffPayrollFinancePanel highlightAdvanceRequestId={highlightLeaveAdvanceRequestId} />
+        <div id="leave-finance-panel">
+          <TimeOffPayrollFinancePanel highlightAdvanceRequestId={highlightLeaveAdvanceRequestId} />
+        </div>
       )}
 
       {activeSubTab === 'settlements' && (
@@ -1522,23 +1446,11 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                 <h3 className="text-base font-black text-slate-900">مخالصة نهاية الخدمة وإبراء الذمة العمالي الشامل</h3>
               </div>
               <p className="text-xs text-slate-500 leading-relaxed">
-                احتساب مكافأة نهاية الخدمة طبقاً للمادتين 51 و53 من قانون العمل الكويتي (15 يوماً للسنوات الـ 5 الأولى وشهر عما تلاها)، مع تصفية رصيد الإجازات المتبقية (مادة 70) وتسوية السلف وطباعة استمارة إبراء الذمة الرسمية لتقديمها للقوى العاملة.
+                <LawTip text={LAW_51_53_TEXT}>المادتان 51 و53</LawTip>
+                {' — '}
+                <LawTip text={LAW_70_TEXT}>المادة 70</LawTip>
+                . المخالصة والمحرك من قائمة المزيد.
               </p>
-            </div>
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={() => setShowFinalSettlementModal(true)}
-                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-              >
-                <Calculator size={14} /> فتح نموذج المخالصة وإبراء الذمة
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowEosEngineModal(true)}
-                className="w-full py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-              >
-                <Scale size={14} /> محرك EOS الكامل (تسوية ومغادرة)
-              </button>
             </div>
           </div>
         </div>
@@ -1805,7 +1717,9 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-slate-700 font-bold mb-1">القسط الشهري (المادة 59: سقف 10% من الراتب)</label>
+                <label className="block text-slate-700 font-bold mb-1">
+                  <LawTip text={LAW_59_TEXT}>القسط الشهري</LawTip>
+                </label>
                 <input
                   type="number"
                   required
@@ -1862,7 +1776,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
       {/* --- MODAL 2: KUWAIT WPS COMPLIANCE & AUDIT SHIELD --- */}
       {showWpsAuditModal && (
         <WpsAuditShieldModal
-          payslips={filteredPayslips.map(p => ({
+          payslips={monthPayslips.map(p => ({
             id: p.id,
             payslipNumber: p.payslipNumber,
             employeeId: p.employeeId,
@@ -1919,7 +1833,7 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
       {showEosEngineModal && activeCompany && (
         <div className="fixed inset-0 z-[120] flex flex-col bg-slate-100">
           <div className="shrink-0 flex items-center justify-between gap-3 px-4 py-3 bg-white border-b border-slate-200 shadow-xs">
-            <h2 className="text-sm font-black text-slate-900">محرك نهاية الخدمة (EOS) — leaveEngine الموحد</h2>
+            <h2 className="text-sm font-black text-slate-900">محرك نهاية الخدمة</h2>
             <button
               type="button"
               onClick={() => setShowEosEngineModal(false)}
@@ -1942,6 +1856,73 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={deleteDraftId !== null}
+        title="حذف مسودة المسير"
+        message="يُحذف المسير وهو ما زال مسودة. المعتمد والمصروف لا يُحذفان من هنا."
+        confirmWord="حذف"
+        confirmLabel="حذف المسودة"
+        onConfirm={confirmDeleteDraftPayslip}
+        onCancel={() => setDeleteDraftId(null)}
+      />
+      <ConfirmDialog
+        open={deleteLoanId !== null}
+        title="حذف مسودة السلفة"
+        message="الحذف متاح فقط قبل أي سداد. السلفة التي سُدد منها قسط تبقى في السجل."
+        confirmWord="حذف"
+        confirmLabel="حذف المسودة"
+        onConfirm={() => {
+          if (deleteLoanId) void deleteLoan(deleteLoanId);
+          setDeleteLoanId(null);
+        }}
+        onCancel={() => setDeleteLoanId(null)}
+      />
+      <Modal
+        open={reverseTargetId !== null}
+        onClose={() => {
+          setReverseTargetId(null);
+          setReverseReason('');
+        }}
+        title="إلغاء بقيد عكسي"
+        subtitle="اكتب سبب الإلغاء. المبالغ المخزنة تُنسخ بإشارة معاكسة بلا إعادة احتساب."
+        footer={
+          <button
+            type="button"
+            disabled={!reverseReason.trim()}
+            onClick={confirmReversePayslip}
+            style={{
+              background: tokens.color.danger,
+              color: '#ffffff',
+              paddingInline: tokens.space[3],
+              paddingBlock: tokens.space[2],
+              borderRadius: tokens.radius.md,
+              fontSize: tokens.text.xs,
+              fontWeight: 700,
+              opacity: reverseReason.trim() ? 1 : 0.45,
+            }}
+          >
+            ترحيل القيد العكسي
+          </button>
+        }
+      >
+        <label className="block" style={{ color: tokens.color.gray[700], fontSize: tokens.text.xs }}>
+          السبب
+          <textarea
+            value={reverseReason}
+            onChange={(event) => setReverseReason(event.target.value)}
+            className="block w-full border bg-white"
+            style={{
+              marginBlockStart: tokens.space[1],
+              paddingInline: tokens.space[2],
+              paddingBlock: tokens.space[2],
+              borderColor: tokens.color.gray[200],
+              borderRadius: tokens.radius.md,
+              minHeight: '5rem',
+            }}
+          />
+        </label>
+      </Modal>
     </div>
   );
 };
