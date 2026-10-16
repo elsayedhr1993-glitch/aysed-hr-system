@@ -23,12 +23,15 @@ import {
   COMPLIANCE_TREE_PRINT_ROOT_ID,
   ComplianceTreePrintReport,
 } from './ComplianceTreePrintReport';
+import { complianceGroupRows } from './complianceGroups';
+import { DataTable } from '../ui/DataTable';
 
 export const GovernmentComplianceApp: React.FC = () => {
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.id || '';
 
   const [selectedDeptId, setSelectedDeptId] = useState<DepartmentId | null>(null);
+  const [openGroupId, setOpenGroupId] = useState<string | null>(null);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [documents, setDocuments] = useState<LicenseDocument[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -96,6 +99,11 @@ export const GovernmentComplianceApp: React.FC = () => {
 
   const activeDocuments = useMemo(
     () => documents.filter((d) => !d.archived),
+    [documents]
+  );
+
+  const complianceGroups = useMemo(
+    () => complianceGroupRows(GOVERNMENT_COMPLIANCE_DEPARTMENTS, documents),
     [documents]
   );
 
@@ -407,50 +415,48 @@ export const GovernmentComplianceApp: React.FC = () => {
       )}
 
       {loaded && !selectedDeptId && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {GOVERNMENT_COMPLIANCE_DEPARTMENTS.map((dept) => {
-            const stats = deptStats[dept.id] || { total: 0, expiringSoon: 0 };
-            return (
-              <button
-                key={dept.id}
-                type="button"
-                onClick={() => setSelectedDeptId(dept.id)}
-                className="text-right bg-white border border-slate-200 rounded-xl p-5 shadow-2xs hover:shadow-md hover:border-primary/40 cursor-pointer transition-all duration-200 flex flex-col justify-between group"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-3">
-                    <span className="text-3xl p-2 bg-slate-50 rounded-lg group-hover:scale-105 transition-transform">
-                      {dept.icon}
-                    </span>
-                    <div>
-                      <h3 className="font-bold text-slate-800 text-base group-hover:text-primary">
-                        {dept.name}
-                      </h3>
-                      <span className="text-xs text-slate-400 font-mono">{dept.code}</span>
-                    </div>
+        <div className="space-y-3">
+          <DataTable
+            columns={[
+              { id: 'entity', header: 'الجهة', cell: (row) => row.entity },
+              { id: 'count', header: 'العدد', cell: (row) => row.count },
+              { id: 'valid', header: 'سارية', cell: (row) => row.valid },
+              { id: 'soon', header: 'تنتهي قريباً', cell: (row) => row.expiringSoon },
+              { id: 'expired', header: 'منتهية', cell: (row) => row.expired },
+              { id: 'nearest', header: 'أقرب انتهاء', cell: (row) => row.nearestExpiry },
+              {
+                id: 'expand',
+                header: 'تفاصيل',
+                cell: (row) => (
+                  <button type="button" onClick={() => setOpenGroupId((current) => (current === row.id ? null : row.id))}>
+                    {openGroupId === row.id ? 'طي' : 'توسيع'}
+                  </button>
+                ),
+              },
+            ]}
+            rows={complianceGroups}
+            rowKey={(row) => row.id}
+            empty={{ message: 'لا توجد جهات', actionLabel: 'إضافة ترخيص', onAction: openAddModal }}
+          />
+          {openGroupId && (
+            <div className="bg-white border border-slate-200 rounded-xl p-3 text-xs space-y-2">
+              {activeDocuments
+                .filter((document) => document.departmentId === openGroupId)
+                .map((document) => (
+                  <div key={document.id} className="flex items-center justify-between gap-2 border-b border-slate-100 py-1">
+                    <span className="font-bold">{document.title}</span>
+                    <span className="font-mono">{document.expiryDate || '—'}</span>
                   </div>
-                  <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-full font-semibold shrink-0">
-                    {dept.folders.length} مجلدات
-                  </span>
-                </div>
-
-                <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
-                  <span className="text-slate-500">
-                    إجمالي التراخيص: <strong className="text-slate-800 font-bold">{stats.total}</strong>
-                  </span>
-                  {stats.expiringSoon > 0 ? (
-                    <span className="bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full font-semibold">
-                      ⚠️ {stats.expiringSoon} يتطلب تجديد
-                    </span>
-                  ) : (
-                    <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-semibold">
-                      ✓ ساري بالكامل
-                    </span>
-                  )}
-                </div>
+                ))}
+              <button
+                type="button"
+                className="text-primary font-bold"
+                onClick={() => setSelectedDeptId(openGroupId as DepartmentId)}
+              >
+                فتح مجلدات الجهة
               </button>
-            );
-          })}
+            </div>
+          )}
         </div>
       )}
 
