@@ -1,5 +1,5 @@
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
-import { cleanFirestoreData, db, getCompaniesCollectionName } from '../lib/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db, getCompaniesCollectionName } from '../lib/firebase';
 import type { UiElementOverride, UiOverridesDocument } from '../types/uiOverrides';
 import { UI_OVERRIDES_DOC_ID, mergeUiOverridesDoc, uiOverridesCacheKey } from '../utils/uiOverrideUtils';
 
@@ -53,38 +53,41 @@ export function subscribeUiOverrides(
   );
 }
 
+async function postStudio(
+  path: string,
+  body: Record<string, unknown>,
+  viewedCompanyId: string
+): Promise<UiOverridesDocument> {
+  const { buildAuthedJsonHeaders } = await import('../lib/clientAuth');
+  const headers = await buildAuthedJsonHeaders();
+  const response = await fetch(path, {
+    method: path.endsWith('/reset') ? 'POST' : 'PUT',
+    headers,
+    body: JSON.stringify(body),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload?.success === false) {
+    throw new Error(typeof payload?.error === 'string' ? payload.error : 'فشل حفظ التخصيص');
+  }
+  const savedCompany = String(payload?.companyId || '');
+  if (viewedCompanyId && savedCompany && savedCompany !== viewedCompanyId) {
+    throw new Error('الحفظ يتبع منشأة الجلسة على الخادم');
+  }
+  const document = mergeUiOverridesDoc(savedCompany || viewedCompanyId, payload?.document);
+  writeCache(document.companyId, document);
+  return document;
+}
+
+/** Save goes through the server. The browser does not write ui_overrides. */
 export async function patchUiOverrides(
   companyId: string,
   patches: Record<string, Partial<UiElementOverride>>,
-  updatedBy?: string,
-  current?: UiOverridesDocument
+  _updatedBy?: string,
+  _current?: UiOverridesDocument
 ): Promise<UiOverridesDocument> {
-  const base = current ?? mergeUiOverridesDoc(companyId, readCache(companyId));
-  const nextElements = { ...base.elements };
-  const now = new Date().toISOString();
+  return postStudio('/api/studio/overrides', { patches }, companyId);
+}
 
-  for (const [key, patch] of Object.entries(patches)) {
-    const prev = nextElements[key] || { key };
-    nextElements[key] = {
-      ...prev,
-      ...patch,
-      key,
-      updatedAt: now,
-      updatedBy,
-    };
-  }
-
-  const payload: UiOverridesDocument = {
-    companyId,
-    version: (base.version || 0) + 1,
-    elements: nextElements,
-    updatedAt: now,
-    updatedBy,
-  };
-
-  await setDoc(overridesDocRef(companyId), cleanFirestoreData(payload as unknown as Record<string, unknown>), {
-    merge: true,
-  });
-  writeCache(companyId, payload);
-  return payload;
+export async function resetUiOverride(companyId: string, key: string): Promise<UiOverridesDocument> {
+  return postStudio('/api/studio/overrides/reset', { key }, companyId);
 }

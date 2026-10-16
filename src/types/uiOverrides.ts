@@ -16,6 +16,12 @@ export interface UiElementOverride {
   help?: LocalizedLabel;
   order?: number;
   hidden?: boolean;
+  /** Launcher tile icon key. Display only. */
+  icon?: string;
+  /** Launcher group id. Display only. */
+  group?: string;
+  /** Stored launcher permission. Opening an app does not read this value. */
+  permission?: string;
   /** Studio cannot hide (payroll totals, legal notices, etc.) */
   locked?: boolean;
   updatedAt?: string;

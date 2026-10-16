@@ -11,7 +11,7 @@ import { useAuth } from './AuthContext';
 import { useCompany } from './CompanyContext';
 import { useTenant } from './TenantContext';
 import { resolveStudioCompanyId } from '../utils/studioCompanyId';
-import { patchUiOverrides, subscribeUiOverrides } from '../services/uiOverrideService';
+import { patchUiOverrides, resetUiOverride, subscribeUiOverrides } from '../services/uiOverrideService';
 import type { UiElementDefaults, UiElementOverride, UiOverridesDocument, UiElementKind } from '../types/uiOverrides';
 import { resolveUiElement } from '../utils/uiOverrideUtils';
 import type { ResolvedUiElement } from '../types/uiOverrides';
@@ -45,6 +45,7 @@ interface UiStudioContextValue {
     options?: { quiet?: boolean }
   ) => Promise<boolean>;
   hideElement: (key: string) => Promise<void>;
+  resetElement: (key: string) => Promise<boolean>;
   reorderKeys: (orderedKeys: string[], baseOrders?: number[]) => Promise<void>;
   exportOverridesJson: () => void;
 }
@@ -84,7 +85,7 @@ export const UiStudioProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const toggleUiStudio = useCallback(() => {
     const next = !uiStudioActive;
     setUiStudioActive(next);
-    toast(next ? 'وضع التخصيص — انقر عنصراً لتحريره من اللوحة الجانبية' : 'تم إيقاف وضع التخصيص', {
+    toast(next ? 'وضع التخصيص' : 'تم إيقاف وضع التخصيص', {
       icon: next ? '🎨' : '⏸️',
     });
   }, [uiStudioActive, setUiStudioActive]);
@@ -94,7 +95,18 @@ export const UiStudioProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setOverridesDoc(null);
       return;
     }
-    return subscribeUiOverrides(companyId, setOverridesDoc);
+    return subscribeUiOverrides(companyId, (remote) => {
+      setOverridesDoc((prev) => {
+        if (
+          prev
+          && prev.companyId === remote.companyId
+          && (prev.version || 0) > (remote.version || 0)
+        ) {
+          return prev;
+        }
+        return remote;
+      });
+    });
   }, [companyId]);
 
   const selectElement = useCallback((sel: StudioSelection) => {
@@ -160,7 +172,7 @@ export const UiStudioProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return true;
       } catch (e) {
         console.error(e);
-        toast.error('فشل حفظ التخصيص في Firestore — تحقق من صلاحيات ui_overrides');
+        toast.error(e instanceof Error && e.message ? e.message : 'فشل حفظ التخصيص');
         return false;
       }
     },
@@ -172,6 +184,30 @@ export const UiStudioProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       await saveElementPatch(key, { hidden: true });
     },
     [saveElementPatch]
+  );
+
+  const resetElement = useCallback(
+    async (key: string): Promise<boolean> => {
+      if (!isActualSuperAdmin) {
+        toast.error('استعادة الافتراضي متاحة لمسؤول النظام فقط');
+        return false;
+      }
+      if (!companyId || companyId === 'SAAS_PLATFORM') {
+        toast.error('اختر منشأة من الجلسة قبل الاستعادة');
+        return false;
+      }
+      try {
+        const next = await resetUiOverride(companyId, key);
+        setOverridesDoc(next);
+        toast.success('تمت استعادة الافتراضي');
+        return true;
+      } catch (e) {
+        console.error(e);
+        toast.error(e instanceof Error && e.message ? e.message : 'فشلت استعادة الافتراضي');
+        return false;
+      }
+    },
+    [isActualSuperAdmin, companyId]
   );
 
   const exportOverridesJson = useCallback(() => {
@@ -249,6 +285,7 @@ export const UiStudioProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       resolveElement,
       saveElementPatch,
       hideElement,
+      resetElement,
       reorderKeys,
       exportOverridesJson,
     }),
@@ -267,6 +304,7 @@ export const UiStudioProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       resolveElement,
       saveElementPatch,
       hideElement,
+      resetElement,
       reorderKeys,
       exportOverridesJson,
     ]

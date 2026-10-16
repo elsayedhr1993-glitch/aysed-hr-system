@@ -46,6 +46,7 @@ import { newTenantCredentials, registerAuthRoutes } from "./server/authRoutes.ts
 import { registerAuditRoutes } from "./server/auditRoutes.ts";
 import { registerReportsAccessRoute } from "./server/reportsAccessRoute.ts";
 import { registerSaasRoutes } from "./server/saasRoutes.ts";
+import { registerStudioRoutes } from "./server/studioRoutes.ts";
 import { recordAuditEvent, requestIp } from "./server/auditLog.ts";
 import {
   getAdminApp,
@@ -169,6 +170,7 @@ registerAuthRoutes(app);
 registerAuditRoutes(app);
 registerReportsAccessRoute(app);
 registerSaasRoutes(app);
+registerStudioRoutes(app);
 
 let supabaseAdminClient: any = null;
 function getSupabaseAdmin() {

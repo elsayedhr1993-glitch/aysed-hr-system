@@ -18,6 +18,7 @@ function isKeptKey(key: string): boolean {
     isCivilKey(key)
     || isSalaryKey(key)
     || /^(role|status|state|isActive|archived|active|version|screenId|purpose|exported)$/i.test(key)
+    || /^(hidden|order|icon|group|permission|titleAr|titleEn|uiKey)$/i.test(key)
   );
 }
 

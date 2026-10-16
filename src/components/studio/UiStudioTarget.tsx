@@ -134,7 +134,6 @@ export const UiStudioTarget: React.FC<UiStudioTargetProps> = ({
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDrop={onDrop}
-      title={groupId ? 'انقر للتحرير — اسحب لإعادة الترتيب' : 'انقر للتحرير في وضع التخصيص'}
       className={`${displayClass} relative max-w-full align-baseline cursor-pointer ${className} ${
         resolved.hidden ? 'opacity-45' : ''
       } ${

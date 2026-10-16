@@ -19,7 +19,15 @@ import {
 } from './onboarding/CompanySetupOnboardingBanner';
 import { useRegisterReorderGroup, useUiStudio } from '../context/UiStudioContext';
 import { UiStudioTarget } from './studio/UiStudioTarget';
-import { pickUiLabel, sortByUiOrder } from '../utils/uiOverrideUtils';
+import { pickUiLabel } from '../utils/uiOverrideUtils';
+import {
+  LAUNCHER_TILE_DEFAULTS,
+  launcherTileAllowed,
+  launcherTileKey,
+  launcherTileShown,
+  resolveLauncherTile,
+  type LauncherIconName,
+} from '../config/launcherTiles';
 
 type LauncherBadgeTone = 'urgent' | 'warning' | 'neutral' | 'brand';
 
@@ -52,6 +60,88 @@ function positiveBadgeCount(badge: string | undefined): number | null {
   if (!badge || !/^\d+$/.test(badge.trim())) return null;
   const value = Number.parseInt(badge.trim(), 10);
   return value > 0 ? value : null;
+}
+
+const LAUNCHER_ICON_COMPONENTS: Record<LauncherIconName, LucideIcon> = {
+  Users,
+  UserPlus,
+  FileSignature,
+  Calendar,
+  Clock,
+  Banknote,
+  BarChart3,
+  FolderKanban,
+  Scan,
+  Briefcase,
+  ShieldCheck,
+  FileText,
+};
+
+function tileDescription(id: string, lang: string): string {
+  const ar = lang === 'ar';
+  switch (id) {
+    case 'EMPLOYEES':
+      return ar ? 'السجلات الشخصية، المباشرة، والشهادات الرسمية' : 'Personal records, onboarding, and official documents';
+    case 'RECRUITMENT':
+      return ar ? 'إدارة طلبات التوظيف والمقابلات والسير الذاتية' : 'Manage hiring requests, interviews, and CVs';
+    case 'CONTRACTS':
+      return 'سريان العقود، باقات الأجور، والبدلات القانونية';
+    case 'LEAVES':
+      return 'أرصدة الإجازات، المادة 70، والطلبات بانتظار الاعتماد';
+    case 'HOLIDAYS':
+      return 'العطلات والأعياد الرسمية بالكويت والتعويضات';
+    case 'ATTENDANCE':
+      return ar ? 'البصمة اليومية، التأخير، والاستئذان اليومي' : 'Biometric clocking, lateness, and daily approvals';
+    case 'PAYROLL':
+      return ar ? 'كشوف أجور البنوك وحاسبة مكافأة نهاية الخدمة (مادة 51)' : 'Bank payroll slips and end-of-service calculator';
+    case 'REPORTS':
+      return ar ? 'الجدول المحوري والرسوم البيانية والتحليلات' : 'Pivot tables, charts, and executive reporting';
+    case 'DOCUMENTS':
+      return ar ? 'الأرشيف الإلكتروني، الهويات، وتنبيهات الانتهاء' : 'Document archive, IDs, and expiry alerts';
+    case 'SCANNER_APP':
+      return ar ? 'مسح الوثائق، استخراج البيانات، والأرشفة الفورية' : 'Scan documents, extract data, and archive instantly';
+    case 'CUSTODY_LOANS':
+      return 'إدارة العهد العينية والسلف المالية والأقساط';
+    case 'AUDIT_LOGS':
+      return 'تتبع العمليات وحركات المستخدمين وتأمين البيانات';
+    case 'DOCUMENT_TEMPLATES':
+      return 'توليد وطباعة شهادات الراتب والكتب الرسمية آلياً';
+    default:
+      return '';
+  }
+}
+
+function tileBadge(id: string, stats: OdooAppLauncherProps['stats']): string {
+  switch (id) {
+    case 'EMPLOYEES':
+      return `${stats.employeesCount}`;
+    case 'RECRUITMENT':
+      return `${stats.candidatesCount}`;
+    case 'CONTRACTS':
+      return `${stats.contractsCount}`;
+    case 'LEAVES':
+      return `${stats.leavesPendingCount}`;
+    case 'HOLIDAYS':
+      return '13';
+    case 'ATTENDANCE':
+      return 'ZK';
+    case 'PAYROLL':
+      return 'WPS';
+    case 'REPORTS':
+      return 'Pivot';
+    case 'DOCUMENTS':
+      return `${stats.documentsCount}`;
+    case 'SCANNER_APP':
+      return 'OCR';
+    case 'CUSTODY_LOANS':
+      return `${stats.custodiesCount || 0}`;
+    case 'AUDIT_LOGS':
+      return `${stats.auditLogsCount || 0}`;
+    case 'DOCUMENT_TEMPLATES':
+      return 'نماذج';
+    default:
+      return '';
+  }
 }
 
 function launcherBadgeClassName(tone: LauncherBadgeTone, inCard = false): string {
@@ -112,7 +202,8 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
   stats 
 }) => {
   const { lang } = useLang();
-  const { resolveElement, overridesDoc } = useUiStudio();
+  const { resolveElement, overridesDoc, canUseUiStudio, uiStudioActive } = useUiStudio();
+  const studioOn = canUseUiStudio && uiStudioActive;
   const isSuperAdmin = currentUserRole === 'SUPER_ADMIN' || currentUserEmail.toLowerCase() === 'admin@aysed.com'.toLowerCase() || currentUserEmail.toLowerCase() === 'elsayedhr1993@gmail.com'.toLowerCase();
   const companyDisplayName = lang === 'ar' ? (activeCompany?.nameAr || activeCompany?.nameEn || 'Aysed HR S 2026') : (activeCompany?.nameEn || activeCompany?.nameAr || 'Aysed HR S 2026');
   const { isLoading: authLoading } = useAuth();
@@ -143,152 +234,6 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
     );
   }, [currentCompanyId, authLoading]);
 
-  // القائمة الكاملة للتطبيقات
-  const allApps = [
-    {
-      id: 'EMPLOYEES' as ActiveApp,
-      titleAr: 'شؤون الموظفين',
-      titleEn: 'Employees',
-      icon: Users,
-      category: 'HR_PAYROLL',
-      gradient: 'from-emerald-500 to-teal-700 text-white',
-      badgeBg: 'bg-emerald-500',
-      badge: `${stats.employeesCount}`,
-      description: lang === 'ar' ? 'السجلات الشخصية، المباشرة، والشهادات الرسمية' : 'Personal records, onboarding, and official documents',
-    },
-    {
-      id: 'RECRUITMENT' as ActiveApp,
-      titleAr: 'التوظيف والمقابلات',
-      titleEn: 'Recruitment',
-      icon: UserPlus,
-      category: 'HR_PAYROLL',
-      gradient: 'from-indigo-500 to-purple-700 text-white',
-      badgeBg: 'bg-indigo-500',
-      badge: `${stats.candidatesCount}`,
-      description: lang === 'ar' ? 'إدارة طلبات التوظيف والمقابلات والسير الذاتية' : 'Manage hiring requests, interviews, and CVs',
-    },
-    {
-      id: 'CONTRACTS' as ActiveApp,
-      titleAr: 'عقود العمل',
-      titleEn: 'Contracts',
-      icon: FileSignature,
-      category: 'HR_PAYROLL',
-      gradient: 'from-teal-500 to-cyan-700 text-white',
-      badgeBg: 'bg-teal-600',
-      badge: `${stats.contractsCount}`,
-      description: 'سريان العقود، باقات الأجور، والبدلات القانونية',
-    },
-    {
-      id: 'LEAVES' as ActiveApp,
-      titleAr: 'الإجازات',
-      titleEn: 'Time Off',
-      icon: Calendar,
-      category: 'ATTENDANCE_TIME',
-      gradient: 'from-amber-500 to-orange-600 text-white',
-      badgeBg: 'bg-amber-500',
-      badge: `${stats.leavesPendingCount}`,
-      description: 'أرصدة الإجازات، المادة 70، والطلبات بانتظار الاعتماد',
-    },
-    {
-      id: 'HOLIDAYS' as ActiveApp,
-      titleAr: 'العطلات الرسمية',
-      titleEn: 'Holidays',
-      icon: Calendar,
-      category: 'ATTENDANCE_TIME',
-      gradient: 'from-rose-500 to-pink-700 text-white',
-      badgeBg: 'bg-rose-500',
-      badge: '13',
-      description: 'العطلات والأعياد الرسمية بالكويت والتعويضات',
-    },
-    {
-      id: 'ATTENDANCE' as ActiveApp,
-      titleAr: 'الحضور والدوام',
-      titleEn: 'Attendance',
-      icon: Clock,
-      category: 'ATTENDANCE_TIME',
-      gradient: 'from-blue-600 to-indigo-800 text-white',
-      badgeBg: 'bg-blue-600',
-      badge: 'ZK',
-      description: lang === 'ar' ? 'البصمة اليومية، التأخير، والاستئذان اليومي' : 'Biometric clocking, lateness, and daily approvals',
-    },
-    {
-      id: 'PAYROLL' as ActiveApp,
-      titleAr: 'الرواتب وحماية الأجور',
-      titleEn: 'Payroll & EOS',
-      icon: Banknote,
-      category: 'HR_PAYROLL',
-      gradient: 'from-primary to-[#4A2E44] text-white',
-      badgeBg: 'bg-primary',
-      badge: 'WPS',
-      description: lang === 'ar' ? 'كشوف أجور البنوك وحاسبة مكافأة نهاية الخدمة (مادة 51)' : 'Bank payroll slips and end-of-service calculator',
-    },
-    {
-      id: 'REPORTS' as ActiveApp,
-      titleAr: 'التقارير والتحليلات',
-      titleEn: 'Reports & Pivot',
-      icon: BarChart3,
-      category: 'DOCS_OPERATIONS',
-      gradient: 'from-violet-600 to-purple-900 text-white',
-      badgeBg: 'bg-violet-600',
-      badge: 'Pivot',
-      description: lang === 'ar' ? 'الجدول المحوري والرسوم البيانية والتحليلات' : 'Pivot tables, charts, and executive reporting',
-    },
-    {
-      id: 'DOCUMENTS' as ActiveApp,
-      titleAr: 'أرشيف المستندات',
-      titleEn: 'Documents',
-      icon: FolderKanban,
-      category: 'DOCS_OPERATIONS',
-      gradient: 'from-sky-500 to-blue-700 text-white',
-      badgeBg: 'bg-sky-600',
-      badge: `${stats.documentsCount}`,
-      description: lang === 'ar' ? 'الأرشيف الإلكتروني، الهويات، وتنبيهات الانتهاء' : 'Document archive, IDs, and expiry alerts',
-    },
-    {
-      id: 'SCANNER_APP' as ActiveApp,
-      titleAr: 'الماسح الضوئي الذكي',
-      titleEn: 'Document Scanner',
-      icon: Scan,
-      category: 'DOCS_OPERATIONS',
-      gradient: 'from-teal-600 to-emerald-800 text-white',
-      badgeBg: 'bg-teal-600',
-      badge: 'OCR',
-      description: lang === 'ar' ? 'مسح الوثائق، استخراج البيانات، والأرشفة الفورية' : 'Scan documents, extract data, and archive instantly',
-    },
-    {
-      id: 'CUSTODY_LOANS' as ActiveApp,
-      titleAr: 'العهد والممتلكات',
-      titleEn: 'Custody',
-      icon: Briefcase,
-      category: 'DOCS_OPERATIONS',
-      gradient: 'from-slate-600 to-zinc-800 text-white',
-      badgeBg: 'bg-slate-700',
-      badge: `${stats.custodiesCount || 0}`,
-      description: 'إدارة العهد العينية والسلف المالية والأقساط',
-    },
-    {
-      id: 'AUDIT_LOGS' as ActiveApp,
-      titleAr: 'سجل الرقابة',
-      titleEn: 'Audit Logs',
-      icon: ShieldCheck,
-      category: 'DOCS_OPERATIONS',
-      gradient: 'from-zinc-700 to-slate-900 text-white',
-      badgeBg: 'bg-zinc-800',
-      badge: `${stats.auditLogsCount || 0}`,
-      description: 'تتبع العمليات وحركات المستخدمين وتأمين البيانات',
-    },
-    {
-      id: 'DOCUMENT_TEMPLATES' as ActiveApp,
-      titleAr: 'قوالب ونماذج المستندات',
-      titleEn: 'Document Templates',
-      icon: FileText,
-      category: 'DOCS_OPERATIONS',
-      gradient: 'from-emerald-600 to-teal-800 text-white',
-      badgeBg: 'bg-emerald-600',
-      badge: 'نماذج',
-      description: 'توليد وطباعة شهادات الراتب والكتب الرسمية آلياً',
-    },
-  ];
 
   // وضع العرض: أيقونات Launchpad العصرية أو بطاقات تفصيلية
   const [viewStyle, setViewStyle] = useState<'launchpad' | 'cards'>(() => {
@@ -301,32 +246,34 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
     localStorage.setItem('odoo_launcher_view_style', style);
   };
 
-  const filteredApps = useMemo(() => {
-    return allApps.filter(app => {
-      if (currentUserRole === 'EMPLOYEE' && !['ATTENDANCE', 'LEAVES', 'DOCUMENTS'].includes(app.id)) {
-        return false;
-      }
-      return true;
-    });
-  }, [allApps, currentUserRole]);
-
   const displayApps = useMemo(() => {
-    const meta = filteredApps.map((app, idx) => ({
-      app,
-      uiKey: `launcher.app.${app.id}`,
-      baseOrder: idx,
-    }));
-    const sorted = sortByUiOrder(meta, overridesDoc?.elements ?? {});
-    return sorted.filter(row => {
-      const resolved = resolveElement(row.uiKey, {
-        kind: 'app',
-        label: { ar: row.app.titleAr, en: row.app.titleEn },
-        help: { ar: row.app.description, en: row.app.description },
-        order: row.baseOrder,
-      });
-      return !resolved.hidden;
+    const rows = LAUNCHER_TILE_DEFAULTS.flatMap((tile) => {
+      const uiKey = launcherTileKey(tile.id);
+      const override = overridesDoc?.elements?.[uiKey];
+      if (!launcherTileAllowed(currentUserRole, tile.id)) return [];
+      if (!studioOn && !launcherTileShown(currentUserRole, tile.id, override)) return [];
+      const resolved = resolveLauncherTile(tile.id, override);
+      if (!resolved) return [];
+      return [{
+        app: {
+          id: tile.id as ActiveApp,
+          titleAr: tile.titleAr,
+          titleEn: tile.titleEn,
+          icon: LAUNCHER_ICON_COMPONENTS[resolved.icon],
+          badge: tileBadge(tile.id, stats),
+          description: tileDescription(tile.id, lang),
+        },
+        uiKey,
+        group: resolved.group,
+        groupOrder: resolved.order,
+        catalogIndex: resolved.catalogIndex,
+        cardOrder: typeof override?.order === 'number' ? override.order : resolved.catalogIndex,
+      }];
     });
-  }, [filteredApps, overridesDoc, resolveElement]);
+    rows.sort((a, b) => a.cardOrder - b.cardOrder || a.catalogIndex - b.catalogIndex);
+    return rows;
+  }, [currentUserRole, lang, overridesDoc, stats, studioOn]);
+
 
   const launcherAppUiKeys = useMemo(() => displayApps.map(d => d.uiKey), [displayApps]);
   const launcherReorderGroupId = 'launcher.apps';
@@ -454,7 +401,6 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
       hintAr: string;
       hintEn: string;
       icon: LucideIcon;
-      members: ActiveApp[];
       adminOnly?: boolean;
       extras?: LauncherEntry[];
     }> = [
@@ -465,7 +411,6 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
         hintAr: 'شؤون الموظفين، عقود العمل، والعهد',
         hintEn: 'Employees, contracts, and custody',
         icon: Users,
-        members: ['EMPLOYEES', 'CONTRACTS', 'CUSTODY_LOANS'],
       },
       {
         id: 'recruitment',
@@ -474,7 +419,6 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
         hintAr: '',
         hintEn: '',
         icon: UserPlus,
-        members: ['RECRUITMENT'],
       },
       {
         id: 'time',
@@ -483,7 +427,6 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
         hintAr: 'الحضور، الإجازات، والعطلات الرسمية',
         hintEn: 'Attendance, time off, and public holidays',
         icon: Clock,
-        members: ['ATTENDANCE', 'LEAVES', 'HOLIDAYS'],
       },
       {
         id: 'payroll',
@@ -492,7 +435,6 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
         hintAr: '',
         hintEn: '',
         icon: Banknote,
-        members: ['PAYROLL'],
       },
       {
         id: 'documents',
@@ -501,7 +443,6 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
         hintAr: 'الأرشيف، القوالب، والماسح الذكي',
         hintEn: 'Archive, templates, and the smart scanner',
         icon: FolderKanban,
-        members: ['DOCUMENTS', 'DOCUMENT_TEMPLATES', 'SCANNER_APP'],
       },
       {
         id: 'reports',
@@ -510,7 +451,6 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
         hintAr: '',
         hintEn: '',
         icon: BarChart3,
-        members: ['REPORTS'],
       },
       {
         id: 'admin',
@@ -519,7 +459,6 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
         hintAr: 'سجل الرقابة، سياسات العمل، والتراخيص',
         hintEn: 'Audit log, work policies, and licences',
         icon: ShieldCheck,
-        members: ['AUDIT_LOGS'],
         adminOnly: true,
         extras: adminExtras,
       },
@@ -529,10 +468,14 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
     const groups = specs.flatMap((spec) => {
       if (spec.adminOnly && !canSeeAdminGroup) return [];
       const entries = [
-        ...spec.members.map(present).filter((entry): entry is LauncherEntry => entry != null),
+        ...displayApps
+          .filter((row) => row.group === spec.id)
+          .sort((a, b) => a.groupOrder - b.groupOrder || a.catalogIndex - b.catalogIndex)
+          .map((row) => present(row.app.id))
+          .filter((entry): entry is LauncherEntry => entry != null),
         ...(spec.extras ?? []),
       ];
-      spec.members.forEach((id) => claimed.add(id));
+      displayApps.filter((row) => row.group === spec.id).forEach((row) => claimed.add(row.app.id));
       if (entries.length === 0) return [];
       const hint = locale === 'ar' ? spec.hintAr : spec.hintEn;
       return [{

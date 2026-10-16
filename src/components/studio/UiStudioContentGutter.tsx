@@ -3,8 +3,8 @@ import { useUiStudio } from '../../context/UiStudioContext';
 
 /** Reserves space for the fixed Studio inspector without reflowing inner layouts. */
 export const UiStudioContentGutter: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { uiStudioActive, canUseUiStudio } = useUiStudio();
-  const reserve = canUseUiStudio && uiStudioActive;
+  const { uiStudioActive, canUseUiStudio, selection } = useUiStudio();
+  const reserve = canUseUiStudio && uiStudioActive && Boolean(selection);
 
   return (
     <div
