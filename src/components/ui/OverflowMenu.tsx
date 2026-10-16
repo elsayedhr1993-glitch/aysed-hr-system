@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { MoreHorizontal } from 'lucide-react';
 import { tokens } from '../../design/tokens';
+import { useLang } from '../../lib/i18n';
 
 export type OverflowItem = {
   id: string;
@@ -10,6 +11,7 @@ export type OverflowItem = {
 };
 
 export function OverflowMenu({ items }: { items: readonly OverflowItem[] }) {
+  const { t } = useLang();
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState<{ top: number; inlineEnd: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -61,7 +63,7 @@ export function OverflowMenu({ items }: { items: readonly OverflowItem[] }) {
       <button
         ref={buttonRef}
         type="button"
-        aria-label="المزيد"
+        aria-label={t('more')}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={toggle}

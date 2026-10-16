@@ -1,5 +1,6 @@
 import { Search } from 'lucide-react';
 import { tokens } from '../../design/tokens';
+import { useLang } from '../../lib/i18n';
 
 export type FilterSegment = {
   id: string;
@@ -18,7 +19,7 @@ export type FilterDropdown = {
 export function FilterBar({
   search,
   onSearch,
-  searchPlaceholder = 'بحث',
+  searchPlaceholder,
   segments,
   activeSegment,
   onSegment,
@@ -32,6 +33,8 @@ export function FilterBar({
   onSegment: (id: string) => void;
   dropdowns: readonly FilterDropdown[];
 }) {
+  const { t } = useLang();
+  const placeholder = searchPlaceholder ?? t('search');
   return (
     <div
       className="flex flex-nowrap items-center overflow-x-auto border-b bg-white"
@@ -48,8 +51,8 @@ export function FilterBar({
         <input
           type="search"
           value={search}
-          placeholder={searchPlaceholder}
-          aria-label={searchPlaceholder}
+          placeholder={placeholder}
+          aria-label={placeholder}
           onChange={(event) => onSearch(event.target.value)}
           className="w-full bg-transparent outline-none"
           style={{
@@ -62,7 +65,7 @@ export function FilterBar({
       </label>
       <div
         role="radiogroup"
-        aria-label="الحالة"
+        aria-label={t('status')}
         className="inline-flex shrink-0"
         style={{
           padding: 2,

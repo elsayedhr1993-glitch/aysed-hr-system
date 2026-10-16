@@ -86,7 +86,7 @@ export const OfficialPayslipPrintModal: React.FC<OfficialPayslipPrintModalProps>
           <div
             ref={printContentRef}
             id="official-payslip-sheet"
-            className="odoo-report-sheet bg-white p-8 sm:p-10 rounded-xl shadow-xs border border-slate-200 max-w-2xl mx-auto print:border-none print:shadow-none print:p-0 print:m-0 print:max-w-none text-slate-800 text-xs"
+            className="official-ar-document odoo-report-sheet bg-white p-8 sm:p-10 rounded-xl shadow-xs border border-slate-200 max-w-2xl mx-auto print:border-none print:shadow-none print:p-0 print:m-0 print:max-w-none text-slate-800 text-xs"
             dir="rtl"
           >
             <OfficialA4CompanyLetterheadCompact

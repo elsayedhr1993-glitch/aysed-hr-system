@@ -1,4 +1,5 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
+import { useLang } from '../lib/i18n';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
 import { 
   Fingerprint, 
@@ -114,6 +115,8 @@ const DEFAULT_SHIFT_SEED_RULES: ShiftSeedRulesConfig = {
 };
 
 export const Attendances: React.FC = () => {
+  const { lang: uiLang, t } = useLang();
+  const dir = uiLang === 'ar' ? 'rtl' : 'ltr';
   const { activeCompany } = useCompany();
   const { user } = useAuth();
   const { company: companyForPrint } = useCompanyForPrint();
@@ -1172,10 +1175,10 @@ export const Attendances: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4 font-sans dir-rtl text-right text-slate-800 animate-fadeIn" dir="rtl">
+    <div className="space-y-4 font-sans text-right text-slate-800 animate-fadeIn" dir={dir} data-ui-surface="attendance">
       
       <PageHeader
-        title="الحضور"
+        title={t('attendance')}
         subtitle={activeCompany?.nameAr || 'الشركة الرئيسية'}
         primaryAction={{
           label: 'تسجيل يدوي',

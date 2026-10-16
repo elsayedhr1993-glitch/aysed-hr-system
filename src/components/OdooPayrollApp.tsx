@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useLang } from '../lib/i18n';
+import { formatPeriodLabel } from '../lib/localeFormat';
 import { 
   CreditCard, Download, FileSpreadsheet, CheckCircle2, AlertCircle, 
   Clock, Calculator, Building2, Printer, Search, Eye, ArrowRight,
@@ -143,6 +145,8 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
   highlightLeaveAdvanceRequestId,
   openLeaveFinanceTriggerKey,
 }) => {
+  const { lang: uiLang, t } = useLang();
+  const dir = uiLang === 'ar' ? 'rtl' : 'ltr';
   const { activeCompany } = useCompany();
   const { company: companyForPrint, profile: printProfile } = useCompanyForPrint();
   const { settings } = useSystemSettings();
@@ -1002,11 +1006,11 @@ export const OdooPayrollApp: React.FC<OdooPayrollAppProps> = ({
   ];
 
   return (
-    <div className="odoo-app-surface space-y-5 font-sans dir-rtl text-right text-slate-800 animate-fade-in" dir="rtl">
+    <div className="odoo-app-surface space-y-5 font-sans text-right text-slate-800 animate-fade-in" dir={dir} data-ui-surface="payroll">
       
       <PageHeader
-        title="مسير الرواتب وحماية الأجور"
-        subtitle={activePayslip ? activePayslip.employeeName + ' — ' + activePayslip.payslipNumber : 'شهر ' + selectedMonth}
+        title={t('payroll')}
+        subtitle={activePayslip ? activePayslip.employeeName + ' — ' + activePayslip.payslipNumber : formatPeriodLabel(String(selectedMonth), uiLang)}
         primaryAction={payrollPrimary}
         menu={payrollMenu}
       />

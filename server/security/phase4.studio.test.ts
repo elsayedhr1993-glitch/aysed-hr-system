@@ -126,8 +126,8 @@ test('restore default is audited and returns the code title', async () => {
   assert.equal(document.elements['launcher.app.EMPLOYEES'], undefined);
   assert.equal(events[0].details, 'استعادة الافتراضي');
   assert.equal(events[0].before?.titleAr, 'دليل');
-  assert.equal(events[0].after?.titleAr, 'شؤون الموظفين');
-  assert.equal(resolveLauncherTile('EMPLOYEES', null)?.titleAr, 'شؤون الموظفين');
+  assert.equal(events[0].after?.titleAr, 'الموظفون');
+  assert.equal(resolveLauncherTile('EMPLOYEES', null)?.titleAr, 'الموظفون');
 });
 
 test('unknown launcher tiles are rejected and the browser no longer writes the document', () => {

@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useLang } from '../lib/i18n';
 import { 
   Package, 
   Laptop, 
@@ -47,6 +48,8 @@ import { cleanFirestoreData, db } from '../lib/firebase';
 import { MaskedValue } from './security/MaskedValue';
 
 export const OdooOperationsApp: React.FC = () => {
+  const { lang: uiLang, t } = useLang();
+  const dir = uiLang === 'ar' ? 'rtl' : 'ltr';
   const { activeCompany } = useCompany();
   const { company: companyForPrint } = useCompanyForPrint();
   const { employees } = useOdooHierarchy();
@@ -353,10 +356,10 @@ export const OdooOperationsApp: React.FC = () => {
   }
 
   return (
-    <div className="odoo-app-surface space-y-5 font-sans dir-rtl text-right text-slate-800 animate-fade-in" dir="rtl">
+    <div className="odoo-app-surface space-y-5 font-sans text-right text-slate-800 animate-fade-in" dir={dir} data-ui-surface="assets">
       
       <PageHeader
-        title="العهد والممتلكات"
+        title={t('assets')}
         subtitle={activeCompany?.nameAr || 'المنشأة'}
         primaryAction={{ label: 'تسجيل عهدة', onClick: handleOpenAddModal }}
         menu={[{ id: 'excel', label: 'تصدير Excel', onSelect: handleExportExcel }]}

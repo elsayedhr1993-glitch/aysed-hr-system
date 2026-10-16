@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { tokens } from '../../design/tokens';
+import { useLang } from '../../lib/i18n';
 import { canRevealIdentity } from '../../security/accessRoles';
 import { shownIdentity, type IdentityKind } from '../../security/identityMask';
 
@@ -27,6 +28,7 @@ export function MaskedValueView({
   purpose = 'view',
   className = '',
 }: MaskedValueViewProps) {
+  const { t } = useLang();
   const allowed = canRevealIdentity(role);
   const raw = String(value ?? '').trim();
   const [open, setOpen] = useState(false);
@@ -73,7 +75,7 @@ export function MaskedValueView({
           type="button"
           onClick={reveal}
           className="no-print"
-          aria-label={open ? 'إخفاء' : 'إظهار'}
+          aria-label={open ? t('hide') : t('show')}
           style={{ color: tokens.color.gray[500], paddingInline: tokens.space[1] }}
         >
           {open ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}

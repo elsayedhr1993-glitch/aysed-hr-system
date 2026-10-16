@@ -6,6 +6,7 @@ import {
   Stethoscope, ShieldCheck
 } from 'lucide-react';
 import { maskIdentity } from '../../security/identityMask';
+import { useLang } from '../../lib/i18n';
 
 interface GlobalSpotlightSearchModalProps {
   isOpen: boolean;
@@ -24,6 +25,7 @@ export const GlobalSpotlightSearchModal: React.FC<GlobalSpotlightSearchModalProp
   onNavigateToApp,
   onTriggerAction
 }) => {
+  const { t } = useLang();
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -37,27 +39,27 @@ export const GlobalSpotlightSearchModal: React.FC<GlobalSpotlightSearchModalProp
   }, [isOpen]);
 
   const apps = [
-    { id: 'employees', name: 'شؤون الموظفين (Employees Directory)', icon: Users, category: 'apps' },
-    { id: 'recruitment', name: 'التوظيف والمقابلات الذكية وفرز السير الذاتية (Recruitment & ATS)', icon: Users, category: 'apps' },
-    { id: 'contracts', name: 'عقود العمل والبدلات الرسمية وقانون العمل (Employment Contracts)', icon: FileText, category: 'apps' },
-    { id: 'attendance', name: 'الحضور والانصراف والبصمة (Time & Attendance)', icon: Clock, category: 'apps' },
-    { id: 'leaves', name: 'الإجازات (Time Off)', icon: Calendar, category: 'apps' },
-    { id: 'payroll', name: 'الرواتب وحماية الأجور WPS (Payroll & EOS)', icon: CreditCard, category: 'apps' },
-    { id: 'scanner', name: 'الماسح الضوئي الذكي (Document Scanner OCR)', icon: Scan, category: 'apps' },
-    { id: 'archive', name: 'أرشيف المستندات والوثائق (Documents Archive)', icon: FolderArchive, category: 'apps' },
-    { id: 'letters', name: 'النماذج والخطابات الرسمية (Templates & Letters)', icon: FileText, category: 'apps' },
-    { id: 'holidays', name: 'العطلات الرسمية الكويتية (Public Holidays)', icon: Sparkles, category: 'apps' },
-    { id: 'reports', name: 'التقارير والتحليلات ولوحة القيادة (Reports & Analytics & Pivot)', icon: Sparkles, category: 'apps' },
-    { id: 'moh', name: 'تراخيص وزارة الصحة والكادر الطبي (MOH Medical Hub)', icon: Stethoscope, category: 'apps' },
-    { id: 'audit', name: 'سجل الرقابة وتتبع العمليات', icon: ShieldCheck, category: 'apps' },
-    { id: 'settings', name: 'بيانات المنشأة والإعدادات (Settings)', icon: Building2, category: 'apps' }
+    { id: 'employees', name: t('employees'), icon: Users, category: 'apps' },
+    { id: 'recruitment', name: t('screen_recruitment'), icon: Users, category: 'apps' },
+    { id: 'contracts', name: t('screen_contracts'), icon: FileText, category: 'apps' },
+    { id: 'attendance', name: t('attendance'), icon: Clock, category: 'apps' },
+    { id: 'leaves', name: t('leaves'), icon: Calendar, category: 'apps' },
+    { id: 'payroll', name: t('payroll'), icon: CreditCard, category: 'apps' },
+    { id: 'scanner', name: t('scanner'), icon: Scan, category: 'apps' },
+    { id: 'archive', name: t('documents'), icon: FolderArchive, category: 'apps' },
+    { id: 'letters', name: t('screen_letters'), icon: FileText, category: 'apps' },
+    { id: 'holidays', name: t('screen_holidays'), icon: Sparkles, category: 'apps' },
+    { id: 'reports', name: t('reports'), icon: Sparkles, category: 'apps' },
+    { id: 'moh', name: t('screen_moh'), icon: Stethoscope, category: 'apps' },
+    { id: 'audit', name: t('audit_log'), icon: ShieldCheck, category: 'apps' },
+    { id: 'settings', name: t('screen_settings_company'), icon: Building2, category: 'apps' }
   ];
 
   const quickActions = [
-    { id: 'calculator', name: 'فتح حاسبة قانون العمل الكويتي ومكافأة نهاية الخدمة', icon: Calculator, category: 'actions' },
-    { id: 'new_employee', name: 'تسجيل وتعيين موظف جديد (New Employee)', icon: Users, category: 'actions' },
-    { id: 'new_contract', name: 'إصدار أو تعديل عقد عمل قانوني', icon: FileText, category: 'actions' },
-    { id: 'scanner', name: 'تشغيل كاميرا الماسح الضوئي للبطاقات المدنية والجوازات', icon: Scan, category: 'actions' }
+    { id: 'calculator', name: t('quick_open_eos'), icon: Calculator, category: 'actions' },
+    { id: 'new_employee', name: t('quick_register_employee'), icon: Users, category: 'actions' },
+    { id: 'new_contract', name: t('quick_issue_contract'), icon: FileText, category: 'actions' },
+    { id: 'scanner', name: t('quick_open_scanner'), icon: Scan, category: 'actions' }
   ];
 
   const filteredResults = useMemo(() => {
@@ -81,8 +83,8 @@ export const GlobalSpotlightSearchModal: React.FC<GlobalSpotlightSearchModalProp
       return nameAr.includes(q) || nameEn.includes(q) || civil.includes(q) || job.includes(q) || dept.includes(q) || phone.includes(q) || code.includes(q);
     }).slice(0, 8).map(emp => ({
       id: emp.id,
-      name: emp.fullNameAr || emp.nameAr || emp.name || 'موظف',
-      subtitle: `${emp.jobTitle || 'موظف'} • ${emp.department || 'إدارة'} • مدني: ${maskIdentity(String(emp.civilId || emp.civil_id_number || ''), 'civil') || '---'}`,
+      name: emp.fullNameAr || emp.nameAr || emp.name || t('employee_fallback'),
+      subtitle: `${emp.jobTitle || t('employee_fallback')} • ${emp.department || t('department_fallback')} • ${t('civil_short')}: ${maskIdentity(String(emp.civilId || emp.civil_id_number || ''), 'civil') || '---'}`,
       empData: emp,
       type: 'employee',
       icon: Users
@@ -97,7 +99,7 @@ export const GlobalSpotlightSearchModal: React.FC<GlobalSpotlightSearchModalProp
     ).map(act => ({ ...act, type: 'action' }));
 
     return [...matchedEmployees, ...matchedApps, ...matchedActions];
-  }, [query, employees]);
+  }, [query, employees, t]);
 
   useEffect(() => {
     setSelectedIndex(0);
@@ -137,8 +139,7 @@ export const GlobalSpotlightSearchModal: React.FC<GlobalSpotlightSearchModalProp
 
   return (
     <div 
-      className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-start justify-center z-50 p-4 pt-16 sm:pt-24 dir-rtl" 
-      dir="rtl"
+      className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-start justify-center z-50 p-4 pt-16 sm:pt-24"
       onClick={onClose}
     >
       <div 
@@ -155,7 +156,7 @@ export const GlobalSpotlightSearchModal: React.FC<GlobalSpotlightSearchModalProp
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="بحث فوري في الموظفين بالاسم أو الرقم المدني أو الهاتف، والتطبيقات والإجراءات..."
+            placeholder={t('spotlight_placeholder')}
             className="w-full bg-transparent text-sm font-bold text-slate-800 placeholder-slate-400 focus:outline-none"
           />
           {query && (
@@ -163,7 +164,7 @@ export const GlobalSpotlightSearchModal: React.FC<GlobalSpotlightSearchModalProp
               onClick={() => setQuery('')}
               className="text-slate-400 hover:text-slate-600 text-xs px-2 py-1 rounded bg-slate-200/60 font-bold"
             >
-              مسح
+              {t('spotlight_clear')}
             </button>
           )}
           <span className="text-[10px] font-mono text-slate-400 border border-slate-200 px-1.5 py-0.5 rounded bg-white">
@@ -208,29 +209,29 @@ export const GlobalSpotlightSearchModal: React.FC<GlobalSpotlightSearchModalProp
                         <span className="font-black text-xs truncate">{item.name}</span>
                         {item.type === 'employee' && (
                           <span className="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded">
-                            موظف
+                            {t('badge_employee')}
                           </span>
                         )}
                         {item.type === 'action' && (
                           <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded">
-                            إجراء فوري
+                            {t('badge_action')}
                           </span>
                         )}
                         {item.type === 'app' && (
                           <span className="text-[9px] bg-purple-100 text-purple-800 font-bold px-1.5 py-0.5 rounded">
-                            تطبيق
+                            {t('badge_app')}
                           </span>
                         )}
                       </div>
                       <p className="text-[11px] text-slate-500 truncate mt-0.5">
-                        {(item as any).subtitle || (item.type === 'app' ? 'تطبيق' : 'وظيفة سريعة')}
+                        {(item as any).subtitle || (item.type === 'app' ? t('badge_app') : t('quick_job'))}
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-1.5 text-slate-400 shrink-0">
                     <span className="text-[10px] hidden sm:inline">انتقال</span>
-                    <ArrowRight size={14} className="transform rotate-180" />
+                    <ArrowRight size={14} className="directional-icon" />
                   </div>
                 </div>
               );

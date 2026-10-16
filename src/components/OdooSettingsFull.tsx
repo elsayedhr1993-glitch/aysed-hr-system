@@ -1,4 +1,5 @@
 import { tokens } from '../design/tokens';
+import { useLang } from '../lib/i18n';
 import { buildAuthedJsonHeaders } from '../lib/clientAuth';
 import React, { useState, useMemo, useCallback } from 'react';
 import { 
@@ -67,6 +68,8 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
   onOpenCompanyDocuments,
   onOpenComplianceTree,
 }) => {
+  const { lang: uiLang, t } = useLang();
+  const dir = uiLang === 'ar' ? 'rtl' : 'ltr';
   const { settings, updateSettings, resetSettings, isSaving, isLoading } = useSystemSettings();
   const { activeCompany, updateActiveCompany } = useCompany();
   const { user } = useAuth();
@@ -248,11 +251,11 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
   }, [searchQuery]);
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-800 font-sans dir-rtl pb-24" dir="rtl">
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-800 font-sans pb-24" dir={dir} data-ui-surface="settings">
 
       <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-base font-bold text-slate-900">الإعدادات العامة</h1>
+          <h1 className="text-base font-bold text-slate-900">{t('screen_settings_general')}</h1>
           <p className="text-xs text-slate-500 truncate">
             {activeCompany?.nameAr || formData.companyNameAr}
           </p>

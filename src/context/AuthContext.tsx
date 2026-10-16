@@ -7,6 +7,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { isSuperAdminEmail } from '../config/superAdminAccess';
 import { buildAuthedJsonHeaders } from '../lib/clientAuth';
+import { readAccountLanguage } from '../lib/userLanguage';
 
 const AUTH_USER_KEY = 'aysed_auth_user';
 const AUTH_TOKEN_KEY = 'aysed_auth_token';
@@ -21,6 +22,8 @@ export interface User {
   role: string;
   companyId?: string; // For tenant isolation
   photoURL?: string;
+  /** Interface language stored on the user account. */
+  uiLanguage?: 'ar' | 'en';
 }
 
 export interface AuthContextType {
@@ -139,6 +142,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           let name = 'مسؤول الشركة';
           let companyId: string | undefined;
           let photoURL = firebaseUser.photoURL || localStorage.getItem('aysed_user_avatar') || '';
+          let uiLanguage: 'ar' | 'en' | undefined;
 
           const syncCompanyAdminBinding = async (
             uid: string,
@@ -209,6 +213,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               name = data.name || name;
               companyId = data.companyId;
               photoURL = data.photoURL || data.avatar || photoURL;
+              uiLanguage = readAccountLanguage(data) ?? undefined;
 
               if (!isSuperAdminEmail(userEmail) && userEmail) {
                 const synced = await syncCompanyAdminBinding(
@@ -318,7 +323,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             email: firebaseUser.email || '',
             role,
             companyId,
-            photoURL
+            photoURL,
+            uiLanguage,
           };
           setUser(fullUser);
           setToken(jwt);

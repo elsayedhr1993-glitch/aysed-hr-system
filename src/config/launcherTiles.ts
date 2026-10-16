@@ -47,18 +47,18 @@ export interface LauncherTileDefault {
 }
 
 export const LAUNCHER_TILE_DEFAULTS: readonly LauncherTileDefault[] = [
-  { id: 'EMPLOYEES', titleAr: 'شؤون الموظفين', titleEn: 'Employees', icon: 'Users', group: 'people', order: 10, catalogIndex: 0, visible: true, permission: 'staff' },
+  { id: 'EMPLOYEES', titleAr: 'الموظفون', titleEn: 'Employees', icon: 'Users', group: 'people', order: 10, catalogIndex: 0, visible: true, permission: 'staff' },
   { id: 'RECRUITMENT', titleAr: 'التوظيف والمقابلات', titleEn: 'Recruitment', icon: 'UserPlus', group: 'recruitment', order: 10, catalogIndex: 1, visible: true, permission: 'staff' },
   { id: 'CONTRACTS', titleAr: 'عقود العمل', titleEn: 'Contracts', icon: 'FileSignature', group: 'people', order: 20, catalogIndex: 2, visible: true, permission: 'staff' },
   { id: 'LEAVES', titleAr: 'الإجازات', titleEn: 'Time Off', icon: 'Calendar', group: 'time', order: 20, catalogIndex: 3, visible: true, permission: 'employee' },
   { id: 'HOLIDAYS', titleAr: 'العطلات الرسمية', titleEn: 'Holidays', icon: 'Calendar', group: 'time', order: 30, catalogIndex: 4, visible: true, permission: 'staff' },
   { id: 'ATTENDANCE', titleAr: 'الحضور والدوام', titleEn: 'Attendance', icon: 'Clock', group: 'time', order: 10, catalogIndex: 5, visible: true, permission: 'employee' },
-  { id: 'PAYROLL', titleAr: 'الرواتب وحماية الأجور', titleEn: 'Payroll & EOS', icon: 'Banknote', group: 'payroll', order: 10, catalogIndex: 6, visible: true, permission: 'staff' },
-  { id: 'REPORTS', titleAr: 'التقارير والتحليلات', titleEn: 'Reports & Pivot', icon: 'BarChart3', group: 'reports', order: 10, catalogIndex: 7, visible: true, permission: 'staff' },
-  { id: 'DOCUMENTS', titleAr: 'أرشيف المستندات', titleEn: 'Documents', icon: 'FolderKanban', group: 'documents', order: 10, catalogIndex: 8, visible: true, permission: 'employee' },
-  { id: 'SCANNER_APP', titleAr: 'الماسح الضوئي الذكي', titleEn: 'Document Scanner', icon: 'Scan', group: 'documents', order: 30, catalogIndex: 9, visible: true, permission: 'staff' },
-  { id: 'CUSTODY_LOANS', titleAr: 'العهد والممتلكات', titleEn: 'Custody', icon: 'Briefcase', group: 'people', order: 30, catalogIndex: 10, visible: true, permission: 'staff' },
-  { id: 'AUDIT_LOGS', titleAr: 'سجل الرقابة', titleEn: 'Audit Logs', icon: 'ShieldCheck', group: 'admin', order: 10, catalogIndex: 11, visible: true, permission: 'staff' },
+  { id: 'PAYROLL', titleAr: 'الرواتب وحماية الأجور', titleEn: 'Payroll & WPS', icon: 'Banknote', group: 'payroll', order: 10, catalogIndex: 6, visible: true, permission: 'staff' },
+  { id: 'REPORTS', titleAr: 'التقارير', titleEn: 'Reports', icon: 'BarChart3', group: 'reports', order: 10, catalogIndex: 7, visible: true, permission: 'staff' },
+  { id: 'DOCUMENTS', titleAr: 'المستندات', titleEn: 'Documents', icon: 'FolderKanban', group: 'documents', order: 10, catalogIndex: 8, visible: true, permission: 'employee' },
+  { id: 'SCANNER_APP', titleAr: 'الماسح الذكي', titleEn: 'Smart Scanner', icon: 'Scan', group: 'documents', order: 30, catalogIndex: 9, visible: true, permission: 'staff' },
+  { id: 'CUSTODY_LOANS', titleAr: 'العهد', titleEn: 'Assets', icon: 'Briefcase', group: 'people', order: 30, catalogIndex: 10, visible: true, permission: 'staff' },
+  { id: 'AUDIT_LOGS', titleAr: 'سجل الرقابة', titleEn: 'Audit Log', icon: 'ShieldCheck', group: 'admin', order: 10, catalogIndex: 11, visible: true, permission: 'staff' },
   { id: 'DOCUMENT_TEMPLATES', titleAr: 'قوالب ونماذج المستندات', titleEn: 'Document Templates', icon: 'FileText', group: 'documents', order: 20, catalogIndex: 12, visible: true, permission: 'staff' },
 ];
 

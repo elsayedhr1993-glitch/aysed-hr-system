@@ -5,6 +5,7 @@ import { auth, db } from '../lib/firebase';
 import { CompanyProvider, useCompany } from './CompanyContext';
 import { SystemSettingsProvider } from './SystemSettingsContext';
 import { LanguageProvider, useLang } from '../lib/i18n';
+import { LanguageAccountSync } from '../components/LanguageAccountSync';
 export { CompanyProvider, useCompany } from './CompanyContext';
 export { SystemSettingsProvider, useSystemSettings } from './SystemSettingsContext';
 export { useIsolatedData } from '../hooks/useIsolatedData';
@@ -183,6 +184,7 @@ const AysedCoreShell: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 export const AysedCoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <LanguageProvider>
+    <LanguageAccountSync />
     <CompanyProvider>
       <SystemSettingsProvider>
         <AysedCoreShell>{children}</AysedCoreShell>

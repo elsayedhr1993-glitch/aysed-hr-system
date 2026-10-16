@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
+import { useLang } from '../../../lib/i18n';
 import { createPortal } from 'react-dom';
 import {
   Users,
@@ -96,6 +97,7 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
   showHeaderCreateEmployee = true,
   children,
 }) => {
+  const { t } = useLang();
   const actionsTriggerRef = useRef<HTMLButtonElement>(null);
   const actionsMenuPortalRef = useRef<HTMLDivElement>(null);
   const [actionsMenuAnchor, setActionsMenuAnchor] = useState<{ top: number; left: number } | null>(
@@ -200,7 +202,7 @@ export const EmployeesAppChrome: React.FC<EmployeesAppChromeProps> = ({
         >
           <nav className="flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-slate-600 min-w-0">
             <Users size={13} className="text-primary shrink-0" />
-            <span className="text-slate-400">شؤون الموظفين</span>
+            <span className="text-slate-400">{t('employees')}</span>
             <span className="text-slate-200">/</span>
             {activeTab !== 'directory' && (
               <>

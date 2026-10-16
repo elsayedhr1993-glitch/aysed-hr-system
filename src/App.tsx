@@ -136,7 +136,7 @@ function MainAppLayout() {
   const { employees, attendance, computedPayslips, addEmployee, updateEmployee } = useOdooHierarchy();
 
   const { logout, user, isLoading, updateAvatar } = useAuth();
-  const { lang } = useLang();
+  const { lang, t } = useLang();
 
 
   const [shifts, setShifts] = useState<any[]>([]);
@@ -771,18 +771,18 @@ function MainAppLayout() {
   }, [activeApp, isSuperAdmin, user]);
 
   const appsList = [
-    { id: 'employees', name: 'شؤون الموظفين', subtitle: 'Employees Directory', icon: Users, color: 'bg-rose-500' },
-    { id: 'attendance', name: 'الحضور والانصراف', subtitle: 'Time & Attendance', icon: Clock, color: 'bg-indigo-600' },
-    { id: 'leaves', name: 'إجازات والغياب', subtitle: 'Time Off & Leaves', icon: Palmtree, color: 'bg-emerald-600' },
-    { id: 'payroll', name: 'الرواتب وحماية الأجور', subtitle: 'Payroll & WPS', icon: CreditCard, color: 'bg-emerald-600' },
-    { id: 'custody', name: 'العهد والممتلكات', subtitle: 'Assets & Custodies', icon: Package, color: 'bg-orange-500' },
-    { id: 'archive', name: 'أرشيف المستندات', subtitle: 'Documents Archive', icon: FolderArchive, color: 'bg-amber-500' },
-    { id: 'scanner', name: 'الماسح الضوئي الذكي', subtitle: 'Document Scanner OCR', icon: Scan, color: 'bg-teal-600' },
-    { id: 'letters', name: 'النماذج والخطابات', subtitle: 'Templates & Letters', icon: FileText, color: 'bg-sky-600' },
-    { id: 'holidays', name: 'العطلات الرسمية', subtitle: 'Public Holidays', icon: Sparkles, color: 'bg-purple-600' },
-    { id: 'reports', name: 'التقارير والتحليلات', subtitle: 'Reports, Pivot & Executive Dashboard', icon: BarChart3, color: 'bg-blue-600' },
-    { id: 'moh', name: 'تراخيص وزارة الصحة', subtitle: 'MOH Medical Hub', icon: Stethoscope, color: 'bg-teal-700' },
-    { id: 'audit', name: 'سجل الرقابة وتتبع العمليات', subtitle: 'Audit log', icon: ShieldAlert, color: 'bg-zinc-800' },
+    { id: 'employees', name: t('employees'), subtitle: t('employees'), icon: Users, color: 'bg-rose-500' },
+    { id: 'attendance', name: t('attendance'), subtitle: t('attendance'), icon: Clock, color: 'bg-indigo-600' },
+    { id: 'leaves', name: t('leaves'), subtitle: t('leaves'), icon: Palmtree, color: 'bg-emerald-600' },
+    { id: 'payroll', name: t('payroll'), subtitle: t('payroll'), icon: CreditCard, color: 'bg-emerald-600' },
+    { id: 'custody', name: t('assets'), subtitle: t('assets'), icon: Package, color: 'bg-orange-500' },
+    { id: 'archive', name: t('documents'), subtitle: t('documents'), icon: FolderArchive, color: 'bg-amber-500' },
+    { id: 'scanner', name: t('scanner'), subtitle: t('scanner'), icon: Scan, color: 'bg-teal-600' },
+    { id: 'letters', name: t('screen_letters'), subtitle: t('screen_letters'), icon: FileText, color: 'bg-sky-600' },
+    { id: 'holidays', name: t('screen_holidays'), subtitle: t('screen_holidays'), icon: Sparkles, color: 'bg-purple-600' },
+    { id: 'reports', name: t('reports'), subtitle: t('reports'), icon: BarChart3, color: 'bg-blue-600' },
+    { id: 'moh', name: t('screen_moh'), subtitle: t('screen_moh'), icon: Stethoscope, color: 'bg-teal-700' },
+    { id: 'audit', name: t('audit_log'), subtitle: t('audit_log'), icon: ShieldAlert, color: 'bg-zinc-800' },
   ];
 
   const filteredApps = appsList.filter(app => 
@@ -792,27 +792,25 @@ function MainAppLayout() {
 
   const getActiveAppTitle = () => {
     switch (activeApp) {
-      case 'switcher': return lang === 'ar' ? 'التطبيقات الرئيسية' : 'App Launcher';
-      case 'employees': return lang === 'ar' ? 'شؤون الموظفين (Employees)' : 'Employees';
-      case 'recruitment': return lang === 'ar' ? 'التوظيف والمقابلات الذكية (Recruitment & ATS)' : 'Recruitment & ATS';
-      case 'contracts': return lang === 'ar' ? 'عقود العمل والبدلات الرسمية' : 'Contracts & PAM';
-      case 'attendance': return lang === 'ar' ? 'الحضور والانصراف (Time & Attendance)' : 'Time & Attendance';
-      case 'leaves': return lang === 'ar' ? 'الإجازات (Time Off)' : 'Time Off';
-      case 'payroll': return lang === 'ar' ? 'الرواتب وحماية الأجور (Payroll & WPS)' : 'Payroll & WPS';
-      case 'custody': return lang === 'ar' ? 'العهد والممتلكات (Assets & Custodies)' : 'Assets & Custodies';
-      case 'archive': return lang === 'ar' ? 'أرشيف المستندات (Documents Archive)' : 'Documents Archive';
-      case 'scanner': return lang === 'ar' ? 'الماسح الضوئي الذكي' : 'Smart Document Scanner';
-      case 'letters': return lang === 'ar' ? 'النماذج والخطابات (Templates & Letters)' : 'Templates & Letters';
-      case 'holidays': return lang === 'ar' ? 'العطلات الرسمية (Public Holidays)' : 'Public Holidays';
-      case 'reports': return lang === 'ar' ? 'التقارير والتحليلات (Reports & Analytics)' : 'Reports & Analytics';
-      case 'moh': return lang === 'ar' ? 'إدارة التراخيص الطبية والكادر الصحي (MOH Medical Hub)' : 'MOH Medical Hub';
-      case 'compliance_tree': return lang === 'ar' ? 'شجرة الامتثال الحكومي والتراخيص' : 'Government Compliance Tree';
-      case 'audit': return lang === 'ar' ? 'سجل الرقابة وتتبع العمليات' : 'Audit log';
-      case 'settings': return lang === 'ar'
-        ? (isSuperAdmin ? 'الإعدادات والمشتركين (Settings)' : 'بيانات المنشأة والإعدادات (Settings)')
-        : (isSuperAdmin ? 'Settings & SaaS Tenants' : 'Company Settings');
-      case 'companies': return lang === 'ar' ? 'الشركات والمؤسسات (Companies & Clinics)' : 'Companies & Clinics';
-      default: return lang === 'ar' ? 'نظام Aysed S HR 2026' : 'Aysed S HR 2026';
+      case 'switcher': return t('screen_switcher');
+      case 'employees': return t('employees');
+      case 'recruitment': return t('screen_recruitment');
+      case 'contracts': return t('screen_contracts');
+      case 'attendance': return t('attendance');
+      case 'leaves': return t('leaves');
+      case 'payroll': return t('payroll');
+      case 'custody': return t('assets');
+      case 'archive': return t('documents');
+      case 'scanner': return t('scanner');
+      case 'letters': return t('screen_letters');
+      case 'holidays': return t('screen_holidays');
+      case 'reports': return t('reports');
+      case 'moh': return t('screen_moh');
+      case 'compliance_tree': return t('screen_compliance');
+      case 'audit': return t('audit_log');
+      case 'settings': return isSuperAdmin ? t('screen_settings_admin') : t('screen_settings_company');
+      case 'companies': return t('screen_companies');
+      default: return t('screen_brand');
     }
   };
 
@@ -821,7 +819,7 @@ function MainAppLayout() {
     return (
       <div className="min-h-screen bg-[#F9FAFB] flex flex-col justify-center items-center font-sans" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
         <div className="w-12 h-12 border-4 border-slate-200 border-t-primary rounded-full animate-spin"></div>
-        <p className="mt-4 text-slate-500 text-sm font-medium">{lang === 'ar' ? 'جاري التحقق من الهوية...' : 'Verifying identity...'}</p>
+        <p className="mt-4 text-slate-500 text-sm font-medium">{t('screen_verifying')}</p>
       </div>
     );
   }

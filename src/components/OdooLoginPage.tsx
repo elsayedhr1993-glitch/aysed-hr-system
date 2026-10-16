@@ -25,140 +25,56 @@ import { brand, hasBrandSupport } from '../config/brand';
 
 const REMEMBER_ME_KEY = 'aysed_remember_me';
 
-type UiLanguage = 'ar' | 'en';
-
-type UiText = {
-  badge: string;
-  title: string;
-  subtitle: string;
-  leftTitle: string;
-  leftSubtitle: string;
-  secureCloud: string;
-  emailLabel: string;
-  passwordLabel: string;
-  forgotPassword: string;
-  resetSending: string;
-  rememberMe: string;
-  submit: string;
-  loadingSubmit: string;
-  lockTitle: string;
-  lockRemaining: string;
-  terms: string;
-  privacy: string;
-  footerSecurity: string;
-  emailPlaceholder: string;
-  emailRequired: string;
-  emailInvalid: string;
-  passwordRequired: string;
-  loginInvalid: string;
-  loginThrottled: string;
-  loginGeneric: string;
-  lockedError: string;
-  resetNeedEmail: string;
-  resetSuccess: string;
-  resetFailed: string;
-  showPassword: string;
-  hidePassword: string;
-  langAr: string;
-  langEn: string;
-  supportTitle: string;
-  supportLink: string;
-};
-
-const UI_TEXT: Record<UiLanguage, UiText> = {
-  ar: {
-    badge: 'بوابة دخول مؤسسية',
-    title: 'تسجيل الدخول',
-    subtitle: 'أدخل بيانات الحساب المعتمد للوصول إلى بيئة الشركة.',
-    leftTitle: brand.name,
-    leftSubtitle: 'الحل المؤسسي الشامل للموارد البشرية والامتثال الكويتي',
-    secureCloud: 'بيئة سحابية مؤمنة للشركات',
-    emailLabel: 'البريد الإلكتروني',
-    passwordLabel: 'كلمة المرور',
-    forgotPassword: 'نسيت كلمة المرور؟',
-    resetSending: 'جاري الإرسال...',
-    rememberMe: 'تذكرني على هذا الجهاز',
-    submit: 'تسجيل الدخول',
-    loadingSubmit: 'جاري تسجيل الدخول وتجهيز بيئة الشركة...',
-    lockTitle: 'تم قفل المحاولات مؤقتا',
-    lockRemaining: 'الوقت المتبقي',
-    terms: 'شروط الاستخدام المؤسسي',
-    privacy: 'سياسة الخصوصية',
-    footerSecurity: 'يتم تطبيق سياسات الأمان المؤسسية على جلسة الدخول.',
-    emailPlaceholder: 'name@company.com',
-    emailRequired: 'يرجى إدخال البريد الإلكتروني.',
-    emailInvalid: 'صيغة البريد الإلكتروني غير صحيحة.',
-    passwordRequired: 'يرجى إدخال كلمة المرور.',
-    loginInvalid: 'بيانات الدخول غير صحيحة',
-    loginThrottled: 'بيانات الدخول غير صحيحة',
-    loginGeneric: 'بيانات الدخول غير صحيحة',
-    lockedError: 'بيانات الدخول غير صحيحة',
-    resetNeedEmail: 'أدخل البريد الإلكتروني أولا.',
-    resetSuccess: 'إذا كان الحساب موجوداً فسيصلك رابط لإعادة التعيين',
-    resetFailed: 'إذا كان الحساب موجوداً فسيصلك رابط لإعادة التعيين',
-    showPassword: 'إظهار كلمة المرور',
-    hidePassword: 'إخفاء كلمة المرور',
-    langAr: 'العربية',
-    langEn: 'English',
-    supportTitle: 'الدعم',
-    supportLink: 'صفحة الدعم',
-  },
-  en: {
-    badge: 'Secure access',
-    title: 'Sign In',
-    subtitle: 'Use your approved account credentials to access your company workspace.',
-    leftTitle: brand.name,
-    leftSubtitle: 'HR and Kuwait compliance platform',
-    secureCloud: 'Secure business cloud environment',
-    emailLabel: 'Email Address',
-    passwordLabel: 'Password',
-    forgotPassword: 'Forgot password?',
-    resetSending: 'Sending...',
-    rememberMe: 'Remember me on this device',
-    submit: 'Sign In',
-    loadingSubmit: 'Signing in and preparing your workspace...',
-    lockTitle: 'Sign-in attempts temporarily locked',
-    lockRemaining: 'Time remaining',
-    terms: 'Terms of Use',
-    privacy: 'Privacy Policy',
-    footerSecurity: 'Security policies are enforced for this sign-in session.',
-    emailPlaceholder: 'name@company.com',
-    emailRequired: 'Please enter your email address.',
-    emailInvalid: 'Please enter a valid email address.',
-    passwordRequired: 'Please enter your password.',
-    loginInvalid: 'The sign-in details are incorrect',
-    loginThrottled: 'The sign-in details are incorrect',
-    loginGeneric: 'The sign-in details are incorrect',
-    lockedError: 'The sign-in details are incorrect',
-    resetNeedEmail: 'Enter an email address first.',
-    resetSuccess: 'If the account exists, a reset link will be sent.',
-    resetFailed: 'If the account exists, a reset link will be sent.',
-    showPassword: 'Show password',
-    hidePassword: 'Hide password',
-    langAr: 'العربية',
-    langEn: 'English',
-    supportTitle: 'Support',
-    supportLink: 'Support page',
-  },
-};
-
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const FEATURE_SLIDES: Record<UiLanguage, string[]> = {
-  ar: [
-    'توليد معتمد لملفات حماية الأجور الكويتية (WPS & CBK)',
-    'محرك قانوني لمستحقات العمل، الإجازات، ونهاية الخدمة',
-    'حوكمة مركزية للوثائق والتراخيص الحكومية',
-  ],
-  en: [
-    'Certified Kuwait WPS & CBK payroll file generation',
-    'Legal engine for leave, payroll, and end-of-service entitlements',
-    'Centralized governance for documents and government licenses',
-  ],
-};
+function loginCopy(translate: (key: string) => string) {
+  return {
+    badge: translate('login_badge'),
+    title: translate('login_title'),
+    subtitle: translate('login_subtitle'),
+    leftTitle: brand.name,
+    leftSubtitle: translate('login_left_subtitle'),
+    hero: translate('login_hero'),
+    secureCloud: translate('login_secure_cloud'),
+    emailLabel: translate('login_email'),
+    passwordLabel: translate('login_password'),
+    forgotPassword: translate('login_forgot'),
+    resetSending: translate('login_sending'),
+    rememberMe: translate('login_remember'),
+    submit: translate('login_submit'),
+    loadingSubmit: translate('login_loading'),
+    lockTitle: translate('login_lock_title'),
+    lockRemaining: translate('login_lock_remaining'),
+    terms: translate('login_terms'),
+    privacy: translate('login_privacy'),
+    footerSecurity: translate('login_footer'),
+    emailPlaceholder: 'name@company.com',
+    emailRequired: translate('login_email_required'),
+    emailInvalid: translate('login_email_invalid'),
+    passwordRequired: translate('login_password_required'),
+    loginInvalid: translate('login_invalid'),
+    loginThrottled: translate('login_invalid'),
+    loginGeneric: translate('login_invalid'),
+    lockedError: translate('login_invalid'),
+    resetNeedEmail: translate('login_reset_need_email'),
+    resetSuccess: translate('login_reset_sent'),
+    resetFailed: translate('login_reset_sent'),
+    showPassword: translate('login_show_password'),
+    hidePassword: translate('login_hide_password'),
+    langAr: translate('lang_name_ar'),
+    langEn: translate('lang_name_en'),
+    supportTitle: translate('login_support'),
+    supportLink: translate('login_support_link'),
+    featureLines: [
+      translate('login_feature_1'),
+      translate('login_feature_2'),
+      translate('login_feature_3'),
+    ],
+  };
+}
 
 export const OdooLoginPage: React.FC = () => {
-  const { lang, setLang } = useLang();
+  const { lang, setLang, t: translate } = useLang();
   const { user: sessionUser, isLoading: authHydrating } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -179,12 +95,11 @@ export const OdooLoginPage: React.FC = () => {
   }, []);
   const [newPassword, setNewPassword] = useState('');
 
-  const language: UiLanguage = lang;
   const isArabic = lang === 'ar';
   const dir = isArabic ? 'rtl' : 'ltr';
-  const t = UI_TEXT[language];
+  const t = loginCopy(translate);
   const isBusy = isLoading || isResettingPassword || isSigningIn;
-  const featureLines = FEATURE_SLIDES[language];
+  const featureLines = t.featureLines;
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -238,7 +153,7 @@ export const OdooLoginPage: React.FC = () => {
     };
   }, [isLocked, lockoutTime]);
 
-  const cardAlignment = useMemo(() => (isArabic ? 'text-right' : 'text-left'), [isArabic]);
+  const cardAlignment = 'text-start';
 
   const persistRememberPreference = (enabled: boolean) => {
     try {
@@ -426,9 +341,7 @@ export const OdooLoginPage: React.FC = () => {
             {brand.name}
           </h1>
           <p className="text-base text-slate-300 mt-3 max-w-xl leading-relaxed font-medium">
-            {isArabic
-              ? 'الحل المؤسسي الشامل للموارد البشرية والامتثال الكويتي'
-              : 'Your enterprise suite for HR operations and Kuwait regulatory compliance'}
+            {t.hero}
           </p>
 
           <div className="mt-10 min-h-[5.5rem] max-w-xl">
@@ -531,14 +444,14 @@ export const OdooLoginPage: React.FC = () => {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className={`w-full p-3.5 ${isArabic ? 'pr-11' : 'pl-11'} bg-slate-50 focus:bg-white border border-slate-300 rounded-xl focus:border-[#1f6a7a] focus:ring-2 focus:ring-[#1f6a7a]/20 outline-none text-slate-900 text-xs transition-all`}
+                    className="w-full p-3.5 ps-11 bg-slate-50 focus:bg-white border border-slate-300 rounded-xl focus:border-[#1f6a7a] focus:ring-2 focus:ring-[#1f6a7a]/20 outline-none text-slate-900 text-xs transition-all"
                     placeholder={t.emailPlaceholder}
                     autoComplete="email"
                     required
                     dir="ltr"
                     disabled={isBusy}
                   />
-                  <Mail size={17} className={`absolute ${isArabic ? 'right-3.5' : 'left-3.5'} top-3.5 text-slate-400 group-focus-within:text-[#1f6a7a] transition-colors`} />
+                  <Mail size={17} className="absolute start-3.5 top-3.5 text-slate-400 group-focus-within:text-[#1f6a7a] transition-colors" />
                 </div>
               </div>
 
@@ -561,19 +474,19 @@ export const OdooLoginPage: React.FC = () => {
                     type={isPasswordVisible ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className={`w-full p-3.5 ${isArabic ? 'pr-11' : 'pl-11'} ${isArabic ? 'pl-11' : 'pr-11'} bg-slate-50 focus:bg-white border border-slate-300 rounded-xl focus:border-[#1f6a7a] focus:ring-2 focus:ring-[#1f6a7a]/20 outline-none text-slate-900 text-xs transition-all`}
+                    className="w-full p-3.5 ps-11 pe-11 bg-slate-50 focus:bg-white border border-slate-300 rounded-xl focus:border-[#1f6a7a] focus:ring-2 focus:ring-[#1f6a7a]/20 outline-none text-slate-900 text-xs transition-all"
                     placeholder=""
                     autoComplete="off"
                     required
                     dir="ltr"
                     disabled={isBusy}
                   />
-                  <Lock size={17} className={`absolute ${isArabic ? 'right-3.5' : 'left-3.5'} top-3.5 text-slate-400 group-focus-within:text-[#1f6a7a] transition-colors`} />
+                  <Lock size={17} className="absolute start-3.5 top-3.5 text-slate-400 group-focus-within:text-[#1f6a7a] transition-colors" />
                   <button
                     type="button"
                     onClick={() => setIsPasswordVisible((prev) => !prev)}
                     disabled={isBusy}
-                    className={`absolute ${isArabic ? 'left-3.5' : 'right-3.5'} top-3.5 text-slate-400 hover:text-[#1f6a7a] disabled:opacity-50`}
+                    className="absolute end-3.5 top-3.5 text-slate-400 hover:text-[#1f6a7a] disabled:opacity-50"
                     aria-label={isPasswordVisible ? t.hidePassword : t.showPassword}
                   >
                     {isPasswordVisible ? <EyeOff size={17} /> : <Eye size={17} />}
@@ -606,7 +519,7 @@ export const OdooLoginPage: React.FC = () => {
                 ) : (
                   <>
                     <span>{t.submit}</span>
-                    <ArrowRight size={15} className={isArabic ? 'rotate-180' : ''} />
+                    <ArrowRight size={15} className="directional-icon" />
                   </>
                 )}
               </button>

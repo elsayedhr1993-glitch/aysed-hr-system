@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useLang } from '../lib/i18n';
 import { DocumentItem, Employee, Company } from '../types';
 import { 
   Scan, Upload, FileText, Search, Trash2, Download, CheckCircle2, AlertCircle,
@@ -62,6 +63,8 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
   onAutoAddEmpFromOCR,
   onNavigateToApp,
 }) => {
+  const { lang: uiLang, t } = useLang();
+  const dir = uiLang === 'ar' ? 'rtl' : 'ltr';
   // Navigation & Search State
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
@@ -431,10 +434,10 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
   };
 
   return (
-    <div className="flex flex-col min-h-[calc(100vh-10rem)] bg-white rounded-xl overflow-hidden shadow-xs border border-slate-200" dir="rtl">
+    <div className="flex flex-col min-h-[calc(100vh-10rem)] bg-white rounded-xl overflow-hidden shadow-xs border border-slate-200" dir={dir} data-ui-surface="scanner">
       
       <PageHeader
-        title="الماسح الذكي"
+        title={t('scanner')}
         subtitle={
           wizardStep === 'type'
             ? 'نوع الوثيقة'

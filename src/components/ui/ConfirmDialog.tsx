@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { tokens } from '../../design/tokens';
+import { useLang } from '../../lib/i18n';
 
 export function ConfirmDialog({
   open,
   title,
   message,
   confirmWord,
-  confirmLabel = 'تأكيد',
-  cancelLabel = 'إلغاء',
+  confirmLabel,
+  cancelLabel,
   onConfirm,
   onCancel,
 }: {
@@ -20,6 +21,9 @@ export function ConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useLang();
+  const confirmText = confirmLabel ?? t('confirm');
+  const cancelText = cancelLabel ?? t('cancel');
   const [typed, setTyped] = useState('');
 
   useEffect(() => {
@@ -89,7 +93,7 @@ export function ConfirmDialog({
               fontWeight: 700,
             }}
           >
-            {cancelLabel}
+            {cancelText}
           </button>
           <button
             type="button"
@@ -106,7 +110,7 @@ export function ConfirmDialog({
               opacity: ready ? 1 : 0.45,
             }}
           >
-            {confirmLabel}
+            {confirmText}
           </button>
         </div>
       </div>

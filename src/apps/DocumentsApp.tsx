@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useLang } from '../lib/i18n';
 import { DocumentItem, Employee, Company } from '../types';
 import { CompanyDocument, getDocumentStatus } from '../types/companyDocuments';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -67,6 +68,8 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
   documentsUiIntent,
   onDocumentsUiIntentConsumed,
 }) => {
+  const { lang: uiLang, t } = useLang();
+  const dir = uiLang === 'ar' ? 'rtl' : 'ltr';
   const resolvedCompanyId = resolveTenantCompanyId(tenantCompanyId, activeCompany?.id);
   const { company: companyForPrint } = useCompanyForPrint(resolvedCompanyId);
 
@@ -316,10 +319,10 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
   };
 
   return (
-    <div className="odoo-app-surface flex flex-col min-h-[calc(100vh-10rem)] bg-white rounded-xl overflow-hidden shadow-xs border border-slate-200 w-full" dir="rtl" data-master-layout="wide">
+    <div className="odoo-app-surface flex flex-col min-h-[calc(100vh-10rem)] bg-white rounded-xl overflow-hidden shadow-xs border border-slate-200 w-full" dir={dir} data-ui-surface="documents" data-master-layout="wide">
       
       <PageHeader
-        title="الأرشيف الرقمي"
+        title={t('documents')}
         subtitle={workspaceTab === 'EMPLOYEE_DOCS' ? 'مستندات الكادر' : 'تراخيص المنشأة'}
         primaryAction={
           workspaceTab === 'EMPLOYEE_DOCS'

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useLang } from '../lib/i18n';
 import { 
   Calendar, 
   CalendarDays, 
@@ -157,6 +158,8 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
   initialMainTab,
   mainTabNavigationKey,
 }) => {
+  const { lang: uiLang, t } = useLang();
+  const dir = uiLang === 'ar' ? 'rtl' : 'ltr';
   const { activeCompany } = useCompany();
   const { company: companyForPrint } = useCompanyForPrint();
   const { employees } = useOdooHierarchy();
@@ -1031,11 +1034,11 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
   }, [requests]);
 
   return (
-    <div className="odoo-app-surface space-y-6 font-sans dir-rtl text-right text-slate-800" dir="rtl">
+    <div className="odoo-app-surface space-y-6 font-sans text-right text-slate-800" dir={dir} data-ui-surface="leaves">
       <PageHeader
-        title="الإجازات"
+        title={t('leaves')}
         subtitle={activeCompany?.nameAr || 'الشركة الرئيسية'}
-        primaryAction={{ label: 'طلب إجازة', onClick: () => setShowApplyModal(true) }}
+        primaryAction={{ label: t('quick_new_leave'), onClick: () => setShowApplyModal(true) }}
         menu={[
           {
             id: 'excel',

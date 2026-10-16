@@ -1,4 +1,5 @@
 import { OdooPdf } from '../services/odooPdfService';
+import { useLang } from '../lib/i18n';
 import React, { useState, useMemo, useEffect } from 'react';
 import { Employee, Company, Contract, EOSCalculation, LeaveRequest } from '../types';
 import { formatKWD } from '../utils/kuwaitLaw';
@@ -36,6 +37,8 @@ export const EOSApp: React.FC<EOSAppProps> = ({
   onSaveEmployee,
   onSaveContract
 }) => {
+  const { lang: uiLang, t } = useLang();
+  const dir = uiLang === 'ar' ? 'rtl' : 'ltr';
   const { company: companyForPrint } = useCompanyForPrint(activeCompany?.id);
   const activeCompId = activeCompany?.id || '';
   let companyEmps = (employees || []).filter(e => !e.isDeleted && e.companyId === activeCompId);
@@ -246,14 +249,14 @@ export const EOSApp: React.FC<EOSAppProps> = ({
   };
 
   return (
-    <div className="p-6 bg-transparent min-h-[calc(100vh-3rem)] dir-rtl text-right">
+    <div className="p-6 bg-transparent min-h-[calc(100vh-3rem)] text-right" dir={dir} data-ui-surface="eos">
       {/* Top Bar Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-200">
         <div>
           <div className="flex items-center gap-2">
             <Scale className="w-6 h-6 text-primary" />
             <h2 className="text-xl font-bold text-slate-800">
-              حاسبة مكافأة نهاية الخدمة وتصفية المستحقات (Kuwait EOS Settlement)
+              {t('screen_eos')}
             </h2>
             <span className="bg-purple-100 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full border border-purple-200">
               المادتان 51 و 53 - قانون العمل الكويتي

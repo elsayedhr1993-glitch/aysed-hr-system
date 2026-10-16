@@ -11,7 +11,7 @@ import {
 import { toast } from 'react-hot-toast';
 import { getFacilityMasterData, FacilityLicenseData, defaultFacilityData } from '../facility/FacilityLicensingWizardModal';
 import { visibleQuickTools } from './quickActionMenu';
-import { useLang } from '../../lib/i18n';
+import { fillMessage, useLang } from '../../lib/i18n';
 import { auth } from '../../lib/firebase';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { GlobalStudioModeToggle } from '../studio/GlobalStudioModeToggle';
@@ -89,7 +89,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
   hideScreenPath = false,
   hiddenQuickActionKeys = [],
 }) => {
-  const { lang, setLang } = useLang();
+  const { lang, setLang, t } = useLang();
   const [showCompanyMenu, setShowCompanyMenu] = useState(false);
   const [showQuickActionsMenu, setShowQuickActionsMenu] = useState(false);
 
@@ -104,8 +104,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
     key: string;
     icon: React.ComponentType<{ size?: number; className?: string }>;
     iconClass: string;
-    labelAr: string;
-    labelEn: string;
+    label: string;
     onClick: () => void;
   };
 
@@ -122,28 +121,25 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
         key: 'new_employee',
         icon: Users,
         iconClass: 'text-primary',
-        labelAr: 'موظف جديد',
-        labelEn: 'New employee',
+        label: t('quick_new_employee'),
         onClick: () => onQuickAction('new_employee'),
       },
       {
         key: 'new_contract',
         icon: Briefcase,
         iconClass: 'text-teal-700',
-        labelAr: 'عقد عمل',
-        labelEn: 'Employment contract',
+        label: t('quick_new_contract'),
         onClick: () => onQuickAction('new_contract'),
       },
       {
         key: 'new_leave',
         icon: Calendar,
         iconClass: 'text-amber-600',
-        labelAr: 'طلب إجازة',
-        labelEn: 'Leave request',
+        label: t('quick_new_leave'),
         onClick: () => onQuickAction('new_leave'),
       },
     ];
-  }, [onQuickAction]);
+  }, [onQuickAction, t]);
 
   /** العمود الأيسر (RTL): الحاسبات والأدوات */
   const toolsColumnItems = useMemo((): QuickMenuItem[] => {
@@ -152,32 +148,28 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
         key: 'calc_eos',
         icon: Scale,
         iconClass: 'text-primary',
-        labelAr: 'مكافأة نهاية الخدمة',
-        labelEn: 'End of service (EOS)',
+        label: t('quick_eos'),
         onClick: () => onOpenCalculator('eos'),
       },
       {
         key: 'calc_leave',
         icon: Calculator,
         iconClass: 'text-amber-600',
-        labelAr: 'تسييل الإجازات',
-        labelEn: 'Leave encashment',
+        label: t('quick_leave_encash'),
         onClick: () => onOpenCalculator('leave'),
       },
       {
         key: 'salary_certificate',
         icon: FileText,
         iconClass: 'text-blue-600',
-        labelAr: 'استخراج شهادة راتب',
-        labelEn: 'Salary certificate',
+        label: t('quick_salary_certificate'),
         onClick: () => onQuickAction('new_letter'),
       },
       {
         key: 'scanner',
         icon: Scan,
         iconClass: 'text-teal-600',
-        labelAr: 'ماسح OCR',
-        labelEn: 'OCR scanner',
+        label: t('scanner'),
         onClick: () => onQuickAction('scanner'),
       },
     ];
@@ -186,17 +178,16 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
         key: 'copilot',
         icon: Sparkles,
         iconClass: 'text-violet-600',
-        labelAr: 'مساعد Copilot',
-        labelEn: 'Copilot assistant',
+        label: t('quick_copilot'),
         onClick: () => onOpenCopilot(),
       });
     }
     return items;
-  }, [onOpenCalculator, onQuickAction, onOpenCopilot]);
+  }, [onOpenCalculator, onQuickAction, onOpenCopilot, t]);
 
-  const renderOdooMenuColumn = (titleAr: string, titleEn: string, items: QuickMenuItem[]) => (
+  const renderOdooMenuColumn = (title: string, items: QuickMenuItem[]) => (
     <div className="flex flex-col min-w-0 max-h-[min(17.5rem,55vh)]">
-      <div className={odooColumnHeaderClass}>{lang === 'ar' ? titleAr : titleEn}</div>
+      <div className={odooColumnHeaderClass}>{title}</div>
       <div className="p-1.5 space-y-0.5 overflow-y-auto flex-1">
         {items.map((item) => (
           <button
@@ -207,7 +198,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
             className={quickMenuItemClass}
           >
             <item.icon size={17} className={`shrink-0 ${item.iconClass}`} />
-            <span className="truncate font-medium">{lang === 'ar' ? item.labelAr : item.labelEn}</span>
+            <span className="truncate font-medium">{item.label}</span>
           </button>
         ))}
       </div>
@@ -427,8 +418,8 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
             className="flex items-center gap-1 bg-white/20 hover:bg-white/30 text-white px-2 py-1 rounded-lg text-xs font-black transition cursor-pointer border border-white/20 shrink-0 shadow-xs"
             title="العودة لشاشة التطبيقات الرئيسية"
           >
-            <ArrowRight size={14} />
-            <span className="hidden sm:inline">{lang === 'ar' ? 'الرئيسية' : 'Home'}</span>
+            <ArrowRight size={14} className="directional-icon" />
+            <span className="hidden sm:inline">{t('home')}</span>
           </button>
         )}
 
@@ -439,7 +430,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
             title="لوحة التطبيقات"
           >
             <span className="text-sm font-black select-none">▦</span>
-            <span className="hidden sm:inline">{lang === 'ar' ? 'التطبيقات' : 'Apps'}</span>
+            <span className="hidden sm:inline">{t('apps')}</span>
           </button>
         )}
 
@@ -457,7 +448,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
             title="لوحة الإدارة العليا والتحكم في النظام"
           >
             <Shield size={13} className="text-amber-400 shrink-0" />
-            <span className="hidden md:inline">{lang === 'ar' ? 'الإدارة العليا' : 'Super Admin'}</span>
+            <span className="hidden md:inline">{t('super_admin_short')}</span>
           </button>
         )}
 
@@ -484,7 +475,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
             >
               <Building2 size={14} className="text-amber-300 shrink-0" />
               <span className="truncate font-black text-white text-[11px] sm:text-[12px]">
-                {activeCompany?.nameAr || activeCompany?.nameEn || (lang === 'ar' ? 'اختر منشأة' : 'Select company')}
+                {activeCompany?.nameAr || activeCompany?.nameEn || t('select_company')}
               </span>
               {(isSuperAdmin || companies.length > 1) && (
                 <ChevronDown
@@ -499,11 +490,11 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
               <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden py-1.5 z-50 text-slate-800 animate-in fade-in slide-in-from-top-2 duration-150">
                 <div className="p-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
                   <div>
-                    <span className="font-black text-xs text-slate-800 block">المنشآت والشركات المرخصة</span>
-                    <span className="text-[10px] text-slate-500">اختر منشأة للتبديل الفوري دون تسجيل خروج</span>
+                    <span className="font-black text-xs text-slate-800 block">{t('header_companies_title')}</span>
+                    <span className="text-[10px] text-slate-500">{t('header_companies_hint')}</span>
                   </div>
                   <span className="text-[10px] bg-purple-100 text-primary font-bold px-2 py-0.5 rounded-full font-mono">
-                    {companies.length} شركات
+                    {fillMessage(t('header_companies_count'), { count: String(companies.length) })}
                   </span>
                 </div>
 
@@ -517,7 +508,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                           onSelectCompany(comp.id);
                           setShowCompanyMenu(false);
                         }}
-                        className={`w-full text-right p-2.5 rounded-xl flex items-center justify-between transition cursor-pointer ${
+                        className={`w-full text-start p-2.5 rounded-xl flex items-center justify-between transition cursor-pointer ${
                           isActive ? 'bg-purple-50 text-primary font-black' : 'hover:bg-slate-50 text-slate-700'
                         }`}
                       >
@@ -534,7 +525,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                         </div>
                         {isActive && (
                           <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded shrink-0 flex items-center gap-0.5">
-                            <Check size={12} /> نشطة
+                            <Check size={12} /> {t('header_active')}
                           </span>
                         )}
                       </button>
@@ -552,7 +543,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                       className="w-full bg-primary hover:bg-[#5a3a52] text-white py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                     >
                       <Plus size={14} />
-                      <span>+ إضافة منشأة ومشترك جديد</span>
+                      <span>{t('header_add_company')}</span>
                     </button>
                   </div>
                 )}
@@ -564,7 +555,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
         {/* عنوان الشاشة الحالية — يُخفى عندما تعرض الصفحة مسارها */}
         {!hideScreenPath && (
           <div className="hidden lg:flex items-center gap-2 text-white/90 text-xs font-bold border-r border-white/20 pr-2.5 mr-1 min-w-0 max-w-[min(100%,22rem)]">
-            <span className="text-white/70 font-normal shrink-0">{lang === 'ar' ? 'المسار:' : 'Path:'}</span>
+            <span className="text-white/70 font-normal shrink-0">{t('path_label')}</span>
             <span className="text-white font-black leading-tight line-clamp-2 lg:line-clamp-1" title={getActiveAppTitle()}>
               {getActiveAppTitle()}
             </span>
@@ -585,8 +576,8 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
             <span className="flex items-center justify-center w-6 h-6 rounded-md bg-white/15 border border-white/20 shrink-0 group-hover:bg-white/25 transition-colors">
               <Search size={14} className="text-white group-hover:text-white shrink-0" strokeWidth={2.25} />
             </span>
-            <span className="text-[11px] truncate font-medium hidden lg:inline">{lang === 'ar' ? 'بحث في الموظفين، العقود، أو التطبيقات...' : 'Search employees, contracts, or apps...'}</span>
-            <span className="text-[11px] truncate font-medium lg:hidden">{lang === 'ar' ? 'بحث سريع...' : 'Quick search...'}</span>
+            <span className="text-[11px] truncate font-medium hidden lg:inline">{t('search_hint')}</span>
+            <span className="text-[11px] truncate font-medium lg:hidden">{t('search_quick')}</span>
           </div>
           <div className="flex items-center gap-0.5 text-[9px] font-mono bg-white/20 px-1.5 py-0.5 rounded text-white/95 border border-white/10 shrink-0">
             Ctrl+K
@@ -605,7 +596,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
           title="تبديل اللغة بين العربية والإنجليزية"
         >
           <span className="font-mono">{lang === 'ar' ? 'AR' : 'EN'}</span>
-          <span className="hidden lg:inline">{lang === 'ar' ? 'العربية' : 'English'}</span>
+          <span className="hidden lg:inline">{lang === 'ar' ? t('lang_name_ar') : t('lang_name_en')}</span>
         </button>
 
         <div className="relative shrink-0" ref={quickActionsMenuRef}>
@@ -615,7 +606,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
             title="إجراءات سريعة وحاسبات HR"
           >
             <Plus size={14} />
-            <span className="hidden md:inline">{lang === 'ar' ? '+ إجراء' : '+ Action'}</span>
+            <span className="hidden md:inline">{t('new_action')}</span>
           </button>
 
           {showQuickActionsMenu && (
@@ -626,13 +617,11 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
             >
               <div className="flex flex-col divide-y divide-slate-200">
                 {renderOdooMenuColumn(
-                  'إنشاء',
-                  'Create',
+                  t('menu_create'),
                   operationsColumnItems.filter((item) => !hiddenQuickActionKeys.includes(item.key))
                 )}
                 {renderOdooMenuColumn(
-                  'أدوات',
-                  'Tools',
+                  t('menu_tools'),
                   visibleQuickTools(toolsColumnItems, payrollToolsAllowed)
                 )}
               </div>
@@ -828,7 +817,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                   }}
                   className="text-xs font-bold text-slate-600 hover:underline cursor-pointer"
                 >
-                  شؤون الموظفين والسجلات
+                  {t('nav_employee_records')}
                 </button>
               </div>
             </div>
@@ -863,11 +852,11 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                 alt="Admin Avatar" 
                 className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-full object-cover border-2 border-white/90 shadow-xs"
               />
-              <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-400 rounded-full border border-primary" title="متصل الآن بالسحابة"></span>
+              <span className="absolute bottom-0 end-0 w-2 h-2 bg-emerald-400 rounded-full border border-primary" title="متصل الآن بالسحابة"></span>
             </div>
-            <div className="text-right hidden xl:block shrink-0">
+            <div className="text-start hidden xl:block shrink-0">
               <span className="block text-[11px] font-black text-white truncate max-w-[80px]">
-                {isSuperAdmin ? 'السيد' : 'المسؤول'}
+                {isSuperAdmin ? t('header_you_owner') : t('header_you_admin')}
               </span>
             </div>
           </button>
@@ -880,7 +869,7 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                 onClick={() => setShowUserMenu(false)}
               ></div>
 
-              <div className="absolute top-full right-0 sm:right-auto sm:left-0 mt-2 w-80 max-h-[85vh] overflow-y-auto bg-white rounded-2xl shadow-2xl border border-slate-200 py-1 z-[150] animate-in fade-in slide-in-from-top-2 duration-150 text-slate-800 dir-rtl">
+              <div className="absolute top-full end-0 sm:end-auto sm:start-0 mt-2 w-80 max-h-[85vh] overflow-y-auto bg-white rounded-2xl shadow-2xl border border-slate-200 py-1 z-[150] animate-in fade-in slide-in-from-top-2 duration-150 text-slate-800">
               {/* بطاقة معلومات الحساب */}
               <div className="px-4 py-3.5 border-b border-slate-100 bg-gradient-to-br from-purple-50/80 via-slate-50 to-white flex items-center gap-3">
                 <div className="relative shrink-0">
@@ -889,18 +878,18 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                     alt="User Avatar" 
                     className="w-11 h-11 rounded-full object-cover border-2 border-primary shadow-sm shrink-0"
                   />
-                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white" title="نشط الآن"></span>
+                  <span className="absolute bottom-0 end-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white" title="نشط الآن"></span>
                 </div>
                 <div className="overflow-hidden flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
                     <p className="text-xs font-bold text-slate-900 truncate">
-                      {isSuperAdmin ? 'السيد (المدير العام)' : 'حساب المسؤول'}
+                      {isSuperAdmin ? t('header_account_owner') : t('header_account_admin')}
                     </p>
                   </div>
                   <p className="text-[11px] text-slate-500 truncate font-mono">{user?.email || 'elsayedhr1993@gmail.com'}</p>
                   <div className="flex items-center gap-1 mt-1">
                     <span className="inline-flex items-center text-[9px] bg-purple-100 text-primary font-bold px-2 py-0.5 rounded-md">
-                      {isSuperAdmin ? 'مدير النظام (Super Admin)' : 'مدير الموارد البشرية'}
+                      {isSuperAdmin ? t('header_role_owner') : t('header_role_hr')}
                     </span>
                   </div>
                 </div>
@@ -908,22 +897,22 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
 
               {/* قسم الملف الشخصي */}
               <div className="p-1.5">
-                <p className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">الملف الشخصي والحساب</p>
+                <p className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('header_profile_section')}</p>
                 
                 <button 
                   onClick={() => {
                     setShowAvatarModal(true);
                     setShowUserMenu(false);
                   }}
-                  className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100/80 hover:text-primary transition flex items-center justify-between cursor-pointer rounded-xl group"
+                  className="w-full text-start px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100/80 hover:text-primary transition flex items-center justify-between cursor-pointer rounded-xl group"
                 >
                   <div className="flex items-center gap-2.5">
                     <div className="w-7 h-7 rounded-lg bg-purple-50 text-primary flex items-center justify-center group-hover:bg-purple-100 transition">
                       <UserCircle size={15} />
                     </div>
-                    <span>تعديل الصورة الشخصية</span>
+                    <span>{t('header_edit_photo')}</span>
                   </div>
-                  <span className="text-[10px] text-slate-400">تغيير</span>
+                  <span className="text-[10px] text-slate-400">{t('header_change')}</span>
                 </button>
 
                 <button
@@ -931,15 +920,15 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                     await handlePasswordResetRequest();
                     setShowUserMenu(false);
                   }}
-                  className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100/80 hover:text-primary transition flex items-center justify-between cursor-pointer rounded-xl group"
+                  className="w-full text-start px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100/80 hover:text-primary transition flex items-center justify-between cursor-pointer rounded-xl group"
                 >
                   <div className="flex items-center gap-2.5">
                     <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center group-hover:bg-blue-100 transition">
                       <Key size={15} />
                     </div>
-                    <span>تغيير كلمة المرور</span>
+                    <span>{t('header_change_password')}</span>
                   </div>
-                  <span className="text-[10px] text-slate-400">رابط آمن</span>
+                  <span className="text-[10px] text-slate-400">{t('header_secure_link')}</span>
                 </button>
               </div>
 
@@ -948,20 +937,20 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                 <>
                   <div className="h-px bg-slate-100 my-1 mx-2"></div>
                   <div className="p-1.5">
-                    <p className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">الإدارة المركزية (SaaS)</p>
+                    <p className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('header_saas_section')}</p>
 
                     <button 
                       onClick={() => { 
                         setActiveApp('saas_admin'); 
                         setShowUserMenu(false); 
                       }}
-                      className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100/80 hover:text-primary transition flex items-center justify-between cursor-pointer rounded-xl group"
+                      className="w-full text-start px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100/80 hover:text-primary transition flex items-center justify-between cursor-pointer rounded-xl group"
                     >
                       <div className="flex items-center gap-2.5">
                         <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center group-hover:bg-emerald-100 transition">
                           <Shield size={15} />
                         </div>
-                        <span>لوحة التحكم المركزية والشركات</span>
+                        <span>{t('header_companies_panel')}</span>
                       </div>
                       <span className="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded">SaaS</span>
                     </button>
@@ -971,13 +960,13 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                         setActiveApp('audit'); 
                         setShowUserMenu(false); 
                       }}
-                      className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100/80 hover:text-primary transition flex items-center justify-between cursor-pointer rounded-xl group"
+                      className="w-full text-start px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100/80 hover:text-primary transition flex items-center justify-between cursor-pointer rounded-xl group"
                     >
                       <div className="flex items-center gap-2.5">
                         <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center group-hover:bg-blue-100 transition">
                           <Layers size={15} />
                         </div>
-                        <span>سجل الرقابة وتتبع العمليات</span>
+                        <span>{t('audit_log')}</span>
                       </div>
                       <span className="text-[10px] text-slate-400">Audit</span>
                     </button>
@@ -993,12 +982,12 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                     logout(); 
                     setShowUserMenu(false); 
                   }}
-                  className="w-full text-right px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition flex items-center gap-2.5 cursor-pointer rounded-xl"
+                  className="w-full text-start px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition flex items-center gap-2.5 cursor-pointer rounded-xl"
                 >
                   <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
                     <LogOut size={15} />
                   </div>
-                  <span>تسجيل الخروج الآمن</span>
+                  <span>{t('header_secure_logout')}</span>
                 </button>
               </div>
             </div>

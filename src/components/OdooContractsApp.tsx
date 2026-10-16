@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useLang } from '../lib/i18n';
 import { MaskedValue } from './ui/MaskedValue';
 import { PageHeader } from './ui/PageHeader';
 import { DataTable, type DataTableColumn } from './ui/DataTable';
@@ -123,6 +124,8 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
   focusEmployeeId,
   onFocusConsumed,
 }) => {
+  const { lang: uiLang } = useLang();
+  const dir = uiLang === 'ar' ? 'rtl' : 'ltr';
   const { user } = useAuth();
   const showContractWages = canReadPayroll(user?.role);
   const { employees, updateContractSalary, updateContractDetails } = useOdooHierarchy();
@@ -849,7 +852,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
   ];
 
   return (
-    <div className="odoo-app-surface contracts-print-root space-y-6 text-right font-sans dir-rtl text-slate-800" dir="rtl">
+    <div className="odoo-app-surface contracts-print-root space-y-6 text-right font-sans text-slate-800" dir={dir} data-ui-surface="contracts">
       
       {/* 1. Header Banner & Action Toolbar */}
       <PageHeader

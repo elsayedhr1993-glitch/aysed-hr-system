@@ -9,7 +9,7 @@ import type { LucideIcon } from 'lucide-react';
 import { ActiveApp, Company } from '../types';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { useLang } from '../lib/i18n';
+import { DICTIONARY, useLang } from '../lib/i18n';
 import { useEffectiveTenantCompanyId } from '../hooks/useEffectiveTenantCompanyId';
 import { isQueryableTenantCompanyId } from '../utils/tenantCompanyId';
 import { useAuth } from '../context/AuthContext';
@@ -369,20 +369,16 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
       ? [
           {
             key: 'work-policies',
-            title: locale === 'ar' ? 'سياسات العمل' : 'Work policies',
-            description: locale === 'ar'
-              ? 'العطلات، أرصدة الإجازات، ومسير حماية الأجور'
-              : 'Holidays, leave balances, and WPS rules',
+            title: locale === 'ar' ? DICTIONARY.launcher_policies.ar : DICTIONARY.launcher_policies.en,
+            description: locale === 'ar' ? DICTIONARY.launcher_policies_desc.ar : DICTIONARY.launcher_policies_desc.en,
             icon: Scale,
             badge: '',
             open: () => onCompanySetupAction?.({ type: 'settings', section: 'leaves' }),
           },
           {
             key: 'licenses',
-            title: locale === 'ar' ? 'التراخيص' : 'Licences',
-            description: locale === 'ar'
-              ? 'أرشيف تراخيص المنشأة'
-              : 'Company licence archive',
+            title: locale === 'ar' ? DICTIONARY.launcher_licenses.ar : DICTIONARY.launcher_licenses.en,
+            description: locale === 'ar' ? DICTIONARY.launcher_licenses_desc.ar : DICTIONARY.launcher_licenses_desc.en,
             icon: Landmark,
             badge: '',
             open: () => {
@@ -406,58 +402,58 @@ export const OdooAppLauncher: React.FC<OdooAppLauncherProps> = ({
     }> = [
       {
         id: 'people',
-        titleAr: 'الموظفون',
-        titleEn: 'People',
-        hintAr: 'شؤون الموظفين، عقود العمل، والعهد',
-        hintEn: 'Employees, contracts, and custody',
+        titleAr: DICTIONARY.group_people.ar,
+        titleEn: DICTIONARY.group_people.en,
+        hintAr: DICTIONARY.group_people_hint.ar,
+        hintEn: DICTIONARY.group_people_hint.en,
         icon: Users,
       },
       {
         id: 'recruitment',
-        titleAr: 'التوظيف',
-        titleEn: 'Recruitment',
+        titleAr: DICTIONARY.group_recruitment.ar,
+        titleEn: DICTIONARY.group_recruitment.en,
         hintAr: '',
         hintEn: '',
         icon: UserPlus,
       },
       {
         id: 'time',
-        titleAr: 'الوقت',
-        titleEn: 'Time',
-        hintAr: 'الحضور، الإجازات، والعطلات الرسمية',
-        hintEn: 'Attendance, time off, and public holidays',
+        titleAr: DICTIONARY.group_time.ar,
+        titleEn: DICTIONARY.group_time.en,
+        hintAr: DICTIONARY.group_time_hint.ar,
+        hintEn: DICTIONARY.group_time_hint.en,
         icon: Clock,
       },
       {
         id: 'payroll',
-        titleAr: 'الرواتب وحماية الأجور',
-        titleEn: 'Payroll & WPS',
+        titleAr: DICTIONARY.payroll.ar,
+        titleEn: DICTIONARY.payroll.en,
         hintAr: '',
         hintEn: '',
         icon: Banknote,
       },
       {
         id: 'documents',
-        titleAr: 'المستندات',
-        titleEn: 'Documents',
-        hintAr: 'الأرشيف، القوالب، والماسح الذكي',
-        hintEn: 'Archive, templates, and the smart scanner',
+        titleAr: DICTIONARY.documents.ar,
+        titleEn: DICTIONARY.documents.en,
+        hintAr: DICTIONARY.group_documents_hint.ar,
+        hintEn: DICTIONARY.group_documents_hint.en,
         icon: FolderKanban,
       },
       {
         id: 'reports',
-        titleAr: 'التقارير',
-        titleEn: 'Reports',
+        titleAr: DICTIONARY.reports.ar,
+        titleEn: DICTIONARY.reports.en,
         hintAr: '',
         hintEn: '',
         icon: BarChart3,
       },
       {
         id: 'admin',
-        titleAr: 'الإدارة',
-        titleEn: 'Administration',
-        hintAr: 'سجل الرقابة، سياسات العمل، والتراخيص',
-        hintEn: 'Audit log, work policies, and licences',
+        titleAr: DICTIONARY.group_admin.ar,
+        titleEn: DICTIONARY.group_admin.en,
+        hintAr: DICTIONARY.group_admin_hint.ar,
+        hintEn: DICTIONARY.group_admin_hint.en,
         icon: ShieldCheck,
         adminOnly: true,
         extras: adminExtras,

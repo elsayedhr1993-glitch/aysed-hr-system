@@ -224,7 +224,7 @@ export const OdooPamContractModal: React.FC<Props> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/75 backdrop-blur-xs z-50 flex items-center justify-center p-2 sm:p-4 dir-rtl text-slate-800 text-xs select-none" dir="rtl">
+    <div className="official-ar-document fixed inset-0 bg-slate-900/75 backdrop-blur-xs z-50 flex items-center justify-center p-2 sm:p-4 text-slate-800 text-xs select-none" dir="rtl">
       <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-6xl h-[94vh] flex flex-col overflow-hidden">
         
         {/* Header */}

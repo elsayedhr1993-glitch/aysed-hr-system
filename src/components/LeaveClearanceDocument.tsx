@@ -3,7 +3,7 @@ import React from 'react';
 import { AysedSettlementOutput } from '../services/leaveSettlementService';
 import { UniversalSettlementResult, UniversalSettlementItem, Company } from '../types';
 import { safePrintAction } from '../guards/SystemIntegrityGuard';
-import { useLang } from '../lib/i18n';
+import { DICTIONARY } from '../lib/i18n';
 import { OfficialA4CompanyLetterheadCompact } from './print/OfficialA4CompanyLetterhead';
 import { formatLeaveScopeLabel, normalizeLeaveScope } from '../utils/leaveScopeAccrual';
 import { MaskedValue } from './security/MaskedValue';
@@ -38,9 +38,10 @@ export const LeaveClearanceDocument: React.FC<Props> = ({
   settlementDate,
   items: propItems
 }) => {
-  const { lang, t } = useLang();
-  const direction = lang === 'ar' ? 'rtl' : 'ltr';
-  const textAlignClass = lang === 'ar' ? 'text-right' : 'text-left';
+  const lang = 'ar' as const;
+  const t = (key: string) => DICTIONARY[key]?.ar || key;
+  const direction = 'rtl' as const;
+  const textAlignClass = 'text-right';
   const isUniversal = 'items' in settlement || (propItems && propItems.length > 0);
   const items: UniversalSettlementItem[] = (settlement as any).items || propItems || [];
 
@@ -86,7 +87,7 @@ export const LeaveClearanceDocument: React.FC<Props> = ({
   const returnDate = (settlement as any).returnDate as string | undefined;
 
   return (
-    <div className={`odoo-report-sheet w-full max-w-4xl mx-auto bg-white p-8 sm:p-10 border border-gray-300 shadow-sm print:shadow-none print:border-none print:p-0 font-['Tajawal','Cairo',sans-serif] text-slate-800 ${textAlignClass} leading-normal`} dir={direction}>
+    <div className={`official-ar-document odoo-report-sheet w-full max-w-4xl mx-auto bg-white p-8 sm:p-10 border border-gray-300 shadow-sm print:shadow-none print:border-none print:p-0 font-['Tajawal','Cairo',sans-serif] text-slate-800 ${textAlignClass} leading-normal`} dir={direction}>
       
       <div className="mb-6">
         <OfficialA4CompanyLetterheadCompact

@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { tokens } from '../../design/tokens';
-import { formatMoneyOrDash, formatTableNumber, selectColumns } from './phase6Logic';
+import { useLang } from '../../lib/i18n';
+import { formatKwdUiOrDash } from '../../lib/localeFormat';
+import { formatTableNumber, selectColumns } from './phase6Logic';
 
 export type DataTableColumn<Row> = {
   id: string;
@@ -20,7 +22,7 @@ export type DataTableEmpty = {
 
 function displayValue<Row>(column: DataTableColumn<Row>, raw: ReactNode | number | null | undefined): ReactNode {
   if (typeof raw !== 'number') return raw ?? '';
-  return column.money ? formatMoneyOrDash(raw) : formatTableNumber(raw);
+  return column.money ? formatKwdUiOrDash(raw) : formatTableNumber(raw);
 }
 
 export function DataTable<Row>({
@@ -36,6 +38,7 @@ export function DataTable<Row>({
   pageSize?: number;
   empty: DataTableEmpty;
 }) {
+  const { t } = useLang();
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(() => new Set());
   const [page, setPage] = useState(0);
   const signature = rows.map((row) => rowKey(row)).join('\0');
@@ -177,10 +180,10 @@ export function DataTable<Row>({
                 const text =
                   typeof total === 'number'
                     ? column.money
-                      ? formatMoneyOrDash(total)
+                      ? formatKwdUiOrDash(total)
                       : formatTableNumber(total)
                     : index === 0
-                      ? 'الإجمالي'
+                      ? t('total')
                       : '';
                 return (
                   <td

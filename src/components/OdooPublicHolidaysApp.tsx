@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useLang } from '../lib/i18n';
 import { 
   Calendar, 
   Sparkles, 
@@ -93,6 +94,8 @@ export type { PublicHoliday, HolidayDutyAssignment } from './holidays/holidayTyp
 import type { PublicHoliday, HolidayDutyAssignment } from './holidays/holidayTypes';
 
 export const OdooPublicHolidaysApp: React.FC = () => {
+  const { lang: uiLang, t } = useLang();
+  const dir = uiLang === 'ar' ? 'rtl' : 'ltr';
   const { activeCompany } = useCompany();
   const { company: companyForPrint } = useCompanyForPrint();
   const { employees } = useOdooHierarchy();
@@ -435,10 +438,10 @@ export const OdooPublicHolidaysApp: React.FC = () => {
   };
 
   return (
-    <div className="space-y-5 font-sans dir-rtl text-right text-slate-800 animate-fade-in" dir="rtl">
+    <div className="space-y-5 font-sans text-right text-slate-800 animate-fade-in" dir={dir} data-ui-surface="holidays">
       
       <PageHeader
-        title="العطلات وبدلات المادة 68"
+        title={t('screen_holidays_page')}
         subtitle={activeCompany?.nameAr || 'الشركة الرئيسية'}
         primaryAction={{ label: 'عطلة جديدة', onClick: () => setShowCabinetModal(true) }}
         menu={[

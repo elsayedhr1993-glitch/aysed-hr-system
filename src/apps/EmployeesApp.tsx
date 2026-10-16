@@ -1,4 +1,5 @@
 import { tokens } from '../design/tokens';
+import { useLang } from '../lib/i18n';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { 
   Users, Clock, Stethoscope, AlertTriangle, X, FileText, Printer, Calendar, 
@@ -317,6 +318,8 @@ export const calculateEmployeeTotalSalary = (emp: any): number => {
 };
 
 export function EmployeesApp(props?: any) {
+  const { lang: uiLang } = useLang();
+  const dir = uiLang === 'ar' ? 'rtl' : 'ltr';
   const { activeCompany } = useCompany();
   const currentCompanyId = useEffectiveTenantCompanyId();
   const tenantCompanyId = normalizeTenantCompanyId(currentCompanyId) || currentCompanyId;
@@ -1445,7 +1448,7 @@ export function EmployeesApp(props?: any) {
   }, [activeTab, selectedEmployee, props?.onEmployeesChromeState]);
 
   return (
-    <div className="flex-1 flex flex-col w-full font-sans select-none text-slate-800 min-h-0" dir="rtl">
+    <div className="flex-1 flex flex-col w-full font-sans select-none text-slate-800 min-h-0" dir={dir} data-ui-surface="employees">
 
       {selectedEmployee && activeTab === 'directory' ? (
         <OdooEmployeeDetailView

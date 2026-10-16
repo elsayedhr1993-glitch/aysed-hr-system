@@ -62,7 +62,7 @@ ${companyName}
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-2xs flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto animate-fade-in">
-      <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 text-xs my-6 text-right font-sans" dir="rtl">
+      <div className="official-ar-document bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 text-xs my-6 text-right font-sans" dir="rtl">
         
         {/* Header */}
         <div className="flex items-center justify-between border-b pb-4 mb-4">

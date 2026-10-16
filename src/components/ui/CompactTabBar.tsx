@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, MoreHorizontal } from 'lucide-react';
+import { useLang } from '../../lib/i18n';
 
 export interface CompactTabItem {
   id: string;
@@ -29,8 +30,10 @@ export const CompactTabBar: React.FC<CompactTabBarProps> = ({
   onTabChange,
   onMoreChange,
   onMoreMenuOpenChange,
-  moreLabel = 'المزيد',
+  moreLabel,
 }) => {
+  const { t } = useLang();
+  const moreText = moreLabel ?? t('more');
   const [moreOpen, setMoreOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<{ top: number; left: number } | null>(null);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
@@ -155,7 +158,7 @@ export const CompactTabBar: React.FC<CompactTabBarProps> = ({
             }`}
           >
             <MoreHorizontal size={15} />
-            <span>{moreLabel}</span>
+            <span>{moreText}</span>
             <ChevronDown size={13} className={`text-slate-400 transition ${moreOpen ? 'rotate-180' : ''}`} />
           </button>
         </div>

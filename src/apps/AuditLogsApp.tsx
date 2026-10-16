@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useLang } from '../lib/i18n';
 import { AuditLog, Company, LeaveRequest, AttendanceRecord, Payslip, GeneratedDocument, DocumentItem, DocumentTemplate } from '../types';
 import { ShieldCheck, Search, History, ArrowLeft, ArrowRight, Activity, Download } from 'lucide-react';
 import { buildAuthedJsonHeaders } from '../lib/clientAuth';
@@ -79,6 +80,8 @@ function labelOf(map: Record<string, string>, key: string): string {
 }
 
 export const AuditLogsApp: React.FC<AuditLogsAppProps> = () => {
+  const { lang: uiLang, t } = useLang();
+  const dir = uiLang === 'ar' ? 'rtl' : 'ltr';
   const [tab, setTab] = useState<'logs' | 'system'>('logs');
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -198,7 +201,7 @@ export const AuditLogsApp: React.FC<AuditLogsAppProps> = () => {
   };
 
   return (
-    <div className="space-y-5 font-sans text-slate-800" dir="rtl">
+    <div className="space-y-5 font-sans text-slate-800" dir={dir} data-ui-surface="audit">
       {persistence === 'memory' ? (
         <div className="bg-amber-100 text-amber-950 text-xs font-bold px-4 py-2 rounded-lg border border-amber-300">
           سجل الرقابة في ذاكرة هذه العملية فقط. التشغيل محلي بدون المحاكي، والأحداث تختفي عند إعادة تشغيل الخادم.
@@ -213,7 +216,7 @@ export const AuditLogsApp: React.FC<AuditLogsAppProps> = () => {
         <div>
           <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-primary" />
-            <span>سجل الرقابة</span>
+            <span>{t('audit_log')}</span>
           </h2>
           <p className="text-xs text-slate-500 mt-1">
             {scope === 'platform' ? 'سجل المنصة' : 'سجل المنشأة الحالية'} — آخر 7 أيام ما لم تُغيّر الفترة

@@ -76,12 +76,30 @@ html, body, #root {
     text-align: left !important;
   }
 
-  html[dir='ltr'] .justify-end {
+  html[dir='ltr'] .justify-start {
     justify-content: flex-start !important;
   }
 
-  html[dir='ltr'] .justify-start {
-    justify-content: flex-start !important;
+  /* Official contracts, notices, clearances, and payslips stay RTL in either UI language. */
+  html[dir='ltr'] .official-ar-document,
+  html[dir='ltr'] .official-ar-document[dir='rtl'],
+  html[dir='ltr'] .odoo-report-sheet,
+  html[dir='ltr'] .odoo-report-sheet[dir='rtl'],
+  html[dir='ltr'] .printable-document,
+  html[dir='ltr'] .printable-modal-sheet {
+    direction: rtl !important;
+    text-align: right !important;
+  }
+
+  html[dir='ltr'] .official-ar-document .text-right,
+  html[dir='ltr'] .odoo-report-sheet .text-right,
+  html[dir='ltr'] .printable-document .text-right,
+  html[dir='ltr'] .printable-modal-sheet .text-right {
+    text-align: right !important;
+  }
+
+  html[dir='rtl'] .directional-icon {
+    transform: scaleX(-1);
   }
 }
 

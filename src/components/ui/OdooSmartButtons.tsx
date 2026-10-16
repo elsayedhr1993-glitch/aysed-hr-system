@@ -1,5 +1,6 @@
 import React from 'react';
 import { LucideIcon } from 'lucide-react';
+import { useLang } from '../../lib/i18n';
 
 export interface SmartButtonStat {
   id: string;
@@ -18,6 +19,7 @@ interface OdooSmartButtonsProps {
 }
 
 export const OdooSmartButtons: React.FC<OdooSmartButtonsProps> = ({ stats, variant = 'default' }) => {
+  const { t } = useLang();
   const getColorClasses = (theme?: string) => {
     switch (theme) {
       case 'emerald':
@@ -55,9 +57,8 @@ export const OdooSmartButtons: React.FC<OdooSmartButtonsProps> = ({ stats, varia
     return (
       <div
         className="flex flex-wrap items-stretch justify-start gap-2 max-w-full sm:max-w-[min(100%,42rem)] shrink-0"
-        dir="rtl"
         role="toolbar"
-        aria-label="أزرار ذكية"
+        aria-label={t('smart_buttons')}
         data-smart-buttons-layout="oe_button_box"
       >
         {stats.map((stat) => {
@@ -72,7 +73,7 @@ export const OdooSmartButtons: React.FC<OdooSmartButtonsProps> = ({ stats, varia
               <div className={`p-1.5 rounded-md bg-white shadow-xs border border-slate-100 shrink-0 ${getIconColor(stat.colorTheme)}`}>
                 <IconComponent className="w-3.5 h-3.5" />
               </div>
-              <div className="text-right flex flex-col min-w-0">
+              <div className="text-start flex flex-col min-w-0">
                 <span className="font-mono font-bold text-[11px] tracking-tight text-slate-900 leading-tight truncate max-w-[7rem]">
                   {stat.value}
                 </span>
@@ -98,9 +99,8 @@ export const OdooSmartButtons: React.FC<OdooSmartButtonsProps> = ({ stats, varia
       <div
         className="grid gap-1.5 w-full min-w-0 py-1 flex-nowrap"
         style={{ gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))` }}
-        dir="rtl"
         role="toolbar"
-        aria-label="أزرار ذكية"
+        aria-label={t('smart_buttons')}
         data-smart-buttons-layout={`toolbar-grid-${colCount}`}
       >
         {stats.map((stat) => {
@@ -134,7 +134,7 @@ export const OdooSmartButtons: React.FC<OdooSmartButtonsProps> = ({ stats, varia
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-3 py-2" dir="rtl">
+    <div className="flex flex-wrap items-center gap-3 py-2">
       {stats.map((stat) => {
         const IconComponent = stat.icon;
         return (
@@ -148,7 +148,7 @@ export const OdooSmartButtons: React.FC<OdooSmartButtonsProps> = ({ stats, varia
               <IconComponent className="w-4 h-4" />
             </div>
 
-            <div className="text-right flex flex-col min-w-[70px]">
+            <div className="text-start flex flex-col min-w-[70px]">
               <span className="font-mono font-bold text-sm tracking-tight text-slate-900 leading-tight">
                 {stat.value}
               </span>

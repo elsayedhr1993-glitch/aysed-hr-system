@@ -1,4 +1,6 @@
 import { tokens } from '../../design/tokens';
+import { useLang } from '../../lib/i18n';
+import { formatKwdUiOrDash } from '../../lib/localeFormat';
 import { formatStatValue } from './phase6Logic';
 
 export type StatItem = {
@@ -17,10 +19,11 @@ export function StatStrip({
   activeId?: string;
   onSelect: (id: string) => void;
 }) {
+  const { t } = useLang();
   return (
     <div
       role="toolbar"
-      aria-label="ملخص الأرقام"
+      aria-label={t('summary')}
       className="flex flex-nowrap overflow-x-auto border-b bg-white"
       style={{
         paddingInline: tokens.space[3],
@@ -54,7 +57,7 @@ export function StatStrip({
               className="block font-bold tabular-nums"
               style={{ color: tokens.color.gray[900], fontSize: tokens.text.sm }}
             >
-              {formatStatValue(item.value, item.kind)}
+              {item.kind === 'money' ? formatKwdUiOrDash(item.value) : formatStatValue(item.value)}
             </span>
           </button>
         );
