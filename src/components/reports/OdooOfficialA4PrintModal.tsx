@@ -15,6 +15,7 @@ import {
   Briefcase
 } from 'lucide-react';
 import { OdooPdf } from '../../services/odooPdfService';
+import { reportAudit } from '../../services/auditClient';
 import { exportToExcel } from '../../utils/exportUtils';
 import { MedicalEmployeeAnalyticsRecord, ReportCategory } from '../OdooReportsApp';
 import type { Company } from '../../types';
@@ -65,6 +66,12 @@ export const OdooOfficialA4PrintModal: React.FC<OdooOfficialA4PrintModalProps> =
 
   const handlePrint = async () => {
     await OdooPdf.report.print('odoo-official-report-a4-sheet', `${reportTitle} - ${selectedMonth}`);
+    void reportAudit({
+      action: 'export',
+      entityType: 'report',
+      entityId: reportRef || reportTitle,
+      after: { format: 'pdf', report: reportCategory, period: selectedMonth },
+    });
   };
 
   const handleExport = () => {

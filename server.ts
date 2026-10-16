@@ -44,6 +44,7 @@ import {
 } from "./server/deviceRegistry.ts";
 import { newTenantCredentials, registerAuthRoutes } from "./server/authRoutes.ts";
 import { registerAuditRoutes } from "./server/auditRoutes.ts";
+import { registerReportsAccessRoute } from "./server/reportsAccessRoute.ts";
 import { recordAuditEvent, requestIp } from "./server/auditLog.ts";
 import {
   getAdminApp,
@@ -165,6 +166,7 @@ app.use(createTenantScopeMiddleware({
 }));
 registerAuthRoutes(app);
 registerAuditRoutes(app);
+registerReportsAccessRoute(app);
 
 let supabaseAdminClient: any = null;
 function getSupabaseAdmin() {

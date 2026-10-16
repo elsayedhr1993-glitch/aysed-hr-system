@@ -28,6 +28,12 @@ import { useCompany } from '../context/CompanyContext';
 import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
 import { useOdooHierarchy } from '../context/OdooHierarchyContext';
 import { exportToExcel } from '../utils/exportUtils';
+import { buildAuthedJsonHeaders } from '../lib/clientAuth';
+import { PageHeader } from './ui/PageHeader';
+import { StatStrip, type StatItem } from './ui/StatStrip';
+import { FilterBar } from './ui/FilterBar';
+import { tokens } from '../design/tokens';
+import { isPayrollReport, reportMonthOptions, visibleReportIds } from './reports/reportsAccess';
 import { OdooOfficialA4PrintModal } from './reports/OdooOfficialA4PrintModal';
 import { UiStudioReportHeadRow } from './studio/UiStudioReportHeadRow';
 import { UiStudioTableCell } from './studio/UiStudioTableCell';
@@ -190,6 +196,31 @@ export const OdooReportsApp: React.FC = () => {
   const [complianceFilter, setComplianceFilter] = useState('ALL');
   const [selectedPeriodMonth, setSelectedPeriodMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [isA4ModalOpen, setIsA4ModalOpen] = useState(false);
+  const [chartsOpen, setChartsOpen] = useState(false);
+  const [payrollAllowed, setPayrollAllowed] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      try {
+        const headers = await buildAuthedJsonHeaders();
+        const response = await fetch('/api/reports/access', { headers });
+        const payload = await response.json().catch(() => ({}));
+        if (live) setPayrollAllowed(response.ok && payload?.payroll === true);
+      } catch {
+        if (live) setPayrollAllowed(false);
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!payrollAllowed && isPayrollReport(activeReport)) {
+      setActiveReport('gov_compliance');
+    }
+  }, [payrollAllowed, activeReport]);
 
   const companyDisplayName = activeCompany?.nameAr || activeCompany?.name || '';
   const companyCivilId =
@@ -571,6 +602,7 @@ export const OdooReportsApp: React.FC = () => {
 
   // دالة تصدير ملفات Excel (.xlsx / CSV) مع كامل دعم العربية
   const handleExportExcel = () => {
+    if (isPayrollReport(activeReport) && !payrollAllowed) return;
     let exportRecords: Record<string, any>[] = [];
     const reportTitle = getReportTitle(activeReport);
 
@@ -654,6 +686,34 @@ export const OdooReportsApp: React.FC = () => {
     exportToExcel(exportRecords, `تقرير_${reportTitle}_${selectedPeriodMonth}.xlsx`, reportTitle.slice(0, 30));
   };
 
+  const visibleReports = visibleReportIds(
+    REPORT_NAV_ITEMS.map((item) => item.id),
+    payrollAllowed,
+  );
+  const monthChoices = useMemo(() => {
+    const options = reportMonthOptions();
+    if (!options.some((item) => item.value === selectedPeriodMonth)) {
+      return [{ value: selectedPeriodMonth, label: selectedPeriodMonth }, ...options];
+    }
+    return options;
+  }, [selectedPeriodMonth]);
+  const reportStats: StatItem[] = [
+    { id: 'staff', label: 'إجمالي الكادر', value: totalEmployees },
+    ...(payrollAllowed
+      ? [
+          { id: 'wps', label: 'صافي الرواتب', value: totalNetPayable, kind: 'money' as const },
+          { id: 'eos', label: 'نهاية الخدمة', value: totalEosAccrual, kind: 'money' as const },
+        ]
+      : []),
+    { id: 'leave', label: 'التزام الإجازات', value: totalLeaveLiability, kind: 'money' as const },
+    { id: 'compliance', label: 'تنبيهات الامتثال', value: expiredComplianceCount + expiringSoonCount },
+  ];
+  const payrollMoney = (value: number) => (payrollAllowed ? value.toFixed(3) : '—');
+  const openPrint = () => {
+    if (isPayrollReport(activeReport) && !payrollAllowed) return;
+    setIsA4ModalOpen(true);
+  };
+
   const getReportTitle = (key: ReportCategory) => {
     switch (key) {
       case 'wps_reconciliation': return 'تقرير مطابقة مسيرات الرواتب وملفات WPS البنكية';
@@ -667,336 +727,105 @@ export const OdooReportsApp: React.FC = () => {
   return (
     <div className="space-y-5 font-sans dir-rtl text-right text-slate-800 animate-fade-in" dir="rtl">
       
-      {/* 1. ODOO TOP CONTROL PANEL & ACTION BAR */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
-            <span>التقارير والتحليلات</span>
-            <span>/</span>
-            <span className="text-primary font-black">{getReportTitle(activeReport)}</span>
-          </div>
-          <h1 className="text-xl font-black text-slate-900 flex items-center gap-2">
-            <BarChart3 className="text-primary" size={22} />
-            نظام التقارير والتحليلات
-          </h1>
-          <p className="text-[11px] text-slate-500 font-medium">
-            المنشأة: <strong className="text-primary">{companyDisplayName}</strong> | القطاع الطبي والخاص الكويتي (حسابات 26 يوم عمل بالدينار الكويتي 0.000 KWD)
-          </p>
-        </div>
-
-        <div className="flex items-center flex-wrap gap-2 w-full md:w-auto">
-          {/* محول العروض الثلاثي (List, Pivot, Graph) */}
-          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold gap-1">
-            <button
-              type="button"
-              onClick={() => setViewMode('table')}
-              className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer ${
-                viewMode === 'table' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-              title="عرض الجدول التفصيلي"
-            >
-              <Table size={14} /> جدول تحليلي
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('pivot')}
-              className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer ${
-                viewMode === 'pivot' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-              title="الجدول المحوري مع التجميع"
-            >
-              <Layers size={14} /> جدول محوري (Pivot)
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('graph')}
-              className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer ${
-                viewMode === 'graph' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-              title="الرسوم البيانية والمؤشرات"
-            >
-              <PieChart size={14} /> رسوم بيانية (Graph)
-            </button>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleExportExcel}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
-          >
-            <FileSpreadsheet size={15} /> تصدير Excel (.xlsx)
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsA4ModalOpen(true)}
-            className="bg-primary hover:bg-[#583950] text-white px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
-          >
-            <Printer size={15} /> طباعة تقرير PDF رسمي (A4)
-          </button>
-        </div>
-      </div>
-
-      <LauncherExecutiveCharts employeesCount={analyticsData.length} />
-
-      {/* 2. SUB-MENUS NAVIGATION BAR (شريط القوائم الفرعية للتقارير) */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-2 shadow-xs space-y-2">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-          
-          {/* المجموعة 1: الرواتب والامتثال الحكومي */}
-          <div className="bg-slate-50 p-2 rounded-xl border border-slate-100 space-y-1">
-            <span className="text-[10px] font-black text-slate-400 block px-1 flex items-center gap-1">
-              <CreditCard size={11} className="text-emerald-600" /> تقارير الرواتب والامتثال (WPS & PAM)
-            </span>
-            <div className="space-y-1">
+      <PageHeader
+        title="التقارير"
+        subtitle={companyDisplayName || getReportTitle(activeReport)}
+        primaryAction={{ label: 'تصدير Excel', onClick: handleExportExcel }}
+        menu={[
+          { id: 'pdf', label: 'طباعة PDF', onSelect: openPrint },
+          { id: 'table', label: 'جدول', onSelect: () => setViewMode('table') },
+          { id: 'pivot', label: 'جدول محوري', onSelect: () => setViewMode('pivot') },
+          { id: 'graph', label: 'رسوم التقرير', onSelect: () => setViewMode('graph') },
+        ]}
+      />
+      <div className="flex items-start" style={{ columnGap: tokens.space[3] }}>
+        <aside
+          className="hidden w-56 shrink-0 border-e bg-white md:block"
+          style={{ borderColor: tokens.color.gray[200], fontFamily: 'var(--font-sans)' }}
+        >
+          {visibleReports.map((id) => {
+            const item = REPORT_NAV_ITEMS.find((entry) => entry.id === id);
+            const active = activeReport === id;
+            return (
               <button
-                onClick={() => setActiveReport('wps_reconciliation')}
-                className={`w-full text-right p-2 rounded-lg text-xs font-bold transition flex items-center justify-between cursor-pointer ${
-                  activeReport === 'wps_reconciliation' 
-                    ? 'bg-primary text-white shadow-xs' 
-                    : 'text-slate-700 hover:bg-slate-200/70'
-                }`}
+                key={id}
+                type="button"
+                onClick={() => setActiveReport(id as ReportCategory)}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  textAlign: 'start',
+                  paddingInline: tokens.space[3],
+                  paddingBlock: tokens.space[2],
+                  background: active ? tokens.color.primary : 'transparent',
+                  color: active ? '#ffffff' : tokens.color.gray[700],
+                  fontSize: tokens.text.xs,
+                  fontWeight: 700,
+                }}
               >
-                <UiStudioTarget
-                  uiKey={UI_KEYS.reportNav('wps_reconciliation')}
-                  kind="label"
-                  defaults={{ label: { ar: REPORT_NAV_ITEMS[0].ar, en: REPORT_NAV_ITEMS[0].en } }}
-                >
-                  {REPORT_NAV_ITEMS[0].ar}
-                </UiStudioTarget>
-                <ChevronRight size={14} className={activeReport === 'wps_reconciliation' ? 'text-white' : 'text-slate-400'} />
+                {item?.ar || id}
               </button>
-              <button
-                onClick={() => setActiveReport('gov_compliance')}
-                className={`w-full text-right p-2 rounded-lg text-xs font-bold transition flex items-center justify-between cursor-pointer ${
-                  activeReport === 'gov_compliance' 
-                    ? 'bg-primary text-white shadow-xs' 
-                    : 'text-slate-700 hover:bg-slate-200/70'
-                }`}
-              >
-                <span className="flex items-center gap-1.5">
-                  <UiStudioTarget
-                    uiKey={UI_KEYS.reportNav('gov_compliance')}
-                    kind="label"
-                    defaults={{ label: { ar: REPORT_NAV_ITEMS[1].ar, en: REPORT_NAV_ITEMS[1].en } }}
-                  >
-                    {REPORT_NAV_ITEMS[1].ar}
-                  </UiStudioTarget>
-                  {expiredComplianceCount > 0 && (
-                    <span className="bg-rose-500 text-white text-[9px] px-1.5 py-0.2 rounded-full font-mono">
-                      {expiredComplianceCount}
-                    </span>
-                  )}
-                </span>
-                <ChevronRight size={14} className={activeReport === 'gov_compliance' ? 'text-white' : 'text-slate-400'} />
-              </button>
-            </div>
+            );
+          })}
+        </aside>
+        <div className="min-w-0 flex-1">
+          <div className="mb-3 flex gap-1 overflow-x-auto md:hidden">
+            {visibleReports.map((id) => {
+              const item = REPORT_NAV_ITEMS.find((entry) => entry.id === id);
+              return (
+                <button key={id} type="button" onClick={() => setActiveReport(id as ReportCategory)} className="shrink-0 rounded-lg border px-2 py-1 text-[11px] font-bold">
+                  {item?.ar || id}
+                </button>
+              );
+            })}
           </div>
-
-          {/* المجموعة 2: الإجازات والالتزامات المالية */}
-          <div className="bg-slate-50 p-2 rounded-xl border border-slate-100 space-y-1">
-            <span className="text-[10px] font-black text-slate-400 block px-1 flex items-center gap-1">
-              <DollarSign size={11} className="text-purple-600" /> تقارير الإجازات والالتزامات المالية
-            </span>
-            <div className="space-y-1">
-              <button
-                onClick={() => setActiveReport('eos_indemnity_accrual')}
-                className={`w-full text-right p-2 rounded-lg text-xs font-bold transition flex items-center justify-between cursor-pointer ${
-                  activeReport === 'eos_indemnity_accrual' 
-                    ? 'bg-primary text-white shadow-xs' 
-                    : 'text-slate-700 hover:bg-slate-200/70'
-                }`}
-              >
-                <UiStudioTarget
-                  uiKey={UI_KEYS.reportNav('eos_indemnity_accrual')}
-                  kind="label"
-                  defaults={{ label: { ar: REPORT_NAV_ITEMS[2].ar, en: REPORT_NAV_ITEMS[2].en } }}
-                >
-                  {REPORT_NAV_ITEMS[2].ar}
-                </UiStudioTarget>
-                <ChevronRight size={14} className={activeReport === 'eos_indemnity_accrual' ? 'text-white' : 'text-slate-400'} />
-              </button>
-              <button
-                onClick={() => setActiveReport('leaves_financial_liability')}
-                className={`w-full text-right p-2 rounded-lg text-xs font-bold transition flex items-center justify-between cursor-pointer ${
-                  activeReport === 'leaves_financial_liability' 
-                    ? 'bg-primary text-white shadow-xs' 
-                    : 'text-slate-700 hover:bg-slate-200/70'
-                }`}
-              >
-                <UiStudioTarget
-                  uiKey={UI_KEYS.reportNav('leaves_financial_liability')}
-                  kind="label"
-                  defaults={{ label: { ar: REPORT_NAV_ITEMS[3].ar, en: REPORT_NAV_ITEMS[3].en } }}
-                >
-                  {REPORT_NAV_ITEMS[3].ar}
-                </UiStudioTarget>
-                <ChevronRight size={14} className={activeReport === 'leaves_financial_liability' ? 'text-white' : 'text-slate-400'} />
-              </button>
-            </div>
-          </div>
-
-          {/* المجموعة 3: الحضور والشفتات والإضافي */}
-          <div className="bg-slate-50 p-2 rounded-xl border border-slate-100 space-y-1">
-            <span className="text-[10px] font-black text-slate-400 block px-1 flex items-center gap-1">
-              <Clock size={11} className="text-blue-600" /> تقارير الحضور والشفتات والتكاليف
-            </span>
-            <div className="space-y-1">
-              <button
-                onClick={() => setActiveReport('attendance_overtime_analytics')}
-                className={`w-full text-right p-2 rounded-lg text-xs font-bold transition flex items-center justify-between cursor-pointer ${
-                  activeReport === 'attendance_overtime_analytics' 
-                    ? 'bg-primary text-white shadow-xs' 
-                    : 'text-slate-700 hover:bg-slate-200/70'
-                }`}
-              >
-                <UiStudioTarget
-                  uiKey={UI_KEYS.reportNav('attendance_overtime_analytics')}
-                  kind="label"
-                  defaults={{ label: { ar: REPORT_NAV_ITEMS[4].ar, en: REPORT_NAV_ITEMS[4].en } }}
-                >
-                  {REPORT_NAV_ITEMS[4].ar}
-                </UiStudioTarget>
-                <ChevronRight size={14} className={activeReport === 'attendance_overtime_analytics' ? 'text-white' : 'text-slate-400'} />
-              </button>
-              <div className="p-2 bg-purple-50/50 rounded-lg text-[10px] text-primary font-semibold flex items-center gap-1.5 border border-purple-100">
-                <Sparkles size={13} className="shrink-0" />
-                <span>من ترحيل الحضور الشهري أو مسير الرواتب للفترة المختارة</span>
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      {/* 3. EXECUTIVE KPIS CARDS (المؤشرات التنفيذية اللحظية) */}
-      <div className="odoo-kpi-grid">
-        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
-          <div className="text-[10px] text-slate-400 font-bold mb-1 flex items-center justify-between">
-            <span>إجمالي الكادر</span>
-            <Users className="w-3.5 h-3.5 text-primary" />
-          </div>
-          <div className="text-lg font-black text-slate-900">{totalEmployees} <span className="text-[10px] font-normal text-slate-500">موظف</span></div>
-          <div className="text-[9px] text-slate-600 mt-0.5 font-bold">
-            {ibanReadyCount}/{totalEmployees} IBAN صالح · {payslipCoverageCount} مسير للشهر
-          </div>
-        </div>
-
-        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
-          <div className="text-[10px] text-slate-400 font-bold mb-1 flex items-center justify-between">
-            <span>مسير الرواتب (WPS)</span>
-            <CreditCard className="w-3.5 h-3.5 text-emerald-600" />
-          </div>
-          <div className="text-lg font-black text-emerald-700">{totalNetPayable.toFixed(3)} <span className="text-[9px] font-normal text-slate-500">د.ك</span></div>
-          <div className="text-[9px] text-emerald-800 mt-0.5 font-bold">
-            {wpsReadyCount}/{totalEmployees} جاهز للتحويل · {selectedPeriodMonth}
-          </div>
-        </div>
-
-        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
-          <div className="text-[10px] text-slate-400 font-bold mb-1 flex items-center justify-between">
-            <span>مخصص نهاية الخدمة</span>
-            <Award className="w-3.5 h-3.5 text-purple-600" />
-          </div>
-          <div className="text-lg font-black text-purple-800">{totalEosAccrual.toFixed(3)} <span className="text-[9px] font-normal text-slate-500">د.ك</span></div>
-          <div className="text-[9px] text-purple-600 mt-0.5">التزام مالي تراكمي (مادة 51)</div>
-        </div>
-
-        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
-          <div className="text-[10px] text-slate-400 font-bold mb-1 flex items-center justify-between">
-            <span>التزام بدل الإجازات</span>
-            <Plane className="w-3.5 h-3.5 text-amber-600" />
-          </div>
-          <div className="text-lg font-black text-amber-700">{totalLeaveLiability.toFixed(3)} <span className="text-[9px] font-normal text-slate-500">د.ك</span></div>
-          <div className="text-[9px] text-amber-800 mt-0.5">رصيد الأيام غير المستهلكة</div>
-        </div>
-
-        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
-          <div className="text-[10px] text-slate-400 font-bold mb-1 flex items-center justify-between">
-            <span>تنبيهات الامتثال (MOH/PAM)</span>
-            <ShieldCheck className="w-3.5 h-3.5 text-rose-600" />
-          </div>
-          <div className="text-lg font-black text-rose-700">{expiredComplianceCount + expiringSoonCount} <span className="text-[9px] font-normal text-slate-500">حالة</span></div>
-          <div className="text-[9px] text-rose-600 mt-0.5 font-bold">
-            {expiredComplianceCount} منتهي / {expiringSoonCount} قريباً / {missingComplianceDataCount} ناقص
-          </div>
-        </div>
-      </div>
-
-      {/* 4. SEARCH & FILTER TOOLBAR */}
-      <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
-        <div className="relative w-full md:w-80">
-          <Search className="w-4 h-4 text-slate-400 absolute right-3 top-2.5" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="بحث بالاسم، الرقم المدني، المسمى، أو القسم..."
-            className="w-full pr-9 pl-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:border-primary outline-none"
+          <StatStrip
+            items={reportStats}
+            activeId={activeReport === 'wps_reconciliation' ? 'wps' : activeReport === 'eos_indemnity_accrual' ? 'eos' : activeReport === 'leaves_financial_liability' ? 'leave' : activeReport === 'gov_compliance' ? 'compliance' : undefined}
+            onSelect={(id) => {
+              if (id === 'wps') setActiveReport('wps_reconciliation');
+              if (id === 'eos') setActiveReport('eos_indemnity_accrual');
+              if (id === 'leave') setActiveReport('leaves_financial_liability');
+              if (id === 'compliance') setActiveReport('gov_compliance');
+            }}
           />
-        </div>
-
-        <div className="flex items-center flex-wrap gap-2 w-full md:w-auto">
-          {/* فلتر شهر المسير والفترة المالية */}
-          <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200">
-            <Calendar className="w-3.5 h-3.5 text-primary" />
-            <span className="font-bold text-slate-500">فترة التقرير:</span>
-            <input
-              type="month"
-              value={selectedPeriodMonth}
-              onChange={(e) => setSelectedPeriodMonth(e.target.value)}
-              className="bg-white border border-slate-200 rounded px-2 py-1 text-xs font-mono font-bold text-slate-800 outline-none focus:border-primary cursor-pointer"
-            />
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <span className="font-bold text-slate-500">القسم:</span>
-            <select
-              value={departmentFilter}
-              onChange={(e) => setDepartmentFilter(e.target.value)}
-              className="p-2 bg-slate-50 border border-slate-200 rounded-lg font-bold outline-none focus:border-primary cursor-pointer"
-            >
-              <option value="ALL">كافة الأقسام الطبية والإدارية</option>
-              {departmentsList.map(dept => (
-                <option key={dept} value={dept}>{dept}</option>
-              ))}
-            </select>
-          </div>
-
-          {activeReport === 'gov_compliance' && (
-            <div className="flex items-center gap-1.5">
-              <span className="font-bold text-slate-500">حالة الامتثال:</span>
-              <select
-                value={complianceFilter}
-                onChange={(e) => setComplianceFilter(e.target.value)}
-                className="p-2 bg-slate-50 border border-slate-200 rounded-lg font-bold outline-none focus:border-primary cursor-pointer"
-              >
-                <option value="ALL">الكل</option>
-                <option value="ساري ومطابق">ساري ومطابق</option>
-                <option value="ينتهي قريباً (<30 يوم)">ينتهي قريباً (&lt;30 يوم)</option>
-                <option value="منتهي الصلاحية">منتهي الصلاحية</option>
-                <option value="بيانات ناقصة">بيانات ناقصة</option>
-              </select>
-            </div>
-          )}
-
-          {viewMode === 'pivot' && (
-            <div className="flex items-center gap-1.5 bg-purple-50 p-1 rounded-lg border border-purple-200">
-              <span className="font-bold text-primary px-1">تجميع حسب (Group By):</span>
-              <select
-                value={pivotGroupBy}
-                onChange={(e) => setPivotGroupBy(e.target.value as PivotGroupBy)}
-                className="p-1.5 bg-white border border-purple-300 rounded-md font-bold text-primary outline-none cursor-pointer"
-              >
-                <option value="department">القسم / الوحدة الطبية</option>
-                <option value="nationality">الجنسية (كويتي / غير كويتي)</option>
-                <option value="jobTitle">المسمى الوظيفي</option>
-                <option value="cadre">الكادر الوظيفي (طبي/تمريض/أمن/إداري)</option>
-                <option value="bank">البنك المحول إليه</option>
-              </select>
-            </div>
-          )}
-        </div>
-      </div>
+          <FilterBar
+            search={searchQuery}
+            onSearch={setSearchQuery}
+            searchPlaceholder="بحث بالاسم أو الرقم المدني أو القسم"
+            segments={[{ id: 'all', label: 'الكل', count: filteredData.length }]}
+            activeSegment="all"
+            onSegment={() => setSearchQuery('')}
+            dropdowns={[
+              {
+                id: 'department',
+                label: 'القسم',
+                value: departmentFilter,
+                onChange: setDepartmentFilter,
+                options: [{ value: 'ALL', label: 'كل الأقسام' }, ...departmentsList.map((dept) => ({ value: dept, label: dept }))],
+              },
+              {
+                id: 'month',
+                label: 'الفترة',
+                value: selectedPeriodMonth,
+                onChange: setSelectedPeriodMonth,
+                options: monthChoices,
+              },
+              {
+                id: 'compliance',
+                label: 'الامتثال',
+                value: complianceFilter,
+                onChange: setComplianceFilter,
+                options: [
+                  { value: 'ALL', label: 'كل حالات الامتثال' },
+                  { value: 'ساري ومطابق', label: 'ساري ومطابق' },
+                  { value: 'ينتهي قريباً (<30 يوم)', label: 'ينتهي قريباً' },
+                  { value: 'منتهي الصلاحية', label: 'منتهي الصلاحية' },
+                  { value: 'بيانات ناقصة', label: 'بيانات ناقصة' },
+                ],
+              },
+            ]}
+          />
 
       {/* 5. MAIN CONTENT AREA BASED ON VIEW MODE */}
 
@@ -1018,7 +847,7 @@ export const OdooReportsApp: React.FC = () => {
               </p>
             </div>
             <span className="bg-purple-100 text-primary text-xs font-mono font-bold px-2.5 py-1 rounded-lg">
-              {selectedPeriodMonth} · صافي {totalNetPayable.toFixed(3)} د.ك
+              {selectedPeriodMonth}{payrollAllowed ? ` · صافي ${payrollMoney(totalNetPayable)} د.ك` : ''}
             </span>
           </div>
 
@@ -1030,7 +859,7 @@ export const OdooReportsApp: React.FC = () => {
             )}
 
             {/* 1. REPORT 1: WPS RECONCILIATION TABLE */}
-            {activeReport === 'wps_reconciliation' && (
+            {activeReport === 'wps_reconciliation' && payrollAllowed && (
               <table className="w-full text-right text-xs">
                 <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 font-sans">
                   <UiStudioReportHeadRow reorderGroupId="report.wps.columns" columns={[...WPS_RECONCILIATION_COLUMNS]} />
@@ -1184,7 +1013,7 @@ export const OdooReportsApp: React.FC = () => {
             )}
 
             {/* 3. REPORT: END OF SERVICE INDEMNITY ACCRUAL TABLE */}
-            {activeReport === 'eos_indemnity_accrual' && (
+            {activeReport === 'eos_indemnity_accrual' && payrollAllowed && (
               <table className="w-full text-right text-xs">
                 <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 font-sans">
                   <UiStudioReportHeadRow reorderGroupId="report.eos.columns" columns={[...EOS_ACCRUAL_COLUMNS]} />
@@ -1347,8 +1176,22 @@ export const OdooReportsApp: React.FC = () => {
                 تجميع وتحليل البيانات حسب: <strong className="text-primary">{pivotGroupBy}</strong>
               </p>
             </div>
-            <div className="text-xs font-mono font-bold bg-purple-50 text-primary px-3 py-1.5 rounded-lg border border-purple-200">
-              عدد المجموعات التحليلية: {pivotGroups.length}
+            <div className="flex items-center gap-2">
+              <select
+                value={pivotGroupBy}
+                onChange={(event) => setPivotGroupBy(event.target.value as PivotGroupBy)}
+                className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-bold"
+                aria-label="تجميع الجدول المحوري"
+              >
+                <option value="department">القسم</option>
+                <option value="nationality">الجنسية</option>
+                <option value="jobTitle">المسمى</option>
+                <option value="cadre">الكادر</option>
+                <option value="bank">البنك</option>
+              </select>
+              <div className="text-xs font-mono font-bold bg-purple-50 text-primary px-3 py-1.5 rounded-lg border border-purple-200">
+                عدد المجموعات التحليلية: {pivotGroups.length}
+              </div>
             </div>
           </div>
 
@@ -1375,10 +1218,10 @@ export const OdooReportsApp: React.FC = () => {
                       {grp.groupKey}
                     </td>
                     <td className="p-3.5 text-center font-bold">{grp.count}</td>
-                    <td className="p-3.5 text-left">{grp.totalBasic.toFixed(3)}</td>
-                    <td className="p-3.5 text-left font-bold">{grp.totalGross.toFixed(3)}</td>
-                    <td className="p-3.5 text-left font-black text-emerald-700">{grp.totalNet.toFixed(3)}</td>
-                    <td className="p-3.5 text-left font-bold text-purple-900">{grp.totalEos.toFixed(3)}</td>
+                    <td className="p-3.5 text-left">{payrollMoney(grp.totalBasic)}</td>
+                    <td className="p-3.5 text-left font-bold">{payrollMoney(grp.totalGross)}</td>
+                    <td className="p-3.5 text-left font-black text-emerald-700">{payrollMoney(grp.totalNet)}</td>
+                    <td className="p-3.5 text-left font-bold text-purple-900">{payrollMoney(grp.totalEos)}</td>
                     <td className="p-3.5 text-left font-bold text-amber-800">{grp.totalLeaveLiability.toFixed(3)}</td>
                     <td className="p-3.5 text-center font-bold text-slate-800">{grp.totalOvertimeHours} س</td>
                     <td className="p-3.5 text-left font-bold text-purple-700">{grp.totalOvertimeAmount.toFixed(3)}</td>
@@ -1389,10 +1232,10 @@ export const OdooReportsApp: React.FC = () => {
                 <tr>
                   <td className="p-3.5 font-sans text-slate-900">المجموع الكلي (Total Summary):</td>
                   <td className="p-3.5 text-center font-black">{totalEmployees}</td>
-                  <td className="p-3.5 text-left">{filteredData.reduce((a, b) => a + b.basicSalary, 0).toFixed(3)}</td>
-                  <td className="p-3.5 text-left">{totalGrossSalaries.toFixed(3)}</td>
-                  <td className="p-3.5 text-left text-emerald-800 text-sm font-black">{totalNetPayable.toFixed(3)}</td>
-                  <td className="p-3.5 text-left text-purple-900 text-sm font-black">{totalEosAccrual.toFixed(3)}</td>
+                  <td className="p-3.5 text-left">{payrollMoney(filteredData.reduce((a, b) => a + b.basicSalary, 0))}</td>
+                  <td className="p-3.5 text-left">{payrollMoney(totalGrossSalaries)}</td>
+                  <td className="p-3.5 text-left text-emerald-800 text-sm font-black">{payrollMoney(totalNetPayable)}</td>
+                  <td className="p-3.5 text-left text-purple-900 text-sm font-black">{payrollMoney(totalEosAccrual)}</td>
                   <td className="p-3.5 text-left text-amber-800 text-sm font-black">{totalLeaveLiability.toFixed(3)}</td>
                   <td className="p-3.5 text-center">{filteredData.reduce((a, b) => a + b.overtimeHours, 0)} س</td>
                   <td className="p-3.5 text-left text-purple-700 font-black">{totalOvertimeCost.toFixed(3)}</td>
@@ -1420,7 +1263,9 @@ export const OdooReportsApp: React.FC = () => {
             </div>
 
             <div className="space-y-3 pt-2">
-              {pivotGroups.map(grp => {
+              {!payrollAllowed ? (
+                <p className="text-xs font-bold text-slate-500">توزيع الرواتب متاح للأدوار المخولة.</p>
+              ) : pivotGroups.map(grp => {
                 const maxVal = Math.max(...pivotGroups.map(g => g.totalGross), 1);
                 const percent = Math.min((grp.totalGross / maxVal) * 100, 100);
 
@@ -1450,14 +1295,14 @@ export const OdooReportsApp: React.FC = () => {
                 تحليل الالتزامات المالية التراكمية (End of Service & Leave Liabilities)
               </h4>
               <span className="text-xs font-mono font-bold text-emerald-700">
-                إجمالي الالتزام الكلي: {(totalEosAccrual + totalLeaveLiability).toFixed(3)} د.ك
+                {payrollAllowed ? `إجمالي الالتزام الكلي: ${(totalEosAccrual + totalLeaveLiability).toFixed(3)} د.ك` : 'نهاية الخدمة للأدوار المخولة'}
               </span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
               <div className="bg-purple-50/70 p-4 rounded-xl border border-purple-200 space-y-1">
                 <span className="text-xs font-bold text-purple-900 block">مخصص نهاية الخدمة المتراكم:</span>
-                <div className="text-xl font-black text-purple-950 font-mono">{totalEosAccrual.toFixed(3)} د.ك</div>
+                <div className="text-xl font-black text-purple-950 font-mono">{payrollAllowed ? `${payrollMoney(totalEosAccrual)} د.ك` : '—'}</div>
                 <p className="text-[10px] text-purple-700">تطبيق المادة 51 و 53 (15 يوم لأول 5 سنوات، شهر لما بعدها)</p>
               </div>
 
@@ -1477,6 +1322,22 @@ export const OdooReportsApp: React.FC = () => {
 
         </div>
       )}
+
+          <div className="border-t bg-white" style={{ borderColor: tokens.color.gray[200] }}>
+            <button
+              type="button"
+              onClick={() => setChartsOpen((open) => !open)}
+              className="px-4 py-2 text-xs font-bold"
+              style={{ color: tokens.color.gray[700] }}
+            >
+              {chartsOpen ? 'إخفاء المخططات' : 'المخططات'}
+            </button>
+            {chartsOpen ? (
+              <LauncherExecutiveCharts employeesCount={analyticsData.length} showPayroll={payrollAllowed} />
+            ) : null}
+          </div>
+        </div>
+      </div>
 
       {/* مودال الطباعة الرسمية للتقارير A4 مع QR والترويسة */}
       <OdooOfficialA4PrintModal

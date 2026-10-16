@@ -21,7 +21,8 @@ const attendanceData = [
 export const LauncherExecutiveCharts: React.FC<{
   employeesCount?: number;
   leavesPendingCount?: number;
-}> = ({ employeesCount = 0, leavesPendingCount = 0 }) => {
+  showPayroll?: boolean;
+}> = ({ employeesCount = 0, leavesPendingCount = 0, showPayroll = false }) => {
   const { isLoading: authLoading } = useAuth();
   const currentCompanyId = useEffectiveTenantCompanyId();
   const [realEmployees, setRealEmployees] = useState<any[]>([]);
@@ -145,6 +146,7 @@ export const LauncherExecutiveCharts: React.FC<{
             </span>
           </div>
           <div className="h-28 w-full flex items-center justify-center">
+            {showPayroll ? (
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -171,6 +173,9 @@ export const LauncherExecutiveCharts: React.FC<{
                 />
               </PieChart>
             </ResponsiveContainer>
+            ) : (
+              <span className="text-[11px] font-bold text-slate-500">متاح للأدوار المخولة</span>
+            )}
           </div>
         </div>
 
