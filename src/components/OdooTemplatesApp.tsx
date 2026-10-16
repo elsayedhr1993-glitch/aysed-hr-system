@@ -36,6 +36,10 @@ import {
 } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
 import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
+import { buildAuthedJsonHeaders } from '../lib/clientAuth';
+import { reportAudit } from '../services/auditClient';
+import { PageHeader } from './ui/PageHeader';
+import { previewPayAmount } from './reports/reportsAccess';
 import { employerLicenseTokenForTemplates } from '../utils/mohMedicalFacility';
 import { OfficialA4CompanyLetterhead } from './print/OfficialA4CompanyLetterhead';
 import { useOdooHierarchy, EmployeeContract } from '../context/OdooHierarchyContext';
@@ -473,9 +477,28 @@ export const OdooTemplatesApp: React.FC = () => {
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [useLetterhead, setUseLetterhead] = useState<boolean>(true); // true = print company header, false = for pre-printed letterhead
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('split');
-  const [smartPanelOpen, setSmartPanelOpen] = useState(true);
+  const [smartPanelOpen, setSmartPanelOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [payrollAllowed, setPayrollAllowed] = useState(false);
   const [smartPanelTab, setSmartPanelTab] = useState<'context' | 'fields'>('context');
   const insertPlaceholderRef = useRef<((tag: string) => void) | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      try {
+        const headers = await buildAuthedJsonHeaders();
+        const response = await fetch('/api/reports/access', { headers });
+        const payload = await response.json().catch(() => ({}));
+        if (live) setPayrollAllowed(response.ok && payload?.payroll === true);
+      } catch {
+        if (live) setPayrollAllowed(false);
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, []);
   // Editable Form & Context State
   const [empName, setEmpName] = useState('');
   const [civilId, setCivilId] = useState('');
@@ -624,12 +647,11 @@ export const OdooTemplatesApp: React.FC = () => {
       '{العامل_العاملة}': isFemale ? 'الطرف الثاني (العاملة)' : 'الطرف الثاني (العامل)',
       '{له_لها}': isFemale ? 'لها' : 'له',
 
-      // Financials
-      '{الراتب_الأساسي}': `${basicSalary} د.ك`,
-      '{بدل_السكن}': `${housingAllowance} د.ك`,
-      '{بدل_الانتقال}': `${transportAllowance} د.ك`,
-      '{الراتب_الشامل}': `${totalSalary} د.ك`,
-      '{تفقيت_الراتب}': `${salaryTafqeetAr} لا غير`,
+      '{الراتب_الأساسي}': previewPayAmount(payrollAllowed, `${basicSalary} د.ك`),
+      '{بدل_السكن}': previewPayAmount(payrollAllowed, `${housingAllowance} د.ك`),
+      '{بدل_الانتقال}': previewPayAmount(payrollAllowed, `${transportAllowance} د.ك`),
+      '{الراتب_الشامل}': previewPayAmount(payrollAllowed, `${totalSalary} د.ك`),
+      '{تفقيت_الراتب}': previewPayAmount(payrollAllowed, `${salaryTafqeetAr} لا غير`),
       '{اسم_البنك}': bankName || 'البنك المعتمد',
       '{رقم_الحساب}': companyAccountNumber || '—',
       '{الآيبان}': iban || '—',
@@ -658,7 +680,7 @@ export const OdooTemplatesApp: React.FC = () => {
       '{contract_date}': formatPamContractDateEn(joinDate),
       '{contract_start_date}': formatPamContractDateEn(joinDate),
       '{probation_days}': probationDays || '100',
-      '{salary_amount}': totalSalary || '0.000',
+      '{salary_amount}': previewPayAmount(payrollAllowed, totalSalary || '0.000'),
       '{pay_period}': payPeriodEn || 'MONTH',
       '{contract_term_label}': contractTermLabel || 'ONE year',
       '{annual_leave_days}': annualLeaveDays || '30',
@@ -714,6 +736,7 @@ export const OdooTemplatesApp: React.FC = () => {
     probationDays,
     payPeriodEn,
     secondaryContractLanguage,
+    payrollAllowed,
   ]);
 
   const activeTemplateDef = TEMPLATES_LIST.find(t => t.id === selectedTemplate) || TEMPLATES_LIST[0];
@@ -807,9 +830,29 @@ export const OdooTemplatesApp: React.FC = () => {
     const saved = await TenantDatabaseService.saveDocument(newDoc, activeCompany?.id);
     if (saved) {
       toast.success(`تم حفظ وأرشفة المستند بنجاح في ملف الموظف (${empName}) برقم إشاري: ${referenceNumber}`);
+      void reportAudit({
+        action: 'create',
+        entityType: 'hr_document',
+        entityId: referenceNumber,
+        after: { reference: referenceNumber, template: selectedTemplate },
+      });
     } else {
       toast.error('تعذر حفظ المستند في السحابة، يرجى المحاولة مرة أخرى.');
     }
+  };
+
+  const handleIssueDocument = () => {
+    if (activeTemplateDef.isPamModal) {
+      setShowPamModal(true);
+      void reportAudit({
+        action: 'create',
+        entityType: 'hr_document',
+        entityId: referenceNumber,
+        after: { reference: referenceNumber, template: selectedTemplate },
+      });
+      return;
+    }
+    void handleArchiveDocument();
   };
 
   const handleResetTemplate = () => {
@@ -832,7 +875,7 @@ export const OdooTemplatesApp: React.FC = () => {
     insertPlaceholderRef.current?.(tag);
   };
 
-  const showTemplatesCol = workspaceView !== 'preview';
+  const showTemplatesCol = libraryOpen;
   const showEditorCol = workspaceView === 'split' || workspaceView === 'editor';
   const showPreviewCol = workspaceView === 'split' || workspaceView === 'preview';
 
@@ -841,136 +884,65 @@ export const OdooTemplatesApp: React.FC = () => {
       className="flex flex-col font-sans text-slate-800 animate-fade-in print:block min-h-[calc(100vh-8rem)]"
       dir="rtl"
     >
-      {/* Odoo-style control panel */}
-      <header className="shrink-0 bg-white border border-slate-200 rounded-t-xl shadow-sm print:hidden">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 border-b border-slate-100">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-lg bg-primary text-white flex items-center justify-center shrink-0">
-              <FileText className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-sm font-black text-slate-900 truncate">
-                استوديو النماذج والخطابات
-              </h1>
-              <p className="text-[11px] text-slate-500 truncate">
-                {companyDisplayName}
-                <span className="text-slate-300 mx-1">·</span>
-                <span className="font-mono text-slate-600">{referenceNumber}</span>
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-1.5">
-            <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
-              {(
-                [
-                  { id: 'split' as WorkspaceView, icon: Columns2, label: 'ثلاثي' },
-                  { id: 'editor' as WorkspaceView, icon: Edit3, label: 'محرر' },
-                  { id: 'preview' as WorkspaceView, icon: Eye, label: 'معاينة' },
-                ] as const
-              ).map(v => (
-                <button
-                  key={v.id}
-                  type="button"
-                  onClick={() => setWorkspaceView(v.id)}
-                  className={`px-2.5 py-1.5 rounded-md text-[11px] font-bold flex items-center gap-1 cursor-pointer transition ${
-                    workspaceView === v.id ? 'bg-white text-primary shadow-2xs' : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <v.icon size={13} />
-                  {v.label}
-                </button>
-              ))}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setSmartPanelOpen(o => !o)}
-              className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold border flex items-center gap-1 cursor-pointer transition ${
-                smartPanelOpen
-                  ? 'bg-primary/10 border-primary/30 text-primary'
-                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              <SlidersHorizontal size={13} />
-              السياق والحقول
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setUseLetterhead(!useLetterhead)}
-              className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 cursor-pointer"
-              title="ترويسة رقمية أو ورق مسبق"
-            >
-              {useLetterhead ? 'ترويسة رقمية' : 'ورق مسبق 48mm'}
-            </button>
-
-            <button
-              type="button"
-              onClick={handleResetTemplate}
-              className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 cursor-pointer"
-              title="إعادة القالب"
-            >
-              <RotateCcw size={14} />
-            </button>
-          </div>
+      <div className="print:hidden">
+        <PageHeader
+          title="استوديو النماذج والخطابات"
+          subtitle={referenceNumber}
+          primaryAction={{ label: 'إصدار الوثيقة', onClick: handleIssueDocument }}
+          menu={[
+            { id: 'library', label: 'مكتبة النماذج', onSelect: () => setLibraryOpen((open) => !open) },
+            { id: 'fields', label: 'الحقول', onSelect: () => setSmartPanelOpen((open) => !open) },
+            { id: 'print', label: 'طباعة A4', onSelect: handlePrint },
+            { id: 'pdf', label: 'تصدير PDF', onSelect: () => { void handleExportPdf(); } },
+            { id: 'word', label: 'تصدير Word', onSelect: handleExportWord },
+            { id: 'letterhead', label: useLetterhead ? 'ورق مسبق' : 'ترويسة رقمية', onSelect: () => setUseLetterhead(!useLetterhead) },
+            { id: 'reset', label: 'إعادة القالب', onSelect: handleResetTemplate },
+          ]}
+        />
+        <div
+          role="radiogroup"
+          aria-label="عرض الاستوديو"
+          className="flex border-b bg-white"
+          style={{ columnGap: tokens.space[1], padding: tokens.space[2], fontFamily: 'var(--font-sans)' }}
+        >
+          {(
+            [
+              { id: 'split', label: 'مقسوم' },
+              { id: 'editor', label: 'المحرر' },
+              { id: 'preview', label: 'المعاينة' },
+            ] as const
+          ).map((view) => {
+            const active = workspaceView === view.id;
+            return (
+              <button
+                key={view.id}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => setWorkspaceView(view.id)}
+                style={{
+                  paddingInline: tokens.space[3],
+                  paddingBlock: tokens.space[1],
+                  borderRadius: tokens.radius.md,
+                  background: active ? tokens.color.primary : 'transparent',
+                  color: active ? '#ffffff' : tokens.color.gray[700],
+                  fontSize: tokens.text.xs,
+                  fontWeight: 700,
+                }}
+              >
+                {view.label}
+              </button>
+            );
+          })}
         </div>
-
-        <div className="flex flex-wrap items-center gap-2 px-4 py-2 bg-slate-50/80">
-          {activeTemplateDef.isPamModal ? (
-            <button
-              type="button"
-              onClick={() => setShowPamModal(true)}
-              className="bg-primary hover:bg-[#5a3a52] text-white px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
-            >
-              فتح مولد عقد PAM (2)
-            </button>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={handlePrint}
-                className="bg-primary hover:bg-[#5a3a52] text-white px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
-              >
-                <Printer size={13} /> طباعة A4
-              </button>
-              <button
-                type="button"
-                onClick={handleExportPdf}
-                disabled={isExportingPdf}
-                className="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-emerald-200 bg-white text-emerald-800 hover:bg-emerald-50 cursor-pointer disabled:opacity-50"
-              >
-                {isExportingPdf ? 'PDF…' : 'PDF'}
-              </button>
-              <button
-                type="button"
-                onClick={handleExportWord}
-                className="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 cursor-pointer"
-              >
-                Word
-              </button>
-              <button
-                type="button"
-                onClick={handleArchiveDocument}
-                className="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 cursor-pointer"
-              >
-                <FolderArchive size={13} className="inline ml-1" />
-                أرشفة
-              </button>
-            </>
-          )}
-          <span className="text-[10px] text-slate-400 mr-auto hidden sm:inline">
-            {activeTemplateDef.title}
-          </span>
-        </div>
-      </header>
+      </div>
 
       {/* 3-pane studio: templates (right) · editor (center) · preview (left) — RTL order */}
       <div
-        className="flex flex-1 min-h-[560px] border border-t-0 border-slate-200 rounded-b-xl overflow-hidden bg-slate-100 print:hidden"
+        className="relative flex flex-1 min-h-[560px] border border-t-0 border-slate-200 rounded-b-xl overflow-hidden bg-slate-100 print:hidden"
       >
         {showTemplatesCol && (
-          <aside className="w-[17rem] shrink-0 bg-white border-s border-slate-200 flex flex-col min-h-0">
+          <aside className="absolute inset-y-0 start-0 z-20 w-[17rem] bg-white border-e border-slate-200 flex flex-col min-h-0 shadow-md">
             <div className="px-3 py-2 border-b border-slate-100 text-[11px] font-black text-slate-700">
               مكتبة النماذج
             </div>
@@ -1047,7 +1019,7 @@ export const OdooTemplatesApp: React.FC = () => {
         )}
 
         {smartPanelOpen && showEditorCol && (
-          <aside className="w-[15.5rem] shrink-0 bg-white border-s border-slate-200 flex flex-col min-h-0 z-10 shadow-[inset_4px_0_12px_-8px_rgba(0,0,0,0.08)]">
+          <aside className="absolute inset-y-0 end-0 z-20 w-[15.5rem] bg-white border-s border-slate-200 flex flex-col min-h-0 shadow-md">
             <div className="flex border-b border-slate-100">
               <button
                 type="button"
@@ -1136,7 +1108,7 @@ export const OdooTemplatesApp: React.FC = () => {
                       المدني: <span className="font-mono font-bold text-slate-800">{civilId || '—'}</span>
                     </div>
                     <div>
-                      الراتب: <span className="font-mono font-bold text-primary">{totalSalary} د.ك</span>
+                      الراتب: <span className="font-mono font-bold text-primary">{previewPayAmount(payrollAllowed, `${totalSalary} د.ك`)}</span>
                     </div>
                     <div>
                       المسمى: <span className="font-bold">{jobTitle || '—'}</span>

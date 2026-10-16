@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   isPayrollReport,
   payrollReportsAllowed,
+  previewPayAmount,
   reportMonthOptions,
   visibleReportIds,
 } from './reportsAccess';
@@ -33,5 +34,10 @@ describe('report access', () => {
   it('builds a stable month list without changing the stored period key', () => {
     const options = reportMonthOptions(new Date('2026-10-16T00:00:00Z'), 3);
     expect(options.map((item) => item.value)).toEqual(['2026-10', '2026-09', '2026-08']);
+  });
+
+  it('hides salary text in a letter preview unless the server allowed payroll', () => {
+    expect(previewPayAmount(false, '450.000 د.ك')).toBe('—');
+    expect(previewPayAmount(true, '450.000 د.ك')).toBe('450.000 د.ك');
   });
 });

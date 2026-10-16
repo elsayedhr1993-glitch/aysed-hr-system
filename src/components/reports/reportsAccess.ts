@@ -15,6 +15,10 @@ export function visibleReportIds(ids: readonly string[], payrollAllowed: boolean
   return ids.filter((id) => payrollAllowed || !isPayrollReport(id));
 }
 
+export function previewPayAmount(payrollAllowed: boolean, amount: string): string {
+  return payrollAllowed ? amount : '—';
+}
+
 export function reportMonthOptions(now = new Date(), count = 18): { value: string; label: string }[] {
   const options: { value: string; label: string }[] = [];
   const cursor = new Date(now.getFullYear(), now.getMonth(), 1);
