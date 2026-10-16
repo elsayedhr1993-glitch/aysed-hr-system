@@ -1,10 +1,25 @@
 import React, { useState } from 'react';
 import { Candidate, CandidateAttachment, Company } from '../types';
+import { Users } from 'lucide-react';
 import { 
   UserPlus, Star, Plus, CheckCircle, ArrowRight, FileText, 
-  Award, GraduationCap, Upload, Eye, Trash2, X, Search, 
-  Paperclip, Briefcase, Mail, Phone, ExternalLink, Filter
+  Award, GraduationCap, Eye, Trash2, X, Download,
+  Paperclip, Briefcase
 } from 'lucide-react';
+import { EmptyState } from '../components/ui';
+import { PageHeader } from '../components/ui/PageHeader';
+import { FilterBar } from '../components/ui/FilterBar';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { MaskedValue } from '../components/ui/MaskedValue';
+import { reportAudit } from '../services/auditClient';
+import {
+  RECRUITMENT_STAGES,
+  attachmentAuditEvent,
+  dropOnRecruitmentStage,
+  hireStageDecision,
+  recruitmentPageEmpty,
+  recruitmentStageLabel,
+} from './recruitmentBoard';
 
 interface RecruitmentAppProps {
   candidates: Candidate[];
@@ -23,6 +38,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
   const [showFormModal, setShowFormModal] = useState(false);
   const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
   const [viewingCandidate, setViewingCandidate] = useState<Candidate | null>(null);
+  const [hirePrompt, setHirePrompt] = useState<Candidate | null>(null);
   
   // Search and filter
   const [searchQuery, setSearchQuery] = useState('');
@@ -31,6 +47,10 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [civilId, setCivilId] = useState('');
+  const [passportNo, setPassportNo] = useState('');
+  const [civilDraft, setCivilDraft] = useState('');
+  const [passportDraft, setPassportDraft] = useState('');
   const [appliedPosition, setAppliedPosition] = useState('');
   const [department, setDepartment] = useState('الموارد البشرية والإدارة');
   const [expectedSalary, setExpectedSalary] = useState<number>(800);
@@ -49,13 +69,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
   const [newAttFileName, setNewAttFileName] = useState('');
   const [newAttFileSize, setNewAttFileSize] = useState('');
 
-  const stages = [
-    { id: 'INITIAL', label: 'الفرز الأولي (Initial)' },
-    { id: 'INTERVIEW', label: 'المقابلة الأولى (Interview)' },
-    { id: 'QUALIFIED', label: 'المؤهلون (Qualified)' },
-    { id: 'CONTRACT', label: 'العرض الوظيفي (Contract)' },
-    { id: 'HIRED', label: 'تم التعيين (Hired 🎉)' },
-  ];
+  const stages = RECRUITMENT_STAGES;
 
   const companyCandidates = (candidates || []).filter(c => c.companyId === activeCompany?.id);
 
@@ -69,8 +83,29 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
     return matchesSearch;
   });
 
+  const applyStage = (cand: Candidate, stageId: Candidate['stage']) => {
+    const updated = { ...cand, stage: stageId };
+    onSaveCandidate(updated);
+    if (viewingCandidate?.id === cand.id) setViewingCandidate(updated);
+  };
+
+  const logAttachment = (kind: 'view' | 'download', attachmentId: string) => {
+    const event = attachmentAuditEvent(kind, attachmentId);
+    void reportAudit(event);
+  };
+
+  const downloadAttachment = (att: CandidateAttachment) => {
+    if (!att.fileUrl) return;
+    logAttachment('download', att.id);
+    const link = document.createElement('a');
+    link.href = att.fileUrl;
+    link.download = att.fileName || att.title || 'attachment';
+    link.click();
+  };
+
   // Helper to open document preview in new tab
-  const openDocumentPreviewInNewTab = (fileUrl: string, title: string) => {
+  const openDocumentPreviewInNewTab = (fileUrl: string, title: string, attachmentId?: string) => {
+    if (attachmentId) logAttachment('view', attachmentId);
     if (!fileUrl) {
       alert('لا يوجد ملف مرفوع لهذا المستند');
       return;
@@ -154,6 +189,10 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
     setFullName('');
     setEmail('');
     setPhone('');
+    setCivilId('');
+    setPassportNo('');
+    setCivilDraft('');
+    setPassportDraft('');
     setAppliedPosition('');
     setDepartment('الموارد البشرية والإدارة');
     setExpectedSalary(800);
@@ -174,6 +213,10 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
     setFullName(cand.fullName || '');
     setEmail(cand.email || '');
     setPhone(cand.phone || '');
+    setCivilId(cand.civilId || '');
+    setPassportNo(cand.passportNo || '');
+    setCivilDraft('');
+    setPassportDraft('');
     setAppliedPosition(cand.appliedPosition || '');
     setDepartment(cand.department || 'عام');
     setExpectedSalary(cand.expectedSalary || 800);
@@ -271,6 +314,8 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
       fullName: fullName.trim(),
       email: email.trim(),
       phone: phone.trim(),
+      civilId: civilDraft.trim() || civilId.trim(),
+      passportNo: passportDraft.trim() || passportNo.trim(),
       appliedPosition: appliedPosition.trim(),
       department: department.trim() || 'عام',
       expectedSalary: Number(expectedSalary) || 800,
@@ -310,53 +355,55 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
     }
   };
 
+  const moveCard = (cand: Candidate, stageId: Candidate['stage']) => {
+    if (cand.stage === stageId) return;
+    if (dropOnRecruitmentStage(stageId) === 'confirm-hire') {
+      setHirePrompt(cand);
+      return;
+    }
+    applyStage(cand, stageId);
+  };
+
   return (
-    <div className="space-y-6 text-xs text-slate-800 font-sans" dir="rtl">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-200">
-        <div>
-          <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-            <UserPlus className="w-6 h-6 text-primary" />
-            <span>نظام إدارة التوظيف والشهادات المرفقة</span>
-          </h2>
-          <p className="text-xs text-slate-500 mt-1">
-            متابعة مراحل المقابلات، مراجعة شهادات ومستندات المتقدمين، ومعاينتها بتبويب جديد والتحويل المباشر للموظفين
-          </p>
-        </div>
+    <div className="text-xs text-slate-800" dir="rtl">
+      <PageHeader
+        title="التوظيف"
+        subtitle="خمس مراحل. نقل البطاقة إلى تم التعيين لا ينشئ موظفاً."
+        primaryAction={{ label: 'طلب جديد', onClick: handleOpenAddModal }}
+        menu={[]}
+      />
+      <FilterBar
+        search={searchQuery}
+        onSearch={setSearchQuery}
+        searchPlaceholder="بحث باسم المتقدم أو الوظيفة"
+        segments={[]}
+        activeSegment=""
+        onSegment={() => undefined}
+        dropdowns={[]}
+      />
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleOpenAddModal}
-            className="bg-primary hover:bg-[#5a3a52] text-white text-xs font-bold px-4 py-2.5 rounded-lg shadow-sm flex items-center gap-2 transition"
-          >
-            <Plus className="w-4 h-4" />
-            <span>تقديم طلب توظيف جديد (إرفاق شهادات)</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Filter Toolbar */}
-      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs mb-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-        {/* Search Input */}
-        <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 text-slate-400 absolute right-3 top-2.5" />
-          <input
-            type="text"
-            placeholder="بحث باسم المتقدم، الوظيفة، الشهادة، المؤهل..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pr-9 pl-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:bg-white focus:border-primary"
-          />
-        </div>
-      </div>
-
-      {/* Recruitment Kanban Pipeline */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 overflow-x-auto pb-4">
+      {recruitmentPageEmpty(filteredCandidates.length) ? (
+        <EmptyState
+          icon={Users}
+          title="لا يوجد متقدمون"
+          message="أضف طلب توظيف ليظهر في لوحة المراحل."
+        />
+      ) : (
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 overflow-x-auto p-4">
         {stages.map((stg) => {
           const stageCandidates = filteredCandidates.filter(c => c.stage === stg.id);
           return (
-            <div key={stg.id} className="bg-slate-100/80 rounded-xl p-3 border border-slate-200 min-w-[240px] flex flex-col">
-              {/* Column Header */}
+            <div
+              key={stg.id}
+              className="bg-slate-100/80 rounded-xl p-3 border border-slate-200 min-w-[240px] flex flex-col"
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => {
+                event.preventDefault();
+                const id = event.dataTransfer.getData('text/candidate-id');
+                const cand = filteredCandidates.find((item) => item.id === id);
+                if (cand) moveCard(cand, stg.id);
+              }}
+            >
               <div className="flex justify-between items-center mb-3 pb-2 border-b border-slate-200 text-xs font-bold text-slate-800">
                 <span>{stg.label}</span>
                 <span className="bg-white text-slate-800 px-2 py-0.5 rounded-full font-mono text-[11px] border shadow-xs">
@@ -366,15 +413,16 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
 
               {/* Cards list */}
               <div className="space-y-3 flex-1 overflow-y-auto max-h-[calc(100vh-16rem)] p-0.5">
-                {stageCandidates.length === 0 ? (
-                  <div className="text-center py-8 text-slate-400 border border-dashed border-slate-200 rounded-lg">
-                    <p className="text-[11px]">لا يوجد طلبات بهذه المرحلة</p>
-                  </div>) : (
-                  stageCandidates.map((cand) => {
+                {stageCandidates.map((cand) => {
                     const attCount = cand.attachments?.length || 0;
                     return (
                       <div 
-                        key={cand.id} 
+                        key={cand.id}
+                        draggable
+                        onDragStart={(event) => {
+                          event.dataTransfer.setData('text/candidate-id', cand.id);
+                          event.dataTransfer.effectAllowed = 'move';
+                        }}
                         onClick={() => setViewingCandidate(cand)}
                         className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-xs text-xs space-y-2.5 hover:border-primary hover:shadow-md transition cursor-pointer relative group"
                       >
@@ -426,9 +474,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   const nextIdx = stages.findIndex(s => s.id === cand.stage) + 1;
-                                  if (nextIdx < stages.length) {
-                                    onSaveCandidate({ ...cand, stage: stages[nextIdx].id as any });
-                                  }
+                                  if (nextIdx < stages.length) moveCard(cand, stages[nextIdx].id);
                                 }}
                                 className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-primary font-bold text-[10px] rounded transition flex items-center gap-1"
                                 title="ترقية للمرحلة التالية"
@@ -450,17 +496,18 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
                           </div>
                         </div>
                       </div>);
-                  })
-                )}
+                  })}
               </div>
             </div>);
         })}
       </div>
+      )}
 
       {/* VIEW CANDIDATE PROFILE & CERTIFICATES MODAL / DRAWER */}
       {viewingCandidate && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-3xl w-full max-h-[92vh] flex flex-col p-5 sm:p-6 text-xs space-y-4 overflow-hidden">
+        <div className="fixed inset-0 z-50">
+          <button type="button" aria-label="إغلاق اللوحة" className="absolute inset-0 bg-slate-900/40" onClick={() => setViewingCandidate(null)} />
+          <aside className="absolute inset-y-0 end-0 flex h-full w-full max-w-md flex-col gap-4 overflow-hidden border-s border-slate-200 bg-white p-5 text-xs shadow-2xl">
             {/* Header */}
             <div className="flex items-center justify-between border-b pb-3 shrink-0">
               <div className="flex items-center gap-3">
@@ -507,7 +554,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
                 <div>
                   <span className="text-slate-400 block">المرحلة الحالية:</span>
                   <span className="font-bold text-purple-700">
-                    {stages.find(s => s.id === viewingCandidate.stage)?.label || viewingCandidate.stage}
+                    {recruitmentStageLabel(viewingCandidate.stage)}
                   </span>
                 </div>
                 <div>
@@ -517,6 +564,14 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
                 <div>
                   <span className="text-slate-400 block">الهاتف:</span>
                   <span className="font-mono text-slate-700 dir-ltr block">{viewingCandidate.phone || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block">الرقم المدني:</span>
+                  <MaskedValue kind="civil" value={viewingCandidate.civilId} purpose="recruitment-panel" />
+                </div>
+                <div>
+                  <span className="text-slate-400 block">الجواز:</span>
+                  <MaskedValue kind="passport" value={viewingCandidate.passportNo} purpose="recruitment-panel" />
                 </div>
               </div>
 
@@ -587,11 +642,19 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
                         <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[10px]">
                           <span className="text-slate-400 font-mono">{att.uploadDate || 'تاريخ المرفق'} • {att.fileSize || ''}</span>
                           <button
-                            onClick={() => openDocumentPreviewInNewTab(att.fileUrl, att.title)}
+                            onClick={() => openDocumentPreviewInNewTab(att.fileUrl, att.title, att.id)}
                             className="bg-primary hover:bg-[#5a3a52] text-white font-bold px-3 py-1 rounded-lg transition shadow-xs flex items-center gap-1"
                           >
                             <Eye className="w-3 h-3" />
-                            <span>معاينة في تبويب جديد ↗</span>
+                            <span>عرض</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => downloadAttachment(att)}
+                            className="bg-slate-800 hover:bg-slate-900 text-white font-bold px-3 py-1 rounded-lg transition shadow-xs flex items-center gap-1"
+                          >
+                            <Download className="w-3 h-3" />
+                            <span>تنزيل</span>
                           </button>
                         </div>
                       </div>))}
@@ -623,11 +686,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
                   <button
                     onClick={() => {
                       const nextIdx = stages.findIndex(s => s.id === viewingCandidate.stage) + 1;
-                      if (nextIdx < stages.length) {
-                        const updated = { ...viewingCandidate, stage: stages[nextIdx].id as any };
-                        onSaveCandidate(updated);
-                        setViewingCandidate(updated);
-                      }
+                      if (nextIdx < stages.length) moveCard(viewingCandidate, stages[nextIdx].id);
                     }}
                     className="bg-purple-50 hover:bg-purple-100 text-primary font-bold px-4 py-2 rounded-lg text-xs flex items-center gap-2 transition"
                   >
@@ -643,7 +702,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
                 إغلاق
               </button>
             </div>
-          </div>
+          </aside>
         </div>)}
 
       {/* ADD / EDIT CANDIDATE APPLICATION MODAL */}
@@ -732,6 +791,32 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className="w-full border border-slate-300 rounded-lg p-2 outline-none dir-ltr focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">الرقم المدني</label>
+                  <MaskedValue kind="civil" value={civilId} purpose="recruitment-form" />
+                  <input
+                    type="text"
+                    value={civilDraft}
+                    placeholder="تصحيح الرقم"
+                    autoComplete="off"
+                    onChange={(e) => setCivilDraft(e.target.value)}
+                    className="mt-1 w-full border border-slate-300 rounded-lg p-2 outline-none dir-ltr focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">رقم الجواز</label>
+                  <MaskedValue kind="passport" value={passportNo} purpose="recruitment-form" />
+                  <input
+                    type="text"
+                    value={passportDraft}
+                    placeholder="تصحيح الرقم"
+                    autoComplete="off"
+                    onChange={(e) => setPassportDraft(e.target.value)}
+                    className="mt-1 w-full border border-slate-300 rounded-lg p-2 outline-none dir-ltr focus:border-primary"
                   />
                 </div>
 
@@ -907,7 +992,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
                             {getAttTypeBadge(att.type)}
                             <button
                               type="button"
-                              onClick={() => openDocumentPreviewInNewTab(att.fileUrl, att.title)}
+                              onClick={() => openDocumentPreviewInNewTab(att.fileUrl, att.title, att.id)}
                               className="p-1 text-primary hover:bg-purple-50 rounded transition"
                               title="معاينة المستند في تبويب جديد"
                             >
@@ -960,5 +1045,20 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
             </div>
           </div>
         </div>)}
+
+      <ConfirmDialog
+        open={hirePrompt !== null}
+        title="تم التعيين"
+        message="نقل المتقدم إلى تم التعيين يغيّر المرحلة فقط. لا يُنشأ موظف من هذا الحوار."
+        confirmWord="تعيين"
+        confirmLabel="نقل المرحلة"
+        onCancel={() => setHirePrompt(null)}
+        onConfirm={() => {
+          if (!hirePrompt) return;
+          const decision = hireStageDecision();
+          applyStage({ ...hirePrompt, stage: decision.stage }, decision.stage);
+          setHirePrompt(null);
+        }}
+      />
     </div>);
 };

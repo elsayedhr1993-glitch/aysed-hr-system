@@ -218,6 +218,8 @@ export interface Candidate {
   fullName: string;
   email: string;
   phone: string;
+  civilId?: string;
+  passportNo?: string;
   appliedPosition: string;
   department: string;
   expectedSalary: number;
