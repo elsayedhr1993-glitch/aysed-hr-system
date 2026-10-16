@@ -10,7 +10,7 @@
  */
 
 import { db, auth, cleanFirestoreData, getCompaniesCollectionName } from '../lib/firebase';
-import { collection, doc, setDoc, deleteDoc, getDocs, query, where, getDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, getDocs, query, where, getDoc, limit } from 'firebase/firestore';
 import { Company, Employee, LeaveRequest, AttendanceRecord, Payslip, Contract } from '../types';
 import { triggerContractRunningLeaveAllocation } from '../utils/contractLeaveTrigger';
 import { normalizeEmployeeRecord, toEmployeeFirestoreData } from '../utils/employeeMapper';
@@ -778,6 +778,46 @@ export const TenantDatabaseService = {
 
     // 4. If nothing in DB and nothing in cache, return empty list (never auto-seed test employees)
     return [];
+  },
+
+  /**
+   * Read-only. True when any operational collection still points at the employee.
+   */
+  async hasEmployeeLinkedRecords(employeeId: string): Promise<boolean> {
+    const relCols = [
+      'contracts',
+      'commencements',
+      'leave_requests',
+      'leave_allocations',
+      'attendance',
+      'payslips',
+      'loans',
+      'documents',
+      'employee_lifecycle_events',
+      'employeeNotes',
+      'warnings',
+      'work_on_holidays',
+      'onboarding_plans',
+    ];
+    for (const colName of relCols) {
+      try {
+        const snap = await getDocs(
+          query(collection(db, colName), where('employeeId', '==', employeeId), limit(1))
+        );
+        if (!snap.empty) return true;
+      } catch {
+        /* a denied collection is not treated as a link */
+      }
+    }
+    try {
+      const contractDoc = await getDoc(doc(db, 'contracts', `contract-${employeeId}`));
+      if (contractDoc.exists()) return true;
+      const commencementDoc = await getDoc(doc(db, 'commencements', `commencement-${employeeId}`));
+      if (commencementDoc.exists()) return true;
+    } catch {
+      /* missing named docs are not links */
+    }
+    return false;
   },
 
   /**

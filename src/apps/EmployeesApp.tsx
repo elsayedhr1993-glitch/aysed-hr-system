@@ -18,6 +18,7 @@ import { EmployeeImportModal } from '../components/employees/EmployeeImportModal
 import { EmployeesAppChrome } from '../components/employees/layout/EmployeesAppChrome';
 import { EmployeesPage } from '../components/employees/EmployeesPage';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { employeeRemovalMode } from '../utils/employeeRemoval';
 import { filterEmployeesDirectory } from '../utils/filterEmployeesDirectory';
 import { useScreenLayout } from '../hooks/useScreenLayout';
 import { useCompany } from '../context/CompanyContext';
@@ -373,7 +374,11 @@ export function EmployeesApp(props?: any) {
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
   const [showPamContractModal, setShowPamContractModal] = useState(false);
   const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
-  const [employeePendingDelete, setEmployeePendingDelete] = useState<{ id: string; name: string } | null>(null);
+  const [employeePendingDelete, setEmployeePendingDelete] = useState<{
+    id: string;
+    name: string;
+    mode: 'archive' | 'delete';
+  } | null>(null);
   const [isDeletingEmployee, setIsDeletingEmployee] = useState(false);
   const [showOnboardingWizardModal, setShowOnboardingWizardModal] = useState(false);
   const [showEmployeeImportModal, setShowEmployeeImportModal] = useState(false);
@@ -432,7 +437,45 @@ export function EmployeesApp(props?: any) {
 
   const requestDeleteEmployee = (id: string, name: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    setEmployeePendingDelete({ id, name: name || id });
+    void resolveEmployeeRemoval(id, name || id);
+  };
+
+  const resolveEmployeeRemoval = async (id: string, name: string) => {
+    const localLinked =
+      contracts.some((c: { employeeId?: string; id?: string }) => c.employeeId === id || c.id === `contract-${id}`) ||
+      commencements.some(
+        (c: { employeeId?: string; id?: string }) => c.employeeId === id || c.id === `commencement-${id}`
+      );
+    const linked = localLinked || (await TenantDatabaseService.hasEmployeeLinkedRecords(id));
+    setEmployeePendingDelete({ id, name, mode: employeeRemovalMode(linked ? 1 : 0) });
+  };
+
+  const archiveEmployeeFile = async (id: string, name: string) => {
+    const current = employees.find((emp) => String(emp.id) === String(id));
+    if (!current) {
+      toast.error(`تعذر العثور على ملف الموظف (${name}) للأرشفة`);
+      return;
+    }
+    setIsDeletingEmployee(true);
+    try {
+      const archived = { ...current, isDeleted: true, status: 'archived' };
+      const saved = await TenantDatabaseService.saveEmployee(archived, currentCompanyId);
+      if (!saved) {
+        toast.error(`تعذر أرشفة الموظف (${name})`);
+        return;
+      }
+      setEmployees((prev) => prev.map((emp) => (String(emp.id) === String(id) ? archived : emp)));
+      if (selectedEmployee && String(selectedEmployee.id) === String(id)) {
+        setSelectedEmployee(null);
+      }
+      toast.success(`تمت أرشفة الموظف: ${name}. السجلات المرتبطة بقيت كما هي`);
+      setEmployeePendingDelete(null);
+    } catch (err) {
+      console.error('Error archiving employee:', err);
+      toast.error(`حدث خطأ أثناء أرشفة الموظف (${name})`);
+    } finally {
+      setIsDeletingEmployee(false);
+    }
   };
 
   const confirmDeleteEmployee = async () => {
@@ -1020,6 +1063,7 @@ export function EmployeesApp(props?: any) {
 
   // 3. فلترة العرض (كيان نشط + اختياري: غير مرتبطين / شركات سابقة)
   const visibleEmployees = employees.filter((emp) => {
+    if (emp.isDeleted) return false;
     if (currentCompanyId === 'comp-super-admin' || !currentCompanyId) {
       return true;
     }
@@ -2273,45 +2317,34 @@ export function EmployeesApp(props?: any) {
       />
 
 
-      {employeePendingDelete && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4" dir="rtl">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="p-5 bg-rose-50 border-b border-rose-100 flex items-center gap-3">
-              <div className="p-2.5 bg-rose-600 text-white rounded-xl">
-                <Trash2 size={18} />
-              </div>
-              <div>
-                <h3 className="font-bold text-rose-950 text-sm">تأكيد حذف ملف الموظف</h3>
-                <p className="text-[11px] text-rose-700">إجراء نهائي — سيُحذف الموظف وسجلاته المرتبطة</p>
-              </div>
-            </div>
-            <div className="p-6 space-y-4 text-xs text-slate-700">
-              <p>
-                هل أنت متأكد من حذف الموظف{' '}
-                <strong className="text-slate-900">{employeePendingDelete.name}</strong> نهائياً؟
-              </p>
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={confirmDeleteEmployee}
-                  disabled={isDeletingEmployee}
-                  className="flex-1 bg-rose-600 hover:bg-rose-700 text-white py-3 px-4 rounded-xl font-bold text-xs transition disabled:opacity-50"
-                >
-                  {isDeletingEmployee ? 'جارِ الحذف...' : 'نعم، احذف نهائياً'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEmployeePendingDelete(null)}
-                  disabled={isDeletingEmployee}
-                  className="px-5 py-3 border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl font-bold text-xs transition"
-                >
-                  إلغاء
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={Boolean(employeePendingDelete)}
+        title={employeePendingDelete?.mode === 'archive' ? 'أرشفة ملف الموظف' : 'حذف ملف الموظف'}
+        message={
+          employeePendingDelete?.mode === 'archive'
+            ? `للموظف ${employeePendingDelete.name} سجلات مرتبطة. ستُؤرشف الملف ويُخفى من الدليل، وتبقى العقود والحضور والإجازات والمسيرات.`
+            : `لا سجلات مرتبطة بـ ${employeePendingDelete?.name || ''}. سيُحذف الملف. اكتب «حذف» للتأكيد.`
+        }
+        confirmWord={employeePendingDelete?.mode === 'archive' ? 'أرشفة' : 'حذف'}
+        confirmLabel={
+          isDeletingEmployee
+            ? 'جارِ التنفيذ'
+            : employeePendingDelete?.mode === 'archive'
+              ? 'أرشفة'
+              : 'حذف'
+        }
+        onConfirm={() => {
+          if (!employeePendingDelete || isDeletingEmployee) return;
+          if (employeePendingDelete.mode === 'archive') {
+            void archiveEmployeeFile(employeePendingDelete.id, employeePendingDelete.name);
+            return;
+          }
+          void confirmDeleteEmployee();
+        }}
+        onCancel={() => {
+          if (!isDeletingEmployee) setEmployeePendingDelete(null);
+        }}
+      />
 
       {/* معالج تسجيل الموظف وخطة التهيئة والتعيين الموحد */}
       <EmployeeImportModal
