@@ -37,6 +37,11 @@ import { formatKWD } from '../utils/kuwaitLaw';
 import { exportToExcel } from '../utils/exportUtils';
 import { OdooPdf } from '../services/odooPdfService';
 import { toast } from 'react-hot-toast';
+import { PageHeader } from './ui/PageHeader';
+import { StatStrip } from './ui/StatStrip';
+import { FilterBar } from './ui/FilterBar';
+import { tokens } from '../design/tokens';
+import { custodyTableStatus } from './custody/custodyDisplay';
 import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { cleanFirestoreData, db } from '../lib/firebase';
 import { MaskedValue } from './security/MaskedValue';
@@ -350,179 +355,50 @@ export const OdooOperationsApp: React.FC = () => {
   return (
     <div className="odoo-app-surface space-y-5 font-sans dir-rtl text-right text-slate-800 animate-fade-in" dir="rtl">
       
-      {/* 1. ODOO ENTERPRISE HEADER */}
-      <div className="bg-white p-4.5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
-            <span>إدارة العمليات والأصول</span>
-            <span>/</span>
-            <span className="text-primary font-black">العهد والممتلكات</span>
-          </div>
-          <h1 className="text-xl font-black text-slate-900 flex items-center gap-2.5">
-            <div className="p-2 bg-primary/10 text-primary rounded-xl">
-              <Package size={22} />
-            </div>
-            العهد والممتلكات وأصول المنشأة
-          </h1>
-          <p className="text-xs text-slate-500">
-            المنشأة النشطة: <strong className="text-primary font-bold">{activeCompany?.nameAr || 'المؤسسة الطبية'}</strong> | حصر شامل للأجهزة والمعدات والمركبات وسندات إخلاء الطرف المعتمدة.
-          </p>
-        </div>
-
-        {/* Action Controls */}
-        <div className="flex items-center flex-wrap gap-2.5 w-full md:w-auto">
-          <button
-            onClick={handleExportExcel}
-            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-slate-200 cursor-pointer"
-            title="تصدير كشف العهد إلى إكسيل"
-          >
-            <Download size={15} /> تصدير Excel
-          </button>
-          <button
-            onClick={handleOpenAddModal}
-            className="bg-primary hover:bg-[#583950] text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm hover:shadow cursor-pointer"
-          >
-            <Plus size={16} /> تسجيل عهدة جديدة
-          </button>
-        </div>
-      </div>
-
-      {/* 2. KPIS METRICS OVERVIEW */}
-      <div className="odoo-kanban-grid gap-3.5">
-        
-        {/* Metric 1: Total Value */}
-        <button
-          type="button"
-          onClick={() => setSelectedStatus('ALL')}
-          className={`bg-white p-4 rounded-2xl border shadow-xs flex items-center justify-between text-right cursor-pointer ${
-            selectedStatus === 'ALL' ? 'border-indigo-400 ring-2 ring-indigo-100' : 'border-slate-200'
-          }`}
-        >
-          <div className="space-y-1">
-            <span className="text-xs font-bold text-slate-500">القيمة التقديرية للأصول</span>
-            <div className="text-xl font-black text-slate-900 font-mono tracking-tight">
-              {formatKWD(totalValueKwd)}
-            </div>
-            <span className="text-[11px] text-slate-400">إجمالي {companyCustodies.length} أصل مسجل</span>
-          </div>
-          <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
-            <CreditCard size={24} />
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setSelectedStatus('ASSIGNED')}
-          className={`bg-white p-4 rounded-2xl border shadow-xs flex items-center justify-between text-right cursor-pointer ${
-            selectedStatus === 'ASSIGNED' ? 'border-emerald-500 ring-2 ring-emerald-100' : 'border-slate-200'
-          }`}
-        >
-          <div className="space-y-1">
-            <span className="text-xs font-bold text-slate-500">عهد قيد الاستخدام (مسلّمة)</span>
-            <div className="text-xl font-black text-emerald-700 font-mono">
-              {assignedCount} <span className="text-xs font-sans text-slate-400 font-normal">عهدة</span>
-            </div>
-            <span className="text-[11px] text-emerald-600 font-bold">بحوزة الكادر الوظيفي</span>
-          </div>
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-            <CheckCircle2 size={24} />
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setSelectedStatus('IN_STOCK')}
-          className={`bg-white p-4 rounded-2xl border shadow-xs flex items-center justify-between text-right cursor-pointer ${
-            selectedStatus === 'IN_STOCK' ? 'border-blue-500 ring-2 ring-blue-100' : 'border-slate-200'
-          }`}
-        >
-          <div className="space-y-1">
-            <span className="text-xs font-bold text-slate-500">متاحة في المستودع</span>
-            <div className="text-xl font-black text-blue-700 font-mono">
-              {inStockCount} <span className="text-xs font-sans text-slate-400 font-normal">أصل</span>
-            </div>
-            <span className="text-[11px] text-blue-600 font-bold">جاهزة للإسناد والتسليم</span>
-          </div>
-          <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
-            <Package size={24} />
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setSelectedStatus('ATTENTION')}
-          className={`bg-white p-4 rounded-2xl border shadow-xs flex items-center justify-between text-right cursor-pointer ${
-            selectedStatus === 'ATTENTION' ? 'border-amber-500 ring-2 ring-amber-100' : 'border-slate-200'
-          }`}
-        >
-          <div className="space-y-1">
-            <span className="text-xs font-bold text-slate-500">تحت الصيانة أو تالفة</span>
-            <div className="text-xl font-black text-amber-700 font-mono">
-              {maintenanceDamagedCount} <span className="text-xs font-sans text-slate-400 font-normal">عنصر</span>
-            </div>
-            <span className="text-[11px] text-amber-600 font-bold">تحتاج متابعة وفحص فني</span>
-          </div>
-          <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
-            <AlertTriangle size={24} />
-          </div>
-        </button>
-
-      </div>
-
-      {/* 3. SEARCH & SMART FILTERS */}
-      <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-3">
-          
-          {/* Search bar */}
-          <div className="relative w-full md:w-80">
-            <Search className="absolute right-3 top-2.5 text-slate-400" size={16} />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="بحث بالاسم، كود العهدة، السيريال، أو اسم الموظف..."
-              className="w-full pr-9 pl-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-primary transition"
-            />
-            {searchQuery && (
-              <button 
-                onClick={() => setSearchQuery('')}
-                className="absolute left-2.5 top-2.5 text-slate-400 hover:text-slate-600"
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
-
-        </div>
-
-        {/* Category Pills Bar */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pt-2 border-t border-slate-100 text-xs">
-          <span className="text-[11px] font-bold text-slate-400 ml-1 flex items-center gap-1">
-            <Filter size={13} /> الفئة:
-          </span>
-          {[
-            { id: 'ALL', label: 'كافة الفئات' },
-            { id: 'ELECTRONICS', label: 'أجهزة ولابتوبات' },
-            { id: 'VEHICLE', label: 'سيارات ومركبات' },
-            { id: 'SIM_PHONE', label: 'هواتف وشرائح' },
-            { id: 'FINANCIAL_CARD', label: 'بطاقات مالية' },
-            { id: 'TOOLS', label: 'معدات وأدوات' },
-            { id: 'OTHER', label: 'أخرى' },
-          ].map(cat => (
-            <button
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.id)}
-              className={`px-2.5 py-1 rounded-lg font-bold transition whitespace-nowrap cursor-pointer text-[11px] ${
-                selectedCategory === cat.id
-                  ? 'bg-slate-800 text-white'
-                  : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
-              }`}
-            >
-              {cat.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <PageHeader
+        title="العهد والممتلكات"
+        subtitle={activeCompany?.nameAr || 'المنشأة'}
+        primaryAction={{ label: 'تسجيل عهدة', onClick: handleOpenAddModal }}
+        menu={[{ id: 'excel', label: 'تصدير Excel', onSelect: handleExportExcel }]}
+      />
+      <StatStrip
+        items={[
+          { id: 'ALL', label: 'الأصول', value: companyCustodies.length },
+          { id: 'ASSIGNED', label: 'مسلّمة', value: assignedCount },
+          { id: 'IN_STOCK', label: 'المستودع', value: inStockCount },
+          { id: 'ATTENTION', label: 'صيانة أو تالفة', value: maintenanceDamagedCount },
+        ]}
+        activeId={selectedStatus}
+        onSelect={setSelectedStatus}
+      />
+      <FilterBar
+        search={searchQuery}
+        onSearch={setSearchQuery}
+        searchPlaceholder="بحث بالاسم أو الكود أو السيريال"
+        segments={[{ id: 'all', label: 'الكل', count: filteredCustodies.length }]}
+        activeSegment="all"
+        onSegment={() => setSearchQuery('')}
+        dropdowns={[
+          {
+            id: 'category',
+            label: 'الفئة',
+            value: selectedCategory,
+            onChange: setSelectedCategory,
+            options: [
+              { value: 'ALL', label: 'كل الفئات' },
+              { value: 'ELECTRONICS', label: 'أجهزة ولابتوبات' },
+              { value: 'VEHICLE', label: 'سيارات ومركبات' },
+              { value: 'SIM_PHONE', label: 'هواتف وشرائح' },
+              { value: 'FINANCIAL_CARD', label: 'بطاقات مالية' },
+              { value: 'TOOLS', label: 'معدات وأدوات' },
+              { value: 'OTHER', label: 'أخرى' },
+            ],
+          },
+        ]}
+      />
+      <p className="px-4 py-2 text-[11px]" style={{ color: tokens.color.gray[500], fontFamily: 'var(--font-sans)' }}>
+        القيمة التقديرية {formatKWD(totalValueKwd)}
+      </p>
 
       {/* 4. CUSTODIES DATA TABLE */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
@@ -547,7 +423,6 @@ export const OdooOperationsApp: React.FC = () => {
                 <th className="p-3.5">الموظف المسند إليه</th>
                 <th className="p-3.5">الرقم التسلسلي (S/N)</th>
                 <th className="p-3.5">القيمة التقديرية</th>
-                <th className="p-3.5">الحالة التشغيلية</th>
                 <th className="p-3.5">حالة العهدة</th>
                 <th className="p-3.5 text-center">السندات والإجراءات</th>
               </tr>
@@ -555,7 +430,7 @@ export const OdooOperationsApp: React.FC = () => {
             <tbody className="divide-y divide-slate-100">
               {filteredCustodies.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-12 text-center text-slate-400 space-y-2">
+                  <td colSpan={7} className="p-12 text-center text-slate-400 space-y-2">
                     <Package className="w-12 h-12 mx-auto text-slate-300" />
                     <p className="font-bold text-slate-600">لا توجد عهد تطابق معايير البحث أو الفلترة</p>
                     <p className="text-[11px] text-slate-400">يمكنك إضافة عهدة جديدة أو إعادة ضبط معايير الفلترة.</p>
@@ -625,21 +500,8 @@ export const OdooOperationsApp: React.FC = () => {
                         {formatKWD(custody.valueKwd || 0)}
                       </td>
 
-                      {/* Condition */}
-                      <td className="p-3.5 whitespace-nowrap">
-                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${
-                          custody.condition === 'EXCELLENT' ? 'bg-emerald-50 text-emerald-700' :
-                          custody.condition === 'GOOD' ? 'bg-blue-50 text-blue-700' :
-                          custody.condition === 'NEEDS_REPAIR' ? 'bg-amber-50 text-amber-700' :
-                          'bg-rose-50 text-rose-700'
-                        }`}>
-                          {getConditionLabel(custody.condition)}
-                        </span>
-                      </td>
-
-                      {/* Status */}
-                      <td className="p-3.5 whitespace-nowrap">
-                        {getStatusBadge(custody.status)}
+                      <td className="p-3.5 whitespace-nowrap" title={getConditionLabel(custody.condition)}>
+                        {getStatusBadge(custodyTableStatus(custody).value)}
                       </td>
 
                       {/* Actions */}

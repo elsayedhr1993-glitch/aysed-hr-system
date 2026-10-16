@@ -51,7 +51,7 @@ export const defaultEosPolicy: EosPolicyData = {
   termByCompanyEntitlementPercent: 100,
 
   autoDeductOutstandingLoans: true,
-  autoDeductUnreturnedCustody: true,
+  autoDeductUnreturnedCustody: false,
   autoDeductUnpaidLeaveBalance: true,
 
   requireItClearance: true,
@@ -378,8 +378,8 @@ export const EosSetupWizardModal: React.FC<EosSetupWizardModalProps> = ({
                     className="w-4 h-4 text-emerald-600 rounded"
                   />
                   <div>
-                    <span className="text-xs font-bold text-slate-900 block">خصم قيمة العُهد العينية والمعدات غير المسلمة (Custody Offsetting)</span>
-                    <span className="text-[10px] text-slate-500 block">ربط قائمة العهد (أجهزة، سيارات) بكشف التسوية النهائية.</span>
+                    <span className="text-xs font-bold text-slate-900 block">تنبيه العهد غير المسلّمة في مخالصة نهاية الخدمة</span>
+                    <span className="text-[10px] text-slate-500 block">لا يُخصم مبلغ العهدة من المستحقات. المخالصة تعرض التنبيه فقط.</span>
                   </div>
                 </label>
 

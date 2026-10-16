@@ -14,6 +14,9 @@ import type { Company, LeaveSettlementVoucher } from '../../types';
 import { OfficialA4CompanyLetterheadCompact } from '../print/OfficialA4CompanyLetterhead';
 import { OdooReportFooter, OdooReportLegalNotice } from '../print/OdooReportPrimitives';
 import { getCompanyPrintProfile } from '../../utils/companyPrintProfile';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
+import { undeliveredCustodyAlert } from '../custody/custodyDisplay';
 
 export interface FinalSettlementEmployee {
   id: string;
@@ -57,6 +60,7 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
   const [deductLoanAmount, setDeductLoanAmount] = useState<number>(0);
   const [otherDeductions, setOtherDeductions] = useState<number>(0);
   const [otherAllowances, setOtherAllowances] = useState<number>(0);
+  const [assignedCustodyCount, setAssignedCustodyCount] = useState(0);
 
   useEffect(() => {
     if (!employees.length) {
@@ -76,6 +80,24 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
   }, [employees, selectedEmpId, initialEmployeeId]);
 
   const currentEmp = employees.find((e) => e.id === selectedEmpId) || employees[0];
+  const custodyAlert = undeliveredCustodyAlert(assignedCustodyCount);
+
+  useEffect(() => {
+    const companyId = company?.id;
+    const employeeId = currentEmp?.id;
+    if (!companyId || !employeeId) {
+      setAssignedCustodyCount(0);
+      return;
+    }
+    const custodyQuery = query(collection(db, 'custodies'), where('companyId', '==', companyId));
+    return onSnapshot(custodyQuery, (snapshot) => {
+      const open = snapshot.docs.filter((item) => {
+        const data = item.data();
+        return data.employeeId === employeeId && data.status === 'ASSIGNED';
+      }).length;
+      setAssignedCustodyCount(open);
+    }, () => setAssignedCustodyCount(0));
+  }, [company?.id, currentEmp?.id]);
 
   const liveLeaveSnapshot = useMemo(() => {
     if (!currentEmp) {
@@ -490,6 +512,12 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
                 </tfoot>
               </table>
             </div>
+
+            {custodyAlert ? (
+              <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900">
+                {custodyAlert}
+              </div>
+            ) : null}
 
             {/* Net Total Box */}
             <div className="bg-slate-900 text-white rounded-xl p-4 mb-6 flex flex-col sm:flex-row justify-between items-center gap-3">
