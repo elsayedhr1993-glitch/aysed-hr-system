@@ -6,6 +6,7 @@ import { useCompany } from '../../context/CompanyContext';
 import { useOdooHierarchy } from '../../context/OdooHierarchyContext';
 import { useCompanyLeaveFinanceSnapshots } from '../../hooks/useCompanyLeaveFinanceSnapshots';
 import { LeaveSettlementCalculator } from '../LeaveSettlementCalculator';
+import { LAW_71_TEXT } from '../payroll/payrollDisplay';
 import type { LeaveRequest } from '../OdooTimeOffApp';
 import { calculateKuwaitDailyRate, calculateKuwaitLeaveCashAmount } from '../../utils/kuwaitPayrollMath';
 import {
@@ -257,7 +258,7 @@ export const TimeOffPayrollFinancePanel: React.FC<Props> = ({ highlightAdvanceRe
             financeSubTab === 'advance_salary' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          <Plane size={14} /> صرف راتب الإجازة مقدماً (مادة 71)
+          <Plane size={14} /> <span title={LAW_71_TEXT}>صرف الراتب مقدماً — مادة 71</span>
         </button>
         <button
           type="button"
@@ -280,7 +281,7 @@ export const TimeOffPayrollFinancePanel: React.FC<Props> = ({ highlightAdvanceRe
           <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-950 flex items-start gap-2.5">
             <Info size={16} className="text-amber-700 shrink-0 mt-0.5" />
             <div>
-              <strong className="block font-bold mb-0.5">سندات صرف راتب الإجازة السنوية مقدماً (مادة 71):</strong>
+              <strong className="block font-bold mb-0.5" title={LAW_71_TEXT}>سندات صرف الراتب مقدماً — مادة 71</strong>
               <span>
                 يُرحَّل المبلغ آلياً من قيود <code className="text-[10px]">payroll_leave_accruals</code> عند اعتماد HR
                 إذا طُلب الصرف المسبق في الطلب.

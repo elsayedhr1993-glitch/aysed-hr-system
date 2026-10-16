@@ -4,11 +4,43 @@ import {
   Printer, Calculator, DollarSign, Calendar, User, 
   FileText, ShieldCheck, Download, Loader2, Plus, 
   Archive, ChevronRight, CheckCircle2, History, AlertCircle,
-  Building, Briefcase, Hash, CreditCard, Sparkles, X,
+  Building, Briefcase, Hash, Sparkles, X,
   Trash2, Eye, RefreshCw, Layers, Check, Coins, ArrowRight,
   TrendingUp, Clock, FileCheck, ArrowDownRight, Tag, Lock, AlertTriangle
 } from 'lucide-react';
 import { OdooPdf } from '../services/odooPdfService';
+import { CompactFormAccordion } from './ui/CompactFormAccordion';
+import { tokens } from '../design/tokens';
+import { LAW_66_TEXT, LAW_70_TEXT } from './payroll/payrollDisplay';
+
+const LAW_77_TEXT = 'مادة 77 - 3 أيام للدرجة الأولى. مدفوعة بالراتب ومعفاة من الخصم من الرصيد.';
+
+function LawTip({ text, children }: { text: string; children: React.ReactNode }) {
+  return (
+    <span className="group relative inline-flex">
+      {children}
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute z-20 hidden w-64 text-white group-hover:block group-focus-within:block"
+        style={{
+          bottom: '100%',
+          insetInlineStart: 0,
+          marginBlockEnd: tokens.space[1],
+          background: tokens.color.gray[900],
+          paddingInline: tokens.space[2],
+          paddingBlock: tokens.space[1],
+          borderRadius: tokens.radius.sm,
+          fontSize: tokens.text.xs,
+          fontWeight: 400,
+          lineHeight: 1.6,
+          whiteSpace: 'normal',
+        }}
+      >
+        {text}
+      </span>
+    </span>
+  );
+}
 import { LEAVE_SCOPE_LABELS, type LeaveScope, leaveScopeFromRecord } from '../utils/leaveScopeAccrual';
 import { 
   calculateKuwaitDailyRate,
@@ -1016,7 +1048,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                 settlementState === 'draft' ? 'bg-primary text-white' : 'text-slate-600 hover:bg-slate-100'
               }`}
             >
-              مسودة (Draft)
+              مسودة
             </button>
             <div className="w-[1px] h-6 bg-slate-200"></div>
             <button
@@ -1026,7 +1058,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                 settlementState === 'validated' ? 'bg-[#008784] text-white' : 'text-slate-600 hover:bg-slate-100'
               }`}
             >
-              معتمد (Validated)
+              معتمد
             </button>
             <div className="w-[1px] h-6 bg-slate-200"></div>
             <button
@@ -1036,7 +1068,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                 settlementState === 'paid' ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-100'
               }`}
             >
-              تم الصرف والتسييل (Paid)
+              مصروف
             </button>
           </div>
         </header>
@@ -1045,7 +1077,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
         <div className="p-4 sm:p-6 lg:p-8 space-y-6 pb-4">
           
           {/* Top Row: Employee Selector & Quick KPI Cards */}
-          <div className="flex flex-col lg:flex-row items-start justify-between gap-6 pb-6 border-b border-slate-200">
+          <div className="flex flex-col lg:flex-row items-start justify-between gap-6 pb-6 border-b border-slate-200 sticky top-0 z-20 bg-white">
             
             {/* Title & Employee Selector */}
             <div className="space-y-2 flex-1">
@@ -1071,7 +1103,9 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
               <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 font-medium pt-1">
                 <span className="flex items-center gap-1">
                   <ShieldCheck size={14} className="text-[#008784]" />
-                  <span>قانون العمل الكويتي (المادة 70 و77)</span>
+                  <LawTip text={LAW_70_TEXT + ' — ' + LAW_77_TEXT}>
+                    <span>المادة 70 و77</span>
+                  </LawTip>
                 </span>
                 <span>•</span>
                 <span className="font-mono">الرقم المدني: {selectedEmp?.civilId || '-'}</span>
@@ -1423,7 +1457,9 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                         </div>
 
                         <div>
-                          <label className="block font-bold text-emerald-800 mb-1">إجازة وفاة / عزاء (المادة 77):</label>
+                          <label className="block font-bold text-emerald-800 mb-1">
+                            <LawTip text={LAW_77_TEXT}>إجازة وفاة — مادة 77</LawTip>
+                          </label>
                           <DecimalInput
                             min={0}
                             max={3}
@@ -1521,7 +1557,9 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                           </div>
                           <div>
                             <div className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 font-bold text-slate-800 text-xs flex items-center justify-between">
-                              <span className="text-[#008784] font-black">26 يوم (المادة 70 - إلزامي)</span>
+                              <LawTip text={LAW_70_TEXT}>
+                                <span className="text-[#008784] font-black">26 يوم — مادة 70</span>
+                              </LawTip>
                               <ShieldCheck size={15} className="text-[#008784]" />
                             </div>
                             <span className="text-[10px] text-slate-500 mt-0.5 block">أساس القسمة القانوني الموحد</span>
@@ -1563,7 +1601,9 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                           />
                         </div>
                         <div>
-                          <label className="block font-medium text-slate-600 mb-1">معامل الإضافي (المادة 66):</label>
+                          <label className="block font-medium text-slate-600 mb-1">
+                            <LawTip text={LAW_66_TEXT}>معامل الإضافي — مادة 66</LawTip>
+                          </label>
                           <select
                             value={overtimeMultiplier}
                             onChange={(e) => setOvertimeMultiplier(parseFloat(e.target.value) || 1.25)}
@@ -1645,14 +1685,8 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                     )}
                   </div>
 
-                  {/* 4. Allowances & Deductions Group */}
-                  <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-5 space-y-3 text-sm">
-                    <h4 className="font-bold text-slate-800 border-b border-slate-200 pb-1.5 flex items-center gap-1.5">
-                      <CreditCard size={15} className="text-slate-600" />
-                      <span>البدلات الإضافية والاستقطاعات والخصومات</span>
-                    </h4>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <CompactFormAccordion title="البدلات والاستقطاعات" subtitle="قسم متقدم" defaultOpen={false}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                       <div>
                         <label className="block font-bold text-slate-700 mb-1">بدل تذاكر السفر (د.ك):</label>
                         <DecimalInput
@@ -1693,7 +1727,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
                         />
                       </div>
                     </div>
-                  </div>
+                  </CompactFormAccordion>
 
                   {/* Custom Items List (if any) */}
                   {customItems.length > 0 && (
@@ -1729,7 +1763,7 @@ export const LeaveSettlementCalculator: React.FC<LeaveSettlementCalculatorProps>
 
                 </div>
 
-                <div className="space-y-5 min-w-0">
+                <div className="space-y-5 min-w-0 lg:sticky lg:top-24 self-start">
                   
                   {/* Dynamic Items Live Breakdown Box */}
                   <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-5 shadow-2xs space-y-4 text-sm">

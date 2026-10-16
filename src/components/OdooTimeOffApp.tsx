@@ -79,11 +79,14 @@ import {
   type AllocationRow,
 } from './timeoff/TimeOffBalanceRowModals';
 import { useOperationalAbsenceRows } from '../hooks/useOperationalAbsenceRows';
-import { DynamicTabsContainer } from './studio/DynamicTabsContainer';
 import { ScreenLayoutStudioToggle } from './studio/ScreenLayoutStudioToggle';
 import { useScreenLayout } from '../hooks/useScreenLayout';
-import { CompactTabBar } from './ui/CompactTabBar';
 import { CompactFormAccordion } from './ui/CompactFormAccordion';
+import { PageHeader } from './ui/PageHeader';
+import { StatStrip } from './ui/StatStrip';
+import { ConfirmDialog } from './ui/ConfirmDialog';
+import { tokens } from '../design/tokens';
+import { LAW_70_TEXT, LAW_71_TEXT } from './payroll/payrollDisplay';
 import {
   LEAVES_COMPACT_STORAGE_KEY,
   readLeavesCompactPreference,
@@ -102,6 +105,33 @@ export interface LeaveAllocation {
   allocationDate: string;
   notes: string;
   allocatedBy?: string;
+}
+
+function LawTip({ text, children }: { text: string; children: React.ReactNode }) {
+  return (
+    <span className="group relative inline-flex">
+      {children}
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute z-20 hidden w-64 text-white group-hover:block group-focus-within:block"
+        style={{
+          bottom: '100%',
+          insetInlineStart: 0,
+          marginBlockEnd: tokens.space[1],
+          background: tokens.color.gray[900],
+          paddingInline: tokens.space[2],
+          paddingBlock: tokens.space[1],
+          borderRadius: tokens.radius.sm,
+          fontSize: tokens.text.xs,
+          fontWeight: 400,
+          lineHeight: 1.6,
+          whiteSpace: 'normal',
+        }}
+      >
+        {text}
+      </span>
+    </span>
+  );
 }
 
 const leaveTypeLabels: Record<string, { label: string; color: string; maxDaysRule: string }> = {
@@ -154,12 +184,13 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
     }
   };
 
+  const [clearAllRequestsOpen, setClearAllRequestsOpen] = useState(false);
+
   const handleClearAllSampleData = () => {
-    if (window.confirm('هل أنت متأكد من مسح جميع طلبات وسجلات الإجازات الحالية؟')) {
-      setRequests([]);
-      void Promise.all(requests.map(request => deleteDoc(doc(db, 'leave_requests', request.id))));
-      toast.success('تم مسح كافة طلبات الإجازات بنجاح.');
-    }
+    setRequests([]);
+    void Promise.all(requests.map(request => deleteDoc(doc(db, 'leave_requests', request.id))));
+    toast.success('تم مسح كافة طلبات الإجازات بنجاح.');
+    setClearAllRequestsOpen(false);
   };
 
   // Unified Employees List
@@ -1001,96 +1032,15 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
 
   return (
     <div className="odoo-app-surface space-y-6 font-sans dir-rtl text-right text-slate-800" dir="rtl">
-      
-      {/* Top Header with Clean Enterprise Actions */}
-      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-primary/10 text-primary rounded-xl">
-            <CalendarDays className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-black text-slate-900">نظام إدارة الإجازات (Time Off)</h1>
-              <span className="bg-primary/10 text-primary text-[10px] font-bold px-2.5 py-0.5 rounded-full">
-                Aysed HR
-              </span>
-              <div
-                className="flex items-center bg-white border border-slate-200 rounded-lg p-0.5 text-[10px] font-bold shadow-2xs"
-                title="تبديل العرض — List | Calendar | Gantt"
-              >
-                <button
-                  type="button"
-                  onClick={() => applyHeaderViewMode('list')}
-                  className={`px-2 py-1 rounded-md flex items-center gap-1 cursor-pointer transition ${
-                    headerViewMode === 'list' ? 'bg-primary text-white shadow-2xs' : 'text-slate-500 hover:bg-slate-50'
-                  }`}
-                >
-                  <List size={13} />
-                  <span className="hidden sm:inline">List</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => applyHeaderViewMode('calendar')}
-                  className={`px-2 py-1 rounded-md flex items-center gap-1 cursor-pointer transition ${
-                    headerViewMode === 'calendar' ? 'bg-primary text-white shadow-2xs' : 'text-slate-500 hover:bg-slate-50'
-                  }`}
-                >
-                  <Calendar size={13} />
-                  <span className="hidden sm:inline">Calendar</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => applyHeaderViewMode('gantt')}
-                  className={`px-2 py-1 rounded-md flex items-center gap-1 cursor-pointer transition ${
-                    headerViewMode === 'gantt' ? 'bg-primary text-white shadow-2xs' : 'text-slate-500 hover:bg-slate-50'
-                  }`}
-                >
-                  <GanttChart size={13} />
-                  <span className="hidden sm:inline">Gantt</span>
-                </button>
-              </div>
-              <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200/80 text-[10px] font-bold">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCompactLeavesUI(true);
-                    try {
-                      localStorage.setItem(LEAVES_COMPACT_STORAGE_KEY, '1');
-                    } catch {}
-                  }}
-                  className={`px-2 py-0.5 rounded-md cursor-pointer transition ${
-                    compactLeavesUI ? 'bg-white text-primary shadow-2xs' : 'text-slate-500'
-                  }`}
-                >
-                  مبسّط
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCompactLeavesUI(false);
-                    try {
-                      localStorage.setItem(LEAVES_COMPACT_STORAGE_KEY, '0');
-                    } catch {}
-                  }}
-                  className={`px-2 py-0.5 rounded-md cursor-pointer transition ${
-                    !compactLeavesUI ? 'bg-white text-slate-800 shadow-2xs' : 'text-slate-500'
-                  }`}
-                >
-                  كلاسيكي
-                </button>
-              </div>
-            </div>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">
-              المنشأة: <strong className="text-primary">{activeCompany?.nameAr || 'الشركة الرئيسية'}</strong> | قانون العمل الكويتي رقم 6 لسنة 2010
-            </p>
-          </div>
-        </div>
-
-        {/* Top Actions: Streamlined without duplicate buttons */}
-        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-          <button
-            type="button"
-            onClick={() => {
+      <PageHeader
+        title="الإجازات"
+        subtitle={activeCompany?.nameAr || 'الشركة الرئيسية'}
+        primaryAction={{ label: 'طلب إجازة', onClick: () => setShowApplyModal(true) }}
+        menu={[
+          {
+            id: 'excel',
+            label: 'تصدير إكسل',
+            onSelect: () => {
               const exportData = requests.map((r, idx) => ({
                 'م': idx + 1,
                 'رقم الطلب': r.id,
@@ -1106,196 +1056,83 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                 'السبب': r.reason
               }));
               exportToExcel(exportData, 'سجل_إجازات_الموظفين', 'طلبات الإجازات');
-            }}
-            className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
-            title="تصدير جدول الإجازات إلى ملف Excel (.xlsx)"
-          >
-            <FileSpreadsheet size={15} className="text-emerald-600" />
-            <span>تصدير Excel</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => safePrintAction('سجل الإجازات الرسمية')}
-            className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
-            title="طباعة سجل الإجازات"
-          >
-            <Printer size={15} />
-            <span>طباعة السجل</span>
-          </button>
-
-          {requests.length > 0 && isSuperAdmin && (
-            <button
-              type="button"
-              onClick={handleClearAllSampleData}
-              className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
-              title="حذف جميع الطلبات الحالية (Super Admin فقط)"
-            >
-              <Trash2 size={14} className="text-rose-600" />
-              <span>حذف كل الطلبات</span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => setShowPolicyWizardModal(true)}
-            className="bg-purple-900 hover:bg-purple-950 text-white border border-purple-800 px-3.5 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
-            title="تثبيت وتهيئة لائحة الإجازات الرسمية (Leave Policy Wizard)"
-          >
-            <ShieldCheck size={15} className="text-amber-300" />
-            <span>لائحة وقواعد الإجازات</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setShowApplyModal(true)}
-            className="bg-primary hover:bg-[#5a3a52] text-white px-5 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm cursor-pointer"
-          >
-            <PlusCircle size={15} /> تقديم طلب إجازة جديد
-          </button>
-        </div>
-      </div>
-
-      {/* Metric Cards - Live Odoo Balances */}
-      <div className="odoo-kpi-grid gap-4">
-        
-        {/* Card 1: Annual Legal Quota */}
-        <div 
-          className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs hover:border-emerald-300 transition cursor-pointer group"
-          onClick={() => setShowPolicyWizardModal(true)}
-          title="انقر لتعديل لائحة وقواعد الإجازات"
-        >
-          <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-1">
-            <span>الرصيد السنوي اللائحي</span>
-            <Calendar className="w-4 h-4 text-emerald-600 group-hover:scale-110 transition-transform" />
-          </div>
-          <div className="text-2xl font-black text-slate-900">
-            {leavePolicy.annualDays.toFixed(1)} <span className="text-xs font-normal text-slate-500">يوم / سنة</span>
-          </div>
-          <div className="text-[10px] text-emerald-700 mt-1 font-bold flex items-center justify-between">
-            <span className="flex items-center gap-1">
-              <CheckCircle2 size={12} /> +{leavePolicy.monthlyAccrualRate} يوم/شهرياً (مادة 70)
-            </span>
-            <span className="text-purple-700 underline">تعديل اللائحة</span>
-          </div>
-        </div>
-
-        {/* Card 2: Operational — leaves starting this week */}
-        <div
-          className="bg-white p-4 rounded-xl border border-blue-200 shadow-2xs cursor-pointer hover:border-blue-400 hover:shadow-md transition group"
-          onClick={() => {
+            },
+          },
+          { id: 'print', label: 'طباعة السجل', onSelect: () => safePrintAction('سجل الإجازات الرسمية') },
+          { id: 'policy', label: 'لائحة وقواعد الإجازات', onSelect: () => setShowPolicyWizardModal(true) },
+          { id: 'list', label: 'عرض القائمة', onSelect: () => applyHeaderViewMode('list') },
+          { id: 'calendar', label: 'عرض التقويم', onSelect: () => applyHeaderViewMode('calendar') },
+          { id: 'gantt', label: 'عرض المخطط', onSelect: () => applyHeaderViewMode('gantt') },
+          {
+            id: 'compact',
+            label: compactLeavesUI ? 'الواجهة الكلاسيكية' : 'الواجهة المبسطة',
+            onSelect: () => {
+              const next = !compactLeavesUI;
+              setCompactLeavesUI(next);
+              try {
+                localStorage.setItem(LEAVES_COMPACT_STORAGE_KEY, next ? '1' : '0');
+              } catch {}
+            },
+          },
+          { id: 'absence', label: 'الغياب التشغيلي', onSelect: () => setActiveMainTab('operational_absence') },
+          ...(requests.length > 0 && isSuperAdmin
+            ? [{ id: 'clear', label: 'حذف كل الطلبات', onSelect: () => setClearAllRequestsOpen(true) }]
+            : []),
+        ]}
+      />
+      <StatStrip
+        items={[
+          { id: 'quota', label: 'الرصيد السنوي', value: leavePolicy.annualDays, kind: 'count' },
+          { id: 'week', label: 'تبدأ هذا الأسبوع', value: leavesStartingThisWeekCount, kind: 'count' },
+          { id: 'pending', label: 'قيد المراجعة', value: pendingRequestsCount, kind: 'count' },
+          { id: 'today', label: 'في إجازة اليوم', value: activeLeavesTodayCount, kind: 'count' },
+        ]}
+        onSelect={(id) => {
+          if (id === 'quota') setShowPolicyWizardModal(true);
+          if (id === 'week') {
             setActiveMainTab('requests');
             applyHeaderViewMode('calendar');
-          }}
-          title="عرض تقويم الإجازات لهذا الأسبوع"
-        >
-          <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-1">
-            <span className="text-blue-900 group-hover:text-primary">إجازات تبدأ هذا الأسبوع</span>
-            <CalendarDays className="w-4 h-4 text-blue-600 group-hover:scale-110 transition-transform" />
-          </div>
-          <div className="text-2xl font-black text-blue-700">
-            {leavesStartingThisWeekCount}{' '}
-            <span className="text-xs font-normal text-slate-500">طلب/فترة</span>
-          </div>
-          <div className="text-[10px] text-blue-800 mt-1 font-bold">مؤشر تشغيلي لمدير الموارد البشرية</div>
+          }
+          if (id === 'pending') {
+            setActiveMainTab('requests');
+            setSelectedFilter('pending');
+          }
+          if (id === 'today') setActiveMainTab('requests');
+        }}
+      />
+      <p style={{ fontSize: tokens.text.xs, color: tokens.color.gray[500], paddingInline: tokens.space[4] }}>
+        <LawTip text={LAW_70_TEXT}>المادة 70</LawTip>
+        {' · '}
+        +{leavePolicy.monthlyAccrualRate} يوم شهرياً
+      </p>
+      <div className="flex items-center justify-between bg-white border-b" style={{ borderColor: tokens.color.gray[200] }}>
+        <div className="flex overflow-x-auto">
+          {([
+            ['requests', 'الطلبات'],
+            ['timeline', 'المخطط'],
+            ['allocations', 'الأرصدة'],
+            ['finance', 'التسويات'],
+          ] as const).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setActiveMainTab(id)}
+              style={{
+                paddingInline: tokens.space[3],
+                paddingBlock: tokens.space[2],
+                fontSize: tokens.text.xs,
+                fontWeight: 700,
+                color: activeMainTab === id ? tokens.color.primary : tokens.color.gray[500],
+                borderBottom: activeMainTab === id ? '2px solid ' + tokens.color.primary : '2px solid transparent',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {id === 'finance' ? <LawTip text={LAW_71_TEXT}>{label}</LawTip> : id === 'allocations' ? <LawTip text={LAW_70_TEXT}>{label}</LawTip> : label}
+            </button>
+          ))}
         </div>
-
-        {/* Card 3: Pending Approvals */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-1">
-            <span>طلبات قيد المراجعة والاعتماد</span>
-            <Clock className="w-4 h-4 text-amber-500" />
-          </div>
-          <div className="text-2xl font-black text-amber-600">
-            {pendingRequestsCount} <span className="text-xs font-normal text-slate-500">طلب معلق</span>
-          </div>
-          <div className="text-[10px] text-slate-500 mt-1">تتطلب اعتماد المدير / الموارد البشرية</div>
-        </div>
-
-        {/* Card 4: Active Leaves Today */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-1">
-            <span>الموظفون في إجازة اليوم</span>
-            <CheckCircle2 className="w-4 h-4 text-blue-600" />
-          </div>
-          <div className="text-2xl font-black text-blue-600">
-            {activeLeavesTodayCount} <span className="text-xs font-normal text-slate-500">موظف مجاز</span>
-          </div>
-          <div className="text-[10px] text-slate-500 mt-1">تغطية الأقسام مستقرة ومؤمنة</div>
-        </div>
-
-      </div>
-
-      <div className="flex flex-col sm:flex-row sm:items-stretch gap-2">
-        {compactLeavesUI ? (
-          <div className="flex-1 min-w-0">
-          <CompactTabBar
-            tabs={[
-              {
-                id: 'requests',
-                label: 'العام — الطلبات والاعتمادات',
-                shortLabel: 'العام',
-                icon: <CalendarDays size={15} />,
-                badge: (
-                  <span className="text-[9px] font-mono bg-slate-100 text-slate-600 px-1 rounded">
-                    {requests.length}
-                  </span>
-                ),
-              },
-              {
-                id: 'allocations',
-                label: 'الأرصدة والتخصيص — الافتتاحية والمرحّلة',
-                shortLabel: 'الأرصدة والتخصيص',
-                icon: <Layers size={15} />,
-                badge: (
-                  <span className="text-[9px] font-mono bg-purple-50 text-purple-800 px-1 rounded">
-                    {allocations.length}
-                  </span>
-                ),
-              },
-            ]}
-            moreItems={[
-              {
-                id: 'policy',
-                label: 'إعدادات اللائحة',
-                icon: <ShieldCheck size={14} />,
-              },
-            ]}
-            activeTabId={activeMainTab}
-            activeMoreId={undefined}
-            onTabChange={(id) => setActiveMainTab(id as typeof activeMainTab)}
-            onMoreChange={(id) => {
-              if (id === 'policy') setShowPolicyWizardModal(true);
-            }}
-          />
-          </div>
-        ) : (
-          <DynamicTabsContainer
-            screenId="leaves"
-            layout={leavesLayout}
-            locale={layoutLocale}
-            activeTabId={activeMainTab}
-            onTabChange={(tabId) => {
-              if (tabId === 'policy') {
-                setShowPolicyWizardModal(true);
-                return;
-              }
-              setActiveMainTab(tabId as LeavesMainTab);
-            }}
-            tabSuffix={leavesTabSuffix}
-            icons={{
-              requests: CalendarDays,
-              timeline: BarChart,
-              operational_absence: AlertTriangle,
-              allocations: Layers,
-              finance: DollarSign,
-            }}
-            className="flex-1"
-          />
-        )}
         <ScreenLayoutStudioToggle screenId="leaves" layout={leavesLayout} />
       </div>
-
       {/* ======================================================== */}
       {/* TAB 1: REQUESTS & 2-STEP APPROVALS LIST */}
       {/* ======================================================== */}
@@ -1545,12 +1382,11 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                                 </button>
 
                                 {req.requestAdvanceSalaryArticle71 && (
-                                  <span
-                                    className="px-2 py-1 rounded-lg text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-200"
-                                    title="صرف مادة 71 — يُعالج في مسير الرواتب"
-                                  >
-                                    م71 {req.settlementDone ? '✓' : '⏳'}
-                                  </span>
+                                  <LawTip text={LAW_71_TEXT}>
+                                    <span className="px-2 py-1 rounded-lg text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-200">
+                                      مادة 71 {req.settlementDone ? '✓' : '⏳'}
+                                    </span>
+                                  </LawTip>
                                 )}
 
                                 <button
@@ -1961,9 +1797,9 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
                           setNewRequest({ ...newRequest, requestAdvanceSalaryArticle71: e.target.checked })
                         }
                       />
-                      <span className="text-[11px] font-bold text-amber-950">
-                        صرف راتب الإجازة مقدماً (مادة 71) — يُرحَّل لمسير الرواتب عند الاعتماد النهائي
-                      </span>
+                      <LawTip text={LAW_71_TEXT}>
+                        <span className="text-[11px] font-bold text-amber-950">صرف الراتب مقدماً — مادة 71</span>
+                      </LawTip>
                     </label>
                   )}
                 </div>
@@ -2417,6 +2253,16 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
       {/* ======================================================== */}
       {/* MODAL 7: LEAVE POLICY INITIALIZATION WIZARD */}
       {/* ======================================================== */}
+      <ConfirmDialog
+        open={clearAllRequestsOpen && isSuperAdmin}
+        title="حذف كل الطلبات"
+        message="سيُحذف كل طلبات الإجازات الظاهرة لهذه المنشأة. هذا الإجراء لمسؤول النظام فقط."
+        confirmWord="حذف"
+        confirmLabel="حذف"
+        onConfirm={handleClearAllSampleData}
+        onCancel={() => setClearAllRequestsOpen(false)}
+      />
+
       <LeavePolicyWizardModal
         isOpen={showPolicyWizardModal}
         onClose={() => setShowPolicyWizardModal(false)}
