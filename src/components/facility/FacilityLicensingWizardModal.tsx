@@ -7,6 +7,7 @@ import {
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db, getCompaniesCollectionName } from '../../lib/firebase';
 import { syncFacilityWizardDraft, syncTenantLicensesAndCompanyProfile } from '../../services/companyLicenseSync';
+import { outsideClickClosesWizard } from '../header/quickActionMenu';
 
 import type { FacilityLicenseData } from '../../types/facilityLicense';
 import { createEmptyFacilityData } from '../../types/facilityLicense';
@@ -119,6 +120,7 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
 }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FacilityLicenseData>(createEmptyFacilityData());
+  const [savedSnapshot, setSavedSnapshot] = useState('');
 
   // New dept / device input state
   const [newDeptInput, setNewDeptInput] = useState('');
@@ -151,6 +153,7 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
       const loadData = async () => {
         const data = await getFacilityMasterData(companyId);
         setFormData(data);
+        setSavedSnapshot(JSON.stringify(data));
         setCurrentStep(1);
       };
       loadData();
@@ -169,6 +172,15 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
   }, [formData, isOpen, persistLocalDraft]);
 
   if (!isOpen) return null;
+
+  const dirty = JSON.stringify(formData) !== savedSnapshot;
+
+  const saveDraft = () => {
+    const draft = { ...formData, isCompleted: false };
+    persistLocalDraft(draft);
+    setSavedSnapshot(JSON.stringify(draft));
+    if (companyId) void syncFacilityWizardDraft(companyId, draft);
+  };
 
   const handleFieldChange = (field: keyof FacilityLicenseData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -265,8 +277,17 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
   ];
 
   return (
-    <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 dir-rtl" dir="rtl">
-      <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+    <div
+      className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 dir-rtl"
+      dir="rtl"
+      onClick={() => {
+        if (outsideClickClosesWizard(dirty)) onClose();
+      }}
+    >
+      <div
+        className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] border border-slate-200 animate-in fade-in zoom-in-95 duration-200"
+        onClick={(event) => event.stopPropagation()}
+      >
         
         {/* Header Bar */}
         <div className="bg-gradient-to-r from-primary via-[#5c3c54] to-purple-950 text-white p-4 flex items-center justify-between shrink-0 shadow-md gap-3">
@@ -292,36 +313,23 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
 
         {/* Step Stepper Header */}
         <div className="bg-slate-50 border-b border-slate-200 p-3 sm:p-4 shrink-0">
-          <div className="grid grid-cols-5 gap-1 sm:gap-2">
+          <div className="flex items-start justify-between gap-2">
             {steps.map((step) => {
               const isPassed = currentStep > step.num;
               const isCurrent = currentStep === step.num;
               return (
                 <button
                   key={step.num}
+                  type="button"
                   onClick={() => goToStep(step.num)}
-                  className={`flex flex-col items-center text-center p-2 rounded-xl transition cursor-pointer border ${
-                    isCurrent
-                      ? 'bg-purple-900 text-white border-purple-950 shadow-sm'
-                      : isPassed
-                      ? 'bg-emerald-50 text-emerald-900 border-emerald-300 hover:bg-emerald-100'
-                      : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-100'
-                  }`}
+                  className="flex flex-1 flex-col items-center gap-1 text-center"
                 >
-                  <div className="flex items-center gap-1 mb-1">
-                    <span className={`w-5 h-5 rounded-full text-[11px] font-black flex items-center justify-center ${
-                      isCurrent 
-                        ? 'bg-amber-400 text-slate-950' 
-                        : isPassed 
-                        ? 'bg-emerald-600 text-white' 
-                        : 'bg-slate-200 text-slate-700'
-                    }`}>
-                      {isPassed ? <Check size={12} /> : step.num}
-                    </span>
-                    <span className="font-bold text-[10px] sm:text-[11px] truncate max-w-[72px] sm:max-w-[100px]">
-                      {step.title}
-                    </span>
-                  </div>
+                  <span
+                    className={`h-2.5 w-2.5 rounded-full ${
+                      isPassed ? 'bg-emerald-600' : isCurrent ? 'bg-primary' : 'bg-slate-300'
+                    }`}
+                  />
+                  <span className="text-[10px] font-bold text-slate-700">{step.title}</span>
                 </button>
               );
             })}
@@ -744,6 +752,13 @@ export const FacilityLicensingWizardModal: React.FC<FacilityLicensingWizardModal
             </button>
           )}
 
+          <button
+            type="button"
+            onClick={saveDraft}
+            className="px-4 py-2 rounded-xl bg-white border border-slate-300 text-slate-800 font-bold"
+          >
+            حفظ كمسودة
+          </button>
           {currentStep < 5 ? (
             <button
               type="button"

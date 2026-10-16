@@ -35,6 +35,8 @@ import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import { MaskedCivilField } from './security/MaskedValue';
 import { ConfirmDialog } from './ui/ConfirmDialog';
+import { useTenant } from '../context/TenantContext';
+import { reportAudit } from '../services/auditClient';
 import { OverflowMenu } from './ui/OverflowMenu';
 import { BiometricDevicesModal } from './attendance/BiometricDevicesModal';
 import { SystemIntegrationsPage } from './SystemIntegrationsPage';
@@ -69,6 +71,8 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
   const { activeCompany, updateActiveCompany } = useCompany();
   const { user } = useAuth();
   const isSystemAdmin = user?.role === 'SUPER_ADMIN';
+  const { isActualSuperAdmin, isTenantViewEnabled, setIsTenantViewEnabled } = useTenant();
+  const [participantConfirm, setParticipantConfirm] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
 
   const [activeSection, setActiveSection] = useState<string>('company');
@@ -897,6 +901,33 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
                 عمليات التصفير وتهيئة الشفتات الجماعية متاحة فقط من لوحة السوبر أدمن → تبويب «عمليات المنشأة».
               </div>
 
+              {isActualSuperAdmin && (
+                <div className="p-4 border border-slate-200 rounded-xl flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-xs font-bold text-slate-900">وضع تجربة المشاركين</div>
+                    <div className="text-[11px] text-slate-500">يخفي أدوات مسؤول المنصة. التفعيل يطلب تأكيداً ويُسجَّل.</div>
+                  </div>
+                  <button
+                    type="button"
+                    className="text-xs font-bold px-3 py-2 rounded-lg bg-slate-900 text-white"
+                    onClick={() => {
+                      if (isTenantViewEnabled) {
+                        setIsTenantViewEnabled(false);
+                        void reportAudit({
+                          action: 'customization',
+                          entityType: 'participant_mode',
+                          details: 'إيقاف وضع تجربة المشاركين',
+                        });
+                      } else {
+                        setParticipantConfirm(true);
+                      }
+                    }}
+                  >
+                    {isTenantViewEnabled ? 'إيقاف' : 'تفعيل'}
+                  </button>
+                </div>
+              )}
+
               {onDebugModeChange && (
                 <div className="pt-4 mt-2 border-t border-slate-200">
                   <button
@@ -959,6 +990,23 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
           </button>
         </div>
       )}
+      <ConfirmDialog
+        open={participantConfirm}
+        title="وضع تجربة المشاركين"
+        message="سيُخفى عرض مسؤول المنصة ويُسجَّل التفعيل."
+        confirmWord="تجربة"
+        confirmLabel="تفعيل"
+        onCancel={() => setParticipantConfirm(false)}
+        onConfirm={() => {
+          setIsTenantViewEnabled(true);
+          setParticipantConfirm(false);
+          void reportAudit({
+            action: 'customization',
+            entityType: 'participant_mode',
+            details: 'تفعيل وضع تجربة المشاركين',
+          });
+        }}
+      />
       <ConfirmDialog
         open={resetOpen && isSystemAdmin}
         title="استعادة الافتراضي"

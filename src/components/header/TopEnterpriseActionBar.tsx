@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { parseFlexibleDate, checkDocumentExpiry } from '../../utils/dateUtils';
 import { collectCompanyDocumentAlerts, type CompanyDocument } from '../../types/companyDocuments';
-import { useTenant } from '../../context/TenantContext';
 import { 
   Scan, ArrowRight, Clock, UserCircle, Layers, Shield, Key,
   Settings, Sparkles, Trash2, LogOut, ChevronDown, 
@@ -11,6 +10,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { getFacilityMasterData, FacilityLicenseData, defaultFacilityData } from '../facility/FacilityLicensingWizardModal';
+import { visibleQuickTools } from './quickActionMenu';
 import { useLang } from '../../lib/i18n';
 import { auth } from '../../lib/firebase';
 import { sendPasswordResetEmail } from 'firebase/auth';
@@ -89,7 +89,6 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
   hideScreenPath = false,
   hiddenQuickActionKeys = [],
 }) => {
-  const { isActualSuperAdmin, isTenantViewEnabled, setIsTenantViewEnabled } = useTenant();
   const { lang, setLang } = useLang();
   const [showCompanyMenu, setShowCompanyMenu] = useState(false);
   const [showQuickActionsMenu, setShowQuickActionsMenu] = useState(false);
@@ -263,6 +262,25 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
 
     return { minDays, nearestLabel };
   }, [facilityData]);
+
+  const [payrollToolsAllowed, setPayrollToolsAllowed] = useState(false);
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      try {
+        const { buildAuthedJsonHeaders } = await import('../../lib/clientAuth');
+        const headers = await buildAuthedJsonHeaders();
+        const response = await fetch('/api/reports/access', { headers });
+        const body = await response.json().catch(() => ({}));
+        if (live) setPayrollToolsAllowed(response.ok && body.payroll === true);
+      } catch {
+        if (live) setPayrollToolsAllowed(false);
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, []);
 
   const companyMenuRef = useRef<HTMLDivElement>(null);
   const quickActionsMenuRef = useRef<HTMLDivElement>(null);
@@ -602,17 +620,21 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
 
           {showQuickActionsMenu && (
             <div
-              className="absolute top-full end-0 mt-1 w-[min(460px,94vw)] sm:w-[480px] bg-white rounded-md shadow-[0_6px_28px_rgba(15,23,42,0.14)] border border-slate-200 overflow-hidden z-50 text-slate-800 animate-in fade-in slide-in-from-top-1 duration-150"
+              className="absolute top-full end-0 mt-1 w-72 bg-white rounded-md shadow-[0_6px_28px_rgba(15,23,42,0.14)] border border-slate-200 overflow-hidden z-50 text-slate-800 animate-in fade-in slide-in-from-top-1 duration-150"
               role="menu"
               dir={lang === 'ar' ? 'rtl' : 'ltr'}
             >
-              <div className="grid grid-cols-2 divide-x divide-slate-200">
+              <div className="flex flex-col divide-y divide-slate-200">
                 {renderOdooMenuColumn(
-                  'العمليات والسجلات',
-                  'Operations & records',
+                  'إنشاء',
+                  'Create',
                   operationsColumnItems.filter((item) => !hiddenQuickActionKeys.includes(item.key))
                 )}
-                {renderOdooMenuColumn('الحاسبات والأدوات', 'Calculators & tools', toolsColumnItems)}
+                {renderOdooMenuColumn(
+                  'أدوات',
+                  'Tools',
+                  visibleQuickTools(toolsColumnItems, payrollToolsAllowed)
+                )}
               </div>
             </div>
           )}
@@ -962,40 +984,6 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
                   </div>
                 </>
               )}
-
-              {isActualSuperAdmin && (
-                <div className="h-px bg-slate-100 my-1 mx-2"></div>
-              )}
-              <div className="p-1.5 space-y-1">
-                {isActualSuperAdmin && (
-                  <button 
-                    onClick={() => { 
-                      setIsTenantViewEnabled(!isTenantViewEnabled);
-                      setShowUserMenu(false);
-                      toast.success(
-                        !isTenantViewEnabled 
-                          ? '🔔 تم الانتقال لوضع تجربة المشترك (Tenant View) وحجب شاشات السوبر أدمن!' 
-                          : '🔔 تم العودة لوضع السوبر أدمن (SaaS Super Admin) بنجاح!'
-                      );
-                      setActiveApp('switcher');
-                    }}
-                    className="w-full text-right px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100/80 transition flex items-center justify-between cursor-pointer rounded-xl group"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center group-hover:bg-indigo-100 transition">
-                        <Users size={14} />
-                      </div>
-                      <div>
-                        <span className="block font-bold">وضع تجربة المشترك</span>
-                        <span className="block text-[9px] text-slate-400 font-normal">إخفاء أدوات السوبر أدمن للتقييم</span>
-                      </div>
-                    </div>
-                    <div className={`w-8 h-4.5 flex items-center rounded-full p-0.5 transition ${isTenantViewEnabled ? 'bg-indigo-600 justify-end' : 'bg-slate-300 justify-start'}`}>
-                      <div className="w-3.5 h-3.5 rounded-full bg-white shadow-xs"></div>
-                    </div>
-                  </button>
-                )}
-              </div>
 
               {/* تسجيل الخروج */}
               <div className="h-px bg-slate-100 my-1"></div>
