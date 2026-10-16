@@ -1,5 +1,6 @@
 import type { Express, Response } from 'express';
 import { payrollReportsAllowed } from '../src/components/reports/reportsAccess';
+import { currentImpersonation } from './impersonationStore';
 
 function deny(res: Response, status: number, error: string) {
   return res.status(status).json({ success: false, error });
@@ -11,9 +12,12 @@ export function registerReportsAccessRoute(app: Express): void {
     const tenant = req.sessionTenant;
     if (!tenant) return deny(res, 401, 'Unauthorized');
     if (!tenant.role || tenant.role === 'UNKNOWN') return deny(res, 403, 'Unauthorized');
+    const impersonation = currentImpersonation(tenant.uid);
+    const payroll =
+      payrollReportsAllowed(tenant.role) && (!impersonation || impersonation.breakGlass);
     return res.json({
       success: true,
-      payroll: payrollReportsAllowed(tenant.role),
+      payroll,
     });
   });
 }

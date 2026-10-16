@@ -51,6 +51,7 @@ import OdooAppLauncher from './components/OdooAppLauncher';
 import type { CompanySetupStepAction } from './components/onboarding/CompanySetupOnboardingBanner';
 import { OdooAppCanvas } from './components/layout/OdooAppCanvas';
 import { TopEnterpriseActionBar } from './components/header/TopEnterpriseActionBar';
+import { ImpersonationBar } from './components/security/ImpersonationBar';
 import { GlobalSpotlightSearchModal } from './components/header/GlobalSpotlightSearchModal';
 import { KuwaitHrQuickCalculatorModal } from './components/modals/KuwaitHrQuickCalculatorModal';
 import { OdooAttendanceApp } from './components/OdooAttendanceApp';
@@ -112,6 +113,7 @@ function MainAppLayout() {
   const { 
     isSuperAdmin, 
     isActualSuperAdmin,
+    isTenantViewEnabled,
     activeCompany, 
     companies, 
     impersonatingCompanyId, 
@@ -841,6 +843,21 @@ function MainAppLayout() {
           سجل الرقابة في ذاكرة هذه العملية فقط. التشغيل محلي بدون المحاكي، والأحداث تختفي عند إعادة تشغيل الخادم.
         </div>
       )}
+
+      {isTenantViewEnabled && (
+        <div className="fixed inset-x-0 top-10 z-[70] bg-indigo-800 px-4 py-1.5 text-center text-xs font-bold text-white">
+          وضع تجربة المشاركين مفعّل
+        </div>
+      )}
+
+      <ImpersonationBar
+        companyName={activeCompany?.nameAr || activeCompany?.name || 'المنشأة'}
+        onExit={() => {
+          exitImpersonation();
+          exitCompanyImpersonation();
+          setActiveApp('saas_admin');
+        }}
+      />
 
       {/* شريط تنبيه الدخول كمسؤول (Strict Impersonation Banner) */}
       {isActualSuperAdmin && (impersonatingCompanyId || isImpersonating) && activeApp !== 'saas_admin' && (

@@ -12,6 +12,10 @@ import firebaseConfig from '../../firebase-applet-config.json';
 import { buildAuthedJsonHeaders } from '../lib/clientAuth';
 import { resolveTenantCompanyId, syncTenantSubscriptionEdit } from '../services/tenantSubscriptionSync';
 import { SuperAdminTenantOpsPanel } from '../components/superadmin/SuperAdminTenantOpsPanel';
+import { Modal } from '../components/ui';
+import { OverflowMenu } from '../components/ui/OverflowMenu';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { manarClinicRows } from './saasAccess';
 
 interface SubscriptionRequest {
   id: string;
@@ -22,6 +26,7 @@ interface SubscriptionRequest {
   plan_type: string;
   emp_count: string;
   state: 'draft' | 'approved' | 'rejected' | 'suspended';
+  archived?: boolean;
   created_at: string;
   email?: string;
   password?: string;
@@ -52,6 +57,10 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'approved' | 'rejected' | 'suspended'>('all');
+  const [platformOwner, setPlatformOwner] = useState<boolean | null>(null);
+  const [loginTarget, setLoginTarget] = useState<SubscriptionRequest | null>(null);
+  const [loginReason, setLoginReason] = useState('');
+  const [archiveTarget, setArchiveTarget] = useState<SubscriptionRequest | null>(null);
 
   // -------------------------------------------------------------
   // System Integration & API Keys Management State
@@ -579,7 +588,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       snap.forEach(d => {
         const val = d.data();
         const compName = val.companyName || val.name || val.nameAr || '';
-        if (!isTenantPurged(d.id) && !isTenantPurged(compName) && !isTenantPurged(val)) {
+        if (!val.archived && !isTenantPurged(d.id) && !isTenantPurged(compName) && !isTenantPurged(val)) {
           if (!allRequests.some(r => r.id === d.id || r.name.toLowerCase() === compName.toLowerCase())) {
             let st: 'draft' | 'approved' | 'rejected' | 'suspended' = 'draft';
             if (val.status === 'approved' || val.state === 'approved') st = 'approved';
@@ -608,7 +617,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       compSnap.forEach(d => {
         const val = d.data();
         const compName = val.companyName || val.nameAr || val.name || '';
-        if (compName && !isTenantPurged(d.id) && !isTenantPurged(compName) && !isTenantPurged(val)) {
+        if (compName && !val.archived && !isTenantPurged(d.id) && !isTenantPurged(compName) && !isTenantPurged(val)) {
           if (!allRequests.some(r => r.id === d.id || r.name.toLowerCase() === compName.toLowerCase())) {
             let st: 'draft' | 'approved' | 'rejected' | 'suspended' = 'approved';
             if (val.status === 'DRAFT' || val.state === 'draft' || val.status === 'PENDING') st = 'draft';
@@ -808,6 +817,62 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     window.open(`https://wa.me/${fullNumber}?text=${text}`, '_blank');
   };
 
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      try {
+        const headers = await buildAuthedJsonHeaders();
+        const response = await fetch('/api/saas/access', { headers });
+        const body = await response.json().catch(() => ({}));
+        if (!live) return;
+        setPlatformOwner(response.ok && body.platformOwner === true);
+      } catch {
+        if (live) setPlatformOwner(false);
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  const confirmLoginAsAdmin = async () => {
+    if (!loginTarget || !loginReason.trim()) return;
+    try {
+      const headers = await buildAuthedJsonHeaders();
+      const response = await fetch('/api/admin/impersonate', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          companyId: loginTarget.companyId || loginTarget.id,
+          reason: loginReason.trim(),
+        }),
+      });
+      if (!response.ok) {
+        toast.error('رفض الخادم الدخول كمسؤول');
+        return;
+      }
+      onImpersonateCompany?.(loginTarget.name);
+      setLoginTarget(null);
+      setLoginReason('');
+    } catch {
+      toast.error('تعذر فتح جلسة الدخول كمسؤول');
+    }
+  };
+
+  const confirmArchive = async () => {
+    if (!archiveTarget) return;
+    try {
+      await setDoc(doc(db, 'subscription_requests', archiveTarget.id), { archived: true }, { merge: true });
+      setRequests((prev) => prev.filter((row) => row.id !== archiveTarget.id));
+      toast.success(`أُرشفت ${archiveTarget.name}`);
+      setArchiveTarget(null);
+    } catch (err: any) {
+      toast.error('تعذر الأرشفة: ' + (err?.message || ''));
+    }
+  };
+
+  const manar = manarClinicRows(requests.map((row) => ({ id: row.id, name: row.name || '' })));
+
   const filteredRequests = requests.filter(req => {
     const matchSearch = (req.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                         (req.requester_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -816,8 +881,43 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     return matchSearch && matchStatus;
   });
 
+  if (platformOwner !== true) {
+    return (
+      <div className="p-6 text-sm text-slate-700" dir="rtl">
+        {platformOwner === false
+          ? 'هذه الشاشة لمالك المنصة فقط. الخادم لم يؤكد الدور.'
+          : 'جاري التحقق من مالك المنصة...'}
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-full bg-[#F8F9FA] text-gray-800 font-sans flex flex-col select-none odoo-scrollbar aysed_super_admin_view" dir="rtl">
+      <Modal
+        open={loginTarget !== null}
+        onClose={() => setLoginTarget(null)}
+        title="دخول كمسؤول"
+        subtitle="السبب إلزامي. الجلسة 30 دقيقة وقراءة فقط."
+        footer={
+          <button type="button" onClick={() => void confirmLoginAsAdmin()} disabled={!loginReason.trim()}>
+            بدء الجلسة
+          </button>
+        }
+      >
+        <label className="block text-xs">
+          السبب
+          <textarea value={loginReason} onChange={(event) => setLoginReason(event.target.value)} className="mt-1 w-full border rounded p-2" rows={3} />
+        </label>
+      </Modal>
+      <ConfirmDialog
+        open={archiveTarget !== null}
+        title="أرشفة المنشأة"
+        message="اكتب اسم المنشأة للأرشفة. لا يُحذف السجل."
+        confirmWord={archiveTarget?.name || 'أرشفة'}
+        confirmLabel="أرشفة"
+        onCancel={() => setArchiveTarget(null)}
+        onConfirm={() => void confirmArchive()}
+      />
       
       {/* Main Layout Area with Odoo Sidebar */}
       <div className="flex flex-1 overflow-hidden min-h-[calc(100vh-48px)]">
@@ -1034,6 +1134,12 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                     />
                   </div>
                 </div>
+                {manar.relatedCount > 0 && (
+                  <p className="mt-2 text-[11px] text-slate-600">
+                    المنار: {manar.exactCount} صف بالاسم «المنار كلينك»، و{manar.relatedCount} صف فيه «المنار».
+                    {manar.duplicateExact ? ' الاسم الحرفي مكرر.' : ' الاسم الحرفي غير مكرر في الصفوف المحمّلة.'} لم يُعدَّل صف.
+                  </p>
+                )}
 
                 {/* Table */}
                 <div className="overflow-x-auto">
@@ -1127,97 +1233,39 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                               {new Date(req.created_at).toLocaleDateString('ar-EG', { year: 'numeric', month: '2-digit', day: '2-digit' })}
                             </td>
 
-                            {/* Compact Single-Line Actions */}
                             <td className="p-3 text-left">
-                              <div className="flex items-center justify-end gap-1.5 flex-nowrap whitespace-nowrap">
-                                
-                                {/* Impersonate / Login as Tenant Button */}
-                                {onImpersonateCompany && req.state === 'approved' && (
-                                  <button
-                                    onClick={() => onImpersonateCompany(req.name)}
-                                    className="flex items-center gap-1 px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95"
-                                    title="دخول فوري كمسؤول الشركة"
-                                  >
-                                    <Eye size={13} />
-                                    <span>دخول كمسؤول</span>
-                                  </button>
-                                )}
-
-                                {/* Activate Button for draft/suspended */}
-                                {req.state !== 'approved' && (
-                                  <button
-                                    onClick={() => handleActivate(req)}
-                                    className="flex items-center gap-1 px-2.5 py-1 bg-[#71639e] hover:bg-[#5e5285] text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95"
-                                    title="تفعيل وترخيص المنشأة"
-                                  >
-                                    <PlayCircle size={13} />
-                                    <span>{req.state === 'suspended' ? 'إعادة تفعيل' : 'تفعيل'}</span>
-                                  </button>
-                                )}
-
-                                {/* WhatsApp Button */}
-                                <button
-                                  onClick={() => openWhatsApp(req.phone, req.name, req.requester_name)}
-                                  className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg transition cursor-pointer"
-                                  title="محادثة واتساب سريعة"
-                                >
-                                  <MessageSquare size={14} />
-                                </button>
-
-                                {/* Edit Button */}
-                                <button
-                                  onClick={() => handleOpenEdit(req)}
-                                  className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg transition cursor-pointer"
-                                  title="تعديل بيانات الحساب"
-                                >
-                                  <Edit3 size={14} />
-                                </button>
-
-                                {/* Credentials for Approved */}
-                                {req.state === 'approved' && (
-                                  <button
-                                    onClick={() => {
-                                      const email = req.email || `${req.phone.replace(/[^0-9]/g, '')}@aysedhr.com`;
-                                      const existingPass = req.password || '';
-                                      setSelectedActivation({
-                                        companyName: req.name,
-                                        email,
-                                        password: existingPass,
-                                        phone: req.phone,
-                                        requesterName: req.requester_name
-                                      });
-                                    }}
-                                    className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg transition cursor-pointer"
-                                    title="عرض بيانات الدخول وكلمة المرور"
-                                  >
-                                    <Key size={14} />
-                                  </button>
-                                )}
-
-                                {/* Suspend Button for Approved */}
-                                {req.state === 'approved' && (
-                                  <button
-                                    onClick={() => handleSuspend(req)}
-                                    className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 rounded-lg transition cursor-pointer"
-                                    title="تجميد الحساب مؤقتاً"
-                                  >
-                                    <PauseCircle size={14} />
-                                  </button>
-                                )}
-
-                                {/* Hard Delete */}
-                                <button
-                                  onClick={() => {
-                                    setDeletingRequest(req);
-                                    setDeleteConfirmText('');
-                                  }}
-                                  className="p-1.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white rounded-lg border border-rose-200 transition cursor-pointer"
-                                  title="حذف نهائي شامل للمنشأة"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-
-                              </div>
+                              <OverflowMenu
+                                items={[
+                                  ...(onImpersonateCompany && req.state === 'approved'
+                                    ? [{ id: 'login', label: 'دخول كمسؤول', onSelect: () => { setLoginTarget(req); setLoginReason(''); } }]
+                                    : []),
+                                  ...(req.state !== 'approved'
+                                    ? [{ id: 'activate', label: req.state === 'suspended' ? 'إعادة تفعيل' : 'تفعيل', onSelect: () => handleActivate(req) }]
+                                    : []),
+                                  { id: 'whatsapp', label: 'واتساب', onSelect: () => openWhatsApp(req.phone, req.name, req.requester_name) },
+                                  { id: 'edit', label: 'تعديل', onSelect: () => handleOpenEdit(req) },
+                                  ...(req.state === 'approved'
+                                    ? [
+                                        {
+                                          id: 'credentials',
+                                          label: 'بيانات الدخول',
+                                          onSelect: () => {
+                                            const email = req.email || `${req.phone.replace(/[^0-9]/g, '')}@aysedhr.com`;
+                                            setSelectedActivation({
+                                              companyName: req.name,
+                                              email,
+                                              password: req.password || '',
+                                              phone: req.phone,
+                                              requesterName: req.requester_name,
+                                            });
+                                          },
+                                        },
+                                        { id: 'suspend', label: 'تجميد', onSelect: () => handleSuspend(req) },
+                                      ]
+                                    : []),
+                                  { id: 'archive', label: 'أرشفة', onSelect: () => setArchiveTarget(req) },
+                                ]}
+                              />
                             </td>
                           </tr>
                         ))

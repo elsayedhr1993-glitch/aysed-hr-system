@@ -1,3 +1,5 @@
+import { impersonationHidesSensitive } from './impersonationGate';
+
 /** Roles enforced by server session and security rules. UI hiding is not enough. */
 export const HR_ROLES = [
   'SUPER_ADMIN',
@@ -26,6 +28,7 @@ export function normalizeHrRole(role: string | undefined | null): HrRole {
 }
 
 export function canReadPayroll(role: string | undefined | null): boolean {
+  if (impersonationHidesSensitive()) return false;
   return PAYROLL_ROLES.has(normalizeHrRole(role));
 }
 
@@ -38,6 +41,7 @@ export function canWriteContracts(role: string | undefined | null): boolean {
 }
 
 export function canRevealIdentity(role: string | undefined | null): boolean {
+  if (impersonationHidesSensitive()) return false;
   return IDENTITY_REVEAL_ROLES.has(normalizeHrRole(role));
 }
 

@@ -1,6 +1,7 @@
 // @ts-nocheck
 import * as raw from '../../node_modules/firebase/firestore/dist/esm/index.esm.js';
 import { isLocalProdLocked } from './ProdWriteGuard';
+import { impersonationWritesBlocked } from '../security/impersonationGate';
 import { planFirestoreAudit } from '../services/auditClassify';
 import { reportAudit } from '../services/auditClient';
 import { captureBatchBefores } from '../services/auditBatch';
@@ -15,7 +16,7 @@ const WRITE_NAMES = new Set([
 ]);
 
 function blockWrite(name: string) {
-  if (!isLocalProdLocked()) return false;
+  if (!isLocalProdLocked() && !impersonationWritesBlocked()) return false;
   console.warn(`[read-only] blocked ${name}`);
   return true;
 }
