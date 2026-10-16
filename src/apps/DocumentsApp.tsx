@@ -37,7 +37,7 @@ import { UI_KEYS } from '../utils/uiStudioKeys';
 interface DocumentsAppProps {
   documents: DocumentItem[];
   employees: Employee[];
-  activeCompany: Company;
+  activeCompany: Company | null;
   /** Firestore tenant id (URL / CompanyContext); must match `documents` query in App. */
   tenantCompanyId?: string;
   onSaveDocument: (doc: DocumentItem) => void;

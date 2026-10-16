@@ -916,7 +916,7 @@ export function autoFixGlobalIntegrityIssues(data: {
 
     // تنظيف مصفوفة البصمات الداخلية (Punches sub-array)
     if (updatedRec.punches && Array.isArray(updatedRec.punches) && updatedRec.punches.length > 0) {
-      const cleanPunches: { in: string; out: string }[] = [];
+      const cleanPunches: { in: string; out: string | null }[] = [];
       const seenPunches = new Set<string>();
       updatedRec.punches.forEach(p => {
         const pKey = `${p.in}_${p.out}`;

@@ -438,11 +438,10 @@ export function employeeHasActiveOnboardingPlan(
   const id = String(emp.id || '');
   const civil = String(emp.civilId || emp.civil_id_number || '');
   const planId = String(emp.onboardingPlanId || '');
-  return (
-    (id && keys.employeeIds.has(id)) ||
-    (civil && keys.civilIds.has(civil)) ||
-    (planId && keys.planIds.has(planId))
-  );
+  const byEmployee = id !== '' && keys.employeeIds.has(id);
+  const byCivil = civil !== '' && keys.civilIds.has(civil);
+  const byPlan = planId !== '' && keys.planIds.has(planId);
+  return byEmployee || byCivil || byPlan;
 }
 
 export function shouldDisplayEmployeeAsOnboarding(

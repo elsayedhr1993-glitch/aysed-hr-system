@@ -6,12 +6,13 @@ import './styles/odooReportPrint.css';
 document.title = brand.name;
 applyDesignTokens();
 
-const devUi =
-  import.meta.env.DEV &&
-  (window.location.pathname.replace(/\/+$/, '') || '/') === '/dev/ui';
-
-if (devUi) {
-  void import('./pages/devUiMount').then((mod) => mod.mountDevUiPreview());
+if (import.meta.env.DEV) {
+  const path = window.location.pathname.replace(/\/+$/, '') || '/';
+  if (path === '/dev/ui') {
+    void import('./pages/devUiMount').then((mod) => mod.mountDevUiPreview());
+  } else {
+    void import('./bootstrapApp');
+  }
 } else {
   void import('./bootstrapApp');
 }

@@ -160,7 +160,8 @@ export const OnboardingWizardModal: React.FC<OnboardingWizardModalProps> = ({
         const name = result.fullNameAr || result.fullName || result.fullNameEn || '';
         if (name) setEmployeeName(name);
         if (result.civilId) setCivilId(result.civilId);
-        if (result.jobTitle || result.profession) setJobTitle(result.jobTitle || result.profession);
+        const scannedTitle = result.jobTitle || result.profession;
+        if (scannedTitle) setJobTitle(scannedTitle);
         
         if (result.mohLicenseNo || (result.profession && (result.profession.includes('طبيب') || result.profession.includes('علاج')))) {
           setDepartment('الأطباء');

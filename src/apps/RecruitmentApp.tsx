@@ -154,7 +154,7 @@ export const RecruitmentApp: React.FC<RecruitmentAppProps> = ({
         if (parts.length === 2) {
           const contentType = parts[0].replace('data:', '') || 'application/pdf';
           const byteCharacters = atob(parts[1]);
-          const byteArrays = [];
+          const byteArrays: Uint8Array[] = [];
           for (let offset = 0; offset < byteCharacters.length; offset += 512) {
             const slice = byteCharacters.slice(offset, offset + 512);
             const byteNumbers = new Array(slice.length);

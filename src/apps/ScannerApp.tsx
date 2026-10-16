@@ -21,7 +21,7 @@ import { canSaveScan, type ScanWizardStep } from './scannerFlow';
 interface ScannerAppProps {
   documents: DocumentItem[];
   employees: Employee[];
-  activeCompany: Company;
+  activeCompany: Company | null;
   onSaveDocument: (doc: DocumentItem) => void;
   onDeleteDocument: (docId: string) => void;
   onAutoAddEmpFromOCR: (empData: any, docType?: string) => string | Promise<string>;

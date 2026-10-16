@@ -53,7 +53,7 @@ function leaveMatchesEmployee(
   const empCode = String(employeeCode || '').trim();
   if (!empId && !empCode) return true;
   if (!lid) return true;
-  return lid === empId || (empCode && lid === empCode);
+  return lid === empId || (empCode !== '' && lid === empCode);
 }
 
 function isApprovedAccrualAffectingLeave(leave: Partial<LeaveRequest> & Record<string, unknown>): boolean {

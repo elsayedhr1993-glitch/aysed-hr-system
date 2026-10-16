@@ -137,17 +137,22 @@ export function isLeaveRequestInConflict(
   candidate: { employeeId?: string; startDate?: string; endDate?: string; status?: unknown },
   existingRequests: Array<{ employeeId?: string; startDate?: string; endDate?: string; status?: unknown }>
 ): boolean {
-  if (!candidate?.employeeId || !candidate.startDate || !candidate.endDate) {
+  const candidateStart = candidate?.startDate;
+  const candidateEnd = candidate?.endDate;
+  const candidateEmployeeId = candidate?.employeeId;
+  if (!candidateEmployeeId || !candidateStart || !candidateEnd) {
     return false;
   }
 
   return existingRequests.some(existing => {
-    if (!existing?.employeeId || existing.employeeId !== candidate.employeeId) return false;
+    if (!existing?.employeeId || existing.employeeId !== candidateEmployeeId) return false;
     const existingStatus = normalizeLeaveStatus(existing.status);
     if (existingStatus === 'REJECTED' || existingStatus === 'DRAFT') return false;
 
-    if (!existing.startDate || !existing.endDate) return false;
-    return hasLeaveDateOverlap(candidate.startDate, candidate.endDate, existing.startDate, existing.endDate);
+    const existingStart = existing.startDate;
+    const existingEnd = existing.endDate;
+    if (!existingStart || !existingEnd) return false;
+    return hasLeaveDateOverlap(candidateStart, candidateEnd, existingStart, existingEnd);
   });
 }
 

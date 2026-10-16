@@ -578,7 +578,7 @@ export interface AttendanceRecord {
   date: string;
   checkIn: string; // HH:mm
   checkOut: string; // HH:mm
-  punches?: { in: string; out: string; }[]; // لدعم الشفتات المتعددة (Split Shifts)
+  punches?: { in: string; out: string | null; }[]; // لدعم الشفتات المتعددة (Split Shifts)
   workHours: number;
   overtimeHours: number;
   shortageHours?: number;
@@ -827,7 +827,7 @@ export interface EmploymentCommencement {
   departmentId: string;
   location: string;
   approvedBy: string;
-  approvalDate: string;
+  approvalDate?: string;
   storageFolderUrl: string; // Supabase Storage archive folder
   status: 'APPROVED' | 'PENDING';
   notes?: string;

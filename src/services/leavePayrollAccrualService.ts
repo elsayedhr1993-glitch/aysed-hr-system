@@ -10,7 +10,7 @@ export interface LeavePayrollAccrualDoc {
   companyId: string;
   leaveRequestId: string;
   employeeId: string;
-  employeeName: string;
+  employeeName?: string;
   kind: 'leave_approval_accrual';
   paidDays: number;
   unpaidDays: number;

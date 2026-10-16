@@ -374,8 +374,9 @@ export async function syncTenantLicensesAndCompanyProfile(
     documents.length > 0 ? documents : await fetchCompanyDocumentsForTenant(tenantId);
 
   const companySnap = await getDoc(doc(db, getCompaniesCollectionName(), tenantId));
+  const companyData = companySnap.data();
   const companyRecord: Company | null = companySnap.exists()
-    ? ({ id: tenantId, ...(companySnap.data() as Company) } as Company)
+    ? (Object.assign({ id: tenantId }, companyData) as Company)
     : null;
 
   const mergedFacility = mergeFacilityMaster(

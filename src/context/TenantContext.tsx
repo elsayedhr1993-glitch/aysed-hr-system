@@ -210,7 +210,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const newCompanyId = `tenant_${Date.now()}`;
       
       // 2. Create the User Document for rules checking
-      await setDoc(doc(db, 'users', authResult.uid), {
+      await setDoc(doc(db, 'users', authResult.uid as string), {
         email: compData.adminUsername,
         name: compData.nameAr,
         role: 'TENANT_ADMIN',

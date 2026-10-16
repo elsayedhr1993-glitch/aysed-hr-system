@@ -63,9 +63,10 @@ export function buildPayrollReversal<T extends PayslipLedgerFields>(
 ): T {
   const flip = (value: number | undefined) => -Number(value || 0);
   const next = { ...source, id, payslipNumber: `قيد/${source.payslipNumber}` };
-  for (const key of MONEY_KEYS) {
-    next[key] = flip(source[key]) as T[typeof key];
-  }
+  const writeFlipped = <K extends (typeof MONEY_KEYS)[number]>(key: K) => {
+    next[key] = flip(source[key] as number | undefined) as T[K];
+  };
+  for (const key of MONEY_KEYS) writeFlipped(key);
   next.overtimeHours = flip(source.overtimeHours);
   next.absenceDays = flip(source.absenceDays);
   next.delayMinutes = flip(source.delayMinutes);

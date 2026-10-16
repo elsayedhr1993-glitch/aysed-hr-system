@@ -106,6 +106,12 @@ export const FinalSettlementModal: React.FC<FinalSettlementModalProps> = ({
         earned: 0,
         compensatory: 0,
         consumed: 0,
+        consumedFromCarried: 0,
+        consumedFromAccrued: 0,
+        consumedFromComp: 0,
+        remainingCarried: 0,
+        remainingAccrued: 0,
+        remainingComp: 0,
         net: 0
       };
     }

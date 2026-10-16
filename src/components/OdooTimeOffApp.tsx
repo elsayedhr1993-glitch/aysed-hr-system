@@ -178,7 +178,7 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
     leaveSettlements,
   } = useCompanyLeaveFinanceSnapshots(companyId);
 
-  const handleDeleteRequest = async (id: string, empName: string) => {
+  const handleDeleteRequest = async (id: string, empName?: string) => {
     if (window.confirm(`هل أنت متأكد من حذف طلب الإجازة للموظف (${empName}) نهائياً؟`)) {
       const updated = requests.filter(r => r.id !== id);
       setRequests(updated);
@@ -828,10 +828,11 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
     // Balance check
     if (normalizeLeaveType(targetReq.leaveType) === 'ANNUAL') {
       const { available } = getEmployeeContractBalance(targetReq.employeeId);
+      const requestedDays = Number(targetReq.daysCount);
       const paidFromBalance =
-        targetReq.paidDays ?? Math.min(targetReq.daysCount, available);
+        targetReq.paidDays ?? Math.min(requestedDays, available);
       const excess =
-        targetReq.unpaidDays ?? targetReq.excessDays ?? Math.max(0, targetReq.daysCount - available);
+        targetReq.unpaidDays ?? targetReq.excessDays ?? Math.max(0, requestedDays - available);
 
       if (excess > 0) {
         const confirmOverride = window.confirm(
@@ -846,11 +847,11 @@ export const OdooTimeOffApp: React.FC<OdooTimeOffAppProps> = ({
         { ...targetReq, companyId },
         'إدارة الموارد البشرية والشؤون القانونية'
       );
-      const approvedRequest = {
+      const approvedRequest: LeaveRequest = {
         ...targetReq,
         companyId,
         status: normalizeLeaveStatus('APPROVED') as LeaveRequest['status'],
-        totalDays: targetReq.daysCount,
+        totalDays: targetReq.daysCount as number,
         paidDays: result.paidDays,
         unpaidDays: result.unpaidDays,
         hrApprovedBy: 'إدارة الموارد البشرية والشؤون القانونية',

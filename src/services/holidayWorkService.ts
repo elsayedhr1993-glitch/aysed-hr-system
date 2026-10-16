@@ -12,7 +12,7 @@ const LEAVE_ALLOCATIONS_COLLECTION = 'leave_allocations';
 
 export interface HolidayDutyPayrollInput {
   id: string;
-  employeeId: string;
+  employeeId?: string;
   employeeName: string;
   civilId?: string;
   jobTitle?: string;

@@ -473,7 +473,7 @@ export const KuwaitHrQuickCalculatorModal: React.FC<KuwaitHrQuickCalculatorModal
                       {eosEngineResult.totalYears}س {eosEngineResult.totalMonths}ش {eosEngineResult.totalDays}ي
                     </strong>{' '}
                     ({eosEngineResult.netServiceDays} يوماً)
-                    {eosEngineResult.totalUnpaidLeaveDays > 0 && (
+                    {(eosEngineResult.totalUnpaidLeaveDays ?? 0) > 0 && (
                       <span className="text-amber-700"> — بعد خصم {eosEngineResult.totalUnpaidLeaveDays} يوم غير مدفوع</span>
                     )}
                   </div>

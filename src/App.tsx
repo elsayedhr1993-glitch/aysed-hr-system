@@ -1023,7 +1023,7 @@ function MainAppLayout() {
               onCompanySetupAction={handleCompanySetupAction}
               currentUserEmail={user?.email || ''}
               currentUserRole={isSuperAdmin ? 'SUPER_ADMIN' : 'COMPANY_ADMIN'}
-              activeCompany={activeCompany}
+              activeCompany={activeCompany ?? undefined}
               stats={{
                 employeesCount: employees?.length || 0,
                 candidatesCount: candidates?.length || 0,

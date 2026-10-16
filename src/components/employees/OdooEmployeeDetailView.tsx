@@ -910,7 +910,7 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
                       type="button"
                       onClick={() => {
                         setActionsMenuOpen(false);
-                        item.onClick();
+                        if (item.onClick) item.onClick();
                       }}
                       className="w-full px-3 py-2 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 cursor-pointer text-right"
                     >
@@ -1092,7 +1092,8 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
               { id: 'onboarding_plan', label: 'التهيئة', value: Number(onboardingProgress) || 0 },
             ]}
             onSelect={(id) => {
-              smartButtonStats.find((item) => item.id === id)?.onClick();
+              const openStat = smartButtonStats.find((item) => item.id === id)?.onClick;
+              if (openStat) openStat();
             }}
           />
         </div>

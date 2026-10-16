@@ -246,7 +246,8 @@ function buildFacilityAlertMessage(companyName: string, label: string, daysRemai
 async function runFacilityLicenseAudit(trigger = "AUTOMATED"): Promise<FacilityAuditResult> {
   const executedAt = new Date().toISOString();
   const admin = getAdminAuth();
-  if (!admin || !getAdminApp()) {
+  const adminApp = getAdminApp();
+  if (!admin || !adminApp) {
     const fallback: FacilityAuditResult = {
       success: false,
       scannedCompanies: 0,
@@ -271,7 +272,7 @@ async function runFacilityLicenseAudit(trigger = "AUTOMATED"): Promise<FacilityA
   };
 
   try {
-    const adminDb = getFirestore(getAdminApp());
+    const adminDb = getFirestore(adminApp);
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const dayKey = toIsoDate(today);
@@ -817,7 +818,8 @@ app.post("/api/guards/clean-duplicate-punches", (req, res) => {
 // [3] الحارس الدوري الليلي (Cron Job Health Check & Residency Audit)
 app.all("/api/guards/nightly-audit", async (req, res) => {
   try {
-    const db = getAdminApp() ? getFirestore(getAdminApp()) : null;
+    const nightlyAdminApp = getAdminApp();
+    const db = nightlyAdminApp ? getFirestore(nightlyAdminApp) : null;
     const report = await runNightlyAudit(db);
     return res.json({
       success: true,
@@ -949,9 +951,10 @@ app.post("/api/attendance/live-push", async (req, res) => {
       if (livePunchesCache.length > 500) livePunchesCache.pop();
       processedList.push(punchItem);
 
-      if (getAdminApp()) {
+      const liveAdminApp = getAdminApp();
+      if (liveAdminApp) {
         try {
-          const db = getFirestore(getAdminApp());
+          const db = getFirestore(liveAdminApp);
           const attDocId = `att-live-${effCompId}-${empCode}-${dateStr}`;
           const attRef = db.collection("attendance").doc(attDocId);
           const snap = await attRef.get();
@@ -1049,8 +1052,9 @@ app.all(["/api/zkteco/iclock/cdata"], express.text({ type: "*/*" }), async (req,
           livePunchesCache.unshift(punchItem);
           if (livePunchesCache.length > 500) livePunchesCache.pop();
 
-          if (effCompId && getAdminApp()) {
-            const db = getFirestore(getAdminApp());
+          const zkAdminApp = getAdminApp();
+          if (effCompId && zkAdminApp) {
+            const db = getFirestore(zkAdminApp);
             const attDocId = `att-live-${effCompId}-${empCode}-${dateStr}`;
             const attRef = db.collection("attendance").doc(attDocId);
             const snap = await attRef.get();
@@ -1332,9 +1336,10 @@ async function executeSystemBackupCore(clientSnapshot?: any, triggerSource = 'MA
     let totalRecords = 0;
 
     // 1. If Firestore Admin is initialized on server, dump directly from Firestore
-    if (getAdminApp()) {
+    const backupAdminApp = getAdminApp();
+    if (backupAdminApp) {
       try {
-        const db = getFirestore(getAdminApp());
+        const db = getFirestore(backupAdminApp);
         const colNames = [
           'companies', 'employees', 'contracts', 'leave_requests', 'leave_allocations',
           'leave_settlements', 'attendance', 'payslips', 'payroll_runs',

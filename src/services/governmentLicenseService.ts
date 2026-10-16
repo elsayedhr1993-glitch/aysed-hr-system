@@ -92,7 +92,7 @@ export function subscribeGovernmentLicenses(
 
 export async function upsertGovernmentLicense(
   companyId: string,
-  license: Omit<LicenseDocument, 'companyId' | 'updatedAt'> & { id?: string }
+  license: Omit<LicenseDocument, 'companyId' | 'updatedAt' | 'id'> & { id?: string }
 ): Promise<string> {
   const id = license.id || doc(licensesCollection(companyId)).id;
   const companyDocumentId = governmentLicenseCompanyDocumentId(companyId, id);
