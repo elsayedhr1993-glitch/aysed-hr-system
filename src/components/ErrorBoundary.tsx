@@ -1,5 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { RefreshCw, RotateCcw, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { captureClientException } from '../observability/sentryClient';
 
 interface Props {
   children: ReactNode;
@@ -34,6 +35,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('[ErrorBoundary caught error]:', error, errorInfo);
+    captureClientException(error);
     this.setState({ errorInfo });
   }
 

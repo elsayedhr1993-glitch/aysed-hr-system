@@ -1,5 +1,6 @@
 import { tokens } from "./src/design/tokens.ts";
 import "./server/envBootstrap.ts";
+import "./server/sentryServer.ts";
 import express from "express";
 import net from "net";
 import path from "path";

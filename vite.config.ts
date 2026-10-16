@@ -17,6 +17,7 @@ export default defineConfig(() => {
     },
     define: {
       __AYSED_ALLOW_PROD_WRITES__: JSON.stringify(process.env.ALLOW_PROD_WRITES === 'true'),
+      __SENTRY_DSN__: JSON.stringify(process.env.SENTRY_DSN || ''),
     },
     build: {
       outDir: 'dist',

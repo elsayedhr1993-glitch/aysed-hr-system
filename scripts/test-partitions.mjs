@@ -16,6 +16,7 @@ export const nodeTestFiles = [
   'src/utils/contractTenantRules.test.ts',
   'src/utils/kuwaitPayrollEngine.test.ts',
   'src/utils/leaveEngine.carriedOver.test.ts',
+  'src/utils/payrollLeaveEos.golden.test.ts',
   'src/utils/leaveModel.test.ts',
   'src/utils/ocrValidation.test.ts',
   'src/utils/tenantCompanyId.test.ts',

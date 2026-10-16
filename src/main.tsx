@@ -1,8 +1,10 @@
 import { applyDesignTokens } from './design/tokens';
 import { brand } from './config/brand';
+import { initClientSentry } from './observability/sentryClient';
 import './index.css';
 import './styles/odooReportPrint.css';
 
+initClientSentry();
 document.title = brand.name;
 applyDesignTokens();
 
