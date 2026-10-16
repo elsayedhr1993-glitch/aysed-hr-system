@@ -102,7 +102,11 @@ async function main() {
     await setDoc(doc(db, 'attendance', 'att-other'), { companyId: COMPANY_A, departmentId: 'dept-2' });
     await setDoc(doc(db, 'audit_logs', 'log-a'), { companyId: COMPANY_A, action: 'read' });
     await setDoc(doc(db, 'audit_logs', 'log-b'), { companyId: COMPANY_B, action: 'read' });
+    await setDoc(doc(db, 'audit_logs', 'log-platform'), { companyId: '', action: 'platform' });
+    await setDoc(doc(db, 'documents', 'doc-a'), { companyId: COMPANY_A, name: 'file' });
     await setDoc(doc(db, 'subscriptions', 'sub-1'), { plan: 'demo' });
+    await setDoc(doc(db, 'platform_users', 'owner'), { role: 'SUPER_ADMIN' });
+    await setDoc(doc(db, 'unlisted_collection', 'secret'), { companyId: COMPANY_A });
   });
 
   const adminA = () => contextFor(testEnv, 'user-admin-a', 'COMPANY_ADMIN', COMPANY_A);
@@ -212,8 +216,8 @@ async function main() {
   await runCase('UNKNOWN لا يقرأ الموظفين', async () => {
     await assertFails(getDoc(doc(unknown(), 'employees', 'emp-a')));
   });
-  await runCase('SUPER_ADMIN يقرأ موظفي منشأة أخرى', async () => {
-    await assertSucceeds(getDoc(doc(superAdmin(), 'employees', 'emp-b')));
+  await runCase('SUPER_ADMIN لا يقرأ موظفي المنشآت', async () => {
+    await assertFails(getDoc(doc(superAdmin(), 'employees', 'emp-b')));
   });
 
   await runCase('audit_logs يمنع الإنشاء حتى على SUPER_ADMIN', async () => {
@@ -239,6 +243,49 @@ async function main() {
   });
   await runCase('audit_logs يمنع الحذف على HR_MANAGER', async () => {
     await assertFails(deleteDoc(doc(hrManager(), 'audit_logs', 'log-a')));
+  });
+
+  await runCase('مسؤول المنشأة يقرأ سجل تدقيق منشأته', async () => {
+    await assertSucceeds(getDoc(doc(adminA(), 'audit_logs', 'log-a')));
+  });
+  await runCase('SUPER_ADMIN لا يقرأ سجل تدقيق منشأة', async () => {
+    await assertFails(getDoc(doc(superAdmin(), 'audit_logs', 'log-a')));
+  });
+  await runCase('SUPER_ADMIN يقرأ سجل المنصة', async () => {
+    await assertSucceeds(getDoc(doc(superAdmin(), 'audit_logs', 'log-platform')));
+  });
+  await runCase('مسؤول المنشأة لا يقرأ سجل المنصة', async () => {
+    await assertFails(getDoc(doc(adminA(), 'audit_logs', 'log-platform')));
+  });
+  await runCase('SUPER_ADMIN لا يقرأ عقود المنشأة', async () => {
+    await assertFails(getDoc(doc(superAdmin(), 'contracts', 'contract-a')));
+  });
+  await runCase('SUPER_ADMIN لا يقرأ كشوف رواتب المنشأة', async () => {
+    await assertFails(getDoc(doc(superAdmin(), 'payslips', 'pay-a')));
+  });
+  await runCase('SUPER_ADMIN لا يقرأ مستندات المنشأة', async () => {
+    await assertFails(getDoc(doc(superAdmin(), 'documents', 'doc-a')));
+  });
+  await runCase('SUPER_ADMIN يقرأ الشركات', async () => {
+    await assertSucceeds(getDoc(doc(superAdmin(), 'companies', COMPANY_A)));
+  });
+  await runCase('SUPER_ADMIN يكتب الشركات', async () => {
+    await assertSucceeds(updateDoc(doc(superAdmin(), 'companies', COMPANY_A), { name: 'from platform' }));
+  });
+  await runCase('SUPER_ADMIN يقرأ الاشتراكات', async () => {
+    await assertSucceeds(getDoc(doc(superAdmin(), 'subscriptions', 'sub-1')));
+  });
+  await runCase('SUPER_ADMIN يكتب الاشتراكات', async () => {
+    await assertSucceeds(setDoc(doc(superAdmin(), 'subscriptions', 'sub-new'), { plan: 'platform' }));
+  });
+  await runCase('SUPER_ADMIN يقرأ platform_users', async () => {
+    await assertSucceeds(getDoc(doc(superAdmin(), 'platform_users', 'owner')));
+  });
+  await runCase('SUPER_ADMIN يكتب platform_users', async () => {
+    await assertSucceeds(setDoc(doc(superAdmin(), 'platform_users', 'owner-2'), { role: 'SUPER_ADMIN' }));
+  });
+  await runCase('مجموعة بلا allow تُرفض حتى على SUPER_ADMIN', async () => {
+    await assertFails(getDoc(doc(superAdmin(), 'unlisted_collection', 'secret')));
   });
 
   await testEnv.cleanup();
