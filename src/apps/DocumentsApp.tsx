@@ -1,6 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { DocumentItem, Employee, Company } from '../types';
-import { CompanyDocument } from '../types/companyDocuments';
+import { CompanyDocument, getDocumentStatus } from '../types/companyDocuments';
+import { PageHeader } from '../components/ui/PageHeader';
+import { StatStrip } from '../components/ui/StatStrip';
+import { MaskedValue } from '../components/ui/MaskedValue';
 import { CompanyDocumentsKanban } from '../components/CompanyDocumentsKanban';
 import { exportToExcel } from '../utils/exportUtils';
 import { DocumentPreviewModal } from '../components/documents/DocumentPreviewModal';
@@ -230,6 +233,19 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
     return { total, active, nearExpiry, expired };
   }, [enrichedCompanyDocs]);
 
+  const licenseMetrics = useMemo(() => {
+    let active = 0;
+    let nearExpiry = 0;
+    let expired = 0;
+    for (const item of companyDocuments) {
+      const status = getDocumentStatus(item.expiryDate || '').status;
+      if (status === 'expired') expired += 1;
+      else if (status === 'expiring_soon') nearExpiry += 1;
+      else active += 1;
+    }
+    return { total: companyDocuments.length, active, nearExpiry, expired };
+  }, [companyDocuments]);
+
   // Filtered Documents
   const filteredDocs = useMemo(() => {
     return enrichedCompanyDocs.filter(doc => {
@@ -302,145 +318,58 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
   return (
     <div className="odoo-app-surface flex flex-col min-h-[calc(100vh-10rem)] bg-white rounded-xl overflow-hidden shadow-xs border border-slate-200 w-full" dir="rtl" data-master-layout="wide">
       
-      {/* 1. Header Workspace Selector & Main Tabs */}
-      <div className="bg-white border-b border-slate-200 px-6 py-3 flex flex-wrap items-center justify-between gap-4 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center shadow-xs">
-            <FolderOpen className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-slate-900">
-                <UiStudioTarget
-                  uiKey={UI_KEYS.appTitle('archive')}
-                  kind="label"
-                  defaults={{
-                    label: { ar: 'الأرشيف الرقمي والوثائق', en: 'Digital archive & documents' },
-                  }}
-                >
-                  الأرشيف الرقمي والوثائق
-                </UiStudioTarget>
-              </h2>
-              <span className="bg-purple-100 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full font-mono">
-                الأرشيف
-              </span>
-            </div>
-            <p className="text-xs text-slate-500">
-              إدارة الهويات، الجوازات، العقود، وتراخيص المنشأة مع الرقابة اللحظية على مدد الانتهاء
-            </p>
-          </div>
-        </div>
-
-        {/* Tab switchers */}
-        <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+      <PageHeader
+        title="الأرشيف الرقمي"
+        subtitle={workspaceTab === 'EMPLOYEE_DOCS' ? 'مستندات الكادر' : 'تراخيص المنشأة'}
+        primaryAction={
+          workspaceTab === 'EMPLOYEE_DOCS'
+            ? { label: 'رفع مستند', onClick: () => setShowUploadModal(true) }
+            : { label: 'إضافة ترخيص', onClick: () => setCompanyLicenseAddNonce(Date.now()) }
+        }
+        menu={[
+          { id: 'scan', label: 'مسح ضوئي', onSelect: handleOpenScanner },
+          { id: 'excel', label: 'تصدير إكسل', onSelect: handleExportExcel },
+          { id: 'print', label: 'طباعة', onSelect: () => setShowPrintModal(true) },
+        ]}
+      />
+      <div className="flex overflow-x-auto border-b bg-white">
+        {([
+          ['EMPLOYEE_DOCS', 'مستندات الكادر'],
+          ['COMPANY_LICENSES', 'تراخيص المنشأة'],
+        ] as const).map(([id, label]) => (
           <button
-            onClick={() => setWorkspaceTab('EMPLOYEE_DOCS')}
-            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
-              workspaceTab === 'EMPLOYEE_DOCS'
-                ? 'bg-white text-primary shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
+            key={id}
+            type="button"
+            onClick={() => setWorkspaceTab(id)}
+            className="px-4 py-2 text-xs font-bold"
+            style={{
+              color: workspaceTab === id ? 'var(--color-primary, #6b3f5e)' : '#64748b',
+              borderBottom: workspaceTab === id ? '2px solid var(--color-primary, #6b3f5e)' : '2px solid transparent',
+            }}
           >
-            <User className="w-4 h-4" />
-            <span>مستندات الكادر والموظفين ({metrics.total})</span>
+            {label}
           </button>
-          <button
-            onClick={() => setWorkspaceTab('COMPANY_LICENSES')}
-            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
-              workspaceTab === 'COMPANY_LICENSES'
-                ? 'bg-white text-primary shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Shield className="w-4 h-4" />
-            <span>تراخيص وسجلات المنشأة ({companyDocuments.length})</span>
-          </button>
-          {workspaceTab === 'COMPANY_LICENSES' && (
-            <button
-              type="button"
-              onClick={() => setCompanyLicenseAddNonce(Date.now())}
-              className="mr-2 bg-primary hover:bg-[#5c3c53] text-white text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 shadow-sm"
-            >
-              <Plus className="w-4 h-4" />
-              إضافة ترخيص
-            </button>
-          )}
-        </div>
+        ))}
       </div>
-
-      {/* 2. Top KPI Metric Summary Cards (Shown for Employee Docs) */}
-      {workspaceTab === 'EMPLOYEE_DOCS' && (
-        <div className="bg-white border-b border-slate-200 px-6 py-3 shrink-0">
-          <div className="odoo-kpi-grid">
-            
-            {/* Total */}
-            <div 
-              onClick={() => setStatusFilter('ALL')}
-              className={`p-3 rounded-xl border transition cursor-pointer flex items-center justify-between ${
-                statusFilter === 'ALL' ? 'border-primary bg-purple-50/50' : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100/70'
-              }`}
-            >
-              <div>
-                <p className="text-xs font-medium text-slate-500">إجمالي المستندات</p>
-                <h4 className="text-xl font-black text-slate-900 font-mono mt-0.5">{metrics.total}</h4>
-              </div>
-              <div className="w-9 h-9 rounded-xl bg-slate-200/70 flex items-center justify-center text-slate-700">
-                <FileText className="w-5 h-5" />
-              </div>
-            </div>
-
-            {/* Active */}
-            <div 
-              onClick={() => setStatusFilter('ACTIVE')}
-              className={`p-3 rounded-xl border transition cursor-pointer flex items-center justify-between ${
-                statusFilter === 'ACTIVE' ? 'border-emerald-500 bg-emerald-50/60' : 'border-slate-200 bg-slate-50/50 hover:bg-emerald-50/30'
-              }`}
-            >
-              <div>
-                <p className="text-xs font-medium text-emerald-700">سارية وصالحة</p>
-                <h4 className="text-xl font-black text-emerald-800 font-mono mt-0.5">{metrics.active}</h4>
-              </div>
-              <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                <CheckCircle2 className="w-5 h-5" />
-              </div>
-            </div>
-
-            {/* Expiring Soon */}
-            <div 
-              onClick={() => setStatusFilter('NEAR_EXPIRY')}
-              className={`p-3 rounded-xl border transition cursor-pointer flex items-center justify-between ${
-                statusFilter === 'NEAR_EXPIRY' ? 'border-amber-500 bg-amber-50/70' : 'border-slate-200 bg-slate-50/50 hover:bg-amber-50/30'
-              }`}
-            >
-              <div>
-                <p className="text-xs font-medium text-amber-700">تنتهي قريباً (&lt;60 يوم)</p>
-                <h4 className="text-xl font-black text-amber-800 font-mono mt-0.5">{metrics.nearExpiry}</h4>
-              </div>
-              <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
-                <Clock className="w-5 h-5" />
-              </div>
-            </div>
-
-            {/* Expired */}
-            <div 
-              onClick={() => setStatusFilter('EXPIRED')}
-              className={`p-3 rounded-xl border transition cursor-pointer flex items-center justify-between ${
-                statusFilter === 'EXPIRED' ? 'border-rose-500 bg-rose-50/70' : 'border-slate-200 bg-slate-50/50 hover:bg-rose-50/30'
-              }`}
-            >
-              <div>
-                <p className="text-xs font-medium text-rose-700">منتهية الصلاحية</p>
-                <h4 className="text-xl font-black text-rose-800 font-mono mt-0.5">{metrics.expired}</h4>
-              </div>
-              <div className="w-9 h-9 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center">
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-            </div>
-
-          </div>
-        </div>
-      )}
-
+      <StatStrip
+        items={[
+          {
+            id: 'total',
+            label: workspaceTab === 'EMPLOYEE_DOCS' ? 'مستندات الكادر' : 'تراخيص المنشأة',
+            value: (workspaceTab === 'EMPLOYEE_DOCS' ? metrics : licenseMetrics).total,
+          },
+          { id: 'active', label: 'سارية', value: (workspaceTab === 'EMPLOYEE_DOCS' ? metrics : licenseMetrics).active },
+          { id: 'near', label: 'تنتهي قريباً', value: (workspaceTab === 'EMPLOYEE_DOCS' ? metrics : licenseMetrics).nearExpiry },
+          { id: 'expired', label: 'منتهية', value: (workspaceTab === 'EMPLOYEE_DOCS' ? metrics : licenseMetrics).expired },
+        ]}
+        onSelect={(id) => {
+          if (workspaceTab !== 'EMPLOYEE_DOCS') return;
+          if (id === 'total') setStatusFilter('ALL');
+          if (id === 'active') setStatusFilter('ACTIVE');
+          if (id === 'near') setStatusFilter('NEAR_EXPIRY');
+          if (id === 'expired') setStatusFilter('EXPIRED');
+        }}
+      />
       {/* 3. Main Body */}
       {workspaceTab === 'COMPANY_LICENSES' ? (
         <div className="flex-1 overflow-y-auto p-6 bg-slate-100">
@@ -763,9 +692,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
                         <th className="p-3.5 font-mono">الرقم المدني</th>
                         <th className="p-3.5">القسم</th>
                         <th className="p-3.5 font-mono">رقم الوثيقة</th>
-                        <th className="p-3.5 font-mono">تاريخ الانتهاء</th>
-                        <th className="p-3.5 text-center">الأيام المتبقية</th>
-                        <th className="p-3.5 text-center">حالة السريان</th>
+                        <th className="p-3.5 text-center">السريان</th>
                         <th className="p-3.5 text-center">إجراءات</th>
                       </tr>
                     </thead>
@@ -800,7 +727,7 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
                                 : 'مستند عام'}
                             </td>
                             <td className="p-3.5 font-mono text-slate-600">
-                              {doc.employee?.civilId || '—'}
+                              <MaskedValue value={doc.employee?.civilId} kind="civil" purpose="archive-list" />
                             </td>
                             <td className="p-3.5 text-slate-600">
                               {doc.employee?.department || '—'}
@@ -808,17 +735,15 @@ export const DocumentsApp: React.FC<DocumentsAppProps> = ({
                             <td className="p-3.5 font-mono text-slate-600">
                               {doc.documentNumber || '—'}
                             </td>
-                            <td className="p-3.5 font-mono font-bold text-slate-900">
-                              {doc.expiryDate || '—'}
-                            </td>
-                            <td className="p-3.5 text-center font-mono">
-                              {doc.daysToExpiry !== null ? (
-                                <span className={doc.daysToExpiry < 0 ? 'text-rose-600 font-bold' : doc.daysToExpiry <= 60 ? 'text-amber-600 font-bold' : 'text-slate-600'}>
-                                  {doc.daysToExpiry > 0 ? `${doc.daysToExpiry} يوم` : `-${Math.abs(doc.daysToExpiry)} يوم`}
-                                </span>
-                              ) : '—'}
-                            </td>
                             <td className="p-3.5 text-center">
+                              <div className="font-mono font-bold text-slate-900">{doc.expiryDate || '—'}</div>
+                              <div className="text-[10px] text-slate-500">
+                                {doc.daysToExpiry === null
+                                  ? '—'
+                                  : doc.daysToExpiry > 0
+                                    ? `${doc.daysToExpiry} يوم`
+                                    : `${Math.abs(doc.daysToExpiry)} يوم`}
+                              </div>
                               <span className={`px-2.5 py-1 rounded-full text-[10px] border ${badgeColor}`}>
                                 {badgeText}
                               </span>

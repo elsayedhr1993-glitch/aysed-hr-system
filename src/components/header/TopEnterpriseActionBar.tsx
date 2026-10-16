@@ -118,10 +118,6 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
 
   /** العمود الأيمن (RTL): العمليات والسجلات */
   const operationsColumnItems = useMemo((): QuickMenuItem[] => {
-    const facilityAction = () => {
-      if (onOpenFacilityWizard) onOpenFacilityWizard();
-      else if (onOpenCompanyLicenseArchive) onOpenCompanyLicenseArchive();
-    };
     return [
       {
         key: 'new_employee',
@@ -147,16 +143,8 @@ export const TopEnterpriseActionBar: React.FC<TopEnterpriseActionBarProps> = ({
         labelEn: 'Leave request',
         onClick: () => onQuickAction('new_leave'),
       },
-      {
-        key: 'facility_license',
-        icon: Award,
-        iconClass: 'text-primary',
-        labelAr: 'ترخيص منشأة',
-        labelEn: 'Facility license',
-        onClick: facilityAction,
-      },
     ];
-  }, [onQuickAction, onOpenFacilityWizard, onOpenCompanyLicenseArchive]);
+  }, [onQuickAction]);
 
   /** العمود الأيسر (RTL): الحاسبات والأدوات */
   const toolsColumnItems = useMemo((): QuickMenuItem[] => {

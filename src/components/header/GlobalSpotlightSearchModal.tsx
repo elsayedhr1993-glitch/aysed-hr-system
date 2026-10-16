@@ -245,7 +245,6 @@ export const GlobalSpotlightSearchModal: React.FC<GlobalSpotlightSearchModalProp
             <span>•</span>
             <span>اضغط <strong>Enter</strong> للاختيار</span>
           </div>
-          <span className="font-mono text-[10px] text-slate-400">Ctrl + K</span>
         </div>
 
       </div>

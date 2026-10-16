@@ -43,11 +43,7 @@ import {
 } from './leaves/LeavePolicyWizardModal';
 import { loadTenantPolicy } from '../services/hrPolicyStorage';
 import { isMohMedicalEstablishment } from '../utils/mohMedicalFacility';
-import {
-  CompanySetupOnboardingBanner,
-  type CompanySetupStepAction,
-} from './onboarding/CompanySetupOnboardingBanner';
-import { useOdooHierarchy } from '../context/OdooHierarchyContext';
+import { type CompanySetupStepAction } from './onboarding/CompanySetupOnboardingBanner';
 import { CompanyOnboardingLicensesWidget } from './onboarding/CompanyOnboardingLicensesWidget';
 import { isQueryableTenantCompanyId } from '../utils/tenantCompanyId';
 
@@ -68,7 +64,6 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
 }) => {
   const { settings, updateSettings, resetSettings, isSaving, isLoading } = useSystemSettings();
   const { activeCompany, updateActiveCompany } = useCompany();
-  const { employees } = useOdooHierarchy();
 
   const [activeSection, setActiveSection] = useState<string>('company');
 
@@ -240,48 +235,9 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
     );
   }, [searchQuery]);
 
-  const distinctJobTitles = useMemo(() => {
-    const titles = new Set<string>();
-    for (const e of employees || []) {
-      const t = String(e.jobTitle || '').trim();
-      if (t) titles.add(t);
-    }
-    return titles.size;
-  }, [employees]);
-
-  const handleCompanySetupAction = useCallback(
-    (action: CompanySetupStepAction) => {
-      if (action.type === 'settings') {
-        setActiveSection(action.section);
-        return;
-      }
-      if (action.type === 'leave_wizard') {
-        setActiveSection('leaves');
-        setIsLeaveWizardOpen(true);
-        return;
-      }
-      if (action.type === 'attendance_setup') {
-        setActiveSection('attendance');
-        setIsBiometricModalOpen(true);
-        return;
-      }
-      onCompanySetupNavigate?.(action);
-    },
-    [onCompanySetupNavigate]
-  );
-
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-800 font-sans dir-rtl pb-24" dir="rtl">
 
-      <div className="px-4 sm:px-6 pt-4 w-full max-w-full">
-        <CompanySetupOnboardingBanner
-          company={activeCompany}
-          employeesCount={employees?.length || 0}
-          distinctJobTitles={distinctJobTitles}
-          onStepAction={handleCompanySetupAction}
-        />
-      </div>
-      
       {/* 1. Header (Odoo Enterprise Settings) */}
       <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 shadow-xs">
         <div className="flex items-center gap-3">
