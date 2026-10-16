@@ -31,8 +31,11 @@ import {
 } from 'lucide-react';
 import { useSystemSettings, SystemSettings } from '../context/SystemSettingsContext';
 import { useCompany } from '../context/CompanyContext';
+import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import { MaskedCivilField } from './security/MaskedValue';
+import { ConfirmDialog } from './ui/ConfirmDialog';
+import { OverflowMenu } from './ui/OverflowMenu';
 import { BiometricDevicesModal } from './attendance/BiometricDevicesModal';
 import { SystemIntegrationsPage } from './SystemIntegrationsPage';
 import {
@@ -64,6 +67,9 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
 }) => {
   const { settings, updateSettings, resetSettings, isSaving, isLoading } = useSystemSettings();
   const { activeCompany, updateActiveCompany } = useCompany();
+  const { user } = useAuth();
+  const isSystemAdmin = user?.role === 'SUPER_ADMIN';
+  const [resetOpen, setResetOpen] = useState(false);
 
   const [activeSection, setActiveSection] = useState<string>('company');
 
@@ -179,6 +185,8 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
     }
   };
 
+  const settingsDirty = JSON.stringify(formData) !== JSON.stringify(settings);
+
   const handleSave = () => {
     // 1. Update settings
     updateSettings(formData);
@@ -238,82 +246,18 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-800 font-sans dir-rtl pb-24" dir="rtl">
 
-      {/* 1. Header (Odoo Enterprise Settings) */}
-      <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 shadow-xs">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-primary/10 text-primary rounded-lg shrink-0">
-            <Sliders className="w-5 h-5" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-base font-bold text-slate-900">الإعدادات العامة للتهيئة والسياسات</h1>
-              <span className="bg-purple-100 text-primary text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0">
-                Aysed HR
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 truncate">
-              المنشأة النشطة: <span className="font-bold text-slate-700">{activeCompany?.nameAr || formData.companyNameAr}</span>
-            </p>
-          </div>
+      <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-base font-bold text-slate-900">الإعدادات العامة</h1>
+          <p className="text-xs text-slate-500 truncate">
+            {activeCompany?.nameAr || formData.companyNameAr}
+          </p>
         </div>
-      </div>
-
-      {/* شريط أدوات ثابت: تصفية + حفظ / استعادة */}
-      <div
-        className="sticky top-0 z-50 px-4 sm:px-6 py-2.5 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3"
-      >
-        <div className="relative flex-1 min-w-[min(100%,14rem)] max-w-md">
-          <Search size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-          <input
-            type="search"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="تصفية الإعدادات والخيارات..."
-            className="w-full bg-slate-50 hover:bg-slate-100 focus:bg-white border border-slate-200 focus:border-primary text-xs rounded-lg py-2 pr-9 pl-8 outline-hidden transition"
+        {isSystemAdmin ? (
+          <OverflowMenu
+            items={[{ id: 'reset', label: 'استعادة الافتراضي', onSelect: () => setResetOpen(true) }]}
           />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs cursor-pointer"
-              aria-label="مسح التصفية"
-            >
-              ✕
-            </button>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
-          <button
-            type="button"
-            onClick={resetSettings}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 border border-slate-200 transition cursor-pointer"
-            title="استعادة الإعدادات الافتراضية"
-          >
-            <RotateCcw size={13} />
-            <span>استعادة الافتراضي</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={isSaving}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold shadow-xs transition-all duration-300 cursor-pointer disabled:opacity-50 active:scale-95 ${
-              saveSuccess
-                ? 'bg-emerald-600 hover:bg-emerald-700 text-white font-black'
-                : 'bg-primary hover:bg-[#583a50] text-white'
-            }`}
-          >
-            {isSaving ? (
-              <RefreshCw size={13} className="animate-spin" />
-            ) : saveSuccess ? (
-              <CheckCircle2 size={13} className="text-white animate-bounce" />
-            ) : (
-              <Save size={13} />
-            )}
-            <span>{saveSuccess ? 'تم الحفظ بنجاح ✓' : 'حفظ الإعدادات'}</span>
-          </button>
-        </div>
+        ) : null}
       </div>
 
       {/* 2. Main Content Layout (Sidebar + Settings Canvas) */}
@@ -322,8 +266,15 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
         {/* Navigation Sidebar */}
         <div className="w-full md:w-72 shrink-0">
           <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-2 sticky top-[4.5rem] space-y-1">
-            <div className="px-3 py-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              أقسام الضبط والتهيئة
+            <div className="px-3 py-2">
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="تصفية الأقسام"
+                aria-label="تصفية الأقسام"
+                className="w-full bg-slate-50 border border-slate-200 text-xs rounded-lg py-2 px-2 outline-hidden"
+              />
             </div>
             {filteredSections.map((sec) => {
               const Icon = sec.icon;
@@ -343,7 +294,11 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
                     <Icon size={16} className={isActive ? 'text-white' : 'text-slate-500'} />
                     <span className="text-xs truncate">{sec.label}</span>
                   </div>
-                  {isActive && <div className="w-1.5 h-1.5 rounded-full bg-amber-400"></div>}
+                  <span
+                    className="w-1.5 h-1.5 rounded-full shrink-0"
+                    style={{ background: isActive && settingsDirty ? '#D97706' : '#059669' }}
+                    title={isActive && settingsDirty ? 'تعديل غير محفوظ' : 'محفوظ'}
+                  />
                 </button>
               );
             })}
@@ -354,7 +309,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
         <div className="flex-1 space-y-6">
 
           {/* Section 1: Company Profile */}
-          {(activeSection === 'company' || searchQuery) && (
+          {(activeSection === 'company') && (
             <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6 space-y-6">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2.5">
@@ -505,7 +460,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
           )}
 
           {/* Section 2: Payroll & WPS */}
-          {(activeSection === 'payroll' || searchQuery) && (
+          {(activeSection === 'payroll') && (
             <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6 space-y-6">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2.5">
@@ -610,7 +565,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
           )}
 
           {/* Section 3: Leave policy (Firestore tenant policy — single source of truth) */}
-          {(activeSection === 'leaves' || searchQuery) && (
+          {(activeSection === 'leaves') && (
             <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6 space-y-6">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2.5">
@@ -670,7 +625,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
           )}
 
           {/* Section 4: Attendance & Biometrics */}
-          {(activeSection === 'attendance' || searchQuery) && (
+          {(activeSection === 'attendance') && (
             <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6 space-y-6">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2.5">
@@ -811,7 +766,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
           )}
 
           {/* Section 5: Indemnity / End of Service */}
-          {(activeSection === 'indemnity' || searchQuery) && (
+          {(activeSection === 'indemnity') && (
             <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6 space-y-6">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2.5">
@@ -886,7 +841,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
           )}
 
           {/* Section 7: الذكاء الاصطناعي والربط سحابي (AI & Integrations) */}
-          {(activeSection === 'integrations' || searchQuery) && (
+          {(activeSection === 'integrations') && (
             <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6 space-y-6">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2.5">
@@ -909,7 +864,7 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
           )}
 
           {/* Section 6: Backup & Security */}
-          {(activeSection === 'security' || searchQuery) && (
+          {(activeSection === 'security') && (
             <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6 space-y-6">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2.5">
@@ -990,6 +945,31 @@ export const OdooSettingsFull: React.FC<OdooSettingsFullProps> = ({
           setLeavePolicy(policy);
           reloadLeavePolicy();
         }}
+      />
+      {settingsDirty && (
+        <div className="fixed bottom-0 inset-x-0 z-40 border-t bg-white px-4 py-3 flex items-center justify-between gap-3">
+          <span className="text-xs font-bold text-slate-700">تعديلات غير محفوظة</span>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={isSaving}
+            className="bg-primary text-white text-xs font-bold px-4 py-2 rounded-lg disabled:opacity-50"
+          >
+            {isSaving ? 'جارٍ الحفظ' : 'حفظ'}
+          </button>
+        </div>
+      )}
+      <ConfirmDialog
+        open={resetOpen && isSystemAdmin}
+        title="استعادة الافتراضي"
+        message="ستعود حقول الإعدادات إلى القيم الافتراضية."
+        confirmWord="استعادة"
+        confirmLabel="استعادة"
+        onConfirm={() => {
+          resetSettings();
+          setResetOpen(false);
+        }}
+        onCancel={() => setResetOpen(false)}
       />
     </div>
   );
