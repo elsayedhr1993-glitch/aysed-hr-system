@@ -31,6 +31,38 @@ import {
   Trash2
 } from 'lucide-react';
 import { useCompany } from '../context/CompanyContext';
+import { PageHeader } from './ui/PageHeader';
+import { tokens } from '../design/tokens';
+
+const LAW_68_TEXT =
+  'أجر مضاعف (200%) بدل نقدي، أو يوم راحة بديل، أو إضافة يوم إلى رصيد الإجازات السنوية.';
+
+function LawTip({ text, children }: { text: string; children: React.ReactNode }) {
+  return (
+    <span className="group relative inline-flex">
+      {children}
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute z-20 hidden w-64 text-white group-hover:block group-focus-within:block"
+        style={{
+          bottom: '100%',
+          insetInlineStart: 0,
+          marginBlockEnd: tokens.space[1],
+          background: tokens.color.gray[900],
+          paddingInline: tokens.space[2],
+          paddingBlock: tokens.space[1],
+          borderRadius: tokens.radius.sm,
+          fontSize: tokens.text.xs,
+          fontWeight: 400,
+          lineHeight: 1.6,
+          whiteSpace: 'normal',
+        }}
+      >
+        {text}
+      </span>
+    </span>
+  );
+}
 import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
 import { useOdooHierarchy } from '../context/OdooHierarchyContext';
 import { exportToExcel } from '../utils/exportUtils';
@@ -405,62 +437,19 @@ export const OdooPublicHolidaysApp: React.FC = () => {
   return (
     <div className="space-y-5 font-sans dir-rtl text-right text-slate-800 animate-fade-in" dir="rtl">
       
-      {/* 1. Header & Actions */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
-            <span>العطلات الرسمية</span>
-            <span>/</span>
-            <span className="text-primary font-black">جدول العطلات والقرارات الرسمية للكويت (2026)</span>
-          </div>
-          <h1 className="text-xl font-black text-slate-900 flex items-center gap-2">
-            <Sparkles className="text-primary" size={22} />
-            تطبيق العطلات الرسمية وبدلات المادة 68 (Kuwait Public Holidays)
-          </h1>
-          <p className="text-[11px] text-slate-500">
-            المنشأة: <strong className="text-primary">{activeCompany?.nameAr || 'الشركة الرئيسية'}</strong> | مدفوعة الأجر 100% ومحمية طبقاً لقانون العمل رقم 6 لسنة 2010
-          </p>
-        </div>
-
-        {/* Top Buttons: Clean & Functional */}
-        <div className="flex items-center flex-wrap gap-2 w-full md:w-auto">
-          
-          <button
-            type="button"
-            onClick={handleExportHolidaysExcel}
-            className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
-            title="تصدير السجل الحالي إلى ملف Excel"
-          >
-            <FileSpreadsheet size={15} className="text-emerald-600" />
-            <span>تصدير Excel</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setShowCabinetModal(true)}
-            className="bg-primary hover:bg-[#583950] text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
-          >
-            <PlusCircle size={15} /> + عطلة طارئة / قرار مجلس الوزراء
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setShowDutyModal(true)}
-            className="bg-purple-50 hover:bg-purple-100 text-primary border border-purple-200 px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-          >
-            <Calculator size={14} /> تكليف عمل أثناء عطلة (المادة 68)
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setShowOfficialPrintModal(true)}
-            className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-            title="سجل A4 رسمي للعطلات وتكليفات المادة 68"
-          >
-            <Printer size={14} /> طباعة السجل الرسمي (A4)
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="العطلات وبدلات المادة 68"
+        subtitle={activeCompany?.nameAr || 'الشركة الرئيسية'}
+        primaryAction={{ label: 'عطلة جديدة', onClick: () => setShowCabinetModal(true) }}
+        menu={[
+          { id: 'duty', label: 'تكليف عمل أثناء عطلة', onSelect: () => setShowDutyModal(true) },
+          { id: 'excel', label: 'تصدير إكسل', onSelect: handleExportHolidaysExcel },
+          { id: 'print', label: 'طباعة السجل', onSelect: () => setShowOfficialPrintModal(true) },
+        ]}
+      />
+      <p style={{ fontSize: tokens.text.xs, color: tokens.color.gray[500], paddingInline: tokens.space[4] }}>
+        <LawTip text={LAW_68_TEXT}>المادة 68</LawTip>
+      </p>
 
       {/* 2. KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
@@ -487,7 +476,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
           <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-1">
-            <span>تكليفات العمل (المادة 68)</span>
+            <LawTip text={LAW_68_TEXT}><span>تكليفات العمل</span></LawTip>
             <ShieldAlert className="w-4 h-4 text-blue-600" />
           </div>
           <div className="text-2xl font-black text-blue-700">{duties.length} <span className="text-xs font-normal text-slate-500">مناوبة عمل</span></div>
@@ -517,7 +506,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
               activeTab === 'holidays' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Calendar size={14} /> جدول العطلات الرسمية ({holidays.length})
+            <Calendar size={14} /> جدول العطلات الرسمية
           </button>
           
           <button
@@ -527,7 +516,7 @@ export const OdooPublicHolidaysApp: React.FC = () => {
               activeTab === 'duties' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Award size={14} /> سجل تكليفات المناوبة وبدل العطلات ({duties.length})
+            <Award size={14} /> سجل التكليفات
           </button>
         </div>
 
@@ -1041,7 +1030,9 @@ export const OdooPublicHolidaysApp: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">نوع التعويض القانوني (المادة 68):</label>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    <LawTip text={LAW_68_TEXT}>نوع التعويض — مادة 68</LawTip>
+                  </label>
                   <select
                     value={dutyForm.compensationType}
                     onChange={(e) => setDutyForm({ ...dutyForm, compensationType: e.target.value as any })}
