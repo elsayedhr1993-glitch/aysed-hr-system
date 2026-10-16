@@ -8,7 +8,7 @@ import type {
 import { HeaderBar, type EmployeesDirectoryViewMode } from './HeaderBar';
 import { EmployeeCard } from './EmployeeCard';
 import { checkDocumentExpiry } from '../../utils/dateUtils';
-import { MaskedValue } from '../security/MaskedValue';
+import { MaskedValue } from '../ui/MaskedValue';
 
 const PAGE_SIZE = 24;
 

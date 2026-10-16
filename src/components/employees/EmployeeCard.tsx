@@ -1,5 +1,5 @@
 import React from 'react';
-import { Mail, Phone, MoreVertical } from 'lucide-react';
+import { MoreVertical } from 'lucide-react';
 import type { EmployeeDirectoryViewRow } from '../../utils/employeeMapper';
 import { resolveEmployeeAvatarUrl } from '../../utils/employeeAvatar';
 import type { ActiveOnboardingDirectoryKeys } from '../../utils/filterEmployeesDirectory';
@@ -9,13 +9,6 @@ import {
   employeeHasDocumentAlert,
 } from '../../utils/filterEmployeesDirectory';
 import { checkDocumentExpiry } from '../../utils/dateUtils';
-
-const TAG_PALETTE = [
-  'bg-sky-50 text-sky-800 border-sky-200',
-  'bg-amber-50 text-amber-900 border-amber-200',
-  'bg-violet-50 text-violet-800 border-violet-200',
-  'bg-slate-50 text-slate-700 border-slate-200',
-];
 
 export interface EmployeeCardProps {
   employee: EmployeeDirectoryViewRow;
@@ -82,14 +75,6 @@ export const EmployeeCard: React.FC<EmployeeCardProps> = ({
       }}
       className={`odoo-employee-kanban-card group relative flex flex-col h-full min-w-0 bg-white rounded border shadow-[0_1px_2px_rgba(16,24,40,0.06)] hover:shadow-md transition-all cursor-pointer text-right ${borderClass}`}
     >
-      <span
-        className={`absolute top-2.5 left-2.5 w-2.5 h-2.5 rounded-full border-2 border-white shadow-sm ${
-          online ? 'bg-emerald-500' : 'bg-slate-300'
-        }`}
-        title={online ? 'متاح' : 'غير متصل'}
-        aria-hidden
-      />
-
       <div className="flex gap-3 p-3.5 flex-1 min-h-0">
         <div className="shrink-0 w-[76px] h-[76px] rounded overflow-hidden border border-slate-200/90 bg-slate-50">
           {showAvatarImage ? (
@@ -134,42 +119,29 @@ export const EmployeeCard: React.FC<EmployeeCardProps> = ({
 
           <p className="text-[12px] text-[#6c757d] line-clamp-2 leading-snug">
             {employee.jobTitle || 'موظف'}
-            {employee.dept ? ` · ${employee.dept}` : ''}
           </p>
-
-          {email ? (
-            <p className="flex items-center gap-1.5 text-[11px] text-[#495057] truncate mt-0.5">
-              <Mail size={12} className="text-slate-400 shrink-0" />
-              <span className="truncate" title={email}>{email}</span>
-            </p>
-          ) : null}
-          {phone ? (
-            <p className="flex items-center gap-1.5 text-[11px] text-[#495057] truncate">
-              <Phone size={12} className="text-slate-400 shrink-0" />
-              <span className="truncate font-mono" dir="ltr">{phone}</span>
-            </p>
-          ) : null}
-
-          {tags.length > 0 ? (
-            <div className="flex flex-wrap gap-1 mt-1.5">
-              {tags.map((tag, i) => (
-                <span
-                  key={`${tag}-${i}`}
-                  className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold border ${TAG_PALETTE[i % TAG_PALETTE.length]}`}
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          ) : null}
         </div>
       </div>
 
       <footer
-        className="px-3 pb-3 pt-1 flex items-center justify-end gap-2 border-t border-slate-100/80 mt-auto"
+        className="px-3 pb-3 pt-1 flex items-center justify-end gap-2 mt-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        {statusBadge}
+        <span className="group relative inline-flex">
+          <span className="[&>span:last-child]:hidden">{statusBadge}</span>
+          <span
+            role="tooltip"
+            className="pointer-events-none absolute z-20 hidden w-56 whitespace-normal rounded bg-slate-900 px-2 py-1 text-[10px] font-normal text-white group-hover:block group-focus-within:block"
+            style={{ bottom: '100%', insetInlineStart: 0 }}
+          >
+            <span className="block">{statusBadge}</span>
+            {employee.dept || employee.department ? <span className="block">{employee.dept || employee.department}</span> : null}
+            {email ? <span className="block">{email}</span> : null}
+            {phone ? <span className="block" dir="ltr">{phone}</span> : null}
+            {tags.length > 0 ? <span className="block">{tags.join('، ')}</span> : null}
+            <span className="block">{online ? 'متاح' : 'غير متصل'}</span>
+          </span>
+        </span>
       </footer>
 
       {menuOpen ? (

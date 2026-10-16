@@ -63,7 +63,8 @@ import { calculateKuwaitDailyRate } from '../../utils/kuwaitPayrollMath';
 import { deleteEmployeeDocument } from '../../services/documentService';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { OdooSmartButtons, type SmartButtonStat } from '../ui/OdooSmartButtons';
+import type { SmartButtonStat } from '../ui/OdooSmartButtons';
+import { StatStrip } from '../ui/StatStrip';
 import { employeeRequiresMohCompliance, mohComplianceGaps } from '../../utils/employeeCompliance';
 import { attachSignedContractFileToEmployee } from '../../utils/signedContractUpload';
 import { EmployeeOnboardingChecklistModal } from '../onboarding/EmployeeOnboardingChecklistModal';
@@ -419,12 +420,8 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
   const isCommenced = Boolean(startDateStr);
   const contractCount = employee.contractId || employee.pamContractId ? 1 : 1;
 
-  const masterTabId: 'work' | 'private' | 'contract' | 'licenses' | 'onboarding' =
-    activeTab === 'commencement' || activeTab === 'hr'
-      ? 'licenses'
-      : activeTab === 'onboarding'
-        ? 'onboarding'
-        : activeTab;
+  const masterTabId: 'work' | 'private' | 'contract' | 'licenses' | 'onboarding' | null =
+    activeTab === 'commencement' || activeTab === 'hr' ? null : activeTab;
 
   // Contract status
   const contractStatus = employee.contractStatus || employee.status || 'ساري';
@@ -527,21 +524,11 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
     labelEn: string;
     icon: React.ReactNode;
   }[] = [
-    { id: 'work', label: 'معلومات العمل', labelEn: 'Work information', icon: <Briefcase size={16} /> },
-    { id: 'private', label: 'البيانات الشخصية', labelEn: 'Personal data', icon: <User size={16} /> },
-    { id: 'contract', label: 'عقد العمل والراتب', labelEn: 'Contract & salary', icon: <FileText size={16} /> },
-    {
-      id: 'licenses',
-      label: 'الوثائق والهوية (مدنية · جواز · PAM · MOH)',
-      labelEn: 'Documents & ID',
-      icon: <Stethoscope size={16} />,
-    },
-    {
-      id: 'onboarding',
-      label: 'خطة التهيئة',
-      labelEn: 'Onboarding plan',
-      icon: <ListChecks size={16} />,
-    },
+    { id: 'work', label: 'عمل', labelEn: 'عمل', icon: null },
+    { id: 'private', label: 'شخصية', labelEn: 'شخصية', icon: null },
+    { id: 'contract', label: 'عقد وراتب', labelEn: 'عقد وراتب', icon: null },
+    { id: 'licenses', label: 'وثائق', labelEn: 'وثائق', icon: null },
+    { id: 'onboarding', label: 'تهيئة', labelEn: 'تهيئة', icon: null },
   ];
   const employeeTabUiKeys = masterTabs.map(t => UI_KEYS.employeeTab(t.id));
   const employeeTabsReorderGroupId = 'employee.master.tabs';
@@ -895,6 +882,41 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
                   <Printer size={14} />
                   طباعة كشف الإجازات
                 </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActionsMenuOpen(false);
+                    setActiveTab('hr');
+                  }}
+                  className="w-full px-3 py-2 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 cursor-pointer text-right"
+                >
+                  الموارد البشرية
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActionsMenuOpen(false);
+                    setActiveTab('commencement');
+                  }}
+                  className="w-full px-3 py-2 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 cursor-pointer text-right"
+                >
+                  إقرار المباشرة
+                </button>
+                {smartButtonStats
+                  .filter((item) => !['annual_leave_balance', 'documents', 'onboarding_plan'].includes(item.id))
+                  .map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        setActionsMenuOpen(false);
+                        item.onClick();
+                      }}
+                      className="w-full px-3 py-2 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 cursor-pointer text-right"
+                    >
+                      {item.label}
+                    </button>
+                  ))}
                 {onDelete && employee.id && (
                   <>
                     <div className="border-t border-slate-100 my-1" />
@@ -1062,8 +1084,17 @@ export const OdooEmployeeDetailView: React.FC<Props> = ({
           </div>
         </div>
 
-        <div className="w-full lg:w-auto lg:max-w-[48%] min-w-0">
-          <OdooSmartButtons stats={smartButtonStats} variant="button_box" />
+        <div className="w-full min-w-0">
+          <StatStrip
+            items={[
+              { id: 'annual_leave_balance', label: 'رصيد الإجازة', value: Number(annualRemainingDisplay) || 0 },
+              { id: 'documents', label: 'الوثائق', value: docsCount },
+              { id: 'onboarding_plan', label: 'التهيئة', value: Number(onboardingProgress) || 0 },
+            ]}
+            onSelect={(id) => {
+              smartButtonStats.find((item) => item.id === id)?.onClick();
+            }}
+          />
         </div>
         </div>
         </div>

@@ -17,6 +17,7 @@ import { EmployeeQuickEditModal } from '../components/employees/EmployeeQuickEdi
 import { EmployeeImportModal } from '../components/employees/EmployeeImportModal';
 import { EmployeesAppChrome } from '../components/employees/layout/EmployeesAppChrome';
 import { EmployeesPage } from '../components/employees/EmployeesPage';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { filterEmployeesDirectory } from '../utils/filterEmployeesDirectory';
 import { useScreenLayout } from '../hooks/useScreenLayout';
 import { useCompany } from '../context/CompanyContext';
@@ -2253,73 +2254,20 @@ export function EmployeesApp(props?: any) {
         />
       )}
 
-      {/* مودال تأكيد التصفير الشامل التفاعلي (In-App Database Wipe Modal) */}
-      {showResetConfirmModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl border border-rose-200 max-w-md w-full overflow-hidden text-right">
-            <div className="bg-rose-600 text-white p-5 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
-                  <AlertTriangle size={24} />
-                </div>
-                <div>
-                  <h3 className="font-bold text-base">تأكيد التصفير الشامل للنظام</h3>
-                  <p className="text-xs text-rose-100">مسح قاعدة البيانات والتخزين المؤقت</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => !isResetting && setShowResetConfirmModal(false)}
-                disabled={isResetting}
-                className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition"
-              >
-                <X size={20} />
-              </button>
-            </div>
+      <ConfirmDialog
+        open={showResetConfirmModal && isSuperAdmin}
+        title="تصفير الكل"
+        message="سيتم مسح سجلات الموظفين والعقود والإجازات والمسيرات من قاعدة البيانات والتخزين المحلي. هذا الإجراء لمسؤول النظام فقط."
+        confirmWord="تصفير"
+        confirmLabel={isResetting ? 'جارِ التصفير' : 'تصفير'}
+        onConfirm={() => {
+          if (!isResetting) void handlePerformFullReset();
+        }}
+        onCancel={() => {
+          if (!isResetting) setShowResetConfirmModal(false);
+        }}
+      />
 
-            <div className="p-6 space-y-4">
-              <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 text-xs text-rose-900 leading-relaxed space-y-2">
-                <p className="font-bold text-sm text-rose-800">⚠️ تنبيه هام وحاسم:</p>
-                <p>
-                  سيتم فوراً مسح وتصفير كافة سجلات الموظفين، عقود العمل، إقرارات المباشرة، حركات البصمة، طلبات وأرصدة الإجازات، مسيرات الرواتب وسندات الصرف من قاعدة البيانات السحابية والتخزين المحلي.
-                </p>
-                <p className="font-medium text-slate-700">
-                  سيكون النظام نظيفاً وأبيض بالكامل وجاهزاً لإدخال بياناتك الفعلية الجديدة.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={handlePerformFullReset}
-                  disabled={isResetting}
-                  className="flex-1 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white py-3 px-4 rounded-xl font-bold text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                >
-                  {isResetting ? (
-                    <>
-                      <RefreshCw size={16} className="animate-spin" />
-                      <span>جارِ التصفير ومسح السجلات...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Trash2 size={16} />
-                      <span>نعم، تصفير ومسح الكل الآن</span>
-                    </>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowResetConfirmModal(false)}
-                  disabled={isResetting}
-                  className="px-5 py-3 border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl font-bold text-xs transition cursor-pointer"
-                >
-                  إلغاء
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {employeePendingDelete && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4" dir="rtl">

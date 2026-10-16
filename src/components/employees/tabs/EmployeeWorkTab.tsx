@@ -1,7 +1,6 @@
 import React from 'react';
-import { Briefcase, DollarSign, ExternalLink, Layers } from 'lucide-react';
+import { Briefcase, ExternalLink, Layers } from 'lucide-react';
 import { EditableField, EditableSelect } from '../../EditableField';
-import { calculateKuwaitDailyRate } from '../../../utils/kuwaitPayrollMath';
 import { CompactFormAccordion } from '../../ui/CompactFormAccordion';
 interface Props {
   employee: any;
@@ -24,14 +23,6 @@ export const EmployeeWorkTab: React.FC<Props> = ({
   displayedCarriedOverDays,
   compact = false,
 }) => {
-  const basicSalary = parseFloat(employee.basicSalary !== undefined ? employee.basicSalary : (employee.salary || 0)) || 0;
-  const housingAllowance = parseFloat(employee.housingAllowance || 0) || 0;
-  const transportAllowance = parseFloat(employee.transportAllowance || 0) || 0;
-  const medicalAllowance = parseFloat(employee.medicalAllowance || 0) || 0;
-  const otherAllowance = parseFloat(employee.otherAllowances !== undefined ? employee.otherAllowances : (employee.otherAllowance || employee.allowances || 0)) || 0;
-  const totalSalary = basicSalary + housingAllowance + transportAllowance + medicalAllowance + otherAllowance;
-  const dailyWage = calculateKuwaitDailyRate(basicSalary);
-
   const carriedOverDisplay =
     displayedCarriedOverDays !== undefined && displayedCarriedOverDays !== ''
       ? displayedCarriedOverDays
@@ -40,61 +31,6 @@ export const EmployeeWorkTab: React.FC<Props> = ({
         : employee.carriedOverBalance !== undefined
           ? employee.carriedOverBalance
           : 0;
-
-  const financialBlock = (
-    <div className="pt-2 space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-slate-200/80">
-        <div className="flex items-center gap-2">
-          <DollarSign className="w-4 h-4 text-emerald-700" />
-          <span className="font-bold text-xs text-slate-900">حزمة الأجور (عرض من العقد)</span>
-          <span className="text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded font-bold">
-            WPS
-          </span>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="text-xs font-mono font-bold flex items-center gap-3 text-slate-700">
-            <span>يوم: <strong className="text-purple-900">{dailyWage.toFixed(3)}</strong></span>
-            <span className="text-emerald-700">إجمالي {totalSalary.toFixed(3)} د.ك</span>
-          </div>
-          {onOpenContracts && (
-            <button
-              type="button"
-              onClick={onOpenContracts}
-              className="bg-slate-800 hover:bg-slate-900 text-white px-3 py-1.5 rounded-lg text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0"
-            >
-              <ExternalLink size={12} />
-              العقود
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        <div className="py-1">
-          <label className="block text-[10px] font-semibold text-slate-500 mb-1">أساسي</label>
-          <div className="font-mono font-bold text-slate-900 text-sm">{(Number(employee.basicSalary) || 0).toFixed(3)}</div>
-        </div>
-        <div className="py-1">
-          <label className="block text-[10px] font-semibold text-slate-500 mb-1">سكن</label>
-          <div className="font-mono font-bold text-slate-900 text-sm">{(Number(employee.housingAllowance) || 0).toFixed(3)}</div>
-        </div>
-        <div className="py-1">
-          <label className="block text-[10px] font-semibold text-slate-500 mb-1">انتقال</label>
-          <div className="font-mono font-bold text-slate-900 text-sm">{(Number(employee.transportAllowance) || 0).toFixed(3)}</div>
-        </div>
-        <div className="py-1">
-          <label className="block text-[10px] font-semibold text-slate-500 mb-1">طبي</label>
-          <div className="font-mono font-bold text-slate-900 text-sm">{(Number(employee.medicalAllowance) || 0).toFixed(3)}</div>
-        </div>
-        <div className="py-1">
-          <label className="block text-[10px] font-semibold text-slate-500 mb-1">أخرى</label>
-          <div className="font-mono font-bold text-slate-900 text-sm">
-            {(Number(employee.otherAllowances !== undefined ? employee.otherAllowances : employee.otherAllowance) || 0).toFixed(3)}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 
   if (compact) {
     return (
@@ -208,18 +144,6 @@ export const EmployeeWorkTab: React.FC<Props> = ({
           </div>
         </CompactFormAccordion>
 
-        <CompactFormAccordion
-          title="تفاصيل متقدمة — الأجور والبدلات"
-          subtitle="قراءة فقط من العقد المعتمد"
-          icon={<Layers size={16} />}
-          badge={
-            <span className="text-[9px] bg-amber-50 text-amber-800 border border-amber-200 px-1.5 rounded font-bold">
-              عقد
-            </span>
-          }
-        >
-          {financialBlock}
-        </CompactFormAccordion>
       </div>
     );
   }
@@ -365,79 +289,6 @@ export const EmployeeWorkTab: React.FC<Props> = ({
 
       </div>
 
-      {/* Financial Section: read-only — مصدر التعديل = تطبيق العقود */}
-      <div className="pt-6 border-t border-slate-200 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-slate-200/80">
-          <div className="flex items-center gap-2">
-            <DollarSign className="w-4 h-4 text-emerald-700" />
-            <span className="font-bold text-xs text-slate-900">حزمة الأجور والبدلات الشهرية (عرض من العقد — WPS)</span>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="text-xs font-mono font-bold flex items-center gap-4 text-slate-700">
-              <span>أجر اليوم (26 يوم): <strong className="text-purple-900">{dailyWage.toFixed(3)} د.ك</strong></span>
-              <span className="text-emerald-700 font-bold">
-                الراتب الإجمالي: {totalSalary.toFixed(3)} د.ك
-              </span>
-            </div>
-            {onOpenContracts && (
-              <button
-                type="button"
-                onClick={onOpenContracts}
-                className="bg-slate-800 hover:bg-slate-900 text-white px-3 py-1.5 rounded-lg text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0"
-              >
-                <ExternalLink size={12} />
-                تعديل في تطبيق العقود
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-          لا يُعدَّل الراتب أو البدلات من «معلومات العمل». التحديث يتم حصرياً عبر سجل العقود المعتمد لضمان توافق WPS والقوى العاملة.
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-6 pt-1">
-          <div className="py-1">
-            <label className="block text-xs font-semibold text-slate-500 mb-1">الراتب الأساسي (Basic)</label>
-            <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">
-              {(Number(employee.basicSalary) || 0).toFixed(3)} د.ك
-            </div>
-          </div>
-
-          <div className="py-1">
-            <label className="block text-xs font-semibold text-slate-500 mb-1">بدل السكن (Housing)</label>
-            <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">
-              {(Number(employee.housingAllowance) || 0).toFixed(3)} د.ك
-            </div>
-          </div>
-
-          <div className="py-1">
-            <label className="block text-xs font-semibold text-slate-500 mb-1">بدل الانتقال (Transport)</label>
-            <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">
-              {(Number(employee.transportAllowance) || 0).toFixed(3)} د.ك
-            </div>
-          </div>
-
-          <div className="py-1">
-            <label className="block text-xs font-semibold text-slate-500 mb-1">بدل طبي (Medical)</label>
-            <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">
-              {(Number(employee.medicalAllowance) || 0).toFixed(3)} د.ك
-            </div>
-          </div>
-
-          <div className="py-1">
-            <label className="block text-xs font-semibold text-slate-500 mb-1">بدلات أخرى وطبيعة عمل</label>
-            <div className="font-mono font-bold text-slate-900 text-sm border-b border-slate-200/70 pb-1">
-              {(Number(employee.otherAllowances !== undefined ? employee.otherAllowances : employee.otherAllowance) || 0).toFixed(3)} د.ك
-            </div>
-          </div>
-        </div>
-
-        <p className="text-[11px] text-slate-500 flex items-center gap-1.5 pt-1">
-          <span className="text-amber-600 font-bold">●</span>
-          <span>تُعرض القيم من عقد العمل المعتمد في الهيئة العامة للقوى العاملة وفق قانون العمل الكويتي.</span>
-        </p>
-      </div>
 
     </div>
   );
