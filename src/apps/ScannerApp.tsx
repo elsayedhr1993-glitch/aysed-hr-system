@@ -13,7 +13,9 @@ import { storage } from '../lib/firebase';
 import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import toast from 'react-hot-toast';
 import { createArchiveDocumentId } from '../utils/documentArchiveUtils';
-import { IdentityInput, MaskedCivilField, MaskedValue } from '../components/security/MaskedValue';
+import { MaskedValue } from '../components/ui/MaskedValue';
+import { PageHeader } from '../components/ui/PageHeader';
+import { canSaveScan, type ScanWizardStep } from './scannerFlow';
 
 interface ScannerAppProps {
   documents: DocumentItem[];
@@ -89,6 +91,11 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
   // 'COMPANY_DOC': Save as company general license/doc
   const [routingMode, setRoutingMode] = useState<'NEW_EMP' | 'EXISTING_EMP' | 'COMPANY_DOC'>('NEW_EMP');
   const [targetEmployeeId, setTargetEmployeeId] = useState<string>('');
+  const [wizardStep, setWizardStep] = useState<ScanWizardStep>('type');
+  const [fieldsApproved, setFieldsApproved] = useState(false);
+  const [civilCorrection, setCivilCorrection] = useState('');
+  const [passportCorrection, setPassportCorrection] = useState('');
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
 
   // Camera Live Capture Modal State
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -167,6 +174,10 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
             { side: 'back', file: nextSides.back!.file, previewUrl: nextSides.back!.previewUrl }
           ]);
 
+          setFieldsApproved(false);
+          setCivilCorrection('');
+          setPassportCorrection('');
+          setWizardStep('review');
           setScanResult({
             docType: 'CIVIL_ID',
             extractedData: merged,
@@ -195,6 +206,10 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
       }
 
       setScanFiles([{ side: 'single', file, previewUrl }]);
+      setFieldsApproved(false);
+      setCivilCorrection('');
+      setPassportCorrection('');
+      setWizardStep('review');
 
       setScanResult({
         docType: selectedDocType || result.documentType || 'CIVIL_ID',
@@ -210,6 +225,10 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
       toast.error('تعذر القراءة التلقائية الكاملة للمستند. تم فتح نمط التدقيق اليدوي.');
 
       setScanFiles([{ side, file, previewUrl }]);
+      setFieldsApproved(false);
+      setCivilCorrection('');
+      setPassportCorrection('');
+      setWizardStep('review');
       
       setScanResult({
         docType: selectedDocType || 'CIVIL_ID',
@@ -331,7 +350,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
 
   // Handle Save and Dispatch
   const handleSaveAndDispatch = async () => {
-    if (!scanResult) return;
+    if (!scanResult || !canSaveScan(wizardStep, fieldsApproved)) return;
 
     const data = scanResult.extractedData;
     let employeeId = '';
@@ -398,6 +417,10 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
     });
     setScanFiles([]);
     setPendingCivilScans({});
+    setFieldsApproved(false);
+    setCivilCorrection('');
+    setPassportCorrection('');
+    setWizardStep('type');
     setScanResult(null);
 
     if (routingMode === 'NEW_EMP' && onNavigateToApp) {
@@ -410,52 +433,52 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
   return (
     <div className="flex flex-col min-h-[calc(100vh-10rem)] bg-white rounded-xl overflow-hidden shadow-xs border border-slate-200" dir="rtl">
       
-      {/* 1. Header Toolbar */}
-      <div className="bg-white border-b border-slate-200 px-6 py-3 flex flex-wrap items-center justify-between gap-4 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center shadow-xs">
-            <Scan className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold text-slate-900">الماسح الضوئي الذكي (AI Document Scanner)</h1>
-              <span className="bg-purple-100 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full font-mono">
-                محطة المسح
-              </span>
-            </div>
-            <p className="text-xs text-slate-500">
-              استخراج البيانات وتدقيق الهويات، الجوازات، ورخص العمل بالذكاء الاصطناعي وترحيلها لحظياً
-            </p>
-          </div>
-        </div>
-
-        {/* Quick Metrics */}
-        <div className="flex items-center gap-3 bg-slate-50 px-4 py-1.5 rounded-xl border border-slate-200 text-xs">
-          <div className="flex items-center gap-1.5 font-bold text-slate-700">
-            <span className="text-slate-400">إجمالي الممسوح:</span>
-            <span className="font-mono text-primary">{metrics.total}</span>
-          </div>
-          <span className="text-slate-300">|</span>
-          <div className="flex items-center gap-1.5 text-slate-600">
-            <span>بطاقات مدنية:</span>
-            <span className="font-mono font-bold text-sky-600">{metrics.civilIds}</span>
-          </div>
-          <span className="text-slate-300">|</span>
-          <div className="flex items-center gap-1.5 text-slate-600">
-            <span>جوازات:</span>
-            <span className="font-mono font-bold text-indigo-600">{metrics.passports}</span>
-          </div>
-        </div>
+      <PageHeader
+        title="الماسح الذكي"
+        subtitle={
+          wizardStep === 'type'
+            ? 'نوع الوثيقة'
+            : wizardStep === 'upload'
+              ? 'رفع الوثيقة'
+              : wizardStep === 'review'
+                ? 'مراجعة الحقول المستخرجة'
+                : 'حفظ في ملف الموظف'
+        }
+        primaryAction={
+          wizardStep === 'type'
+            ? { label: 'التالي', onClick: () => { if (selectedDocType) setWizardStep('upload'); } }
+            : wizardStep === 'upload'
+              ? { label: 'رفع الملف', onClick: () => uploadInputRef.current?.click() }
+              : wizardStep === 'review'
+                ? { label: 'اعتماد الحقول', onClick: () => { setFieldsApproved(true); setWizardStep('save'); } }
+                : { label: 'حفظ في ملف الموظف', onClick: () => { void handleSaveAndDispatch(); } }
+        }
+        menu={[
+          { id: 'camera', label: 'تصوير بالكاميرا', onSelect: () => { if (!(selectedDocType === 'CIVIL_ID' && civilScanMode === 'front_back')) startCamera(); } },
+          { id: 'back-type', label: 'تغيير نوع الوثيقة', onSelect: () => { setScanResult(null); setFieldsApproved(false); setWizardStep('type'); } },
+        ]}
+      />
+      <div className="flex border-b bg-white text-[11px] font-bold" style={{ columnGap: 8, paddingInline: 16, paddingBlock: 8 }}>
+        {([
+          ['type', 'نوع الوثيقة'],
+          ['upload', 'رفع'],
+          ['review', 'مراجعة الحقول'],
+          ['save', 'حفظ في ملف الموظف'],
+        ] as const).map(([id, label], index) => (
+          <span key={id} style={{ color: wizardStep === id ? '#6d2846' : '#94a3b8' }}>
+            {index + 1}. {label}
+          </span>
+        ))}
       </div>
 
       {/* 2. Main Workstation Area */}
       <div className="flex-1 overflow-y-auto p-5 space-y-5">
         
         {/* State A: Ready to Scan (Dropzone & Pre-selectors) */}
-        {!scanResult && !isScanning && (
+        {!scanResult && !isScanning && (wizardStep === 'type' || wizardStep === 'upload') && (
           <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 max-w-4xl mx-auto space-y-6">
             
-            {/* Header / Type selector */}
+            {wizardStep === 'type' && (
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-2">
                 اختر نوع الوثيقة المستهدفة للمسح (Document Type):
@@ -491,8 +514,9 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                 })}
               </div>
             </div>
+            )}
 
-            {selectedDocType === 'CIVIL_ID' && (
+            {wizardStep === 'type' && selectedDocType === 'CIVIL_ID' && (
               <div className="p-3 rounded-xl border border-slate-200 bg-slate-50/80">
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <span className="text-xs font-bold text-slate-700">نمط مسح البطاقة المدنية:</span>
@@ -523,7 +547,8 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
               </div>
             )}
 
-            {/* Dropzone & Actions */}
+            {/* Dropzone */}
+            {wizardStep === 'upload' && (
             <div className="border-2 border-dashed border-purple-200 bg-purple-50/30 rounded-2xl p-8 text-center space-y-4 hover:border-primary transition">
               <div className="w-16 h-16 bg-white rounded-2xl shadow-xs mx-auto flex items-center justify-center text-primary border border-purple-100">
                 <Upload className="w-8 h-8" />
@@ -576,6 +601,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                     <Upload className="w-4 h-4" />
                     <span>اختيار ملف من الجهاز</span>
                     <input
+                      ref={uploadInputRef}
                       type="file"
                       accept="image/*,.pdf"
                       className="hidden"
@@ -602,6 +628,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                 صيغ مقبولة: JPG, PNG, WEBP, PDF (بحد أقصى 15 ميغابايت)
               </div>
             </div>
+            )}
 
           </div>
         )}
@@ -635,17 +662,28 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
 
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setScanResult(null)}
+                  onClick={() => { setScanResult(null); setFieldsApproved(false); setWizardStep('type'); }}
                   className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-xs transition flex items-center gap-1 cursor-pointer"
                 >
                   <RefreshCw className="w-3.5 h-3.5" /> مسح وثيقة أخرى
                 </button>
+                {wizardStep === 'review' && (
+                  <button
+                    type="button"
+                    onClick={() => { setFieldsApproved(true); setWizardStep('save'); }}
+                    className="px-5 py-1.5 bg-primary hover:bg-[#5a3a51] text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <Check className="w-4 h-4" /> اعتماد الحقول
+                  </button>
+                )}
+                {canSaveScan(wizardStep, fieldsApproved) && (
                 <button
                   onClick={handleSaveAndDispatch}
                   className="px-5 py-1.5 bg-primary hover:bg-[#5a3a51] text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5 shadow-xs cursor-pointer"
                 >
-                  <Check className="w-4 h-4" /> اعتماد وتأكيد الأرشفة
+                  <Check className="w-4 h-4" /> حفظ في ملف الموظف
                 </button>
+                )}
               </div>
             </div>
 
@@ -720,6 +758,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
               <div className="lg:col-span-5 p-5 space-y-4 bg-white overflow-y-auto max-h-[600px]">
                 
                 {/* 1. Target Routing Options */}
+                {wizardStep === 'save' && (
                 <div className="p-3.5 bg-purple-50/70 border border-purple-200 rounded-xl space-y-2.5">
                   <span className="text-xs font-bold text-purple-950 block">وجهة المستند (Target Destination):</span>
                   <div className="grid grid-cols-3 gap-1.5 text-xs font-bold">
@@ -776,6 +815,7 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                     </div>
                   )}
                 </div>
+                )}
 
                 {/* 2. Civil ID Validation Notice */}
                 {civilIdValidation && (
@@ -835,19 +875,25 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                   {/* Civil ID & Nationality */}
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block font-bold text-slate-700 mb-1">الرقم المدني (12 رقماً):</label>
-                      <MaskedCivilField
-                        maxLength={12}
-                        value={scanResult.extractedData.civilId || ''}
-                        onChange={(val) => {
-                          const cleaned = val.replace(/\D/g, '');
-                          setScanResult({
-                            ...scanResult,
-                            extractedData: { ...scanResult.extractedData, civilId: cleaned }
-                          });
-                        }}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-900 font-mono font-bold focus:bg-white focus:border-primary outline-none"
-                      />
+                      <label className="block font-bold text-slate-700 mb-1">الرقم المدني</label>
+                    <MaskedValue kind="civil" value={scanResult.extractedData.civilId} purpose="scanner-review" />
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={12}
+                      value={civilCorrection}
+                      placeholder="تصحيح الرقم"
+                      onChange={(e) => {
+                        const cleaned = e.target.value.replace(/\D/g, '');
+                        setCivilCorrection(cleaned);
+                        if (!cleaned) return;
+                        setScanResult({
+                          ...scanResult,
+                          extractedData: { ...scanResult.extractedData, civilId: cleaned }
+                        });
+                      }}
+                      className="mt-1 w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-900 font-mono font-bold focus:bg-white focus:border-primary outline-none"
+                    />
                     </div>
                     <div>
                       <label className="block font-bold text-slate-700 mb-1">الجنسية:</label>
@@ -878,16 +924,22 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="block font-bold text-slate-700 mb-1">رقم جواز السفر:</label>
-                      <IdentityInput
-                        kind="passport"
+                      <label className="block font-bold text-slate-700 mb-1">رقم جواز السفر</label>
+                      <MaskedValue kind="passport" value={scanResult.extractedData.passportNo} purpose="scanner-review" />
+                      <input
                         type="text"
-                        value={scanResult.extractedData.passportNo || ''}
-                        onChange={(val) => setScanResult({
-                          ...scanResult,
-                          extractedData: { ...scanResult.extractedData, passportNo: val.toUpperCase() }
-                        })}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-900 font-mono focus:bg-white focus:border-primary outline-none"
+                        value={passportCorrection}
+                        placeholder="تصحيح رقم الجواز"
+                        onChange={(e) => {
+                          const val = e.target.value.toUpperCase();
+                          setPassportCorrection(val);
+                          if (!val.trim()) return;
+                          setScanResult({
+                            ...scanResult,
+                            extractedData: { ...scanResult.extractedData, passportNo: val }
+                          });
+                        }}
+                        className="mt-1 w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-900 font-mono focus:bg-white focus:border-primary outline-none"
                       />
                     </div>
                   </div>
@@ -933,15 +985,27 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
 
                 {/* Confirm Dispatch CTA */}
                 <div className="pt-3 border-t border-slate-100 flex gap-2">
+                  {wizardStep === 'review' && (
+                    <button
+                      type="button"
+                      onClick={() => { setFieldsApproved(true); setWizardStep('save'); }}
+                      className="flex-1 bg-primary hover:bg-[#5a3a51] text-white font-bold py-3 rounded-xl transition text-xs shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>اعتماد الحقول</span>
+                    </button>
+                  )}
+                  {canSaveScan(wizardStep, fieldsApproved) && (
                   <button
                     onClick={handleSaveAndDispatch}
                     className="flex-1 bg-primary hover:bg-[#5a3a51] text-white font-bold py-3 rounded-xl transition text-xs shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <Check className="w-4 h-4" />
-                    <span>تأكيد واعتماد وحفظ في الأرشيف</span>
+                    <span>حفظ في ملف الموظف</span>
                   </button>
+                  )}
                   <button
-                    onClick={() => setScanResult(null)}
+                    onClick={() => { setScanResult(null); setFieldsApproved(false); setWizardStep('type'); }}
                     className="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition cursor-pointer"
                   >
                     إلغاء
@@ -955,8 +1019,9 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
           </div>
         )}
 
-        {/* 3. Recent Scanned Documents Archive Table */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+        {companyDocuments.length > 0 && (
+        <details className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          <summary className="p-4 cursor-pointer text-xs font-bold text-slate-900">سجل العمليات ({companyDocuments.length})</summary>
           
           <div className="p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-slate-50">
             <div className="flex items-center gap-2">
@@ -1021,7 +1086,11 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
                       {emp ? emp.fullNameAr : 'وثيقة منشأة عامة'}
                     </td>
                     <td className="p-3 font-mono text-slate-600">
-                      {emp?.civilId || doc.documentNumber || '—'}
+                      <MaskedValue
+                        kind={doc.category === 'PASSPORT' ? 'passport' : 'civil'}
+                        value={doc.category === 'PASSPORT' ? doc.documentNumber : (emp?.civilId || doc.documentNumber)}
+                        purpose="scanner-log"
+                      />
                     </td>
                     <td className="p-3">
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-primary border border-purple-100">
@@ -1070,7 +1139,8 @@ export const ScannerApp: React.FC<ScannerAppProps> = ({
             </div>
           )}
 
-        </div>
+        </details>
+        )}
 
       </div>
 
