@@ -1392,8 +1392,12 @@ export function EmployeesApp(props?: any) {
   useEffect(() => {
     const directoryList = activeTab === 'directory' && !selectedEmployee;
     const chromeVisible = !(selectedEmployee && activeTab === 'directory');
-    props?.onEmployeesChromeState?.({ directoryList, chromeVisible });
-    return () => props?.onEmployeesChromeState?.({ directoryList: false, chromeVisible: false });
+    props?.onEmployeesChromeState?.({
+      directoryList,
+      chromeVisible,
+      contractsTab: activeTab === 'contracts',
+    });
+    return () => props?.onEmployeesChromeState?.({ directoryList: false, chromeVisible: false, contractsTab: false });
   }, [activeTab, selectedEmployee, props?.onEmployeesChromeState]);
 
   return (

@@ -1,5 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MaskedValue } from './security/MaskedValue';
+import { MaskedValue } from './ui/MaskedValue';
+import { PageHeader } from './ui/PageHeader';
+import { DataTable, type DataTableColumn } from './ui/DataTable';
+import { RowActions } from './ui/RowActions';
+import { StatusBadge } from './ui/StatusBadge';
+import { ConfirmDialog } from './ui/ConfirmDialog';
+import { useAuth } from '../context/AuthContext';
+import { canReadPayroll } from '../security/accessRoles';
+import { Eye } from 'lucide-react';
 import { 
   FileText, 
   Search, 
@@ -115,6 +123,8 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
   focusEmployeeId,
   onFocusConsumed,
 }) => {
+  const { user } = useAuth();
+  const showContractWages = canReadPayroll(user?.role);
   const { employees, updateContractSalary, updateContractDetails } = useOdooHierarchy();
   const { activeCompany, activeCompanyId } = useCompany();
   const currentCompanyId = activeCompanyId || activeCompany?.id || 'comp-super-admin';
@@ -134,6 +144,7 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
   const [contractsLoaded, setContractsLoaded] = useState(false);
   const [firestoreContractDocCount, setFirestoreContractDocCount] = useState(0);
   const [openRowActionsKey, setOpenRowActionsKey] = useState<string | null>(null);
+  const [deleteContractId, setDeleteContractId] = useState<string | null>(null);
   const materializingContractIds = useRef(new Set<string>());
   const contractsSnapshotRef = useRef<DetailedContract[]>([]);
   
@@ -344,14 +355,12 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
     void materializeMissingContracts();
   }, [contractsLoaded, currentCompanyId, dbEmployees, contracts, employeeRecordsById, updateContractDetails]);
 
-  const handleDeleteContract = async (contractId: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    if (confirm('هل أنت متأكد من حذف هذا العقد نهائياً من النظام؟')) {
-      await TenantDatabaseService.deleteContract(contractId, currentCompanyId);
-      const updated = contracts.filter(c => c.contractRef !== contractId && c.id !== contractId);
-      setContracts(updated);
-      alert('تم حذف العقد بنجاح.');
-    }
+  const handleDeleteContract = async (contractId: string) => {
+    const target = contracts.find((item) => item.contractRef === contractId || item.id === contractId);
+    if (!target || normalizeContractStatus(target.contractStatus) !== 'draft') return;
+    await TenantDatabaseService.deleteContract(contractId, currentCompanyId);
+    setContracts(contracts.filter((item) => item.contractRef !== contractId && item.id !== contractId));
+    toast.success('تم حذف مسودة العقد.');
   };
 
   // Modal / Form Sheet state
@@ -733,86 +742,137 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
     }
   };
 
+  const allowanceOf = (contract: DetailedContract) =>
+    (contract.housingAllowance || 0) + (contract.transportAllowance || 0) + (contract.medicalAllowance || 0);
+  const basicOf = (contract: DetailedContract) =>
+    contract.employmentType === 'part_time' ? Number(contract.hourlyRate || 0) : Number(contract.basicSalary || 0);
+  const showBasicColumn = showContractWages && filteredContracts.some((contract) => basicOf(contract) !== 0);
+  const showAllowanceColumn = showContractWages && filteredContracts.some((contract) => allowanceOf(contract) !== 0);
+
+  const exportContracts = () => {
+    const exportData = filteredContracts.map((contract, index) => {
+      const row: Record<string, string | number> = {
+        'م': index + 1,
+        'رقم العقد': formatContractDisplayRef(contract, index),
+        'اسم الموظف': contract.name,
+        'المسمى الوظيفي': contract.jobTitle,
+        'القسم': contract.department,
+        'نوع الدوام': contract.employmentType === 'part_time' ? 'دوام جزئي' : 'دوام كامل',
+        'حالة العقد': normalizeContractStatus(contract.contractStatus) === 'running' ? 'ساري' : normalizeContractStatus(contract.contractStatus) === 'draft' ? 'مسودة' : 'منتهي',
+        'تاريخ البداية': contract.startDate,
+        'تاريخ الانتهاء': contract.endDate || 'غير محدد',
+      };
+      if (showContractWages) {
+        row['الراتب الأساسي (د.ك)'] = Number((contract.basicSalary || 0).toFixed(3));
+        row['بدل السكن (د.ك)'] = Number((contract.housingAllowance || 0).toFixed(3));
+        row['بدل الانتقال (د.ك)'] = Number((contract.transportAllowance || 0).toFixed(3));
+        row['البدلات (د.ك)'] = Number(allowanceOf(contract).toFixed(3));
+      }
+      return row;
+    });
+    exportToExcel(exportData, 'سجل_عقود_العمل', 'عقود الموظفين');
+  };
+
+  const contractColumns: DataTableColumn<DetailedContract>[] = [
+    {
+      id: 'ref',
+      header: 'كود العقد',
+      cell: (contract) => formatContractDisplayRef(contract, Math.max(0, filteredContracts.indexOf(contract))),
+    },
+    { id: 'employee', header: 'الموظف', cell: (contract) => contract.name },
+    { id: 'job', header: 'المسمى', cell: (contract) => contract.jobTitle || '' },
+    {
+      id: 'shift',
+      header: 'الدوام',
+      cell: (contract) =>
+        `${contract.employmentType === 'part_time' ? 'جزئي' : 'كامل'} ${contract.shiftStartTime || '08:00'}–${contract.shiftEndTime || '16:00'}`,
+    },
+    {
+      id: 'civil',
+      header: 'الرقم المدني',
+      cell: (contract) => <MaskedValue kind="civil" value={contract.civilId} purpose="contract-list" />,
+    },
+    ...(showBasicColumn
+      ? [{
+          id: 'basic',
+          header: 'الأساسي',
+          money: true,
+          cell: (contract: DetailedContract) => basicOf(contract),
+          total: (rows: readonly DetailedContract[]) => rows.reduce((sum, row) => sum + basicOf(row), 0),
+        } satisfies DataTableColumn<DetailedContract>]
+      : []),
+    ...(showAllowanceColumn
+      ? [{
+          id: 'allowances',
+          header: 'البدلات',
+          money: true,
+          cell: (contract: DetailedContract) => allowanceOf(contract),
+          total: (rows: readonly DetailedContract[]) => rows.reduce((sum, row) => sum + allowanceOf(row), 0),
+        } satisfies DataTableColumn<DetailedContract>]
+      : []),
+    {
+      id: 'status',
+      header: 'الحالة',
+      cell: (contract) => {
+        const status = normalizeContractStatus(contract.contractStatus);
+        if (status === 'draft') return <StatusBadge tone="warning">مسودة</StatusBadge>;
+        if (status === 'expired') return <StatusBadge tone="danger">منتهي</StatusBadge>;
+        return 'ساري';
+      },
+    },
+    {
+      id: 'actions',
+      header: 'إجراءات',
+      cell: (contract) => (
+        <RowActions
+          actions={[
+            { id: 'view', label: 'عرض', icon: Eye, onSelect: () => handleOpenEditContract(contract) },
+            { id: 'print', label: 'معاينة', icon: Printer, onSelect: () => openSignedContractPreview(contract) },
+          ]}
+          menu={[
+            {
+              id: 'pam',
+              label: 'نموذج القوى العاملة',
+              onSelect: () => setPamPrintEmployee(employeePayloadForPamContract(contract)),
+            },
+            ...(normalizeContractStatus(contract.contractStatus) === 'draft'
+              ? [{
+                  id: 'delete',
+                  label: 'حذف المسودة',
+                  onSelect: () => setDeleteContractId(contract.contractRef || contract.id),
+                }]
+              : []),
+          ]}
+        />
+      ),
+    },
+  ];
+
   return (
     <div className="odoo-app-surface contracts-print-root space-y-6 text-right font-sans dir-rtl text-slate-800" dir="rtl">
       
       {/* 1. Header Banner & Action Toolbar */}
-      <div className="contracts-print-header bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-primary/10 text-primary rounded-xl">
-            <FileText className="w-6 h-6" />
-          </div>
-          <div>
-            <UiStudioScreenTitle
-              uiKey={UI_KEYS.appTitle('contracts')}
-              defaults={{
-                label: {
-                  ar: 'عقود العمل وهيكل الرواتب والدوام',
-                  en: 'Employment contracts',
-                },
-              }}
-              className="text-xl font-black text-slate-900 flex items-center gap-2"
-              subtitleUiKey={UI_KEYS.appSubtitle('contracts')}
-              subtitleDefaults={{
-                label: {
-                  ar: 'إدارة العقود الفردية، الدوام الكامل والجزئي، والربط مع البصمة و WPS',
-                  en: 'Contracts, shifts, attendance & WPS',
-                },
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2 no-print">
-          <button
-            type="button"
-            onClick={handleOpenCreateContract}
-            className="bg-primary hover:bg-[#5a3a52] text-white px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
-          >
-            <Plus size={16} />
-            <span>إنشاء عقد جديد</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              const exportData = filteredContracts.map((c, idx) => ({
-                'م': idx + 1,
-                'رقم العقد': formatContractDisplayRef(c, idx),
-                'اسم الموظف': c.name,
-                'الرقم المدني': c.civilId,
-                'المسمى الوظيفي': c.jobTitle,
-                'القسم': c.department,
-                'نوع الدوام': c.employmentType === 'part_time' ? 'دوام جزئي / بالساعة' : 'دوام كامل',
-                'الراتب الأساسي (د.ك)': Number((c.basicSalary || 0).toFixed(3)),
-                'بدل السكن (د.ك)': Number((c.housingAllowance || 0).toFixed(3)),
-                'بدل الانتقال (د.ك)': Number((c.transportAllowance || 0).toFixed(3)),
-                'الراتب الشامل (د.ك)': Number(((c.basicSalary || 0) + (c.housingAllowance || 0) + (c.transportAllowance || 0) + (c.medicalAllowance || 0)).toFixed(3)),
-                'البنك': c.bankName,
-                'الآيبان': c.iban,
-                'حالة العقد': normalizeContractStatus(c.contractStatus) === 'running' ? 'ساري' : normalizeContractStatus(c.contractStatus) === 'draft' ? 'مسودة' : 'منتهي',
-                'تاريخ البداية': c.startDate,
-                'تاريخ الانتهاء': c.endDate || 'غير محدد'
-              }));
-              exportToExcel(exportData, 'سجل_عقود_العمل_والرواتب', 'عقود الموظفين');
-            }}
-            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 px-3.5 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
-            title="تصدير سجل العقود إلى Excel (.xlsx)"
-          >
-            <FileSpreadsheet size={15} className="text-emerald-600" />
-            <span>تصدير Excel</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => safePrintAction('كشف عقود العمل')}
-            className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 px-3.5 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-          >
-            <Printer size={15} />
-            <span>طباعة الكشف</span>
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="عقود العمل"
+        subtitle="العقود الفردية وربطها بالدوام"
+        primaryAction={{ label: 'إنشاء عقد', onClick: handleOpenCreateContract }}
+        menu={[
+          { id: 'export', label: 'تصدير', onSelect: exportContracts },
+          { id: 'print', label: 'طباعة الكشف', onSelect: () => safePrintAction('كشف عقود العمل') },
+        ]}
+      />
+      <ConfirmDialog
+        open={deleteContractId !== null}
+        title="حذف مسودة العقد"
+        message="الحذف للمسودة فقط. العقد الساري أو المنتهي يبقى في السجل."
+        confirmWord="حذف"
+        confirmLabel="حذف المسودة"
+        onConfirm={() => {
+          if (deleteContractId) void handleDeleteContract(deleteContractId);
+          setDeleteContractId(null);
+        }}
+        onCancel={() => setDeleteContractId(null)}
+      />
 
       {/* 2. Merged filters + payroll hint */}
       <div className="odoo-filter-toolbar no-print flex-col lg:flex-row gap-3 bg-white px-4 py-3 rounded-xl border border-slate-200 shadow-2xs">
@@ -883,169 +943,17 @@ export const OdooContractsApp: React.FC<OdooContractsAppProps> = ({
         </div>
       </div>
 
-      {/* 3. Streamlined Contracts Table */}
-      <div className="contracts-print-table bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden text-xs">
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-right">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
-                <th className="p-3">كود العقد</th>
-                <th className="p-3">الموظف والمسمى الوظيفي</th>
-                <th className="p-3 text-center">نوع الدوام والشيفت</th>
-                <th className="p-3 text-left font-mono">التفاصيل المالية والبدلات</th>
-                <th className="p-3 text-center">حالة العقد</th>
-                <th className="p-3 text-center">الإجراءات</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredContracts.map((c, idx) => {
-                const isPartTime = c.employmentType === 'part_time';
-                const totalAllowances = (c.housingAllowance || 0) + (c.transportAllowance || 0) + (c.medicalAllowance || 0);
-                const totalGross = isPartTime 
-                  ? ((c.hourlyRate || 0) * (c.dailyHours || 4) * 26 + totalAllowances)
-                  : ((c.basicSalary || 0) + totalAllowances);
-                
-                const rowKey = `${c.contractRef}-${idx}`;
-                const displayCode = formatContractDisplayRef(c, idx);
+      <DataTable
+        columns={contractColumns}
+        rows={filteredContracts}
+        rowKey={(contract) => contract.contractRef || contract.id}
+        empty={{
+          message: 'لا توجد عقود.',
+          actionLabel: 'إنشاء عقد',
+          onAction: handleOpenCreateContract,
+        }}
+      />
 
-                return (
-                  <tr 
-                    key={rowKey} 
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => handleOpenEditContract(c)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        handleOpenEditContract(c);
-                      }
-                    }}
-                    className={`${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} hover:bg-purple-50/40 transition cursor-pointer`}
-                  >
-                    <td className="p-3 font-mono font-bold text-primary">
-                      {displayCode}
-                    </td>
-                    
-                    <td className="p-3">
-                      <div className="font-bold text-slate-900">{c.name}</div>
-                      <div className="text-[10px] text-slate-400 font-medium">
-                        {c.jobTitle} | {c.department} | المدني: {c.civilId}
-                      </div>
-                    </td>
-
-                    {/* Employment Type & Shift Combined Cell */}
-                    <td className="p-3 text-center">
-                      <div className="inline-flex items-center gap-1.5 mb-1">
-                        {isPartTime ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                            <Stethoscope size={10} />
-                            <span>دوام جزئي / بالساعة</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200">
-                            <Briefcase size={10} />
-                            <span>دوام كامل</span>
-                          </span>
-                        )}
-                      </div>
-                      <div className="font-mono text-[10px] text-slate-500 flex items-center justify-center gap-1">
-                        <Clock size={11} className="text-slate-400" />
-                        <span>{c.shiftStartTime || '08:00'} - {c.shiftEndTime || '16:00'} ({c.dailyHours || 8}س)</span>
-                      </div>
-                    </td>
-                    
-                    {/* Combined Financial Details */}
-                    <td className="p-3 text-left font-mono">
-                      <div className="font-bold text-sm text-slate-900">
-                        {totalGross.toFixed(3)} <span className="text-[10px] font-normal text-slate-500">د.ك</span>
-                      </div>
-                      <div className="text-[10px] text-slate-500 font-normal">
-                        {isPartTime ? (
-                          <span>أجر الساعة: {(c.hourlyRate || 0).toFixed(3)} د.ك</span>
-                        ) : (
-                          <span>الأساسي: {(c.basicSalary || 0).toFixed(3)} د.ك | بدلات: {totalAllowances.toFixed(3)} د.ك</span>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Status Badge */}
-                    <td className="p-3 text-center">
-                      {normalizeContractStatus(c.contractStatus) === 'running' && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
-                          <span>ساري</span>
-                        </span>
-                      )}
-                      {normalizeContractStatus(c.contractStatus) === 'draft' && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
-                          <span>مسودة</span>
-                        </span>
-                      )}
-                      {normalizeContractStatus(c.contractStatus) === 'expired' && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
-                          <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
-                          <span>منتهي</span>
-                        </span>
-                      )}
-                    </td>
-
-                    <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
-                      <div className="relative inline-block">
-                        <button
-                          type="button"
-                          onClick={() => setOpenRowActionsKey(openRowActionsKey === rowKey ? null : rowKey)}
-                          className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition cursor-pointer"
-                          title="إجراءات"
-                        >
-                          <MoreVertical size={16} />
-                        </button>
-                        {openRowActionsKey === rowKey && (
-                          <div className="absolute left-0 top-full mt-1 z-20 w-40 bg-white border border-slate-200 rounded-xl shadow-lg p-1 text-right">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setOpenRowActionsKey(null);
-                                setPamPrintEmployee(employeePayloadForPamContract(c));
-                              }}
-                              className="w-full px-2.5 py-1.5 rounded-lg text-xs font-medium text-primary hover:bg-purple-50 flex items-center gap-2 cursor-pointer"
-                            >
-                              <FileCheck size={13} />
-                              <span>نموذج PAM</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setOpenRowActionsKey(null);
-                                openSignedContractPreview(c);
-                              }}
-                              className="w-full px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
-                            >
-                              <Printer size={13} />
-                              <span>طباعة / معاينة</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                setOpenRowActionsKey(null);
-                                handleDeleteContract(c.contractRef || c.id, e);
-                              }}
-                              className="w-full px-2.5 py-1.5 rounded-lg text-xs font-medium text-rose-700 hover:bg-rose-50 flex items-center gap-2 cursor-pointer"
-                            >
-                              <Trash2 size={13} />
-                              <span>حذف</span>
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
 
       {/* 5. ODOO 18 CONTRACT FORM SHEET / MODAL */}
       {isContractModalOpen && selectedContract && (

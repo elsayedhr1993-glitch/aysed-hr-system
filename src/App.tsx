@@ -161,12 +161,21 @@ function MainAppLayout() {
   const [activeApp, setActiveApp] = useState<AppId>(() => {
     return 'switcher';
   });
-  const [employeesChrome, setEmployeesChrome] = useState({ directoryList: false, chromeVisible: false });
+  const [employeesChrome, setEmployeesChrome] = useState({
+    directoryList: false,
+    chromeVisible: false,
+    contractsTab: false,
+  });
   const onEmployeesChromeState = useCallback(
-    (next: { directoryList: boolean; chromeVisible: boolean }) => {
-      setEmployeesChrome((prev) =>
-        prev.directoryList === next.directoryList && prev.chromeVisible === next.chromeVisible ? prev : next
-      );
+    (next: { directoryList: boolean; chromeVisible: boolean; contractsTab?: boolean }) => {
+      setEmployeesChrome((prev) => {
+        const contractsTab = Boolean(next.contractsTab);
+        return prev.directoryList === next.directoryList &&
+          prev.chromeVisible === next.chromeVisible &&
+          prev.contractsTab === contractsTab
+          ? prev
+          : { directoryList: next.directoryList, chromeVisible: next.chromeVisible, contractsTab };
+      });
     },
     []
   );
@@ -918,9 +927,13 @@ function MainAppLayout() {
         logout={logout}
         hideGlobalSearch={activeApp === 'employees' && employeesChrome.directoryList}
         hideScreenPath={activeApp === 'employees' && employeesChrome.chromeVisible}
-        hiddenQuickActionKeys={
-          activeApp === 'employees' && employeesChrome.directoryList ? ['new_employee'] : []
-        }
+        hiddenQuickActionKeys={[
+          ...(activeApp === 'employees' && employeesChrome.directoryList ? ['new_employee'] : []),
+          ...(activeApp === 'contracts' || (activeApp === 'employees' && employeesChrome.contractsTab)
+            ? ['new_contract']
+            : []),
+          ...(activeApp === 'leaves' ? ['new_leave'] : []),
+        ]}
       />
 
 
