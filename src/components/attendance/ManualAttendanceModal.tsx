@@ -51,7 +51,7 @@ export const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
   const [date, setDate] = useState(initialData?.date || selectedDate || new Date().toISOString().split('T')[0]);
   const [checkIn, setCheckIn] = useState(initialData?.checkIn || '08:00');
   const [checkOut, setCheckOut] = useState(initialData?.checkOut || '16:00');
-  const [reason, setReason] = useState(initialData?.reason || COMMON_REASONS[0]);
+  const [reason, setReason] = useState(initialData?.reason || '');
   const [isExcused, setIsExcused] = useState(initialData?.isExcused || false);
   const [notes, setNotes] = useState(initialData?.notes || '');
   const [searchEmp, setSearchEmp] = useState('');
@@ -70,6 +70,7 @@ export const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
         setEmployeeId(employees[0].id);
       }
       setDate(selectedDate || new Date().toISOString().split('T')[0]);
+      setReason('');
     }
   }, [initialData, selectedDate, employees]);
 
@@ -85,6 +86,10 @@ export const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
     }
     if (!checkIn) {
       toast.error('يرجى إدخال وقت الحضور على الأقل');
+      return;
+    }
+    if (!reason.trim()) {
+      toast.error('سبب التعديل اليدوي إلزامي');
       return;
     }
 
@@ -233,6 +238,7 @@ export const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
               onChange={e => setReason(e.target.value)}
               className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-primary"
             >
+              <option value="">اختر السبب</option>
               {COMMON_REASONS.map((r, i) => (
                 <option key={i} value={r}>{r}</option>
               ))}

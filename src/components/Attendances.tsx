@@ -36,6 +36,13 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useCompany } from '../context/CompanyContext';
+import { useAuth } from '../context/AuthContext';
+import { PageHeader } from './ui/PageHeader';
+import {
+  attendanceEditBlocked,
+  attendanceExceptionRank,
+  manualAttendanceReasonMissing,
+} from './attendance/attendanceDisplay';
 import { useCompanyForPrint } from '../hooks/useCompanyForPrint';
 import { useOdooHierarchy, computeAttendanceAndOvertime, AttendanceLog } from '../context/OdooHierarchyContext';
 import { getDepartmentColorStyle } from '../utils/odooPalette';
@@ -108,6 +115,7 @@ const DEFAULT_SHIFT_SEED_RULES: ShiftSeedRulesConfig = {
 
 export const Attendances: React.FC = () => {
   const { activeCompany } = useCompany();
+  const { user } = useAuth();
   const { company: companyForPrint } = useCompanyForPrint();
   const { employees, attendance, getAttendanceForEmployee, recordAttendanceTimes } = useOdooHierarchy();
   const activeCompId = activeCompany?.id || 'default_comp';
@@ -206,7 +214,8 @@ export const Attendances: React.FC = () => {
 
   const getMonthKeyFromDate = (dateStr: string) => String(dateStr || '').slice(0, 7);
   const isMonthLocked = (monthKey: string) => Boolean(postedMonths[monthKey]);
-  const isDateLocked = (dateStr: string) => isMonthLocked(getMonthKeyFromDate(dateStr));
+  const isDateLocked = (dateStr: string) =>
+    attendanceEditBlocked(user?.role, isMonthLocked(getMonthKeyFromDate(dateStr)));
 
   const [shiftProfilesById, setShiftProfilesById] = useState<Record<string, ShiftProfile>>({});
   const [shiftAssignmentsByKey, setShiftAssignmentsByKey] = useState<Record<string, EmployeeShift>>({});
@@ -556,6 +565,7 @@ export const Attendances: React.FC = () => {
       list = list.filter(r => r.status === selectedStatus);
     }
 
+    list.sort((a, b) => attendanceExceptionRank(a.status) - attendanceExceptionRank(b.status));
     return list;
   }, [employees, attendance, selectedDate, customAttendanceRecords, searchQuery, selectedDept, selectedStatus, activeCompId]);
 
@@ -568,8 +578,12 @@ export const Attendances: React.FC = () => {
 
   // Handle Manual Punch Save
   const handleSaveManualPunch = (payload: ManualPunchPayload) => {
+    if (manualAttendanceReasonMissing(payload.reason)) {
+      toast.error('سبب التعديل اليدوي إلزامي');
+      return;
+    }
     if (isDateLocked(payload.date)) {
-      toast.error('هذا الشهر مقفل بعد الاعتماد. يجب فك القفل الرسمي قبل أي تعديل.');
+      toast.error('الشهر مُرحَّل للمسير. التعديل بأثر رجعي لمدير الموارد فقط.');
       return;
     }
 
@@ -654,7 +668,7 @@ export const Attendances: React.FC = () => {
     const target = liveTableData.find(r => r.id === recordId) || customAttendanceRecords.find(r => r.id === recordId);
     if (!target) return;
     if (isDateLocked(target.date)) {
-      toast.error('هذا الشهر مقفل بعد الاعتماد. يجب فك القفل الرسمي قبل التعديل.');
+      toast.error('الشهر مُرحَّل للمسير. التعديل بأثر رجعي لمدير الموارد فقط.');
       return;
     }
 
@@ -711,7 +725,7 @@ export const Attendances: React.FC = () => {
   // Quick Official Excuse Toggle
   const handleToggleExcuse = (record: AttendanceItem) => {
     if (isDateLocked(record.date)) {
-      toast.error('هذا الشهر مقفل بعد الاعتماد. يجب فك القفل الرسمي قبل التعديل.');
+      toast.error('الشهر مُرحَّل للمسير. التعديل بأثر رجعي لمدير الموارد فقط.');
       return;
     }
 
@@ -1160,186 +1174,53 @@ export const Attendances: React.FC = () => {
   return (
     <div className="space-y-4 font-sans dir-rtl text-right text-slate-800 animate-fadeIn" dir="rtl">
       
-      {/* 1. Header Toolbar & Odoo App Control */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3.5">
-        
-        {/* Upper Tier: Title & View Switcher Tabs */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-100 pb-3">
-          {/* Title & Organization Info */}
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-primary/10 text-primary rounded-xl flex-shrink-0">
-              <Fingerprint className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="text-base font-black text-slate-900 flex items-center gap-2">
-                <UiStudioTarget
-                  uiKey={UI_KEYS.appTitle('attendance')}
-                  kind="label"
-                  defaults={{
-                    label: {
-                      ar: 'الحضور والانصراف وتجميع البصمة (Attendances)',
-                      en: 'Attendance & biometrics',
-                    },
-                  }}
-                >
-                  الحضور والانصراف وتجميع البصمة (Attendances)
-                </UiStudioTarget>
-                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold">
-                  {liveTableData.length} سجل
-                </span>
-              </h1>
-              <p className="text-[11px] text-slate-500 font-medium">
-                المنشأة: <strong className="text-primary">{activeCompany?.nameAr || 'الشركة الرئيسية'}</strong> | معيار 26 يوم عمل واحتساب التأخير والإضافي
-              </p>
-            </div>
-          </div>
-
-          {/* View Switcher Tabs (Daily / Monthly / Kiosk) */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200 shrink-0 self-start lg:self-auto">
-            <button
-              type="button"
-              onClick={() => setActiveView('table')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                activeView === 'table' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Calendar size={14} />
-              <span>اليومي (Daily)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveView('monthly')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                activeView === 'monthly' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <DollarSign size={14} />
-              <span>الكشف الشهري (WPS)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveView('kiosk')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                activeView === 'kiosk' ? 'bg-amber-500 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <ScanLine size={14} />
-              <span>الكشك (Kiosk)</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveView('operational_absence')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                activeView === 'operational_absence' ? 'bg-white text-rose-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <AlertTriangle size={14} />
-              <span>غياب تشغيلي</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Lower Tier: Action Buttons with clean spacing and wrapping */}
-        <div className="flex flex-wrap items-center justify-between gap-2.5">
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Attendance Policy Setup Wizard Button */}
-            <button
-              type="button"
-              onClick={() => setIsSetupWizardOpen(true)}
-              className="bg-blue-900 hover:bg-blue-950 text-white border border-blue-800 px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs shrink-0"
-              title="تثبيت وتهيئة لائحة وساعات الدوام والانضباط (Attendance Setup Wizard)"
-            >
-              <Clock size={15} className="text-amber-300" />
-              <span>لائحة وساعات الدوام</span>
-            </button>
-
-            {/* 📡 Biometric Devices & Cloud Sync Hub */}
-            <button
-              type="button"
-              onClick={() => setIsBiometricModalOpen(true)}
-              className="bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs group active:scale-95 shrink-0"
-              title="إدارة وربط أجهزة البصمة ZKTeco و Hikvision والمزامنة السحابية"
-            >
-              <Fingerprint size={15} className="text-indigo-600 group-hover:scale-110 transition" />
-              <span>📡 أجهزة البصمة</span>
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            </button>
-
-            {/* Dynamic QR Kiosk Button */}
-            <button
-              type="button"
-              onClick={() => setIsQrKioskOpen(true)}
-              className="bg-purple-50 hover:bg-purple-100 text-primary border border-purple-200 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs shrink-0"
-              title="توليد باركود QR ديناميكي مع النطاق الجغرافي للتبصيم بالهاتف"
-            >
-              <QrCode size={14} />
-              <span>📱 QR الذكي</span>
-            </button>
-
-            {/* Manual Attendance Button */}
-            <button
-              type="button"
-              onClick={() => {
-                setEditingManualRecord(null);
-                setIsManualModalOpen(true);
-              }}
-              className="bg-primary hover:bg-[#5a3a52] text-white px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer shrink-0"
-            >
-              <PlusCircle size={14} />
-              <span>+ تسجيل يدوي</span>
-            </button>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {/* File Importer Button */}
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileUpload}
-              accept=".xlsx, .xls, .csv"
-              className="hidden"
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isProcessingFile}
-              className="bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shrink-0"
-            >
-              <Upload size={14} />
-              <span>{isProcessingFile ? 'جاري...' : 'استيراد شيت'}</span>
-            </button>
-
-            {/* Export to Excel (Daily) */}
-            {activeView === 'table' && (
-              <button
-                type="button"
-                onClick={handleExportDailyExcel}
-                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer shrink-0"
-                title="تصدير إلى Excel"
-              >
-                <Download size={14} />
-                <span>Excel</span>
-              </button>
-            )}
-
-            {/* Print Daily */}
-            {activeView === 'table' && (
-              <button
-                type="button"
-                onClick={handleOpenDailyPrintModal}
-                className="bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer shrink-0"
-                title="طباعة التقرير A4"
-              >
-                <Printer size={14} />
-                <span>طباعة</span>
-              </button>
-            )}
-          </div>
-        </div>
+      <PageHeader
+        title="الحضور"
+        subtitle={activeCompany?.nameAr || 'الشركة الرئيسية'}
+        primaryAction={{
+          label: 'تسجيل يدوي',
+          onClick: () => {
+            setEditingManualRecord(null);
+            setIsManualModalOpen(true);
+          },
+        }}
+        menu={[
+          { id: 'policy', label: 'لائحة وساعات الدوام', onSelect: () => setIsSetupWizardOpen(true) },
+          { id: 'devices', label: 'أجهزة البصمة', onSelect: () => setIsBiometricModalOpen(true) },
+          { id: 'qr', label: 'رمز الحضور', onSelect: () => setIsQrKioskOpen(true) },
+          { id: 'import', label: 'استيراد شيت', onSelect: () => fileInputRef.current?.click() },
+          { id: 'excel', label: 'تصدير إكسل', onSelect: handleExportDailyExcel },
+          { id: 'print', label: 'طباعة', onSelect: handleOpenDailyPrintModal },
+        ]}
+      />
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileUpload}
+        accept=".xlsx, .xls, .csv"
+        className="hidden"
+      />
+      <div className="flex overflow-x-auto border-b bg-white" style={{ borderColor: 'var(--color-gray-200, #e2e8f0)' }}>
+        {([
+          ['table', 'اليومي'],
+          ['monthly', 'الشهري'],
+          ['kiosk', 'الكشك'],
+          ['operational_absence', 'الغياب التشغيلي'],
+        ] as const).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setActiveView(id)}
+            className="px-3 py-2 text-xs font-bold"
+            style={{
+              color: activeView === id ? 'var(--color-primary, #6b3f5e)' : '#64748b',
+              borderBottom: activeView === id ? '2px solid var(--color-primary, #6b3f5e)' : '2px solid transparent',
+            }}
+          >
+            {label}
+          </button>
+        ))}
       </div>
-
       {/* 2. Top Smart Stat Widgets (for Daily Table View) */}
       {activeView === 'table' && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -1626,9 +1507,7 @@ export const Attendances: React.FC = () => {
                 <tr className="bg-slate-100/80 border-b border-slate-200 text-slate-600 font-bold">
                   <th className="p-3.5 pr-4 whitespace-nowrap">الموظف والكود</th>
                   <th className="p-3.5 whitespace-nowrap">القسم والنوبة</th>
-                  <th className="p-3.5 whitespace-nowrap text-center">وقت الحضور</th>
-                  <th className="p-3.5 whitespace-nowrap text-center">وقت الانصراف</th>
-                  <th className="p-3.5 whitespace-nowrap text-center">الساعات الفعلية</th>
+                  <th className="p-3.5 whitespace-nowrap text-center">الدوام</th>
                   <th className="p-3.5 whitespace-nowrap text-center">ساعات إضافية (OT)</th>
                   <th className="p-3.5 whitespace-nowrap text-center">التأخير الصباحي</th>
                   <th className="p-3.5 whitespace-nowrap">طريقة التبصيم</th>
@@ -1639,7 +1518,7 @@ export const Attendances: React.FC = () => {
               <tbody className="divide-y divide-slate-100">
                 {liveTableData.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="p-12 text-center text-slate-400">
+                    <td colSpan={8} className="p-12 text-center text-slate-400">
                       <Fingerprint className="w-10 h-10 mx-auto mb-2 opacity-30 text-slate-400" />
                       <div>لا توجد سجلات حضور مطابقة لمعايير البحث لتاريخ {selectedDate}</div>
                     </td>
@@ -1672,45 +1551,19 @@ export const Attendances: React.FC = () => {
                               <span>{deptStyle.icon}</span>
                               <span>{row.department}</span>
                             </span>
-                            {row.shiftInfo && (
-                              <div className="text-[10px] text-slate-500 font-medium">
-                                <span className={`px-1.5 py-0.2 rounded border text-[9px] font-bold ${row.shiftInfo.color}`}>
-                                  {row.shiftInfo.name}
-                                </span>
-                              </div>
-                            )}
                           </div>
                         </td>
 
-                        {/* Check-In */}
-                        <td className="p-3.5 text-center font-mono font-bold text-slate-800">
-                          {row.checkIn ? (
-                            <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-md border border-emerald-200">
-                              {row.checkIn}
-                            </span>
-                          ) : (
-                            <span className="text-slate-400">--:--</span>
-                          )}
-                        </td>
-
-                        {/* Check-Out */}
-                        <td className="p-3.5 text-center font-mono font-bold text-slate-800">
-                          {!row.checkIn ? (
-                            <span className="text-slate-400">--:--</span>
-                          ) : row.checkOut && row.checkOut !== 'لم يتم التبصيم' ? (
-                            <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md border border-blue-200">
-                              {row.checkOut}
-                            </span>
-                          ) : (
-                            <span className="bg-rose-50 text-rose-600 px-2 py-0.5 rounded-md border border-rose-200 text-[10px]">
-                              لم يبصم
-                            </span>
-                          )}
-                        </td>
-
-                        {/* Actual Work Hours */}
-                        <td className="p-3.5 text-center font-mono font-black text-slate-900">
-                          {row.checkIn ? `${row.workHours} س` : <span className="text-slate-400">--:--</span>}
+                        <td className="p-3.5 text-center font-mono text-slate-800">
+                          <div className="font-bold">
+                            {row.checkIn || '—'}
+                            {' – '}
+                            {row.checkOut && row.checkOut !== 'لم يتم التبصيم' ? row.checkOut : '—'}
+                          </div>
+                          <div className="text-[10px] text-slate-500">
+                            {row.checkIn ? `${row.workHours} س` : '—'}
+                            {row.shiftInfo?.name ? ` · ${row.shiftInfo.name}` : ''}
+                          </div>
                         </td>
 
                         {/* Overtime */}
@@ -1720,7 +1573,7 @@ export const Attendances: React.FC = () => {
                               +{row.overtimeHours} س
                             </span>
                           ) : (
-                            <span className="text-slate-300">0.0</span>
+                            <span className="text-slate-300">—</span>
                           )}
                         </td>
 
@@ -1736,7 +1589,7 @@ export const Attendances: React.FC = () => {
                               {row.lateMinutes} دقيقة
                             </span>
                           ) : (
-                            <span className="text-emerald-600 font-bold">0 دقيقة</span>
+                            <span className="text-slate-300">—</span>
                           )}
                         </td>
 
@@ -1821,7 +1674,7 @@ export const Attendances: React.FC = () => {
                               type="button"
                               onClick={() => {
                                 if (isDateLocked(row.date)) {
-                                  toast.error('السجل ضمن شهر مقفل. فك القفل الرسمي مطلوب قبل التعديل.');
+                                  toast.error('الشهر مُرحَّل للمسير. التعديل بأثر رجعي لمدير الموارد فقط.');
                                   return;
                                 }
                                 setEditingManualRecord({
@@ -1829,7 +1682,8 @@ export const Attendances: React.FC = () => {
                                   date: row.date,
                                   checkIn: row.checkIn || '08:00',
                                   checkOut: row.checkOut && row.checkOut !== 'لم يتم التبصيم' ? row.checkOut : '16:00',
-                                  isExcused: row.isExcused
+                                  isExcused: row.isExcused,
+                                  reason: row.excuseReason || row.notes || '',
                                 });
                                 setIsManualModalOpen(true);
                               }}
