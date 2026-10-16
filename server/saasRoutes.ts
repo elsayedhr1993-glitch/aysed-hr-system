@@ -45,7 +45,7 @@ export function registerSaasRoutes(app: Express): void {
     if (!tenant) return deny(res, 401, 'Unauthorized');
     if (!platformOwnerFromRole(tenant.role)) return deny(res, 403, 'Unauthorized');
     const started = beginImpersonation(tenant.uid, String(req.body?.companyId || ''), String(req.body?.reason || ''));
-    if (!started.ok) return deny(res, 400, started.error);
+    if (started.ok === false) return deny(res, 400, started.error);
     await recordAuditEvent({
       actor: actor(req),
       action: 'view_sensitive',
@@ -64,7 +64,7 @@ export function registerSaasRoutes(app: Express): void {
     if (!tenant) return deny(res, 401, 'Unauthorized');
     if (!platformOwnerFromRole(tenant.role)) return deny(res, 403, 'Unauthorized');
     const opened = breakGlassImpersonation(tenant.uid, String(req.body?.reason || ''));
-    if (!opened.ok) return deny(res, 400, opened.error);
+    if (opened.ok === false) return deny(res, 400, opened.error);
     await recordAuditEvent({
       actor: actor(req),
       action: 'view_sensitive',

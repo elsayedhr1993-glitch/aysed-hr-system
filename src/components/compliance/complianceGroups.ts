@@ -1,4 +1,4 @@
-import type { DepartmentConfig, LicenseDocument } from '../types/governmentLicense';
+import type { DepartmentConfig, LicenseDocument } from '../../types/governmentLicense';
 import { getLicenseDaysRemaining } from '../../utils/governmentLicenseExpiry';
 
 export type ComplianceGroupRow = {
