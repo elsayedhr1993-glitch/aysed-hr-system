@@ -70,6 +70,55 @@ export async function archiveSubscriptionRequest(requestId: string): Promise<voi
   await platformRequest('/api/platform/subscription-requests/archive', 'POST', { requestId });
 }
 
+export async function updatePlatformSubscriptionRequest(input: {
+  rowId: string;
+  companyId: string;
+  companyName: string;
+  requesterName: string;
+  phone: string;
+  email: string;
+  planType: string;
+  empCount: string;
+  state: string;
+}): Promise<{ requestId: string; companyId: string }> {
+  const payload = await platformRequest('/api/platform/subscription-requests/update', 'POST', { ...input });
+  return {
+    requestId: String(payload.requestId || ''),
+    companyId: String(payload.companyId || ''),
+  };
+}
+
+export async function listPlatformSubscriptionRequests(): Promise<Array<Record<string, unknown> & { id: string }>> {
+  const payload = await platformRequest('/api/platform/subscription-requests', 'GET');
+  const rows = Array.isArray(payload.requests) ? payload.requests : [];
+  return rows.map((row) => {
+    const data = row && typeof row === 'object' ? row as Record<string, unknown> : {};
+    return { ...data, id: String(data.id || '') };
+  });
+}
+
+export async function upsertPlatformFacilityUsers(input: {
+  companyId: string;
+  email: string;
+  uid?: string;
+  previousEmails?: string[];
+  displayName?: string;
+  companyName?: string;
+  isActive?: boolean;
+  status?: string;
+}): Promise<number> {
+  const payload = await platformRequest('/api/platform/facility-users', 'POST', { ...input });
+  return Number(payload.updated || 0);
+}
+
+export async function savePlatformPamForm(input: {
+  pamOverlayCoords: Record<string, unknown>;
+  pamFontChoice?: string;
+  pamOverlaySchemaVersion?: number;
+}): Promise<void> {
+  await platformRequest('/api/platform/pam-form', 'POST', { ...input });
+}
+
 export async function savePlatformCustomLayout(input: {
   companyId: string;
   screenId: string;

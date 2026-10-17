@@ -52,6 +52,10 @@ export class PlatformAdminUnavailable extends Error {
 }
 
 /** Tests inject a store. Every other caller uses the Admin SDK, or stops. */
+export async function openPlatformStore(): Promise<PlatformDocStore> {
+  return openStore();
+}
+
 async function openStore(): Promise<PlatformDocStore> {
   if (injectedStore) return injectedStore;
   if (studioPersistenceMode() !== 'firestore') throw new PlatformAdminUnavailable();
@@ -450,6 +454,186 @@ export function suspendSubscriptionRequest(actor: PlatformActor, requestId: unkn
 export function archiveSubscriptionRequest(actor: PlatformActor, requestId: unknown): Promise<PlatformResult> {
   const id = String(requestId || '').trim();
   return writeRequestStatus(actor, id, { archived: true }, 'أرشفة طلب الاشتراك');
+}
+
+const SUBSCRIPTION_STATES = new Set(['draft', 'approved', 'rejected', 'suspended']);
+
+export async function updateSubscriptionRequest(
+  actor: PlatformActor,
+  input: {
+    rowId?: unknown;
+    companyId?: unknown;
+    companyName?: unknown;
+    requesterName?: unknown;
+    phone?: unknown;
+    email?: unknown;
+    planType?: unknown;
+    empCount?: unknown;
+    state?: unknown;
+  }
+): Promise<PlatformResult> {
+  const company = requireId(input.companyId, 'معرّف المنشأة');
+  if (!company.ok) return { ok: false, status: 400, error: company.error };
+  const companyName = cleanName(input.companyName);
+  if (!companyName) return { ok: false, status: 400, error: 'اسم المنشأة مطلوب' };
+  const email = cleanEmail(input.email);
+  if (!email) return { ok: false, status: 400, error: 'يرجى إدخال بريد إلكتروني صحيح' };
+  const state = String(input.state || '').trim();
+  if (!SUBSCRIPTION_STATES.has(state)) return { ok: false, status: 400, error: 'حالة الاشتراك غير صالحة' };
+  const store = await openStore();
+  const rowId = String(input.rowId || '').trim();
+  let requestDocId = rowId.startsWith('req-') || rowId.startsWith('req_') ? rowId : '';
+  if (requestDocId && !isSafePlatformId(requestDocId)) {
+    return { ok: false, status: 400, error: 'طلب الاشتراك غير صالح' };
+  }
+  if (!requestDocId) {
+    const linked = await store.whereIn('subscription_requests', 'companyId', [company.id]);
+    const found = linked[0]?.split('/').pop() || '';
+    requestDocId = found || `req-${company.id.replace(/^comp[-_]/i, '')}`;
+    if (!isSafePlatformId(requestDocId)) return { ok: false, status: 400, error: 'طلب الاشتراك غير صالح' };
+  }
+  const requesterName = cleanName(input.requesterName);
+  const phone = cleanName(input.phone);
+  const planType = cleanName(input.planType);
+  const empCount = cleanName(input.empCount);
+  const now = new Date().toISOString();
+  const patch = {
+    companyId: company.id,
+    companyName,
+    name: companyName,
+    requesterName,
+    requester_name: requesterName,
+    phone,
+    email,
+    planType,
+    plan_type: planType,
+    empCount,
+    emp_count: empCount,
+    status: state,
+    state,
+    updatedAt: now,
+  };
+  await store.merge(`subscription_requests/${requestDocId}`, plain(patch));
+  await audit(actor, {
+    action: 'update',
+    entityType: 'subscription_requests',
+    entityId: requestDocId,
+    details: 'تعديل طلب الاشتراك',
+    after: { companyId: company.id, state },
+  });
+  return { ok: true, status: 200, body: { success: true, requestId: requestDocId, companyId: company.id } };
+}
+
+export async function listSubscriptionRequests(): Promise<PlatformResult> {
+  const store = await openStore();
+  const paths = await store.list('subscription_requests');
+  const requests: Array<Record<string, unknown>> = [];
+  for (const path of paths) {
+    const data = await store.read(path);
+    const id = path.slice(path.lastIndexOf('/') + 1);
+    requests.push({ ...(data || {}), id });
+  }
+  return { ok: true, status: 200, body: { success: true, requests } };
+}
+
+export async function upsertFacilityUsers(
+  actor: PlatformActor,
+  input: {
+    companyId?: unknown;
+    uid?: unknown;
+    email?: unknown;
+    previousEmails?: unknown;
+    displayName?: unknown;
+    companyName?: unknown;
+    isActive?: unknown;
+    status?: unknown;
+  }
+): Promise<PlatformResult> {
+  const company = requireId(input.companyId, 'معرّف المنشأة');
+  if (!company.ok) return { ok: false, status: 400, error: company.error };
+  const email = cleanEmail(input.email);
+  if (!email) return { ok: false, status: 400, error: 'يرجى إدخال بريد إلكتروني صحيح' };
+  const store = await openStore();
+  const ids = new Set<string>();
+  const providedUid = String(input.uid || '').trim();
+  if (providedUid) {
+    const parsed = requireId(providedUid, 'معرّف المستخدم');
+    if (!parsed.ok) return { ok: false, status: 400, error: parsed.error };
+    ids.add(parsed.id);
+  }
+  for (const path of await store.whereIn('users', 'companyId', [company.id])) {
+    const id = path.slice(path.lastIndexOf('/') + 1);
+    if (isSafePlatformId(id)) ids.add(id);
+  }
+  const hints = new Set<string>([email]);
+  if (Array.isArray(input.previousEmails)) {
+    for (const hint of input.previousEmails) {
+      const cleaned = cleanEmail(hint);
+      if (cleaned) hints.add(cleaned);
+    }
+  }
+  for (const hint of hints) {
+    for (const path of await store.whereIn('users', 'email', [hint])) {
+      const id = path.slice(path.lastIndexOf('/') + 1);
+      if (isSafePlatformId(id)) ids.add(id);
+    }
+  }
+  if (!ids.size) {
+    return { ok: true, status: 200, body: { success: true, updated: 0, companyId: company.id } };
+  }
+  const now = new Date().toISOString();
+  const status = cleanName(input.status) || (input.isActive === false ? 'suspended' : 'active');
+  const patch = {
+    email,
+    displayName: cleanName(input.displayName, email),
+    companyName: cleanName(input.companyName),
+    role: 'COMPANY_ADMIN',
+    companyId: company.id,
+    isActive: input.isActive !== false && status !== 'suspended' && status !== 'rejected',
+    status,
+    updatedAt: now,
+  };
+  for (const id of ids) {
+    await store.merge(`users/${id}`, plain(patch));
+  }
+  await audit(actor, {
+    action: 'update',
+    entityType: 'users',
+    entityId: company.id,
+    details: 'إنشاء أو تعديل مستخدمي المنشأة',
+    after: { companyId: company.id, updated: ids.size, role: 'COMPANY_ADMIN' },
+  });
+  return { ok: true, status: 200, body: { success: true, updated: ids.size, companyId: company.id } };
+}
+
+export async function savePlatformPamForm(
+  actor: PlatformActor,
+  input: { pamOverlayCoords?: unknown; pamFontChoice?: unknown; pamOverlaySchemaVersion?: unknown }
+): Promise<PlatformResult> {
+  if (!input.pamOverlayCoords || typeof input.pamOverlayCoords !== 'object' || Array.isArray(input.pamOverlayCoords)) {
+    return { ok: false, status: 400, error: 'إحداثيات العقد مطلوبة' };
+  }
+  const font = input.pamFontChoice == null || input.pamFontChoice === '' ? 'cairo' : String(input.pamFontChoice);
+  if (font !== 'cairo' && font !== 'amiri') return { ok: false, status: 400, error: 'خط العقد غير صالح' };
+  const encoded = JSON.stringify(input.pamOverlayCoords);
+  if (encoded.length > 80_000) return { ok: false, status: 400, error: 'الإحداثيات أكبر من الحد' };
+  const version = Number(input.pamOverlaySchemaVersion);
+  const schemaVersion = Number.isInteger(version) && version >= 2 && version <= 50 ? version : 2;
+  const now = new Date().toISOString();
+  await (await openStore()).merge('platform_settings/pam_form_2', plain({
+    pamOverlayCoords: plain(input.pamOverlayCoords as Record<string, unknown>),
+    pamFontChoice: font,
+    pamOverlaySchemaVersion: schemaVersion,
+    updatedAt: now,
+  }));
+  await audit(actor, {
+    action: 'update',
+    entityType: 'platform_settings',
+    entityId: 'pam_form_2',
+    details: 'حفظ إحداثيات عقد المنصة',
+    after: { pamFontChoice: font, pamOverlaySchemaVersion: schemaVersion },
+  });
+  return { ok: true, status: 200, body: { success: true } };
 }
 
 export async function saveCustomLayout(

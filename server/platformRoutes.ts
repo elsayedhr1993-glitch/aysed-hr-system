@@ -17,6 +17,10 @@ import {
   savePlatformSystemKeys,
   savePlatformUiOverrides,
   suspendSubscriptionRequest,
+  listSubscriptionRequests,
+  savePlatformPamForm,
+  updateSubscriptionRequest,
+  upsertFacilityUsers,
   type PlatformActor,
 } from './platformOwnerWrites';
 
@@ -90,6 +94,30 @@ export function registerPlatformRoutes(app: Express): void {
     const actor = owner(req, res);
     if (!actor) return;
     await run(res, async () => send(res, await archiveSubscriptionRequest(actor, req.body?.requestId)));
+  });
+
+  app.post('/api/platform/subscription-requests/update', async (req, res) => {
+    const actor = owner(req, res);
+    if (!actor) return;
+    await run(res, async () => send(res, await updateSubscriptionRequest(actor, req.body || {})));
+  });
+
+  app.get('/api/platform/subscription-requests', async (req, res) => {
+    const actor = owner(req, res);
+    if (!actor) return;
+    await run(res, async () => send(res, await listSubscriptionRequests()));
+  });
+
+  app.post('/api/platform/facility-users', async (req, res) => {
+    const actor = owner(req, res);
+    if (!actor) return;
+    await run(res, async () => send(res, await upsertFacilityUsers(actor, req.body || {})));
+  });
+
+  app.post('/api/platform/pam-form', async (req, res) => {
+    const actor = owner(req, res);
+    if (!actor) return;
+    await run(res, async () => send(res, await savePlatformPamForm(actor, req.body || {})));
   });
 
   app.put('/api/platform/custom-layouts', async (req, res) => {

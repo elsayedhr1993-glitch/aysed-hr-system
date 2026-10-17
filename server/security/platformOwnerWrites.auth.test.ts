@@ -68,6 +68,47 @@ const ROUTES: ReadonlyArray<{ method: 'POST' | 'PUT' | 'GET'; path: string; body
     body: { requestId: 'req-1' },
   },
   {
+    method: 'POST',
+    path: '/api/platform/subscription-requests/update',
+    body: {
+      rowId: 'req-edit',
+      companyId: 'comp-test',
+      companyName: 'عيادة التجربة',
+      requesterName: 'مسؤول',
+      email: 'admin@example.test',
+      phone: '50000000',
+      planType: 'medical',
+      empCount: '11-50',
+      state: 'approved',
+    },
+  },
+  {
+    method: 'GET',
+    path: '/api/platform/subscription-requests',
+  },
+  {
+    method: 'POST',
+    path: '/api/platform/facility-users',
+    body: {
+      companyId: 'comp-test',
+      email: 'admin@example.test',
+      displayName: 'مسؤول',
+      companyName: 'عيادة التجربة',
+      uid: 'usr-edit',
+      isActive: true,
+      status: 'active',
+    },
+  },
+  {
+    method: 'POST',
+    path: '/api/platform/pam-form',
+    body: {
+      pamOverlayCoords: { employeeName: { x: 10, y: 20 } },
+      pamFontChoice: 'cairo',
+      pamOverlaySchemaVersion: 2,
+    },
+  },
+  {
     method: 'PUT',
     path: '/api/platform/custom-layouts',
     body: {
@@ -244,12 +285,15 @@ test('platform owner writes reject every other session role with 403 and record 
     assert.equal(store.docs.has('employees/emp-keep'), true);
 
     app.setRole(null);
-    const anonymous = await fetch(`${app.base}/api/platform/companies`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(ROUTES[0].body),
-    });
-    assert.equal(anonymous.status, 401);
+    for (const route of ROUTES) {
+      const anonymous = await fetch(`${app.base}${route.path}`, {
+        method: route.method,
+        headers: { 'content-type': 'application/json' },
+        body: route.body ? JSON.stringify(route.body) : undefined,
+      });
+      assert.equal(anonymous.status, 401, `${route.method} ${route.path}`);
+      assert.equal(events.length, 0);
+    }
 
     app.setRole('SUPER_ADMIN');
     for (const route of ROUTES) {
@@ -305,6 +349,14 @@ test('platform owner writes reject every other session role with 403 and record 
     assert.equal(store.docs.has('subscription_requests/req-purge'), false);
     assert.equal(store.docs.has('employees/emp-keep'), true);
     assert.equal([...store.docs.keys()].some((path) => path.startsWith('purged_tenants/')), true);
+    assert.equal(store.docs.get('subscription_requests/req-edit')?.state, 'approved');
+    assert.equal(store.docs.get('subscription_requests/req-edit')?.companyId, 'comp-test');
+    assert.equal(store.docs.get('users/usr-edit')?.role, 'COMPANY_ADMIN');
+    assert.equal(store.docs.get('users/usr-edit')?.companyId, 'comp-test');
+    assert.equal(store.docs.get('platform_settings/pam_form_2')?.pamFontChoice, 'cairo');
+    assert.equal(events.some((event) => event.details === 'تعديل طلب الاشتراك'), true);
+    assert.equal(events.some((event) => event.details === 'إنشاء أو تعديل مستخدمي المنشأة'), true);
+    assert.equal(events.some((event) => event.details === 'حفظ إحداثيات عقد المنصة'), true);
   } finally {
     __setPlatformStoreForTests(null);
     __resetPlatformStoreForTests();
