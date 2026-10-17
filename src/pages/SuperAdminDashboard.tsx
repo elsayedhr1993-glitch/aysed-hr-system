@@ -5,8 +5,8 @@ import {
   Edit3, Save, X, Lock, Building, Phone, Mail, User, Plus, Key, EyeOff, Sliders, Cpu, Layers, Wifi, Settings,
   Download, Upload, HardDrive, FileJson, CheckCheck, RefreshCcw, Sparkles, FolderDown
 } from 'lucide-react';
-import { db, cleanFirestoreData, purgeTenantCascading, isTenantPurged, getCompaniesCollectionName } from '../lib/firebase';
-import { collection, getDocs, doc, setDoc, onSnapshot, query, where } from 'firebase/firestore';
+import { db, purgeTenantCascading, isTenantPurged, getCompaniesCollectionName } from '../lib/firebase';
+import { collection, getDocs, onSnapshot, query, where } from 'firebase/firestore';
 import {
   approveSubscriptionRequest,
   archiveSubscriptionRequest,
@@ -14,6 +14,9 @@ import {
   createPlatformCompany,
   deletePlatformCompliance,
   deletePlatformSystemConfig,
+  loadPlatformSystemKeys,
+  restorePlatformBackup,
+  savePlatformSystemKeys,
   suspendSubscriptionRequest,
 } from '../services/platformOwnerApi';
 import toast from 'react-hot-toast';
@@ -101,29 +104,15 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   useEffect(() => {
     const loadSystemKeys = async () => {
       try {
-        const { getDoc } = await import('firebase/firestore');
-        const docSnap = await getDoc(doc(db, 'system_config', 'keys'));
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          setFirebaseConfigState({
-            apiKey: data.apiKey || firebaseConfig.apiKey || '',
-            authDomain: data.authDomain || firebaseConfig.authDomain || '',
-            projectId: data.projectId || firebaseConfig.projectId || '',
-            storageBucket: data.storageBucket || firebaseConfig.storageBucket || '',
-            messagingSenderId: data.messagingSenderId || firebaseConfig.messagingSenderId || '',
-            appId: data.appId || firebaseConfig.appId || ''
-          });
-        } else {
-          // fallback to imported firebase config only
-          setFirebaseConfigState({
-            apiKey: firebaseConfig.apiKey || '',
-            authDomain: firebaseConfig.authDomain || '',
-            projectId: firebaseConfig.projectId || '',
-            storageBucket: firebaseConfig.storageBucket || '',
-            messagingSenderId: firebaseConfig.messagingSenderId || '',
-            appId: firebaseConfig.appId || ''
-          });
-        }
+        const data = await loadPlatformSystemKeys();
+        setFirebaseConfigState({
+          apiKey: data.apiKey || firebaseConfig.apiKey || '',
+          authDomain: data.authDomain || firebaseConfig.authDomain || '',
+          projectId: data.projectId || firebaseConfig.projectId || '',
+          storageBucket: data.storageBucket || firebaseConfig.storageBucket || '',
+          messagingSenderId: data.messagingSenderId || firebaseConfig.messagingSenderId || '',
+          appId: data.appId || firebaseConfig.appId || ''
+        });
       } catch (err) {
         console.warn('Error loading system keys from firestore:', err);
         setFirebaseConfigState({
@@ -175,22 +164,14 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     setFirebaseStatus('idle');
     setFirebaseErrorMessage('');
     try {
-      const { getDocFromServer } = await import('firebase/firestore');
-      // Attempt to load some secure doc or keys doc
-      await getDocFromServer(doc(db, 'system_config', 'keys'));
+      await loadPlatformSystemKeys();
       setFirebaseStatus('valid');
       toast.success('تم التحقق بنجاح! الاتصال والتحقق السحابي مع Firebase Firestore يعمل بنشاط.');
     } catch (err: any) {
-      const msg = err.message || '';
-      if (msg.includes('offline') || msg.includes('network') || msg.includes('API key') || msg.includes('invalid-credential') || msg.includes('auth')) {
-        setFirebaseStatus('invalid');
-        setFirebaseErrorMessage(msg || 'فشل الاتصال بقاعدة البيانات. يرجى مراجعة إعدادات المفاتيح.');
-        toast.error(`فشل الاتصال: ${msg}`);
-      } else {
-        // If it's a permission issue or doc-not-found, the connection to firebase client is technically successful!
-        setFirebaseStatus('valid');
-        toast.success('تم التحقق بنجاح! الاتصال بقاعدة بيانات Firebase Firestore نشط وصالح.');
-      }
+      const msg = err.message || 'تعذر التحقق من إعدادات المفاتيح';
+      setFirebaseStatus('invalid');
+      setFirebaseErrorMessage(msg);
+      toast.error(`فشل الاتصال: ${msg}`);
     } finally {
       setIsTestingFirebase(false);
     }
@@ -200,13 +181,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     e.preventDefault();
     setIsSavingSystemKeys(true);
     try {
-      // Save non-sensitive integration config only.
-      await setDoc(doc(db, 'system_config', 'keys'), {
-        geminiApiKey: '',
-        ...firebaseConfigState,
-        updatedAt: new Date().toISOString(),
-        updatedBy: currentUserEmail || 'Super Admin'
-      }, { merge: true });
+      await savePlatformSystemKeys(firebaseConfigState);
 
       toast.success('تم حفظ وتحديث المفاتيح البرمجية وإعدادات النظام بنجاح!');
     } catch (err: any) {
@@ -306,21 +281,11 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     if (!backupImportData) return;
     setIsImportingBackup(true);
     try {
-      // Restore companies
-      if (backupImportData.companies && Array.isArray(backupImportData.companies)) {
-        for (const comp of backupImportData.companies) {
-          if (comp.id) {
-            await setDoc(doc(db, companiesCollection, comp.id), cleanFirestoreData(comp), { merge: true });
-          }
-        }
-      }
-      // Restore subscriptions
-      if (backupImportData.subscriptions && Array.isArray(backupImportData.subscriptions)) {
-        for (const sub of backupImportData.subscriptions) {
-          if (sub.id) {
-            await setDoc(doc(db, 'subscription_requests', sub.id), cleanFirestoreData(sub), { merge: true });
-          }
-        }
+      await restorePlatformBackup({
+        companies: Array.isArray(backupImportData.companies) ? backupImportData.companies : [],
+        subscriptions: Array.isArray(backupImportData.subscriptions) ? backupImportData.subscriptions : [],
+      });
+      if (Array.isArray(backupImportData.subscriptions)) {
         setRequests(backupImportData.subscriptions);
       }
       toast.success('تمت استعادة البيانات السحابية بنجاح.');

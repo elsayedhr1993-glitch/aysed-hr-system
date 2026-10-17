@@ -20,7 +20,7 @@ const DENIED_ROLES: readonly string[] = [
   '',
 ];
 
-const ROUTES: ReadonlyArray<{ method: 'POST' | 'PUT'; path: string; body: Record<string, unknown> }> = [
+const ROUTES: ReadonlyArray<{ method: 'POST' | 'PUT' | 'GET'; path: string; body?: Record<string, unknown> }> = [
   {
     method: 'POST',
     path: '/api/platform/companies',
@@ -96,6 +96,36 @@ const ROUTES: ReadonlyArray<{ method: 'POST' | 'PUT'; path: string; body: Record
     path: '/api/platform/system-config/delete',
     body: { companyId: 'comp-test' },
   },
+  {
+    method: 'POST',
+    path: '/api/platform/system-config/keys',
+    body: {
+      apiKey: 'public-client-key',
+      authDomain: 'demo.firebaseapp.com',
+      projectId: 'demo-aysed',
+      storageBucket: 'demo.appspot.com',
+      messagingSenderId: '1',
+      appId: '1:1:web:abc',
+      geminiApiKey: 'should-not-store',
+    },
+  },
+  {
+    method: 'GET',
+    path: '/api/platform/system-config/keys',
+  },
+  {
+    method: 'POST',
+    path: '/api/platform/backup/restore',
+    body: {
+      companies: [{ id: 'comp-restore', companyName: 'عيادة الاستعادة', password: 'secret-pass' }],
+      subscriptions: [{ id: 'req-restore', companyId: 'comp-restore', adminPassword: 'secret-pass' }],
+    },
+  },
+  {
+    method: 'POST',
+    path: '/api/platform/tenants/purge',
+    body: { id: 'req-purge', companyId: 'comp-purge', email: 'gone@example.test', name: 'منشأة الحذف' },
+  },
 ];
 
 function memoryStore(): PlatformDocStore & { docs: Map<string, Record<string, unknown>> } {
@@ -111,6 +141,17 @@ function memoryStore(): PlatformDocStore & { docs: Map<string, Record<string, un
     async list(collectionPath) {
       const prefix = collectionPath.replace(/\/$/, '');
       return [...docs.keys()].filter((path) => path.slice(0, path.lastIndexOf('/')) === prefix);
+    },
+    async read(path) {
+      const data = docs.get(path);
+      return data ? { ...data } : null;
+    },
+    async whereIn(collectionPath, field, values) {
+      const prefix = collectionPath.replace(/\/$/, '');
+      const wanted = new Set(values);
+      return [...docs.entries()]
+        .filter(([path, data]) => path.slice(0, path.lastIndexOf('/')) === prefix && wanted.has(String(data[field] ?? '')))
+        .map(([path]) => path);
     },
   };
 }
@@ -174,6 +215,10 @@ test('platform owner writes reject every other session role with 403 and record 
   __setPlatformStoreForTests(store);
   await store.merge('companies/comp-test/compliance/licences', { companyId: 'comp-test' });
   await store.merge('system_config/leave_policy_comp-test', { companyId: 'comp-test' });
+  await store.merge('companies/comp-purge', { companyId: 'comp-purge', companyName: 'منشأة الحذف' });
+  await store.merge('employees/emp-purge', { companyId: 'comp-purge' });
+  await store.merge('employees/emp-keep', { companyId: 'comp-keep' });
+  await store.merge('subscription_requests/req-purge', { companyId: 'comp-purge' });
   const seeded = store.docs.size;
 
   const app = await startApp();
@@ -184,7 +229,7 @@ test('platform owner writes reject every other session role with 403 and record 
         const response = await fetch(`${app.base}${route.path}`, {
           method: route.method,
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(route.body),
+          body: route.body ? JSON.stringify(route.body) : undefined,
         });
         assert.equal(response.status, 403, `${role || '(blank)'} ${route.method} ${route.path}`);
         const body = await response.json() as { success?: boolean };
@@ -195,6 +240,8 @@ test('platform owner writes reject every other session role with 403 and record 
     assert.equal(store.docs.size, seeded);
     assert.equal(store.docs.has('companies/comp-test/compliance/licences'), true);
     assert.equal(store.docs.has('system_config/leave_policy_comp-test'), true);
+    assert.equal(store.docs.has('employees/emp-purge'), true);
+    assert.equal(store.docs.has('employees/emp-keep'), true);
 
     app.setRole(null);
     const anonymous = await fetch(`${app.base}/api/platform/companies`, {
@@ -209,7 +256,7 @@ test('platform owner writes reject every other session role with 403 and record 
       const response = await fetch(`${app.base}${route.path}`, {
         method: route.method,
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(route.body),
+        body: route.body ? JSON.stringify(route.body) : undefined,
       });
       const body = await response.json() as { success?: boolean; error?: string; temporaryPassword?: string };
       assert.equal(response.status, 200, `${route.path} ${body.error || ''}`);
@@ -238,8 +285,26 @@ test('platform owner writes reject every other session role with 403 and record 
     assert.equal(entityTypes.has('compliance'), true);
     assert.equal(entityTypes.has('system_config'), true);
     assert.equal(events.some((event) => event.details === 'الموافقة على طلب الاشتراك'), true);
+    assert.equal(events.some((event) => event.details === 'حفظ مفاتيح النظام'), true);
+    assert.equal(events.some((event) => event.details === 'استعادة نسخة احتياطية'), true);
+    assert.equal(events.some((event) => event.details === 'حذف متتالي لمنشأة'), true);
     assert.equal(events.every((event) => event.role === 'SUPER_ADMIN'), true);
     assert.equal(JSON.stringify(events).includes('temporaryPassword'), false);
+    assert.equal(JSON.stringify(events).includes('should-not-store'), false);
+    assert.equal(JSON.stringify(events).includes('secret-pass'), false);
+    const keys = store.docs.get('system_config/keys');
+    assert.equal(keys?.projectId, 'demo-aysed');
+    assert.equal(keys?.geminiApiKey, '');
+    assert.equal(JSON.stringify(keys).includes('should-not-store'), false);
+    assert.equal(store.docs.get('companies/comp-restore')?.companyName, 'عيادة الاستعادة');
+    assert.equal(store.docs.get('companies/comp-restore')?.password, undefined);
+    assert.equal(store.docs.get('subscription_requests/req-restore')?.companyId, 'comp-restore');
+    assert.equal(store.docs.get('subscription_requests/req-restore')?.adminPassword, undefined);
+    assert.equal(store.docs.has('employees/emp-purge'), false);
+    assert.equal(store.docs.has('companies/comp-purge'), false);
+    assert.equal(store.docs.has('subscription_requests/req-purge'), false);
+    assert.equal(store.docs.has('employees/emp-keep'), true);
+    assert.equal([...store.docs.keys()].some((path) => path.startsWith('purged_tenants/')), true);
   } finally {
     __setPlatformStoreForTests(null);
     __resetPlatformStoreForTests();

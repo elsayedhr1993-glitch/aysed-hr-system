@@ -25,6 +25,9 @@ export interface PlatformDocStore {
   remove(path: string): Promise<void>;
   /** Document paths whose collection path equals `collectionPath`. */
   list(collectionPath: string): Promise<string[]>;
+  read(path: string): Promise<Record<string, unknown> | null>;
+  /** Document paths in `collectionPath` whose `field` equals one of `values`. */
+  whereIn(collectionPath: string, field: string, values: string[]): Promise<string[]>;
 }
 
 export type PlatformResult =
@@ -77,6 +80,27 @@ function adminStore(): PlatformDocStore {
       if (!db) throw new Error('Firestore admin is not available');
       const snap = await db.collection(collectionPath).get();
       return snap.docs.map((item) => item.ref.path);
+    },
+    async read(path) {
+      const { getAdminFirestore } = await import('./firebaseAdmin');
+      const db = getAdminFirestore();
+      if (!db) throw new Error('Firestore admin is not available');
+      const snap = await db.doc(path).get();
+      if (!snap.exists) return null;
+      return plain(snap.data() || {});
+    },
+    async whereIn(collectionPath, field, values) {
+      const { getAdminFirestore } = await import('./firebaseAdmin');
+      const db = getAdminFirestore();
+      if (!db) throw new Error('Firestore admin is not available');
+      const found = new Set<string>();
+      for (let index = 0; index < values.length; index += 10) {
+        const chunk = values.slice(index, index + 10);
+        if (!chunk.length) continue;
+        const snap = await db.collection(collectionPath).where(field, 'in', chunk).get();
+        snap.docs.forEach((item) => found.add(item.ref.path));
+      }
+      return [...found];
     },
   };
 }
@@ -550,4 +574,254 @@ export async function deleteSystemConfig(
     after: { documents: docIds },
   });
   return { ok: true, status: 200, body: { success: true, removed: docIds.length } };
+}
+
+const PUBLIC_KEY_FIELDS = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId'] as const;
+const SECRET_FIELDS = new Set([
+  'password',
+  'adminPassword',
+  'temporaryPassword',
+  'geminiApiKey',
+  'private_key',
+  'privateKey',
+  'serviceAccount',
+]);
+const RESTORE_LIMIT = 500;
+const PURGE_ID_LIMIT = 30;
+const OPERATIONAL_COLLECTIONS = [
+  'employees',
+  'leave_requests',
+  'leave_allocations',
+  'attendance',
+  'payslips',
+  'contracts',
+  'documents',
+  'custodies',
+  'loans',
+  'warnings',
+  'employeeNotes',
+  'notifications',
+  'departments',
+  'job_titles',
+  'users',
+] as const;
+const PRIMARY_COLLECTIONS = [
+  'companies',
+  'subscriptions',
+  'subscription_requests',
+  'settings',
+  'company_settings',
+] as const;
+
+function boundedText(value: unknown, max = 200): string {
+  return String(value ?? '').trim().slice(0, max);
+}
+
+function stripSecrets(data: Record<string, unknown>): Record<string, unknown> {
+  const next: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (SECRET_FIELDS.has(key)) continue;
+    next[key] = value;
+  }
+  return next;
+}
+
+function publicKeys(data: Record<string, unknown> | null): Record<string, string> {
+  const next: Record<string, string> = {};
+  for (const field of PUBLIC_KEY_FIELDS) next[field] = boundedText(data?.[field]);
+  return next;
+}
+
+export async function readSystemKeys(): Promise<PlatformResult> {
+  const stored = await (await openStore()).read('system_config/keys');
+  return { ok: true, status: 200, body: { success: true, ...publicKeys(stored) } };
+}
+
+export async function savePlatformSystemKeys(
+  actor: PlatformActor,
+  input: Record<string, unknown>
+): Promise<PlatformResult> {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return { ok: false, status: 400, error: 'إعدادات المفاتيح مطلوبة' };
+  }
+  const payload = plain({
+    ...publicKeys(input),
+    geminiApiKey: '',
+    updatedAt: new Date().toISOString(),
+    updatedBy: actor.email || actor.uid || '',
+  });
+  await (await openStore()).merge('system_config/keys', payload);
+  await audit(actor, {
+    action: 'update',
+    entityType: 'system_config',
+    entityId: 'keys',
+    details: 'حفظ مفاتيح النظام',
+    after: { projectId: payload.projectId },
+  });
+  return { ok: true, status: 200, body: { success: true } };
+}
+
+function restoreRows(
+  value: unknown,
+  label: string
+): { ok: true; rows: Array<{ id: string; data: Record<string, unknown> }> } | { ok: false; error: string } {
+  if (value == null) return { ok: true, rows: [] };
+  if (!Array.isArray(value)) return { ok: false, error: `${label} يجب أن تكون قائمة` };
+  if (value.length > RESTORE_LIMIT) return { ok: false, error: `${label} تتجاوز حد الاستعادة` };
+  const rows: Array<{ id: string; data: Record<string, unknown> }> = [];
+  for (const item of value) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+      return { ok: false, error: `${label} تحتوي صفاً غير صالح` };
+    }
+    const record = item as Record<string, unknown>;
+    const parsed = requireId(record.id, label);
+    if (!parsed.ok) return { ok: false, error: parsed.error };
+    const encoded = JSON.stringify(record);
+    if (encoded.length > 100_000) return { ok: false, error: `${label} تحتوي صفاً أكبر من الحد` };
+    rows.push({ id: parsed.id, data: stripSecrets(plain(record)) });
+  }
+  return { ok: true, rows };
+}
+
+export async function restorePlatformBackup(
+  actor: PlatformActor,
+  input: { companies?: unknown; subscriptions?: unknown }
+): Promise<PlatformResult> {
+  const companies = restoreRows(input.companies, 'الشركات');
+  if (!companies.ok) return { ok: false, status: 400, error: companies.error };
+  const requests = restoreRows(input.subscriptions, 'طلبات الاشتراك');
+  if (!requests.ok) return { ok: false, status: 400, error: requests.error };
+  if (!companies.rows.length && !requests.rows.length) {
+    return { ok: false, status: 400, error: 'النسخة فارغة' };
+  }
+  const store = await openStore();
+  for (const row of companies.rows) await store.merge(`companies/${row.id}`, row.data);
+  for (const row of requests.rows) await store.merge(`subscription_requests/${row.id}`, row.data);
+  await audit(actor, {
+    action: 'update',
+    entityType: 'backup',
+    entityId: 'restore',
+    details: 'استعادة نسخة احتياطية',
+    after: { companies: companies.rows.length, subscriptionRequests: requests.rows.length },
+  });
+  return {
+    ok: true,
+    status: 200,
+    body: {
+      success: true,
+      companies: companies.rows.length,
+      subscriptionRequests: requests.rows.length,
+    },
+  };
+}
+
+function purgedDocKey(token: string): string | null {
+  const key = token.trim().toLowerCase().replace(/[^a-z0-9_.-]/g, '_').replace(/_+/g, '_').slice(0, 120);
+  return isSafePlatformId(key) ? key : null;
+}
+
+async function rememberLinkedIds(store: PlatformDocStore, ids: Set<string>, path: string): Promise<void> {
+  const data = await store.read(path);
+  const linked = String(data?.companyId || '').trim();
+  if (linked && isSafePlatformId(linked)) ids.add(linked);
+  const docId = path.slice(path.lastIndexOf('/') + 1);
+  if (data && isSafePlatformId(docId)) ids.add(docId);
+}
+
+export async function purgePlatformTenant(
+  actor: PlatformActor,
+  input: { id?: unknown; companyId?: unknown; email?: unknown; name?: unknown; phone?: unknown }
+): Promise<PlatformResult> {
+  const ids = new Set<string>();
+  for (const value of [input.id, input.companyId]) {
+    const raw = String(value || '').trim();
+    if (!raw) continue;
+    const parsed = requireId(raw, 'معرّف المنشأة');
+    if (!parsed.ok) return { ok: false, status: 400, error: parsed.error };
+    ids.add(parsed.id);
+  }
+  if (!ids.size) return { ok: false, status: 400, error: 'معرّف المنشأة مطلوب' };
+  const emailRaw = String(input.email || '').trim();
+  const email = emailRaw ? cleanEmail(emailRaw) : null;
+  if (emailRaw && !email) return { ok: false, status: 400, error: 'البريد الإلكتروني غير صالح' };
+
+  const store = await openStore();
+  for (const id of [...ids]) {
+    await rememberLinkedIds(store, ids, `companies/${id}`);
+    await rememberLinkedIds(store, ids, `subscription_requests/${id}`);
+    await rememberLinkedIds(store, ids, `subscriptions/${id}`);
+  }
+  for (const path of await store.whereIn('companies', 'companyId', [...ids])) {
+    await rememberLinkedIds(store, ids, path);
+  }
+  if (ids.size > PURGE_ID_LIMIT) return { ok: false, status: 400, error: 'نطاق الحذف أكبر من الحد' };
+
+  const idList = [...ids];
+  const removed = new Set<string>();
+  const deletedCounts: Record<string, number> = { authUsers: 0 };
+  const removePath = async (path: string, bucket: string) => {
+    if (removed.has(path)) return;
+    if (path.startsWith('users/') && actor.uid && path === `users/${actor.uid}`) return;
+    const existing = await store.read(path);
+    if (!existing) return;
+    await store.remove(path);
+    removed.add(path);
+    deletedCounts[bucket] = (deletedCounts[bucket] || 0) + 1;
+  };
+
+  for (const collectionName of OPERATIONAL_COLLECTIONS) {
+    for (const path of await store.whereIn(collectionName, 'companyId', idList)) {
+      await removePath(path, collectionName);
+    }
+  }
+  for (const collectionName of PRIMARY_COLLECTIONS) {
+    for (const id of idList) await removePath(`${collectionName}/${id}`, collectionName);
+    for (const path of await store.whereIn(collectionName, 'companyId', idList)) {
+      await removePath(path, collectionName);
+    }
+  }
+
+  const now = new Date().toISOString();
+  const tokens = [input.id, input.companyId, input.name, email, input.phone].map((value) => String(value || '').trim()).filter(Boolean);
+  for (const token of tokens) {
+    const key = purgedDocKey(token);
+    if (!key) continue;
+    await store.merge(`purged_tenants/${key}`, plain({ token, purgedAt: now }));
+  }
+
+  if (email && !injectedStore) {
+    const { getAdminAuth } = await import('./firebaseAdmin');
+    const admin = getAdminAuth();
+    if (admin) {
+      try {
+        const user = await admin.getUserByEmail(email);
+        await admin.deleteUser(user.uid);
+        deletedCounts.authUsers += 1;
+      } catch (error: unknown) {
+        const code = typeof error === 'object' && error && 'code' in error ? String(error.code) : '';
+        if (code !== 'auth/user-not-found') throw error;
+      }
+    }
+  }
+
+  const name = cleanName(input.name);
+  await audit(actor, {
+    action: 'delete',
+    entityType: 'tenant',
+    entityId: idList[0],
+    details: 'حذف متتالي لمنشأة',
+    after: { removed: removed.size, collections: deletedCounts },
+  });
+  return {
+    ok: true,
+    status: 200,
+    body: {
+      success: true,
+      ids: idList,
+      deletedCounts,
+      message: name
+        ? `تم حذف منشأة (${name}) وكافة بياناتها وحساب الدخول نهائياً`
+        : 'تم حذف المنشأة وكافة بياناتها وحساب الدخول نهائياً',
+    },
+  };
 }

@@ -2,14 +2,14 @@ import { buildAuthedJsonHeaders } from '../lib/clientAuth';
 
 async function platformRequest(
   path: string,
-  method: 'POST' | 'PUT',
-  body: Record<string, unknown>
+  method: 'POST' | 'PUT' | 'GET',
+  body?: Record<string, unknown>
 ): Promise<Record<string, unknown>> {
   const headers = await buildAuthedJsonHeaders();
   const response = await fetch(path, {
     method,
     headers,
-    body: JSON.stringify(body),
+    body: body ? JSON.stringify(body) : undefined,
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || payload?.success === false) {
@@ -84,4 +84,58 @@ export async function deletePlatformCompliance(companyId: string): Promise<void>
 
 export async function deletePlatformSystemConfig(companyId: string): Promise<void> {
   await platformRequest('/api/platform/system-config/delete', 'POST', { companyId });
+}
+
+export interface PlatformSystemKeys {
+  apiKey: string;
+  authDomain: string;
+  projectId: string;
+  storageBucket: string;
+  messagingSenderId: string;
+  appId: string;
+}
+
+export async function loadPlatformSystemKeys(): Promise<PlatformSystemKeys> {
+  const payload = await platformRequest('/api/platform/system-config/keys', 'GET');
+  return {
+    apiKey: String(payload.apiKey || ''),
+    authDomain: String(payload.authDomain || ''),
+    projectId: String(payload.projectId || ''),
+    storageBucket: String(payload.storageBucket || ''),
+    messagingSenderId: String(payload.messagingSenderId || ''),
+    appId: String(payload.appId || ''),
+  };
+}
+
+export async function savePlatformSystemKeys(input: PlatformSystemKeys): Promise<void> {
+  await platformRequest('/api/platform/system-config/keys', 'POST', { ...input });
+}
+
+export async function restorePlatformBackup(input: {
+  companies?: unknown[];
+  subscriptions?: unknown[];
+}): Promise<void> {
+  await platformRequest('/api/platform/backup/restore', 'POST', {
+    companies: input.companies || [],
+    subscriptions: input.subscriptions || [],
+  });
+}
+
+export async function purgePlatformTenant(input: {
+  id: string;
+  companyId?: string;
+  email?: string;
+  name?: string;
+  phone?: string;
+}): Promise<{ message: string; ids: string[]; deletedCounts: Record<string, number> }> {
+  const payload = await platformRequest('/api/platform/tenants/purge', 'POST', { ...input });
+  const ids = Array.isArray(payload.ids) ? payload.ids.map((id) => String(id)) : [];
+  const deletedCounts = payload.deletedCounts && typeof payload.deletedCounts === 'object'
+    ? payload.deletedCounts as Record<string, number>
+    : {};
+  return {
+    message: String(payload.message || ''),
+    ids,
+    deletedCounts,
+  };
 }

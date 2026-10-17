@@ -9,8 +9,12 @@ import {
   deleteCompliance,
   deleteSystemConfig,
   PlatformAdminUnavailable,
+  purgePlatformTenant,
+  readSystemKeys,
   resetPlatformUiOverride,
+  restorePlatformBackup,
   saveCustomLayout,
+  savePlatformSystemKeys,
   savePlatformUiOverrides,
   suspendSubscriptionRequest,
   type PlatformActor,
@@ -122,5 +126,29 @@ export function registerPlatformRoutes(app: Express): void {
     const actor = owner(req, res);
     if (!actor) return;
     await run(res, async () => send(res, await deleteSystemConfig(actor, req.body || {})));
+  });
+
+  app.get('/api/platform/system-config/keys', async (req, res) => {
+    const actor = owner(req, res);
+    if (!actor) return;
+    await run(res, async () => send(res, await readSystemKeys()));
+  });
+
+  app.post('/api/platform/system-config/keys', async (req, res) => {
+    const actor = owner(req, res);
+    if (!actor) return;
+    await run(res, async () => send(res, await savePlatformSystemKeys(actor, req.body || {})));
+  });
+
+  app.post('/api/platform/backup/restore', async (req, res) => {
+    const actor = owner(req, res);
+    if (!actor) return;
+    await run(res, async () => send(res, await restorePlatformBackup(actor, req.body || {})));
+  });
+
+  app.post('/api/platform/tenants/purge', async (req, res) => {
+    const actor = owner(req, res);
+    if (!actor) return;
+    await run(res, async () => send(res, await purgePlatformTenant(actor, req.body || {})));
   });
 }

@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { connectFirestoreEmulator, initializeFirestore, getFirestore, memoryLocalCache, setLogLevel, doc, setDoc, deleteDoc, collection, getDocs, query, where, writeBatch } from 'firebase/firestore';
+import { connectFirestoreEmulator, initializeFirestore, getFirestore, memoryLocalCache, setLogLevel } from 'firebase/firestore';
 import { connectAuthEmulator, getAuth } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
@@ -266,31 +266,14 @@ export function recordPurgedTenant(tokens: string[]) {
 
     const updated = Array.from(set);
     localStorage.setItem('aysed_purged_tenants', JSON.stringify(updated));
-
-    // Also persist to Firestore purged_tenants collection if possible
-    tokens.forEach(t => {
-      if (t && t.trim()) {
-        const docKey = t.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '_');
-        if (docKey) {
-          setDoc(doc(db, 'purged_tenants', docKey), {
-            token: t,
-            purgedAt: new Date().toISOString()
-          }, { merge: true }).catch(() => {});
-        }
-      }
-    });
   } catch (e) {
     console.warn('Error recording purged tenant:', e);
   }
 }
 
 /**
- * Executes a full cascading hard delete (Purge All Traces) for a subscriber company/tenant:
- * 1. Firebase Auth: Deletes admin auth user via backend admin API.
- * 2. Firestore: Deletes company document, subscriptions, subscription_requests, users, and all sub-records (employees, leaves, attendances, payslips, contracts, etc.).
- * 3. Supabase: Purges corresponding subscription request entries.
- * 4. LocalStorage & SessionStorage: Wipes credentials, company cache, and tenant-scoped keys.
- * 5. Dispatches global events for real-time UI refresh across all tabs and dropdowns.
+ * Cascading tenant purge. Firestore and Auth run on the server with the Admin SDK.
+ * This function only clears this browser's storage after the server accepts the purge.
  */
 export async function purgeTenantCascading(params: {
   id: string;
@@ -349,128 +332,36 @@ export async function purgeTenantCascading(params: {
     return false;
   };
 
-  // 1. Firebase Auth Hard Delete via Backend Admin Route
-  if (targetEmail) {
-    try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      try {
-        const token = auth.currentUser ? await auth.currentUser.getIdToken(false) : null;
-        if (token) headers.Authorization = `Bearer ${token}`;
-      } catch { /* server enforces auth */ }
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  try {
+    const token = auth.currentUser ? await auth.currentUser.getIdToken(false) : null;
+    if (token) headers.Authorization = `Bearer ${token}`;
+  } catch { /* server enforces auth */ }
 
-      const res = await fetch('/api/admin/delete-tenant', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          email: targetEmail,
-          companyId: params.companyId || params.id
-        })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success) {
-          deletedCounts.authUsers += 1;
-        }
-      }
-    } catch (authErr) {
-      console.warn('Backend delete-tenant auth call note:', authErr);
+  const res = await fetch('/api/platform/tenants/purge', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      id: params.id,
+      companyId: params.companyId || params.id,
+      email: targetEmail,
+      name: params.name,
+      phone: params.phone || '',
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data?.success === false) {
+    throw new Error(typeof data?.error === 'string' ? data.error : 'تعذر الحذف المتتالي');
+  }
+  if (data.deletedCounts && typeof data.deletedCounts === 'object') {
+    for (const [key, value] of Object.entries(data.deletedCounts as Record<string, number>)) {
+      deletedCounts[key] = Number(value) || 0;
     }
   }
-
-  // 2. Discover all associated IDs from companies & subscriptions first
-  try {
-    const compSnap = await getDocs(collection(db, getCompaniesCollectionName()));
-    for (const d of compSnap.docs) {
-      const val = d.data();
-      if (isMatch(val, d.id)) {
-        targetIds.add(d.id);
-        if (val.companyId) targetIds.add(val.companyId);
-        if (val.id) targetIds.add(val.id);
-      }
-    }
-  } catch (e) {}
-
-  try {
-    const subSnap = await getDocs(collection(db, 'subscriptions'));
-    for (const d of subSnap.docs) {
-      const val = d.data();
-      if (isMatch(val, d.id)) {
-        targetIds.add(d.id);
-        if (val.companyId) targetIds.add(val.companyId);
-      }
-    }
-  } catch (e) {}
-
-  // 3. Cascading Delete in Firestore across all sub-collections
-  const subCollections = [
-    'employees',
-    'leave_requests',
-    'leave_allocations',
-    'attendance',
-    'payslips',
-    'contracts',
-    'documents',
-    'custodies',
-    'loans',
-    'warnings',
-    'employeeNotes',
-    'notifications',
-    'departments',
-    'job_titles',
-    'users'
-  ];
-
-  const companyIdChunks: string[][] = [];
-  const companyIds = [...targetIds].map((id) => String(id || '').trim()).filter(Boolean);
-  for (let i = 0; i < companyIds.length; i += 10) companyIdChunks.push(companyIds.slice(i, i + 10));
-
-  for (const colName of subCollections) {
-    try {
-      for (const chunk of companyIdChunks) {
-      const snap = await getDocs(query(collection(db, colName), where('companyId', 'in', chunk)));
-      for (const d of snap.docs) {
-        const val = d.data();
-        if (isMatch(val, d.id)) {
-          await deleteDoc(doc(db, colName, d.id));
-          if (colName in deletedCounts) {
-            deletedCounts[colName] += 1;
-          } else {
-            deletedCounts.otherSubRecords += 1;
-          }
-        }
-      }
-      }
-    } catch (colErr) {
-      console.warn(`Error deleting from ${colName}:`, colErr);
-    }
-  }
-
-  // 4. Delete from companies, subscriptions, subscription_requests, settings
-  const primaryCollections = ['companies', 'subscriptions', 'subscription_requests', 'settings', 'company_settings'];
-  for (const colName of primaryCollections) {
-    try {
-      // Direct doc deletions by known targetIds
-      for (const tId of targetIds) {
-        try {
-          await deleteDoc(doc(db, colName, tId));
-        } catch {}
-      }
-
-      // Query-based deletions for any matching records
-      for (const chunk of companyIdChunks) {
-      const snap = await getDocs(query(collection(db, colName), where('companyId', 'in', chunk)));
-      for (const d of snap.docs) {
-        const val = d.data();
-        if (isMatch(val, d.id)) {
-          await deleteDoc(doc(db, colName, d.id));
-          if (colName in deletedCounts) {
-            deletedCounts[colName] += 1;
-          }
-        }
-      }
-      }
-    } catch (colErr) {
-      console.warn(`Error deleting primary collection ${colName}:`, colErr);
+  if (Array.isArray(data.ids)) {
+    for (const id of data.ids) {
+      const text = String(id || '').trim();
+      if (text) targetIds.add(text);
     }
   }
 
@@ -547,9 +438,10 @@ export async function purgeTenantCascading(params: {
     window.dispatchEvent(new Event('storage'));
   } catch {}
 
+  const serverMessage = typeof data.message === 'string' ? data.message : '';
   return {
     success: true,
-    message: `تم حذف منشأة (${params.name}) وكافة بياناتها وحساب الدخول نهائياً`,
+    message: serverMessage || `تم حذف منشأة (${params.name}) وكافة بياناتها وحساب الدخول نهائياً`,
     deletedCounts
   };
 }
