@@ -154,6 +154,23 @@ test('device company comes from registration and rejected facilities are ignored
   assert.match(server, /resolveRegisteredDeviceCompany/);
 });
 
+test('session verification step bypass is disabled in production and ignores the client', () => {
+  assert.equal(localAuthWriteBypassEnabled({ NODE_ENV: 'production' }), false);
+  assert.equal(localAuthWriteBypassEnabled({ NODE_ENV: 'production', VERCEL: '' }), false);
+  assert.equal(localAuthWriteBypassEnabled({ NODE_ENV: 'development', VERCEL: '1' }), false);
+  assert.equal(localAuthWriteBypassEnabled({ VERCEL: '1' }), false);
+  assert.equal(localAuthWriteBypassEnabled({ NODE_ENV: 'development' }), true);
+  const source = fs.readFileSync('src/components/security/SessionSecurityGate.tsx', 'utf8');
+  assert.match(source, /verificationStepBypass/);
+  assert.match(source, /NODE_ENV: __AYSED_NODE_ENV__/);
+  assert.match(source, /VERCEL: __AYSED_VERCEL__/);
+  assert.doesNotMatch(source, /hostname|window\.location|import\.meta\.env/);
+  const vite = fs.readFileSync('vite.config.ts', 'utf8');
+  assert.match(vite, /__AYSED_NODE_ENV__: JSON\.stringify\(process\.env\.NODE_ENV/);
+  assert.match(vite, /__AYSED_VERCEL__: JSON\.stringify\(process\.env\.VERCEL/);
+  assert.doesNotMatch(vite, /hostname/);
+});
+
 test('local totp and password bypass is disabled in production and ignores host headers', () => {
   assert.equal(localAuthWriteBypassEnabled({ NODE_ENV: 'production' }), false);
   assert.equal(localAuthWriteBypassEnabled({ NODE_ENV: 'development', VERCEL: '1' }), false);

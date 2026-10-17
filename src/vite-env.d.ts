@@ -14,6 +14,8 @@ interface ImportMeta {
 
 declare const __AYSED_ALLOW_PROD_WRITES__: boolean;
 declare const __SENTRY_DSN__: string;
+declare const __AYSED_NODE_ENV__: string;
+declare const __AYSED_VERCEL__: string;
 
 declare module 'arabic-persian-reshaper';
 declare module 'bidi-js';

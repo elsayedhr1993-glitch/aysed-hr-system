@@ -1,6 +1,16 @@
 import React, { useEffect, useState } from 'react';
+import { localAuthWriteBypassEnabled } from '../../../server/localAuthBypass';
 import { buildAuthedJsonHeaders } from '../../lib/clientAuth';
 import { totpRequiredForRole } from '../../security/accessRoles';
+
+/** Build-time NODE_ENV and VERCEL only. Missing constants stay closed. */
+function verificationStepBypass(): boolean {
+  if (typeof __AYSED_NODE_ENV__ !== 'string' || typeof __AYSED_VERCEL__ !== 'string') return false;
+  return localAuthWriteBypassEnabled({
+    NODE_ENV: __AYSED_NODE_ENV__,
+    VERCEL: __AYSED_VERCEL__,
+  });
+}
 
 type Policy = {
   role: string;
@@ -78,6 +88,10 @@ export const SessionSecurityGate: React.FC<{ children: React.ReactNode }> = ({ c
 
   const verify = async () => {
     setMessage('');
+    if (verificationStepBypass()) {
+      setStep('ready');
+      return;
+    }
     const res = await authedFetch('/api/auth/totp/verify', {
       method: 'POST',
       body: JSON.stringify({ code }),
@@ -91,6 +105,10 @@ export const SessionSecurityGate: React.FC<{ children: React.ReactNode }> = ({ c
 
   const confirmEnroll = async () => {
     setMessage('');
+    if (verificationStepBypass()) {
+      setStep('ready');
+      return;
+    }
     const res = await authedFetch('/api/auth/totp/confirm', {
       method: 'POST',
       body: JSON.stringify({ code }),
@@ -165,6 +183,9 @@ export const SessionSecurityGate: React.FC<{ children: React.ReactNode }> = ({ c
             </>
           )}
           {message && <p className="text-sm text-rose-700">{message}</p>}
+          {verificationStepBypass() && step !== 'password' && (
+            <p className="text-xs text-slate-500">وضع التطوير: المتابعة تفتح اللوحة دون تثبيت السر.</p>
+          )}
           <button type="submit" className="w-full bg-slate-900 text-white rounded-lg py-2 text-sm">
             متابعة
           </button>
