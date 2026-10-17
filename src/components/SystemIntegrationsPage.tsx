@@ -37,8 +37,7 @@ import {
 } from 'lucide-react';
 import { Company, CompanyBranch, WhatsAppGatewayConfig, SystemIntegrationsConfig } from '../types';
 import toast from 'react-hot-toast';
-import { db, cleanFirestoreData } from '../lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { saveSessionIntegrations } from '../services/tenantProfileApi';
 import { sendLiveWhatsAppMessage, LiveWhatsAppSendResult } from '../utils/notificationEngine';
 
 interface SystemIntegrationsPageProps {
@@ -94,14 +93,15 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
     const saved = localStorage.getItem(`whatsapp_gateway_${activeCompany?.id || 'default'}`);
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved) as WhatsAppGatewayConfig;
+        return { ...parsed, apiToken: '' };
       } catch (e) {
         console.error(e);
       }
     }
     return {
       instanceId: 'instance188430',
-      apiToken: 'mh21qnlb8vngnkml',
+      apiToken: '',
       defaultCountryCode: '+965',
       serverUrl: 'https://api.ultramsg.com/instance188430/messages/chat',
       isActive: true,
@@ -163,7 +163,8 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
     const savedWpp = localStorage.getItem(`whatsapp_gateway_${compId}`);
     if (savedWpp) {
       try {
-        setWhatsAppConfig(JSON.parse(savedWpp));
+        const parsed = JSON.parse(savedWpp) as WhatsAppGatewayConfig;
+        setWhatsAppConfig({ ...parsed, apiToken: '' });
       } catch (e) {
         console.error(e);
       }
@@ -419,25 +420,29 @@ export const SystemIntegrationsPage: React.FC<SystemIntegrationsPageProps> = ({
       id: `config-${compId}`,
       companyId: compId,
       publicVerificationDomain: verificationDomain.trim(),
-      whatsAppGateway: whatsAppConfig,
+      whatsAppGateway: { ...whatsAppConfig, apiToken: '' },
       branches: branches,
       geminiApiKey: '',
       updatedAt: new Date().toISOString()
     };
 
-    // Save to LocalStorage
+    const gatewayForBrowser = { ...whatsAppConfig, apiToken: '' };
     localStorage.setItem(`geofence_branches_${compId}`, JSON.stringify(branches));
-    localStorage.setItem(`whatsapp_gateway_${compId}`, JSON.stringify(whatsAppConfig));
+    localStorage.setItem(`whatsapp_gateway_${compId}`, JSON.stringify(gatewayForBrowser));
     localStorage.setItem(`public_verification_domain_${compId}`, verificationDomain.trim());
 
-    // Save to Firebase Firestore if connected
     try {
-      if (db) {
-        const configDocRef = doc(db, 'system_integrations', compId);
-        await setDoc(configDocRef, cleanFirestoreData(fullConfig), { merge: true });
-      }
+      await saveSessionIntegrations({
+        publicVerificationDomain: verificationDomain.trim(),
+        branches,
+        whatsAppGateway: { ...whatsAppConfig },
+        ...(geminiApiKey.trim() ? { geminiApiKey: geminiApiKey.trim() } : {}),
+      });
     } catch (err) {
-      console.warn('Firestore integration sync warning:', err);
+      console.warn('Integration save warning:', err);
+      setIsSaving(false);
+      toast.error(err instanceof Error ? err.message : 'تعذر حفظ الربط على الخادم');
+      return;
     }
 
     if (onConfigSaved) {
