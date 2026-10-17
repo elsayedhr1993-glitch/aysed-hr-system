@@ -59,7 +59,7 @@ test('audit log rejects update and delete for every role and has no mutation api
 
   const rules = fs.readFileSync('firestore.rules', 'utf8');
   const block = rules.slice(rules.indexOf('match /audit_logs/'), rules.indexOf('match /work_on_holidays/'));
-  assert.match(block, /allow update, delete: if false;/);
+  assert.match(block, /allow create, update, delete: if false;/);
   assert.doesNotMatch(block, /allow update, delete: if isSuperAdmin/);
 
   const routes = fs.readFileSync('server/auditRoutes.ts', 'utf8');
@@ -173,8 +173,7 @@ test('a durable audit event survives a simulated restart and cannot be updated o
     assert.doesNotMatch(adapter, /\.update\(|\.delete\(/);
     const rules = fs.readFileSync('firestore.rules', 'utf8');
     const block = rules.slice(rules.indexOf('match /audit_logs/'), rules.indexOf('match /work_on_holidays/'));
-    assert.match(block, /allow create: if false;/);
-    assert.match(block, /allow update, delete: if false;/);
+    assert.match(block, /allow create, update, delete: if false;/);
   } finally {
     __setAuditStoreForTests(null);
     __resetAuditLogForTests();
