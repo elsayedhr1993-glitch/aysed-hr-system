@@ -36,9 +36,9 @@ export function getDeterministicCompanyId(companyOrName: string | Partial<Compan
   if (nameStr.includes('المنار')) {
     baseId = ALMANAR_COMPANY_ID;
   } else if (nameStr.includes('الفنار')) {
-    baseId = 'comp-alfanar';
+    baseId = 'tenant_1788413304890';
   } else if (nameStr.includes('إيليت') || nameStr.includes('Elite')) {
-    baseId = 'comp-elite';
+    baseId = 'comp-1788435917695';
   } else if (typeof companyOrName === 'object' && companyOrName.id && !['comp-01', 'comp-1', 'comp-demo', 't-comp-01'].includes(companyOrName.id)) {
     baseId = companyOrName.id;
   } else {

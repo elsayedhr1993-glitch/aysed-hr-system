@@ -11,6 +11,7 @@ export const nodeTestFiles = [
   'src/data/kuwaitPublicHolidays2026.test.ts',
   'src/services/companyLicenseSync.test.ts',
   'src/services/employeeDocumentArchiveSync.test.ts',
+  'src/utils/companyIdAliases.test.ts',
   'src/utils/companyPrintProfile.test.ts',
   'src/utils/contractStatus.test.ts',
   'src/utils/contractTenantRules.test.ts',
