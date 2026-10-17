@@ -72,6 +72,8 @@ gcloud auth application-default login
 | مدير قسم | حضور قسمه | حضور المنشأة كاملاً والرواتب ومنشأة أخرى |
 | مالك المنصة | `companies` و`subscriptions` و`platform_users` | بيانات تشغيل المنشأة من العميل |
 
-المجموعات المغلقة: `subscription_requests` و`system_config/keys` و`system_integrations` و`purged_tenants` و`allocations`.
+المجموعات المغلقة: `subscription_requests` و`system_config/keys` و`system_integrations` و`purged_tenants` و`allocations` وكتابة `platform_settings` وكتابة `dev_companies`.
+
+المتصفح لا يكتب هذه المجموعات. الترخيص وإحداثيات عقد المنشأة على `POST /api/tenant/company-profile` بمعرّف الجلسة. إحداثيات المنصة على `POST /api/platform/pam-form`. ربط المنشأة على `POST /api/tenant/system-integrations` بلا إعادة الأسرار للمتصفح. قراءة طلبات الاشتراك وتعديلها ومستخدم المنشأة على مسارات `/api/platform/subscription-requests` و`/api/platform/facility-users`. مضيف `ais-dev` يقرأ `dev_companies` ولا يكتبها. الدور لا يُكتب من المتصفح.
 
 بعد كل دخول، افتح قائمة شاشة واحدة على الأقل وتأكد أن الصفوف تحمل منشأة الحساب فقط. أي صف من منشأة أخرى يوقف النشر ويبدأ التراجع بنسخ `docs/rules-production-backup.rules` كما في `scripts/rollback-rules.md`.
