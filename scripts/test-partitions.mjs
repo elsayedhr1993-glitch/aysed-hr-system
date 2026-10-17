@@ -6,6 +6,7 @@ export const nodeTestFiles = [
   'server/security/phase3.chat.test.ts',
   'server/security/phase4.studio.test.ts',
   'server/security/saasRoutes.auth.test.ts',
+  'server/security/platformOwnerWrites.auth.test.ts',
   'src/context/OdooHierarchyContext.test.ts',
   'src/context/companyId.test.ts',
   'src/data/kuwaitPublicHolidays2026.test.ts',

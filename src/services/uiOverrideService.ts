@@ -85,9 +85,9 @@ export async function patchUiOverrides(
   _updatedBy?: string,
   _current?: UiOverridesDocument
 ): Promise<UiOverridesDocument> {
-  return postStudio('/api/studio/overrides', { patches }, companyId);
+  return postStudio('/api/platform/ui-overrides', { patches, companyId }, companyId);
 }
 
 export async function resetUiOverride(companyId: string, key: string): Promise<UiOverridesDocument> {
-  return postStudio('/api/studio/overrides/reset', { key }, companyId);
+  return postStudio('/api/platform/ui-overrides/reset', { key, companyId }, companyId);
 }

@@ -132,7 +132,7 @@ test('restore default is audited and returns the code title', async () => {
 
 test('unknown launcher tiles are rejected and the browser no longer writes the document', () => {
   const service = fs.readFileSync('src/services/uiOverrideService.ts', 'utf8');
-  assert.match(service, /\/api\/studio\/overrides/);
+  assert.match(service, /\/api\/platform\/ui-overrides/);
   assert.doesNotMatch(service, /setDoc\(/);
   const routes = fs.readFileSync('server/studioRoutes.ts', 'utf8');
   assert.doesNotMatch(routes, /req\.body\?\.companyId|req\.body\.companyId/);

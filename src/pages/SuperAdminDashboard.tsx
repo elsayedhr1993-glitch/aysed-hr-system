@@ -5,8 +5,17 @@ import {
   Edit3, Save, X, Lock, Building, Phone, Mail, User, Plus, Key, EyeOff, Sliders, Cpu, Layers, Wifi, Settings,
   Download, Upload, HardDrive, FileJson, CheckCheck, RefreshCcw, Sparkles, FolderDown
 } from 'lucide-react';
-import { db, auth, provisionTenantAuth, cleanFirestoreData, purgeTenantCascading, isTenantPurged, getCompaniesCollectionName } from '../lib/firebase';
-import { collection, getDocs, doc, setDoc, deleteDoc, onSnapshot, query, where } from 'firebase/firestore';
+import { db, cleanFirestoreData, purgeTenantCascading, isTenantPurged, getCompaniesCollectionName } from '../lib/firebase';
+import { collection, getDocs, doc, setDoc, onSnapshot, query, where } from 'firebase/firestore';
+import {
+  approveSubscriptionRequest,
+  archiveSubscriptionRequest,
+  createFacilityAdmin,
+  createPlatformCompany,
+  deletePlatformCompliance,
+  deletePlatformSystemConfig,
+  suspendSubscriptionRequest,
+} from '../services/platformOwnerApi';
 import toast from 'react-hot-toast';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { buildAuthedJsonHeaders } from '../lib/clientAuth';
@@ -388,108 +397,38 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     }
 
     setIsCreatingCompany(true);
-    const reqId = 'req-' + Date.now();
-    const subId = 'sub-' + Date.now();
 
     try {
-      const authResult = await provisionTenantAuth({
-        email: cleanEmail,
+      const created = await createPlatformCompany({
         companyName: newCompanyForm.companyName.trim(),
-        ownerName: newCompanyForm.requesterName.trim(),
-        phone: newCompanyForm.phone.trim(),
-        planType: newCompanyForm.planType
-      });
-      const compId = authResult.companyId || ('comp-' + Date.now());
-      const password = authResult.temporaryPassword || '';
-
-      const userUid = authResult.uid || `usr_${Date.now()}`;
-
-      // 2. Create/Update document in companies collection with exact schema
-      const companyDocData = {
-        companyId: compId,
-        id: compId,
-        companyName: newCompanyForm.companyName.trim(),
-        nameAr: newCompanyForm.companyName.trim(),
-        nameEn: newCompanyForm.companyName.trim(),
-        adminEmail: cleanEmail,
-        email: cleanEmail,
-        phone: newCompanyForm.phone.trim(),
-        ownerName: newCompanyForm.requesterName.trim(),
-        plan: newCompanyForm.planType,
-        planType: newCompanyForm.planType,
-        status: newCompanyForm.initialStatus === 'approved' ? 'active' : 'pending',
-        state: newCompanyForm.initialStatus === 'approved' ? 'active' : 'pending',
-        isActive: newCompanyForm.initialStatus === 'approved',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      await setDoc(doc(db, companiesCollection, compId), cleanFirestoreData(companyDocData), { merge: true });
-
-      // 3. Create document in subscriptions collection
-      const subscriptionData = {
-        id: subId,
-        companyId: compId,
-        companyName: newCompanyForm.companyName.trim(),
-        ownerName: newCompanyForm.requesterName.trim(),
+        requesterName: newCompanyForm.requesterName.trim(),
         email: cleanEmail,
         phone: newCompanyForm.phone.trim(),
         planType: newCompanyForm.planType,
-        subscriptionFee: newCompanyForm.empCount === '1-10' ? 50 : newCompanyForm.empCount === '11-50' ? 100 : 200,
-        status: newCompanyForm.initialStatus === 'approved' ? 'active' : 'draft',
-        startDate: new Date().toISOString().split('T')[0],
-        endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      await setDoc(doc(db, 'subscriptions', subId), cleanFirestoreData(subscriptionData), { merge: true });
-
-      // 4. Create document in subscription_requests collection
-      const newReqData = {
-        id: reqId,
-        name: newCompanyForm.companyName.trim(),
-        companyName: newCompanyForm.companyName.trim(),
-        requester_name: newCompanyForm.requesterName.trim() || newCompanyForm.companyName.trim(),
-        requesterName: newCompanyForm.requesterName.trim() || newCompanyForm.companyName.trim(),
-        phone: newCompanyForm.phone.trim(),
-        email: cleanEmail,
-        plan_type: newCompanyForm.planType,
-        planType: newCompanyForm.planType,
-        emp_count: newCompanyForm.empCount,
         empCount: newCompanyForm.empCount,
-        state: newCompanyForm.initialStatus,
-        status: newCompanyForm.initialStatus,
-        created_at: new Date().toISOString(),
-        createdAt: new Date().toISOString()
-      };
-      await setDoc(doc(db, 'subscription_requests', reqId), cleanFirestoreData(newReqData), { merge: true });
-
-      // 5. Create user record in users collection
-      await setDoc(doc(db, 'users', userUid), {
+        initialStatus: newCompanyForm.initialStatus,
+      });
+      const admin = await createFacilityAdmin({
         email: cleanEmail,
         displayName: newCompanyForm.requesterName.trim() || newCompanyForm.companyName.trim(),
-        role: 'COMPANY_ADMIN',
-        companyId: compId,
+        companyId: created.companyId,
         companyName: newCompanyForm.companyName.trim(),
-        mustChangePassword: true,
-        createdAt: new Date().toISOString(),
-        lastLogin: new Date().toISOString()
-      }, { merge: true });
+      });
 
       setIsCreateModalOpen(false);
       await fetchRequests();
 
-      if (authResult.alreadyExisted) {
+      if (admin.alreadyExisted) {
         toast.success(`تم إنشاء الشركة بنجاح وربطها بالحساب الموجود (${cleanEmail})`);
       } else {
         toast.success(`تم إنشاء الشركة وحساب الدخول بنجاح دون التأثير على جلستك!`);
       }
 
-      // If approved, show credentials modal
       if (newCompanyForm.initialStatus === 'approved') {
         setSelectedActivation({
           companyName: newCompanyForm.companyName.trim(),
           email: cleanEmail,
-          password: password,
+          password: admin.temporaryPassword,
           phone: newCompanyForm.phone.trim(),
           requesterName: newCompanyForm.requesterName.trim()
         });
@@ -707,61 +646,29 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   const handleActivate = async (req: SubscriptionRequest) => {
     try {
       const email = (req.email || `${req.phone.replace(/[^0-9]/g, '') || Date.now()}@aysedhr.com`).trim().toLowerCase();
-      const authResult = await provisionTenantAuth({
+      const approved = await approveSubscriptionRequest({
+        requestId: req.id,
+        companyId: req.companyId,
+        companyName: req.name,
+        requesterName: req.requester_name,
         email,
-        companyName: req.name,
-        ownerName: req.requester_name,
         phone: req.phone,
-        planType: req.plan_type
+        planType: req.plan_type,
       });
-
-      const userUid = authResult.uid || `usr_${Date.now()}`;
-      const compId = authResult.companyId || (req.id.startsWith('comp-') ? req.id : `comp-${Date.now()}`);
-      const tempPass = authResult.temporaryPassword || '';
-
-      // 2. Set or update document in companies collection with exact requested schema
-      const companyDocData = {
-        companyId: compId,
-        id: compId,
-        companyName: req.name,
-        nameAr: req.name,
-        nameEn: req.name,
-        adminEmail: email,
-        email: email,
-        phone: req.phone,
-        ownerName: req.requester_name,
-        plan: req.plan_type || 'active',
-        planType: req.plan_type || 'active',
-        status: 'active',
-        state: 'active',
-        isActive: true,
-        updatedAt: new Date().toISOString()
-      };
-      await setDoc(doc(db, companiesCollection, compId), cleanFirestoreData(companyDocData), { merge: true });
-
-      // 3. Ensure user doc exists
-      await setDoc(doc(db, 'users', userUid), {
+      const admin = await createFacilityAdmin({
         email,
         displayName: req.requester_name || req.name,
-        role: 'COMPANY_ADMIN',
-        companyId: compId,
+        companyId: approved.companyId,
         companyName: req.name,
-        createdAt: new Date().toISOString(),
-        lastLogin: new Date().toISOString()
-      }, { merge: true });
-
-      try {
-        await setDoc(doc(db, 'subscription_requests', req.id), { status: 'approved', state: 'approved' }, { merge: true });
-      } catch (e) {}
+      });
 
       fetchRequests();
-      toast.success(authResult.alreadyExisted ? 'تم ربط وتفعيل حساب الشركة بنجاح' : 'تم تفعيل حساب الشركة وإنشاء بيانات الدخول بنجاح');
+      toast.success(admin.alreadyExisted ? 'تم ربط وتفعيل حساب الشركة بنجاح' : 'تم تفعيل حساب الشركة وإنشاء بيانات الدخول بنجاح');
 
-      // Open Modal with credentials
       setSelectedActivation({
         companyName: req.name,
         email,
-        password: tempPass,
+        password: admin.temporaryPassword,
         phone: req.phone,
         requesterName: req.requester_name
       });
@@ -773,9 +680,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
   const handleSuspend = async (req: SubscriptionRequest) => {
     try {
-      try {
-        await setDoc(doc(db, 'subscription_requests', req.id), { status: 'suspended', state: 'suspended' }, { merge: true });
-      } catch (e) {}
+      await suspendSubscriptionRequest(req.id);
 
       toast.success(`تم إيقاف/تجميد اشتراك شركة (${req.name}) مؤقتاً ومنع وصول المستخدمين`);
       fetchRequests();
@@ -789,6 +694,9 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     setIsExecutingDelete(true);
     try {
       const email = (deletingRequest.email || `${deletingRequest.phone.replace(/[^0-9]/g, '')}@aysedhr.com`).trim().toLowerCase();
+      const purgeCompanyId = (deletingRequest.companyId || deletingRequest.id || '').trim();
+      await deletePlatformCompliance(purgeCompanyId);
+      await deletePlatformSystemConfig(purgeCompanyId);
       const res = await purgeTenantCascading({
         id: deletingRequest.id,
         name: deletingRequest.name,
@@ -865,7 +773,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   const confirmArchive = async () => {
     if (!archiveTarget) return;
     try {
-      await setDoc(doc(db, 'subscription_requests', archiveTarget.id), { archived: true }, { merge: true });
+      await archiveSubscriptionRequest(archiveTarget.id);
       setRequests((prev) => prev.filter((row) => row.id !== archiveTarget.id));
       toast.success(`أُرشفت ${archiveTarget.name}`);
       setArchiveTarget(null);

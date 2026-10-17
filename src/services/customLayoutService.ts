@@ -1,5 +1,6 @@
-import { doc, getDoc, onSnapshot, setDoc } from 'firebase/firestore';
-import { cleanFirestoreData, db } from '../lib/firebase';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { savePlatformCustomLayout } from './platformOwnerApi';
 import { getDefaultScreenLayout } from '../config/defaultLayouts';
 import type { ResolvedScreenLayout, ScreenCustomLayout, ScreenId } from '../types/customLayout';
 import { layoutCacheKey, mergeScreenLayout } from '../utils/customLayoutUtils';
@@ -102,7 +103,7 @@ export function subscribeScreenLayout(
   );
 }
 
-/** Super Admin only — enforced in UI and Firestore rules */
+/** Save goes through the platform-owner server route. The browser does not write custom_layouts. */
 export async function saveScreenLayout(
   companyId: string,
   screenId: ScreenId,
@@ -119,11 +120,10 @@ export async function saveScreenLayout(
     publishedAt: new Date().toISOString(),
   };
 
-  await setDoc(
-    layoutDocRef(companyId, screenId),
-    cleanFirestoreData(payload as unknown as Record<string, unknown>),
-    {
-    merge: true,
+  await savePlatformCustomLayout({
+    companyId,
+    screenId,
+    layout: payload as unknown as Record<string, unknown>,
   });
   writeCache(companyId, screenId, payload);
   return payload;

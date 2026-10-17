@@ -173,7 +173,8 @@ export function createTenantScopeMiddleware(deps: {
     };
     req.sessionTenant = tenant;
 
-    if (req.path !== '/api/admin/create-tenant') {
+    // Platform-owner routes name the target tenant in the body. The route rejects every other role.
+    if (req.path !== '/api/admin/create-tenant' && !req.path.startsWith('/api/platform/')) {
       const scoped = applySessionCompanyOnBody(req.body, tenant.companyId);
       if (scoped.ok === false) {
         return res.status(403).json({ success: false, error: scoped.error, code: 'COMPANY_SCOPE' });
