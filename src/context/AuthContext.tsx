@@ -367,11 +367,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     (async () => {
       const headers = await buildAuthedJsonHeaders();
       if (cancelled || !headers.Authorization) return;
-      await fetch('/api/auth/login-success', {
+      const response = await fetch('/api/auth/login-success', {
         method: 'POST',
         headers,
         credentials: 'same-origin',
-      }).catch(() => {});
+      }).catch(() => null);
+      if (response?.ok && auth.currentUser) {
+        const refreshed = await auth.currentUser.getIdToken(true).catch(() => '');
+        if (!cancelled && refreshed) setToken(refreshed);
+      }
     })();
     return () => {
       cancelled = true;

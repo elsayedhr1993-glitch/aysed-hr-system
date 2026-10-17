@@ -420,9 +420,14 @@ export async function purgeTenantCascading(params: {
     'users'
   ];
 
+  const companyIdChunks: string[][] = [];
+  const companyIds = [...targetIds].map((id) => String(id || '').trim()).filter(Boolean);
+  for (let i = 0; i < companyIds.length; i += 10) companyIdChunks.push(companyIds.slice(i, i + 10));
+
   for (const colName of subCollections) {
     try {
-      const snap = await getDocs(collection(db, colName));
+      for (const chunk of companyIdChunks) {
+      const snap = await getDocs(query(collection(db, colName), where('companyId', 'in', chunk)));
       for (const d of snap.docs) {
         const val = d.data();
         if (isMatch(val, d.id)) {
@@ -433,6 +438,7 @@ export async function purgeTenantCascading(params: {
             deletedCounts.otherSubRecords += 1;
           }
         }
+      }
       }
     } catch (colErr) {
       console.warn(`Error deleting from ${colName}:`, colErr);
@@ -451,7 +457,8 @@ export async function purgeTenantCascading(params: {
       }
 
       // Query-based deletions for any matching records
-      const snap = await getDocs(collection(db, colName));
+      for (const chunk of companyIdChunks) {
+      const snap = await getDocs(query(collection(db, colName), where('companyId', 'in', chunk)));
       for (const d of snap.docs) {
         const val = d.data();
         if (isMatch(val, d.id)) {
@@ -460,6 +467,7 @@ export async function purgeTenantCascading(params: {
             deletedCounts[colName] += 1;
           }
         }
+      }
       }
     } catch (colErr) {
       console.warn(`Error deleting primary collection ${colName}:`, colErr);

@@ -31,6 +31,26 @@ function isSecureRequest(req: Request): boolean {
   return Boolean(req.secure || forwarded === 'https');
 }
 
+/** users/{uid} is the source of truth. Existing claims such as mustChangePassword are kept. */
+async function syncLoginCustomClaims(uid: string): Promise<void> {
+  const admin = getAdminAuth();
+  const db = getAdminFirestore();
+  if (!admin || !db) return;
+  const snap = await db.collection('users').doc(uid).get();
+  if (!snap.exists) return;
+  const data = snap.data() || {};
+  const role = String(data.role || '').trim();
+  const companyId = data.companyId != null && String(data.companyId).trim()
+    ? String(data.companyId).trim()
+    : null;
+  const current = await admin.getUser(uid);
+  await admin.setCustomUserClaims(uid, {
+    ...(current.customClaims || {}),
+    role: role || null,
+    companyId,
+  });
+}
+
 export function registerAuthRoutes(app: Express): void {
   app.post('/api/auth/login-guard', (req, res) => {
     const email = String(req.body?.email || '').trim().toLowerCase();
@@ -70,8 +90,9 @@ export function registerAuthRoutes(app: Express): void {
         sessionCompanyId: tenant.companyId,
       });
     }
+    await syncLoginCustomClaims(auth.uid);
     res.setHeader('Set-Cookie', sessionCookie(auth.token, IDLE_MS, isSecureRequest(req)));
-    return res.json({ success: true, idleMinutes: IDLE_MS / 60000 });
+    return res.json({ success: true, idleMinutes: IDLE_MS / 60000, claimsUpdated: true });
   });
 
   app.post('/api/auth/session/touch', async (req, res) => {

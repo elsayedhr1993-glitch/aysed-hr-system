@@ -6,7 +6,7 @@ import {
   Download, Upload, HardDrive, FileJson, CheckCheck, RefreshCcw, Sparkles, FolderDown
 } from 'lucide-react';
 import { db, auth, provisionTenantAuth, cleanFirestoreData, purgeTenantCascading, isTenantPurged, getCompaniesCollectionName } from '../lib/firebase';
-import { collection, getDocs, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, deleteDoc, onSnapshot, query, where } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { buildAuthedJsonHeaders } from '../lib/clientAuth';
@@ -244,8 +244,11 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       } catch (e) {}
 
       try {
-        const empSnap = await getDocs(collection(db, 'employees'));
-        backupData.employees = empSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const selectedCompanyId = String(backupData.companies.find((company) => company && (company as { companyId?: string }).companyId)?.id || '');
+        if (selectedCompanyId) {
+          const empSnap = await getDocs(query(collection(db, 'employees'), where('companyId', '==', selectedCompanyId)));
+          backupData.employees = empSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        }
       } catch (e) {}
 
       // 2. Local snapshot export disabled by policy (cloud-only source of truth).

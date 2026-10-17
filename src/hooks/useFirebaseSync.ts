@@ -380,7 +380,8 @@ export const useFirebaseSync = (
     }
 
     // Companies & Subscriptions are available for tenant selection and platform administration
-    const unsubCompanies = onSnapshot(collection(db, getCompaniesCollectionName()), 
+    const companiesQuery = query(collection(db, getCompaniesCollectionName()), where('companyId', '==', tenantId));
+    const unsubCompanies = onSnapshot(companiesQuery, 
         snap => {
             if (setCompanies) {
                 const docs = snap.docs.map((d) => ({ ...d.data(), id: d.id })) as Company[];
@@ -412,7 +413,8 @@ export const useFirebaseSync = (
 
     let unsubSubscriptions: (() => void) | null = null;
     if (setSubscriptions) {
-      unsubSubscriptions = onSnapshot(collection(db, 'subscriptions'),
+      const subscriptionsQuery = query(collection(db, 'subscriptions'), where('companyId', '==', tenantId));
+      unsubSubscriptions = onSnapshot(subscriptionsQuery,
         snap => {
           const remote = snap.docs.map(d => ({ ...d.data(), id: d.id }));
           if (remote.length > 0) {

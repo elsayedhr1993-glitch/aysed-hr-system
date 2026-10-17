@@ -52,6 +52,8 @@
 ## عزل المنشأة والصلاحيات
 
 - [x] أي مجموعة Firestore جديدة بلا `allow` صريح تُرفض افتراضياً. لا توجد قاعدة `match /{document=**}` تمنح وصولاً عاماً. من العميل، مالك المنصة يقرأ ويكتب `companies` و`subscriptions` و`platform_users` فقط، ودخول بيانات المنشأة يتم عبر الخادم (break-glass) لا عبر القواعد. `audit_logs` بلا create أو update أو delete لأي دور. المحاكاة على محاكي `demo-aysed` في `tests/firestoreRulesEmulator.ts`.
+- [x] مطابقة القوائم تقارن `companyId` مباشرة. `request.auth.token.get('companyId', null)` و`get('role', null)` مع الرجوع إلى `users/{uid}` إذا غاب الـ claim. الدخول يكتب `companyId` و`role` في custom claims من مستند المستخدم، وعلى المحاكي فقط بمشروع `demo-aysed` بلا شهادة المشروع الحقيقي.
+- [x] قوائم الشاشات لـ COMPANY_ADMIN وHR_MANAGER وHR_USER وFINANCE وEMPLOYEE وDEPARTMENT_MANAGER تُفتح داخل المنشأة وتُرفض لمنشأة أخرى. `payroll_*` و`payslips` و`loans` و`leave_settlements` لمسؤول المنشأة والمالية فقط، وHR_USER وHR_MANAGER مرفوضان. مغلقة بلا allow: `subscription_requests` و`system_config/keys` و`system_integrations` و`purged_tenants` و`allocations` ونسخ الاحتياطي العامة. مسح `allocations` في شاشة العطلات موقف والكود باقٍ. استعلامات العميل التشغيلية تحمل `where companyId`.
 - [ ] كل قراءة وكتابة على الخادم مقيّدة بـ companyId، وليس في الواجهة فقط.
 - [ ] أدوار الصلاحيات تُفرض على الخادم للعمليات الحساسة (اعتماد، رواتب، تصدير، حذف).
 

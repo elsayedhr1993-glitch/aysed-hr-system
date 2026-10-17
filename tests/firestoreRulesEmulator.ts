@@ -8,7 +8,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { assertFails, assertSucceeds, initializeTestEnvironment } from '@firebase/rules-unit-testing';
-import { deleteDoc, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from 'firebase/firestore';
 
 const PROJECT_ID = 'demo-aysed';
 const COMPANY_A = 'comp-a';
@@ -107,6 +107,33 @@ async function main() {
     await setDoc(doc(db, 'subscriptions', 'sub-1'), { plan: 'demo' });
     await setDoc(doc(db, 'platform_users', 'owner'), { role: 'SUPER_ADMIN' });
     await setDoc(doc(db, 'unlisted_collection', 'secret'), { companyId: COMPANY_A });
+    await setDoc(doc(db, 'companies', COMPANY_A), { name: 'Facility A', companyId: COMPANY_A });
+    const screenDocs = [
+      'departments', 'job_titles', 'warnings', 'employeeNotes', 'notifications',
+      'shift_profiles', 'employee_shifts', 'attendance_monthly_rollups',
+      'leave_balance_transactions', 'payroll_runs', 'payroll_inputs', 'payroll_leave_accruals',
+      'loans', 'leave_settlements', 'attendance_records',
+    ];
+    for (const name of screenDocs) {
+      await setDoc(doc(db, name, `${name}-a`), { companyId: COMPANY_A, employeeId: 'emp-own', departmentId: 'dept-1' });
+      await setDoc(doc(db, name, `${name}-b`), { companyId: COMPANY_B, employeeId: 'emp-b', departmentId: 'dept-9' });
+    }
+    await setDoc(doc(db, 'leave_requests', 'leave-own'), { companyId: COMPANY_A, employeeId: 'emp-own', departmentId: 'dept-1' });
+    await setDoc(doc(db, 'leave_requests', 'leave-other'), { companyId: COMPANY_A, employeeId: 'emp-other', departmentId: 'dept-2' });
+    await setDoc(doc(db, 'documents', 'doc-own'), { companyId: COMPANY_A, employeeId: 'emp-own', name: 'own' });
+    await setDoc(doc(db, 'documents', 'doc-other-emp'), { companyId: COMPANY_A, employeeId: 'emp-other', name: 'other' });
+    await setDoc(doc(db, 'attendance_posted_months', COMPANY_A), { months: ['2026-10'] });
+    await setDoc(doc(db, 'attendance_posted_months', COMPANY_B), { months: ['2026-10'] });
+    await setDoc(doc(db, 'companies', COMPANY_A, 'licenses', 'lic-a'), { companyId: COMPANY_A, name: 'license' });
+    await setDoc(doc(db, 'companies', COMPANY_B, 'licenses', 'lic-b'), { companyId: COMPANY_B, name: 'license' });
+    await setDoc(doc(db, 'company_settings', COMPANY_A), { companyId: COMPANY_A });
+    await setDoc(doc(db, 'company_settings', COMPANY_B), { companyId: COMPANY_B });
+    await setDoc(doc(db, 'platform_settings', 'pam_form_2'), { title: 'pam' });
+    await setDoc(doc(db, 'subscription_requests', 'req-1'), { companyId: COMPANY_A });
+    await setDoc(doc(db, 'system_config', 'keys'), { secret: 'closed' });
+    await setDoc(doc(db, 'system_integrations', COMPANY_A), { companyId: COMPANY_A });
+    await setDoc(doc(db, 'purged_tenants', COMPANY_A), { companyId: COMPANY_A });
+    await setDoc(doc(db, 'allocations', 'alloc-1'), { companyId: COMPANY_A });
   });
 
   const adminA = () => contextFor(testEnv, 'user-admin-a', 'COMPANY_ADMIN', COMPANY_A);
@@ -286,6 +313,143 @@ async function main() {
   });
   await runCase('مجموعة بلا allow تُرفض حتى على SUPER_ADMIN', async () => {
     await assertFails(getDoc(doc(superAdmin(), 'unlisted_collection', 'secret')));
+  });
+
+  const listByCompany = (db: ReturnType<typeof adminA>, name: string, companyId: string) =>
+    getDocs(query(collection(db, name), where('companyId', '==', companyId)));
+  const hrScreens = [
+    'employees', 'departments', 'job_titles', 'warnings', 'employeeNotes', 'notifications',
+    'shift_profiles', 'employee_shifts', 'documents', 'leave_requests', 'attendance_monthly_rollups',
+    'leave_balance_transactions',
+  ];
+  const payrollScreens = [
+    'payslips', 'loans', 'leave_settlements', 'payroll_runs', 'payroll_inputs', 'payroll_leave_accruals',
+  ];
+  const closedDocs = [
+    ['subscription_requests', 'req-1'],
+    ['system_config', 'keys'],
+    ['system_integrations', COMPANY_A],
+    ['purged_tenants', COMPANY_A],
+    ['allocations', 'alloc-1'],
+  ] as const;
+  const staff = [
+    ['COMPANY_ADMIN', adminA],
+    ['HR_MANAGER', hrManager],
+    ['HR_USER', hrUser],
+    ['FINANCE', finance],
+  ] as const;
+
+  for (const [roleName, dbFor] of staff) {
+    for (const name of hrScreens) {
+      await runCase(`${roleName} يفتح قائمة ${name}`, async () => {
+        await assertSucceeds(listByCompany(dbFor(), name, COMPANY_A));
+      });
+      await runCase(`${roleName} تُرفض قائمة ${name} لمنشأة أخرى`, async () => {
+        await assertFails(listByCompany(dbFor(), name, COMPANY_B));
+      });
+    }
+    for (const [collectionName, id] of closedDocs) {
+      await runCase(`${roleName} تُرفض المجموعة المغلقة ${collectionName}`, async () => {
+        await assertFails(getDoc(doc(dbFor(), collectionName, id)));
+      });
+    }
+  }
+
+  for (const [roleName, dbFor] of [['COMPANY_ADMIN', adminA], ['FINANCE', finance]] as const) {
+    for (const name of payrollScreens) {
+      await runCase(`${roleName} يفتح قائمة ${name}`, async () => {
+        await assertSucceeds(listByCompany(dbFor(), name, COMPANY_A));
+      });
+      await runCase(`${roleName} تُرفض قائمة ${name} لمنشأة أخرى`, async () => {
+        await assertFails(listByCompany(dbFor(), name, COMPANY_B));
+      });
+    }
+  }
+
+  for (const [roleName, dbFor] of [['HR_MANAGER', hrManager], ['HR_USER', hrUser], ['EMPLOYEE', employee], ['DEPARTMENT_MANAGER', dept]] as const) {
+    for (const name of payrollScreens) {
+      await runCase(`${roleName} تُرفض قائمة ${name}`, async () => {
+        await assertFails(listByCompany(dbFor(), name, COMPANY_A));
+      });
+    }
+  }
+
+  await runCase('COMPANY_ADMIN يفتح إعدادات منشأته', async () => {
+    await assertSucceeds(getDoc(doc(adminA(), 'company_settings', COMPANY_A)));
+  });
+  await runCase('COMPANY_ADMIN تُرفض إعدادات منشأة أخرى', async () => {
+    await assertFails(getDoc(doc(adminA(), 'company_settings', COMPANY_B)));
+  });
+  await runCase('HR_USER تُرفض إعدادات المنشأة', async () => {
+    await assertFails(getDoc(doc(hrUser(), 'company_settings', COMPANY_A)));
+  });
+  await runCase('COMPANY_ADMIN يفتح تراخيص منشأته', async () => {
+    await assertSucceeds(getDocs(query(collection(adminA(), 'companies', COMPANY_A, 'licenses'), where('companyId', '==', COMPANY_A))));
+  });
+  await runCase('COMPANY_ADMIN تُرفض تراخيص منشأة أخرى', async () => {
+    await assertFails(getDocs(query(collection(adminA(), 'companies', COMPANY_B, 'licenses'), where('companyId', '==', COMPANY_B))));
+  });
+  await runCase('COMPANY_ADMIN يفتح أشهر الحضور المرحّلة', async () => {
+    await assertSucceeds(getDoc(doc(adminA(), 'attendance_posted_months', COMPANY_A)));
+  });
+  await runCase('COMPANY_ADMIN تُرفض أشهر منشأة أخرى', async () => {
+    await assertFails(getDoc(doc(adminA(), 'attendance_posted_months', COMPANY_B)));
+  });
+  await runCase('HR_USER يقرأ نموذج PAM', async () => {
+    await assertSucceeds(getDoc(doc(hrUser(), 'platform_settings', 'pam_form_2')));
+  });
+  await runCase('HR_USER لا يكتب نموذج PAM', async () => {
+    await assertFails(setDoc(doc(hrUser(), 'platform_settings', 'pam_form_2'), { title: 'changed' }));
+  });
+
+  const ownEmployeeList = (db: ReturnType<typeof employee>, name: string) =>
+    getDocs(query(collection(db, name), where('companyId', '==', COMPANY_A), where('employeeId', '==', 'emp-own')));
+  for (const name of ['leave_requests', 'documents', 'attendance_records', 'attendance']) {
+    await runCase(`EMPLOYEE يفتح قائمته ${name}`, async () => {
+      await assertSucceeds(ownEmployeeList(employee(), name));
+    });
+    await runCase(`EMPLOYEE تُرفض قائمة ${name} لمنشأة أخرى`, async () => {
+      await assertFails(getDocs(query(collection(employee(), name), where('companyId', '==', COMPANY_B), where('employeeId', '==', 'emp-own'))));
+    });
+  }
+  await runCase('EMPLOYEE تُرفض قائمة الموظفين العامة', async () => {
+    await assertFails(listByCompany(employee(), 'employees', COMPANY_A));
+  });
+  for (const [collectionName, id] of closedDocs) {
+    await runCase(`EMPLOYEE تُرفض المجموعة المغلقة ${collectionName}`, async () => {
+      await assertFails(getDoc(doc(employee(), collectionName, id)));
+    });
+  }
+
+  await runCase('DEPARTMENT_MANAGER يفتح حضور قسمه', async () => {
+    await assertSucceeds(getDocs(query(
+      collection(dept(), 'attendance'),
+      where('companyId', '==', COMPANY_A),
+      where('departmentId', '==', 'dept-1')
+    )));
+  });
+  await runCase('DEPARTMENT_MANAGER تُرفض قائمة حضور المنشأة كاملة', async () => {
+    await assertFails(listByCompany(dept(), 'attendance', COMPANY_A));
+  });
+  await runCase('DEPARTMENT_MANAGER تُرفض حضور منشأة أخرى', async () => {
+    await assertFails(getDocs(query(
+      collection(dept(), 'attendance'),
+      where('companyId', '==', COMPANY_B),
+      where('departmentId', '==', 'dept-1')
+    )));
+  });
+  for (const [collectionName, id] of closedDocs) {
+    await runCase(`DEPARTMENT_MANAGER تُرفض المجموعة المغلقة ${collectionName}`, async () => {
+      await assertFails(getDoc(doc(dept(), collectionName, id)));
+    });
+  }
+
+  const hrManagerNoClaim = testEnv.authenticatedContext('user-hr-manager', {
+    email: 'user-hr-manager@facility.example',
+    role: 'HR_MANAGER',
+  }).firestore();
+  await runCase('HR_MANAGER بلا claim للمنشأة يفتح الموظفين من users/{uid}', async () => {
+    await assertSucceeds(listByCompany(hrManagerNoClaim, 'employees', COMPANY_A));
   });
 
   await testEnv.cleanup();

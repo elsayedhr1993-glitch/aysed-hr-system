@@ -1,6 +1,6 @@
 // src/services/holidayWorkService.ts
 import { db, cleanFirestoreData } from '../lib/firebase';
-import { collection, setDoc, deleteDoc, doc, getDocs, getDoc, query, orderBy, where, onSnapshot, type Unsubscribe } from 'firebase/firestore';
+import { collection, setDoc, deleteDoc, doc, getDocs, getDoc, query, where, onSnapshot, type Unsubscribe } from 'firebase/firestore';
 import { MANARA_STORAGE_KEYS, getPersistentData, setPersistentData } from '../utils/persistentStorage';
 import { HrLeaveAllocation } from '../types';
 import { cancelLeaveBalanceTransaction, upsertLeaveBalanceTransaction } from './leaveBalanceLedgerService';
@@ -185,9 +185,8 @@ export async function getHolidayWorkRecords(companyId?: string): Promise<WorkOnH
   if (!db) return [];
 
   try {
-    const baseQuery = companyId && companyId !== 'comp-super-admin'
-      ? query(collection(db, 'work_on_holidays'), where('companyId', '==', companyId))
-      : query(collection(db, 'work_on_holidays'), orderBy('date', 'desc'));
+    if (!companyId || companyId === 'comp-super-admin') return [];
+    const baseQuery = query(collection(db, 'work_on_holidays'), where('companyId', '==', companyId));
 
     const snap = await getDocs(baseQuery);
     const records = snap.docs
@@ -259,8 +258,11 @@ export async function deleteHolidayWorkRecord(recordId: string, employeeId?: str
           try { await deleteDoc(doc(db, 'work_on_holidays', targetRecord.id)); } catch (_) {}
         }
 
-        const snap = await getDocs(collection(db, 'work_on_holidays'));
-        for (const d of snap.docs) {
+        const holidayCompanyId = targetRecord?.companyId;
+        const snap = holidayCompanyId
+          ? await getDocs(query(collection(db, 'work_on_holidays'), where('companyId', '==', holidayCompanyId)))
+          : null;
+        for (const d of snap?.docs || []) {
           const data = d.data() as any;
           const matches = d.id === recordId || 
                           data.id === recordId || 
@@ -280,10 +282,14 @@ export async function deleteHolidayWorkRecord(recordId: string, employeeId?: str
         for (const allocId of allocIds) {
           try { await deleteDoc(doc(db, LEAVE_ALLOCATIONS_COLLECTION, allocId)); } catch (_) {}
         }
-        const allocSnap = await getDocs(
-          query(collection(db, LEAVE_ALLOCATIONS_COLLECTION), where('employeeId', '==', targetEmpId || '__none__'))
-        );
-        for (const d of allocSnap.docs) {
+        const allocSnap = holidayCompanyId
+          ? await getDocs(query(
+              collection(db, LEAVE_ALLOCATIONS_COLLECTION),
+              where('companyId', '==', holidayCompanyId),
+              where('employeeId', '==', targetEmpId || '__none__')
+            ))
+          : null;
+        for (const d of allocSnap?.docs || []) {
           const data = d.data() as any;
           const isTargetAlloc =
             data.id?.includes(recordId) ||
@@ -293,15 +299,19 @@ export async function deleteHolidayWorkRecord(recordId: string, employeeId?: str
             try { await deleteDoc(doc(db, LEAVE_ALLOCATIONS_COLLECTION, d.id)); } catch (_) {}
           }
         }
-        // Legacy collection cleanup
-        const legacySnap = await getDocs(collection(db, 'allocations'));
-        for (const d of legacySnap.docs) {
-          const data = d.data() as any;
-          const isTargetAlloc =
-            data.id?.includes(recordId) ||
-            (targetRecord?.id && data.id?.includes(targetRecord.id));
-          if (isTargetAlloc) {
-            try { await deleteDoc(doc(db, 'allocations', d.id)); } catch (_) {}
+        // Legacy `allocations` wipe is stopped. The collection stays closed.
+        // The loop remains here until an explicit approval to delete it.
+        const LEGACY_ALLOCATIONS_WIPE_ENABLED = false;
+        if (LEGACY_ALLOCATIONS_WIPE_ENABLED) {
+          const legacySnap = await getDocs(collection(db, 'allocations'));
+          for (const d of legacySnap.docs) {
+            const data = d.data() as any;
+            const isTargetAlloc =
+              data.id?.includes(recordId) ||
+              (targetRecord?.id && data.id?.includes(targetRecord.id));
+            if (isTargetAlloc) {
+              try { await deleteDoc(doc(db, 'allocations', d.id)); } catch (_) {}
+            }
           }
         }
       }

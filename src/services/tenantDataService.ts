@@ -783,7 +783,7 @@ export const TenantDatabaseService = {
   /**
    * Read-only. True when any operational collection still points at the employee.
    */
-  async hasEmployeeLinkedRecords(employeeId: string): Promise<boolean> {
+  async hasEmployeeLinkedRecords(employeeId: string, companyId?: string): Promise<boolean> {
     const relCols = [
       'contracts',
       'commencements',
@@ -801,8 +801,9 @@ export const TenantDatabaseService = {
     ];
     for (const colName of relCols) {
       try {
+        if (!companyId) continue;
         const snap = await getDocs(
-          query(collection(db, colName), where('employeeId', '==', employeeId), limit(1))
+          query(collection(db, colName), where('companyId', '==', companyId), where('employeeId', '==', employeeId), limit(1))
         );
         if (!snap.empty) return true;
       } catch {
@@ -853,7 +854,8 @@ export const TenantDatabaseService = {
       ];
       for (const colName of relCols) {
         try {
-          const q = query(collection(db, colName), where('employeeId', '==', employeeId));
+          if (!companyId) continue;
+          const q = query(collection(db, colName), where('companyId', '==', companyId), where('employeeId', '==', employeeId));
           const snap = await getDocs(q);
           await Promise.all(snap.docs.map(d => deleteDoc(doc(db, colName, d.id))));
         } catch (colErr) {}
@@ -873,7 +875,7 @@ export const TenantDatabaseService = {
   async clearAllEmployeesAndSeedOne(activeCompanyId: string = 'comp-1788442584841'): Promise<{ success: boolean; testEmployee: any; message: string }> {
     try {
       // 1. Delete all existing employee documents in Firestore
-      const snap = await getDocs(collection(db, 'employees'));
+      const snap = await getDocs(query(collection(db, 'employees'), where('companyId', '==', activeCompanyId)));
       const batchDeletePromises = snap.docs.map(d => deleteDoc(doc(db, 'employees', d.id)));
       await Promise.all(batchDeletePromises);
 
@@ -1228,9 +1230,11 @@ export const TenantDatabaseService = {
       'settlements'
     ];
     try {
+      const activeCompanyId = typeof localStorage !== 'undefined' ? (localStorage.getItem('activeCompanyId') || '') : '';
       for (const colName of collectionsToClear) {
         try {
-          const snap = await getDocs(collection(db, colName));
+          if (!activeCompanyId) continue;
+          const snap = await getDocs(query(collection(db, colName), where('companyId', '==', activeCompanyId)));
           const deletePromises = snap.docs.map(d => deleteDoc(doc(db, colName, d.id)).catch(err => console.warn(`Delete doc ${d.id} warning:`, err)));
           await Promise.all(deletePromises);
         } catch (colErr) {
@@ -1242,7 +1246,6 @@ export const TenantDatabaseService = {
       const authSession = localStorage.getItem('aysed_hr_auth') || localStorage.getItem('aysed_token');
       const currentUser = localStorage.getItem('current_user') || localStorage.getItem('aysed_user');
       const devMode = localStorage.getItem('aysed_dev_mode') || localStorage.getItem('aysed_debug');
-      const activeCompanyId = localStorage.getItem('activeCompanyId') || 'comp-1788442584841';
 
       // Clear all items in localStorage and sessionStorage
       try {

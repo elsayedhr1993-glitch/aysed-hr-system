@@ -49,6 +49,17 @@ function normalizeAndValidatePrivateKey(rawKey: unknown): string | null {
   }
 }
 
+function isLocalEmulatorHost(value: string | undefined): boolean {
+  const host = String(value || '').trim().toLowerCase();
+  return host.startsWith('127.0.0.1') || host.startsWith('localhost') || host.startsWith('[::1]');
+}
+
+/** Auth and Firestore emulator hosts must both be local. Never uses a production certificate. */
+export function useDemoEmulatorAdmin(): boolean {
+  return isLocalEmulatorHost(process.env.FIREBASE_AUTH_EMULATOR_HOST)
+    && isLocalEmulatorHost(process.env.FIRESTORE_EMULATOR_HOST);
+}
+
 export function hasFirebaseAdminCredentialEnv(): boolean {
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
   if (raw && raw.trim() && !raw.includes('YOUR_')) return true;
@@ -95,6 +106,18 @@ function parseServiceAccountFromEnv(): Record<string, unknown> | null {
 
 export function getAdminAuth(): ReturnType<typeof getAuth> | null {
   if (authAdmin) return authAdmin;
+
+  if (useDemoEmulatorAdmin()) {
+    if (getApps().length === 0) {
+      adminApp = initializeApp({ projectId: 'demo-aysed' });
+    } else {
+      adminApp = getApps()[0];
+    }
+    authAdmin = getAuth(adminApp);
+    firebaseAdminInitAttempted = true;
+    return authAdmin;
+  }
+
   if (firebaseAdminInitAttempted && !adminApp) return null;
 
   if (!hasFirebaseAdminCredentialEnv()) {
@@ -167,6 +190,7 @@ function resolveFirestoreDatabaseId(): string | undefined {
 export function getAdminFirestore() {
   if (!getAdminAuth() || !adminApp) return null;
   try {
+    if (useDemoEmulatorAdmin()) return getFirestore(adminApp);
     const databaseId = resolveFirestoreDatabaseId();
     return databaseId ? getFirestore(adminApp, databaseId) : getFirestore(adminApp);
   } catch {

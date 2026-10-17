@@ -198,10 +198,11 @@ export const Attendances: React.FC = () => {
   // Persistent custom, manual, and imported records are stored in Firestore.
   const [customAttendanceRecords, setCustomAttendanceRecords] = useState<AttendanceItem[]>([]);
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'attendance_records'), snapshot => {
+    if (!activeCompId) return undefined;
+    const attendanceQuery = query(collection(db, 'attendance_records'), where('companyId', '==', activeCompId));
+    const unsubscribe = onSnapshot(attendanceQuery, snapshot => {
       const records = snapshot.docs
-        .map(item => ({ ...item.data(), id: item.id } as AttendanceItem & { companyId?: string }))
-        .filter(item => item.companyId === activeCompId);
+        .map(item => ({ ...item.data(), id: item.id } as AttendanceItem & { companyId?: string }));
       setCustomAttendanceRecords(records);
     }, error => console.error('Failed to load attendance records from Firestore', error));
     return () => unsubscribe();
