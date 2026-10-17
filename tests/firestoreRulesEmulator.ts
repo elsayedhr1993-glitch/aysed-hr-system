@@ -452,6 +452,21 @@ async function main() {
     await assertSucceeds(listByCompany(hrManagerNoClaim, 'employees', COMPANY_A));
   });
 
+  // Transition window: rules are published, and the live session still carries
+  // the old token with neither role nor companyId. users/{uid} is the source.
+  const staleSession = testEnv.authenticatedContext('user-hr-manager', {
+    email: 'user-hr-manager@facility.example',
+  }).firestore();
+  await runCase('فترة انتقالية: رمز قديم بلا role وبلا companyId يفتح موظفي المنشأة من users/{uid}', async () => {
+    await assertSucceeds(getDoc(doc(staleSession, 'employees', 'emp-a')));
+  });
+  await runCase('فترة انتقالية: الرمز القديم بلا claim يفتح قائمة المنشأة من users/{uid}', async () => {
+    await assertSucceeds(listByCompany(staleSession, 'employees', COMPANY_A));
+  });
+  await runCase('فترة انتقالية: الرمز القديم بلا claim يُرفض لمنشأة أخرى', async () => {
+    await assertFails(listByCompany(staleSession, 'employees', COMPANY_B));
+  });
+
   await testEnv.cleanup();
 
   const failed = results.filter((row) => row.result === 'فشلت');
