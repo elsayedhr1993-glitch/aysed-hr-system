@@ -18,6 +18,7 @@ import {
   restorePlatformBackup,
   savePlatformSystemKeys,
   suspendSubscriptionRequest,
+  listPlatformSubscriptionRequests,
 } from '../services/platformOwnerApi';
 import toast from 'react-hot-toast';
 import firebaseConfig from '../../firebase-applet-config.json';
@@ -489,31 +490,33 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     setLoading(true);
     let allRequests: SubscriptionRequest[] = [];
 
-    // Load Firebase subscription_requests and companies collections.
+    // Subscription requests are read on the owner path. Companies stay a client read.
     try {
-      const snap = await getDocs(collection(db, 'subscription_requests'));
-      snap.forEach(d => {
-        const val = d.data();
-        const compName = val.companyName || val.name || val.nameAr || '';
-        if (!val.archived && !isTenantPurged(d.id) && !isTenantPurged(compName) && !isTenantPurged(val)) {
-          if (!allRequests.some(r => r.id === d.id || r.name.toLowerCase() === compName.toLowerCase())) {
+      const rows = await listPlatformSubscriptionRequests();
+      rows.forEach((row) => {
+        const val = row;
+        const compName = String(val.companyName || val.name || val.nameAr || '');
+        if (!val.archived && !isTenantPurged(row.id) && !isTenantPurged(compName) && !isTenantPurged(val)) {
+          if (!allRequests.some(r => r.id === row.id || r.name.toLowerCase() === compName.toLowerCase())) {
             let st: 'draft' | 'approved' | 'rejected' | 'suspended' = 'draft';
             if (val.status === 'approved' || val.state === 'approved') st = 'approved';
             else if (val.status === 'rejected' || val.state === 'rejected') st = 'rejected';
             else if (val.status === 'suspended' || val.state === 'suspended') st = 'suspended';
 
             allRequests.push({
-              id: d.id,
-              companyId: val.companyId || (String(d.id).match(/^comp[-_]/i) ? d.id : undefined),
-              requester_name: val.requesterName || val.requester_name || val.name || '',
+              id: row.id,
+              companyId: String(val.companyId || (String(row.id).match(/^comp[-_]/i) ? row.id : '') || '') || undefined,
+              requester_name: String(val.requesterName || val.requester_name || val.name || ''),
               name: compName,
-              phone: val.phone || '',
-              plan_type: val.planType || val.sector || val.plan || 'admin',
-              emp_count: val.empCount || val.employee_count || '1-10',
+              phone: String(val.phone || ''),
+              plan_type: String(val.planType || val.sector || val.plan || 'admin'),
+              emp_count: String(val.empCount || val.employee_count || '1-10'),
               state: st,
-              created_at: val.createdAt?.toDate?.()?.toISOString() || val.created_at || new Date().toISOString(),
-              email: val.email || `${val.phone ? val.phone.replace(/[^0-9]/g, '') : 'client'}@aysedhr.com`,
-              password: val.adminPassword || val.password || ''
+              created_at: typeof val.createdAt === 'object' && val.createdAt && typeof (val.createdAt as { toDate?: () => Date }).toDate === 'function'
+                ? (val.createdAt as { toDate: () => Date }).toDate().toISOString()
+                : String(val.created_at || val.createdAt || new Date().toISOString()),
+              email: String(val.email || `${val.phone ? String(val.phone).replace(/[^0-9]/g, '') : 'client'}@aysedhr.com`),
+              password: String(val.adminPassword || val.password || '')
             });
           }
         }
@@ -574,15 +577,9 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     fetchRequests();
 
     // Setup real-time listeners for incoming subscription requests, companies, and subscriptions
-    let unsubscribeReq: (() => void) | null = null;
     let unsubscribeComp: (() => void) | null = null;
     let unsubscribeSubs: (() => void) | null = null;
     try {
-      unsubscribeReq = onSnapshot(collection(db, 'subscription_requests'), () => {
-        fetchRequests();
-      }, (err) => {
-        console.warn('Subscription requests listener warning:', err);
-      });
       unsubscribeComp = onSnapshot(collection(db, companiesCollection), () => {
         fetchRequests();
       }, (err) => {
@@ -601,7 +598,6 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     window.addEventListener('aysed_companies_changed', handleCustomChange);
 
     return () => {
-      if (unsubscribeReq) unsubscribeReq();
       if (unsubscribeComp) unsubscribeComp();
       if (unsubscribeSubs) unsubscribeSubs();
       window.removeEventListener('aysed_companies_changed', handleCustomChange);

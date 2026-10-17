@@ -1,6 +1,11 @@
-import { collection, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore';
-import { cleanFirestoreData, db, getCompaniesCollectionName, provisionTenantAuth } from '../lib/firebase';
+import { collection, doc, getDocs, setDoc } from 'firebase/firestore';
+import { cleanFirestoreData, companyCollectionWriteName, db, getCompaniesCollectionName, provisionTenantAuth } from '../lib/firebase';
 import { loadCompanySettings, saveCompanySettings } from './companySettingsStorage';
+import {
+  listPlatformSubscriptionRequests,
+  updatePlatformSubscriptionRequest,
+  upsertPlatformFacilityUsers,
+} from './platformOwnerApi';
 
 export type TenantSubscriptionState = 'draft' | 'approved' | 'rejected' | 'suspended';
 
@@ -58,11 +63,9 @@ export async function resolveTenantCompanyId(
   const normalizedName = companyName.trim().toLowerCase();
 
   try {
-    const reqSnap = await getDoc(doc(db, 'subscription_requests', rowId));
-    if (reqSnap.exists()) {
-      const fromReq = reqSnap.data()?.companyId as string | undefined;
-      if (fromReq && isCompanyDocId(fromReq)) return fromReq;
-    }
+    const rows = await listPlatformSubscriptionRequests();
+    const fromReq = rows.find((row) => row.id === rowId)?.companyId;
+    if (typeof fromReq === 'string' && isCompanyDocId(fromReq)) return fromReq;
   } catch {
     /* ignore */
   }
@@ -98,50 +101,12 @@ export async function resolveTenantCompanyId(
   return rowId;
 }
 
-async function updateUsersForTenant(
-  companyId: string,
-  patch: Record<string, unknown>,
-  emailHints: string[]
-): Promise<number> {
-  let updated = 0;
-  const seen = new Set<string>();
-
-  const byCompany = await getDocs(query(collection(db, 'users'), where('companyId', '==', companyId)));
-  for (const d of byCompany.docs) {
-    if (seen.has(d.id)) continue;
-    seen.add(d.id);
-    await setDoc(doc(db, 'users', d.id), cleanFirestoreData({ ...patch, updatedAt: new Date().toISOString() }), {
-      merge: true,
-    });
-    updated += 1;
-  }
-
-  for (const hint of emailHints) {
-    const normalized = hint.trim().toLowerCase();
-    if (!normalized.includes('@')) continue;
-    const byEmail = await getDocs(query(collection(db, 'users'), where('email', '==', normalized)));
-    for (const d of byEmail.docs) {
-      if (seen.has(d.id)) continue;
-      seen.add(d.id);
-      await setDoc(
-        doc(db, 'users', d.id),
-        cleanFirestoreData({ ...patch, companyId, updatedAt: new Date().toISOString() }),
-        { merge: true }
-      );
-      updated += 1;
-    }
-  }
-
-  return updated;
-}
-
 export async function syncTenantSubscriptionEdit(
   input: TenantSubscriptionEditInput,
   deps: { getAuthedHeaders: () => Promise<Record<string, string>> }
 ): Promise<TenantSyncResult> {
   const steps: string[] = [];
   const warnings: string[] = [];
-  const companiesCollection = getCompaniesCollectionName();
 
   const cleanEmail = input.email.trim().toLowerCase();
   const previousEmail = (input.previousEmail || input.email).trim().toLowerCase();
@@ -173,36 +138,23 @@ export async function syncTenantSubscriptionEdit(
     updatedAt: now,
   });
 
-  await setDoc(doc(db, companiesCollection, companyId), companyPayload, { merge: true });
-  steps.push('companies');
-
-  let requestDocId = input.rowId.startsWith('req-') ? input.rowId : '';
-  if (!requestDocId) {
-    const linkedReq = await getDocs(
-      query(collection(db, 'subscription_requests'), where('companyId', '==', companyId))
-    );
-    requestDocId = linkedReq.docs[0]?.id || `req-${companyId.replace(/^comp[-_]/i, '')}`;
+  const companyWrite = companyCollectionWriteName();
+  if (companyWrite) {
+    await setDoc(doc(db, companyWrite, companyId), companyPayload, { merge: true });
+    steps.push('companies');
   }
-  await setDoc(
-    doc(db, 'subscription_requests', requestDocId),
-    cleanFirestoreData({
-      companyId,
-      companyName: input.companyName.trim(),
-      name: input.companyName.trim(),
-      requesterName: input.requesterName.trim(),
-      requester_name: input.requesterName.trim(),
-      phone: input.phone.trim(),
-      email: cleanEmail,
-      planType: input.planType,
-      plan_type: input.planType,
-      empCount: input.empCount,
-      emp_count: input.empCount,
-      status: input.state,
-      state: input.state,
-      updatedAt: now,
-    }),
-    { merge: true }
-  );
+
+  await updatePlatformSubscriptionRequest({
+    rowId: input.rowId,
+    companyId,
+    companyName: input.companyName.trim(),
+    requesterName: input.requesterName.trim(),
+    phone: input.phone.trim(),
+    email: cleanEmail,
+    planType: input.planType,
+    empCount: input.empCount,
+    state: input.state,
+  });
   steps.push('subscription_requests');
 
   const subSnap = await getDocs(collection(db, 'subscriptions'));
@@ -262,18 +214,15 @@ export async function syncTenantSubscriptionEdit(
   }
   steps.push('subscriptions');
 
-  const usersUpdated = await updateUsersForTenant(
+  const usersUpdated = await upsertPlatformFacilityUsers({
     companyId,
-    {
-      email: cleanEmail,
-      displayName: input.requesterName.trim(),
-      companyName: input.companyName.trim(),
-      role: 'COMPANY_ADMIN',
-      isActive,
-      status: companyStatus,
-    },
-    [previousEmail, cleanEmail]
-  );
+    email: cleanEmail,
+    previousEmails: [previousEmail, cleanEmail],
+    displayName: input.requesterName.trim(),
+    companyName: input.companyName.trim(),
+    isActive,
+    status: companyStatus,
+  });
   if (usersUpdated > 0) steps.push(`users (${usersUpdated})`);
   else warnings.push('لم يُعثر على سجل users — سيتم إنشاء/ربط Auth عند التفعيل.');
 
@@ -343,20 +292,15 @@ export async function syncTenantSubscriptionEdit(
         planType: input.planType,
       });
       if (authResult.success && authResult.uid) {
-        await setDoc(
-          doc(db, 'users', authResult.uid),
-          cleanFirestoreData({
-            email: cleanEmail,
-            displayName: input.requesterName.trim(),
-            role: 'COMPANY_ADMIN',
-            companyId,
-            companyName: input.companyName.trim(),
-            isActive: true,
-            status: 'active',
-            updatedAt: now,
-          }),
-          { merge: true }
-        );
+        await upsertPlatformFacilityUsers({
+          companyId,
+          uid: authResult.uid,
+          email: cleanEmail,
+          displayName: input.requesterName.trim(),
+          companyName: input.companyName.trim(),
+          isActive: true,
+          status: 'active',
+        });
         steps.push('auth_provision');
       }
     } catch {

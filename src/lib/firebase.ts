@@ -60,6 +60,16 @@ export function getCompaniesCollectionName(): string {
   return 'companies';
 }
 
+/** Reads may use dev_companies. Browser writes never do. */
+export function companyCollectionForBrowserWrite(resolvedName: string): 'companies' | null {
+  if (resolvedName === 'dev_companies') return null;
+  return 'companies';
+}
+
+export function companyCollectionWriteName(): 'companies' | null {
+  return companyCollectionForBrowserWrite(getCompaniesCollectionName());
+}
+
 /**
  * Creates a secondary isolated Firebase App instance so creating accounts
  * on the client-side DOES NOT log out or overwrite the current Super Admin session.
