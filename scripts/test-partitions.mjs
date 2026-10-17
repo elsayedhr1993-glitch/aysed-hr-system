@@ -8,6 +8,7 @@ export const nodeTestFiles = [
   'server/security/saasRoutes.auth.test.ts',
   'server/security/platformOwnerWrites.auth.test.ts',
   'server/security/tenantProfileWrites.auth.test.ts',
+  'src/services/sessionTenantBindingService.test.ts',
   'scripts/companyIdAliasScan.test.ts',
   'src/context/OdooHierarchyContext.test.ts',
   'src/context/companyId.test.ts',

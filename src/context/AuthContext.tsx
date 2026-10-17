@@ -2,8 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
 import { auth, db, getCompaniesCollectionName, isTenantPurged } from '../lib/firebase';
 import { resolveTenantCompanyIdForEmail } from '../services/tenantCompanyLookup';
-import { ensureSessionTenantBinding } from '../services/sessionTenantBindingService';
-import { doc, getDoc } from 'firebase/firestore';
+import { ensureSessionTenantBinding, profileCreatePatch, sessionBindingPatch } from '../services/sessionTenantBindingService';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { isSuperAdminEmail } from '../config/superAdminAccess';
 import { buildAuthedJsonHeaders } from '../lib/clientAuth';
@@ -158,7 +158,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (isSuperAdminEmail(email)) {
               await writeUser(
                 doc(db, 'users', uid),
-                { email, role: 'SUPER_ADMIN', name: name || 'مدير النظام' },
+                { ...sessionBindingPatch({ email, superAdmin: true }), name: name || 'مدير النظام' },
                 { merge: true }
               ).catch(() => {});
               return { companyId: currentCompanyId, role: nextRole };
@@ -171,13 +171,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (canonicalCompanyId) {
               await writeUser(
                 doc(db, 'users', uid),
-                {
-                  email,
-                  companyId: canonicalCompanyId,
-                  company_id: canonicalCompanyId,
-                  activeCompanyId: canonicalCompanyId,
-                  role: nextRole,
-                },
+                sessionBindingPatch({ email, companyId: canonicalCompanyId }),
                 { merge: true }
               ).catch(() => {});
             }
@@ -226,8 +220,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 role = synced.role || role;
               }
             } else {
-              // Look up if this email is registered in company collections
-              const { getDocs, collection, query, where, setDoc } = await import('firebase/firestore');
               const synced = await syncCompanyAdminBinding(
                 firebaseUser.uid,
                 userEmail,
@@ -243,16 +235,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 name = compData?.ownerName || compData?.nameAr || name;
               }
 
-              await setDoc(doc(db, 'users', firebaseUser.uid), {
-                email: firebaseUser.email,
+              await setDoc(doc(db, 'users', firebaseUser.uid), profileCreatePatch({
+                email: firebaseUser.email || '',
                 name,
-                role,
                 companyId: companyId || null,
-                company_id: companyId || null,
-                activeCompanyId: companyId || null,
                 photoURL,
-                createdAt: new Date().toISOString()
-              }, { merge: true }).catch(() => {});
+                createdAt: new Date().toISOString(),
+              }), { merge: true }).catch(() => {});
             }
           } catch (e) {
             console.warn('Auth profile lookup skipped — binding company from email/URL.');
