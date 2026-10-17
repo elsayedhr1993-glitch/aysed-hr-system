@@ -5,6 +5,7 @@ import { formatCompanyDocumentType } from '../types/companyDocuments';
 import type { FacilityLicenseData } from '../types/facilityLicense';
 import { createEmptyFacilityData } from '../types/facilityLicense';
 import { cleanFirestoreData, db, getCompaniesCollectionName } from '../lib/firebase';
+import { mergeSessionCompanyProfile } from './tenantProfileApi';
 import { contractQueryCompanyIds, normalizeTenantCompanyId } from '../utils/contractTenantRules';
 import { usesCommercialRegistration } from '../utils/mohMedicalFacility';
 
@@ -407,15 +408,10 @@ export async function syncTenantLicensesAndCompanyProfile(
 
   const profilePatch = deriveCompanyProfilePatchFromLicenses(mergedDocs, mergedFacility, companyRecord);
   if (Object.keys(profilePatch).length > 0) {
-    await setDoc(
-      doc(db, getCompaniesCollectionName(), tenantId),
-      cleanFirestoreData({
-        ...profilePatch,
-        id: tenantId,
-        licensesSyncedAt: new Date().toISOString(),
-      }),
-      { merge: true }
-    );
+    await mergeSessionCompanyProfile({
+      ...profilePatch,
+      licensesSyncedAt: new Date().toISOString(),
+    });
   }
 
   window.dispatchEvent(

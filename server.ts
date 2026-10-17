@@ -47,6 +47,7 @@ import { newTenantCredentials, registerAuthRoutes } from "./server/authRoutes.ts
 import { registerAuditRoutes } from "./server/auditRoutes.ts";
 import { registerReportsAccessRoute } from "./server/reportsAccessRoute.ts";
 import { registerPlatformRoutes } from "./server/platformRoutes.ts";
+import { registerTenantProfileRoutes } from "./server/tenantProfileRoutes.ts";
 import { registerSaasRoutes } from "./server/saasRoutes.ts";
 import { registerStudioRoutes } from "./server/studioRoutes.ts";
 import { recordAuditEvent, requestIp } from "./server/auditLog.ts";
@@ -173,6 +174,7 @@ registerAuditRoutes(app);
 registerReportsAccessRoute(app);
 registerSaasRoutes(app);
 registerPlatformRoutes(app);
+registerTenantProfileRoutes(app);
 registerStudioRoutes(app);
 
 let supabaseAdminClient: any = null;

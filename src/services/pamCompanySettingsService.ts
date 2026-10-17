@@ -1,5 +1,7 @@
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { db, getCompaniesCollectionName } from '../lib/firebase';
+import { savePlatformPamForm } from './platformOwnerApi';
+import { mergeSessionCompanyProfile } from './tenantProfileApi';
 import {
   DEFAULT_PAM_COORDINATES,
   mergePamCoordinates,
@@ -73,10 +75,10 @@ export async function resolvePamRenderSettings(companyId?: string): Promise<PamR
 }
 
 export async function saveCompanyPamSettings(
-  companyId: string,
+  _companyId: string,
   payload: { pamOverlayCoords?: PamCoordinatesConfig; pamFontChoice?: PamFontChoice }
 ): Promise<void> {
-  await updateDoc(doc(db, getCompaniesCollectionName(), companyId), {
+  await mergeSessionCompanyProfile({
     ...payload,
     pamOverlaySchemaVersion: PAM_OVERLAY_SCHEMA_VERSION,
     pamSettingsUpdatedAt: new Date().toISOString(),
@@ -87,13 +89,9 @@ export async function savePlatformPamSettings(payload: {
   pamOverlayCoords: PamCoordinatesConfig;
   pamFontChoice?: PamFontChoice;
 }): Promise<void> {
-  await setDoc(
-    doc(db, PLATFORM_COLLECTION, PLATFORM_PAM_DOC_ID),
-    {
-      ...payload,
-      pamOverlaySchemaVersion: PAM_OVERLAY_SCHEMA_VERSION,
-      updatedAt: new Date().toISOString(),
-    },
-    { merge: true }
-  );
+  await savePlatformPamForm({
+    pamOverlayCoords: payload.pamOverlayCoords as unknown as Record<string, unknown>,
+    pamFontChoice: payload.pamFontChoice,
+    pamOverlaySchemaVersion: PAM_OVERLAY_SCHEMA_VERSION,
+  });
 }
