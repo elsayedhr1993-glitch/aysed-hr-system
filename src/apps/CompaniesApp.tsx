@@ -6,7 +6,7 @@ import {
 import { Company } from '../types';
 import toast from 'react-hot-toast';
 import { doc, setDoc, deleteDoc } from 'firebase/firestore';
-import { db, cleanFirestoreData, getCompaniesCollectionName } from '../lib/firebase';
+import { db, cleanFirestoreData, companyCollectionWriteName } from '../lib/firebase';
 import { EditableField } from '../components/EditableField';
 import { OdooScreenEditToolbar } from '../components/ui/OdooScreenEditToolbar';
 import { useOdooScreenEditMode } from '../hooks/useOdooScreenEditMode';
@@ -87,8 +87,10 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
         ...next,
         updatedAt: new Date().toISOString(),
       }) as Company;
+      const companyRoot = companyCollectionWriteName();
+      if (!companyRoot) throw new Error('مضيف ais-dev لا يكتب على dev_companies');
       await setDoc(
-        doc(db, getCompaniesCollectionName(), next.id),
+        doc(db, companyRoot, next.id),
         {
           ...cleaned,
           companyId: next.id,
@@ -170,7 +172,9 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
       };
 
       const cleaned = cleanFirestoreData(completeCompany) as Company;
-      await setDoc(doc(db, getCompaniesCollectionName(), compId), {
+      const companyRoot = companyCollectionWriteName();
+      if (!companyRoot) throw new Error('مضيف ais-dev لا يكتب على dev_companies');
+      await setDoc(doc(db, companyRoot, compId), {
         ...cleaned,
         companyId: compId,
         companyName: completeCompany.nameAr,
@@ -240,7 +244,9 @@ export const CompaniesApp: React.FC<CompaniesAppProps> = ({
   const confirmDelete = async () => {
     if (!companyToDelete) return;
     try {
-      await deleteDoc(doc(db, getCompaniesCollectionName(), companyToDelete.id));
+      const companyRoot = companyCollectionWriteName();
+      if (!companyRoot) throw new Error('مضيف ais-dev لا يكتب على dev_companies');
+      await deleteDoc(doc(db, companyRoot, companyToDelete.id));
       await deleteDoc(doc(db, 'subscriptions', `sub-${companyToDelete.id}`));
       onDeleteCompany(companyToDelete.id);
       

@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { TenantCompany } from '../types';
-import { db, createTenantUserSafely, getCompaniesCollectionName } from '../lib/firebase';
+import { db, companyCollectionWriteName, createTenantUserSafely, getCompaniesCollectionName } from '../lib/firebase';
 import { collection, doc, setDoc, deleteDoc, updateDoc, onSnapshot, query, documentId, where } from 'firebase/firestore';
 import { useAuth } from './AuthContext';
 import { isSuperAdminPrincipal } from '../config/superAdminAccess';
 import { isTenantPurged } from '../lib/firebase';
 import { dedupeTenantCompanies } from '../utils/companyDedupe';
+import { upsertPlatformFacilityUsers } from '../services/platformOwnerApi';
 
 const ALMANAR_COMPANY_ID = 'comp-1788442584841';
 const ALMANAR_COMPANY_NAME_AR = 'مستوصف المنار الطبي (Almanar Clinic)';
@@ -209,13 +210,14 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       const newCompanyId = `tenant_${Date.now()}`;
       
-      // 2. Create the User Document for rules checking
-      await setDoc(doc(db, 'users', authResult.uid as string), {
-        email: compData.adminUsername,
-        name: compData.nameAr,
-        role: 'TENANT_ADMIN',
+      await upsertPlatformFacilityUsers({
         companyId: newCompanyId,
-        createdAt: new Date().toISOString()
+        uid: typeof authResult.uid === 'string' ? authResult.uid : undefined,
+        email: compData.adminUsername,
+        displayName: compData.nameAr,
+        companyName: compData.nameAr,
+        isActive: true,
+        status: 'active',
       });
 
       // 3. Create the Company Document
@@ -226,7 +228,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         createdAt: new Date().toISOString()
       };
 
-      await setDoc(doc(db, collectionName, newCompanyId), newCompany);
+      const companyRoot = companyCollectionWriteName();
+      if (!companyRoot) throw new Error('مضيف ais-dev لا يكتب على dev_companies');
+      await setDoc(doc(db, companyRoot, newCompanyId), newCompany);
     } catch (error) {
       console.error("Error adding company: ", error);
       throw error;
@@ -237,7 +241,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       // Currently, we only update the document here, not the Firebase Auth password since it's a bit complex from client.
       // But keeping it documented for now.
-      await updateDoc(doc(db, collectionName, companyId), {
+      const companyRoot = companyCollectionWriteName();
+      if (!companyRoot) throw new Error('مضيف ais-dev لا يكتب على dev_companies');
+      await updateDoc(doc(db, companyRoot, companyId), {
         adminPassword: newPass
       });
     } catch (error) {
@@ -248,7 +254,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const deleteCompany = async (companyId: string) => {
     try {
-      await deleteDoc(doc(db, collectionName, companyId));
+      const companyRoot = companyCollectionWriteName();
+      if (!companyRoot) throw new Error('مضيف ais-dev لا يكتب على dev_companies');
+      await deleteDoc(doc(db, companyRoot, companyId));
       if (impersonatingCompanyId === companyId) {
         setImpersonatingCompanyId(null);
       }

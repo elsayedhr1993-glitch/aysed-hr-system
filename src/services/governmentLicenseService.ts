@@ -9,7 +9,7 @@ import {
   where,
   type QueryConstraint,
 } from 'firebase/firestore';
-import { cleanFirestoreData, db, getCompaniesCollectionName } from '../lib/firebase';
+import { cleanFirestoreData, companyCollectionWriteName, db, getCompaniesCollectionName } from '../lib/firebase';
 import type { DepartmentId, LicenseDocument } from '../types/governmentLicense';
 import {
   governmentLicenseCompanyDocumentId,
@@ -103,7 +103,10 @@ export async function upsertGovernmentLicense(
     companyDocumentId,
     updatedAt: new Date().toISOString(),
   };
-  await setDoc(licenseDocRef(companyId, id), cleanFirestoreData(payload), { merge: true });
+  const companyRoot = companyCollectionWriteName();
+  if (companyRoot) {
+    await setDoc(doc(db, companyRoot, companyId, LICENSES_SUBCOLLECTION, id), cleanFirestoreData(payload), { merge: true });
+  }
   try {
     await syncGovernmentLicenseAcrossSystem(payload);
   } catch (err) {
@@ -118,7 +121,8 @@ export async function deleteGovernmentLicense(companyId: string, licenseId: stri
   } catch (err) {
     console.error('[governmentLicenseService] enterprise cleanup failed:', err);
   }
-  await deleteDoc(licenseDocRef(companyId, licenseId));
+  const companyRoot = companyCollectionWriteName();
+  if (companyRoot) await deleteDoc(doc(db, companyRoot, companyId, LICENSES_SUBCOLLECTION, licenseId));
 }
 
 export async function archiveGovernmentLicense(
@@ -127,8 +131,10 @@ export async function archiveGovernmentLicense(
   archived: boolean
 ): Promise<void> {
   const archivedAt = archived ? new Date().toISOString() : undefined;
+  const companyRoot = companyCollectionWriteName();
+  if (!companyRoot) return;
   await setDoc(
-    licenseDocRef(companyId, licenseId),
+    doc(db, companyRoot, companyId, LICENSES_SUBCOLLECTION, licenseId),
     cleanFirestoreData({
       archived,
       archivedAt: archived ? archivedAt : null,
