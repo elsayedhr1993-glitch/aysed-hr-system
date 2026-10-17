@@ -53,7 +53,7 @@ import { getEmployeeLeaveBalanceView, matchesEmployeeIdentity } from '../utils/l
 import { buildLeavePrintLogRows, sumEncashmentDaysFromLog } from '../utils/leavePrintReport';
 import { useCompanyLeaveFinanceSnapshots } from '../hooks/useCompanyLeaveFinanceSnapshots';
 import { collection, deleteDoc, doc, getDocs, onSnapshot, query, setDoc, where } from 'firebase/firestore';
-import { cleanFirestoreData, db } from '../lib/firebase';
+import { cleanFirestoreData, db, purgeTenantCascading } from '../lib/firebase';
 import { changeEmployeeStatus } from '../services/employeeLifecycleService';
 import { mapEmployeeForEmployeesAppView } from '../utils/employeeMapper';
 import { AiInlineAssist } from '../components/copilot/AiInlineAssist';
@@ -416,9 +416,19 @@ export function EmployeesApp(props?: any) {
   const wizardPrefill = props?.onboardingPrefill ?? null;
 
   const handlePerformFullReset = async () => {
+    if (!tenantCompanyId) {
+      toast.error('تعذر تحديد المنشأة');
+      return;
+    }
     setIsResetting(true);
     try {
-      await TenantDatabaseService.wipeEntireSystem();
+      await purgeTenantCascading({
+        id: tenantCompanyId,
+        companyId: tenantCompanyId,
+        name: activeCompany?.nameAr || activeCompany?.name || tenantCompanyId,
+        email: activeCompany?.email,
+        phone: activeCompany?.phone,
+      });
       setEmployees([]);
       setContracts([]);
       setCommencements([]);
@@ -2308,7 +2318,7 @@ export function EmployeesApp(props?: any) {
       <ConfirmDialog
         open={showResetConfirmModal && isSuperAdmin}
         title="تصفير الكل"
-        message="سيتم مسح سجلات الموظفين والعقود والإجازات والمسيرات من قاعدة البيانات والتخزين المحلي. هذا الإجراء لمسؤول النظام فقط."
+        message="سيتم حذف المنشأة الحالية حذفاً متتالياً عبر الخادم، ثم مسح التخزين المحلي. هذا الإجراء لمسؤول النظام فقط."
         confirmWord="تصفير"
         confirmLabel={isResetting ? 'جارِ التصفير' : 'تصفير'}
         onConfirm={() => {

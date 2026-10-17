@@ -299,21 +299,6 @@ export async function deleteHolidayWorkRecord(recordId: string, employeeId?: str
             try { await deleteDoc(doc(db, LEAVE_ALLOCATIONS_COLLECTION, d.id)); } catch (_) {}
           }
         }
-        // Legacy `allocations` wipe is stopped. The collection stays closed.
-        // The loop remains here until an explicit approval to delete it.
-        const LEGACY_ALLOCATIONS_WIPE_ENABLED = false;
-        if (LEGACY_ALLOCATIONS_WIPE_ENABLED) {
-          const legacySnap = await getDocs(collection(db, 'allocations'));
-          for (const d of legacySnap.docs) {
-            const data = d.data() as any;
-            const isTargetAlloc =
-              data.id?.includes(recordId) ||
-              (targetRecord?.id && data.id?.includes(targetRecord.id));
-            if (isTargetAlloc) {
-              try { await deleteDoc(doc(db, 'allocations', d.id)); } catch (_) {}
-            }
-          }
-        }
       }
     } catch (fe) {
       console.warn('[HolidayWorkService] Firestore record delete warning:', fe);
