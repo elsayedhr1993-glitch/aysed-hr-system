@@ -4,6 +4,13 @@ import { connectAuthEmulator, getAuth } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
 
+const viteEnv = (import.meta as { env?: { VITE_USE_EMULATOR?: string } }).env;
+const emulatorOn = viteEnv?.VITE_USE_EMULATOR === 'true';
+const runtimeConfig = {
+  ...firebaseConfig,
+  projectId: emulatorOn ? 'demo-aysed' : firebaseConfig.projectId,
+};
+
 // Suppress benign connection retry / offline notice warnings in sandboxed iframe environment
 try {
   setLogLevel('silent');
@@ -11,16 +18,18 @@ try {
   // Ignore if already configured
 }
 
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+const app = getApps().length === 0 ? initializeApp(runtimeConfig) : getApp();
 
 let firestoreInstance;
 try {
-  const dbId = (firebaseConfig as any).firestoreDatabaseId || undefined;
+  const dbId = emulatorOn
+    ? undefined
+    : (runtimeConfig as { firestoreDatabaseId?: string }).firestoreDatabaseId || undefined;
   firestoreInstance = initializeFirestore(app, {}, dbId);
 } catch {
   try {
-    if (firebaseConfig.firestoreDatabaseId) {
-      firestoreInstance = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+    if (!emulatorOn && runtimeConfig.firestoreDatabaseId) {
+      firestoreInstance = getFirestore(app, runtimeConfig.firestoreDatabaseId);
     } else {
       firestoreInstance = getFirestore(app);
     }
@@ -33,8 +42,7 @@ export const db = firestoreInstance;
 export const auth = getAuth(app);
 export const storage = getStorage(app);
 
-const viteEnv = (import.meta as { env?: { VITE_USE_EMULATOR?: string } }).env;
-if (viteEnv?.VITE_USE_EMULATOR === 'true') {
+if (emulatorOn) {
   connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
   connectFirestoreEmulator(db, '127.0.0.1', 8080);
 }

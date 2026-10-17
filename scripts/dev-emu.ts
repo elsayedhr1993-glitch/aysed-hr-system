@@ -1,5 +1,4 @@
 import { spawn, execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 
 function canRun(command: string, args: string[]): boolean {
   try {
@@ -34,24 +33,22 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
-const config = JSON.parse(readFileSync(new URL('../firebase-applet-config.json', import.meta.url), 'utf8')) as {
-  projectId?: string;
-};
-const projectId = String(config.projectId || '').trim();
-if (!projectId) {
-  console.error('firebase-applet-config.json has no projectId.');
+const projectId = 'demo-aysed';
+if (!projectId.startsWith('demo-')) {
+  console.error('Refusing to start emulators: project must be demo-aysed.');
   process.exit(1);
 }
 
 const env = { ...process.env, VITE_USE_EMULATOR: 'true' };
-const firebaseArgs = firebaseBin === 'npx'
-  ? ['--no-install', 'firebase', 'emulators:exec', '--only', 'auth,firestore', '--project', projectId, 'npx tsx server.ts']
-  : ['emulators:exec', '--only', 'auth,firestore', '--project', projectId, 'npx tsx server.ts'];
+const inner = 'npx tsx scripts/seed-dev.ts && npx tsx server.ts';
+const firebaseCommand = firebaseBin === 'npx'
+  ? `npx --no-install firebase emulators:exec --only auth,firestore --project ${projectId} "${inner}"`
+  : `firebase emulators:exec --only auth,firestore --project ${projectId} "${inner}"`;
 
-const child = spawn(firebaseBin, firebaseArgs, {
+const child = spawn(firebaseCommand, {
   stdio: 'inherit',
   env,
-  shell: process.platform === 'win32',
+  shell: true,
 });
 
 child.on('exit', (code) => process.exit(code ?? 1));

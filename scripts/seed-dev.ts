@@ -22,15 +22,31 @@ function assertLocalHost(name: string, value: string | undefined): string {
 assertLocalHost('FIRESTORE_EMULATOR_HOST', process.env.FIRESTORE_EMULATOR_HOST);
 assertLocalHost('FIREBASE_AUTH_EMULATOR_HOST', process.env.FIREBASE_AUTH_EMULATOR_HOST);
 
-const config = JSON.parse(readFileSync(new URL('../firebase-applet-config.json', import.meta.url), 'utf8')) as {
-  projectId?: string;
-  firestoreDatabaseId?: string;
-};
-const projectId = String(config.projectId || '').trim();
-const databaseId = String(config.firestoreDatabaseId || '').trim();
-if (!projectId || !databaseId) {
-  console.error('firebase-applet-config.json is missing projectId or firestoreDatabaseId.');
+const projectId = 'demo-aysed';
+if (!projectId.startsWith('demo-')) {
+  console.error('Refusing to seed: project must be demo-aysed.');
   process.exit(1);
+}
+
+async function loadEmulatorRules(): Promise<void> {
+  const content = readFileSync(new URL('../firestore.rules', import.meta.url), 'utf8');
+  const response = await fetch(`http://127.0.0.1:8080/emulator/v1/projects/${projectId}:securityRules`, {
+    method: 'PUT',
+    headers: { Authorization: 'Bearer owner', 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ignore_errors: false,
+      rules: { files: [{ name: 'security.rules', content }] },
+    }),
+  });
+  const detail = await response.text();
+  if (!response.ok) {
+    throw new Error(`Could not load firestore.rules into the demo-aysed emulator (${response.status}): ${detail}`);
+  }
+  const issues = JSON.parse(detail).issues as Array<{ severity?: string; description?: string }> | undefined;
+  const errors = (issues || []).filter((issue) => issue.severity === 'ERROR');
+  if (errors.length > 0) {
+    throw new Error(`firestore.rules rejected by the emulator: ${errors.map((issue) => issue.description).join('; ')}`);
+  }
 }
 
 function fakeCivilId(serial: number): string {
@@ -61,22 +77,25 @@ const employees = [
     civilId: fakeCivilId(n),
     jobTitle: n === 5 ? 'موظف' : 'موارد بشرية',
     department: n === 4 ? 'المالية' : 'الموارد البشرية',
-    email: `dev.employee${n}@example.test`,
+    email: n === 1 ? 'dev.employee@example.test' : `dev.employee${n}@example.test`,
+    authUid: n === 1 ? 'emu-employee' : '',
   };
 });
 
 const accounts = [
-  { uid: 'emu-platform', email: 'dev.platform@example.test', name: 'مسؤول منصة تجريبي', role: 'SUPER_ADMIN', companyId: '' },
-  { uid: 'emu-hr-manager', email: 'dev.hr.manager@example.test', name: 'مدير موارد بشرية تجريبي', role: 'HR_MANAGER', companyId: COMPANY_ID },
-  { uid: 'emu-hr-user', email: 'dev.hr.user@example.test', name: 'مستخدم موارد بشرية تجريبي', role: 'HR_USER', companyId: COMPANY_ID },
-  { uid: 'emu-finance', email: 'dev.finance@example.test', name: 'مستخدم مالية تجريبي', role: 'FINANCE', companyId: COMPANY_ID },
-  { uid: 'emu-employee', email: 'dev.employee@example.test', name: 'موظف تجريبي', role: 'EMPLOYEE', companyId: COMPANY_ID },
+  { uid: 'emu-platform', email: 'dev.platform@example.test', name: 'مسؤول منصة تجريبي', role: 'SUPER_ADMIN', companyId: '', employeeId: '' },
+  { uid: 'emu-company-admin', email: 'dev.company.admin@example.test', name: 'مسؤول منشأة تجريبي', role: 'COMPANY_ADMIN', companyId: COMPANY_ID, employeeId: '' },
+  { uid: 'emu-hr-manager', email: 'dev.hr.manager@example.test', name: 'مدير موارد بشرية تجريبي', role: 'HR_MANAGER', companyId: COMPANY_ID, employeeId: '' },
+  { uid: 'emu-hr-user', email: 'dev.hr.user@example.test', name: 'مستخدم موارد بشرية تجريبي', role: 'HR_USER', companyId: COMPANY_ID, employeeId: '' },
+  { uid: 'emu-finance', email: 'dev.finance@example.test', name: 'مستخدم مالية تجريبي', role: 'FINANCE', companyId: COMPANY_ID, employeeId: '' },
+  { uid: 'emu-employee', email: 'dev.employee@example.test', name: 'موظف تجريبي', role: 'EMPLOYEE', companyId: COMPANY_ID, employeeId: 'emu-emp-1' },
 ];
 
 async function main() {
+  await loadEmulatorRules();
   const app = initializeApp({ projectId });
   const auth = getAuth(app);
-  const db = getFirestore(app, databaseId);
+  const db = getFirestore(app);
 
   await db.collection('companies').doc(COMPANY_ID).set({
     id: COMPANY_ID,
@@ -84,7 +103,9 @@ async function main() {
     companyName: 'منشأة تجريبية للمحاكي',
     nameAr: 'منشأة تجريبية للمحاكي',
     nameEn: 'Emulator Demo Company',
-    email: 'dev.hr.manager@example.test',
+    email: 'dev.company.admin@example.test',
+    adminEmail: 'dev.company.admin@example.test',
+    adminUsername: 'dev.company.admin@example.test',
     status: 'active',
     isActive: true,
     createdAt: '2026-01-01T00:00:00.000Z',
@@ -170,6 +191,7 @@ async function main() {
       name: account.name,
       role: account.role,
       companyId: account.companyId || null,
+      employeeId: account.employeeId || null,
       status: 'active',
     });
   }
